@@ -8,9 +8,16 @@ config_version=5
 
 config/name="Самоцветный рудник"
 config/description="Три в ряд с находками минералов"
-run/main_scene="res://scenes/pipeline_check.tscn"
+run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.png"
 config/features=PackedStringArray("4.7", "Mobile")
+
+[autoload]
+
+Data="*res://scripts/autoload/data.gd"
+Save="*res://scripts/autoload/save_game.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+UI="*res://scripts/autoload/ui.gd"
 
 [display]
 
@@ -21,6 +28,8 @@ window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [rendering]
+
+anti_aliasing/quality/msaa_2d=2
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
