@@ -46,7 +46,7 @@ func _pump() -> void:
 		var cb: Callable = item[1]
 		var key := key_of(o)
 		if not _cache.has(key):
-			var p := studio.show(o)
+			var p: Node3D = await studio.show_async(o)
 			p.rotation = Vector3(0.12, 0.6, 0)
 			for i in 2:
 				studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE

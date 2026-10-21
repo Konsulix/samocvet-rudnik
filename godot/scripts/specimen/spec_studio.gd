@@ -104,6 +104,31 @@ func show(o: Dictionary) -> Node3D:
 	set_glow(p.get_meta("glow"))
 	return p
 
+static var _build_lock := Mutex.new()
+
+## build a specimen on a worker thread so the screen keeps moving; await it from the main thread
+static func build_async(o: Dictionary) -> Node3D:
+	var out := [null]
+	var id := WorkerThreadPool.add_task(func():
+		_build_lock.lock()
+		out[0] = seat(SpecimenBuilder.build(o))
+		_build_lock.unlock())
+	var tree := Engine.get_main_loop() as SceneTree
+	while not WorkerThreadPool.is_task_completed(id):
+		await tree.process_frame
+	WorkerThreadPool.wait_for_task_completion(id)
+	return out[0]
+
+func show_async(o: Dictionary) -> Node3D:
+	var p: Node3D = await build_async(o)
+	if not is_instance_valid(stage):
+		p.free()
+		return null
+	clear()
+	stage.add_child(p)
+	set_glow(p.get_meta("glow"))
+	return p
+
 func clear() -> void:
 	for c in stage.get_children():
 		stage.remove_child(c)

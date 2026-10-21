@@ -66,9 +66,10 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		y0 = minf(y0, p.y)
 		y1 = maxf(y1, p.y)
 	# hand-made glass: faces that are not quite flat, so what shows through them ripples
+	g.mark_edges()
 	var det: int = cfg.get("detail", 0)
 	if det > 0:
-		g.subdivide(det).jitter(0.016, 7.0, int(rng.next() * 100000))
+		g.subdivide(det).jitter(0.009, 6.0, int(rng.next() * 100000))
 	# colour along the length: plain, smoky base, coloured tip or two-tone
 	var cA: Color = cfg.get("cA", Color(1, 1, 1))
 	var cB: Color = cfg.get("cB", cA)
@@ -138,9 +139,10 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 			g.v.append_array([A, C, B])
 		else:
 			g.v.append_array([A, B, C])
+	g.mark_edges()
 	var det: int = o.get("detail", 0)
 	if det > 0:
-		g.subdivide(det).jitter(minf(w, d) * 0.07, 3.0 / maxf(0.05, w), int(rng.next() * 100000))
+		g.subdivide(det).jitter(minf(w, d) * 0.035, 2.5 / maxf(0.05, w), int(rng.next() * 100000))
 	var cA: Color = zc.get("cA", Color(1, 1, 1))
 	var cB: Color = zc.get("cB", cA)
 	var zk: float = zc.get("zk", 0.0)

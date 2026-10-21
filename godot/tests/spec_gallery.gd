@@ -22,6 +22,10 @@ const SETS := [
 	{machine = "hammer"}, {machine = "tbm"}, {machine = "crush"}],
 	[{seed = 61, sid = "quartz", kind = "druse", gi = 2, traits = ["moss"]}, {seed = 62, sid = "amethyst", kind = "crystal", gi = 3, traits = ["moss"]},
 	{seed = 63, sid = "fluorite", kind = "crystal", gi = 2, traits = []}, {seed = 64, sid = "aquamarine", kind = "druse", gi = 3, traits = ["coral"]}],
+	[{seed = 71, sid = "halite", kind = "druse", gi = 2, traits = []}, {seed = 72, sid = "fluorite", kind = "crystal", gi = 3, traits = ["moss"]},
+	{seed = 73, sid = "gypsum", kind = "crystal", gi = 2, traits = ["irid"]}, {seed = 74, sid = "aquamarine", kind = "crystal", gi = 3, traits = []},
+	{seed = 75, sid = "celestine", kind = "druse", gi = 2, traits = ["moss"]}, {seed = 76, sid = "sylvite", kind = "crystal", gi = 2, traits = []},
+	{seed = 77, sid = "amethyst", kind = "crystal", gi = 3, traits = ["aurora"]}, {seed = 78, sid = "quartz", kind = "druse", gi = 3, traits = ["moss"]}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
 ]
 
@@ -41,9 +45,7 @@ func _ready() -> void:
 		v.still = args.has("still")
 		add_child(v)
 		var t1 := Time.get_ticks_msec()
-		v.show_spec(list[i])
-		var bx := SpecUtil.box_of(v.live.get_child(0))
-		print("  box ", (v.live.get_child(0) as Node3D).transform * bx)
+		await v.show_spec(list[i])
 		print("built ", list[i].get("sid", list[i].get("machine", "jewel")), " in ", Time.get_ticks_msec() - t1, " ms")
 	print("total ", Time.get_ticks_msec() - t0, " ms")
 	if args.has("shot"):

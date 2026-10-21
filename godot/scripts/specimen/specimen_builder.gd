@@ -26,6 +26,9 @@ static func build(o: Dictionary) -> Node3D:
 
 # ---------------------------------------------------------------- specimen
 
+static func quat_to_l(a: Vector3, b: Vector3) -> Quaternion:
+	return U.quat_to(a, b.normalized())
+
 func _rv() -> Vector3:
 	return Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5)
 
@@ -77,6 +80,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	elif habit == "nugget": layout = "nugget"
 	elif habit == "botryoid": layout = "botryoid"
 	elif "floater" in tr and elongated: layout = "floater"
+	elif habit == "cube" and not metal and rng.next() < 0.55: layout = "hopper"
+	elif (elongated or habit == "blade") and rng.next() < 0.32: layout = "slabs"
 	elif habit == "blade" and rng.next() < 0.55: layout = "rosette"
 	elif elongated and ((kind == "druse" and rng.next() < 0.2) or (kind == "crystal" and rng.next() < 0.08)): layout = "radial"
 	elif kind == "druse": layout = "cluster"
@@ -100,7 +105,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		if metal:
 			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.25, coat = 1.0, flat = true, env = 1.6, ir = irk2, rf = 0.16 + gi * 0.07, st = stria, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
-		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2, rf = 0.3, st = stria, dirt = dt, prio = 2,
+		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5, rf = 0.3, st = stria, dirt = dt, prio = 2,
+			rim = 0.8 + rng.next() * 0.5, holo = clampf(irk2 * 0.6, 0.12, 1.2),
 			frost = 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25, thick = 1.0 + op * 0.4, seed = float(seed_v % 97)}
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
@@ -248,6 +254,57 @@ func _specimen(o: Dictionary) -> Node3D:
 					var c: MeshInstance3D = crystal.call(0.35 + rng.next() * 0.25, 0.7 + rng.next() * 0.3 - tier * 0.12, Vector3(0, 0.12 + tier * 0.1, 0), d)
 					c.rotation.y += a
 					if not main: main = c
+		"slabs":
+			# a stack of thick tabular plates fanning out of the rock, their tops broken off at a slant
+			use_rock.call("chunk" if rng.next() < 0.5 else "small")
+			var cm: ShaderMaterial = any_cmat.call()
+			var axis: Vector3 = lean.call(UP, 0.5)
+			var common := Basis(quat_to_l(UP, axis)) * Basis(UP, rng.next() * TAU)
+			var n := 3 + int(rng.next() * 4)
+			var w0 := 0.22 + rng.next() * 0.16
+			var off := -n * 0.5
+			for k in n:
+				var w := w0 * (0.6 + rng.next() * 0.6)
+				var d := w * (0.22 + rng.next() * 0.2)
+				var h := (0.7 + rng.next() * 0.9) * (1.0 if absf(k - n * 0.5) < 1.5 else 0.7)
+				var g := RockKit.prism(rng, {sides = 4, w = w, d = d, h = h, point = false, slope = 0.6 + rng.next() * 1.2, taper = 0.95 + rng.next() * 0.1, y0 = -0.35, detail = 2}, zcfg)
+				var c := U.mesh(g, cm, root)
+				var fan := Basis(Vector3.BACK, (k - n * 0.5) * (0.08 + rng.next() * 0.1)) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.25)
+				c.transform = Transform3D(common * fan, common * Vector3(0, -0.05, (off + k) * d * 1.9) + Vector3((rng.next() - 0.5) * 0.1, 0, 0))
+				c.set_meta("col", true)
+				if not main: main = c
+			dt.h = 0.25 + rng.next() * 0.3
+			dt.a = 0.5
+		"hopper":
+			# skeletal cubes stepping in towards their middles, piled on one another
+			use_rock.call("slab" if rng.next() < 0.5 else "chunk")
+			dt.local = true
+			dt.h = 0.04 + rng.next() * 0.08
+			dt.a = 0.25
+			var cm: ShaderMaterial = any_cmat.call()
+			var placed := []
+			for k in 9 + int(rng.next() * 10):
+				var hs := 0.24 + rng.next() * 0.12 if k == 0 else 0.05 + pow(rng.next(), 1.5) * 0.17
+				var at: Vector3
+				var nn: Vector3
+				if k > 0 and placed.size() and rng.next() < 0.35:
+					var pr: Array = placed[int(rng.next() * placed.size())]
+					nn = (Vector3(rng.next() - 0.5, rng.next() * 0.8 + 0.2, rng.next() - 0.5)).normalized()
+					at = (pr[0] as Vector3) + nn * (float(pr[1]) * 0.9)
+				else:
+					at = st.pick.call()
+					nn = st.nrm.call(at)
+					at += nn * hs * 0.45
+				var g := Geo.hopper(hs, 2 + int(rng.next() * 3), 0.22 + rng.next() * 0.12)
+				g.mark_edges()
+				g.subdivide(1).jitter(hs * 0.03, 4.0 / hs, int(rng.next() * 100000))
+				g.fill_color(zcfg.cB)
+				var c := U.mesh(g, cm, root)
+				c.transform = Transform3D(Basis(quat_to_l(UP, lean.call(nn.lerp(UP, 0.5), 0.6))) * Basis(UP, rng.next() * TAU) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.4), at)
+				c.set_meta("local", true)
+				c.set_meta("col", true)
+				placed.append([at, hs])
+				if not main: main = c
 		"floater":
 			# a doubly terminated crystal that grew loose, with a satellite or two
 			main = crystal.call(1.2 + rng.next() * 0.4, 1.25, Vector3.ZERO, Vector3(0.55 + rng.next() * 0.3, 1, 0.2), {dt = true, scepter = "scepter" in tr})
@@ -533,16 +590,14 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		for pn in at:
 			var p: Vector3 = pn[0]
 			var nn: Vector3 = pn[1]
+			# hair-fine needles bursting from one point, splayed along the surface
 			var place := func(k: int) -> Array:
-				var d := _rv().normalized()
-				d = (d - nn * d.dot(nn)).normalized()
-				var r := pow(rng.next(), 0.7) * 0.12
-				var v := p + d * r + nn * ((0.12 - r) * 0.3 * rng.next())
-				var e := Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6)
+				var d := (nn * (0.25 + rng.next() * 0.6) + _rv().normalized()).normalized()
 				var c: Color = rc[int(floor(rng.next() * 4))] * (0.6 + rng.next() * 0.7)
 				c.a = 1.0
-				return [_rot_inst(v, e, Vector3(0.004, 0.015 + rng.next() * 0.03, 0.004)), c]
-			U.inst(Geo.box(1, 1, 1), SpecMat.make({rough = 0.85}), 700, place, root)
+				var ln := 0.03 + pow(rng.next(), 0.6) * 0.06
+				return [Transform3D(Basis(U.quat_to(UP, d)) * Basis.from_scale(Vector3(0.0025, ln, 0.0025)), p + d * rng.next() * 0.008), c]
+			U.inst(Geo.cone(1, 1, 4).translate(0, 0.5, 0), SpecMat.make({rough = 0.55, metal = 0.3}), 260, place, root)
 	# a sparkling crust of tiny crystals over the big one
 	if main and "druzy" in tr:
 		var gv: Geo = main.get_meta("geo")
@@ -552,7 +607,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var v: Vector3 = mt * gv.v[int(floor(rng.next() * gv.v.size()))]
 			var s := 0.01 + rng.next() * 0.018
 			return [_rot_inst(v, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3.ONE * s), dc]
-		U.inst(Geo.octa(1), SpecMat.make({rough = 0.1, coat = 1.0, flat = true, env = 2.5}), 260, place, main.get_parent())
+		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), glass = true, thick = 2.0, flat = true, holo = 0.4, seed = 3.0}), 260, place, main.get_parent())
 	var cyl := Geo.cylinder(1, 1, 1, 6).translate(0, 0.5, 0)
 	var cone := Geo.cone(1, 1, 5).translate(0, 0.5, 0)
 	var pals := [[0xff6a2a, 0xffb040, 0xd8302a], [0x3a6aff, 0x7fb4ff, 0x1a2a8a], [0xf4f0e8, 0xd8d0c0, 0xb8b0a0], [0xff4a8a, 0xffb0d0, 0x8a2a5a], [0xd8e04a, 0xf4f0a0, 0x7a8a2a]]
@@ -584,11 +639,16 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		for k in 6:
 			var at: Vector3 = pick.call()
 			grow.call(grow, at, (nrm.call(at) as Vector3).lerp(UP, 0.5).normalized(), 0.1 + rng.next() * 0.06, 0.016, 4)
-		segs.call(cyl, SpecMat.make({rough = 0.7}), list)
+		# tapering limy stems, soft and porous, with rounded knobs at the ends
+		for L in list:
+			L[4] = (L[4] as Color).lerp(Color(0.85, 0.8, 0.72), 0.35)
+			L[3] = float(L[3]) * 1.3
+		segs.call(Geo.cylinder(0.7, 1, 1, 8).translate(0, 0.5, 0), SpecMat.make({rough = 0.6, grain = 0.6}), list)
 		var place := func(k: int) -> Array:
-			var s := 0.012 + rng.next() * 0.014
-			return [Transform3D(Basis.from_scale(Vector3.ONE * s), tips[k]), pal[int(floor(rng.next() * 2))]]
-		U.inst(Geo.icosa(1, 1), SpecMat.make({rough = 0.6}), tips.size(), place, root)
+			var s := 0.014 + rng.next() * 0.016
+			var c: Color = (pal[int(floor(rng.next() * 2))] as Color).lerp(Color(0.9, 0.85, 0.78), 0.3)
+			return [Transform3D(Basis.from_scale(Vector3(s, s * 1.2, s)), tips[k]), c]
+		U.inst(Geo.sphere(1, 12, 8), SpecMat.make({rough = 0.5, grain = 0.8}), tips.size(), place, root)
 	elif style == 1:
 		# radiating needle sprays
 		var list := []
@@ -612,19 +672,25 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var v := s0 + Vector3((rng.next() - 0.5) * r * 2, (rng.next() - 0.5) * r * 0.6, (rng.next() - 0.5) * r * 2)
 			var e := Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3)
 			var s := 0.008 + rng.next() * 0.02
-			return [_rot_inst(v, e, Vector3(s, s * 1.6, s)), pal[int(floor(rng.next() * 3))]]
-		U.inst(Geo.octa(1), SpecMat.make({rough = 0.2, coat = 1.0, flat = true}), 900 if strong else 300, place, root)
+			return [_rot_inst(v, e, Vector3(s, s * 1.6, s)), (pal[int(floor(rng.next() * 3))] as Color).lerp(Color(1, 1, 1), 0.45)]
+		# sparkling glassy grains rather than painted beads
+		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), glass = true, thick = 2.0, flat = true, holo = 0.5, seed = 9.0}), 900 if strong else 300, place, root)
 	if has_base and "moss" in tr:
 		# cushions of moss and a few young ferns where the rock faces the sky
 		var pool := []
 		for k in 900:
 			var q: Vector3 = pick.call()
 			pool.append([q, nrm.call(q)])
-		for k in 5 + int(rng.next() * 4):
+		for k in 4 + int(rng.next() * 4):
 			var c0: Vector3 = pick.call()
-			SpecFoliage.patch(root, rng, pool, c0, 0.12 + rng.next() * 0.12, 350 + int(rng.next() * 350), "moss", 0.08 + rng.next() * 0.05)
-			if rng.next() < 0.45:
-				SpecFoliage.patch(root, rng, pool, c0, 0.06, 3 + int(rng.next() * 4), "fern", 0.3 + rng.next() * 0.2)
+			var rad := 0.16 + rng.next() * 0.18
+			SpecPlants.scatter(root, rng, pool, c0, rad, 900 + int(rng.next() * 900), "moss", 3.6 + rng.next() * 1.6, 0.25)
+			# blades and seedlings poking out of the cushion
+			SpecPlants.scatter(root, rng, pool, c0, rad * 0.8, 8 + int(rng.next() * 18), "grass", 1.4 + rng.next() * 1.0, 0.6, Color(0.9, 1.0, 0.8))
+			if rng.next() < 0.3:
+				SpecPlants.scatter(root, rng, pool, c0, rad * 0.5, 1 + int(rng.next() * 2), "tuft", 0.9 + rng.next() * 0.5, 0.3)
+			if rng.next() < 0.35:
+				SpecPlants.scatter(root, rng, pool, c0, 0.05, 1 + int(rng.next() * 2), "fern", 0.3 + rng.next() * 0.15, 0.5)
 	# a dusting of red hematite on some
 	if has_base and rng.next() < 0.15:
 		var place := func(k: int) -> Array:
@@ -655,6 +721,7 @@ func _finish() -> void:
 		gg.v = g.v.duplicate()
 		gg.idx = g.idx.duplicate()
 		gg.col = g.col.duplicate()
+		gg.bary = g.bary.duplicate()
 		# where a crystal turns into rock the surface swells into a lumpy crust
 		var crusty: bool = (n as MeshInstance3D).material_override in dt_mats and crust_ok
 		if crusty and gg.tri_count() < 2500:

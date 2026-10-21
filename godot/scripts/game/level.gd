@@ -86,9 +86,13 @@ func _mount_find() -> void:
 		return
 	find_studio = SpecStudio.make(200, Viewport.MSAA_2X)
 	add_child(find_studio.vp)
-	find_spec = find_studio.show(Spec.of_stone(model.find.stone))
-	find_spec.rotation = Vector3(0.12, 0.6, 0)
 	board.find_tex = find_studio.vp.get_texture()
+	var st := find_studio
+	var p: Node3D = await st.show_async(Spec.of_stone(model.find.stone))
+	if st != find_studio or p == null:
+		return
+	find_spec = p
+	find_spec.rotation = Vector3(0.12, 0.6, 0)
 
 func _layout() -> void:
 	var vp := get_viewport_rect().size

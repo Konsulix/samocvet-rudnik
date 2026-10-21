@@ -9,6 +9,7 @@ var v := PackedVector3Array()
 var idx := PackedInt32Array()
 var col := PackedColorArray()
 var rp := PackedVector3Array()   # rock-line coordinates for the DIRT shader
+var bary := PackedVector3Array() # distance to the real edges of each face (for the silver rims)
 var _mesh: ArrayMesh
 
 func indexed() -> bool:
@@ -132,6 +133,17 @@ func to_mesh() -> ArrayMesh:
 			uv2[i] = Vector2(rp[i].z, 0.0)
 		arr[Mesh.ARRAY_TEX_UV] = uv
 		arr[Mesh.ARRAY_TEX_UV2] = uv2
+	var flags := 0
+	if bary.size() == v.size():
+		var c0 := PackedFloat32Array()
+		c0.resize(v.size() * 4)
+		for i in v.size():
+			c0[i * 4] = bary[i].x
+			c0[i * 4 + 1] = bary[i].y
+			c0[i * 4 + 2] = bary[i].z
+			c0[i * 4 + 3] = 1.0
+		arr[Mesh.ARRAY_CUSTOM0] = c0
+		flags = Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
 	# three.js winds counter-clockwise, Godot's front faces are clockwise
 	if indexed():
 		var f := idx.duplicate()
@@ -149,7 +161,7 @@ func to_mesh() -> ArrayMesh:
 			order[k + 2] = k + 1
 		arr[Mesh.ARRAY_INDEX] = order
 	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, flags)
 	if rp.is_empty():
 		_mesh = m
 	return m
@@ -184,6 +196,8 @@ func subdivide(levels := 1) -> Geo:
 		var nv := PackedVector3Array()
 		var nc := PackedColorArray()
 		var has_c := col.size() == v.size()
+		var has_b := bary.size() == v.size()
+		var nb := PackedVector3Array()
 		for k in range(0, v.size(), 3):
 			var a := v[k]
 			var b := v[k + 1]
@@ -200,8 +214,63 @@ func subdivide(levels := 1) -> Geo:
 				var yz := y.lerp(z, 0.5)
 				var zx := z.lerp(x, 0.5)
 				nc.append_array([x, xy, zx, xy, y, yz, zx, yz, z, xy, yz, zx])
+			if has_b:
+				var x2 := bary[k]
+				var y2 := bary[k + 1]
+				var z2 := bary[k + 2]
+				var xy2 := (x2 + y2) * 0.5
+				var yz2 := (y2 + z2) * 0.5
+				var zx2 := (z2 + x2) * 0.5
+				nb.append_array([x2, xy2, zx2, xy2, y2, yz2, zx2, yz2, z2, xy2, yz2, zx2])
 		v = nv
 		col = nc
+		bary = nb
+	return self
+
+## find which triangle edges are real edges of the shape (a crease or an open border), as opposed to
+## diagonals that split a flat face; store per-vertex barycentrics where only real edges reach zero
+func mark_edges(angle_deg := 14.0) -> Geo:
+	to_soup()
+	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 5000.0), roundi(p.y * 5000.0), roundi(p.z * 5000.0))
+	var nt := v.size() / 3
+	var fn := PackedVector3Array()
+	fn.resize(nt)
+	var edges := {}
+	for t in nt:
+		fn[t] = (v[t * 3 + 1] - v[t * 3]).cross(v[t * 3 + 2] - v[t * 3]).normalized()
+		for e in 3:
+			var a: Vector3i = key.call(v[t * 3 + (e + 1) % 3])
+			var b: Vector3i = key.call(v[t * 3 + (e + 2) % 3])
+			var k2 := [a, b] if (a.x < b.x or (a.x == b.x and (a.y < b.y or (a.y == b.y and a.z < b.z)))) else [b, a]
+			var ks := str(k2)
+			if not edges.has(ks): edges[ks] = []
+			edges[ks].append(t)
+	var cos_lim := cos(deg_to_rad(angle_deg))
+	bary.resize(v.size())
+	for t in nt:
+		var add := Vector3.ZERO
+		for e in 3:
+			var a: Vector3i = key.call(v[t * 3 + (e + 1) % 3])
+			var b: Vector3i = key.call(v[t * 3 + (e + 2) % 3])
+			var k2 := [a, b] if (a.x < b.x or (a.x == b.x and (a.y < b.y or (a.y == b.y and a.z < b.z)))) else [b, a]
+			var ts: Array = edges[str(k2)]
+			var real := ts.size() < 2
+			for o in ts:
+				if o != t and absf(fn[o].dot(fn[t])) < cos_lim:
+					real = true
+			if not real:
+				add[e] = 10.0
+		# each corner carries its height above the opposite edge, so the interpolated values are true distances
+		var A := v[t * 3]
+		var Bv := v[t * 3 + 1]
+		var C := v[t * 3 + 2]
+		var area2 := (Bv - A).cross(C - A).length()
+		var ha := area2 / maxf(0.0001, Bv.distance_to(C))
+		var hb := area2 / maxf(0.0001, C.distance_to(A))
+		var hc := area2 / maxf(0.0001, A.distance_to(Bv))
+		bary[t * 3] = Vector3(ha, 0, 0) + add
+		bary[t * 3 + 1] = Vector3(0, hb, 0) + add
+		bary[t * 3 + 2] = Vector3(0, 0, hc) + add
 	return self
 
 ## nudge every vertex by a smooth function of where it is (shared corners move together)
@@ -390,6 +459,34 @@ static func ring(inner: float, outer: float, ts: int, ps: int) -> Geo:
 			var c := s + ts + 2
 			var d := s + 1
 			g.idx.append_array([a2, b, d, b, c, d])
+	return g
+
+## a hopper crystal: a cube whose faces sink in steps towards the middle, as salt and bismuth grow
+static func hopper(h: float, steps := 3, depth := 0.26) -> Geo:
+	var g := Geo.new()
+	var axes := [[Vector3.RIGHT, Vector3.UP, Vector3.BACK], [Vector3.LEFT, Vector3.UP, Vector3.FORWARD], [Vector3.UP, Vector3.BACK, Vector3.RIGHT],
+		[Vector3.DOWN, Vector3.FORWARD, Vector3.RIGHT], [Vector3.BACK, Vector3.UP, Vector3.LEFT], [Vector3.FORWARD, Vector3.UP, Vector3.RIGHT]]
+	var quad := func(a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+		g.v.append_array([a, b, c, a, c, d])
+	for ax in axes:
+		var N: Vector3 = ax[0]
+		var T: Vector3 = ax[1]
+		var B: Vector3 = ax[2]
+		var P := func(u: float, w: float, dep: float) -> Vector3: return N * (h - dep) + T * u + B * w
+		for i in steps:
+			var r0 := h * (1.0 - float(i) / (steps + 0.4))
+			var r1 := h * (1.0 - float(i + 1) / (steps + 0.4))
+			var d0 := h * depth * pow(float(i) / steps, 0.8)
+			var d1 := h * depth * pow(float(i + 1) / steps, 0.8)
+			var corners := [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]
+			for k in 4:
+				var c0: Vector2 = corners[k]
+				var c1: Vector2 = corners[(k + 1) % 4]
+				# the terrace at this depth, then the riser down to the next one
+				quad.call(P.call(c0.x * r0, c0.y * r0, d0), P.call(c1.x * r0, c1.y * r0, d0), P.call(c1.x * r1, c1.y * r1, d0), P.call(c0.x * r1, c0.y * r1, d0))
+				quad.call(P.call(c0.x * r1, c0.y * r1, d0), P.call(c1.x * r1, c1.y * r1, d0), P.call(c1.x * r1, c1.y * r1, d1), P.call(c0.x * r1, c0.y * r1, d1))
+			if i == steps - 1:
+				quad.call(P.call(-r1, -r1, d1), P.call(r1, -r1, d1), P.call(r1, r1, d1), P.call(-r1, r1, d1))
 	return g
 
 static func plane(w: float, h: float) -> Geo:

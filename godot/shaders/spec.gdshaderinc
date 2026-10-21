@@ -38,7 +38,10 @@ uniform float smoke_k = 0.0;    // smoky veils drifting through it
 uniform vec3 smoke_col = vec3(0.2, 0.15, 0.1);
 uniform float thick = 1.0;      // how strongly it bends what is behind
 uniform float g_seed = 0.0;
+uniform float rim_k = 0.0;      // frosted silver along the real edges of the faces
+uniform float holo_k = 0.0;     // broad holographic sheen in patches
 #endif
+varying vec3 v_bary;
 
 varying vec3 v_op;
 varying vec3 v_rp;
@@ -70,6 +73,7 @@ vec3 behind(vec2 uv, float r) {
 void vertex() {
 	v_op = VERTEX;
 	v_no = NORMAL;
+	v_bary = CUSTOM0.xyz;
 #ifdef DIRT
 	v_rp = vec3(UV.x, UV.y, UV2.x);
 #endif
@@ -181,14 +185,34 @@ void fragment() {
 	vec3 body = refr * absorb * mix(1.0, 0.75, edge_k);
 	body = mix(body, tint0 * 0.5 + vec3(0.22), milk * 0.75);
 	body = mix(body, body * smoke_col * 2.0, smoke);
-	ALBEDO = mix(tint0 * milk * 0.35, base, dirt);
-	METALLIC = 0.0;
-	ROUGHNESS = mix(mix(0.02, 0.32, milk), r, dirt);
+	// silver rims: the edges frost over into a bright, ragged, slightly metallic band
+	float srim = 0.0;
+	if (rim_k > 0.0) {
+		float eb = min(v_bary.x, min(v_bary.y, v_bary.z));
+		// ragged: in places the frost eats deep into the face, elsewhere it is a hairline
+		float rw = 0.022 * (0.25 + 1.6 * smoothstep(0.3, 0.75, fbm(v_op * 6.0 + g_seed))) * rim_k;
+		srim = (1.0 - smoothstep(rw * 0.1, rw * 1.4, eb + (vn(v_op * 90.0) - 0.5) * rw * 0.5)) * (1.0 - dirt);
+		srim *= 0.7 + 0.5 * vn(v_op * 55.0);
+		srim = clamp(srim, 0.0, 1.0);
+	}
+	// holographic sheen: wide rainbow gradients sweeping across some faces
+	if (holo_k > 0.0) {
+		float fr2 = 1.0 - cosv;
+		float hh = dot(v_op, vec3(0.7, 1.1, 0.4)) * 0.9 + fr2 * 0.9 + vn(v_op * 0.9 + g_seed) * 1.4;
+		vec3 holo = 0.5 + 0.5 * cos(6.2832 * (hh + vec3(0.0, 0.33, 0.67)));
+		float hm = smoothstep(0.35, 0.7, vn(v_op * 1.2 + g_seed + 5.0) * 0.7 + vn(v_op * 2.3 + g_seed) * 0.3);
+		body += holo * holo_k * hm * (0.35 + 0.65 * fr2) * (1.0 - milk * 0.5) * (1.0 - dirt);
+	}
+	vec3 silver = vec3(0.85, 0.87, 0.9) * (0.6 + 0.6 * fbm(v_op * 40.0));
+	body = mix(body, silver * 0.55, srim * 0.85);
+	ALBEDO = mix(mix(tint0 * milk * 0.35, silver, srim), base, dirt);
+	METALLIC = srim * 0.65;
+	ROUGHNESS = mix(mix(mix(0.02, 0.32, milk), 0.38, srim), r, dirt);
 	SPECULAR = 0.6;
 	CLEARCOAT = 0.0;
 	// the rainbow film only blooms in patches, as on real crystals
 	float film = 0.12 + 0.88 * smoothstep(0.5, 0.72, fbm(v_op * 1.6 + g_seed + 5.0));
-	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.8) * (1.0 - dirt * 0.8);
+	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8);
 	NORMAL = n;
 	ALPHA = 1.0;
 #elif defined(UNSHADED)

@@ -50,6 +50,8 @@ static func make(o: Dictionary) -> ShaderMaterial:
 		g.set_shader_parameter("smoke_col", Vector3(sc.r, sc.g, sc.b))
 		g.set_shader_parameter("thick", o.get("thick", 1.0))
 		g.set_shader_parameter("g_seed", o.get("seed", 0.0))
+		g.set_shader_parameter("rim_k", o.get("rim", 0.0))
+		g.set_shader_parameter("holo_k", o.get("holo", 0.0))
 		return g
 	if transp and side == "double":
 		var back := _one(o, _shader(flat, true, "front", irid, dirt, unshaded, add))

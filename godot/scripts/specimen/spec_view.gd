@@ -10,6 +10,7 @@ var tilt := 0.0
 var still := false     # a fixed three-quarter pose, as in thumbnails
 var _drag := false
 var _t := 0.0
+var _req := 0
 
 func _init(px := 512, transparent := false) -> void:
 	stretch = true
@@ -18,7 +19,12 @@ func _init(px := 512, transparent := false) -> void:
 	add_child(studio.vp)
 
 func show_spec(o: Dictionary) -> void:
-	live = studio.show(o)
+	_req += 1
+	var my := _req
+	var p: Node3D = await studio.show_async(o)
+	if my != _req or not is_instance_valid(self):
+		return
+	live = p
 	spin_v = 0.45
 	tilt = 0.0
 	if still:
