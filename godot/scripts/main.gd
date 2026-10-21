@@ -10,10 +10,30 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if not args.has("noglow"): _setup_glow()
-	if args.has("level"):
+	if args.has("built"):
+		Save.d.built[Save.area()] = Array(args.built.split(","))
+		Save.d.depth[Save.area()] = int(args.get("open", "1"))
+	if args.has("fill"):
+		# test data: a museum full of stones, a few of them cut, and one jewel
+		Save.d.coll = []
+		for i in int(args.fill):
+			var st := Stones.roll(5000 + i, i % 3, 0.6 + (i % 5) * 0.3, i % 3)
+			if i % 4 == 0: st.cut = ["cab", "facet", "master"][i % 3]
+			Save.d.coll.append(st)
+			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["рубин", "сапфир"], value = 9000}]
+		Save.d.coins = 5000
+	if args.has("tab"):
+		Museum.start_tab = args.tab
+	if args.has("screen"):
+		go(args.screen)
+	elif args.has("level"):
 		show_level(int(args.level), [], int(args.get("depth", "0")))
 	else:
 		show_home()
+	if args.has("ui"):
+		await get_tree().process_frame
+		if screen.has_method("_" + args.ui): screen.call("_" + args.ui)
 	if args.has("reveal"):
 		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
 		st.integ = 86
@@ -46,8 +66,22 @@ func _swap(n: Node) -> void:
 	add_child(n)
 
 func show_home() -> void:
-	# the home screen is ported next; until then the first unbeaten level opens straight away
-	show_level(Save.d.level, [], 0)
+	var h := Home.new()
+	_swap(h)
+	h.play.connect(func(n: int, pre: Array, dl: int): show_level(n, pre, dl))
+	h.go.connect(go)
+
+func go(id: String) -> void:
+	match id:
+		"home": show_home()
+		"depot":
+			var d := Depot.new()
+			_swap(d)
+			d.go.connect(go)
+		"museum":
+			var m := Museum.new()
+			_swap(m)
+			m.go.connect(go)
 
 func show_level(n: int, pre: Array, dl: int) -> void:
 	var lv := Level.new()

@@ -11,17 +11,18 @@ var cam: Camera3D
 var sky_mat: ShaderMaterial
 var stage: Node3D
 
-static func make(size: int, msaa := Viewport.MSAA_4X) -> SpecStudio:
+## transparent: no studio backdrop, the object floats over whatever the screen draws behind it
+static func make(size: int, msaa := Viewport.MSAA_4X, transparent := false) -> SpecStudio:
 	var s := SpecStudio.new()
-	s._build(size, msaa)
+	s._build(size, msaa, transparent)
 	return s
 
-func _build(size: int, msaa: Viewport.MSAA) -> void:
+func _build(size: int, msaa: Viewport.MSAA, transparent: bool) -> void:
 	vp = SubViewport.new()
 	vp.size = Vector2i(size, size)
 	vp.own_world_3d = true
 	vp.msaa_3d = msaa
-	vp.transparent_bg = false
+	vp.transparent_bg = transparent
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	var env := Environment.new()
 	sky_mat = ShaderMaterial.new()

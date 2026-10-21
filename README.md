@@ -4,7 +4,11 @@
 
 ## Структура
 
-- `godot/` — нативная версия на Godot 4 (в работе). Как собрать и поставить на свой iPhone: `docs/ios-na-svoem-iphone.md`.
+- `godot/` — нативная версия на Godot 4. Как собрать и поставить на свой iPhone: `docs/ios-na-svoem-iphone.md`.
+  - `scripts/core/` — правила три в ряд без графики (`board_model.gd`), броски находок (`stones.gd`); `tests/` — бот, который проходит уровни.
+  - `scripts/specimen/` — генератор 3D-образцов, украшений и машин (порт `specimen.js`), студия и просмотрщик.
+  - `scripts/game/` — экран уровня; `scripts/screens/` — главный экран (разрез рудника), депо, музей, раскрытие находки.
+  - `data/game_data.json` — данные игры, выгружаются из прототипа: `node godot/tools/export_data.js`.
 - `prototype/web/` — браузерный прототип, песочница для механик.
   - `samocvet_src.html` + `specimen.js` → `python build_samocvet.py` → `samocvet.html` (игра) и `vitrina.html` (витрина минералов).
 - `prototype/early/` — ранние прототипы («Забой», «Жила» и другие).

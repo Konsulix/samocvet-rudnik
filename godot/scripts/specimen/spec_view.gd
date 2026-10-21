@@ -11,10 +11,10 @@ var still := false     # a fixed three-quarter pose, as in thumbnails
 var _drag := false
 var _t := 0.0
 
-func _init(px := 512) -> void:
+func _init(px := 512, transparent := false) -> void:
 	stretch = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	studio = SpecStudio.make(px)
+	studio = SpecStudio.make(px, Viewport.MSAA_4X, transparent)
 	add_child(studio.vp)
 
 func show_spec(o: Dictionary) -> void:
