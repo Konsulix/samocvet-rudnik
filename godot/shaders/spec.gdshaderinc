@@ -25,6 +25,12 @@ uniform float d_fr = 0.0;
 uniform float d_is = 0.0;
 uniform float d_fb = 1.0;
 uniform float d_ao = 0.0;       // rocks: vertex colour carries the shading of pits and ridges
+// photo-scanned rock, laid on from three sides (no UVs needed)
+uniform sampler2D scan_diff : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D scan_nrm : filter_linear_mipmap, repeat_enable;
+uniform sampler2D scan_rough : filter_linear_mipmap, repeat_enable;
+uniform float scan_k = 0.0;
+uniform float scan_scale = 1.3;
 #ifdef GLASS
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear, repeat_disable;
 uniform float frost_k = 0.0;    // milky clouds inside the body
@@ -36,6 +42,7 @@ uniform float g_seed = 0.0;
 
 varying vec3 v_op;
 varying vec3 v_rp;
+varying vec3 v_no;
 
 float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float vn(vec3 x) {
@@ -62,6 +69,7 @@ vec3 behind(vec2 uv, float r) {
 
 void vertex() {
 	v_op = VERTEX;
+	v_no = NORMAL;
 #ifdef DIRT
 	v_rp = vec3(UV.x, UV.y, UV2.x);
 #endif
@@ -96,16 +104,40 @@ void fragment() {
 	float grains = smoothstep(0.8, 0.88, vn(v_rp * 70.0));
 	rk += vec3(0.55, 0.52, 0.48) * grains * 0.4;
 	rk = mix(rk, rk * 1.7 + 0.04, rim * 0.6);
+	float s_rough = 0.8;
+	vec3 s_nv = n;
+	if (scan_k > 0.0) {
+		vec3 no = normalize(v_no);
+		vec3 sp = v_rp * scan_scale;
+		vec3 w = pow(abs(no), vec3(4.0));
+		w /= (w.x + w.y + w.z);
+		vec3 sd = texture(scan_diff, sp.zy).rgb * w.x + texture(scan_diff, sp.xz).rgb * w.y + texture(scan_diff, sp.xy).rgb * w.z;
+		s_rough = texture(scan_rough, sp.zy).r * w.x + texture(scan_rough, sp.xz).r * w.y + texture(scan_rough, sp.xy).r * w.z;
+		vec3 tx = texture(scan_nrm, sp.zy).xyz * 2.0 - 1.0;
+		vec3 ty = texture(scan_nrm, sp.xz).xyz * 2.0 - 1.0;
+		vec3 tz = texture(scan_nrm, sp.xy).xyz * 2.0 - 1.0;
+		tx = vec3(tx.xy + no.zy, abs(tx.z) * no.x);
+		ty = vec3(ty.xy + no.xz, abs(ty.z) * no.y);
+		tz = vec3(tz.xy + no.xy, abs(tz.z) * no.z);
+		vec3 ns = normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
+		s_nv = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(ns, 0.0)).xyz);
+		if (dot(s_nv, VIEW) < 0.0) s_nv = -s_nv;
+		// the scan gives the grain, the rock's own palette sets how dark and what colour it is
+		vec3 tinted = mix(sd * 0.8, sd * d_col / 0.3, 0.75);
+		tinted = pow(tinted, vec3(1.15));
+		rk = mix(rk, tinted * (1.0 + rim * 0.5) + vec3(0.5, 0.48, 0.44) * grains * 0.25, scan_k);
+	}
 	rk *= mix(1.0, COLOR.r * 1.25, d_ao);
 	base = mix(base, vec3(0.86, 0.88, 0.9), frost * 0.5);
 	a = mix(a, 0.96, frost * 0.55);
 	base = mix(base, rk, dirt);
 	a = mix(a, 1.0, dirt);
-	r = mix(mix(r, 0.5, frost), mix(0.82, 0.35, grains), dirt);
+	r = mix(mix(r, 0.5, frost), mix(mix(0.82, 0.35, grains), s_rough, scan_k), dirt);
 	m *= 1.0 - dirt;
 	cc *= 1.0 - max(dirt, frost * 0.6);
 	vec3 gp = v_rp * 38.0;
-	n = normalize(n + (dirt * 1.1 + frost * 0.25) * (vec3(vn(gp), vn(gp + 3.1), vn(gp + 5.7)) - 0.5));
+	n = normalize(n + (dirt * 1.1 * (1.0 - scan_k * 0.8) + frost * 0.25) * (vec3(vn(gp), vn(gp + 3.1), vn(gp + 5.7)) - 0.5));
+	n = normalize(mix(n, s_nv, dirt * scan_k));
 #endif
 	if (grain > 0.0) {
 		vec3 gq = v_op * 60.0;

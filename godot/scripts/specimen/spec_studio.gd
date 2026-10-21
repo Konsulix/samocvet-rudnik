@@ -5,6 +5,7 @@ extends RefCounted
 ## a faint fill from below, and a coloured haze behind the stone. Same rig as the prototype's specInit().
 
 const SKY := preload("res://shaders/studio_sky.gdshader")
+const HDRI := preload("res://assets/hdri/studio_small_09_1k.hdr")
 
 var vp: SubViewport
 var cam: Camera3D
@@ -27,6 +28,8 @@ func _build(size: int, msaa: Viewport.MSAA, transparent: bool) -> void:
 	var env := Environment.new()
 	sky_mat = ShaderMaterial.new()
 	sky_mat.shader = SKY
+	sky_mat.set_shader_parameter("hdri", HDRI)
+	sky_mat.set_shader_parameter("hdri_k", 1.0)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	sky.radiance_size = Sky.RADIANCE_SIZE_128

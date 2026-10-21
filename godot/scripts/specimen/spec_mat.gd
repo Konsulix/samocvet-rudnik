@@ -93,7 +93,28 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 		m.set_shader_parameter("d_fr", d.get("fr", 0.0))
 		m.set_shader_parameter("d_is", d.get("isl", 0.0))
 		m.set_shader_parameter("d_fb", d.get("fb", 1.0))
+		if d.has("scan"): set_scan(m, int(d.scan))
 	return m
+
+## photo-scanned rocks (Poly Haven, CC0): pitted sandstone, cracked boulder, dark cliff, lichen-covered stone
+const SCANS := ["rock_pitted_mossy", "rock_boulder_cracked", "rock_face_03", "lichen_rock"]
+static var _scan_tex := {}
+
+static func scan_tex(i: int, kind: String) -> Texture2D:
+	var key := "%d%s" % [i, kind]
+	if not _scan_tex.has(key):
+		var nm: String = SCANS[i]
+		_scan_tex[key] = load("res://assets/textures/%s/%s_%s_1k.jpg" % [nm, nm, kind])
+	return _scan_tex[key]
+
+static func set_scan(m: ShaderMaterial, i: int) -> void:
+	var p: ShaderMaterial = m
+	while p:
+		p.set_shader_parameter("scan_diff", scan_tex(i, "diff"))
+		p.set_shader_parameter("scan_nrm", scan_tex(i, "nor_gl"))
+		p.set_shader_parameter("scan_rough", scan_tex(i, "rough"))
+		p.set_shader_parameter("scan_k", 1.0)
+		p = p.next_pass as ShaderMaterial
 
 ## the dirt line can only be set once the specimen is built (the rock it grew from is chosen late)
 static func set_dirt(m: ShaderMaterial, d: Dictionary) -> void:
@@ -106,6 +127,11 @@ static func set_dirt(m: ShaderMaterial, d: Dictionary) -> void:
 		p.set_shader_parameter("d_fr", d.get("fr", 0.0))
 		p.set_shader_parameter("d_is", d.get("isl", 0.0))
 		p.set_shader_parameter("d_fb", d.get("fb", 1.0))
+		if d.has("scan"):
+			p.set_shader_parameter("scan_diff", scan_tex(int(d.scan), "diff"))
+			p.set_shader_parameter("scan_nrm", scan_tex(int(d.scan), "nor_gl"))
+			p.set_shader_parameter("scan_rough", scan_tex(int(d.scan), "rough"))
+			p.set_shader_parameter("scan_k", 1.0)
 		p = p.next_pass as ShaderMaterial
 
 ## colour helpers that behave like three.js (HSL on raw values, sRGB <-> linear)

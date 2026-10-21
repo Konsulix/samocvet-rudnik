@@ -254,6 +254,24 @@ static func tint_cav(g: Geo, cav: PackedFloat32Array, k: float, base := Color(1,
 	return g
 
 static var _sphere_cache := {}
+static var _disp := {}
+
+## which photo scan dresses which rock
+const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, quartzite = 3}
+
+## height map of a scan, for pressing its relief into the geometry
+static func disp_img(i: int) -> Image:
+	if not _disp.has(i):
+		var nm: String = SpecMat.SCANS[i]
+		var img := (load("res://assets/textures/%s/%s_disp_1k.jpg" % [nm, nm]) as Texture2D).get_image()
+		if img.is_compressed(): img.decompress()
+		img.resize(256, 256)
+		_disp[i] = img
+	return _disp[i]
+
+static func disp_at(img: Image, uv: Vector2) -> float:
+	var S := img.get_width()
+	return img.get_pixel(posmod(int(uv.x * S), S), posmod(int(uv.y * S), S)).r
 
 ## a smooth, finely divided ball to carve rocks from (cached; callers get a copy)
 static func ball(detail: int) -> Geo:
@@ -313,6 +331,18 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dicti
 		g.v[i] = u * 0.62 * (1.0 + f + rd2 - pit - pit2)
 		cav[i] = clampf(pit * 5.0 + pit2 * 12.0 + maxf(0.0, -f) * 1.6 - maxf(0.0, rd2) * 4.0, 0.0, 1.0)
 	g.scale(S[0], S[1], S[2])
+	# the scanned rock's own relief, pressed in from three sides like the texture laid on it
+	var dimg := disp_img(SCAN_OF[type])
+	var sc := 1.3
+	for i in g.v.size():
+		var p := g.v[i]
+		var no := p.normalized()
+		var w := Vector3(pow(absf(no.x), 4.0), pow(absf(no.y), 4.0), pow(absf(no.z), 4.0))
+		w /= (w.x + w.y + w.z)
+		var q := p * sc
+		var h := disp_at(dimg, Vector2(q.z, q.y)) * w.x + disp_at(dimg, Vector2(q.x, q.z)) * w.y + disp_at(dimg, Vector2(q.x, q.y)) * w.z
+		g.v[i] = p + no * (h - 0.5) * 0.07
+		cav[i] = clampf(cav[i] + (0.5 - h) * 0.9, 0.0, 1.0)
 	var base := SpecMat.hsl(R.h[0] + rng.next() * R.h[1], R.s[0] + rng.next() * R.s[1], R.l[0] + rng.next() * R.l[1]).srgb_to_linear()
 	g.col.resize(g.v.size())
 	for i in g.v.size():

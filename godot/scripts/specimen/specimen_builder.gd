@@ -89,6 +89,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	elif layout == "nugget" and rng.next() < 0.6: rtype = "quartzite"
 	elif layout == "rosette": rtype = "limestone"
 	else: rtype = ["basalt", "basalt", "quartzite", "ironstone", "limestone"][int(floor(rng.next() * 5))]
+	var scan: int = RockKit.SCAN_OF[rtype]
+	dt.scan = scan
 
 	var st := {pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
 		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1}
@@ -107,7 +109,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			dt_mats.append(m)
 		return m
 	var rock_mat := func(c: Color) -> ShaderMaterial:
-		return SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0}})
+		return SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}})
 	var use_rock := func(shape: String) -> MeshInstance3D:
 		var R := RockKit.rock(rng, rtype, shape)
 		var mi := U.mesh(R.geo, rock_mat.call(R.base), root)
@@ -355,7 +357,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var R: Dictionary = RockKit.ROCKS["basalt" if rtype == "quartzite" else rtype]
 	var outer := RockKit.warp(Geo.sphere(1, 64, 32, 0, TAU, 0, PI / 2), rng, 0.3, 1.6)
 	var ocol := SpecMat.hsl(R.h[0], R.s[0] + 0.05, R.l[0] + 0.06).srgb_to_linear()
-	U.mesh(outer, SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0}}), shell)
+	U.mesh(outer, SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}}), shell)
 	var ic := col.lerp(Color(0.25, 0.27, 0.3), 0.6) * 0.35
 	ic.a = 1.0
 	U.mesh(Geo.sphere(0.9, 40, 20, 0, TAU, 0, PI / 2), SpecMat.make({col = ic, rough = 0.92, spec = 0.3, side = "back"}), shell)
