@@ -90,6 +90,15 @@ func show_level(n: int, pre: Array, dl: int) -> void:
 	lv.start(n, pre, dl)
 	if args.has("autoplay"):
 		_autoplay(lv, int(args.autoplay))
+	if args.has("win"):
+		# jump to the end of the level: the find dug out, a geode stone waiting
+		await get_tree().create_timer(1.5).timeout
+		if not lv.model.find.is_empty():
+			lv.model.find.done = true
+			lv.model.find.integ = 92
+		lv.model.bonus.append(Stones.roll(Save.next_uid(), Save.area(), 0.6, 0))
+		lv.model.over = true
+		lv._win()
 
 func _on_level_finished(res: Dictionary) -> void:
 	if res.won:
