@@ -4,7 +4,7 @@
 
 ## Структура
 
-- `godot/` — нативная версия на Godot 4 (в работе).
+- `godot/` — нативная версия на Godot 4 (в работе). Как собрать и поставить на свой iPhone: `docs/ios-na-svoem-iphone.md`.
 - `prototype/web/` — браузерный прототип, песочница для механик.
   - `samocvet_src.html` + `specimen.js` → `python build_samocvet.py` → `samocvet.html` (игра) и `vitrina.html` (витрина минералов).
 - `prototype/early/` — ранние прототипы («Забой», «Жила» и другие).
