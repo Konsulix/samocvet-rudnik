@@ -26,6 +26,8 @@ var booster := ""
 var idle := 0.0
 var _hinted := false
 var _flights := 0
+var find_studio: SpecStudio     # the sealed specimen, turning slowly inside its block
+var find_spec: Node3D
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -66,6 +68,7 @@ func start(n: int, pre: Array = [], dl: int = 0) -> void:
 	bg.setup(Save.area(), dl, vp)
 	_layout()
 	board.rebuild(model)
+	_mount_find()
 	_render_hud()
 	busy = true
 	booster = ""
@@ -73,6 +76,19 @@ func start(n: int, pre: Array = [], dl: int = 0) -> void:
 	await board.drop_in()
 	busy = false
 	idle = 0.0
+
+func _mount_find() -> void:
+	if find_studio:
+		find_studio.vp.queue_free()
+		find_studio = null
+	board.find_tex = null
+	if model.find.is_empty():
+		return
+	find_studio = SpecStudio.make(200, Viewport.MSAA_2X)
+	add_child(find_studio.vp)
+	find_spec = find_studio.show(Spec.of_stone(model.find.stone))
+	find_spec.rotation = Vector3(0.12, 0.6, 0)
+	board.find_tex = find_studio.vp.get_texture()
 
 func _layout() -> void:
 	var vp := get_viewport_rect().size
@@ -260,6 +276,8 @@ func _goal_target(gi: int) -> Vector2:
 # ---------------------------------------------------------------- input
 
 func _process(dt: float) -> void:
+	if find_spec:
+		find_spec.rotation.y += dt * 0.5
 	if busy or model.over: return
 	idle += dt
 	if idle > 5.0 and not _hinted:

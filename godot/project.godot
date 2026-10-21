@@ -18,6 +18,8 @@ Data="*res://scripts/autoload/data.gd"
 Save="*res://scripts/autoload/save_game.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
 UI="*res://scripts/autoload/ui.gd"
+Spec="*res://scripts/autoload/spec.gd"
+Ov="*res://scripts/autoload/overlay.gd"
 
 [display]
 

@@ -14,6 +14,11 @@ func _ready() -> void:
 		show_level(int(args.level), [], int(args.get("depth", "0")))
 	else:
 		show_home()
+	if args.has("reveal"):
+		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
+		st.integ = 86
+		if args.has("crack"): Reveal.new().crack(st)
+		else: Reveal.new().show_stone(st)
 	if args.has("shot"):
 		_take_shot()
 
@@ -53,7 +58,38 @@ func show_level(n: int, pre: Array, dl: int) -> void:
 		_autoplay(lv, int(args.autoplay))
 
 func _on_level_finished(res: Dictionary) -> void:
+	if res.won:
+		if not res.stone.is_empty():
+			var rv := Reveal.new()
+			rv.show_stone(res.stone)
+			await rv.finished
+		for s in res.bonus:
+			await Reveal.new().crack(s, "Камень из жеоды на поле")
+		await _win_card(res)
 	show_home()
+
+## the end-of-level card: stars, coins, the win streak
+func _win_card(res: Dictionary) -> void:
+	var v := Ov.card()
+	var star := UI.label("★", 54, UI.display, UI.GOLD)
+	star.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(star)
+	v.add_child(UI.title("Уровень %d пройден!" % res.n, 22))
+	if res.depth:
+		v.add_child(Ov.text("Глубина %d м: монеты ×%s" % [int(Data.DEPTHS[res.depth].m), str(Data.depth_pay(res.depth)).replace(".", ",")]))
+	var line := HBoxContainer.new()
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 10)
+	line.add_child(Reveal.chip("★ +1", true))
+	line.add_child(Reveal.chip("$ +%s" % UI.fmt(res.coins), true))
+	v.add_child(line)
+	if Save.d.streak >= 2:
+		v.add_child(Ov.text("Серия побед: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)]))
+	else:
+		v.add_child(Ov.text("Звёзды тратятся на обустройство рудника."))
+	var go := Ov.btn("Дальше", "green", func(): Ov.close())
+	v.add_child(go)
+	await Ov.closed
 
 ## plays a few moves by itself, for screenshots of a level in motion
 func _autoplay(lv: Level, turns: int) -> void:

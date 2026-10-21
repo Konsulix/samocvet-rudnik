@@ -64,3 +64,20 @@ func minable() -> Array:
 				out.append(id)
 				break
 	return out
+
+## pre-boosters a win streak gives for free
+func streak_free(streak: int) -> Array:
+	var out := []
+	if streak >= 2: out.append("rocket")
+	if streak >= 4: out.append("bomb")
+	if streak >= 6: out.append("orb")
+	return out
+
+func streak_text(streak: int) -> String:
+	var f := streak_free(streak)
+	if f.is_empty():
+		return "Ещё победа — и динамит на старте бесплатно."
+	var names := []
+	for p in PRE:
+		if p.id in f: names.append(String(p.n).to_lower())
+	return "Бесплатно на старте: %s." % ", ".join(names)
