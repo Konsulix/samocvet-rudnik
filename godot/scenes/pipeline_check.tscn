@@ -1,0 +1,88 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/pipeline_check.gd" id="1_check"]
+
+[sub_resource type="Environment" id="Env_check"]
+background_mode = 1
+background_color = Color(0.03, 0.045, 0.07, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.32, 0.38, 0.5, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 3
+glow_enabled = true
+glow_intensity = 0.9
+glow_bloom = 0.15
+
+[sub_resource type="StandardMaterial3D" id="Mat_crystal"]
+transparency = 1
+albedo_color = Color(0.62, 0.86, 1, 0.55)
+metallic = 0.15
+roughness = 0.04
+rim_enabled = true
+rim = 0.6
+emission_enabled = true
+emission = Color(0.12, 0.3, 0.5, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="CylinderMesh" id="Mesh_crystal"]
+material = SubResource("Mat_crystal")
+top_radius = 0.32
+bottom_radius = 0.38
+height = 1.7
+radial_segments = 6
+rings = 1
+
+[sub_resource type="LabelSettings" id="Label_info"]
+font_size = 18
+font_color = Color(0.85, 0.9, 1, 1)
+
+[node name="PipelineCheck" type="Node3D"]
+script = ExtResource("1_check")
+
+[node name="Env" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_check")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 2, 0)
+light_energy = 1.3
+
+[node name="Lamp" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4, 0.8, 1.8)
+light_color = Color(1, 0.78, 0.45, 1)
+light_energy = 2.5
+omni_range = 6.0
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 4.2)
+fov = 50.0
+
+[node name="Crystal" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.94, 0.34, 0, -0.34, 0.94, 0, 0, 0, 1, 0, 0.1, 0)
+mesh = SubResource("Mesh_crystal")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="VBoxContainer" parent="UI"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -170.0
+offset_right = -24.0
+offset_bottom = -60.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 12
+
+[node name="Info" type="Label" parent="UI/Panel"]
+layout_mode = 2
+text = "Godot"
+label_settings = SubResource("Label_info")
+horizontal_alignment = 1
+
+[node name="Tap" type="Button" parent="UI/Panel"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Тапни меня"

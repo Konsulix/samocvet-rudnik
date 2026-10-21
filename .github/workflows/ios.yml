@@ -1,0 +1,56 @@
+# Builds an unsigned iPhone app from the Godot project on a GitHub-hosted Mac.
+# Download the .ipa from the run's artifacts and install it with Sideloadly using your own Apple ID.
+name: iOS build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['godot/**', '.github/workflows/ios.yml']
+
+env:
+  GODOT_VERSION: 4.7.2
+  GODOT_RELEASE: 4.7.2-stable
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot and its export templates
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_macos.universal.zip"
+          unzip -q godot.zip
+          curl -fsSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          TDIR="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$TDIR"
+          unzip -q templates.tpz -d tpl
+          mv tpl/templates/* "$TDIR/"
+          echo "GODOT=$PWD/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+
+      - name: Export the Xcode project
+        working-directory: godot
+        run: |
+          mkdir -p build/ios
+          "$GODOT" --headless --import || true
+          "$GODOT" --headless --export-release "iOS" build/ios/rudnik.ipa
+          ls -la build/ios
+
+      - name: Build the app without signing
+        working-directory: godot/build/ios
+        run: |
+          xcodebuild -project rudnik.xcodeproj -scheme rudnik -configuration Release -sdk iphoneos \
+            -archivePath "$PWD/rudnik.xcarchive" archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" | tail -40
+          mkdir -p Payload
+          cp -R rudnik.xcarchive/Products/Applications/*.app Payload/
+          zip -qry samocvet-rudnik.ipa Payload
+          ls -la samocvet-rudnik.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samocvet-rudnik-ipa
+          path: godot/build/ios/samocvet-rudnik.ipa
+          retention-days: 14
