@@ -154,6 +154,66 @@ func to_mesh() -> ArrayMesh:
 		_mesh = m
 	return m
 
+## merge vertices that share a position, so normals come out smooth
+func weld() -> Geo:
+	to_soup()
+	var map := {}
+	var nv := PackedVector3Array()
+	var nc := PackedColorArray()
+	var ni := PackedInt32Array()
+	ni.resize(v.size())
+	for i in v.size():
+		var p := v[i]
+		var key := Vector3i(roundi(p.x * 20000.0), roundi(p.y * 20000.0), roundi(p.z * 20000.0))
+		var k: int = map.get(key, -1)
+		if k < 0:
+			k = nv.size()
+			map[key] = k
+			nv.append(p)
+			if col.size(): nc.append(col[i])
+		ni[i] = k
+	v = nv
+	col = nc
+	idx = ni
+	return self
+
+## split every triangle into four (a plain triangle list); shared edges split at the same points
+func subdivide(levels := 1) -> Geo:
+	to_soup()
+	for l in levels:
+		var nv := PackedVector3Array()
+		var nc := PackedColorArray()
+		var has_c := col.size() == v.size()
+		for k in range(0, v.size(), 3):
+			var a := v[k]
+			var b := v[k + 1]
+			var c := v[k + 2]
+			var ab := (a + b) * 0.5
+			var bc := (b + c) * 0.5
+			var ca := (c + a) * 0.5
+			nv.append_array([a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca])
+			if has_c:
+				var x := col[k]
+				var y := col[k + 1]
+				var z := col[k + 2]
+				var xy := x.lerp(y, 0.5)
+				var yz := y.lerp(z, 0.5)
+				var zx := z.lerp(x, 0.5)
+				nc.append_array([x, xy, zx, xy, y, yz, zx, yz, z, xy, yz, zx])
+		v = nv
+		col = nc
+	return self
+
+## nudge every vertex by a smooth function of where it is (shared corners move together)
+func jitter(amp: float, freq: float, seed_v: int) -> Geo:
+	var fn := FastNoiseLite.new()
+	fn.seed = seed_v
+	fn.frequency = freq
+	for i in v.size():
+		var p := v[i]
+		v[i] = p + Vector3(fn.get_noise_3dv(p), fn.get_noise_3dv(p + Vector3(31.7, 0, 0)), fn.get_noise_3dv(p + Vector3(0, 0, 57.3))) * amp
+	return self
+
 # ---------------------------------------------------------------- generators (three.js r128 layouts)
 
 static func lathe(pts: Array, segs: int, phi_len := TAU) -> Geo:

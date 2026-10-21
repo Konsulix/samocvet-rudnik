@@ -17,8 +17,7 @@ func gem_mat(hex: String) -> ShaderMaterial:
 	if _mats.has(hex):
 		return _mats[hex]
 	var c := SpecMat.lin_s(hex)
-	var m := SpecMat.make({col = c, emis = c * 0.1, rough = 0.02, metal = 0.05, coat = 1.0, flat = true, env = 2.8,
-		transp = true, a = 0.88, side = "double", ir = 0.3, rf = 0.9, prio = 2})
+	var m := SpecMat.make({col = c, flat = true, glass = true, thick = 1.6, rf = 1.0, ir = 0.3, prio = 2})
 	_mats[hex] = m
 	return m
 

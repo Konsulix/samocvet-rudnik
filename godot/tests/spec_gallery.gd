@@ -20,6 +20,8 @@ const SETS := [
 	{seed = 56, jewel = {rid = "pend", cols = ["#3a5fcd", "#ffffff"]}}, {seed = 57, jewel = {rid = "brooch", cols = ["#9b30ff", "#ffd700", "#40e0d0"]}},
 	{seed = 58, jewel = {rid = "diadem", cols = ["#ff1744", "#2979ff", "#00e676", "#ffffff"]}}, {seed = 59, jewel = {rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"]}},
 	{machine = "hammer"}, {machine = "tbm"}, {machine = "crush"}],
+	[{seed = 61, sid = "quartz", kind = "druse", gi = 2, traits = ["moss"]}, {seed = 62, sid = "amethyst", kind = "crystal", gi = 3, traits = ["moss"]},
+	{seed = 63, sid = "fluorite", kind = "crystal", gi = 2, traits = []}, {seed = 64, sid = "aquamarine", kind = "druse", gi = 3, traits = ["coral"]}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
 ]
 
@@ -29,7 +31,7 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var list: Array = SETS[int(args.get("set", "0"))]
-	var cols := 4
+	var cols := int(args.get("cols", "4"))
 	var px := int(args.get("px", "280"))
 	var t0 := Time.get_ticks_msec()
 	for i in list.size():

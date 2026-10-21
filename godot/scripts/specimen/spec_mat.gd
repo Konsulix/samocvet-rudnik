@@ -9,20 +9,22 @@ extends RefCounted
 
 static var _shaders := {}
 
-static func _shader(flat: bool, transp: bool, cull: String, irid: bool, dirt: bool, unshaded: bool, add: bool) -> Shader:
-	var key := "%s%s%s%s%s%s%s" % [int(flat), int(transp), cull, int(irid), int(dirt), int(unshaded), int(add)]
+static func _shader(flat: bool, transp: bool, cull: String, irid: bool, dirt: bool, unshaded: bool, add: bool, glass := false) -> Shader:
+	var key := "%s%s%s%s%s%s%s%s" % [int(flat), int(transp), cull, int(irid), int(dirt), int(unshaded), int(add), int(glass)]
 	if _shaders.has(key):
 		return _shaders[key]
 	var modes := ["cull_" + cull]
 	if unshaded: modes.append("unshaded")
 	if add: modes.append("blend_add")
-	if transp: modes.append("depth_draw_opaque")
+	if glass: modes.append("depth_draw_always")
+	elif transp: modes.append("depth_draw_opaque")
 	var code := "shader_type spatial;\nrender_mode %s;\n" % ", ".join(modes)
 	if flat: code += "#define FLAT\n"
 	if transp: code += "#define TRANSP\n"
 	if irid: code += "#define IRID\n"
 	if dirt: code += "#define DIRT\n"
 	if unshaded: code += "#define UNSHADED\n"
+	if glass: code += "#define GLASS\n"
 	code += "#include \"res://shaders/spec.gdshaderinc\"\n"
 	var sh := Shader.new()
 	sh.code = code
@@ -38,6 +40,17 @@ static func make(o: Dictionary) -> ShaderMaterial:
 	var unshaded: bool = o.get("unshaded", false)
 	var add: bool = o.get("add", false)
 	var prio: int = o.get("prio", 0)
+	if o.get("glass", false):
+		var g := _one(o, _shader(flat, true, "disabled", true, dirt, false, false, true))
+		g.render_priority = prio * 2 + 1
+		g.set_meta("dirt", dirt)
+		g.set_shader_parameter("frost_k", o.get("frost", 0.0))
+		g.set_shader_parameter("smoke_k", o.get("smoke", 0.0))
+		var sc: Color = o.get("smoke_col", Color(0.2, 0.15, 0.1))
+		g.set_shader_parameter("smoke_col", Vector3(sc.r, sc.g, sc.b))
+		g.set_shader_parameter("thick", o.get("thick", 1.0))
+		g.set_shader_parameter("g_seed", o.get("seed", 0.0))
+		return g
 	if transp and side == "double":
 		var back := _one(o, _shader(flat, true, "front", irid, dirt, unshaded, add))
 		back.render_priority = prio * 2
@@ -70,6 +83,7 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 	m.set_shader_parameter("rf_k", o.get("rf", 0.0))
 	m.set_shader_parameter("st_k", o.get("st", 0.0))
 	m.set_shader_parameter("bd_k", o.get("bd", 0.0))
+	m.set_shader_parameter("d_ao", o.get("ao", 0.0))
 	if o.has("dirt") and o.dirt != null:
 		var d: Dictionary = o.dirt
 		var dc: Color = d.get("col", Color(0.1, 0.1, 0.1))

@@ -65,6 +65,10 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g.v[i] = Vector3(p.x * (1.0 + n * 0.05) * chip, p.y - (0.03 * sy if chip < 1.0 else 0.0), p.z * (1.0 + n * 0.05) * chip)
 		y0 = minf(y0, p.y)
 		y1 = maxf(y1, p.y)
+	# hand-made glass: faces that are not quite flat, so what shows through them ripples
+	var det: int = cfg.get("detail", 0)
+	if det > 0:
+		g.subdivide(det).jitter(0.016, 7.0, int(rng.next() * 100000))
 	# colour along the length: plain, smoky base, coloured tip or two-tone
 	var cA: Color = cfg.get("cA", Color(1, 1, 1))
 	var cB: Color = cfg.get("cB", cA)
@@ -134,6 +138,9 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 			g.v.append_array([A, C, B])
 		else:
 			g.v.append_array([A, B, C])
+	var det: int = o.get("detail", 0)
+	if det > 0:
+		g.subdivide(det).jitter(minf(w, d) * 0.07, 3.0 / maxf(0.05, w), int(rng.next() * 100000))
 	var cA: Color = zc.get("cA", Color(1, 1, 1))
 	var cB: Color = zc.get("cB", cA)
 	var zk: float = zc.get("zk", 0.0)
@@ -246,48 +253,74 @@ static func tint_cav(g: Geo, cav: PackedFloat32Array, k: float, base := Color(1,
 		g.col[i] = Color(base.r * f, base.g * f, base.b * f)
 	return g
 
-## host rock: lumpy, pitted, darker in the pits. Returns {geo, top, scale, base}
-static func rock(rng: Rng32, type: String, shape: String) -> Dictionary:
+static var _sphere_cache := {}
+
+## a smooth, finely divided ball to carve rocks from (cached; callers get a copy)
+static func ball(detail: int) -> Geo:
+	if not _sphere_cache.has(detail):
+		_sphere_cache[detail] = Geo.icosa(1.0, detail).weld()
+	var src: Geo = _sphere_cache[detail]
+	var g := Geo.new()
+	g.v = src.v.duplicate()
+	g.idx = src.idx.duplicate()
+	return g
+
+## host rock: a weathered chunk, eaten into by pores and pockets, ridged, darker in every hollow.
+## Returns {geo, top, scale, base, rough}
+static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dictionary:
 	var R: Dictionary = ROCKS[type]
 	var S: Array = ROCK_SHAPES[shape]
-	var g := Geo.icosa(0.62, 4)
+	var g := ball(detail)
+	var sd := int(rng.next() * 1000000)
+	var form := FastNoiseLite.new()
+	form.seed = sd
+	form.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	form.frequency = 0.9
+	form.fractal_octaves = 4
+	var ridge := FastNoiseLite.new()
+	ridge.seed = sd + 1
+	ridge.frequency = 2.4
+	ridge.fractal_type = FastNoiseLite.FRACTAL_RIDGED
+	ridge.fractal_octaves = 3
+	var pores := FastNoiseLite.new()
+	pores.seed = sd + 2
+	pores.noise_type = FastNoiseLite.TYPE_CELLULAR
+	pores.frequency = 4.6 if type != "quartzite" else 3.0
+	pores.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	pores.cellular_jitter = 1.0
+	var fine := FastNoiseLite.new()
+	fine.seed = sd + 3
+	fine.noise_type = FastNoiseLite.TYPE_CELLULAR
+	fine.frequency = 9.0
+	fine.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	var where := FastNoiseLite.new()
+	where.seed = sd + 4
+	where.frequency = 1.3
+	var spongy := 0.6 if type == "basalt" else 0.75 if type == "ironstone" else 0.35 if type == "limestone" else 0.2
 	var cav := PackedFloat32Array()
 	cav.resize(g.v.size())
-	var ks := []
-	for k in 7:
-		ks.append([rd(rng) * ((2.0 + rng.next() * 4.0) * (1.0 + k * 0.6)), rng.next() * 6.3, 0.14 / (1.0 + k * 0.7)])
-	var pores := []
-	for k in (25 if type == "quartzite" else 55):
-		pores.append([Vector3(rng.next() - 0.5, rng.next() * 0.9 - 0.2, rng.next() - 0.5).normalized(), 0.05 + rng.next() * 0.11, 0.06 + rng.next() * 0.14])
 	for i in g.v.size():
-		var p := g.v[i]
-		var u := p.normalized()
-		var n := 0.0
-		for kq in ks:
-			n += sin(p.dot(kq[0]) + kq[1]) * kq[2]
-		var pit := 0.0
-		for pp in pores:
-			var dd := u.distance_to(pp[0])
-			if dd < pp[1]:
-				pit = maxf(pit, pp[2] * (1.0 - (dd / pp[1]) * (dd / pp[1])))
-		g.v[i] = p * (1.0 + n - pit)
-		cav[i] = pit * 5.0 + maxf(0.0, -n) * 2.0
+		var u := g.v[i]
+		var p := u * 0.62
+		var f := form.get_noise_3dv(p) * 0.22
+		var rd2 := ridge.get_noise_3dv(p) * 0.05
+		# pockets cluster in eroded zones; tiny pores everywhere
+		var zone := clampf(where.get_noise_3dv(p) * 1.4 + spongy, 0.0, 1.0)
+		var cd := (pores.get_noise_3dv(p) + 1.0) * 0.5
+		var pit := pow(clampf((0.44 - cd) / 0.44, 0.0, 1.0), 1.3) * 0.24 * zone
+		var fd := (fine.get_noise_3dv(p) + 1.0) * 0.5
+		var pit2 := clampf((0.3 - fd) / 0.3, 0.0, 1.0) * 0.045 * (0.3 + zone)
+		g.v[i] = u * 0.62 * (1.0 + f + rd2 - pit - pit2)
+		cav[i] = clampf(pit * 5.0 + pit2 * 12.0 + maxf(0.0, -f) * 1.6 - maxf(0.0, rd2) * 4.0, 0.0, 1.0)
 	g.scale(S[0], S[1], S[2])
 	var base := SpecMat.hsl(R.h[0] + rng.next() * R.h[1], R.s[0] + rng.next() * R.s[1], R.l[0] + rng.next() * R.l[1]).srgb_to_linear()
-	var crust := SpecMat.hsl(R.crust[0], R.crust[1], R.crust[2]).srgb_to_linear()
-	var rust := SpecMat.lin(R.rust)
 	g.col.resize(g.v.size())
 	for i in g.v.size():
-		var p := g.v[i]
-		var n := sin(p.x * 11.0 + p.z * 7.0) * sin(p.y * 15.0 + p.x * 4.0)
-		var c := base
-		if n > 0.62: c = c.lerp(crust, 0.28)
-		elif n < -0.72: c = c.lerp(rust, 0.3)
-		var f := maxf(0.25, 1.0 - cav[i] * 0.9)
-		g.col[i] = Color(c.r * f, c.g * f, c.b * f)
+		var k := clampf(1.0 - cav[i], 0.06, 1.0)
+		g.col[i] = Color(k, k, k)
 	var top := []
 	var ymax: float = S[1] * 0.62
-	for i in range(0, g.v.size(), 3):
+	for i in g.v.size():
 		if g.v[i].y > ymax * 0.25:
 			top.append(g.v[i])
 	return {geo = g, top = top, scale = Vector3(S[0], S[1], S[2]), base = base, rough = 0.7 if type == "quartzite" else 0.96}
