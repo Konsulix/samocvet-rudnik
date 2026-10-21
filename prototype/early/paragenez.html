@@ -1,0 +1,934 @@
+<title>Парагенезис</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: an expedition logbook in deep-sea darkness — camp (map, boxes, collection, journal) and the run table: goal, tools, scoring panel, played row, hand fan */
+:root{
+  --bg:#0a1316; --fog:#10202a; --surface:#132630; --raise:#1a3240; --line:#264252;
+  --fg:#e4ddcc; --muted:#8fa3a8; --lamp:#e3a857; --anom:#7fe0c8; --danger:#e2604a;
+  --paper:#d9ccb0; --paper2:#c9b994; --ink:#2a2218; --ink2:#6a5a42;
+  --chips:#3fa9c9; --mult:#e2734a;
+  --display:'Old Standard TT', 'Times New Roman', Georgia, serif;
+  --body:'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, Consolas, monospace;
+  color-scheme:dark;
+}
+html{background:var(--bg);color:var(--fg)}
+body{background:radial-gradient(ellipse at 50% -10%, rgba(127,224,200,.08), transparent 55%), radial-gradient(ellipse at 50% 120%, rgba(227,168,87,.08), transparent 55%), var(--bg);
+  color:var(--fg);min-height:100%;font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+img{max-width:100%}
+.app{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:10px 28px;display:flex;flex-direction:column;gap:10px}
+.muted{color:var(--muted)}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0}
+
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.brand{font-family:var(--display);font-weight:700;font-size:22px;color:var(--lamp);letter-spacing:.02em}
+.brand small{display:block;font-family:var(--body);font-weight:400;font-size:11px;color:var(--muted);letter-spacing:.04em}
+.top-r{display:flex;gap:8px;align-items:center}
+.pill{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--fg);background:var(--surface);white-space:nowrap}
+.icon-btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:8px 0;font-size:13px;font-weight:500;color:var(--muted);position:relative}
+.tabs button.on{background:var(--raise);color:var(--fg)}
+.tabs .dot{position:absolute;top:1px;right:3px;min-width:16px;height:16px;border-radius:8px;background:var(--lamp);color:#1b130b;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 3px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.sec-h h2{font-family:var(--body);font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500}
+.btn{background:var(--lamp);color:#1b130b;border:0;border-radius:10px;padding:12px;font-weight:600}
+.btn:disabled{opacity:.4;cursor:default}
+.btn small{display:block;font-weight:400;font-size:12px;opacity:.8}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:500}
+.ghost:disabled{opacity:.4;cursor:default}
+.buy{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.buy:disabled{opacity:.4;cursor:default}
+.empty{margin:0;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:14px;color:var(--muted);font-size:14px}
+.fx-in{animation:fxin .45s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i, 0) * 45ms)}
+@keyframes fxin{from{opacity:0;transform:translateY(10px)}}
+
+/* expedition map */
+.hero{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:2.3;background:#0d1a1f url(../web/img/key_art.webp) center 45% / cover;border:1px solid var(--line)}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(10,19,22,.1), rgba(10,19,22,.9))}
+.hero div{position:absolute;left:14px;right:14px;bottom:10px;z-index:1}
+.hero b{font-family:var(--display);font-size:19px;display:block}
+.hero span{font-size:12.5px;color:#c8d2cf}
+.route{display:flex;flex-direction:column;gap:0;position:relative}
+.node{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:stretch}
+.node .pin{display:flex;flex-direction:column;align-items:center}
+.node .pin i{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);background:var(--bg);margin-top:16px;flex:none}
+.node .pin u{flex:1;width:2px;background:var(--line);text-decoration:none}
+.node:last-child .pin u{display:none}
+.node.done .pin i{background:var(--lamp);border-color:var(--lamp)}
+.node.open .pin i{border-color:var(--lamp);box-shadow:0 0 12px var(--lamp)}
+.exp{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
+.node.locked .exp{opacity:.5}
+.exp-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.exp-h b{font-family:var(--display);font-size:18px}
+.exp-h span{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.exp p{margin:0;font-size:13px;color:var(--muted)}
+.minis{display:flex;flex-wrap:wrap;gap:3px}
+.minis img{width:24px;height:24px;object-fit:contain}
+.equip{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.eslot{aspect-ratio:3/4;border-radius:8px;border:1px dashed var(--line);display:grid;place-items:center;font-size:11px;color:var(--muted);background:var(--surface);position:relative;overflow:hidden}
+.eslot img{width:80%;height:70%;object-fit:contain}
+.eslot.lock{opacity:.35}
+.eslot b{position:absolute;top:2px;right:4px;font-family:var(--mono);font-size:10px;color:var(--gc)}
+
+/* cards */
+.card{--cw:62px;width:var(--cw);aspect-ratio:5/7;flex:none;border:0;padding:0;border-radius:7px;position:relative;
+  background:linear-gradient(160deg, var(--paper), var(--paper2));color:var(--ink);box-shadow:0 4px 10px rgba(0,0,0,.45), inset 0 0 0 1px rgba(0,0,0,.15);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .16s cubic-bezier(.2,.8,.3,1), box-shadow .16s;overflow:hidden}
+.card::before{content:"";position:absolute;inset:3px;border:1px solid rgba(42,34,24,.25);border-radius:5px;pointer-events:none}
+.card img{width:82%;height:52%;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4));margin-top:8%}
+.card .ch{position:absolute;top:3px;left:5px;display:flex;flex-direction:column;align-items:center;line-height:1}
+.card .ch b{font-family:var(--display);font-weight:700;font-size:calc(var(--cw) * .3)}
+.card .ch i{font-style:normal;font-size:calc(var(--cw) * .2);color:var(--sc)}
+.card .cg{position:absolute;top:3px;right:4px;font-family:var(--mono);font-weight:700;font-size:calc(var(--cw) * .15);color:#fff;background:var(--gc);border-radius:3px;padding:0 3px}
+.card .cn{font-size:calc(var(--cw) * .135);font-weight:600;line-height:1.05;text-align:center;padding:0 3px;margin-top:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .cf{position:absolute;bottom:2px;right:4px;font-size:calc(var(--cw) * .15);color:#7a2fd0;letter-spacing:.05em}
+.card.spec{box-shadow:0 4px 10px rgba(0,0,0,.45), 0 0 0 2px var(--gc, var(--lamp))}
+.card.r3,.card.r4{background:linear-gradient(160deg, #e9dcb8, #d7bf86)}
+.card.sel{transform:translateY(-16px);box-shadow:0 10px 18px rgba(0,0,0,.5), 0 0 0 2px var(--lamp), 0 0 18px rgba(227,168,87,.5)}
+.card.fire{animation:cpop .3s}
+@keyframes cpop{50%{transform:translateY(-10px) scale(1.12)}}
+.card.dim{opacity:.4}
+.hand{display:flex;justify-content:center;padding-top:20px;min-height:calc(var(--cw) * 1.4 + 24px);--cw:min(62px, calc((min(100vw, 480px) - 32px) / (var(--n, 8) * .8 + .2)))}
+.hand .card{--cw:inherit;margin-left:calc(var(--cw) * -.2)}
+.hand .card:first-child{margin-left:0}
+.played{display:flex;justify-content:center;gap:6px;min-height:100px;align-items:center;--cw:58px}
+.played .card{--cw:inherit;animation:fly .3s cubic-bezier(.2,.8,.3,1) both}
+@keyframes fly{from{transform:translateY(60px) scale(.8);opacity:0}}
+
+/* run */
+.runhead{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:end}
+.runhead .t{font-family:var(--display);font-size:18px;line-height:1.1}
+.runhead .s{font-size:12px;color:var(--muted);grid-column:1/-1}
+.runhead .boss{color:var(--anom)}
+.goal{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.goal .lab{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.goal .tg{font-family:var(--mono);font-weight:700;font-size:16px;color:var(--danger);text-align:right}
+.goal .sc{font-family:var(--mono);font-weight:700;font-size:20px;text-align:right}
+.gbar{grid-column:1/-1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.gbar i{display:block;height:100%;background:linear-gradient(90deg, var(--chips), var(--lamp));transition:width .4s}
+.res{display:flex;gap:6px;justify-content:space-between;font-size:12.5px}
+.res span{display:flex;align-items:center;gap:5px}
+.res b{font-family:var(--mono);font-size:14px}
+.res .pl b{color:var(--chips)}
+.res .di b{color:var(--mult)}
+.res .mo b{color:var(--lamp)}
+.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;min-height:62px}
+.tool{border:1px solid var(--line);background:linear-gradient(170deg, #1d3846, #10232c);border-radius:8px;padding:5px 4px;font-size:10.5px;line-height:1.15;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:2px;border-top:3px solid var(--tc);position:relative;min-height:58px}
+.tool b{font-family:var(--display);font-size:11.5px;font-weight:700;color:var(--fg)}
+.tool.fire{animation:tshake .35s}
+@keyframes tshake{25%{transform:rotate(-4deg) scale(1.08)}75%{transform:rotate(4deg) scale(1.08)}}
+.tool.slot{border-style:dashed;border-top-width:1px;background:transparent;color:#3c5866}
+.calc{background:var(--fog);border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.hname{font-family:var(--display);font-size:17px;min-height:1.3em;text-align:center}
+.hname small{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:6px}
+.cm{display:flex;align-items:center;gap:8px}
+.cm span{font-family:var(--mono);font-weight:700;font-size:22px;min-width:92px;text-align:center;border-radius:8px;padding:4px 8px}
+.cm .chips{background:var(--chips);color:#06232c}
+.cm .mult{background:var(--mult);color:#2a0d04}
+.cm .x{min-width:0;padding:0;font-size:18px;color:var(--muted)}
+.cm span.bump{animation:bump .2s}
+@keyframes bump{50%{transform:scale(1.15)}}
+.total{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--lamp);min-height:1.3em}
+.total.big{font-size:22px;text-shadow:0 0 18px rgba(227,168,87,.7)}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acts .play{background:var(--chips);color:#06232c}
+.acts .disc{background:var(--mult);color:#2a0d04;border:0}
+.sorts{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+.sorts button{background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:12px;color:var(--muted)}
+.float{position:fixed;z-index:46;pointer-events:none;font-family:var(--mono);font-weight:700;font-size:15px;color:var(--fc);text-shadow:0 2px 6px #000;animation:float .9s ease-out forwards;transform:translate(-50%,-50%);white-space:nowrap}
+@keyframes float{to{margin-top:-42px;opacity:0}}
+
+/* shop */
+.shop{display:flex;flex-direction:column;gap:10px}
+.shop-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ware{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px;border-top:3px solid var(--tc)}
+.ware b{font-family:var(--display);font-size:15px}
+.ware p{margin:0;font-size:12.5px;color:var(--muted);flex:1}
+.ware .kind{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--tc)}
+.ware.sold{opacity:.4}
+.pay{background:var(--fog);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.pay div{display:flex;justify-content:space-between}
+.pay b{font-family:var(--mono);color:var(--lamp)}
+
+/* collection */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.spc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px;border-bottom:3px solid var(--rc);position:relative}
+.spc img{width:62px;height:62px;object-fit:contain}
+.spc .n{font-size:12px;font-weight:600;line-height:1.2}
+.spc .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.spc .eq{position:absolute;top:4px;left:6px;font-size:10px;color:var(--lamp);font-weight:700}
+.spc.lock img{filter:brightness(0) opacity(.45)!important}
+.boxes{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.box{background:linear-gradient(170deg, #2a1f14, #1a130c);border:1px solid #4a3620;border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.box img{width:90px;height:90px;object-fit:contain;filter:drop-shadow(0 8px 10px rgba(0,0,0,.6))}
+.box b{font-family:var(--display);font-size:15px}
+.box span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{text-align:right}
+
+/* specimen label */
+.label{background:var(--paper);color:var(--ink);border-radius:3px;padding:12px 14px 10px;box-shadow:0 10px 30px rgba(0,0,0,.5);position:relative;text-align:left}
+.label::before{content:"";position:absolute;inset:5px;border:1px solid rgba(42,34,24,.3);pointer-events:none}
+.label .no{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink2)}
+.label h3{font-size:22px;line-height:1.1;margin-top:2px}
+.label .sub{font-family:var(--display);font-style:italic;font-size:13.5px;color:var(--ink2)}
+.label .chips2{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.chip{font-size:11.5px;font-weight:600;border-radius:4px;padding:2px 7px;background:#2a2218;color:var(--paper)}
+.chip.q{background:var(--gc)}
+.label .eff{margin-top:8px;font-size:12.5px;color:var(--ink);border-top:1px solid rgba(42,34,24,.25);padding-top:6px}
+
+/* overlays */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(3,8,10,.78);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
+.panel{width:100%;max-width:480px;max-height:92%;overflow:auto;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:12px;animation:up .28s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.p-head h2{font-size:22px}
+.x{background:var(--raise);border:1px solid var(--line);border-radius:8px;width:34px;height:34px;flex:none}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.htable{display:flex;flex-direction:column;font-size:13px}
+.htable div{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.htable i{font-style:normal;font-family:var(--mono);color:var(--chips)}
+.htable u{text-decoration:none;font-family:var(--mono);color:var(--mult)}
+.stage{position:fixed;inset:0;z-index:30;background:radial-gradient(ellipse at 50% 40%, #16303a 0%, #050b0d 72%);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:calc(16px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));gap:14px;overflow:auto}
+.reel{position:relative;width:100%;max-width:440px;height:130px;overflow:hidden;border-block:1px solid var(--line);background:linear-gradient(90deg, rgba(5,11,13,.9), transparent 18%, transparent 82%, rgba(5,11,13,.9))}
+.reel::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--lamp);box-shadow:0 0 12px var(--lamp);transform:translateX(-1px);z-index:2}
+.strip{position:absolute;top:10px;left:0;display:flex;gap:6px;will-change:transform}
+.ri{width:90px;height:108px;flex:none;border-radius:8px;background:linear-gradient(170deg, #1a3240, #0e1d24);display:flex;flex-direction:column;align-items:center;justify-content:center;border-bottom:4px solid var(--rc);gap:2px}
+.ri img{width:64px;height:64px;object-fit:contain}
+.ri span{font-size:10.5px;color:var(--muted);text-align:center;line-height:1.1;padding:0 3px}
+.reveal-img{width:min(60vw,220px);aspect-ratio:1;position:relative}
+.reveal-img img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 12px 20px rgba(0,0,0,.6));animation:emerge .6s cubic-bezier(.2,1.5,.4,1)}
+@keyframes emerge{from{transform:scale(.3) rotate(-20deg);opacity:0}}
+.rays{position:absolute;inset:-25%;border-radius:50%;background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rc) 32%, transparent) 0 8deg, transparent 8deg 24deg);
+  mask:radial-gradient(circle, #000 20%, transparent 68%);-webkit-mask:radial-gradient(circle, #000 20%, transparent 68%);animation:spin 14s linear infinite;z-index:-1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fx{position:fixed;inset:0;width:100%;height:100%;z-index:45;pointer-events:none}
+.gtoasts{position:fixed;top:calc(10px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;gap:6px;width:min(420px, calc(100% - 32px));pointer-events:none}
+.gt{background:var(--raise);border:1px solid var(--lamp);border-radius:12px;padding:8px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:fxin .35s both}
+.gt b{display:block;font-weight:600}
+.gt span{font-size:12.5px;color:var(--muted)}
+
+@media (max-width:380px){.played{--cw:50px}.cm span{font-size:19px;min-width:78px}.tool{font-size:9.5px}.tool b{font-size:10.5px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Парагенезис<small>журнал экспедиций</small></div>
+    <div class="top-r"><span class="pill" id="dustTop">пыль 0</span><button type="button" class="icon-btn" id="mute" aria-label="Звук">🔊</button></div>
+  </header>
+  <section id="camp" style="display:flex;flex-direction:column;gap:10px"></section>
+  <section id="run" hidden style="display:flex;flex-direction:column;gap:8px"></section>
+</div>
+<div id="stage" class="stage" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="panel" id="panel"></div></div>
+<canvas class="fx" id="fx" aria-hidden="true"></canvas>
+<div class="gtoasts" id="gtoasts" aria-live="polite"></div>
+
+<script>
+/* ===================== data ===================== */
+const IMG = n => `../web/img/${n}.webp`;
+const SYS = {
+  cub:{n:'Кубическая', s:'■', c:'#b8452e'}, hex:{n:'Гексагональная', s:'⬢', c:'#2f7f8f'}, trig:{n:'Тригональная', s:'▲', c:'#6a4bb0'},
+  mono:{n:'Моноклинная', s:'▰', c:'#4f7a2a'}, rhomb:{n:'Ромбическая', s:'◆', c:'#a0701a'}, amorph:{n:'Аморфная', s:'●', c:'#5a6470'},
+};
+const AMETHYST = 'sepia(.5) saturate(4) hue-rotate(225deg) brightness(.95)';
+const SP = {
+  talc:{name:'Тальк', img:'gypsum', fl:'saturate(0) sepia(.25) brightness(1.05)', h:1, sys:'mono', r:0},
+  gypsum:{name:'Селенит', img:'gypsum', h:2, sys:'mono', r:0, uv:1},
+  mica:{name:'Слюда', img:'gypsum', fl:'sepia(.8) saturate(1.6) brightness(.8)', h:3, sys:'mono', r:0},
+  calcite:{name:'Кальцит', img:'quartz', fl:'sepia(.6) saturate(1.8) hue-rotate(-15deg) brightness(1.05)', h:3, sys:'trig', r:0, uv:1},
+  gold:{name:'Золото', img:'gold', h:3, sys:'cub', r:3},
+  fluorite:{name:'Флюорит', img:'fluorite', h:4, sys:'cub', r:1, uv:1},
+  malachite:{name:'Малахит', img:'malachite', h:4, sys:'mono', r:0},
+  azurite:{name:'Азурит', img:'malachite', fl:'hue-rotate(85deg) saturate(1.4)', h:4, sys:'mono', r:1},
+  apatite:{name:'Апатит', img:'beryl', fl:'hue-rotate(110deg) saturate(1.6)', h:5, sys:'hex', r:1, uv:1},
+  orthoclase:{name:'Ортоклаз', img:'quartz', fl:'sepia(.8) saturate(2) hue-rotate(-30deg) brightness(.95)', h:6, sys:'mono', r:0},
+  pyrite:{name:'Пирит', img:'gold', fl:'saturate(.45) brightness(.85) contrast(1.1)', h:6, sys:'cub', r:0},
+  opal:{name:'Опал', img:'opal', h:6, sys:'amorph', r:2, uv:1},
+  quartz:{name:'Горный хрусталь', img:'quartz', h:7, sys:'trig', r:0},
+  amethyst:{name:'Аметист', img:'quartz', fl:AMETHYST, h:7, sys:'trig', r:1},
+  garnet:{name:'Альмандин', img:'garnet', h:7, sys:'cub', r:1},
+  pyrope:{name:'Пироп', img:'garnet', fl:'saturate(1.6) brightness(1.1) hue-rotate(-8deg)', h:7, sys:'cub', r:1},
+  olivine:{name:'Оливин', img:'garnet', fl:'hue-rotate(80deg) saturate(1.4) brightness(1.15)', h:7, sys:'rhomb', r:1},
+  beryl:{name:'Берилл', img:'beryl', h:8, sys:'hex', r:1},
+  aquamarine:{name:'Аквамарин', img:'beryl', fl:'hue-rotate(130deg) saturate(1.8) brightness(1.05)', h:8, sys:'hex', r:2},
+  emerald:{name:'Изумруд', img:'beryl', fl:'hue-rotate(60deg) saturate(3) brightness(.9)', h:8, sys:'hex', r:3},
+  topaz:{name:'Топаз', img:'quartz', fl:'sepia(.6) saturate(2.4) hue-rotate(160deg) brightness(1.05)', h:8, sys:'rhomb', r:2},
+  sapphire:{name:'Сапфир', img:'corundum', h:9, sys:'trig', r:2},
+  ruby:{name:'Рубин', img:'corundum', fl:'hue-rotate(140deg) saturate(1.4)', h:9, sys:'trig', r:3, uv:1},
+  diamond:{name:'Алмаз', img:'diamond', h:10, sys:'cub', r:4, uv:1},
+};
+const SPIDS = Object.keys(SP);
+const RAR = ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный'];
+const ASSOC = [
+  {id:'peg', name:'Пегматит', set:['beryl', 'aquamarine', 'emerald', 'topaz', 'orthoclase', 'quartz', 'mica', 'garnet']},
+  {id:'kimb', name:'Кимберлит', set:['diamond', 'pyrope', 'olivine', 'garnet', 'mica', 'calcite']},
+  {id:'gold', name:'Золото-кварцевая жила', set:['gold', 'quartz', 'pyrite', 'calcite']},
+  {id:'hydro', name:'Гидротермальная жила', set:['fluorite', 'calcite', 'quartz', 'pyrite', 'amethyst']},
+  {id:'oxid', name:'Зона окисления', set:['malachite', 'azurite', 'calcite', 'gypsum']},
+  {id:'placer', name:'Россыпь самоцветов', set:['sapphire', 'ruby', 'garnet', 'topaz', 'aquamarine', 'pyrope']},
+  {id:'evap', name:'Эвапориты', set:['gypsum', 'calcite', 'talc', 'opal']},
+];
+const HANDS = {
+  high:{n:'Образец', c:5, m:1, lc:10, lm:1},
+  pair:{n:'Сросток', c:10, m:2, lc:12, lm:1},
+  two:{n:'Два сростка', c:20, m:2, lc:15, lm:1},
+  three:{n:'Друза', c:30, m:3, lc:20, lm:2},
+  para:{n:'Парагенезис', c:25, m:2, lc:15, lm:1},
+  mohs:{n:'Шкала Мооса', c:30, m:4, lc:25, lm:2},
+  sys:{n:'Сингония', c:35, m:4, lc:20, lm:2},
+  full:{n:'Жеода', c:40, m:4, lc:25, lm:2},
+  four:{n:'Гнездо', c:60, m:7, lc:30, lm:3},
+  grand:{n:'Полный парагенезис', c:100, m:8, lc:40, lm:4},
+};
+const HAND_HELP = [['high', 'старший образец'], ['pair', '2 одинаковых минерала'], ['two', 'две пары'], ['three', '3 одинаковых'], ['para', '3 разных минерала, которые растут вместе в природе'],
+  ['mohs', '5 образцов с твёрдостью подряд (например 3-4-5-6-7)'], ['sys', '5 образцов одной сингонии'], ['full', '3 одинаковых + 2 одинаковых'], ['four', '4 одинаковых'], ['grand', '5 разных минералов одной ассоциации']];
+const GR = [{n:'C', w:40, c:0, m:0}, {n:'B', w:30, c:8, m:0}, {n:'A', w:18, c:18, m:1}, {n:'AA', w:9, c:35, m:2}, {n:'AAA', w:3, c:70, m:4}];
+const GR_C = ['#7a7060', '#4e6b8a', '#3f8a3a', '#2f6fc4', '#c27a00'];
+const FEAT = {
+  twin:{n:'Двойник', ic:'Ⅱ', d:'срабатывает дважды', p:.07},
+  scepter:{n:'Скипетр', ic:'♛', d:'+5 множ.', p:.03, only:['quartz', 'amethyst', 'calcite']},
+  phantom:{n:'Фантом', ic:'◌', d:'×1,5 множ.', p:.04, only:['quartz', 'amethyst', 'fluorite', 'calcite', 'apatite']},
+  incl:{n:'Включения', ic:'∴', d:'+25 фишек', p:.06},
+  perfect:{n:'Без повреждений', ic:'✧', d:'фишки образца ×2', p:.05},
+  giant:{n:'Гигант', ic:'▲', d:'+60 фишек', p:.02},
+  mini:{n:'Миниатюра', ic:'▼', d:'+4 множ.', p:.02},
+};
+// tools are the jokers of the expedition
+const TOOLS = {
+  hammer:{n:'Геологический молоток', d:'+4 множ.', r:0, p:4},
+  pick:{n:'Кайло', d:'+30 фишек', r:0, p:4},
+  sieve:{n:'Сито', d:'+2 сброса на пласт', r:0, p:4},
+  map:{n:'Карта месторождения', d:'Сросток, Друза, Гнездо: +8 множ.', r:0, p:5},
+  loupe:{n:'Лупа', d:'Тригональные: +3 множ. каждый', r:0, p:5},
+  brush:{n:'Мягкая кисть', d:'Твёрдость ≤ 4: +15 фишек каждый', r:0, p:5},
+  saw:{n:'Алмазная пила', d:'Твёрдость ≥ 8: +25 фишек каждый', r:1, p:6},
+  uv:{n:'УФ-лампа', d:'Флюоресцирующие: +6 множ. каждый', r:1, p:6},
+  mohsref:{n:'Справочник Мооса', d:'Шкала Мооса: ×2 множ.', r:1, p:6},
+  compass:{n:'Горный компас', d:'Сингония: ×2 множ.', r:1, p:6},
+  core:{n:'Керн', d:'+2 множ. за каждый пройденный пласт', r:1, p:6},
+  helmet:{n:'Счастливая каска', d:'1 из 4: ×4 множ.', r:1, p:5},
+  crystal:{n:'Кристаллограф', d:'+3 множ. за каждую разную сингонию в розыгрыше', r:1, p:6},
+  fever:{n:'Золотая лихорадка', d:'Золото и пирит: ×1,5 множ. каждый', r:1, p:6},
+  backpack:{n:'Рюкзак', d:'+1 карта в руке', r:1, p:6},
+  journal:{n:'Полевой журнал', d:'+1 розыгрыш на пласт', r:2, p:7},
+  oldgeo:{n:'Старый геолог', d:'Парагенезис и полный парагенезис: ×3 множ.', r:2, p:8},
+  whisper:{n:'Шёпот глубины', d:'×3 множ., но −1 карта в руке', r:3, p:10},
+};
+const TOOL_C = ['#8fa3a8', '#3fa9c9', '#c690ff', '#7fe0c8'];
+const BOSSES = {
+  flood:{n:'Подтопление', d:'Моноклинные образцы не дают фишек'},
+  magnet:{n:'Магнитная аномалия', d:'Кубические образцы не дают фишек'},
+  collapse:{n:'Обвал', d:'−1 розыгрыш'},
+  frost:{n:'Вечная мерзлота', d:'Итоговый множитель вдвое меньше'},
+  narrow:{n:'Узкий забой', d:'−2 карты в руке'},
+  fog:{n:'Туман', d:'Сбрасывать нельзя'},
+};
+const EXPS = [
+  {id:'ural', name:'Уральские копи', place:'Мурзинка, Средний Урал', diff:1, hint:'Пегматиты и зона окисления меди. Учебная экспедиция.',
+    deck:{talc:2, gypsum:2, mica:2, calcite:2, malachite:2, azurite:2, fluorite:2, apatite:2, orthoclase:2, quartz:3, amethyst:2, garnet:2, beryl:2, topaz:1, emerald:1}},
+  {id:'derby', name:'Жилы Дербишира', place:'Каслтон, Англия', diff:1.6, hint:'Гидротермальные жилы: флюорит, кальцит, пирит, редкое золото.',
+    deck:{gypsum:2, calcite:3, fluorite:3, pyrite:3, quartz:3, amethyst:2, gold:1, malachite:2, azurite:1, talc:1, mica:1, orthoclase:2, apatite:1}},
+  {id:'naica', name:'Пещера Наика', place:'Чиуауа, Мексика', diff:2.4, hint:'Эвапориты и гигантский селенит. Много низкой твёрдости.',
+    deck:{gypsum:4, calcite:3, fluorite:2, pyrite:2, quartz:3, gold:1, talc:2, mica:2, orthoclase:2, apatite:2, opal:1, topaz:1}},
+  {id:'ratna', name:'Россыпи Ратнапуры', place:'Шри-Ланка', diff:3.4, hint:'Самоцветные россыпи: сапфир, рубин, топаз, гранаты.',
+    deck:{sapphire:2, ruby:1, garnet:3, pyrope:2, topaz:2, aquamarine:2, quartz:3, mica:2, orthoclase:2, apatite:2, olivine:2, talc:1, calcite:1}},
+  {id:'mir', name:'Трубка «Мир»', place:'Якутия', diff:4.8, hint:'Кимберлит. Алмазы редки, но парагенезис здесь сильнее всего.',
+    deck:{diamond:1, pyrope:3, olivine:3, garnet:2, mica:3, calcite:3, talc:2, gypsum:1, quartz:2, apatite:1, orthoclase:2, sapphire:1, fluorite:1}},
+];
+const EXPM = Object.fromEntries(EXPS.map(e => [e.id, e]));
+const CS = ['#b0c3d9', '#4b69ff', '#8847ff', '#d32ce6', '#eb4b4b', '#e4ae39'];
+
+/* ===================== utils & save ===================== */
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const fmt = n => Math.round(n).toLocaleString('ru-RU');
+const fx2 = x => (Math.round(x * 10) / 10).toString().replace('.', ',');
+function pickW(entries){ let t = entries.reduce((s, e) => s + e[1], 0), r = Math.random() * t; for (const e of entries) { if ((r -= e[1]) <= 0) return e[0]; } return entries[entries.length - 1][0]; }
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function plural(n, a, b, c){ const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; }
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+let fastMode = false;
+const sleep = ms => new Promise(r => setTimeout(r, fastMode ? Math.min(ms, 40) : ms));
+const imgTag = (sid, extra = '') => { const s = SP[sid]; return `<img src="${IMG(s.img)}" alt="" style="${s.fl ? 'filter:' + s.fl + ';' : ''}${extra}">`; };
+
+const BLANK = () => ({dust:0, specs:[], equip:[], slots:3, boxes:{ural:3}, daily:'', prog:{}, seen:{}, uid:0, st:{runs:0, wins:0, best:0, opened:0}, run:null, help:false, mute:false});
+function load(){ try { const s = JSON.parse(localStorage.getItem('paragenez-v1') || 'null'); return s ? Object.assign(BLANK(), s) : BLANK(); } catch (e) { return BLANK(); } }
+function persist(){ try { localStorage.setItem('paragenez-v1', JSON.stringify(save)); } catch (e) {} }
+let save = load();
+const nid = () => ++save.uid;
+
+/* ===================== sound & particles ===================== */
+let AC;
+function ac(){ if (save.mute) return null; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch (e) { return null; } }
+function noise(dur, freq, vol, type = 'lowpass'){
+  const a = ac(); if (!a) return;
+  const b = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const s = a.createBufferSource(); s.buffer = b;
+  const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+function tone(freq, at, dur, vol, type = 'sine'){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+let chipStep = 0;
+const SFX = {
+  sel(){ tone(660, 0, .06, .05, 'triangle'); },
+  desel(){ tone(440, 0, .06, .04, 'triangle'); },
+  deal(){ noise(.05, 3000, .12, 'highpass'); },
+  chip(){ tone(520 * Math.pow(2, (chipStep++ % 12) / 12), 0, .12, .07, 'triangle'); },
+  mult(){ tone(330, 0, .14, .08, 'square'); tone(495, .04, .14, .05, 'square'); },
+  xmult(){ [392, 523, 784].forEach((f, k) => tone(f, k * .04, .25, .07, 'sawtooth')); buzz(25); },
+  total(big){ noise(.3, 900, .3); [523, 659, 784, 1047].slice(0, big ? 4 : 2).forEach((f, k) => tone(f, k * .07, .4, .08, 'triangle')); if (big) buzz([40, 30, 60]); },
+  win(){ [392, 523, 659, 784, 1047].forEach((f, k) => tone(f, k * .09, .6, .09, 'triangle')); },
+  lose(){ [392, 330, 262, 196].forEach((f, k) => tone(f, k * .15, .5, .08, 'triangle')); noise(1, 200, .4); },
+  coin(){ tone(1568, 0, .1, .08, 'square'); tone(2093, .07, .16, .07, 'square'); },
+  tick(){ tone(1400, 0, .025, .04, 'square'); },
+  reveal(t){ const steps = [0, 4, 7, 12, 16, 19, 24]; for (let k = 0; k < 3 + t; k++) tone(392 * Math.pow(2, steps[Math.min(6, k)] / 12), k * .08, .6, .09, 'triangle'); if (t >= 3) buzz([60, 40, 120]); },
+  boss(){ tone(70, 0, 1.4, .18, 'sawtooth'); noise(1, 160, .3); },
+};
+const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const fxc = $('#fx');
+let fxx = null;
+try { fxx = fxc.getContext('2d'); } catch (e) {}
+let parts = [], fxRun = false;
+function fxSize(){ if (!fxx) return; const dpr = Math.min(2, window.devicePixelRatio || 1); fxc.width = innerWidth * dpr; fxc.height = innerHeight * dpr; fxx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+fxSize(); addEventListener('resize', fxSize);
+function burst(x, y, o){
+  if (!fxx || RM) return;
+  for (let i = 0; i < o.n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = (o.speed || 3) * (.35 + Math.random() * .9);
+    parts.push({x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp, g:o.grav === undefined ? .05 : o.grav, life:0, max:(o.life || 45) * (.6 + Math.random() * .6), s:(o.size || 3) * (.5 + Math.random()), c:o.colors[i % o.colors.length], rot:Math.random() * 6});
+  }
+  if (!fxRun) { fxRun = true; requestAnimationFrame(fxTick); }
+}
+function fxTick(){
+  fxx.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter(p => p.life < p.max);
+  for (const p of parts) {
+    p.life++; p.vx *= .985; p.vy = p.vy * .985 + p.g; p.x += p.vx; p.y += p.vy; p.rot += .1;
+    const t = 1 - p.life / p.max, sz = p.s * (.6 + t * .6);
+    fxx.globalAlpha = Math.min(1, t * 1.6); fxx.fillStyle = p.c;
+    fxx.save(); fxx.translate(p.x, p.y); fxx.rotate(p.rot); fxx.beginPath();
+    for (let i = 0; i < 8; i++) { const r = i % 2 ? sz * .35 : sz * 1.6, a = i * Math.PI / 4; fxx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    fxx.closePath(); fxx.fill(); fxx.restore();
+  }
+  fxx.globalAlpha = 1;
+  if (parts.length) requestAnimationFrame(fxTick); else { fxRun = false; fxx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+const elXY = el => { const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; };
+function floatAt(el, text, color){
+  if (!el) return;
+  const [x, y] = elXY(el), f = document.createElement('div');
+  f.className = 'float'; f.textContent = text; f.style.left = x + 'px'; f.style.top = (y - 20) + 'px'; f.style.setProperty('--fc', color);
+  document.body.appendChild(f); setTimeout(() => f.remove(), 900);
+}
+const anim = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+function gtoast(t, s){ const el = document.createElement('div'); el.className = 'gt'; el.innerHTML = `<b>${t}</b>${s ? `<span>${s}</span>` : ''}`; $('#gtoasts').appendChild(el); setTimeout(() => el.remove(), 3600); }
+function tween(from, to, dur, cb){
+  if (RM || fastMode || dur <= 0 || !window.requestAnimationFrame) { cb(to); return Promise.resolve(); }
+  const t0 = performance.now();
+  return new Promise(res => { const step = now => { const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3); cb(from + (to - from) * e); if (t < 1) requestAnimationFrame(step); else res(); }; requestAnimationFrame(step); });
+}
+
+/* ===================== specimens (collection) ===================== */
+function rollSpecimen(expId){
+  const e = EXPM[expId], ids = Object.keys(e.deck);
+  const sid = pickW(ids.map(id => [id, [50, 26, 12, 5, 1.6][SP[id].r]]));
+  const gi = pickW(GR.map((g, k) => [k, g.w]));
+  const feats = Object.entries(FEAT).filter(([f, d]) => (!d.only || d.only.includes(sid)) && Math.random() < d.p).map(([f]) => f);
+  if (feats.includes('giant') && feats.includes('mini')) feats.splice(feats.indexOf('mini'), 1);
+  return {id:nid(), sid, gi, feats, from:expId};
+}
+const specTier = s => Math.min(5, SP[s.sid].r + (s.gi >= 3 ? 1 : 0) + (s.gi === 4 ? 1 : 0) + s.feats.length);
+const specRarity = s => {
+  const e = EXPM[s.from], ids = Object.keys(e.deck), tw = ids.reduce((t, id) => t + [50, 26, 12, 5, 1.6][SP[id].r], 0);
+  let p = [50, 26, 12, 5, 1.6][SP[s.sid].r] / tw * GR[s.gi].w / 100;
+  for (const f of s.feats) p *= FEAT[f].p;
+  return 1 / p;
+};
+const oneIn = n => `1 из ${fmt(n < 100 ? Math.round(n) : n < 10000 ? Math.round(n / 10) * 10 : Math.round(n / 1000) * 1000)}`;
+const dustOf = s => [4, 10, 25, 60, 150, 400][specTier(s)];
+function specEffect(s){
+  const g = GR[s.gi], parts = [];
+  if (g.c) parts.push(`+${g.c} фишек`); if (g.m) parts.push(`+${g.m} множ.`);
+  for (const f of s.feats) parts.push(`${FEAT[f].n.toLowerCase()}: ${FEAT[f].d}`);
+  return parts.length ? parts.join(' · ') : 'без бонусов: обычный полевой образец';
+}
+function labelHTML(s){
+  const sp = SP[s.sid];
+  return `<div class="label"><div class="no"><span>№ ${String(s.id).padStart(5, '0')}</span><span>${RAR[sp.r].toLowerCase()}</span></div>
+    <h3>${sp.name}</h3><div class="sub">${EXPM[s.from].place} · твёрдость ${sp.h} · ${SYS[sp.sys].n.toLowerCase()}</div>
+    <div class="chips2"><span class="chip q" style="--gc:${GR_C[s.gi]}">качество ${GR[s.gi].n}</span>${s.feats.map(f => `<span class="chip">${FEAT[f].ic} ${FEAT[f].n}</span>`).join('')}</div>
+    <div class="eff">В экспедиции: ${specEffect(s)}. Редкость ${oneIn(specRarity(s))}.</div></div>`;
+}
+
+/* ===================== run ===================== */
+let S = save.run, sel = [], busy = false;
+const cardOf = (sid, spec) => ({u:nid(), sid, gi:spec ? spec.gi : -1, feats:spec ? spec.feats.slice() : [], spec:spec ? spec.id : null});
+const hasTool = id => S.tools.includes(id);
+const handSize = () => 8 + (hasTool('backpack') ? 1 : 0) - (hasTool('whisper') ? 1 : 0) - (S.boss === 'narrow' ? 2 : 0);
+const target = () => Math.round([240, 800, 2200][S.h - 1] * [1, 1.5, 2][S.s] * EXPM[S.exp].diff / 10) * 10;
+const stratumName = () => S.s === 2 ? (S.boss ? `Аномалия: ${BOSSES[S.boss].n}` : 'Аномалия горизонта') : `Пласт ${S.s + 1}`;
+const strataPassed = () => (S.h - 1) * 3 + S.s;
+
+function newRun(expId){
+  const e = EXPM[expId];
+  const deck = [];
+  for (const [sid, n] of Object.entries(e.deck)) for (let k = 0; k < n; k++) deck.push(cardOf(sid));
+  for (const id of save.equip) { const s = save.specs.find(x => x.id === id); if (s) deck.push(cardOf(s.sid, s)); }
+  S = {exp:expId, h:1, s:0, deck, draw:[], hand:[], score:0, plays:0, discards:0, money:4, tools:[], levels:{}, boss:null, phase:'play', boxes:0, best:0, shop:null, reroll:3, log:{hands:0}};
+  save.st.runs++;
+  save.run = S;
+  for (const c of deck) save.seen[c.sid] = 1;
+  startStratum();
+}
+function startStratum(){
+  S.boss = S.s === 2 ? pickW(Object.keys(BOSSES).map(b => [b, 1])) : null;
+  S.score = 0; S.phase = 'play';
+  S.plays = 4 + (hasTool('journal') ? 1 : 0) - (S.boss === 'collapse' ? 1 : 0);
+  S.discards = S.boss === 'fog' ? 0 : 3 + (hasTool('sieve') ? 2 : 0);
+  S.draw = shuffle(S.deck.map(c => c.u)); S.hand = []; sel = [];
+  deal();
+  persist(); renderRun();
+  if (S.boss) { SFX.boss(); gtoast(`Аномалия: ${BOSSES[S.boss].n}`, BOSSES[S.boss].d); }
+}
+const cardByU = u => S.deck.find(c => c.u === u);
+function deal(){
+  while (S.hand.length < handSize() && S.draw.length) S.hand.push(S.draw.pop());
+  sortHand();
+}
+let sortBy = 'h';
+function sortHand(){
+  S.hand.sort((a, b) => { const A = SP[cardByU(a).sid], B = SP[cardByU(b).sid]; return sortBy === 'h' ? B.h - A.h || A.sys.localeCompare(B.sys) : A.sys.localeCompare(B.sys) || B.h - A.h; });
+}
+
+function evaluate(cards){
+  const out = [];
+  const cnt = {};
+  cards.forEach(c => { (cnt[c.sid] = cnt[c.sid] || []).push(c); });
+  const groups = Object.values(cnt).sort((a, b) => b.length - a.length);
+  const g0 = groups[0] || [], g1 = groups[1] || [];
+  if (g0.length >= 4) out.push(['four', g0.slice(0, 4)]);
+  if (g0.length >= 3 && g1.length >= 2) out.push(['full', [...g0.slice(0, 3), ...g1.slice(0, 2)]]);
+  if (g0.length >= 3) out.push(['three', g0.slice(0, 3)]);
+  if (g0.length >= 2 && g1.length >= 2) out.push(['two', [...g0.slice(0, 2), ...g1.slice(0, 2)]]);
+  if (g0.length >= 2) out.push(['pair', g0.slice(0, 2)]);
+  if (cards.length === 5) {
+    const hs = [...new Set(cards.map(c => SP[c.sid].h))].sort((a, b) => a - b);
+    if (hs.length === 5 && hs[4] - hs[0] === 4) out.push(['mohs', cards.slice()]);
+    if (cards.every(c => SP[c.sid].sys === SP[cards[0].sid].sys)) out.push(['sys', cards.slice()]);
+  }
+  let assoc = null;
+  for (const a of ASSOC) {
+    const members = cards.filter(c => a.set.includes(c.sid)), distinct = new Set(members.map(c => c.sid)).size;
+    if (distinct >= 5) { out.push(['grand', members, a]); }
+    else if (distinct >= 3) out.push(['para', members, a]);
+  }
+  if (cards.length) out.push(['high', [cards.slice().sort((a, b) => SP[b.sid].h - SP[a.sid].h)[0]]]);
+  let best = null;
+  for (const [type, scoring, a] of out) {
+    const L = S.levels[type] || 0, H = HANDS[type], val = (H.c + L * H.lc) * (H.m + L * H.lm);
+    if (!best || val > best.val) best = {type, scoring, assoc:a, val};
+  }
+  return best;
+}
+function handLabel(ev){ if (!ev) return 'Выберите до 5 образцов'; const L = S.levels[ev.type] || 0; return `${HANDS[ev.type].n}${ev.assoc ? ': ' + ev.assoc.name.toLowerCase() : ''}<small>ур. ${L + 1}</small>`; }
+const baseOf = ev => { const L = S.levels[ev.type] || 0, H = HANDS[ev.type]; return [H.c + L * H.lc, H.m + L * H.lm]; };
+function cardChips(c){
+  const sp = SP[c.sid];
+  if ((S.boss === 'flood' && sp.sys === 'mono') || (S.boss === 'magnet' && sp.sys === 'cub')) return 0;
+  let v = 2 + sp.h * 2 + [0, 0, 5, 10, 20][sp.r] + (c.gi >= 0 ? GR[c.gi].c : 0);
+  if (c.feats.includes('perfect')) v *= 2;
+  if (c.feats.includes('incl')) v += 25;
+  if (c.feats.includes('giant')) v += 60;
+  return v;
+}
+
+async function play(){
+  if (busy || !sel.length || S.phase !== 'play' || S.plays <= 0) return;
+  busy = true; chipStep = 0;
+  const cards = sel.map(cardByU);
+  S.hand = S.hand.filter(u => !sel.includes(u)); sel = [];
+  S.plays--;
+  const ev = evaluate(cards);
+  let [chips, mult] = baseOf(ev);
+  renderRun(cards, ev);
+  const elC = $('#chips'), elM = $('#mult'), elT = $('#total');
+  const setCM = () => { elC.textContent = fmt(chips); elM.textContent = fx2(mult); };
+  setCM();
+  await sleep(350);
+  const scoring = new Set(ev.scoring.map(c => c.u));
+  cards.forEach(c => { if (!scoring.has(c.u)) document.querySelector(`#played [data-u="${c.u}"]`).classList.add('dim'); });
+  const toolEl = id => document.querySelector(`#tools [data-tool="${id}"]`);
+  const addC = async (v, el, src) => { if (!v) return; chips += v; setCM(); anim(elC, 'bump'); SFX.chip(); floatAt(el, `+${fmt(v)}`, 'var(--chips)'); if (src) anim(src, 'fire'); await sleep(170); };
+  const addM = async (v, el, src) => { if (!v) return; mult += v; setCM(); anim(elM, 'bump'); SFX.mult(); floatAt(el, `+${fx2(v)} множ.`, 'var(--mult)'); if (src) anim(src, 'fire'); await sleep(170); };
+  const mulM = async (v, el, src) => { mult *= v; setCM(); anim(elM, 'bump'); SFX.xmult(); floatAt(el, `×${fx2(v)}`, 'var(--mult)'); if (src) anim(src, 'fire'); await sleep(220); };
+  for (const c of ev.scoring) {
+    const el = document.querySelector(`#played [data-u="${c.u}"]`), sp = SP[c.sid];
+    for (let rep = 0; rep < (c.feats.includes('twin') ? 2 : 1); rep++) {
+      anim(el, 'fire');
+      await addC(cardChips(c), el);
+      if (c.gi >= 0 && GR[c.gi].m) await addM(GR[c.gi].m, el);
+      if (c.feats.includes('scepter')) await addM(5, el);
+      if (c.feats.includes('mini')) await addM(4, el);
+      if (c.feats.includes('phantom')) await mulM(1.5, el);
+      if (hasTool('loupe') && sp.sys === 'trig') await addM(3, el, toolEl('loupe'));
+      if (hasTool('brush') && sp.h <= 4) await addC(15, el, toolEl('brush'));
+      if (hasTool('saw') && sp.h >= 8) await addC(25, el, toolEl('saw'));
+      if (hasTool('uv') && sp.uv) await addM(6, el, toolEl('uv'));
+      if (hasTool('fever') && (c.sid === 'gold' || c.sid === 'pyrite')) await mulM(1.5, el, toolEl('fever'));
+    }
+  }
+  for (const id of S.tools) {
+    const el = toolEl(id);
+    if (id === 'hammer') await addM(4, el, el);
+    if (id === 'pick') await addC(30, el, el);
+    if (id === 'map' && ['pair', 'three', 'four'].includes(ev.type)) await addM(8, el, el);
+    if (id === 'core' && strataPassed()) await addM(2 * strataPassed(), el, el);
+    if (id === 'crystal') await addM(3 * new Set(cards.map(c => SP[c.sid].sys)).size, el, el);
+    if (id === 'mohsref' && ev.type === 'mohs') await mulM(2, el, el);
+    if (id === 'compass' && ev.type === 'sys') await mulM(2, el, el);
+    if (id === 'oldgeo' && (ev.type === 'para' || ev.type === 'grand')) await mulM(3, el, el);
+    if (id === 'helmet' && Math.random() < .25) await mulM(4, el, el);
+    if (id === 'whisper') await mulM(3, el, el);
+  }
+  if (S.boss === 'frost') { mult /= 2; setCM(); floatAt(elM, '÷2 мерзлота', 'var(--anom)'); await sleep(250); }
+  const total = Math.floor(chips * mult);
+  const big = total >= target() * .5;
+  SFX.total(big);
+  elT.classList.toggle('big', big);
+  await tween(0, total, 600, v => { elT.textContent = '= ' + fmt(v); });
+  if (big) { const [x, y] = elXY(elT); burst(x, y, {n:40, colors:['#e3a857', '#fff1c0', '#e2734a'], speed:5, size:3.5}); }
+  const from = S.score;
+  S.score += total; S.best = Math.max(S.best, total); S.log.hands++;
+  if (total > save.st.best) { save.st.best = total; if (S.log.hands > 1 || save.st.runs > 1) gtoast('Рекорд розыгрыша', `${fmt(total)} очков`); }
+  await tween(from, S.score, 500, v => { $('#scoreNow').textContent = fmt(v); $('#gbar').style.width = Math.min(100, v / target() * 100) + '%'; });
+  await sleep(500);
+  busy = false;
+  if (S.score >= target()) return winStratum();
+  if (S.plays <= 0) return loseRun();
+  deal(); persist(); renderRun();
+}
+function discard(){
+  if (busy || !sel.length || S.discards <= 0 || S.phase !== 'play') return;
+  S.discards--; S.hand = S.hand.filter(u => !sel.includes(u)); sel = [];
+  SFX.deal(); deal(); persist(); renderRun();
+}
+
+function winStratum(){
+  SFX.win();
+  const base = [3, 4, 5][S.s], left = S.plays, interest = Math.min(5, Math.floor(S.money / 5));
+  S.money += base + left + interest;
+  S.payout = {base, left, interest};
+  S.boss = null;
+  const ep = save.prog[S.exp] || {best:0, wins:0};
+  ep.best = Math.max(ep.best, strataPassed() + 1); save.prog[S.exp] = ep;
+  if (S.s === 2) {
+    S.boxes++; save.boxes[S.exp] = (save.boxes[S.exp] || 0) + 1;
+    if (S.h === 3) {
+      ep.wins++; save.st.wins++; save.boxes[S.exp]++; S.boxes++;
+      S.phase = 'won'; save.run = null; persist(); renderRun(); return;
+    }
+    S.h++; S.s = 0;
+  } else S.s++;
+  S.phase = 'shop'; S.reroll = 3; S.shop = makeShop();
+  persist(); renderRun();
+}
+function loseRun(){ SFX.lose(); S.phase = 'lost'; save.run = null; persist(); renderRun(); }
+
+function makeShop(){
+  const owned = new Set(S.tools), pool = Object.keys(TOOLS).filter(id => !owned.has(id));
+  const tools = [];
+  for (let k = 0; k < 2 && pool.length; k++) { const id = pickW(pool.filter(x => !tools.includes(x)).map(x => [x, [10, 6, 3, 1][TOOLS[x].r]])); tools.push(id); }
+  const hand = pickW(Object.keys(HANDS).filter(h => h !== 'high').map(h => [h, h === 'grand' ? .5 : 1]));
+  const sids = Object.keys(EXPM[S.exp].deck);
+  return {items:[...tools.map(id => ({k:'tool', id, price:TOOLS[id].p})), {k:'book', id:hand, price:3}, {k:'card', id:sids[ri(0, sids.length - 1)], price:3}]};
+}
+function buy(i){
+  const it = S.shop.items[i]; if (!it || it.sold || S.money < it.price) return;
+  if (it.k === 'tool' && S.tools.length >= 5) return gtoast('Нет места', 'Можно взять не больше 5 инструментов. Продайте один.');
+  S.money -= it.price; it.sold = true; SFX.coin();
+  if (it.k === 'tool') S.tools.push(it.id);
+  if (it.k === 'book') S.levels[it.id] = (S.levels[it.id] || 0) + 1;
+  if (it.k === 'card') S.deck.push(cardOf(it.id));
+  persist(); renderRun();
+}
+function reroll(){ if (S.money < S.reroll) return; S.money -= S.reroll; S.reroll++; S.shop = makeShop(); SFX.deal(); persist(); renderRun(); }
+function sellTool(id){ const t = TOOLS[id]; S.tools = S.tools.filter(x => x !== id); S.money += Math.floor(t.p / 2); SFX.coin(); closeSheet(); persist(); renderRun(); }
+
+/* ===================== run rendering ===================== */
+function cardHTML(c){
+  const sp = SP[c.sid], sy = SYS[sp.sys];
+  return `<button type="button" class="card r${sp.r}${c.spec ? ' spec' : ''}${sel.includes(c.u) ? ' sel' : ''}" data-u="${c.u}" style="--sc:${sy.c};${c.gi >= 0 ? `--gc:${GR_C[c.gi]}` : ''}" aria-label="${sp.name}, твёрдость ${sp.h}">
+    <span class="ch"><b>${sp.h}</b><i>${sy.s}</i></span>${c.gi >= 0 ? `<span class="cg">${GR[c.gi].n}</span>` : ''}
+    ${imgTag(c.sid)}<span class="cn">${sp.name}</span>${c.feats.length ? `<span class="cf">${c.feats.map(f => FEAT[f].ic).join('')}</span>` : ''}</button>`;
+}
+function toolsHTML(){
+  return Array.from({length:5}, (_, k) => { const id = S.tools[k]; if (!id) return '<div class="tool slot"></div>'; const t = TOOLS[id];
+    return `<button type="button" class="tool" data-tool="${id}" style="--tc:${TOOL_C[t.r]}"><b>${t.n}</b></button>`; }).join('');
+}
+function renderRun(played, ev){
+  $('#camp').hidden = true; $('#run').hidden = false;
+  const e = EXPM[S.exp];
+  if (S.phase === 'won' || S.phase === 'lost') return renderEnd();
+  const head = `<div class="sorts"><button type="button" data-act="leave">← Лагерь</button><span>экспедиция сохраняется</span></div><div class="runhead"><div class="t">${e.name}</div><span class="pill">₽ ${S.money}</span>
+    <div class="s">Горизонт ${S.h} из 3 · <span class="${S.boss ? 'boss' : ''}">${stratumName()}</span>${S.boss ? ` — ${BOSSES[S.boss].d.toLowerCase()}` : ''}</div></div>`;
+  if (S.phase === 'shop') {
+    const p = S.payout || {base:0, left:0, interest:0};
+    $('#run').innerHTML = `${head}
+      <div class="pay"><div><span>Пласт пройден</span><b>+${p.base} ₽</b></div><div><span>Неиспользованные розыгрыши</span><b>+${p.left} ₽</b></div><div><span>Проценты (1 ₽ за каждые 5)</span><b>+${p.interest} ₽</b></div>
+        ${S.s === 0 && S.h > 1 ? `<div><span>Горизонт пройден</span><b style="color:var(--anom)">+1 ящик</b></div>` : ''}</div>
+      <div class="sec-h"><h2>Инструменты</h2><span class="muted" style="font-size:12px">нажмите, чтобы продать</span></div>
+      <div class="tools" id="tools">${toolsHTML()}</div>
+      <div class="sec-h"><h2>Лавка экспедиции</h2><button type="button" class="buy" data-act="reroll"${S.money < S.reroll ? ' disabled' : ''}>Обновить · ${S.reroll} ₽</button></div>
+      <div class="shop-row">${S.shop.items.map((it, i) => {
+        if (it.k === 'tool') { const t = TOOLS[it.id]; return `<div class="ware${it.sold ? ' sold' : ''}" style="--tc:${TOOL_C[t.r]}"><span class="kind">инструмент · ${['обычный', 'необычный', 'редкий', 'аномалия'][t.r]}</span><b>${t.n}</b><p>${t.d}</p><button type="button" class="buy" data-buy="${i}"${it.sold || S.money < it.price ? ' disabled' : ''}>${it.sold ? 'куплено' : it.price + ' ₽'}</button></div>`; }
+        if (it.k === 'book') { const H = HANDS[it.id], L = S.levels[it.id] || 0; return `<div class="ware${it.sold ? ' sold' : ''}" style="--tc:var(--chips)"><span class="kind">монография</span><b>${H.n}</b><p>Уровень ${L + 1} → ${L + 2}: +${H.lc} фишек, +${H.lm} множ.</p><button type="button" class="buy" data-buy="${i}"${it.sold || S.money < it.price ? ' disabled' : ''}>${it.sold ? 'куплено' : it.price + ' ₽'}</button></div>`; }
+        const sp = SP[it.id]; return `<div class="ware${it.sold ? ' sold' : ''}" style="--tc:var(--lamp)"><span class="kind">образец в колоду</span><b>${sp.name}</b><p>Твёрдость ${sp.h}, ${SYS[sp.sys].n.toLowerCase()}. Ещё одна такая карта в колоде.</p><button type="button" class="buy" data-buy="${i}"${it.sold || S.money < it.price ? ' disabled' : ''}>${it.sold ? 'куплено' : it.price + ' ₽'}</button></div>`;
+      }).join('')}</div>
+      <button type="button" class="btn" data-act="next">Дальше: ${S.s === 2 ? 'аномалия горизонта' : `горизонт ${S.h}, пласт ${S.s + 1}`}<small>цель ${fmt(target())}</small></button>`;
+    return;
+  }
+  const evSel = !played && sel.length ? evaluate(sel.map(cardByU)) : null;
+  const [c0, m0] = evSel ? baseOf(evSel) : ev ? baseOf(ev) : [0, 0];
+  $('#run').innerHTML = `${head}
+    <div class="goal"><span class="lab">Цель</span><span></span><span class="tg">${fmt(target())}</span>
+      <span class="lab">Набрано</span><span></span><span class="sc" id="scoreNow">${fmt(S.score)}</span>
+      <div class="gbar"><i id="gbar" style="width:${Math.min(100, S.score / target() * 100)}%"></i></div></div>
+    <div class="res"><span class="pl">Розыгрыши <b>${S.plays}</b></span><span class="di">Сбросы <b>${S.discards}</b></span><span>Колода <b>${S.draw.length}/${S.deck.length}</b></span></div>
+    <div class="tools" id="tools">${toolsHTML()}</div>
+    <div class="calc"><div class="hname" id="hname">${handLabel(evSel || ev)}</div>
+      <div class="cm"><span class="chips" id="chips">${fmt(c0)}</span><span class="x">×</span><span class="mult" id="mult">${fx2(m0)}</span></div><div class="total" id="total"></div></div>
+    <div class="played" id="played">${played ? played.map(cardHTML).join('') : ''}</div>
+    <div class="hand" id="hand" style="--n:${Math.max(5, S.hand.length)}">${S.hand.map(u => cardHTML(cardByU(u))).join('')}</div>
+    <div class="sorts"><button type="button" data-sort="h">по твёрдости</button><span>выбрано ${sel.length}/5</span><button type="button" data-sort="sys">по сингонии</button></div>
+    <div class="acts"><button type="button" class="btn disc" data-act="discard"${!sel.length || S.discards <= 0 || busy ? ' disabled' : ''}>Сброс</button><button type="button" class="btn play" data-act="play"${!sel.length || busy ? ' disabled' : ''}>Сыграть</button></div>`;
+}
+function renderEnd(){
+  const e = EXPM[S.exp], won = S.phase === 'won';
+  $('#run').innerHTML = `<div class="hero" style="aspect-ratio:1.8"><div><b>${won ? 'Экспедиция завершена' : 'Экспедиция прервана'}</b><span>${e.name} · ${e.place}</span></div></div>
+    <div class="rows"><div class="row"><span>Пройдено пластов</span><span>${won ? 9 : strataPassed()} из 9</span></div>
+      <div class="row"><span>Лучший розыгрыш</span><span>${fmt(S.best)}</span></div>
+      <div class="row"><span>Ящиков с образцами</span><span>${S.boxes}</span></div></div>
+    ${won ? `<p class="muted" style="margin:0;font-size:14px">${EXPS[EXPS.indexOf(e) + 1] ? `Открыта новая экспедиция: ${EXPS[EXPS.indexOf(e) + 1].name}.` : 'Все экспедиции пройдены. Сложность растёт, рекорды ждут.'}</p>` : `<p class="muted" style="margin:0;font-size:14px">Не хватило ${fmt(target() - S.score)} очков. Сильные образцы из ящиков сделают колоду крепче.</p>`}
+    <button type="button" class="btn" data-act="tocamp">${S.boxes ? 'Открывать ящики' : 'В лагерь'}</button>`;
+  if (won) { const [x, y] = [innerWidth / 2, innerHeight / 3]; burst(x, y, {n:80, colors:['#e3a857', '#7fe0c8', '#fff'], speed:7, size:4}); }
+}
+
+/* ===================== camp ===================== */
+let tab = 'exp', lastTab = null;
+const boxCount = () => Object.values(save.boxes).reduce((s, n) => s + n, 0);
+const unlocked = i => i === 0 || (save.prog[EXPS[i - 1].id] || {}).wins > 0;
+function showCamp(t){
+  if (t) tab = t;
+  S = save.run;
+  $('#run').hidden = true; $('#camp').hidden = false;
+  renderCamp();
+}
+function renderTop(){ $('#dustTop').textContent = `пыль ${fmt(save.dust)}`; $('#mute').textContent = save.mute ? '🔇' : '🔊'; }
+function renderCamp(){
+  renderTop();
+  const tabs = [['exp', 'Экспедиции', 0], ['boxes', 'Ящики', boxCount() + (save.daily !== today() ? 1 : 0)], ['coll', 'Коллекция', 0], ['journal', 'Журнал', 0]];
+  let body = '';
+  if (tab === 'exp') {
+    const eq = save.equip.map(id => save.specs.find(s => s.id === id)).filter(Boolean);
+    body = `${save.run ? `<button type="button" class="btn" data-act="resume">Продолжить: ${EXPM[save.run.exp].name}<small>горизонт ${save.run.h}, пласт ${save.run.s + 1}</small></button>` : `<div class="hero"><div><b>Колода — это ваша коллекция</b><span>Образцы из ящиков идут в снаряжение и усиливают карты</span></div></div>`}
+      <div class="sec-h"><h2>Снаряжение экспедиции</h2><button type="button" class="buy" data-tab="coll">изменить</button></div>
+      <div class="equip">${Array.from({length:6}, (_, k) => { const s = eq[k]; if (k >= save.slots) return '<div class="eslot lock">🔒</div>'; return s ? `<div class="eslot" style="--gc:${GR_C[s.gi]}">${imgTag(s.sid)}<b>${GR[s.gi].n}</b></div>` : '<div class="eslot">пусто</div>'; }).join('')}</div>
+      <div class="sec-h"><h2>Маршрут</h2><span class="muted" style="font-size:12px">побед ${save.st.wins}</span></div>
+      <div class="route">${EXPS.map((e, i) => { const open = unlocked(i), p = save.prog[e.id] || {best:0, wins:0};
+        return `<div class="node ${p.wins ? 'done' : open ? 'open' : 'locked'}"><div class="pin"><i></i><u></u></div>
+          <div class="exp"><div class="exp-h"><b>${open ? '' : '🔒 '}${e.name}</b><span>сложность ×${fx2(e.diff)}</span></div><p>${e.place}. ${e.hint}</p>
+            <div class="minis">${Object.keys(e.deck).map(id => imgTag(id)).join('')}</div>
+            <div class="exp-h"><span>лучшее: ${p.best ? `${p.best} из 9 пластов` : '—'}${p.wins ? ` · побед ${p.wins}` : ''}</span></div>
+            ${open ? `<button type="button" class="${save.run ? 'ghost' : 'btn'}" data-start="${e.id}">${save.run ? 'Начать заново' : 'Отправиться'}</button>` : '<p>Откроется после победы в предыдущей экспедиции.</p>'}</div></div>`; }).join('')}</div>`;
+  } else if (tab === 'boxes') {
+    const free = save.daily !== today();
+    body = `<div class="sec-h"><h2>Ящики с образцами</h2><span class="muted" style="font-size:12px">за пройденные горизонты</span></div>
+      ${free ? `<button type="button" class="btn" data-daily>Ежедневный ящик — бесплатно<small>из лучшей открытой экспедиции</small></button>` : '<p class="muted" style="margin:0;font-size:13px">Ежедневный ящик уже открыт. Следующий — завтра.</p>'}
+      ${boxCount() ? `<div class="boxes">${EXPS.filter(e => save.boxes[e.id]).map(e => `<div class="box"><img src="${IMG('nodule')}" alt=""><b>${e.name}</b><span>× ${save.boxes[e.id]}</span><button type="button" class="btn" data-open="${e.id}" style="width:100%">Открыть</button></div>`).join('')}</div>`
+        : '<p class="empty">Ящиков нет. Каждая пройденная аномалия горизонта даёт ящик, победа в экспедиции — ещё один.</p>'}`;
+  } else if (tab === 'coll') {
+    const specs = save.specs.slice().sort((a, b) => specTier(b) - specTier(a) || b.gi - a.gi);
+    const nextSlot = [0, 0, 0, 80, 200, 450][save.slots];
+    body = `<div class="sec-h"><h2>Коллекция · ${specs.length}</h2><span class="muted" style="font-size:12px">в снаряжении ${save.equip.length}/${save.slots}</span></div>
+      ${save.slots < 6 ? `<button type="button" class="ghost" data-slot${save.dust < nextSlot ? ' disabled' : ''}>Ещё одно место в снаряжении · ${nextSlot} пыли</button>` : ''}
+      ${specs.length ? `<div class="grid3">${specs.map(s => `<button type="button" class="spc" data-spec="${s.id}" style="--rc:${CS[specTier(s)]}">${save.equip.includes(s.id) ? '<span class="eq">В ЭКСП.</span>' : ''}${imgTag(s.sid)}<span class="n">${SP[s.sid].name}</span><span class="m">${GR[s.gi].n}${s.feats.length ? ' · ' + s.feats.map(f => FEAT[f].ic).join('') : ''}</span></button>`).join('')}</div>`
+        : '<p class="empty">Коллекция пуста. Откройте ящики — у вас уже есть три.</p>'}`;
+  } else {
+    const seen = Object.keys(save.seen).length;
+    body = `<div class="sec-h"><h2>Журнал видов</h2><span class="muted" style="font-size:12px">${seen} из ${SPIDS.length}</span></div>
+      <div class="grid3">${SPIDS.map(id => { const sp = SP[id], n = save.specs.filter(s => s.sid === id); const best = n.sort((a, b) => b.gi - a.gi)[0];
+        return save.seen[id] ? `<div class="spc" style="--rc:${CS[sp.r]}">${imgTag(id)}<span class="n">${sp.name}</span><span class="m">${sp.h} ${SYS[sp.sys].s} · ${best ? 'лучш. ' + GR[best.gi].n : 'нет в колл.'}</span></div>`
+          : `<div class="spc lock" style="--rc:var(--line)">${imgTag(id)}<span class="n muted">???</span><span class="m">${RAR[sp.r].toLowerCase()}</span></div>`; }).join('')}</div>
+      <div class="rows"><div class="row"><span>Экспедиций</span><span>${save.st.runs}</span></div><div class="row"><span>Побед</span><span>${save.st.wins}</span></div>
+        <div class="row"><span>Лучший розыгрыш</span><span>${fmt(save.st.best)}</span></div><div class="row"><span>Открыто ящиков</span><span>${save.st.opened}</span></div></div>
+      <button type="button" class="ghost" data-act="rules">Правила и комбинации</button>
+      <button type="button" class="ghost" data-act="reset">Сбросить прогресс</button>`;
+  }
+  $('#camp').innerHTML = `<nav class="tabs">${tabs.map(([id, n, c]) => `<button type="button" data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}${c ? `<span class="dot">${c}</span>` : ''}</button>`).join('')}</nav>${body}`;
+  if (lastTab !== tab) { lastTab = tab; let i = 0; $('#camp').querySelectorAll('.hero, .sec-h, .equip, .node, .box, .spc, .btn, .rows').forEach(el => { el.classList.add('fx-in'); el.style.setProperty('--i', Math.min(i++, 14)); }); }
+}
+
+/* ===================== box opening (reel) ===================== */
+const stage = $('#stage');
+async function openBox(expId, daily){
+  if (!daily) { if (!save.boxes[expId]) return; save.boxes[expId]--; if (!save.boxes[expId]) delete save.boxes[expId]; }
+  const win = rollSpecimen(expId);
+  save.specs.push(win); save.seen[win.sid] = 1; save.st.opened++;
+  persist();
+  const N = 46, W = 96, WIN = 40;
+  const fill = Array.from({length:N}, (_, k) => k === WIN ? win : rollSpecimen(expId));
+  save.uid -= N - 1; // filler specimens are not kept
+  stage.hidden = false;
+  stage.innerHTML = `<div class="eyebrow">${EXPM[expId].name}${daily ? ' · ежедневный' : ''}</div><div class="reel" id="reel"><div class="strip" id="strip">${fill.map(s => `<div class="ri" style="--rc:${CS[specTier(s)]}">${imgTag(s.sid)}<span>${SP[s.sid].name}</span></div>`).join('')}</div></div>
+    <div id="after" style="width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:12px"></div>`;
+  const reel = $('#reel'), strip = $('#strip');
+  const vw = reel.clientWidth || 340, dest = -(WIN * W + W / 2) + vw / 2 + rnd(-W * .35, W * .35);
+  const dur = RM ? 0 : 5200;
+  if (dur && strip.animate) {
+    const an = strip.animate([{transform:'translateX(0)'}, {transform:`translateX(${dest}px)`}], {duration:dur, easing:'cubic-bezier(.08,.62,.12,1)', fill:'forwards'});
+    let last = 0;
+    const tickLoop = () => { const m = new DOMMatrixReadOnly(getComputedStyle(strip).transform); const idx = Math.floor((-m.m41 + vw / 2) / W); if (idx !== last) { last = idx; SFX.tick(); } if (an.playState === 'running') requestAnimationFrame(tickLoop); };
+    try { requestAnimationFrame(tickLoop); } catch (e) {}
+    await an.finished.catch(() => {});
+  } else strip.style.transform = `translateX(${dest}px)`;
+  const t = specTier(win), sp = SP[win.sid];
+  SFX.reveal(t);
+  const dup = save.specs.filter(s => s.sid === win.sid).length > 1;
+  $('#after').innerHTML = `<div class="reveal-img" style="--rc:${CS[t]}"><div class="rays"></div>${imgTag(win.sid)}</div>${labelHTML(win)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%"><button type="button" class="ghost" data-dust="${win.id}">Распилить · ${dustOf(win)} пыли</button><button type="button" class="btn" data-close-stage>${dup ? 'В коллекцию' : 'Новый вид — в коллекцию'}</button></div>
+    ${save.equip.length < save.slots ? `<button type="button" class="ghost" data-equip="${win.id}" style="width:100%">Сразу в снаряжение экспедиции</button>` : ''}`;
+  const [x, y] = elXY($('.reveal-img'));
+  burst(x, y, {n:20 + t * 15, colors:[CS[t], '#ffffff'], speed:4 + t, size:3.5});
+}
+function closeStage(){ stage.hidden = true; stage.innerHTML = ''; renderCamp(); }
+function dustSpec(id){
+  const s = save.specs.find(x => x.id === id); if (!s) return;
+  save.specs = save.specs.filter(x => x.id !== id); save.equip = save.equip.filter(x => x !== id);
+  save.dust += dustOf(s); SFX.coin(); persist(); renderTop();
+}
+function toggleEquip(id){
+  if (save.equip.includes(id)) save.equip = save.equip.filter(x => x !== id);
+  else { if (save.equip.length >= save.slots) { gtoast('Снаряжение заполнено', `Мест: ${save.slots}. Уберите образец или купите место за пыль.`); return false; } save.equip.push(id); }
+  persist(); return true;
+}
+function facet(id){
+  const s = save.specs.find(x => x.id === id); if (!s || save.dust < 30) return;
+  save.dust -= 30;
+  const old = s.gi;
+  s.gi = pickW(GR.map((g, k) => [k, g.w]));
+  persist(); renderTop();
+  gtoast(s.gi > old ? 'Огранка удалась' : s.gi < old ? 'Огранка испортила камень' : 'Качество не изменилось', `${GR[old].n} → ${GR[s.gi].n}`);
+  if (s.gi > old) SFX.win(); else SFX.desel();
+}
+
+/* ===================== sheets ===================== */
+const sheet = $('#sheet'), panel = $('#panel');
+function openPanel(html){ panel.innerHTML = html; sheet.hidden = false; panel.scrollTop = 0; }
+function closeSheet(){ sheet.hidden = true; }
+const head = (e, t) => `<div class="p-head"><div><div class="eyebrow">${e}</div><h2>${t}</h2></div><button type="button" class="x" data-close aria-label="Закрыть">✕</button></div>`;
+function openSpec(id){
+  const s = save.specs.find(x => x.id === id); if (!s) return;
+  const eq = save.equip.includes(s.id);
+  openPanel(`${head('Образец', SP[s.sid].name)}<div style="display:grid;place-items:center">${imgTag(s.sid, 'width:min(50vw,180px);aspect-ratio:1;object-fit:contain')}</div>${labelHTML(s)}
+    <button type="button" class="btn" data-equip="${s.id}">${eq ? 'Убрать из снаряжения' : 'Взять в экспедицию'}</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" class="ghost" data-facet="${s.id}"${save.dust < 30 ? ' disabled' : ''}>Огранка · 30 пыли</button><button type="button" class="ghost" data-dust="${s.id}">Распилить · ${dustOf(s)}</button></div>
+    <p class="muted" style="margin:0;font-size:12.5px">Огранка заново определяет качество: может стать лучше, а может и хуже.</p>`);
+}
+function openRules(){
+  save.help = true; persist();
+  openPanel(`${head('Как играть', 'Парагенезис')}
+    <ul class="help">
+      <li>Колода — образцы с месторождения. В руке 8 карт: выберите до 5 и сыграйте комбинацию. Очки = фишки × множитель.</li>
+      <li>На карте: твёрдость по Моосу (число) и сингония (значок). Редкие минералы дают больше фишек.</li>
+      <li>Наберите цель пласта за 4 розыгрыша. Сброс меняет выбранные карты на новые (3 за пласт).</li>
+      <li>Экспедиция: 3 горизонта по 3 пласта, третий пласт каждого горизонта — аномалия с особым правилом. За аномалию дают ящик.</li>
+      <li>Между пластами лавка: инструменты работают постоянно (до 5 штук), монографии усиливают комбинацию, новые образцы пополняют колоду.</li>
+      <li>Из ящиков выпадают образцы для коллекции. Возьмите лучшие в снаряжение: они попадут в колоду со своим качеством и особенностями.</li>
+    </ul>
+    <div class="eyebrow">Комбинации</div>
+    <div class="htable">${HAND_HELP.map(([k, d]) => `<div><span><b>${HANDS[k].n}</b> — ${d}</span><i>${HANDS[k].c}</i><u>×${HANDS[k].m}</u></div>`).join('')}</div>
+    <div class="eyebrow">Минеральные ассоциации</div>
+    <div class="htable">${ASSOC.map(a => `<div><span><b>${a.name}</b>: ${a.set.map(id => SP[id].name.toLowerCase()).join(', ')}</span><i></i><u></u></div>`).join('')}</div>
+    <button type="button" class="btn" data-close>Понятно</button>`);
+}
+function openTool(id, inShop){
+  const t = TOOLS[id];
+  openPanel(`${head(['Обычный', 'Необычный', 'Редкий', 'Аномалия'][t.r] + ' инструмент', t.n)}<p style="margin:0;font-size:15px">${t.d}</p>
+    ${inShop ? `<button type="button" class="ghost" data-sell="${id}">Продать · ${Math.floor(t.p / 2)} ₽</button>` : ''}<button type="button" class="btn" data-close>Закрыть</button>`);
+}
+
+/* ===================== events ===================== */
+$('#mute').addEventListener('click', () => { save.mute = !save.mute; persist(); renderTop(); });
+$('#run').addEventListener('click', e => {
+  const c = e.target.closest('#hand [data-u]');
+  if (c && !busy && S.phase === 'play') {
+    const u = +c.dataset.u;
+    if (sel.includes(u)) { sel = sel.filter(x => x !== u); SFX.desel(); } else if (sel.length < 5) { sel.push(u); SFX.sel(); }
+    return renderRun();
+  }
+  const so = e.target.closest('[data-sort]'); if (so) { sortBy = so.dataset.sort; sortHand(); return renderRun(); }
+  const tl = e.target.closest('[data-tool]'); if (tl && !busy) return openTool(tl.dataset.tool, S.phase === 'shop');
+  const b = e.target.closest('[data-buy]'); if (b) return buy(+b.dataset.buy);
+  const a = e.target.closest('[data-act]');
+  if (!a) return;
+  if (a.dataset.act === 'play') play();
+  if (a.dataset.act === 'discard') discard();
+  if (a.dataset.act === 'reroll') reroll();
+  if (a.dataset.act === 'next') startStratum();
+  if (a.dataset.act === 'leave') { if (busy) return; sel = []; persist(); return showCamp('exp'); }
+  if (a.dataset.act === 'tocamp') { const had = S.boxes; S = null; showCamp(had ? 'boxes' : 'exp'); }
+});
+$('#camp').addEventListener('click', e => {
+  const t = e.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; return renderCamp(); }
+  const st = e.target.closest('[data-start]'); if (st) { newRun(st.dataset.start); return; }
+  const a = e.target.closest('[data-act]');
+  if (a && a.dataset.act === 'resume') { S = save.run; sel = []; renderRun(); return; }
+  if (a && a.dataset.act === 'rules') return openRules();
+  if (a && a.dataset.act === 'reset') { if (a.dataset.armed) { save = BLANK(); save.help = true; persist(); S = null; renderCamp(); } else { a.dataset.armed = 1; a.textContent = 'Нажмите ещё раз, чтобы стереть всё'; } return; }
+  const o = e.target.closest('[data-open]'); if (o) return openBox(o.dataset.open, false);
+  if (e.target.closest('[data-daily]')) { const best = [...EXPS].reverse().find((x, i) => unlocked(EXPS.length - 1 - i)); save.daily = today(); return openBox(best.id, true); }
+  if (e.target.closest('[data-slot]')) { const cost = [0, 0, 0, 80, 200, 450][save.slots]; if (save.dust >= cost) { save.dust -= cost; save.slots++; persist(); SFX.win(); renderCamp(); } return; }
+  const sp = e.target.closest('[data-spec]'); if (sp) return openSpec(+sp.dataset.spec);
+});
+stage.addEventListener('click', e => {
+  const d = e.target.closest('[data-dust]'); if (d) { dustSpec(+d.dataset.dust); return closeStage(); }
+  const q = e.target.closest('[data-equip]'); if (q) { if (toggleEquip(+q.dataset.equip)) { SFX.coin(); closeStage(); } return; }
+  if (e.target.closest('[data-close-stage]')) closeStage();
+});
+sheet.addEventListener('click', e => {
+  const q = e.target.closest('[data-equip]'); if (q) { toggleEquip(+q.dataset.equip); openSpec(+q.dataset.equip); renderCamp(); return; }
+  const f = e.target.closest('[data-facet]'); if (f) { facet(+f.dataset.facet); openSpec(+f.dataset.facet); renderCamp(); return; }
+  const d = e.target.closest('[data-dust]'); if (d) { dustSpec(+d.dataset.dust); closeSheet(); renderCamp(); return; }
+  const s = e.target.closest('[data-sell]'); if (s) return sellTool(s.dataset.sell);
+  if (e.target === sheet || e.target.closest('[data-close]')) closeSheet();
+});
+document.addEventListener('keydown', e => {
+  if (!sheet.hidden && e.key === 'Escape') return closeSheet();
+  if (!$('#run').hidden && S && S.phase === 'play') { if (e.key === 'Enter') play(); if (e.key === 'Backspace') discard(); }
+});
+
+showCamp('exp');
+if (!save.help) openRules();
+</script>

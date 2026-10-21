@@ -1,0 +1,14 @@
+# Godot
+godot/.godot/
+godot/build/
+*.tmp
+
+# heavy source renders for the prototype images (the game uses the webp copies in prototype/web/img)
+prototype/tools/assets/raw/
+
+# local secrets and editor state
+.env
+.vscode/
+.DS_Store
+Thumbs.db
+__pycache__/

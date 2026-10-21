@@ -1,0 +1,1507 @@
+<title>Глубина</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: one column — camp (mines, stones to open, stock, workshop, museum) and the descent (depth, 5×5 face, tools, haul); a full-screen stage for opening stones */
+:root{
+  --bg:#17120e; --zglow:rgba(240,178,90,.16); --surface:#221c18; --raise:#2d2520; --line:#463a31; --frame:rgba(42,34,28,.92);
+  --fg:#efe6da; --muted:#a8998a; --lamp:#f0b25a; --luck:#7fd8ff; --danger:#ff5a4a; --ok:#9bd17a; --heat:#ff8a3a;
+  --display:'Unbounded', 'Arial Black', system-ui, sans-serif;
+  --body:'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, Consolas, monospace;
+  color-scheme:dark;
+}
+html{background:var(--bg);color:var(--fg);transition:background-color .8s}
+body{background:radial-gradient(ellipse at 50% -5%, var(--zglow), transparent 60%), var(--bg);transition:background-color .8s;color:var(--fg);min-height:100%;
+  font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body.inrun{background:linear-gradient(color-mix(in srgb, var(--bg) 70%, transparent), color-mix(in srgb, var(--bg) 88%, transparent)), url(../web/img/mine_bg.webp) center top / cover fixed, var(--bg)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+img{max-width:100%}
+.app{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:12px 28px;display:flex;flex-direction:column;gap:12px}
+section{display:flex;flex-direction:column;gap:12px}
+.muted{color:var(--muted)}
+
+.top{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.brand{font-family:var(--display);font-weight:700;font-size:21px;color:var(--lamp)}
+.starsTop{font-family:var(--mono);font-size:13px;color:var(--lamp);white-space:nowrap}
+.top-r{display:flex;gap:8px;align-items:center}
+.wallet{font-family:var(--display);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.icon-btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px}
+
+/* camp */
+.hero{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:2.2;background:#1b130d url(../web/img/key_art.webp) center 40% / cover;border:1px solid var(--line)}
+.hero::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(transparent 40%, rgba(15,10,7,.85))}
+.hero div{position:absolute;left:14px;right:14px;bottom:10px;z-index:2}
+.hero b{font-family:var(--display);font-weight:500;font-size:16px;display:block}
+.hero span{font-size:12.5px;color:#d9ccbd}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:8px 0;font-size:12.5px;font-weight:500;color:var(--muted);position:relative}
+.tabs button.on{background:var(--raise);color:var(--fg)}
+.tabs .dot{position:absolute;top:1px;right:2px;min-width:16px;height:16px;border-radius:8px;background:var(--lamp);color:#1b130b;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 3px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.sec-h h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:0}
+.empty{margin:0;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:16px;color:var(--muted);font-size:14px}
+.buy{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.buy:disabled{opacity:.45;cursor:default}
+.mines{display:grid;gap:8px}
+.mine{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;text-align:left}
+.mine.locked{opacity:.55}
+.mine-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mine-h b{font-family:var(--display);font-weight:500;font-size:15px}
+.mine-h span{font-family:var(--mono);font-size:12.5px;color:var(--lamp);white-space:nowrap}
+.mine p{margin:0;font-size:13px;color:var(--muted)}
+.feat{display:flex;gap:4px;flex-wrap:wrap}
+.feat span{background:var(--raise);border-radius:6px;padding:2px 7px;font-size:11.5px;color:var(--fg)}
+.pool{display:flex;gap:4px;flex-wrap:wrap}
+.pool span{display:inline-flex;align-items:center;gap:3px;background:var(--raise);border-radius:8px;padding:2px 7px 2px 2px;font-size:11.5px;color:var(--muted)}
+.pool img{width:22px;height:22px;object-fit:contain}
+.tasks{display:grid;gap:3px;font-size:12.5px}
+.tasks div{display:flex;gap:6px;color:var(--muted)}
+.tasks div.done{color:var(--lamp)}
+.mine .go{display:grid;grid-template-columns:1fr;gap:6px}
+.stones{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.st{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:1px;position:relative;text-align:center}
+.st:hover{border-color:var(--lamp)}
+.st img{width:64px;height:64px;object-fit:contain}
+.st .n{font-size:12px;font-weight:600;line-height:1.2}
+.st .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.st .lk{position:absolute;top:5px;left:6px;font-family:var(--mono);font-size:10px;color:var(--luck)}
+.st .lvb{position:absolute;top:5px;right:6px;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--fc)}
+.inv{display:flex;flex-direction:column;gap:6px}
+.iv{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.iv img{width:44px;height:44px;object-fit:contain}
+.iv b{font-weight:600;font-size:13.5px}
+.iv p{margin:0;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.orders{display:grid;gap:6px}
+.order{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center}
+.order img{width:42px;height:42px;object-fit:contain}
+.order b{font-weight:600}
+.order p{margin:0;font-size:12.5px;color:var(--muted)}
+.order .rw{font-family:var(--mono);font-size:13px;color:var(--lamp);white-space:nowrap;text-align:right}
+.ups{display:grid;gap:6px}
+.up{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
+.up div{min-width:0}
+.up b{font-weight:600}
+.up p{margin:0;font-size:12.5px;color:var(--muted)}
+.up .req{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.up .req span{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:6px;padding:1px 6px 1px 2px;font-size:11px;font-family:var(--mono)}
+.up .req span.ok{border-color:var(--ok);color:var(--ok)}
+.up .req span.no{color:var(--danger)}
+.up .req img{width:18px;height:18px;object-fit:contain}
+.lv{font-family:var(--mono);font-size:11px;color:var(--lamp)}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile2{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.tile2:hover{border-color:var(--lamp)}
+.tile2 b{font-weight:600}
+.tile2 span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.pbar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--lamp)}
+
+/* run */
+.runhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:6px}
+.runhead b{color:var(--fg);font-weight:500}
+.depth{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:end}
+.depth .d{font-family:var(--display);font-weight:700;font-size:36px;line-height:1;font-variant-numeric:tabular-nums}
+.depth .d small{font-size:16px;font-weight:500;color:var(--muted);margin-left:4px}
+.depth .mult{font-family:var(--display);font-weight:500;font-size:20px;color:var(--luck);text-align:right}
+.depth .mult small{display:block;font-family:var(--body);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:400}
+.zone{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.zone b{color:var(--fg);font-weight:500}
+.zbar{grid-column:1/-1;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.zbar i{display:block;height:100%;background:var(--luck);transition:width .2s}
+.heat{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:12.5px;color:var(--heat)}
+.heat .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.heat .bar i{display:block;height:100%;background:linear-gradient(90deg, #ffb347, #ff3a2a);transition:width .2s}
+.taskline{display:flex;flex-wrap:wrap;gap:4px}
+.taskline span{font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted);background:color-mix(in srgb, var(--surface) 80%, transparent)}
+.taskline span.done{border-color:var(--lamp);color:var(--lamp)}
+.ladder{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.ladder::-webkit-scrollbar{display:none}
+.rung{flex:none;display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:999px;padding:2px 8px 2px 3px;font-size:11.5px;color:var(--muted);white-space:nowrap;background:color-mix(in srgb, var(--surface) 70%, transparent)}
+.rung i{width:18px;height:18px;border-radius:50%;background-size:cover;display:grid;place-items:center;font-style:normal;font-family:var(--mono);font-size:9px;font-weight:700}
+.rung.t{border-color:var(--lamp);color:var(--lamp)}
+.rung.off{opacity:.35}
+
+.board-wrap{position:relative}
+.board{position:relative;width:100%;aspect-ratio:1;background:var(--frame);border:1px solid var(--line);border-radius:16px;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+.board.nudge{animation:nudge .25s}
+@keyframes nudge{30%{transform:translateX(-4px)}70%{transform:translateX(4px)}}
+.board.quake{animation:quake .9s}
+@keyframes quake{10%,30%,50%,70%{transform:translate(-7px,3px) rotate(-.7deg)}20%,40%,60%,80%{transform:translate(7px,-3px) rotate(.7deg)}}
+.board.boom{animation:boom .45s}
+@keyframes boom{20%{transform:scale(1.02) translate(-3px,2px);filter:brightness(1.5)}60%{transform:translate(3px,-2px)}}
+.board.tight{box-shadow:0 0 0 2px color-mix(in srgb, var(--danger) 60%, transparent),0 0 24px color-mix(in srgb, var(--danger) 30%, transparent)}
+.board.aim{box-shadow:0 0 0 2px var(--lamp)}
+.slot{position:absolute;left:0;top:0;border-radius:9px;background:rgba(0,0,0,.35);box-shadow:inset 0 2px 6px rgba(0,0,0,.55)}
+.tile{position:absolute;left:0;top:0;transition:transform .12s ease-out;will-change:transform}
+.tile .in{position:absolute;inset:0;border-radius:9px;display:grid;place-items:center;overflow:hidden}
+.tile.new .in{animation:appear .2s ease-out}
+.tile.pop .in{animation:pop .22s ease-out}
+.tile.crumble .in{animation:crumble .4s ease-in forwards}
+.tile.collect .in{animation:collect .35s ease-in forwards}
+@keyframes appear{from{transform:scale(.2);opacity:0}}
+@keyframes pop{50%{transform:scale(1.14)}}
+@keyframes crumble{30%{transform:scale(1.08);filter:brightness(1.4)}100%{transform:scale(.3) rotate(18deg);opacity:0;filter:blur(2px)}}
+@keyframes collect{to{transform:translateY(-60%) scale(.4);opacity:0}}
+.rockt .in{background-color:var(--rb);background-image:var(--tex);background-size:cover;box-shadow:inset 0 3px 0 rgba(255,240,220,.18),inset 0 -4px 0 rgba(0,0,0,.4)}
+.rockt .v{font-family:var(--mono);font-weight:700;font-size:calc(var(--cell) * .34);color:var(--ink);text-shadow:0 1px 3px rgba(0,0,0,.45);line-height:1;position:relative}
+.rockt .nm,.fixt .nm{position:absolute;left:0;right:0;bottom:6%;text-align:center;font-size:calc(var(--cell) * .115);color:var(--ink, #ddd);opacity:.9;white-space:nowrap}
+.rockt.brittle .in::after{content:"";position:absolute;inset:3px;border-radius:7px;border:2px dashed color-mix(in srgb, var(--lamp) 80%, transparent);animation:blink 1.2s infinite}
+.rockt.ore .in::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(circle at 18% 28%, #ffd75a 0 2.5px, transparent 3.5px),radial-gradient(circle at 72% 62%, #ffd75a 0 3px, transparent 4px),
+  radial-gradient(circle at 44% 82%, #fff1a8 0 2px, transparent 3px),radial-gradient(circle at 82% 18%, #ffd75a 0 2px, transparent 3px),radial-gradient(circle at 30% 60%, #ffe58a 0 1.5px, transparent 2.5px);
+  animation:glint 1.8s ease-in-out infinite}
+@keyframes glint{50%{filter:brightness(1.8)}}
+@keyframes blink{50%{opacity:.35}}
+.mint .in{background:radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--fc) 30%, #120e0b), #0b0907 78%);box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--fc) 50%, transparent),0 0 14px color-mix(in srgb, var(--fc) 26%, transparent);cursor:pointer}
+.mint img{width:calc(var(--sz) * 100%);height:calc(var(--sz) * 100%);object-fit:contain;filter:drop-shadow(0 3px 4px rgba(0,0,0,.6))}
+.mint .lv{position:absolute;top:3%;right:7%;font-family:var(--mono);font-weight:700;font-size:calc(var(--cell) * .15);color:var(--fc);text-shadow:0 1px 3px #000}
+.mint.max .in{box-shadow:inset 0 0 0 2px var(--lamp),0 0 20px color-mix(in srgb, var(--lamp) 55%, transparent)}
+.fixt .in{box-shadow:inset 0 3px 0 rgba(255,255,255,.08),inset 0 -4px 0 rgba(0,0,0,.5)}
+.fixt img{width:78%;height:78%;object-fit:contain}
+.fixt .ct{position:absolute;top:4%;right:8%;font-family:var(--mono);font-weight:700;font-size:calc(var(--cell) * .17);color:#fff;text-shadow:0 1px 3px #000}
+.fost .in{background:radial-gradient(circle at 50% 45%, #5a4c3e, #231c16 80%);box-shadow:inset 0 0 0 2px #c9b08a;cursor:pointer}
+.dike .in{background:repeating-linear-gradient(90deg, #2c2b31 0 calc(var(--cell) * .18), #1a191e calc(var(--cell) * .18) calc(var(--cell) * .2)),#26252b}
+.dike .ct{font-size:calc(var(--cell) * .24);top:auto;right:auto;position:static;color:#c9c4d6}
+.geoc .in{background:radial-gradient(circle at 50% 45%, #4a3a5a, #17121c 80%);box-shadow:inset 0 0 0 2px #b27cff,0 0 12px rgba(178,124,255,.35)}
+.water .in{background:radial-gradient(circle at 40% 35%, #5fb4e6, #164a6e 70%, #0d2c44);animation:ripple 2.4s ease-in-out infinite}
+.water .in::after{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.12) 0 2px, transparent 2px 9px)}
+@keyframes ripple{50%{filter:brightness(1.15)}}
+.gas .in{background:radial-gradient(circle at 50% 50%, #d8e86a, #6d7a1c 60%, #2a2e0c);animation:gasp 1s ease-in-out infinite}
+.gas.hot .in{animation-duration:.4s}
+@keyframes gasp{50%{filter:brightness(1.3) saturate(1.3)}}
+.gas .ct{position:static;font-size:calc(var(--cell) * .3);color:#1a1c06;text-shadow:none}
+.magma .in{background:radial-gradient(circle at 50% 50%, #ffd36a, #ff5a1a 45%, #6a1004 85%);animation:glint 1.4s ease-in-out infinite}
+.magma .ct{color:#fff3c0}
+.float{position:absolute;z-index:6;pointer-events:none;font-family:var(--display);font-weight:700;font-size:15px;color:var(--fc, var(--lamp));text-shadow:0 2px 6px #000;animation:float 1s ease-out forwards;white-space:nowrap;transform:translate(-50%,-50%)}
+@keyframes float{to{margin-top:-46px;opacity:0}}
+
+.toast{position:absolute;left:10px;right:10px;top:10px;z-index:5;display:flex;gap:10px;align-items:center;pointer-events:none;
+  background:color-mix(in srgb, var(--bg) 93%, transparent);border:1px solid var(--tc);border-radius:12px;padding:8px 12px;box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 18px color-mix(in srgb, var(--tc) 35%, transparent);animation:tin .3s cubic-bezier(.2,1.4,.4,1)}
+@keyframes tin{from{transform:translateY(-10px) scale(.95);opacity:0}}
+.toast .ic{width:42px;height:42px;flex:none}
+.toast .ic:empty{display:none}
+.toast .ic img{width:100%;height:100%;object-fit:contain}
+.toast b{display:block;font-family:var(--display);font-weight:500;font-size:14px}
+.toast span{font-size:12.5px;color:var(--muted)}
+.toast span em{font-style:normal;color:var(--tc);font-weight:600}
+
+.status{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
+.status b{color:var(--fg);font-weight:500;font-family:var(--mono)}
+.status .warn{color:var(--danger)}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tool{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 6px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:14px}
+.tool small{font-size:11px;color:var(--muted);font-weight:400}
+.tool.on{background:color-mix(in srgb, var(--lamp) 18%, var(--surface));border-color:var(--lamp)}
+.tool:disabled{opacity:.38;cursor:default}
+.haul{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.haul-h{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.haul-h b{font-family:var(--mono);font-size:13px;color:var(--fg);letter-spacing:0;text-transform:none}
+.bag{display:flex;flex-wrap:wrap;gap:4px;min-height:36px;align-items:center}
+.bag .it{width:36px;height:36px;border-radius:8px;background:var(--raise);display:grid;place-items:center;position:relative;box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--fc) 50%, transparent)}
+.bag .it img,.bag .it svg{width:30px;height:30px;object-fit:contain}
+.bag .it small{position:absolute;bottom:-1px;right:2px;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--fc);text-shadow:0 1px 2px #000}
+.bag .empty{font-size:13px;color:var(--muted)}
+.btn{background:var(--lamp);color:#1b130b;border:0;border-radius:10px;padding:12px;font-weight:600}
+.btn small{display:block;font-weight:400;font-size:12px;opacity:.8}
+.btn:disabled{opacity:.4;cursor:default}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px;font-weight:500}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+
+/* sheets */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(8,6,5,.72);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
+.panel{width:100%;max-width:480px;max-height:92%;overflow:auto;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:12px;animation:up .28s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.p-head h2{font-family:var(--display);font-weight:500;font-size:20px;margin:2px 0 0;text-wrap:balance}
+.x{background:var(--raise);border:1px solid var(--line);border-radius:8px;width:34px;height:34px;flex:none}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+.panel h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:4px 0 0;font-weight:500}
+.total{background:var(--raise);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column}
+.total b{font-family:var(--display);font-weight:700;font-size:28px;color:var(--lamp);font-variant-numeric:tabular-nums}
+.total span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.mini{display:flex;flex-wrap:wrap;gap:6px}
+.mini span{display:inline-flex;align-items:center;gap:4px;background:var(--raise);border-radius:8px;padding:3px 8px 3px 3px;font-size:12px}
+.mini img{width:28px;height:28px;object-fit:contain}
+.recs{display:flex;flex-wrap:wrap;gap:6px}
+.rec{background:color-mix(in srgb, var(--lamp) 20%, transparent);border:1px solid var(--lamp);color:var(--lamp);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600}
+.note{margin:0;font-size:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fam{display:grid;gap:4px;padding-block:6px;border-bottom:1px solid var(--line)}
+.fam-h{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;gap:8px}
+.fam-h span{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400;text-align:right}
+.fam-row{display:flex;gap:4px;flex-wrap:wrap}
+.fam-row div{width:42px;height:42px;border-radius:8px;background:var(--raise);display:grid;place-items:center;position:relative}
+.fam-row img{width:36px;height:36px;object-fit:contain}
+.fam-row small{position:absolute;bottom:0;right:3px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.fam-row .lock img{filter:brightness(0) opacity(.45)!important}
+.fam-row .vv{box-shadow:inset 0 0 0 1px var(--lamp)}
+.coll{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.cc{background:var(--raise);border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}
+.cc svg,.cc img{width:46px;height:46px;object-fit:contain}
+.cc.lock svg{filter:brightness(0) opacity(.5)}
+.cc .n{font-size:12px;font-weight:600;line-height:1.2}
+.cc .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.ach{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:var(--raise);border-radius:10px;padding:8px 12px}
+.ach b{font-weight:600}
+.ach p{margin:0;font-size:12.5px;color:var(--muted)}
+.ach .rw{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.ach.got{outline:1px solid var(--lamp)}
+.ach.got .rw{color:var(--lamp)}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{text-align:right}
+.help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.gtoasts{position:fixed;top:calc(10px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;gap:6px;width:min(420px, calc(100% - 32px));pointer-events:none}
+.gt{background:var(--raise);border:1px solid var(--lamp);border-radius:12px;padding:8px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:tin .35s cubic-bezier(.2,1.4,.4,1)}
+.gt b{display:block;font-weight:600}
+.gt span{font-size:12.5px;color:var(--muted)}
+
+/* opening stage */
+.stage{position:fixed;inset:0;z-index:30;background:radial-gradient(ellipse at 50% 40%, #33261c 0%, #0b0806 70%);display:flex;flex-direction:column;align-items:center;
+  padding:calc(16px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));gap:10px;overflow:auto}
+.st-back{position:absolute;top:calc(12px + env(safe-area-inset-top, 0px));left:16px}
+.st-top{text-align:center;display:flex;flex-direction:column;gap:2px;max-width:420px;margin-top:30px}
+.st-top .t{font-family:var(--display);font-weight:500;font-size:18px}
+.st-top .s{font-size:13px;color:var(--muted)}
+.st-top .s .lk{color:var(--luck);font-family:var(--mono)}
+.stone{position:relative;width:min(74vw,300px);aspect-ratio:1;max-width:100%;border:0;background:transparent;padding:0;flex:none;margin-block:6px}
+.stone .rough{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 18px 24px rgba(0,0,0,.6))}
+.stone.hit .rough{animation:hit .25s}
+@keyframes hit{30%{transform:scale(.95) rotate(-2deg)}60%{transform:scale(1.02) rotate(1deg)}}
+.stone .cracks{position:absolute;inset:0;width:100%;height:100%}
+.stone .cracks path{stroke:var(--glow);stroke-width:1.8;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 3px var(--glow)) drop-shadow(0 0 8px var(--glow));stroke-dasharray:200;stroke-dashoffset:200;animation:draw .35s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.stone .halo{position:absolute;inset:4%;border-radius:50%;background:radial-gradient(circle, color-mix(in srgb, var(--glow) 45%, transparent), transparent 65%);opacity:var(--ho,0);transition:opacity .4s}
+.rays{position:absolute;inset:-25%;border-radius:50%;background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tc) 30%, transparent) 0 8deg, transparent 8deg 24deg);
+  mask:radial-gradient(circle, #000 20%, transparent 68%);-webkit-mask:radial-gradient(circle, #000 20%, transparent 68%);animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stone .gem{position:absolute;inset:4%;animation:emerge .6s cubic-bezier(.2,1.5,.4,1)}
+.stone .gem img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6))}
+@keyframes emerge{from{transform:scale(.3) rotate(-20deg);opacity:0}}
+.burst{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, #fff, var(--tc) 30%, transparent 65%);animation:burst .7s ease-out forwards;pointer-events:none}
+@keyframes burst{from{transform:scale(.4);opacity:1}to{transform:scale(1.8);opacity:0}}
+.st-bottom{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:100%;max-width:420px}
+.tap-hint{text-align:center;color:var(--muted);font-size:14px;animation:blink 1.6s infinite}
+.res{text-align:center;display:flex;flex-direction:column;gap:4px;align-items:center}
+.res .tier{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--tc);font-weight:600}
+.res .nm{font-family:var(--display);font-weight:700;font-size:22px;text-wrap:balance}
+.grade{display:flex;align-items:baseline;gap:10px;justify-content:center;margin-top:2px}
+.grade .gl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+.grade .gv{font-family:var(--display);font-weight:700;font-size:30px;min-width:3ch;text-align:left;color:var(--gc,var(--fg))}
+.grade .gv.land{animation:land .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes land{from{transform:scale(1.6)}}
+.val{font-family:var(--display);font-weight:700;font-size:26px;color:var(--lamp);font-variant-numeric:tabular-nums}
+.acts{display:grid;gap:8px}
+
+/* effects */
+.fx{position:fixed;inset:0;width:100%;height:100%;z-index:45;pointer-events:none}
+.fly{position:fixed;z-index:44;pointer-events:none;display:grid;place-items:center}
+.fly img{width:80%;height:80%;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6))}
+.tile{transition:transform .14s cubic-bezier(.2,.8,.3,1)}
+.mint .in::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.28) 50%, transparent 62%);transform:translateX(-130%);animation:sheen 3.6s ease-in-out infinite;animation-delay:var(--dl, 0s);pointer-events:none}
+@keyframes sheen{0%,55%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
+.board.jolt{animation:jolt .28s}
+@keyframes jolt{25%{transform:translateY(3px) scale(.995)}60%{transform:translateY(-1px)}}
+.board.combo{animation:combo .5s}
+@keyframes combo{30%{box-shadow:0 0 0 2px var(--luck),0 0 30px color-mix(in srgb, var(--luck) 50%, transparent)}}
+.zbanner{position:absolute;left:0;right:0;top:38%;z-index:7;pointer-events:none;text-align:center;padding:14px 10px;
+  background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg) 90%, transparent) 20%, color-mix(in srgb, var(--bg) 90%, transparent) 80%, transparent);
+  animation:zb 2.2s cubic-bezier(.2,.8,.3,1) forwards}
+.zbanner small{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--luck)}
+.zbanner b{display:block;font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:.02em}
+.zbanner span{font-size:12.5px;color:var(--muted)}
+@keyframes zb{0%{opacity:0;transform:translateX(-40px)}15%,75%{opacity:1;transform:none}100%{opacity:0;transform:translateX(40px)}}
+.bag.pop{animation:pop .3s}
+.depth .d.tick{animation:dtick .3s}
+@keyframes dtick{40%{color:var(--luck);transform:translateY(-2px)}}
+.fx-in{animation:fxin .45s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i, 0) * 45ms)}
+@keyframes fxin{from{opacity:0;transform:translateY(10px)}}
+.hero::before{content:"";position:absolute;inset:0;background:inherit;animation:kb 24s ease-in-out infinite alternate;z-index:0}
+@keyframes kb{to{transform:scale(1.12) translate(-2%,1%)}}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:radial-gradient(1.5px 1.5px at 20% 30%, #f0d8b0 50%, transparent 51%),radial-gradient(1px 1px at 70% 60%, #f0d8b0 50%, transparent 51%),radial-gradient(1.5px 1.5px at 40% 80%, #f0d8b0 50%, transparent 51%),radial-gradient(1px 1px at 85% 25%, #f0d8b0 50%, transparent 51%),radial-gradient(1px 1px at 10% 70%, #f0d8b0 50%, transparent 51%);
+  background-size:300px 300px;animation:motes 30s linear infinite}
+@keyframes motes{to{background-position:0 -300px}}
+.stone .rough{animation:bob 3.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-6px) rotate(-1deg)}}
+.stone.hit .rough{animation:hit .25s}
+.tw{position:absolute;width:14px;height:14px;pointer-events:none;background:radial-gradient(circle, #fff 0 1.5px, transparent 2px),linear-gradient(var(--tc), var(--tc)) center/2px 100% no-repeat,linear-gradient(90deg, var(--tc), var(--tc)) center/100% 2px no-repeat;
+  border-radius:50%;opacity:0;animation:tw 1.8s ease-in-out infinite;animation-delay:var(--d)}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+.wallet{display:inline-block}
+.wallet.pop{animation:pop .4s}
+@media (max-width:370px){.depth .d{font-size:28px}.tabs button{font-size:11px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Глубина</div>
+    <span class="starsTop" id="starsTop">★ 0/15</span>
+    <div class="top-r"><span class="wallet" id="wallet">0 ₽</span><button type="button" class="icon-btn" id="mute" aria-label="Звук">🔊</button></div>
+  </header>
+
+  <section id="camp"></section>
+
+  <section id="run" hidden>
+    <div class="runhead"><b id="mineName"></b><span id="runNo"></span></div>
+    <div class="depth">
+      <div class="d" id="depth">0<small>м</small></div>
+      <div class="mult" id="mult">×1,00<small>удача</small></div>
+      <div class="zone"><b id="zoneName"></b><span id="zoneNext"></span></div>
+      <div class="zbar"><i id="zbar"></i></div>
+    </div>
+    <div class="heat" id="heat" hidden><span>Жара</span><div class="bar"><i id="heatbar"></i></div><span id="heatTxt"></span></div>
+    <div class="taskline" id="taskline"></div>
+    <div class="ladder" id="ladder"></div>
+    <div class="board-wrap">
+      <div class="board" id="board" aria-label="Забой. Свайпайте или используйте стрелки"></div>
+      <div id="toastBox"></div>
+    </div>
+    <div class="status"><span>Свободно: <b id="free">0</b></span><span id="tight"></span><span>Ходов: <b id="moves">0</b></span></div>
+    <div class="tools" id="tools">
+      <button type="button" class="tool" data-tool="hammer">Молоток<small id="tHammer">0</small></button>
+      <button type="button" class="tool" data-tool="tnt">Динамит<small id="tTnt">0</small></button>
+      <button type="button" class="tool" data-tool="undo">Откат<small id="tUndo">0</small></button>
+    </div>
+    <div class="haul">
+      <div class="haul-h">Рюкзак<b id="haulSum">пусто</b></div>
+      <div class="bag" id="bag"></div>
+      <button type="button" class="btn" id="btnUp">Подняться наверх<small id="upSmall">с пустыми руками</small></button>
+    </div>
+    <p class="hint">Свайп или стрелки. Нажмите на минерал или окаменелость, чтобы забрать. Образцы вскрываются в лагере, и чем глубже вы их добыли, тем больше удачи при вскрытии.</p>
+  </section>
+</div>
+
+<div id="stage" class="stage" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="panel" id="panel"></div></div>
+<div class="gtoasts" id="gtoasts" aria-live="polite"></div>
+<canvas class="fx" id="fx" aria-hidden="true"></canvas>
+
+<script>
+const N = 5, STEP = 5, MAXLV = 5;
+const IMG = n => `../web/img/${n}.webp`;
+
+const ROCK = {
+  2:{name:'Песчаник', base:'#b88550', ink:'#2a1a0c', dark:'90,45,15', light:'255,225,170', strata:14},
+  4:{name:'Гранит', base:'#9a7b72', ink:'#fff', dark:'30,22,22', light:'245,225,220', grains:['#231c1c', '#efe2da', '#c9968a']},
+  8:{name:'Гнейс', base:'#77727c', ink:'#fff', dark:'25,25,35', light:'230,230,240', bands:true},
+  16:{name:'Кварцит', base:'#d6cdbf', ink:'#3a2e22', dark:'120,110,95', light:'255,255,255', strata:3},
+  32:{name:'Эклогит', base:'#5f7a5c', ink:'#fff', dark:'20,40,20', light:'200,240,200', grains:['#a8323a', '#c94a3a', '#2c4a2c']},
+  64:{name:'Перидотит', base:'#6e8640', ink:'#fff', dark:'40,55,10', light:'220,240,150', grains:['#3c4a1a', '#a9c25a']},
+  128:{name:'Кимберлит', base:'#3d4851', ink:'#fff', dark:'10,15,20', light:'170,190,210', grains:['#1d2328', '#8fa0ae', '#5a3a2a']},
+};
+const ZONES = [
+  {d:0, name:'Осадочный чехол', T:4, spawn:[[2, 1]], bg:'#17120e', glow:'rgba(240,178,90,.16)', extra:0},
+  {d:80, name:'Гранитный слой', T:8, spawn:[[2, .75], [4, .25]], bg:'#17110f', glow:'rgba(205,140,120,.16)', extra:.15},
+  {d:200, name:'Метаморфиты', T:16, spawn:[[2, .5], [4, .35], [8, .15]], bg:'#131216', glow:'rgba(150,140,200,.16)', extra:.45},
+  {d:380, name:'Нижняя кора', T:32, spawn:[[2, .3], [4, .4], [8, .25], [16, .05]], bg:'#0f1411', glow:'rgba(110,180,120,.15)', extra:1},
+  {d:600, name:'Верхняя мантия', T:64, spawn:[[2, .1], [4, .4], [8, .3], [16, .2]], bg:'#150f0a', glow:'rgba(255,120,40,.2)', extra:1.35},
+  {d:900, name:'Кимберлитовая трубка', T:128, spawn:[[4, .3], [8, .35], [16, .25], [32, .1]], bg:'#0d0f15', glow:'rgba(160,200,255,.2)', extra:1.7},
+];
+const LV = ['Кристалл', 'Сросток', 'Щётка', 'Друза', 'Жеода'];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
+// a rare variety is the same photo, re-tinted
+const MIN = {
+  quartz:{name:'Кварц', gen:'кварца', base:8, color:'#d7dee8', variant:{name:'Аметист', m:5, f:'sepia(.5) saturate(4) hue-rotate(225deg) brightness(.95)', c:'#c690ff'}},
+  malachite:{name:'Малахит', gen:'малахита', base:12, color:'#43c98a', lv:['Натёк малахита', 'Почка малахита', 'Гроздь малахита', 'Желвак малахита', 'Малахитовая глыба'], variant:{name:'Азурит', m:5, f:'hue-rotate(85deg) saturate(1.4)', c:'#5f8bff'}},
+  gypsum:{name:'Селенит', gen:'селенита', base:10, color:'#e6eef6', variant:{name:'Селенит с пузырьком', m:6, f:'sepia(.3) saturate(3) hue-rotate(160deg)', c:'#7fd8ff'}},
+  fluorite:{name:'Флюорит', gen:'флюорита', base:18, color:'#5fe0a0', variant:{name:'Блю Джон', m:5, f:'hue-rotate(120deg) saturate(1.3)', c:'#8a7bff'}},
+  garnet:{name:'Гранат', gen:'граната', base:30, color:'#e0566a', variant:{name:'Демантоид', m:6, f:'hue-rotate(100deg) saturate(1.5) brightness(1.1)', c:'#a8f060'}},
+  beryl:{name:'Берилл', gen:'берилла', base:45, color:'#e6dd8a', variant:{name:'Изумруд', m:6, f:'hue-rotate(60deg) saturate(3) brightness(.9)', c:'#3fe08a'}},
+  gold:{name:'Золото', gen:'золота', base:50, color:'#f0c64a', lv:['Золотинка', 'Крупинка', 'Самородок', 'Крупный самородок', 'Самородок-гигант'], variant:{name:'Кристаллическое золото', m:7, f:'brightness(1.25) saturate(1.4) contrast(1.15)', c:'#ffe27a'}},
+  opal:{name:'Опал', gen:'опала', base:60, color:'#8fe6dc', lv:['Опаловая крошка', 'Опаловый желвак', 'Опаловая жилка', 'Опаловое гнездо', 'Опаловый пласт'], variant:{name:'Чёрный опал', m:8, f:'brightness(.6) contrast(1.5) saturate(1.8)', c:'#4a6aff'}},
+  corundum:{name:'Корунд', gen:'корунда', base:100, color:'#7f9bff', variant:{name:'Рубин', m:6, f:'hue-rotate(140deg) saturate(1.4)', c:'#ff4a6a'}},
+  diamond:{name:'Алмаз', gen:'алмазов', base:280, color:'#e8f4ff', lv:['Алмаз-октаэдр', 'Сросток алмазов', 'Алмазная щётка', 'Алмазное гнездо', 'Алмаз-гигант'], variant:{name:'Розовый алмаз', m:8, f:'sepia(.45) saturate(3) hue-rotate(290deg)', c:'#ff8ac0'}},
+};
+const GR = [{n:'C', w:38, m:1}, {n:'B', w:30, m:1.5}, {n:'A', w:19, m:2.4}, {n:'AA', w:10, m:4}, {n:'AAA', w:3, m:8}];
+const GR_C = ['#b3aba0', '#d8cfc2', '#7fd38b', '#68aefc', '#ffb547'];
+
+const FEAT_NAMES = {fossil:'окаменелости', ore:'рудные блоки', dike:'дайки', geodec:'закрытые жеоды', water:'подтопление', heat:'жара', gas:'газовые карманы', magma:'магма'};
+const MINES = [
+  {id:'adit', name:'Старая штольня', hint:'Учебная выработка. Окаменелости в верхних слоях, рудные блоки.', stars:0, fee:0,
+    pool:[['quartz', 0, 3], ['malachite', 30, 2], ['fluorite', 90, 2], ['gold', 220, 1]],
+    feat:{fossil:{p:.035, z:[0, 1]}, ore:{p:.06}, dike:{p:.02, z:[2, 9]}},
+    tasks:[{t:'depth', d:150}, {t:'lift', lvl:3}, {t:'fossils', n:2}]},
+  {id:'ural', name:'Уральские копи', hint:'Закрытые жеоды раскрываются от слияний рядом. Вода разливается по забою.', stars:2, fee:250,
+    pool:[['malachite', 0, 3], ['quartz', 0, 1.5], ['garnet', 100, 2], ['beryl', 180, 2], ['corundum', 380, 1]],
+    feat:{ore:{p:.05}, geodec:{p:.03, z:[0, 9]}, water:{p:.025, z:[1, 9]}, dike:{p:.015, z:[2, 9]}},
+    tasks:[{t:'depth', d:250}, {t:'geode', n:1}, {t:'lift', fam:'beryl', lvl:2}]},
+  {id:'naica', name:'Наика', hint:'Пещера раскалена: жара растёт с каждым ходом. Успейте подняться до теплового удара.', stars:5, fee:500,
+    pool:[['gypsum', 0, 4], ['fluorite', 60, 2], ['quartz', 0, 1], ['gold', 250, 1]],
+    feat:{ore:{p:.05}, geodec:{p:.02, z:[1, 9]}, heat:{max:70}},
+    tasks:[{t:'depth', d:300}, {t:'lift', fam:'gypsum', lvl:4}, {t:'count', n:6}]},
+  {id:'coober', name:'Кубер-Педи', hint:'Газовые карманы взрываются по таймеру и уничтожают всё вокруг. Обезвреживаются молотком.', stars:8, fee:900,
+    pool:[['gypsum', 0, 2], ['opal', 60, 3], ['quartz', 0, 1], ['gold', 300, 1]],
+    feat:{ore:{p:.06}, gas:{p:.03, z:[1, 9]}, dike:{p:.02, z:[2, 9]}, fossil:{p:.025, z:[0, 1]}},
+    tasks:[{t:'depth', d:400}, {t:'lift', fam:'opal', lvl:3}, {t:'combo', n:4}]},
+  {id:'kimberley', name:'Кимберли', hint:'Глубоко внизу магма уплотняет соседнюю породу, а остыв, становится дайкой.', stars:11, fee:1500,
+    pool:[['garnet', 0, 2], ['corundum', 150, 2], ['gold', 100, 1], ['diamond', 350, 3]],
+    feat:{ore:{p:.05}, magma:{p:.03, z:[3, 9]}, gas:{p:.015, z:[2, 9]}, dike:{p:.02, z:[2, 9]}, geodec:{p:.015, z:[1, 9]}},
+    tasks:[{t:'depth', d:600}, {t:'lift', fam:'diamond', lvl:2}, {t:'cash', n:3000}]},
+];
+const MINEM = Object.fromEntries(MINES.map(m => [m.id, m]));
+const FOSSILS = [
+  {id:'ammonite', name:'Аммонит', w:30, p:60, c1:'#d8c2a2', c2:'#7a5f40', shape:'spiral'},
+  {id:'belemnite', name:'Белемнит', w:30, p:30, c1:'#c99a6a', c2:'#6a4220', shape:'bullet'},
+  {id:'fern', name:'Отпечаток папоротника', w:20, p:50, c1:'#5d5a55', c2:'#c9c2b0', shape:'fern'},
+  {id:'trilobite', name:'Трилобит', w:15, p:100, c1:'#6e655c', c2:'#2e2924', shape:'trilobite'},
+  {id:'megalodon', name:'Зуб мегалодона', w:4, p:400, c1:'#4a4a52', c2:'#c9bfae', shape:'tooth'},
+  {id:'amber', name:'Янтарь с насекомым', w:2, p:800, c1:'#ffb84a', c2:'#a3480a', shape:'amber'},
+];
+const FOSM = Object.fromEntries(FOSSILS.map(f => [f.id, f]));
+
+// upgrades cost money and specimens from the stock; each level also needs stars
+const UPS = [
+  {id:'lamp', name:'Шахтёрская лампа', d:lv => lv ? `Минералы появляются чаще: +${2 * lv}%` : 'Минералы будут появляться чаще',
+    lv:[{c:1200, s:0, m:['quartz', 2, 2]}, {c:3500, s:2, m:['malachite', 3, 1]}, {c:8000, s:5, m:['fluorite', 3, 2]}, {c:16000, s:8, m:['beryl', 3, 1]}]},
+  {id:'loupe', name:'Лупа геммолога', d:lv => lv ? `Шанс редкой разновидности ×${fmt2(1 + .3 * lv)}` : 'Чаще попадаются редкие разновидности',
+    lv:[{c:1500, s:1, m:['quartz', 3, 1]}, {c:4500, s:3, m:['fluorite', 3, 1]}, {c:10000, s:6, m:['garnet', 3, 2]}, {c:20000, s:10, m:['corundum', 3, 1]}]},
+  {id:'saw', name:'Алмазная пила', d:lv => lv ? `Качество при вскрытии выше, уровень ${lv}` : 'Повышает качество при вскрытии',
+    lv:[{c:2000, s:1, m:['malachite', 2, 3]}, {c:5500, s:4, m:['gypsum', 4, 1]}, {c:12000, s:7, m:['gold', 3, 1]}, {c:24000, s:12, m:['diamond', 2, 1]}]},
+  {id:'hammer', name:'Отбойные молотки', d:lv => `${1 + lv} ${plural(1 + lv, 'молоток', 'молотка', 'молотков')} на спуск`,
+    lv:[{c:800, s:0, m:['quartz', 1, 3]}, {c:3000, s:3, m:['garnet', 2, 2]}, {c:8000, s:7, m:['opal', 2, 1]}]},
+  {id:'tnt', name:'Пороховой погреб', d:lv => lv ? `${lv} динамита на спуск` : 'Динамит расчищает квадрат 3×3',
+    lv:[{c:1500, s:2, m:['fluorite', 2, 2]}, {c:5000, s:5, m:['gold', 2, 1]}, {c:12000, s:9, m:['corundum', 2, 1]}]},
+  {id:'undo', name:'Журнал маркшейдера', d:lv => `${1 + lv} ${plural(1 + lv, 'откат', 'отката', 'откатов')} на спуск`,
+    lv:[{c:1200, s:1, m:['quartz', 2, 2]}, {c:6000, s:6, m:['beryl', 2, 2]}]},
+  {id:'cage', name:'Спасательная клеть', d:lv => lv ? `При завале спасается ${lv} ${plural(lv, 'образец', 'образца', 'образцов')} и ${20 * lv}% выработки` : 'Часть добычи переживает завал',
+    lv:[{c:4000, s:3, m:['malachite', 3, 2]}, {c:10000, s:7, m:['opal', 3, 1]}, {c:20000, s:11, m:['diamond', 3, 1]}]},
+  {id:'drill', name:'Бур', d:lv => lv ? `Старт с глубины ${40 * lv} м` : 'Начинать спуск глубже',
+    lv:[{c:6000, s:5, m:['garnet', 3, 1]}, {c:15000, s:9, m:['corundum', 3, 1]}, {c:30000, s:13, m:['diamond', 4, 1]}]},
+  {id:'cool', name:'Охлаждающий костюм', d:lv => lv ? `Жара в Наике переносится на ${15 * lv} ходов дольше` : 'Дольше держаться в жаре Наики',
+    lv:[{c:3000, s:5, m:['gypsum', 3, 2]}, {c:9000, s:7, m:['gypsum', 4, 1]}]},
+  {id:'gas', name:'Газоанализатор', d:lv => lv ? `Газовые карманы взрываются на ${3 * lv} хода позже` : 'Больше времени на газовые карманы',
+    lv:[{c:5000, s:8, m:['opal', 2, 2]}, {c:12000, s:10, m:['gold', 3, 1]}]},
+];
+
+/* ---------- utils ---------- */
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const fmt = n => Math.round(n).toLocaleString('ru-RU');
+const fmt2 = x => x.toFixed(2).replace('.', ',');
+function pickW(entries){ let t = entries.reduce((s, e) => s + e[1], 0), r = Math.random() * t; for (const e of entries) { if ((r -= e[1]) <= 0) return e[0]; } return entries[entries.length - 1][0]; }
+function plural(n, a, b, c){ const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; }
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const minName = (fam, lvl) => MIN[fam].lv ? MIN[fam].lv[lvl - 1] : `${LV[lvl - 1]} ${MIN[fam].gen}`;
+const minImg = (fam, variant, cls = '') => `<img src="${IMG(fam)}" alt="" class="${cls}"${variant ? ` style="filter:${MIN[fam].variant.f}"` : ''}>`;
+const specName = x => x.variant ? `${minName(x.fam, x.lvl)}: ${MIN[x.fam].variant.name.toLowerCase()}` : minName(x.fam, x.lvl);
+const baseValue = (fam, lvl) => MIN[fam].base * Math.pow(3, lvl - 1);
+
+/* ---------- save ---------- */
+const BLANK = () => ({wallet:300, cat:0, up:{lamp:0, loupe:0, saw:0, hammer:0, tnt:0, undo:0, cage:0, drill:0, cool:0, gas:0},
+  stars:{}, rough:[], inv:[], museum:{}, fos:{}, ach:{}, orders:[],
+  st:{runs:0, ups:0, jams:0, maxDepth:0, bestFind:null, variants:0, geodes:0, maxCombo:0, ore:0, fossils:0, tnt:0, earned:0, opened:0, aaa:0, mines:{}, orders:0},
+  help:false, mute:false, lastMine:'adit'});
+function load(){
+  try { const s = JSON.parse(localStorage.getItem('glubina-v3') || 'null'); if (!s) return BLANK(); const b = BLANK(); return Object.assign(b, s, {up:Object.assign(b.up, s.up), st:Object.assign(b.st, s.st)}); }
+  catch (e) { return BLANK(); }
+}
+function persist(){ try { localStorage.setItem('glubina-v3', JSON.stringify(save)); } catch (e) {} }
+let save = load();
+const starCount = () => Object.values(save.stars).reduce((s, a) => s + a.filter(Boolean).length, 0);
+const STAR_MAX = MINES.length * 3;
+
+/* ---------- sound ---------- */
+let AC;
+function ac(){ if (save.mute) return null; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch (e) { return null; } }
+function noise(dur, freq, vol, type = 'lowpass'){
+  const a = ac(); if (!a) return;
+  const b = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const s = a.createBufferSource(); s.buffer = b;
+  const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+function tone(freq, at, dur, vol, type = 'sine'){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const SFX = {
+  slide(){ noise(.09, 500, .25, 'bandpass'); },
+  merge(v){ const k = Math.log2(v); tone(180 * Math.pow(2, k / 4), 0, .18, .1, 'triangle'); noise(.06, 900, .2); },
+  crumble(){ noise(.35, 1200, .45); noise(.25, 200, .5); buzz(25); },
+  gold(){ [1319, 1568, 2093].forEach((f, k) => tone(f, k * .05, .25, .07, 'square')); },
+  combo(n){ for (let k = 0; k < n; k++) tone(660 * Math.pow(2, k * 3 / 12), k * .06, .2, .07, 'triangle'); },
+  mineral(l){ [0, 4, 7, 12, 16].slice(0, l + 1).forEach((s, k) => tone(523 * Math.pow(2, s / 12), k * .05, .35, .07, 'triangle')); },
+  spawnMin(){ tone(1568, 0, .15, .05, 'sine'); tone(2093, .06, .2, .04, 'sine'); },
+  collect(){ tone(1318, 0, .12, .08, 'square'); tone(1760, .07, .2, .07, 'square'); },
+  zone(){ tone(98, 0, 1.2, .2, 'sawtooth'); noise(.8, 150, .4); },
+  jam(){ noise(1.6, 220, 1); noise(.8, 90, .8); buzz([80, 40, 200, 60, 300]); },
+  up(){ [392, 523, 659, 784, 1047].forEach((f, k) => tone(f, k * .08, .5, .09, 'triangle')); },
+  bump(){ noise(.06, 300, .3); },
+  hammer(){ noise(.12, 600, .7); tone(140, 0, .15, .15, 'square'); buzz(30); },
+  boom(){ noise(1, 120, 1); noise(.4, 2000, .5); buzz([100, 50, 150]); },
+  undo(){ tone(880, 0, .1, .07, 'sine'); tone(660, .07, .15, .06, 'sine'); },
+  star(){ [784, 988, 1175, 1568].forEach((f, k) => tone(f, k * .09, .6, .09, 'triangle')); buzz([40, 30, 60]); },
+  water(){ noise(.4, 700, .3, 'bandpass'); },
+  hiss(){ noise(.3, 4000, .25, 'highpass'); },
+  geode(){ noise(.2, 3000, .4, 'highpass'); [659, 880, 1175, 1568].forEach((f, k) => tone(f, .1 + k * .07, .5, .08, 'triangle')); },
+  crack(k){ noise(.18, 2600 + k * 600, .45, 'highpass'); noise(.1, 500, .4); buzz(30); },
+  reveal(v){ const steps = [0, 4, 7, 12, 16, 19, 24]; for (let k = 0; k < (v ? 7 : 3); k++) tone(392 * Math.pow(2, steps[k] / 12), k * .09, .6, .1, 'triangle'); if (v) buzz([60, 40, 60, 40, 160]); },
+  tick(){ tone(1800, 0, .03, .04, 'square'); },
+  land(gi){ tone([330, 392, 523, 659, 880][gi], 0, .35, .12, 'triangle'); },
+  coin(){ tone(1568, 0, .1, .1, 'square'); tone(2093, .07, .18, .08, 'square'); },
+};
+
+/* ---------- art ---------- */
+const TEX = {};
+function rockTex(v){
+  if (TEX[v] !== undefined) return TEX[v];
+  const k = ROCK[v];
+  try {
+    const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S; const x = cv.getContext('2d');
+    x.fillStyle = k.base; x.fillRect(0, 0, S, S);
+    if (k.bands) for (let n = 0; n < 9; n++) {
+      x.strokeStyle = n % 2 ? `rgba(${k.light},.35)` : `rgba(${k.dark},.5)`; x.lineWidth = 3 + Math.random() * 6;
+      x.beginPath(); let y = n * 15 + Math.random() * 6; x.moveTo(-5, y);
+      for (let px = 0; px <= S + 10; px += 16) { y += Math.sin(px / 18 + n) * 3; x.lineTo(px, y); } x.stroke();
+    }
+    for (let n = 0; n < 1800; n++) {
+      x.fillStyle = Math.random() < .55 ? `rgba(${k.dark},${Math.random() * .35})` : `rgba(${k.light},${Math.random() * .2})`;
+      const s = Math.random() * 2.4 + .4; x.fillRect(Math.random() * S, Math.random() * S, s, s);
+    }
+    if (k.grains) for (let n = 0; n < 130; n++) { x.fillStyle = k.grains[n % k.grains.length]; x.globalAlpha = .5 + Math.random() * .45; const s = 2 + Math.random() * 5; x.beginPath(); x.ellipse(Math.random() * S, Math.random() * S, s, s * (.5 + Math.random() * .5), Math.random() * 3, 0, Math.PI * 2); x.fill(); }
+    x.globalAlpha = 1;
+    for (let n = 0; n < (k.strata || 0); n++) {
+      x.strokeStyle = `rgba(${n % 2 ? k.light : k.dark},${.1 + Math.random() * .2})`; x.lineWidth = Math.random() * 3 + .5;
+      x.beginPath(); let y = Math.random() * S; x.moveTo(0, y);
+      for (let px = 16; px <= S; px += 16) { y += (Math.random() - .5) * 5; x.lineTo(px, y); } x.stroke();
+    }
+    TEX[v] = cv.toDataURL('image/png');
+  } catch (e) { TEX[v] = ''; }
+  return TEX[v];
+}
+let gid = 0;
+function fossilSVG(f){
+  const id = 'f' + (gid++), G = `url(#${id})`;
+  const defs = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${f.c1}"/><stop offset="1" stop-color="${f.c2}"/></linearGradient></defs>`;
+  let body = '';
+  switch (f.shape) {
+    case 'spiral': {
+      let d = 'M50,52';
+      for (let a = 0; a <= Math.PI * 4.3; a += .2) { const r = 2 + a * 2.35; d += ` L${(50 + Math.cos(a) * r).toFixed(1)},${(52 + Math.sin(a) * r).toFixed(1)}`; }
+      body = `<circle cx="50" cy="52" r="35" fill="${G}"/><path d="${d}" stroke="${f.c2}" stroke-width="3" fill="none"/>`;
+      break;
+    }
+    case 'bullet': body = `<g transform="rotate(35 50 50)"><path d="M42,14 L58,14 L58,70 Q50,96 42,70 Z" fill="${G}"/><path d="M45,16 L45,70" stroke="#fff" stroke-opacity=".35" stroke-width="3"/></g>`; break;
+    case 'fern':
+      body = `<ellipse cx="50" cy="52" rx="40" ry="34" fill="${f.c1}"/><g stroke="${f.c2}" stroke-width="2" stroke-linecap="round"><path d="M30,82 Q50,50 70,20"/>` +
+        Array.from({length:8}, (_, k) => { const t = .12 + k * .1, x = 30 + 40 * t, y = 82 - 62 * t; return `<path d="M${x},${y} l${-10 + k},${-4}"/><path d="M${x},${y} l${8 - k * .6},${6}"/>`; }).join('') + '</g>';
+      break;
+    case 'trilobite':
+      body = `<ellipse cx="50" cy="52" rx="26" ry="36" fill="${G}"/><path d="M28,32 Q50,10 72,32" fill="${f.c1}" stroke="${f.c2}" stroke-width="2"/>` +
+        Array.from({length:8}, (_, k) => `<path d="M${27 + k * .5},${40 + k * 6} L${73 - k * .5},${40 + k * 6}" stroke="${f.c2}" stroke-width="1.6" opacity=".7"/>`).join('');
+      break;
+    case 'tooth': body = `<path d="M22,30 Q50,22 78,30 L54,90 Q50,94 46,90 Z" fill="${f.c2}"/><path d="M22,30 Q50,22 78,30 L74,40 Q50,34 26,40 Z" fill="${f.c1}"/>`; break;
+    case 'amber': body = `<path d="M26,56 C22,34 42,22 58,26 C76,30 84,48 76,64 C68,82 34,84 26,56 Z" fill="${G}" opacity=".95"/><g fill="#2a1406"><ellipse cx="52" cy="54" rx="7" ry="4"/><circle cx="44" cy="53" r="3"/></g><ellipse cx="42" cy="38" rx="10" ry="4" fill="#fff" opacity=".35"/>`; break;
+  }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${defs}${body}</svg>`;
+}
+const fossilIcon = f => f.id === 'ammonite' ? `<img src="${IMG('ammonite')}" alt="">` : fossilSVG(f);
+function crackPaths(seed, count){
+  const rand = mulberry(seed * 7 + 3), out = [];
+  for (let k = 0; k < count; k++) {
+    let x = 50 + (rand() - .5) * 10, y = 52 + (rand() - .5) * 10;
+    const a0 = rand() * Math.PI * 2; let d = `M${x.toFixed(1)},${y.toFixed(1)}`;
+    for (let s = 0; s < 5; s++) { const a = a0 + (rand() - .5) * 1.1, len = 5 + rand() * 6; x += Math.cos(a) * len; y += Math.sin(a) * len * .9; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; }
+    out.push(d);
+  }
+  return out;
+}
+
+/* ---------- effects ---------- */
+const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const fxc = $('#fx');
+let fx = null;
+try { fx = fxc.getContext('2d'); } catch (e) {}
+let parts = [], fxRun = false;
+function fxSize(){ if (!fx) return; const dpr = Math.min(2, window.devicePixelRatio || 1); fxc.width = innerWidth * dpr; fxc.height = innerHeight * dpr; fx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+fxSize(); addEventListener('resize', fxSize);
+function burst(x, y, o){
+  if (!fx || RM) return;
+  for (let i = 0; i < o.n; i++) {
+    const a = (Math.random() - .5) * Math.PI * 2, sp = (o.speed || 3) * (.35 + Math.random() * .9);
+    parts.push({x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - (o.lift || 0), g:o.grav === undefined ? .15 : o.grav, life:0, max:(o.life || 40) * (.6 + Math.random() * .6),
+      s:(o.size || 3) * (.5 + Math.random()), c:o.colors[i % o.colors.length], k:o.kind || 'chip', rot:Math.random() * 6, vr:(Math.random() - .5) * .3});
+  }
+  if (!fxRun) { fxRun = true; requestAnimationFrame(fxTick); }
+}
+function fxTick(){
+  fx.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter(p => p.life < p.max);
+  for (const p of parts) {
+    p.life++; p.vx *= .985; p.vy = p.vy * .985 + p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+    const t = 1 - p.life / p.max;
+    fx.globalAlpha = Math.min(1, t * 1.6); fx.fillStyle = p.c;
+    if (p.k === 'spark') {
+      const sz = p.s * (.6 + t * .6);
+      fx.save(); fx.translate(p.x, p.y); fx.rotate(p.rot); fx.beginPath();
+      for (let i = 0; i < 8; i++) { const r = i % 2 ? sz * .35 : sz * 1.6, a = i * Math.PI / 4; fx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      fx.closePath(); fx.fill(); fx.restore();
+    } else if (p.k === 'dust') { fx.beginPath(); fx.arc(p.x, p.y, p.s * (1.6 - t * .6), 0, 7); fx.fill(); }
+    else { fx.save(); fx.translate(p.x, p.y); fx.rotate(p.rot); fx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .7); fx.restore(); }
+  }
+  fx.globalAlpha = 1;
+  if (parts.length) requestAnimationFrame(fxTick); else { fxRun = false; fx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+function shade(hex, k){ const n = parseInt(hex.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); return `rgb(${f(n >> 16)},${f(n >> 8 & 255)},${f(n & 255)})`; }
+function tileXY(r, c){ const b = boardEl.getBoundingClientRect(), [x, y] = center(r, c); return [b.left + x, b.top + y]; }
+function elXY(el){ const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }
+const FX = {
+  crumble(r, c, base, ore){ const [x, y] = tileXY(r, c);
+    burst(x, y, {n:14, colors:[base, shade(base, -.35), shade(base, .25)], speed:4, lift:1.5, grav:.25, size:5, life:38});
+    burst(x, y, {n:6, colors:['rgba(210,190,160,.45)'], kind:'dust', speed:1.4, grav:-.02, size:6, life:45});
+    if (ore) burst(x, y, {n:18, colors:['#ffd75a', '#fff1a8'], kind:'spark', speed:4.5, grav:.06, size:3, life:48}); },
+  merge(r, c, color, big){ const [x, y] = tileXY(r, c); burst(x, y, {n:big ? 10 : 5, colors:[color], kind:'dust', speed:big ? 3 : 2, grav:.04, size:2.5, life:26}); },
+  mineral(r, c, color, lvl){ const [x, y] = tileXY(r, c); burst(x, y, {n:6 + lvl * 4, colors:[color, '#ffffff'], kind:'spark', speed:2 + lvl * .6, grav:.02, size:2 + lvl * .4, life:42}); },
+  boom(r, c){ const [x, y] = tileXY(r, c);
+    burst(x, y, {n:40, colors:['#fff3a0', '#ffb347', '#ff5a1a', '#6a6a6a'], speed:7, grav:.12, size:5, life:45});
+    burst(x, y, {n:16, colors:['rgba(90,80,70,.5)'], kind:'dust', speed:2.5, grav:-.03, size:10, life:60}); },
+  geode(r, c){ const [x, y] = tileXY(r, c); burst(x, y, {n:32, colors:['#c690ff', '#e9d6ff', '#ffffff'], kind:'spark', speed:5, grav:.03, size:3.5, life:55}); },
+  at(el, colors, n = 24){ const [x, y] = elXY(el); burst(x, y, {n, colors, kind:'spark', speed:4, grav:.04, size:3, life:50}); },
+};
+function tween(from, to, dur, cb){
+  if (RM || dur <= 0 || !window.requestAnimationFrame) return cb(to);
+  const t0 = performance.now();
+  const step = now => { const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3); cb(from + (to - from) * e); if (t < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function flyTo(srcEl, html, target){
+  if (RM || !target || !srcEl) return;
+  const a = srcEl.getBoundingClientRect(), b = target.getBoundingClientRect();
+  const f = document.createElement('div'); f.className = 'fly'; f.innerHTML = html;
+  Object.assign(f.style, {left:a.left + 'px', top:a.top + 'px', width:a.width + 'px', height:a.height + 'px'});
+  document.body.appendChild(f);
+  if (!f.animate) { f.remove(); return; }
+  const dx = b.left + Math.min(b.width, 60) / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  const an = f.animate([{transform:'translate(0,0) scale(1)'}, {transform:`translate(${dx * .45}px,${dy * .45 - 70}px) scale(.85)`, offset:.5}, {transform:`translate(${dx}px,${dy}px) scale(.3)`, opacity:.6}],
+    {duration:560, easing:'cubic-bezier(.45,0,.55,1)'});
+  an.onfinish = () => { f.remove(); anim(target, 'pop'); };
+}
+
+/* ---------- progression ---------- */
+function gtoast(t, s){ const el = document.createElement('div'); el.className = 'gt'; el.innerHTML = `<b>${t}</b>${s ? `<span>${s}</span>` : ''}`; $('#gtoasts').appendChild(el); setTimeout(() => el.remove(), 4000); }
+const taskText = (k, short) => {
+  switch (k.t) {
+    case 'depth': return short ? `${k.d} м` : `Подняться с глубины ${k.d} м`;
+    case 'lift': return short ? `${k.fam ? MIN[k.fam].name.toLowerCase() : 'любой'} ${ROMAN[k.lvl - 1]}+` : `Поднять ${k.fam ? MIN[k.fam].name.toLowerCase() : 'любой минерал'} уровня ${ROMAN[k.lvl - 1]} или выше`;
+    case 'fossils': return short ? `${k.n} окам.` : `Поднять ${k.n} окаменелости за спуск`;
+    case 'geode': return short ? 'жеода' : 'Раскрыть закрытую жеоду и подняться';
+    case 'count': return short ? `${k.n} образцов` : `Поднять ${k.n} образцов за спуск`;
+    case 'combo': return short ? `цепь ×${k.n}` : `Цепь из ${k.n} слияний за свайп, затем подняться`;
+    case 'cash': return short ? `${fmt(k.n)} ₽ выработки` : `Поднять ${fmt(k.n)} ₽ выработки за спуск`;
+  }
+};
+function taskDone(k, R){
+  switch (k.t) {
+    case 'depth': return R.depth >= k.d;
+    case 'lift': return R.bag.some(x => (!k.fam || x.fam === k.fam) && x.lvl >= k.lvl);
+    case 'fossils': return R.fossils.length >= k.n;
+    case 'geode': return R.geodes >= k.n;
+    case 'count': return R.bag.length >= k.n;
+    case 'combo': return R.maxCombo >= k.n;
+    case 'cash': return R.cash * (1 + R.depth / 250) >= k.n;
+  }
+  return false;
+}
+const ACH = [
+  {id:'up1', name:'Первый подъём', d:'Подняться наверх с добычей', r:100, ok:s => s.st.ups >= 1},
+  {id:'open10', name:'Камнерез', d:'Вскрыть 10 образцов', r:300, ok:s => s.st.opened >= 10},
+  {id:'open100', name:'Гранильщик', d:'Вскрыть 100 образцов', r:3000, ok:s => s.st.opened >= 100},
+  {id:'d300', name:'Метаморфиты', d:'Достичь 300 м', r:400, ok:s => s.st.maxDepth >= 300},
+  {id:'d600', name:'Мантия', d:'Достичь 600 м', r:1500, ok:s => s.st.maxDepth >= 600},
+  {id:'d900', name:'Дно трубки', d:'Достичь 900 м', r:5000, ok:s => s.st.maxDepth >= 900},
+  {id:'lvl5', name:'Жеода', d:'Поднять минерал уровня V', r:1500, ok:s => s.st.geodes >= 1},
+  {id:'var1', name:'Редкая разновидность', d:'Вскрыть редкую разновидность', r:300, ok:s => s.st.variants >= 1},
+  {id:'var10', name:'Коллекционер редкостей', d:'Вскрыть 10 редких разновидностей', r:3000, ok:s => s.st.variants >= 10},
+  {id:'aaa', name:'Музейное качество', d:'Получить качество AAA', r:1500, ok:s => s.st.aaa >= 1},
+  {id:'combo5', name:'Цепная реакция', d:'5 слияний за один свайп', r:800, ok:s => s.st.maxCombo >= 5},
+  {id:'fos6', name:'Палеонтолог', d:'Собрать все виды окаменелостей', r:3000, ok:s => FOSSILS.every(f => s.fos[f.id])},
+  {id:'orders5', name:'Поставщик', d:'Выполнить 5 заказов', r:1500, ok:s => s.st.orders >= 5},
+  {id:'stars15', name:'Главный геолог', d:'Собрать все 15 звёзд', r:20000, ok:() => starCount() >= STAR_MAX},
+  {id:'jam3', name:'Каска спасла', d:'Пережить 3 завала', r:200, ok:s => s.st.jams >= 3},
+];
+function checkAch(){ for (const a of ACH) if (!save.ach[a.id] && a.ok(save)) { save.ach[a.id] = 1; save.wallet += a.r; SFX.coin(); gtoast('Веха: ' + a.name, `${a.d} · +${fmt(a.r)} ₽`); } persist(); }
+
+function orderPool(){ const fams = new Set(); MINES.filter(m => starCount() >= m.stars).forEach(m => m.pool.forEach(([f]) => fams.add(f))); return [...fams]; }
+function newOrder(){
+  const pool = orderPool().filter(f => !save.orders.some(o => o.fam === f));
+  const fam = pool.length ? pool[ri(0, pool.length - 1)] : orderPool()[0];
+  const lvl = pickW([[2, 3], [3, 3], [4, 1]]), grade = pickW([[0, 2], [1, 2], [2, 1]]);
+  return {fam, lvl, grade, pay:Math.round(baseValue(fam, lvl) * GR[grade].m * 3.5)};
+}
+function fillOrders(){ while (save.orders.length < 3) save.orders.push(newOrder()); }
+const fitsOrder = (x, o) => x.fam === o.fam && x.lvl >= o.lvl && x.gi >= o.grade;
+
+/* ---------- run state ---------- */
+const boardEl = $('#board');
+let grid, tiles, uid = 0, lock = false, S = null, cell = 70, gap = 7, snap = null;
+const zoneAt = d => { let z = 0; ZONES.forEach((x, k) => { if (d >= x.d) z = k; }); return z; };
+const zone = () => ZONES[S.zone];
+const luck = () => 1 + S.depth / 250;
+const FIXED = new Set(['fossil', 'dike', 'geodec', 'water', 'gas', 'magma']);
+const fixed = t => FIXED.has(t.kind);
+const heatMax = () => S.mine.feat.heat ? S.mine.feat.heat.max + 15 * save.up.cool : 0;
+
+function layout(){
+  const W = boardEl.clientWidth || 340;
+  gap = Math.max(5, Math.round(W * .018));
+  cell = (W - gap * (N + 1)) / N;
+  boardEl.style.setProperty('--cell', cell + 'px');
+  boardEl.querySelectorAll('.slot').forEach(el => { const r = +el.dataset.r, c = +el.dataset.c; el.style.width = el.style.height = cell + 'px'; el.style.transform = `translate(${gap + c * (cell + gap)}px,${gap + r * (cell + gap)}px)`; });
+  if (tiles) tiles.forEach(t => { t.el.style.width = t.el.style.height = cell + 'px'; place(t); });
+}
+function place(t){ t.el.style.transform = `translate(${gap + t.c * (cell + gap)}px,${gap + t.r * (cell + gap)}px)`; }
+const center = (r, c) => [gap + c * (cell + gap) + cell / 2, gap + r * (cell + gap) + cell / 2];
+
+function drawTile(t){
+  const el = t.el;
+  el.dataset.id = t.id;
+  el.style.removeProperty('--ink');
+  switch (t.kind) {
+    case 'rock': {
+      const k = ROCK[t.v];
+      el.className = 'tile rockt' + (t.v * 2 === zone().T ? ' brittle' : '') + (t.ore ? ' ore' : '');
+      el.style.setProperty('--rb', k.base); el.style.setProperty('--ink', k.ink);
+      const tex = rockTex(t.v); el.style.setProperty('--tex', tex ? `url(${tex})` : 'none');
+      el.innerHTML = `<div class="in"><span class="v">${t.v}</span><span class="nm">${t.ore ? 'рудный ' : ''}${k.name.toLowerCase()}</span></div>`;
+      break;
+    }
+    case 'min':
+      el.className = 'tile mint' + (t.lvl === MAXLV ? ' max' : '');
+      el.style.setProperty('--fc', MIN[t.fam].color); el.style.setProperty('--sz', (.5 + t.lvl * .1).toFixed(2)); el.style.setProperty('--dl', (t.id % 7 * .45).toFixed(2) + 's');
+      el.innerHTML = `<div class="in">${minImg(t.fam, false)}<span class="lv">${ROMAN[t.lvl - 1]}</span></div>`;
+      break;
+    case 'fossil': el.className = 'tile fixt fost'; el.innerHTML = `<div class="in"><img src="${IMG('ammonite')}" alt=""><span class="nm">окаменелость</span></div>`; break;
+    case 'dike': el.className = 'tile fixt dike'; el.innerHTML = `<div class="in"><span class="ct">${t.ttl}</span><span class="nm">дайка</span></div>`; break;
+    case 'geodec': el.className = 'tile fixt geoc'; el.innerHTML = `<div class="in"><img src="${IMG('nodule')}" alt=""><span class="ct">${t.hp}</span><span class="nm">жеода</span></div>`; break;
+    case 'water': el.className = 'tile fixt water'; el.innerHTML = `<div class="in"><span class="nm">вода</span></div>`; break;
+    case 'gas': el.className = 'tile fixt gas' + (t.ttl <= 3 ? ' hot' : ''); el.innerHTML = `<div class="in"><span class="ct">${t.ttl}</span><span class="nm" style="color:#1a1c06">газ</span></div>`; break;
+    case 'magma': el.className = 'tile fixt magma'; el.innerHTML = `<div class="in"><span class="ct">${t.ttl}</span><span class="nm">магма</span></div>`; break;
+  }
+}
+function makeTile(r, c, props, quiet){
+  const t = Object.assign({id:++uid, r, c}, props);
+  t.el = document.createElement('div');
+  grid[r][c] = t; tiles.set(t.id, t);
+  drawTile(t);
+  t.el.style.width = t.el.style.height = cell + 'px';
+  place(t);
+  boardEl.appendChild(t.el);
+  if (!quiet) t.el.classList.add('new');
+  return t;
+}
+function removeTile(t, cls, delay = 400){
+  tiles.delete(t.id);
+  if (grid[t.r][t.c] === t) grid[t.r][t.c] = null;
+  if (cls) { t.el.classList.add(cls); setTimeout(() => t.el.remove(), delay); } else t.el.remove();
+}
+function anim(el, cls){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function floatText(r, c, text, color){
+  const [x, y] = center(r, c), el = document.createElement('div');
+  el.className = 'float'; el.textContent = text; el.style.left = x + 'px'; el.style.top = y + 'px';
+  if (color) el.style.setProperty('--fc', color);
+  boardEl.appendChild(el); setTimeout(() => el.remove(), 1000);
+}
+const neigh4 = (r, c) => [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].filter(([a, b]) => a >= 0 && a < N && b >= 0 && b < N);
+
+function empties(){ const out = []; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!grid[r][c]) out.push([r, c]); return out; }
+function featOn(k){ const f = S.mine.feat[k]; return f && f.p && (!f.z || (S.zone >= f.z[0] && S.zone <= f.z[1])) ? f.p : 0; }
+function spawn(){
+  const e = empties(); if (!e.length) return null;
+  const [r, c] = e[ri(0, e.length - 1)];
+  let roll = Math.random();
+  const minChance = .08 + S.zone * .01 + .02 * save.up.lamp;
+  if (roll < minChance) {
+    const avail = S.mine.pool.filter(([, d]) => S.depth >= d);
+    const fam = pickW(avail.map(([id, d, w]) => [id, w * (1 + (S.depth - d) / 300)]));
+    SFX.spawnMin();
+    return makeTile(r, c, {kind:'min', fam, lvl:1});
+  }
+  roll -= minChance;
+  for (const k of ['fossil', 'geodec', 'water', 'gas', 'magma', 'dike']) {
+    const p = featOn(k);
+    if (p && roll < p) {
+      if (k === 'fossil') return makeTile(r, c, {kind:'fossil'});
+      if (k === 'geodec') return makeTile(r, c, {kind:'geodec', hp:3});
+      if (k === 'water') { SFX.water(); return makeTile(r, c, {kind:'water', tick:0}); }
+      if (k === 'gas') return makeTile(r, c, {kind:'gas', ttl:9 + 3 * save.up.gas});
+      if (k === 'magma') return makeTile(r, c, {kind:'magma', ttl:16, tick:0});
+      if (k === 'dike') return makeTile(r, c, {kind:'dike', ttl:20 + ri(0, 10)});
+    }
+    roll -= p;
+  }
+  return makeTile(r, c, {kind:'rock', v:pickW(zone().spawn), ore:Math.random() < featOn('ore')});
+}
+
+function canMerge(a, b){ if (!a || !b || a.kind !== b.kind) return false; if (a.kind === 'rock') return a.v === b.v; if (a.kind === 'min') return a.fam === b.fam && a.lvl === b.lvl && a.lvl < MAXLV; return false; }
+
+function slide(dir){
+  const [dr, dc] = {left:[0, -1], right:[0, 1], up:[-1, 0], down:[1, 0]}[dir];
+  const idxs = [...Array(N).keys()];
+  const rows = dr === 1 ? idxs.slice().reverse() : idxs, cols = dc === 1 ? idxs.slice().reverse() : idxs;
+  let moved = false; const merged = new Set(), events = [];
+  for (const r of rows) for (const c of cols) {
+    const t = grid[r][c]; if (!t || fixed(t)) continue;
+    let nr = r, nc = c, into = null;
+    while (true) {
+      const tr = nr + dr, tc = nc + dc;
+      if (tr < 0 || tr >= N || tc < 0 || tc >= N) break;
+      const o = grid[tr][tc];
+      if (!o) { nr = tr; nc = tc; continue; }
+      if (canMerge(t, o) && !merged.has(o.id)) { nr = tr; nc = tc; into = o; }
+      break;
+    }
+    if (nr === r && nc === c) continue;
+    moved = true; grid[r][c] = null; t.r = nr; t.c = nc;
+    if (into) { merged.add(into.id); events.push({into, from:t}); }
+    else grid[nr][nc] = t;
+  }
+  return {moved, events};
+}
+
+const KEYS = ['kind', 'v', 'ore', 'fam', 'lvl', 'ttl', 'hp', 'tick'];
+function snapshot(){
+  return {tiles:[...tiles.values()].map(t => { const o = {r:t.r, c:t.c}; KEYS.forEach(k => { if (t[k] !== undefined) o[k] = t[k]; }); return o; }),
+    depth:S.depth, moves:S.moves, cash:S.cash, zone:S.zone, heat:S.heat};
+}
+function restore(s){
+  tiles.forEach(t => t.el.remove());
+  tiles = new Map(); grid = Array.from({length:N}, () => Array(N).fill(null));
+  Object.assign(S, {depth:s.depth, moves:s.moves, cash:s.cash, zone:s.zone, heat:s.heat});
+  applyZone();
+  for (const t of s.tiles) { const {r, c, ...p} = t; makeTile(r, c, p, true); }
+}
+
+function move(dir){
+  if (lock || !S || S.over) return;
+  const before = snapshot();
+  const {moved, events} = slide(dir);
+  if (!moved) { anim(boardEl, 'nudge'); SFX.bump(); return; }
+  snap = before;
+  lock = true;
+  setTool(null);
+  SFX.slide();
+  tiles.forEach(place);
+  S.moves++; S.depth += STEP;
+  if (heatMax()) S.heat++;
+  setTimeout(() => {
+    try { afterMove(events); } finally { lock = false; }
+    if (heatMax() && S.heat >= heatMax()) return jam('heat');
+    if (isJammed()) jam();
+  }, 125);
+}
+
+function afterMove(events){
+  let maxV = 0, minLvl = 0, minTile = null;
+  for (const {into, from} of events) {
+    tiles.delete(from.id); from.el.remove();
+    if (into.kind === 'rock') { into.v *= 2; into.ore = into.ore || from.ore; maxV = Math.max(maxV, into.v); FX.merge(into.r, into.c, ROCK[Math.min(into.v, 128)].base, into.v >= 16); }
+    else { into.lvl++; if (into.lvl > minLvl) { minLvl = into.lvl; minTile = into; } FX.mineral(into.r, into.c, MIN[into.fam].color, into.lvl); }
+    drawTile(into); anim(into.el, 'pop');
+    // merges next to a closed geode chip away at its crust
+    for (const [a, b] of neigh4(into.r, into.c)) { const g = grid[a][b]; if (g && g.kind === 'geodec' && g.hp > 0) { g.hp--; if (g.hp <= 0) openGeode(g); else { drawTile(g); anim(g.el, 'pop'); } } }
+  }
+  if (maxV) { SFX.merge(maxV); if (maxV >= 32) anim(boardEl, 'jolt'); }
+  if (minLvl) { SFX.mineral(minLvl); if (minLvl >= 4) toast(minImg(minTile.fam, false), minName(minTile.fam, minLvl), minLvl < MAXLV ? 'Сольёте ещё раз — уровень выше, но место занято.' : 'Максимальный уровень.', MIN[minTile.fam].color); }
+  const T = zone().T;
+  if (events.length >= 2) {
+    const bonus = Math.round((events.length - 1) * T);
+    S.cash += bonus; S.maxCombo = Math.max(S.maxCombo, events.length);
+    const e = events[events.length - 1].into;
+    floatText(e.r, e.c, `цепь ×${events.length} +${fmt(bonus)}`, 'var(--luck)');
+    SFX.combo(events.length); anim(boardEl, 'combo');
+  }
+  let crumbled = 0;
+  [...tiles.values()].forEach(t => {
+    if (!tiles.has(t.id)) return;
+    if (t.kind === 'rock' && t.v >= T) {
+      const gain = Math.round(t.v * (t.ore ? 5 : 1));
+      S.cash += gain; crumbled++;
+      if (t.ore) { S.ore++; SFX.gold(); }
+      floatText(t.r, t.c, `+${fmt(gain)} ₽`, t.ore ? '#ffd75a' : null);
+      FX.crumble(t.r, t.c, ROCK[Math.min(t.v, 128)].base, t.ore);
+      removeTile(t, 'crumble');
+    } else if (t.kind === 'dike') { t.ttl--; if (t.ttl <= 0) { floatText(t.r, t.c, 'выветрилась'); removeTile(t, 'crumble'); } else drawTile(t); }
+    else if (t.kind === 'gas') { t.ttl--; if (t.ttl <= 0) explode(t); else { drawTile(t); if (t.ttl <= 3) SFX.hiss(); } }
+    else if (t.kind === 'water') { t.tick++; if (t.tick % 5 === 0) spreadWater(t); }
+    else if (t.kind === 'magma') {
+      t.ttl--; t.tick++;
+      if (t.tick % 3 === 0) { const rocks = neigh4(t.r, t.c).map(([a, b]) => grid[a][b]).filter(o => o && o.kind === 'rock' && o.v * 2 < T); if (rocks.length) { const o = rocks[ri(0, rocks.length - 1)]; o.v *= 2; drawTile(o); anim(o.el, 'pop'); floatText(o.r, o.c, 'спрессовано', '#ff8a3a'); } }
+      if (t.ttl <= 0) { const r = t.r, c = t.c; removeTile(t); makeTile(r, c, {kind:'dike', ttl:15}); floatText(r, c, 'остыла'); } else drawTile(t);
+    }
+  });
+  if (crumbled) setTimeout(SFX.crumble, 60);
+  const z = zoneAt(S.depth);
+  if (z !== S.zone) enterZone(z);
+  spawn();
+  const extra = zone().extra;
+  for (let k = 0; k < Math.floor(extra); k++) spawn();
+  if (Math.random() < extra % 1) spawn();
+  hud();
+}
+
+function openGeode(g){
+  const r = g.r, c = g.c;
+  removeTile(g, 'crumble');
+  const fam = pickW(S.mine.pool.filter(([, d]) => S.depth >= d).map(([f, , w]) => [f, w]));
+  S.bag.push({fam, lvl:4, geode:true});
+  S.geodes++;
+  SFX.geode(); FX.geode(r, c);
+  floatText(r, c, 'жеода раскрыта!', '#c690ff');
+  toast(`<img src="${IMG('geode')}" alt="">`, 'Жеода раскрыта', `Внутри ${MIN[fam].name.toLowerCase()} уровня IV. Уже в рюкзаке.`, '#c690ff');
+}
+function spreadWater(t){
+  const free = neigh4(t.r, t.c).filter(([a, b]) => !grid[a][b]);
+  if (!free.length || [...tiles.values()].filter(x => x.kind === 'water').length >= 6) return;
+  const [a, b] = free[ri(0, free.length - 1)];
+  makeTile(a, b, {kind:'water', tick:1}); SFX.water();
+}
+function explode(t){
+  SFX.boom(); anim(boardEl, 'boom'); FX.boom(t.r, t.c);
+  let lost = 0;
+  for (let r = t.r - 1; r <= t.r + 1; r++) for (let c = t.c - 1; c <= t.c + 1; c++) { const o = grid[r] && grid[r][c]; if (o) { if (o.kind === 'min') lost++; removeTile(o, 'crumble'); } }
+  floatText(t.r, t.c, 'взрыв газа', '#d8e86a');
+  if (lost) toast('', 'Взрыв газа', `Уничтожено минералов на поле: ${lost}. То, что в рюкзаке, цело.`, '#d8e86a');
+}
+
+function enterZone(z){
+  const prev = ZONES[S.zone];
+  S.zone = z;
+  const Z = ZONES[z];
+  SFX.zone();
+  applyZone();
+  tiles.forEach(t => { if (t.kind === 'rock') drawTile(t); });
+  const newMin = S.mine.pool.filter(([, d]) => d > prev.d && d <= Z.d).map(([f]) => MIN[f].name);
+  const bn = document.createElement('div'); bn.className = 'zbanner';
+  bn.innerHTML = `<small>Новый слой · ${Z.d} м</small><b>${Z.name}</b><span>Порог дробления ${Z.T}${newMin.length ? ' · появляется: ' + newMin.join(', ').toLowerCase() : ''}</span>`;
+  $('.board-wrap').appendChild(bn); setTimeout(() => bn.remove(), 2300);
+}
+function applyZone(){ const Z = ZONES[S.zone]; document.documentElement.style.setProperty('--bg', Z.bg); document.documentElement.style.setProperty('--zglow', Z.glow); }
+
+function canAnyMove(){
+  if (empties().length) return true;
+  for (const t of tiles.values()) {
+    if (t.kind === 'min' || t.kind === 'fossil') return true;
+    if (canMerge(t, grid[t.r][t.c + 1]) || canMerge(t, (grid[t.r + 1] || [])[t.c])) return true;
+  }
+  return false;
+}
+function isJammed(){ return !canAnyMove() && !(S.tools.hammer > 0 || S.tools.tnt > 0 || (S.tools.undo > 0 && snap)); }
+
+/* ---------- taps & tools ---------- */
+function setTool(t){ if (!S) return; S.tool = t; boardEl.classList.toggle('aim', !!t); document.querySelectorAll('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); }
+function onTileTap(t){
+  if (lock || S.over) return;
+  if (S.tool === 'hammer') {
+    if (t.kind === 'min' || t.kind === 'fossil') return toast('', 'Молоток', 'Минералы и окаменелости молотком не бьют — их забирают.', 'var(--muted)');
+    S.tools.hammer--; snap = null; SFX.hammer();
+    if (t.kind === 'rock') FX.crumble(t.r, t.c, ROCK[t.v].base, false); else if (t.kind === 'gas') FX.boom(t.r, t.c); else if (t.kind !== 'geodec') FX.crumble(t.r, t.c, '#55505a', false);
+    floatText(t.r, t.c, t.kind === 'gas' ? 'обезврежен' : t.kind === 'geodec' ? 'жеода расколота' : 'бах');
+    if (t.kind === 'geodec') openGeode(t); else removeTile(t, 'crumble');
+    setTool(null); hud(); return;
+  }
+  if (S.tool === 'tnt') {
+    S.tools.tnt--; snap = null; S.tntUsed++; SFX.boom(); anim(boardEl, 'boom'); FX.boom(t.r, t.c);
+    for (let r = t.r - 1; r <= t.r + 1; r++) for (let c = t.c - 1; c <= t.c + 1; c++) { const o = grid[r] && grid[r][c]; if (o && o.kind !== 'min' && o.kind !== 'fossil') { if (o.kind === 'geodec') openGeode(o); else removeTile(o, 'crumble'); } }
+    setTool(null); hud(); return;
+  }
+  if (t.kind === 'min') collect(t);
+  if (t.kind === 'fossil') collectFossil(t);
+}
+function collect(t){
+  flyTo(t.el, minImg(t.fam, false), $('#bag'));
+  FX.mineral(t.r, t.c, MIN[t.fam].color, 2);
+  removeTile(t, 'collect', 360);
+  snap = null;
+  S.bag.push({fam:t.fam, lvl:t.lvl});
+  SFX.collect();
+  toast(minImg(t.fam, false), minName(t.fam, t.lvl), 'Необработанный образец в рюкзаке. Качество и разновидность — при вскрытии.', MIN[t.fam].color);
+  hud();
+}
+function collectFossil(t){
+  flyTo(t.el, `<img src="${IMG('ammonite')}" alt="">`, $('#bag'));
+  removeTile(t, 'collect', 360);
+  snap = null;
+  const f = pickW(FOSSILS.map(x => [x, x.w]));
+  S.fossils.push(f.id); S.cash += f.p;
+  SFX.collect();
+  toast(fossilIcon(f), f.name, `Окаменелость · <em>+${fmt(f.p)} ₽</em> к выработке`, '#d9c3a3');
+  hud();
+}
+function undo(){
+  if (lock || S.over || !snap || S.tools.undo <= 0) return;
+  S.tools.undo--; restore(snap); snap = null; SFX.undo(); setTool(null); hud();
+}
+let tT;
+function toast(ic, t, sub, color){
+  const box = $('#toastBox');
+  box.innerHTML = `<div class="toast" style="--tc:${color}"><div class="ic">${ic}</div><div><b>${t}</b><span>${sub}</span></div></div>`;
+  clearTimeout(tT); tT = setTimeout(() => { box.innerHTML = ''; }, 2600);
+}
+
+/* ---------- run HUD ---------- */
+const runResult = () => ({depth:S.depth, bag:S.bag, fossils:S.fossils, geodes:S.geodes, maxCombo:S.maxCombo, cash:S.cash});
+function hud(){
+  renderTop();
+  if (!S) return;
+  $('#depth').innerHTML = `${S.depth}<small>м</small>`;
+  if (S.depth % 50 === 0 && S.depth && !S.over) anim($('#depth'), 'tick');
+  $('#mult').innerHTML = `×${fmt2(luck())}<small>удача</small>`;
+  const Z = zone(), next = ZONES[S.zone + 1];
+  $('#zoneName').textContent = Z.name;
+  $('#zoneNext').textContent = next ? `до «${next.name}» ${next.d - S.depth} м` : 'самое дно';
+  $('#zbar').style.width = next ? ((S.depth - Z.d) / (next.d - Z.d) * 100) + '%' : '100%';
+  const hm = heatMax();
+  $('#heat').hidden = !hm;
+  if (hm) { $('#heatbar').style.width = Math.min(100, S.heat / hm * 100) + '%'; $('#heatTxt').textContent = `${hm - S.heat} ${plural(hm - S.heat, 'ход', 'хода', 'ходов')}`; }
+  const R = runResult();
+  $('#taskline').innerHTML = S.mine.tasks.map((k, i) => { const had = (save.stars[S.mine.id] || [])[i]; const ok = taskDone(k, R); return `<span class="${had || ok ? 'done' : ''}">${had ? '★' : ok ? '✓' : '☆'} ${taskText(k, true)}</span>`; }).join('');
+  $('#ladder').innerHTML = Object.keys(ROCK).map(Number).map(v => {
+    const tex = rockTex(v), k = ROCK[v], cls = v === Z.T ? ' t' : v > Z.T ? ' off' : '';
+    return `<span class="rung${cls}"><i style="background-color:${k.base};${tex ? `background-image:url(${tex});` : ''}color:${k.ink}">${v}</i>${k.name}${v === Z.T ? ' · крошится' : ''}</span>`;
+  }).join('');
+  const free = empties().length;
+  $('#free').textContent = free;
+  $('#moves').textContent = S.moves;
+  const tight = free <= 2 && !S.over, stuck = !S.over && !canAnyMove();
+  boardEl.classList.toggle('tight', tight);
+  $('#tight').innerHTML = stuck ? '<span class="warn">Ходов нет: инструмент или подъём</span>' : tight ? '<span class="warn">Забой забивается</span>' : '';
+  $('#tHammer').textContent = S.tools.hammer; $('#tTnt').textContent = S.tools.tnt; $('#tUndo').textContent = S.tools.undo;
+  document.querySelectorAll('.tool').forEach(b => { const k = b.dataset.tool; b.disabled = S.over || S.tools[k] <= 0 || (k === 'undo' && !snap); });
+  $('#haulSum').textContent = S.bag.length || S.cash ? `${S.bag.length} ${plural(S.bag.length, 'образец', 'образца', 'образцов')} · ${fmt(S.cash)} ₽ × ${fmt2(luck())}` : 'пусто';
+  $('#bag').innerHTML = S.bag.length || S.fossils.length
+    ? S.bag.map(x => `<span class="it" style="--fc:${MIN[x.fam].color}" title="${minName(x.fam, x.lvl)}">${minImg(x.fam, false)}<small>${ROMAN[x.lvl - 1]}</small></span>`).join('')
+      + S.fossils.map(id => `<span class="it" style="--fc:#d9c3a3" title="${FOSM[id].name}">${fossilIcon(FOSM[id])}</span>`).join('')
+    : '<span class="empty">Нажмите на минерал на поле, чтобы забрать его.</span>';
+  $('#btnUp').disabled = S.over;
+  $('#upSmall').textContent = S.bag.length || S.cash ? `удача ×${fmt2(luck())} для всех образцов · завал заберёт ${save.up.cage ? 'почти ' : ''}всё` : 'с пустыми руками';
+}
+
+function finishStats(){
+  save.st.runs++;
+  save.st.maxDepth = Math.max(save.st.maxDepth, S.depth);
+  save.st.maxCombo = Math.max(save.st.maxCombo, S.maxCombo);
+  save.st.ore += S.ore; save.st.tnt += S.tntUsed;
+}
+function toRough(x){ save.cat++; return {id:save.cat, fam:x.fam, lvl:x.lvl, geode:!!x.geode, luck:+(luck() + (x.geode ? .5 : 0)).toFixed(2), mine:S.mine.id, seed:ri(1, 1e9)}; }
+
+function ascend(){
+  if (!S || S.over || lock) return;
+  S.over = true;
+  finishStats();
+  const m = luck(), cash = Math.round(S.cash * m);
+  const stones = S.bag.map(toRough);
+  save.rough.push(...stones);
+  save.wallet += cash; save.st.earned += cash; save.st.ups++; save.st.mines[S.mine.id] = 1;
+  if (S.bag.some(x => x.lvl === MAXLV)) save.st.geodes++;
+  for (const id of S.fossils) save.fos[id] = (save.fos[id] || 0) + 1;
+  save.st.fossils += S.fossils.length;
+  // mine tasks give stars
+  const before = starCount(), R = runResult(), got = [];
+  const arr = save.stars[S.mine.id] || [false, false, false];
+  S.mine.tasks.forEach((k, i) => { if (!arr[i] && taskDone(k, R)) { arr[i] = true; got.push(taskText(k)); } });
+  save.stars[S.mine.id] = arr;
+  const unlocked = MINES.filter(mm => mm.stars > before && mm.stars <= starCount()).map(mm => mm.name);
+  persist();
+  SFX.up(); if (got.length) setTimeout(() => { SFX.star(); const rc = $('#panel .recs'); if (rc) FX.at(rc, ['#f0b25a', '#fff1a8', '#ffffff'], 40); }, 450);
+  hud();
+  openPanel(`${head(`${S.mine.name} · ${S.depth} м · ${S.moves} ${plural(S.moves, 'ход', 'хода', 'ходов')}`, 'Вы наверху', false)}
+    ${got.length ? `<div class="recs">${got.map(g => `<span class="rec">★ ${g}</span>`).join('')}</div>` : ''}
+    ${unlocked.length ? `<p class="note" style="color:var(--lamp)">Открыта шахта: ${unlocked.join(', ')}</p>` : ''}
+    <div class="total"><b>${stones.length} ${plural(stones.length, 'образец', 'образца', 'образцов')}</b><span>удача при вскрытии ×${fmt2(m)} · выработка ${fmt(cash)} ₽</span></div>
+    ${stones.length ? `<div class="mini">${stones.map(s => `<span>${minImg(s.fam, false)}${minName(s.fam, s.lvl)}</span>`).join('')}</div>` : ''}
+    ${S.fossils.length ? `<p class="note muted">Окаменелости: ${S.fossils.map(id => FOSM[id].name).join(', ')}</p>` : ''}
+    <div class="two"><button type="button" class="${stones.length ? 'ghost' : 'btn'}" data-again>Ещё спуск</button><button type="button" class="${stones.length ? 'btn' : 'ghost'}" data-open-camp>${stones.length ? 'Вскрывать' : 'В лагерь'}</button></div>`, true);
+  checkAch();
+}
+
+function jam(kind){
+  if (S.over) return;
+  S.over = true;
+  finishStats();
+  save.st.jams++;
+  const keepN = save.up.cage, keepCash = Math.round(S.cash * luck() * .2 * save.up.cage);
+  const pool = S.bag.slice(), saved = [];
+  for (let k = 0; k < keepN && pool.length; k++) saved.push(pool.splice(ri(0, pool.length - 1), 1)[0]);
+  const stones = saved.map(toRough);
+  save.rough.push(...stones); save.wallet += keepCash;
+  persist();
+  SFX.jam();
+  anim(boardEl, 'quake');
+  hud();
+  const heat = kind === 'heat';
+  setTimeout(() => {
+    openPanel(`${head(`${S.mine.name} · ${S.depth} м`, `<span style="color:var(--danger)">${heat ? 'Тепловой удар' : 'Забой завален'}</span>`, false)}
+      <p class="note">${heat ? 'Жара в пещере стала невыносимой, бригаду пришлось эвакуировать.' : 'Ходов и инструментов не осталось: всё забито породой, которая не сливается.'}</p>
+      ${pool.length ? `<h3>Осталось внизу</h3><div class="mini">${pool.map(x => `<span>${minImg(x.fam, false)}${minName(x.fam, x.lvl)}</span>`).join('')}</div>` : ''}
+      ${stones.length || keepCash ? `<p class="note">Спасательная клеть подняла: ${stones.map(s => minName(s.fam, s.lvl)).join(', ') || 'образцов нет'}${keepCash ? ` и ${fmt(keepCash)} ₽` : ''}.</p>` : ''}
+      <div class="two"><button type="button" class="ghost" data-camp>В лагерь</button><button type="button" class="btn" data-again>Ещё спуск</button></div>`, true);
+    checkAch();
+  }, 900);
+}
+
+/* ---------- opening ---------- */
+const stage = $('#stage');
+let ST = null;
+function resolve(r){
+  const loupe = 1 + .3 * save.up.loupe;
+  const variant = Math.random() < Math.min(.45, .012 * r.lvl * r.luck * loupe);
+  const gi = pickW(GR.map((x, k) => [k, x.w * Math.pow(1 + .25 * save.up.saw, k) * Math.pow(r.luck, k * .35)]));
+  const value = Math.round(baseValue(r.fam, r.lvl) * GR[gi].m * (variant ? MIN[r.fam].variant.m : 1));
+  const mu = save.museum[r.fam] || {max:0, variant:0, best:-1};
+  const isNew = r.lvl > mu.max || (variant && r.lvl > mu.variant);
+  mu.max = Math.max(mu.max, r.lvl); if (variant) mu.variant = Math.max(mu.variant, r.lvl); mu.best = Math.max(mu.best, gi);
+  save.museum[r.fam] = mu;
+  save.st.opened++; if (variant) save.st.variants++; if (gi === 4) save.st.aaa++;
+  const rec = [];
+  if (!save.st.bestFind || value > save.st.bestFind.value) { if (save.st.bestFind) rec.push('Лучшая находка'); save.st.bestFind = {name:specName({...r, variant}), value}; }
+  r.res = {variant, gi, value, isNew, rec};
+  persist();
+}
+function openStone(id){
+  const r = save.rough.find(x => x.id === id);
+  if (!r) return;
+  ST = {r, phase:r.res ? 3 : 0, busy:false};
+  stage.hidden = false;
+  const m = MIN[r.fam];
+  stage.innerHTML = `
+    <button type="button" class="icon-btn st-back" data-act="back">← Лагерь</button>
+    <div class="st-top"><div class="eyebrow">Образец № ${String(r.id).padStart(4, '0')} · ${MINEM[r.mine].name}</div>
+      <div class="t">${r.geode ? 'Жеода: ' : ''}${minName(r.fam, r.lvl)}</div>
+      <div class="s">Необработанный, уровень ${ROMAN[r.lvl - 1]} · <span class="lk">удача ×${fmt2(r.luck)}</span></div></div>
+    <button type="button" class="stone" id="stone" aria-label="Расколоть образец" style="--glow:${m.color}">
+      <div class="halo"></div>
+      <img class="rough" src="${IMG(r.geode ? 'geode' : 'nodule')}" alt="">
+      <svg class="cracks" id="cracks" viewBox="0 0 100 100" aria-hidden="true"></svg>
+    </button>
+    <div class="st-bottom" id="stBottom"><div class="tap-hint">Нажмите на камень, чтобы расколоть</div></div>`;
+  if (r.res) showResult(true);
+}
+function hitStone(){
+  if (!ST || ST.busy || ST.phase >= 3) return;
+  const r = ST.r, st = $('#stone');
+  ST.phase++;
+  anim(st, 'hit');
+  SFX.crack(ST.phase);
+  { const [x, y] = elXY(st); burst(x, y, {n:8 + ST.phase * 6, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:3 + ST.phase * 1.5, lift:2, grav:.3, size:5, life:40}); }
+  if (!r.res) resolve(r);
+  if (ST.phase === 1) {
+    $('#cracks').innerHTML = crackPaths(r.seed, 2).map(d => `<path d="${d}"/>`).join('');
+    st.style.setProperty('--ho', '.35');
+    $('#stBottom').innerHTML = '<div class="tap-hint">Ещё удар</div>';
+  } else if (ST.phase === 2) {
+    // light through the cracks: a rare variety glows in its own colour, high grades glow brighter
+    const v = r.res.variant;
+    st.style.setProperty('--glow', v ? MIN[r.fam].variant.c : r.res.gi >= 3 ? GR_C[r.res.gi] : MIN[r.fam].color);
+    st.style.setProperty('--ho', v || r.res.gi >= 3 ? '1' : '.55');
+    $('#cracks').innerHTML = crackPaths(r.seed, 6).map(d => `<path d="${d}"/>`).join('');
+    $('#stBottom').innerHTML = '<div class="tap-hint">Последний удар</div>';
+  } else { ST.busy = true; showResult(false); }
+}
+function showResult(instant){
+  const r = ST.r, res = r.res, m = MIN[r.fam], st = $('#stone');
+  const tc = res.variant ? m.variant.c : GR_C[res.gi];
+  st.style.setProperty('--tc', tc); st.style.setProperty('--ho', '0');
+  const tws = Array.from({length:7}, (_, k) => `<i class="tw" style="left:${8 + (k * 37) % 84}%;top:${10 + (k * 53) % 80}%;--d:${(k * .27).toFixed(2)}s"></i>`).join('');
+  st.innerHTML = `<div class="rays"></div>${instant ? '' : '<div class="burst"></div>'}<div class="gem">${minImg(r.fam, res.variant)}</div>${tws}`;
+  if (!instant) {
+    SFX.reveal(res.variant);
+    const [x, y] = elXY(st);
+    burst(x, y, {n:26, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:8, lift:2, grav:.35, size:7, life:45});
+    burst(x, y, {n:res.variant ? 50 : 22, colors:[tc, '#ffffff'], kind:'spark', speed:res.variant ? 7 : 5, grav:.02, size:3.5, life:60});
+  }
+  $('#stBottom').innerHTML = `<div class="res" style="--tc:${tc}">
+      <div class="tier">${res.variant ? 'Редкая разновидность' : m.name}${res.isNew ? ' · новое в музее' : ''}</div>
+      <div class="nm">${res.variant ? m.variant.name : minName(r.fam, r.lvl)}</div>
+      <div class="grade"><span class="gl">Качество</span><span class="gv" id="gv">${instant ? GR[res.gi].n : '…'}</span></div></div><div id="after"></div>`;
+  if (instant) { $('#gv').style.setProperty('--gc', GR_C[res.gi]); return finishResult(); }
+  let k = 0, delay = 60;
+  const steps = 10 + res.gi, gv = $('#gv');
+  const spin = () => {
+    gv.textContent = GR[k % 5].n; gv.style.setProperty('--gc', GR_C[k % 5]); SFX.tick();
+    if (k >= steps && k % 5 === res.gi) { anim(gv, 'land'); SFX.land(res.gi); if (res.gi >= 3) buzz([40, 30, 80]); setTimeout(finishResult, 250); return; }
+    k++; delay *= 1.12; setTimeout(spin, delay);
+  };
+  setTimeout(spin, 450);
+}
+function finishResult(){
+  const r = ST.r, res = r.res, item = {fam:r.fam, lvl:r.lvl, variant:res.variant, gi:res.gi};
+  const o = save.orders.find(x => fitsOrder(item, x));
+  const more = save.rough.filter(x => x.id !== r.id).length;
+  $('#after').innerHTML = `<div class="res" style="gap:6px"><div class="val" id="valc">${fmt(res.value)} ₽</div>
+      ${res.rec.length ? `<div class="recs">${res.rec.map(x => `<span class="rec">★ ${x}</span>`).join('')}</div>` : ''}</div>
+    <div class="acts" style="margin-top:8px">
+      ${o ? `<button type="button" class="btn" data-act="order">Отдать по заказу · ${fmt(Math.max(o.pay, res.value))} ₽</button>` : ''}
+      <div class="two"><button type="button" class="${o ? 'ghost' : 'btn'}" data-act="sell">Продать · ${fmt(res.value)} ₽</button><button type="button" class="ghost" data-act="keep">На склад</button></div>
+      <div class="muted" style="text-align:center;font-size:12.5px">${more ? `Ещё ${more} ${plural(more, 'образец ждёт', 'образца ждут', 'образцов ждут')} вскрытия` : 'Это был последний образец'} · на складе образцы нужны для мастерской и заказов</div></div>`;
+  ST.busy = false;
+  const vc = $('#valc');
+  if (vc && !r.res.shown) { r.res.shown = true; tween(0, res.value, 700, v => { vc.textContent = fmt(v) + ' ₽'; }); }
+  $('#after').classList.add('fx-in');
+  checkAch();
+}
+function decide(act){
+  const r = ST.r, res = r.res;
+  if (act === 'sell') { save.wallet += res.value; save.st.earned += res.value; SFX.coin(); }
+  if (act === 'keep') { save.inv.push({id:r.id, fam:r.fam, lvl:r.lvl, variant:res.variant, gi:res.gi, value:res.value}); SFX.collect(); }
+  if (act === 'order') {
+    const oi = save.orders.findIndex(o => fitsOrder({fam:r.fam, lvl:r.lvl, gi:res.gi}, o)); if (oi < 0) return;
+    const v = Math.max(save.orders[oi].pay, res.value);
+    save.wallet += v; save.st.earned += v; save.st.orders++; save.orders.splice(oi, 1); fillOrders(); SFX.coin(); SFX.star();
+  }
+  save.rough = save.rough.filter(x => x.id !== r.id);
+  checkAch(); persist();
+  const next = save.rough.find(x => !x.res) || save.rough[0];
+  if (next) openStone(next.id); else { stage.hidden = true; ST = null; showCamp('stones'); }
+  renderTop();
+}
+
+/* ---------- camp ---------- */
+let campTab = 'mines';
+let shownWallet = null;
+function renderTop(){
+  const w = $('#wallet');
+  if (shownWallet === null || shownWallet === save.wallet) w.textContent = fmt(save.wallet) + ' ₽';
+  else { const from = shownWallet; tween(from, save.wallet, 600, v => { w.textContent = fmt(v) + ' ₽'; }); if (save.wallet > from) anim(w, 'pop'); }
+  shownWallet = save.wallet;
+  $('#starsTop').textContent = `★ ${starCount()}/${STAR_MAX}`;
+  $('#mute').textContent = save.mute ? '🔇' : '🔊';
+}
+function showCamp(tab){
+  S = null; snap = null;
+  if (tab) campTab = tab;
+  document.body.classList.remove('inrun');
+  document.documentElement.style.setProperty('--bg', ZONES[0].bg); document.documentElement.style.setProperty('--zglow', ZONES[0].glow);
+  $('#run').hidden = true; $('#camp').hidden = false;
+  renderCamp(); renderTop(); window.scrollTo(0, 0);
+}
+function invCount(fam, lvl){ return save.inv.filter(x => x.fam === fam && x.lvl >= lvl).length; }
+function reqHTML(m){ const [fam, lvl, n] = m, have = invCount(fam, lvl); return `<span class="${have >= n ? 'ok' : 'no'}">${minImg(fam, false)}${minName(fam, lvl)} ${Math.min(have, n)}/${n}</span>`; }
+function payReq(m){
+  const [fam, lvl, n] = m;
+  const pick = save.inv.filter(x => x.fam === fam && x.lvl >= lvl).sort((a, b) => a.value - b.value).slice(0, n).map(x => x.id);
+  save.inv = save.inv.filter(x => !pick.includes(x.id));
+}
+function orderCards(){
+  return save.orders.map((o, i) => {
+    const have = save.inv.some(x => fitsOrder(x, o));
+    return `<div class="order">${minImg(o.fam, false)}<div><b>${minName(o.fam, o.lvl)}</b><p>или крупнее, качество ${GR[o.grade].n}+</p></div>
+      <div class="rw">${fmt(o.pay)} ₽${have ? `<br><button type="button" class="buy" data-give="${i}" style="margin-top:4px">отдать</button>` : ''}</div></div>`;
+  }).join('');
+}
+function renderCamp(){
+  fillOrders();
+  const stars = starCount();
+  const tabs = [['mines', 'Шахты', 0], ['stones', 'Камни', save.rough.length], ['stock', 'Склад', 0], ['shop', 'Мастерская', 0], ['museum', 'Музей', 0]];
+  let body = '';
+  if (campTab === 'mines') {
+    body = `<div class="hero"><div><b>Звёзды открывают шахты и снаряжение</b><span>По три задания в каждой шахте. Сейчас ★ ${stars} из ${STAR_MAX}.</span></div></div>
+      <div class="mines">${MINES.map(m => {
+        const locked = stars < m.stars, arr = save.stars[m.id] || [];
+        return `<div class="mine${locked ? ' locked' : ''}">
+          <div class="mine-h"><b>${locked ? '🔒 ' : ''}${m.name}</b><span>${locked ? `нужно ★ ${m.stars}` : m.fee ? `вход ${fmt(m.fee)} ₽` : 'бесплатно'}</span></div>
+          <p>${m.hint}</p>
+          <div class="feat">${Object.keys(m.feat).map(k => `<span>${FEAT_NAMES[k]}</span>`).join('')}</div>
+          <div class="pool">${m.pool.map(([f, d]) => `<span>${minImg(f, false)}${MIN[f].name}${d ? ` · ${d} м` : ''}</span>`).join('')}</div>
+          <div class="tasks">${m.tasks.map((k, i) => `<div class="${arr[i] ? 'done' : ''}">${arr[i] ? '★' : '☆'} ${taskText(k)}</div>`).join('')}</div>
+          ${locked ? '' : `<div class="go"><button type="button" class="btn" data-mine="${m.id}"${save.wallet < m.fee ? ' disabled' : ''}>Спуститься</button></div>`}
+        </div>`;
+      }).join('')}</div>`;
+  } else if (campTab === 'stones') {
+    body = `<div class="sec-h"><h2>Образцы на вскрытие</h2><span class="muted">${save.rough.length}</span></div>
+      ${save.rough.length ? `<div class="stones">${save.rough.map(r => `<button type="button" class="st" data-open="${r.id}" style="--fc:${MIN[r.fam].color}"><span class="lk">×${fmt2(r.luck)}</span><span class="lvb">${ROMAN[r.lvl - 1]}</span><img src="${IMG(r.geode ? 'geode' : 'nodule')}" alt=""><span class="n">${MIN[r.fam].name}</span><span class="m">${r.res ? 'вскрыт' : minName(r.fam, r.lvl)}</span></button>`).join('')}</div>
+        <button type="button" class="btn" data-openall>Вскрывать по очереди</button>` : '<p class="empty">Пока нечего вскрывать. Спуститесь в шахту, заберите минералы и поднимитесь до завала.</p>'}
+      <div class="sec-h"><h2>Заказы коллекционеров</h2><button type="button" class="buy" data-reorder${save.wallet < 150 ? ' disabled' : ''}>Новые · 150 ₽</button></div>
+      <div class="orders">${orderCards()}</div>`;
+  } else if (campTab === 'stock') {
+    const inv = save.inv.slice().sort((a, b) => a.fam.localeCompare(b.fam) || b.lvl - a.lvl || b.gi - a.gi);
+    body = `<div class="sec-h"><h2>Склад</h2><span class="muted">${inv.length} ${plural(inv.length, 'образец', 'образца', 'образцов')}</span></div>
+      <p class="hint">Образцы со склада идут в мастерскую и на заказы. Лишнее можно продать.</p>
+      ${inv.length ? `<div class="inv">${inv.map(x => `<div class="iv">${minImg(x.fam, x.variant)}<div><b>${specName(x)}</b><p>качество ${GR[x.gi].n} · № ${String(x.id).padStart(4, '0')}</p></div><button type="button" class="buy" data-sellinv="${x.id}">${fmt(x.value)} ₽</button></div>`).join('')}</div>` : '<p class="empty">Склад пуст. После вскрытия нажмите «На склад».</p>'}
+      <div class="sec-h"><h2>Заказы коллекционеров</h2></div><div class="orders">${orderCards()}</div>`;
+  } else if (campTab === 'shop') {
+    body = `<div class="sec-h"><h2>Мастерская</h2><span class="muted" style="font-size:12px">деньги + образцы со склада</span></div>
+      <div class="ups">${UPS.map(u => {
+        const lv = save.up[u.id], max = lv >= u.lv.length, next = u.lv[lv];
+        const locked = !max && stars < next.s, okMat = !max && invCount(next.m[0], next.m[1]) >= next.m[2];
+        return `<div class="up"><div><b>${u.name}</b> <span class="lv">${lv}/${u.lv.length}</span><p>${u.d(lv)}</p>${max ? '' : `<div class="req">${locked ? `<span class="no">нужно ★ ${next.s}</span>` : reqHTML(next.m)}</div>`}</div>
+          <button type="button" class="buy" data-buy="${u.id}"${max || locked || !okMat || save.wallet < next.c ? ' disabled' : ''}>${max ? 'макс.' : fmt(next.c) + ' ₽'}</button></div>`;
+      }).join('')}</div>`;
+  } else {
+    const levels = Object.keys(MIN).length * 6, got = Object.values(save.museum).reduce((s, f) => s + f.max + (f.variant ? 1 : 0), 0);
+    const fos = FOSSILS.filter(f => save.fos[f.id]).length, ach = ACH.filter(a => save.ach[a.id]).length;
+    const t = (k, n, a, b) => `<button type="button" class="tile2" data-sheet="${k}"><b>${n}</b><span>${a} из ${b}</span><div class="pbar"><i style="width:${a / b * 100}%"></i></div></button>`;
+    body = `<div class="sec-h"><h2>Музей</h2></div>
+      <div class="tiles2">${t('col', 'Минералы', got, levels)}${t('fos', 'Окаменелости', fos, FOSSILS.length)}${t('ach', 'Вехи', ach, ACH.length)}
+        <button type="button" class="tile2" data-sheet="rec"><b>Рекорды</b><span>${save.st.runs} ${plural(save.st.runs, 'спуск', 'спуска', 'спусков')}</span></button>
+        <button type="button" class="tile2" data-sheet="help"><b>Правила</b><span>как играть</span></button></div>`;
+  }
+  $('#camp').innerHTML = `<nav class="tabs">${tabs.map(([id, n, c]) => `<button type="button" data-tab="${id}" class="${campTab === id ? 'on' : ''}">${n}${c ? `<span class="dot">${c}</span>` : ''}</button>`).join('')}</nav>${body}`;
+  if (lastTab !== campTab) {
+    lastTab = campTab;
+    let i = 0;
+    $('#camp').querySelectorAll('.hero, .sec-h, .hint, .empty, .mines > *, .stones > *, .inv > *, .ups > *, .orders > *, .tiles2 > *').forEach(el => { el.classList.add('fx-in'); el.style.setProperty('--i', Math.min(i++, 12)); });
+  }
+}
+let lastTab = null;
+
+function startRun(id){
+  const m = MINEM[id];
+  if (!m || starCount() < m.stars || save.wallet < m.fee) return;
+  save.wallet -= m.fee; save.lastMine = id; persist();
+  closeSheet();
+  $('#camp').hidden = true; $('#run').hidden = false;
+  document.body.classList.add('inrun');
+  boardEl.innerHTML = '';
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const s = document.createElement('div'); s.className = 'slot'; s.dataset.r = r; s.dataset.c = c; boardEl.appendChild(s); }
+  grid = Array.from({length:N}, () => Array(N).fill(null));
+  tiles = new Map(); snap = null;
+  const startDepth = 40 * save.up.drill;
+  S = {mine:m, depth:startDepth, moves:0, cash:0, bag:[], fossils:[], geodes:0, heat:0, over:false, zone:zoneAt(startDepth), maxCombo:0, ore:0, tntUsed:0, tool:null,
+    tools:{hammer:1 + save.up.hammer, tnt:save.up.tnt, undo:1 + save.up.undo}};
+  $('#mineName').textContent = m.name;
+  $('#runNo').textContent = `спуск № ${save.st.runs + 1}`;
+  applyZone();
+  layout();
+  for (let k = 0; k < 2; k++) { const e = empties(), [r, c] = e[ri(0, e.length - 1)]; makeTile(r, c, {kind:'rock', v:2}); }
+  setTool(null);
+  hud(); window.scrollTo(0, 0);
+}
+
+/* ---------- sheets ---------- */
+const sheet = $('#sheet'), panel = $('#panel');
+let sheetLocked = false;
+function openPanel(html, locked){ panel.innerHTML = html; sheet.hidden = false; panel.scrollTop = 0; sheetLocked = !!locked; }
+function closeSheet(){ sheet.hidden = true; sheetLocked = false; }
+const head = (eyebrow, t, closable = true) => `<div class="p-head"><div><div class="eyebrow">${eyebrow}</div><h2>${t}</h2></div>${closable ? '<button type="button" class="x" data-close aria-label="Закрыть">✕</button>' : ''}</div>`;
+function openCollection(){
+  openPanel(`${head('Музей', 'Минералы')}
+    ${Object.entries(MIN).map(([id, m]) => { const f = save.museum[id] || {max:0, variant:0, best:-1}; const where = MINES.filter(x => x.pool.some(([p]) => p === id)).map(x => x.name).join(', ');
+      return `<div class="fam"><div class="fam-h">${m.name}<span>${where}${f.best >= 0 ? ` · лучшее ${GR[f.best].n}` : ''}</span></div>
+      <div class="fam-row">${[1, 2, 3, 4, 5].map(l => `<div class="${f.max >= l ? '' : 'lock'}" title="${minName(id, l)}">${minImg(id, false)}<small>${ROMAN[l - 1]}</small></div>`).join('')}
+        <div class="${f.variant ? 'vv' : 'lock'}" title="${m.variant.name}">${minImg(id, true)}<small>${f.variant ? ROMAN[f.variant - 1] : '?'}</small></div></div></div>`; }).join('')}`);
+}
+function openFossils(){
+  openPanel(`${head('Музей', 'Окаменелости')}
+    <p class="note muted">Встречаются в верхних слоях. Не двигаются при свайпе и мешают, пока их не заберёшь. Вид узнаёшь, когда заберёшь.</p>
+    <div class="coll">${FOSSILS.map(f => save.fos[f.id]
+      ? `<div class="cc">${fossilIcon(f)}<div class="n">${f.name}</div><div class="m">×${save.fos[f.id]} · ${fmt(f.p)} ₽</div></div>`
+      : `<div class="cc lock">${fossilSVG(f)}<div class="n muted">???</div><div class="m">${f.w < 10 ? 'редкая' : 'обычная'}</div></div>`).join('')}</div>`);
+}
+function openAch(){ openPanel(`${head('Музей', 'Вехи')}<div class="inv">${ACH.map(a => `<div class="ach${save.ach[a.id] ? ' got' : ''}"><div><b>${save.ach[a.id] ? '✓ ' : ''}${a.name}</b><p>${a.d}</p></div><span class="rw">+${fmt(a.r)} ₽</span></div>`).join('')}</div>`); }
+function openRecords(){
+  const r = (a, b) => `<div class="row"><span>${a}</span><span>${b}</span></div>`, s = save.st;
+  openPanel(`${head('Музей', 'Рекорды')}<div class="rows">
+    ${r('Максимальная глубина', s.maxDepth + ' м')}${r('Лучшая находка', s.bestFind ? `${s.bestFind.name}, ${fmt(s.bestFind.value)} ₽` : '—')}
+    ${r('Самая длинная цепь', s.maxCombo ? '×' + s.maxCombo : '—')}${r('Вскрыто образцов', s.opened)}${r('Редких разновидностей', s.variants)}${r('Качество AAA', s.aaa)}
+    ${r('Спусков', s.runs)}${r('Подъёмов', s.ups)}${r('Завалов', s.jams)}${r('Заработано всего', fmt(s.earned) + ' ₽')}
+    </div><button type="button" class="ghost" data-reset>Сбросить прогресс</button>`);
+}
+function openHelp(){
+  save.help = true; persist();
+  openPanel(`${head('Как играть', 'Спуск')}
+    <ul class="help">
+      <li>Свайпайте, как в 2048. Каждый ход — ещё 5 метров вниз и больше удачи.</li>
+      <li>Одинаковая порода сливается: песчаник 2 + песчаник 2 = гранит 4 и дальше до кимберлита. Блок на пороге дробления крошится и приносит выработку. Пунктир — следующее слияние его раскрошит. Рудные блоки с искрами дают впятеро больше.</li>
+      <li>Минералы сливаются в 5 уровней. Нажмите на минерал, чтобы забрать в рюкзак. Это необработанный образец: качество и редкая разновидность выпадут при вскрытии в лагере, и удача глубины на них работает.</li>
+      <li>Особые клетки не двигаются. Окаменелость забирают. Закрытая жеода раскрывается от трёх слияний рядом. Вода разливается, газ взрывается по таймеру, магма прессует соседнюю породу. Дайки выветриваются со временем.</li>
+      <li>Молоток разбивает блок (и обезвреживает газ), динамит расчищает 3×3, откат отменяет ход.</li>
+      <li>Подняться можно в любой момент. Если ходов и инструментов не осталось, забой завален, рюкзак пропадает.</li>
+      <li>В каждой шахте три задания. Звёзды открывают новые шахты и уровни снаряжения. Мастерская берёт деньги и образцы со склада.</li>
+    </ul>
+    <button type="button" class="btn" data-close>Понятно</button>`);
+}
+
+/* ---------- input ---------- */
+let p0 = null;
+boardEl.addEventListener('pointerdown', e => { p0 = {x:e.clientX, y:e.clientY}; });
+boardEl.addEventListener('pointerup', e => {
+  if (!p0 || !S) return;
+  const dx = e.clientX - p0.x, dy = e.clientY - p0.y; p0 = null;
+  if (Math.hypot(dx, dy) < 14) { const el = e.target.closest('.tile[data-id]'), t = el && tiles.get(+el.dataset.id); if (t) onTileTap(t); return; }
+  move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+});
+boardEl.addEventListener('pointercancel', () => { p0 = null; });
+document.addEventListener('keydown', e => {
+  if (!sheet.hidden) { if (e.key === 'Escape' && !sheetLocked) closeSheet(); return; }
+  if (!stage.hidden) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); hitStone(); } return; }
+  if (!S) return;
+  const k = {ArrowLeft:'left', ArrowRight:'right', ArrowUp:'up', ArrowDown:'down', a:'left', d:'right', w:'up', s:'down'}[e.key];
+  if (k) { e.preventDefault(); move(k); }
+  if (e.key === 'Escape') setTool(null);
+});
+$('#tools').addEventListener('click', e => {
+  const b = e.target.closest('[data-tool]'); if (!b || b.disabled || !S) return;
+  const k = b.dataset.tool;
+  if (k === 'undo') return undo();
+  setTool(S.tool === k ? null : k);
+  if (S.tool) toast('', k === 'hammer' ? 'Молоток' : 'Динамит', k === 'hammer' ? 'Нажмите на блок: порода, дайка, вода, газ или жеода.' : 'Нажмите на центр квадрата 3×3. Минералы и окаменелости уцелеют.', 'var(--lamp)');
+});
+$('#btnUp').addEventListener('click', ascend);
+$('#mute').addEventListener('click', () => { save.mute = !save.mute; persist(); renderTop(); });
+$('#camp').addEventListener('click', e => {
+  const t = e.target.closest('[data-tab]'); if (t) { campTab = t.dataset.tab; return renderCamp(); }
+  const m = e.target.closest('[data-mine]'); if (m && !m.disabled) return startRun(m.dataset.mine);
+  const o = e.target.closest('[data-open]'); if (o) return openStone(+o.dataset.open);
+  if (e.target.closest('[data-openall]')) { const r = save.rough.find(x => !x.res) || save.rough[0]; if (r) openStone(r.id); return; }
+  if (e.target.closest('[data-reorder]') && save.wallet >= 150) { save.wallet -= 150; save.orders = []; fillOrders(); persist(); renderCamp(); renderTop(); return; }
+  const g = e.target.closest('[data-give]');
+  if (g) {
+    const oi = +g.dataset.give, ord = save.orders[oi], x = save.inv.filter(y => fitsOrder(y, ord)).sort((a, b) => a.value - b.value)[0];
+    if (x) { const v = Math.max(ord.pay, x.value); save.inv = save.inv.filter(y => y.id !== x.id); save.wallet += v; save.st.earned += v; save.st.orders++; save.orders.splice(oi, 1); fillOrders(); SFX.coin(); gtoast('Заказ выполнен', `${specName(x)} · +${fmt(v)} ₽`); checkAch(); renderCamp(); renderTop(); }
+    return;
+  }
+  const si = e.target.closest('[data-sellinv]');
+  if (si) { const id = +si.dataset.sellinv, x = save.inv.find(y => y.id === id); if (x) { save.inv = save.inv.filter(y => y.id !== id); save.wallet += x.value; save.st.earned += x.value; SFX.coin(); persist(); renderCamp(); renderTop(); } return; }
+  const b = e.target.closest('[data-buy]');
+  if (b && !b.disabled) {
+    const u = UPS.find(x => x.id === b.dataset.buy), lv = save.up[u.id], next = u.lv[lv];
+    if (next && save.wallet >= next.c && starCount() >= next.s && invCount(next.m[0], next.m[1]) >= next.m[2]) {
+      FX.at(b, ['#f0b25a', '#fff1a8', '#ffffff']);
+      save.wallet -= next.c; payReq(next.m); save.up[u.id]++; persist(); SFX.star();
+      gtoast(`${u.name}: уровень ${save.up[u.id]}`, u.d(save.up[u.id])); renderCamp(); renderTop();
+    }
+    return;
+  }
+  const sh = e.target.closest('[data-sheet]'); if (sh) ({col:openCollection, fos:openFossils, ach:openAch, rec:openRecords, help:openHelp})[sh.dataset.sheet]();
+});
+stage.addEventListener('click', e => {
+  if (e.target.closest('#stone')) return hitStone();
+  const a = e.target.closest('[data-act]');
+  if (a && a.dataset.act === 'back') { if (ST && ST.busy) return; stage.hidden = true; ST = null; return showCamp('stones'); }
+  if (a) decide(a.dataset.act);
+});
+sheet.addEventListener('click', e => {
+  if (e.target.closest('[data-camp]')) { closeSheet(); return showCamp(); }
+  if (e.target.closest('[data-open-camp]')) { closeSheet(); showCamp('stones'); const r = save.rough.find(x => !x.res); if (r) openStone(r.id); return; }
+  if (e.target.closest('[data-again]')) {
+    const id = S ? S.mine.id : save.lastMine, m = MINEM[id];
+    if (save.wallet >= m.fee) return startRun(id);
+    closeSheet(); return showCamp();
+  }
+  const rs = e.target.closest('[data-reset]');
+  if (rs) {
+    if (rs.dataset.armed) { save = Object.assign(BLANK(), {help:true}); persist(); closeSheet(); showCamp('mines'); }
+    else { rs.dataset.armed = '1'; rs.textContent = 'Нажмите ещё раз, чтобы стереть всё'; }
+    return;
+  }
+  if ((e.target === sheet && !sheetLocked) || e.target.closest('[data-close]')) closeSheet();
+});
+window.addEventListener('resize', () => { if (S) layout(); });
+
+showCamp('mines');
+if (!save.help) openHelp();
+</script>

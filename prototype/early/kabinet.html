@@ -1,0 +1,740 @@
+<title>Кабинет минералога</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: a museum cabinet — dark velvet ground, brass accents, cream specimen labels; one column: tabs, the stall of rough stones, the opening stage */
+:root{
+  --bg:#0f1512; --surface:#18201c; --raise:#212b26; --line:#33413a; --velvet:#14231d;
+  --fg:#ece6d8; --muted:#9aa69e; --brass:#d4a94f; --paper:#efe6d2; --ink:#2a2318; --ink2:#6b5e4a; --uv:#a77bff;
+  --display:'Unbounded', 'Arial Black', system-ui, sans-serif;
+  --body:'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --label:'PT Serif', Georgia, 'Times New Roman', serif;
+  --mono:'JetBrains Mono', ui-monospace, Consolas, monospace;
+  color-scheme:dark;
+}
+html{background:var(--bg);color:var(--fg)}
+body{background:radial-gradient(ellipse at 50% -10%, rgba(212,169,79,.12), transparent 55%), var(--bg);color:var(--fg);min-height:100%;
+  font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+img{max-width:100%}
+.app{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:12px 32px;display:flex;flex-direction:column;gap:12px}
+.muted{color:var(--muted)}
+
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.brand{font-family:var(--display);font-weight:700;font-size:17px;color:var(--brass);line-height:1.1}
+.brand small{display:block;font-family:var(--body);font-weight:400;font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.top-r{display:flex;gap:8px;align-items:center}
+.stat{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;line-height:1.3}
+.stat b{color:var(--fg)}
+.icon-btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:8px 0;font-size:13px;font-weight:500;color:var(--muted)}
+.tabs button.on{background:var(--raise);color:var(--fg)}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.sec-h h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:0}
+.fx-in{animation:fxin .45s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i, 0) * 45ms)}
+@keyframes fxin{from{opacity:0;transform:translateY(10px)}}
+
+/* stall */
+.daily{border:1px solid color-mix(in srgb, var(--brass) 50%, transparent);background:color-mix(in srgb, var(--brass) 8%, var(--surface));border-radius:12px;padding:10px 12px;font-size:13.5px;display:flex;gap:10px;align-items:center}
+.daily img{width:40px;height:40px;object-fit:contain;flex:none}
+.daily b{color:var(--brass)}
+.locs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.locs::-webkit-scrollbar{display:none}
+.loc{flex:none;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
+.loc small{font-size:10.5px;color:var(--muted)}
+.loc.on{border-color:var(--brass);background:color-mix(in srgb, var(--brass) 14%, var(--surface))}
+.loc:disabled{opacity:.45;cursor:default}
+.locinfo{font-size:13px;color:var(--muted);margin:0}
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rough{background:radial-gradient(ellipse at 50% 30%, #243129, var(--velvet) 75%);border:1px solid var(--line);border-radius:14px;padding:8px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;position:relative;transition:transform .15s, border-color .15s}
+.rough:hover{border-color:var(--brass);transform:translateY(-2px)}
+.rough img{width:82px;height:82px;object-fit:contain;filter:drop-shadow(0 8px 10px rgba(0,0,0,.6));transform:rotate(var(--rot)) scale(var(--sc));animation:idle 4s ease-in-out infinite;animation-delay:var(--dl)}
+@keyframes idle{50%{transform:rotate(calc(var(--rot) + 3deg)) scale(var(--sc)) translateY(-3px)}}
+.rough .w{font-family:var(--mono);font-size:12px}
+.rough .hint{display:flex;gap:4px;align-items:center;font-size:11px;color:var(--muted)}
+.rough .hint i{width:10px;height:10px;border-radius:50%;background:var(--hc);box-shadow:0 0 6px var(--hc)}
+.rough .sp{color:var(--brass);letter-spacing:.15em;font-size:12px;min-height:1em}
+.row-btns{display:flex;gap:8px;justify-content:space-between;align-items:center}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-weight:500;font-size:13.5px}
+.btn{background:var(--brass);color:#1c160c;border:0;border-radius:10px;padding:12px;font-weight:600}
+.btn:disabled{opacity:.45;cursor:default}
+.uvc{font-family:var(--mono);font-size:12px;color:var(--uv)}
+
+/* showcase */
+.case{background:linear-gradient(#1b1610, #120f0b);border:1px solid #3a2f1e;border-radius:16px;padding:12px;box-shadow:inset 0 0 40px rgba(0,0,0,.6)}
+.shelf{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-bottom:14px;margin-bottom:12px;border-bottom:6px solid #3b2e1c;box-shadow:0 6px 0 -3px #2a2013}
+.shelf:last-child{margin-bottom:0}
+.slot{aspect-ratio:1;border-radius:10px;position:relative;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 0%, rgba(255,226,160,.18), transparent 70%);border:1px dashed rgba(212,169,79,.18)}
+.slot.full{border:0;cursor:pointer}
+.slot img{width:86%;height:86%;object-fit:contain;filter:drop-shadow(0 8px 8px rgba(0,0,0,.7))}
+.slot .tag{position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);background:var(--paper);color:var(--ink);font-family:var(--label);font-size:10.5px;padding:1px 6px;border-radius:2px;white-space:nowrap;max-width:110%;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.slot .crown{position:absolute;top:2px;right:4px;font-size:13px}
+.slot.empty span{font-size:11px;color:#6b5a3e}
+
+/* journal */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sp-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;border-bottom:3px solid var(--tc)}
+.sp-card img{width:60px;height:60px;object-fit:contain}
+.sp-card.lock img{filter:brightness(0) opacity(.5)!important}
+.sp-card .n{font-size:12px;font-weight:600;line-height:1.2}
+.sp-card .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:6px}
+.li{display:grid;grid-template-columns:46px 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;text-align:left}
+.li img{width:46px;height:46px;object-fit:contain}
+.li b{font-weight:600;font-size:13.5px}
+.li p{margin:0;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.li .r{font-family:var(--mono);font-size:12px;color:var(--brass);text-align:right;white-space:nowrap}
+.empty{margin:0;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:16px;color:var(--muted);font-size:14px}
+.badges{display:flex;flex-wrap:wrap;gap:4px}
+.bd{border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11.5px;color:var(--muted)}
+.bd.on{border-color:var(--brass);color:var(--brass)}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{text-align:right}
+
+/* museum label */
+.label{background:var(--paper);color:var(--ink);border-radius:3px;padding:12px 14px 10px;font-family:var(--label);box-shadow:0 10px 30px rgba(0,0,0,.5);position:relative;border:1px solid #d8ccb1;text-align:left}
+.label::before{content:"";position:absolute;inset:5px;border:1px solid #cfc1a3;pointer-events:none}
+.label .no{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink2)}
+.label h3{margin:2px 0 0;font-size:22px;line-height:1.15;font-weight:700}
+.label .lat{font-style:italic;font-size:13px;color:var(--ink2)}
+.label dl{display:grid;grid-template-columns:auto 1fr;gap:1px 12px;margin:8px 0 0;font-size:13.5px}
+.label dt{color:var(--ink2)}
+.label dd{margin:0;font-weight:700}
+.label .feats{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;min-height:4px}
+.chip{font-family:var(--body);font-size:11.5px;font-weight:600;border-radius:4px;padding:2px 7px;background:#2a2318;color:var(--paper);animation:chip .35s cubic-bezier(.2,1.5,.4,1)}
+.chip.crown{background:#8a6416}
+.chip.bad{background:#8a3a2a}
+.chip.uv{background:#5b3aa8}
+@keyframes chip{from{transform:scale(.4);opacity:0}}
+.label .rar{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:6px;border-top:1px solid #cfc1a3}
+.label .rar b{font-family:var(--display);font-size:20px;color:var(--rc, var(--ink))}
+.label .rar span{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+.qual{font-family:var(--display);font-weight:700;color:var(--gc, var(--ink))}
+
+/* stage */
+.stage{position:fixed;inset:0;z-index:30;background:radial-gradient(ellipse at 50% 35%, #26352d 0%, #0a0e0c 72%);display:flex;flex-direction:column;align-items:center;
+  padding:calc(14px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));gap:8px;overflow:auto}
+.stage::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.45;
+  background:radial-gradient(1.5px 1.5px at 20% 30%, #f0d8b0 50%, transparent 51%),radial-gradient(1px 1px at 70% 60%, #f0d8b0 50%, transparent 51%),radial-gradient(1.5px 1.5px at 40% 80%, #f0d8b0 50%, transparent 51%),radial-gradient(1px 1px at 85% 25%, #f0d8b0 50%, transparent 51%);
+  background-size:300px 300px;animation:motes 30s linear infinite}
+@keyframes motes{to{background-position:0 -300px}}
+.st-back{position:absolute;top:calc(12px + env(safe-area-inset-top, 0px));left:16px;z-index:2}
+.st-top{text-align:center;max-width:420px;margin-top:30px;display:flex;flex-direction:column;gap:2px}
+.st-top .t{font-family:var(--display);font-weight:500;font-size:16px}
+.st-top .s{font-size:12.5px;color:var(--muted)}
+.arena{position:relative;width:min(72vw,280px);aspect-ratio:1;flex:none;margin-block:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.arena .stone{position:absolute;inset:10%;width:80%;height:80%;object-fit:contain;filter:drop-shadow(0 18px 24px rgba(0,0,0,.65));animation:bob 3.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-5px) rotate(-1deg)}}
+.arena.hit .stone{animation:hit .25s}
+@keyframes hit{30%{transform:scale(.94) rotate(-3deg)}60%{transform:scale(1.03) rotate(1deg)}}
+.target{position:absolute;inset:8%;border-radius:50%;border:2px dashed rgba(212,169,79,.55)}
+.ring{position:absolute;inset:8%;border-radius:50%;border:3px solid var(--brass);box-shadow:0 0 14px var(--brass), inset 0 0 14px rgba(212,169,79,.4);will-change:transform}
+.ring.ok{border-color:#9be07a;box-shadow:0 0 18px #9be07a}
+.ring.miss{border-color:#ff6a4a;box-shadow:0 0 18px #ff6a4a}
+.cracks{position:absolute;inset:10%;width:80%;height:80%;pointer-events:none}
+.cracks path{stroke:var(--glow);stroke-width:1.8;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 3px var(--glow)) drop-shadow(0 0 8px var(--glow));stroke-dasharray:200;stroke-dashoffset:200;animation:draw .35s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.halo{position:absolute;inset:4%;border-radius:50%;background:radial-gradient(circle, color-mix(in srgb, var(--glow) 45%, transparent), transparent 65%);opacity:var(--ho,0);transition:opacity .4s}
+.hitmsg{position:absolute;left:50%;top:-6px;transform:translateX(-50%);font-family:var(--display);font-weight:700;font-size:18px;white-space:nowrap;animation:hm .8s ease-out forwards;pointer-events:none}
+@keyframes hm{from{opacity:0;transform:translate(-50%,10px) scale(.7)}25%{opacity:1;transform:translate(-50%,0) scale(1.1)}to{opacity:0;transform:translate(-50%,-24px)}}
+.dots{display:flex;gap:8px;justify-content:center}
+.dots i{width:12px;height:12px;border-radius:50%;border:2px solid var(--line)}
+.dots i.p{background:#9be07a;border-color:#9be07a}
+.dots i.g{background:var(--brass);border-color:var(--brass)}
+.dots i.m{background:#ff6a4a;border-color:#ff6a4a}
+.tap-hint{text-align:center;color:var(--muted);font-size:13.5px;max-width:320px}
+.rays{position:absolute;inset:-25%;border-radius:50%;background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tc) 30%, transparent) 0 8deg, transparent 8deg 24deg);
+  mask:radial-gradient(circle, #000 20%, transparent 68%);-webkit-mask:radial-gradient(circle, #000 20%, transparent 68%);animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gem{position:absolute;inset:2%;animation:emerge .6s cubic-bezier(.2,1.5,.4,1)}
+.gem img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6))}
+@keyframes emerge{from{transform:scale(.3) rotate(-20deg);opacity:0}}
+.gem.uvon img{filter:drop-shadow(0 0 18px #b48cff) drop-shadow(0 0 30px #8a5cff) saturate(1.6) brightness(1.2)}
+.burst{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, #fff, var(--tc) 30%, transparent 65%);animation:burst .7s ease-out forwards;pointer-events:none}
+@keyframes burst{from{transform:scale(.4);opacity:1}to{transform:scale(1.8);opacity:0}}
+.tw{position:absolute;width:14px;height:14px;pointer-events:none;background:radial-gradient(circle, #fff 0 1.5px, transparent 2px),linear-gradient(var(--tc), var(--tc)) center/2px 100% no-repeat,linear-gradient(90deg, var(--tc), var(--tc)) center/100% 2px no-repeat;
+  border-radius:50%;opacity:0;animation:tw 1.8s ease-in-out infinite;animation-delay:var(--d)}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+.tierline{font-size:12px;text-transform:uppercase;letter-spacing:.14em;font-weight:600;color:var(--tc);text-align:center}
+.st-bottom{width:100%;max-width:420px;display:flex;flex-direction:column;gap:10px}
+.news{display:flex;flex-direction:column;gap:6px}
+.news div{border-radius:10px;padding:8px 12px;font-size:13.5px;animation:chip .4s cubic-bezier(.2,1.5,.4,1) both}
+.news .rec{background:color-mix(in srgb, var(--brass) 20%, transparent);border:1px solid var(--brass);color:var(--brass);font-weight:600}
+.news .near{background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.uvveil{position:fixed;inset:0;background:radial-gradient(circle at 50% 40%, rgba(120,60,255,.35), rgba(20,0,60,.75));pointer-events:none;z-index:31;animation:uvv 1.6s ease-in-out forwards}
+@keyframes uvv{0%{opacity:0}25%,70%{opacity:1}100%{opacity:0}}
+.skip{position:absolute;top:calc(12px + env(safe-area-inset-top, 0px));right:16px;z-index:2}
+
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(5,8,6,.75);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
+.panel{width:100%;max-width:480px;max-height:92%;overflow:auto;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:12px;animation:up .28s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.p-head h2{font-family:var(--display);font-weight:500;font-size:19px;margin:2px 0 0}
+.x{background:var(--raise);border:1px solid var(--line);border-radius:8px;width:34px;height:34px;flex:none}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+.big-img{display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%, #243129, transparent 70%);border-radius:14px}
+.big-img img{width:min(60vw,220px);aspect-ratio:1;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6))}
+.fx{position:fixed;inset:0;width:100%;height:100%;z-index:45;pointer-events:none}
+.help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+
+@media (max-width:370px){.rough img{width:66px;height:66px}.label h3{font-size:19px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.cracks path{stroke-dashoffset:0}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Кабинет минералога<small>вскрывай, коллекционируй, ставь рекорды</small></div>
+    <div class="top-r"><div class="stat" id="stat"></div><button type="button" class="icon-btn" id="mute" aria-label="Звук">🔊</button></div>
+  </header>
+  <nav class="tabs" id="tabs">
+    <button type="button" data-tab="stall" class="on">Развал</button>
+    <button type="button" data-tab="case">Витрина</button>
+    <button type="button" data-tab="journal">Журнал</button>
+    <button type="button" data-tab="records">Рекорды</button>
+  </nav>
+  <main id="main" style="display:flex;flex-direction:column;gap:12px"></main>
+</div>
+<div id="stage" class="stage" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="panel" id="panel"></div></div>
+<canvas class="fx" id="fx" aria-hidden="true"></canvas>
+
+<script>
+const IMG = n => `../web/img/${n}.webp`;
+const TIERS = ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный', 'Мифический'];
+const TIER_C = ['#b9b2a6', '#7fd38b', '#68aefc', '#c690ff', '#ffb547', '#ff6ab0'];
+const GR = [{n:'C', w:38, m:1}, {n:'B', w:30, m:1.5}, {n:'A', w:19, m:2.4}, {n:'AA', w:10, m:4}, {n:'AAA', w:3, m:8}];
+const GR_C = ['#8a8070', '#5c5240', '#3f8a3a', '#2f6fc4', '#c27a00'];
+
+const Q = ['twin', 'phantom', 'scepter', 'incl', 'perfect'];
+const SPECIES = [
+  {id:'crystal', name:'Горный хрусталь', img:'quartz', f:'SiO₂', h:'7', mean:120, pg:2, t:0, color:'#dfe8f2', feats:Q, uv:.03},
+  {id:'smoky', name:'Дымчатый кварц', img:'quartz', fl:'sepia(.7) brightness(.62) saturate(1.4)', f:'SiO₂', h:'7', mean:140, pg:3, t:1, color:'#a08468', feats:Q, uv:.03},
+  {id:'amethyst', name:'Аметист', img:'quartz', fl:'sepia(.5) saturate(4) hue-rotate(225deg) brightness(.95)', f:'SiO₂', h:'7', mean:110, pg:8, t:1, color:'#b47cff', feats:Q, uv:.05},
+  {id:'citrine', name:'Цитрин', img:'quartz', fl:'sepia(.9) saturate(3) hue-rotate(-12deg) brightness(1.05)', f:'SiO₂', h:'7', mean:90, pg:14, t:2, color:'#f2b640', feats:Q, uv:.03},
+  {id:'malachite', name:'Малахит', img:'malachite', f:'Cu₂CO₃(OH)₂', h:'3,5–4', mean:300, pg:1.5, t:0, color:'#43c98a', feats:['incl', 'perfect'], uv:.02},
+  {id:'azurite', name:'Азурит', img:'malachite', fl:'hue-rotate(85deg) saturate(1.4)', f:'Cu₃(CO₃)₂(OH)₂', h:'3,5–4', mean:180, pg:5, t:1, color:'#5f8bff', feats:['twin', 'incl', 'perfect'], uv:.02},
+  {id:'selenite', name:'Селенит', img:'gypsum', f:'CaSO₄·2H₂O', h:'2', mean:400, pg:.6, t:0, color:'#e6eef6', feats:['twin', 'incl', 'perfect'], uv:.25},
+  {id:'fluorite', name:'Флюорит', img:'fluorite', f:'CaF₂', h:'4', mean:200, pg:2, t:0, color:'#5fe0a0', feats:['twin', 'phantom', 'perfect'], uv:.6},
+  {id:'bluejohn', name:'Блю Джон', img:'fluorite', fl:'hue-rotate(120deg) saturate(1.3)', f:'CaF₂', h:'4', mean:160, pg:9, t:2, color:'#8a7bff', feats:['phantom', 'perfect'], uv:.3},
+  {id:'almandine', name:'Альмандин', img:'garnet', f:'Fe₃Al₂(SiO₄)₃', h:'7–7,5', mean:60, pg:6, t:1, color:'#e0566a', feats:['twin', 'incl', 'perfect'], uv:.02},
+  {id:'demantoid', name:'Демантоид', img:'garnet', fl:'hue-rotate(100deg) saturate(1.5) brightness(1.1)', f:'Ca₃Fe₂(SiO₄)₃', h:'6,5–7', mean:2, pg:900, t:3, color:'#a8f060', feats:['incl', 'perfect'], uv:.02, ct:true},
+  {id:'heliodor', name:'Гелиодор', img:'beryl', f:'Be₃Al₂Si₆O₁₈', h:'7,5–8', mean:70, pg:10, t:1, color:'#e6dd8a', feats:['incl', 'perfect', 'twin'], uv:.03},
+  {id:'aquamarine', name:'Аквамарин', img:'beryl', fl:'hue-rotate(130deg) saturate(1.8) brightness(1.05)', f:'Be₃Al₂Si₆O₁₈', h:'7,5–8', mean:60, pg:25, t:2, color:'#7fd8ff', feats:['incl', 'perfect'], uv:.03},
+  {id:'emerald', name:'Изумруд', img:'beryl', fl:'hue-rotate(60deg) saturate(3) brightness(.9)', f:'Be₃Al₂Si₆O₁₈:Cr', h:'7,5–8', mean:8, pg:400, t:3, color:'#3fe08a', feats:['incl', 'perfect'], uv:.1, ct:true},
+  {id:'gold', name:'Самородное золото', img:'gold', f:'Au', h:'2,5–3', mean:15, pg:90, t:2, color:'#f0c64a', feats:['perfect'], uv:0},
+  {id:'opal', name:'Благородный опал', img:'opal', f:'SiO₂·nH₂O', h:'5,5–6', mean:40, pg:40, t:2, color:'#8fe6dc', feats:['harlequin', 'perfect'], uv:.25},
+  {id:'blackopal', name:'Чёрный опал', img:'opal', fl:'brightness(.6) contrast(1.5) saturate(1.8)', f:'SiO₂·nH₂O', h:'5,5–6', mean:25, pg:300, t:4, color:'#4a6aff', feats:['harlequin', 'perfect'], uv:.25},
+  {id:'sapphire', name:'Сапфир', img:'corundum', f:'Al₂O₃', h:'9', mean:4, pg:500, t:3, color:'#7f9bff', feats:['star', 'incl', 'perfect'], uv:.1, ct:true},
+  {id:'ruby', name:'Рубин', img:'corundum', fl:'hue-rotate(140deg) saturate(1.4)', f:'Al₂O₃:Cr', h:'9', mean:3, pg:1200, t:4, color:'#ff4a6a', feats:['star', 'incl', 'perfect'], uv:.7, ct:true},
+  {id:'diamond', name:'Алмаз', img:'diamond', f:'C', h:'10', mean:.6, pg:8000, t:4, color:'#e8f4ff', feats:['twin', 'incl', 'perfect'], uv:.3, ct:true},
+  {id:'pinkdiamond', name:'Розовый алмаз', img:'diamond', fl:'sepia(.45) saturate(3) hue-rotate(290deg)', f:'C', h:'10', mean:.4, pg:60000, t:5, color:'#ff8ac0', feats:['perfect'], uv:.4, ct:true},
+];
+const SPM = Object.fromEntries(SPECIES.map(s => [s.id, s]));
+const FEATS = {
+  twin:{name:'Двойник', p:.08, m:1.6, d:'два сросшихся кристалла'},
+  phantom:{name:'Фантом', p:.05, m:2, d:'внутри виден «призрак» ранней стадии роста'},
+  scepter:{name:'Скипетр', p:.025, m:3, d:'кристалл вырос шляпкой на другом кристалле'},
+  incl:{name:'Включения', p:.07, m:1.5, d:'внутри застыли иглы, пузырьки или другой минерал'},
+  perfect:{name:'Без повреждений', p:.05, m:2.2, d:'ни одного скола на гранях'},
+  star:{name:'Астеризм', p:.04, m:3, d:'на поверхности видна шестилучевая звезда'},
+  harlequin:{name:'Арлекин', p:.03, m:4, d:'игра цвета мозаикой из ярких пятен'},
+  uv:{name:'Флюоресценция', p:1, m:1.8, d:'светится под ультрафиолетом'},
+  chip:{name:'Скол', p:1, m:.6, d:'повреждён при вскрытии'},
+};
+const CROWN = {giant:{name:'Гигант', p:.015, m:2.5, z:2.17}, mini:{name:'Миниатюра', p:.015, m:1.5, z:-2.17}};
+const LOCS = [
+  {id:'murzinka', name:'Мурзинка', region:'Средний Урал', need:0, pool:{crystal:40, smoky:25, amethyst:18, heliodor:8, aquamarine:5, almandine:6, demantoid:.5}},
+  {id:'tagil', name:'Медноруднянск', region:'Нижний Тагил', need:0, pool:{malachite:55, azurite:22, crystal:15, gold:3}},
+  {id:'castleton', name:'Каслтон', region:'Дербишир, Англия', need:3, pool:{fluorite:55, bluejohn:10, crystal:20, smoky:10}},
+  {id:'naica', name:'Наика', region:'Чиуауа, Мексика', need:5, pool:{selenite:65, fluorite:15, crystal:10, gold:4}},
+  {id:'minas', name:'Минас-Жерайс', region:'Бразилия', need:7, pool:{crystal:30, citrine:16, amethyst:18, heliodor:12, aquamarine:12, emerald:2, gold:3}},
+  {id:'ratna', name:'Ратнапура', region:'Шри-Ланка', need:9, pool:{almandine:30, sapphire:12, ruby:3, aquamarine:10, crystal:20}},
+  {id:'coober', name:'Кубер-Педи', region:'Австралия', need:11, pool:{selenite:40, opal:22, blackopal:1.2, crystal:20}},
+  {id:'mir', name:'Трубка «Мир»', region:'Якутия', need:13, pool:{almandine:40, diamond:4, pinkdiamond:.08, crystal:20}},
+];
+const LOCM = Object.fromEntries(LOCS.map(l => [l.id, l]));
+
+/* ---------- utils ---------- */
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const fmt = n => Math.round(n).toLocaleString('ru-RU');
+function pickW(entries){ let t = entries.reduce((s, e) => s + e[1], 0), r = Math.random() * t; for (const e of entries) { if ((r -= e[1]) <= 0) return e[0]; } return entries[entries.length - 1][0]; }
+function gauss(){ let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const sleep = ms => new Promise(r => setTimeout(r, skipAnim ? 0 : ms));
+const img = (sp, cls = '', extra = '') => `<img src="${IMG(sp.img)}" alt="" class="${cls}" style="${sp.fl ? `filter:${sp.fl};` : ''}${extra}">`;
+const wtxt = (sp, g) => sp.ct ? `${(g * 5).toFixed(g * 5 < 10 ? 2 : 1).replace('.', ',')} кар.` : g < 10 ? `${g.toFixed(1).replace('.', ',')} г` : `${fmt(g)} г`;
+const oneIn = n => n < 10 ? `1 из ${Math.max(1, Math.round(n))}` : `1 из ${fmt(n < 100 ? Math.round(n) : n < 10000 ? Math.round(n / 10) * 10 : Math.round(n / 1000) * 1000)}`;
+const rarColor = n => n >= 20000 ? TIER_C[5] : n >= 2000 ? TIER_C[4] : n >= 300 ? TIER_C[3] : n >= 60 ? TIER_C[2] : n >= 12 ? TIER_C[1] : '#6b5e4a';
+function plural(n, a, b, c){ const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; }
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+
+/* ---------- save ---------- */
+const BLANK = () => ({n:0, cat:[], showcase:[], sp:{}, uv:3, sinceUv:0, loc:'murzinka', tray:{}, best:null, top:null, help:false, mute:false});
+function load(){ try { const s = JSON.parse(localStorage.getItem('kabinet-v1') || 'null'); return s ? Object.assign(BLANK(), s) : BLANK(); } catch (e) { return BLANK(); } }
+function persist(){ try { localStorage.setItem('kabinet-v1', JSON.stringify(save)); } catch (e) {} }
+let save = load();
+const found = () => Object.keys(save.sp).length;
+
+/* ---------- daily boost ---------- */
+function daily(){
+  const seed = [...today()].reduce((s, ch) => s * 31 + ch.charCodeAt(0) | 0, 7), rand = mulberry(seed);
+  const loc = LOCS[Math.floor(rand() * LOCS.length)];
+  const cands = Object.keys(loc.pool).filter(id => SPM[id].t >= 1);
+  return {loc:loc.id, sp:cands[Math.floor(rand() * cands.length)]};
+}
+const DAILY = daily();
+function locPool(loc){ return Object.entries(loc.pool).map(([id, w]) => [id, w * (DAILY.loc === loc.id && DAILY.sp === id ? 3 : 1)]); }
+const poolProb = (loc, id) => { const p = locPool(loc), t = p.reduce((s, e) => s + e[1], 0); return (p.find(e => e[0] === id) || [0, 0])[1] / t; };
+
+/* ---------- sound ---------- */
+let AC;
+function ac(){ if (save.mute) return null; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch (e) { return null; } }
+function noise(dur, freq, vol, type = 'lowpass'){
+  const a = ac(); if (!a) return;
+  const b = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const s = a.createBufferSource(); s.buffer = b;
+  const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+function tone(freq, at, dur, vol, type = 'sine'){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const SFX = {
+  pick(){ noise(.08, 900, .3); tone(330, 0, .12, .05, 'triangle'); },
+  perfect(){ noise(.15, 3200, .5, 'highpass'); tone(1320, 0, .2, .08, 'triangle'); tone(1760, .05, .25, .07, 'triangle'); buzz(25); },
+  good(){ noise(.15, 2400, .45, 'highpass'); tone(990, 0, .15, .06, 'triangle'); buzz(20); },
+  miss(){ noise(.25, 400, .7); tone(110, 0, .2, .1, 'square'); buzz([40, 20, 40]); },
+  reveal(l){ const steps = [0, 4, 7, 12, 16, 19, 24]; for (let k = 0; k < 3 + l * 1.5; k++) tone(392 * Math.pow(2, steps[Math.min(6, k)] / 12), k * .08, .6, .09, 'triangle'); if (l >= 2) { tone(1568, .6, 1.2, .05, 'sine'); buzz([60, 40, 60, 40, 160]); } },
+  tick(){ tone(1800, 0, .03, .035, 'square'); },
+  land(gi){ tone([330, 392, 523, 659, 880][gi], 0, .35, .11, 'triangle'); },
+  chip(){ tone(1175, 0, .12, .06, 'triangle'); tone(1568, .05, .15, .05, 'triangle'); },
+  crown(){ [784, 988, 1175, 1568, 1976].forEach((f, k) => tone(f, k * .07, .5, .07, 'triangle')); buzz([40, 30, 40]); },
+  record(){ [523, 659, 784, 1047].forEach((f, k) => tone(f, k * .1, .6, .09, 'triangle')); },
+  uv(){ tone(60, 0, 1.4, .08, 'sawtooth'); tone(120, 0, 1.4, .04, 'sine'); },
+  glow(){ [880, 1109, 1319, 1760].forEach((f, k) => tone(f, k * .08, .7, .07, 'sine')); },
+};
+
+/* ---------- particles ---------- */
+const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const fxc = $('#fx');
+let fx = null;
+try { fx = fxc.getContext('2d'); } catch (e) {}
+let parts = [], fxRun = false;
+function fxSize(){ if (!fx) return; const dpr = Math.min(2, window.devicePixelRatio || 1); fxc.width = innerWidth * dpr; fxc.height = innerHeight * dpr; fx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+fxSize(); addEventListener('resize', fxSize);
+function burst(x, y, o){
+  if (!fx || RM) return;
+  for (let i = 0; i < o.n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = (o.speed || 3) * (.35 + Math.random() * .9);
+    parts.push({x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - (o.lift || 0), g:o.grav === undefined ? .15 : o.grav, life:0, max:(o.life || 40) * (.6 + Math.random() * .6),
+      s:(o.size || 3) * (.5 + Math.random()), c:o.colors[i % o.colors.length], k:o.kind || 'chip', rot:Math.random() * 6, vr:(Math.random() - .5) * .3});
+  }
+  if (!fxRun) { fxRun = true; requestAnimationFrame(fxTick); }
+}
+function fxTick(){
+  fx.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter(p => p.life < p.max);
+  for (const p of parts) {
+    p.life++; p.vx *= .985; p.vy = p.vy * .985 + p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+    const t = 1 - p.life / p.max;
+    fx.globalAlpha = Math.min(1, t * 1.6); fx.fillStyle = p.c;
+    if (p.k === 'spark') {
+      const sz = p.s * (.6 + t * .6);
+      fx.save(); fx.translate(p.x, p.y); fx.rotate(p.rot); fx.beginPath();
+      for (let i = 0; i < 8; i++) { const r = i % 2 ? sz * .35 : sz * 1.6, a = i * Math.PI / 4; fx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      fx.closePath(); fx.fill(); fx.restore();
+    } else { fx.save(); fx.translate(p.x, p.y); fx.rotate(p.rot); fx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .7); fx.restore(); }
+  }
+  fx.globalAlpha = 1;
+  if (parts.length) requestAnimationFrame(fxTick); else { fxRun = false; fx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+function elXY(el){ const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }
+function tween(from, to, dur, cb){
+  if (RM || skipAnim || dur <= 0 || !window.requestAnimationFrame) return cb(to);
+  const t0 = performance.now();
+  return new Promise(res => { const step = now => { const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3); cb(from + (to - from) * e); if (t < 1 && !skipAnim) requestAnimationFrame(step); else { cb(to); res(); } }; requestAnimationFrame(step); });
+}
+function crackPaths(seed, count){
+  const rand = mulberry(seed), out = [];
+  for (let k = 0; k < count; k++) {
+    let x = 50 + (rand() - .5) * 10, y = 50 + (rand() - .5) * 10;
+    const a0 = rand() * Math.PI * 2; let d = `M${x.toFixed(1)},${y.toFixed(1)}`;
+    for (let s = 0; s < 5; s++) { const a = a0 + (rand() - .5) * 1.1, len = 5 + rand() * 6; x += Math.cos(a) * len; y += Math.sin(a) * len; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; }
+    out.push(d);
+  }
+  return out;
+}
+
+/* ---------- stones ---------- */
+function makeStone(locId){
+  const loc = LOCM[locId], sid = pickW(locPool(loc)), sp = SPM[sid];
+  const z = gauss();
+  const g = +(sp.mean * Math.exp(.45 * z)).toFixed(sp.mean < 5 ? 3 : 1);
+  // hints: crust colour is honest most of the time, sparkles lean towards rarity
+  const others = Object.keys(loc.pool).filter(id => id !== sid);
+  const hintSp = Math.random() < .72 || !others.length ? sp : SPM[others[ri(0, others.length - 1)]];
+  const P = [[.05, .01], [.15, .04], [.35, .12], [.6, .3], [.8, .55], [.9, .75]][sp.t];
+  const spark = (Math.random() < P[0]) + (Math.random() < P[1]);
+  return {sid, z, g, rough:Math.round(g * rnd(2.5, 4) + rnd(30, 80)), hint:hintSp.color, spark, loc:locId, seed:ri(1, 1e9), rot:ri(-25, 25), sc:+rnd(.85, 1.08).toFixed(2), uvHidden:Math.random() < sp.uv};
+}
+function trayFor(locId){ const t = save.tray[locId] || []; while (t.length < 3) t.push(makeStone(locId)); save.tray[locId] = t; return t; }
+
+function resolveSpec(stone, hits){
+  const sp = SPM[stone.sid], loc = LOCM[stone.loc];
+  const score = hits.reduce((s, h) => s + (h === 'p' ? 2 : h === 'g' ? 1 : -1), 0);
+  const gi = pickW(GR.map((x, k) => [k, x.w * Math.pow(Math.exp(.12 * score), k)]));
+  const feats = [];
+  for (const f of sp.feats) if (Math.random() < FEATS[f].p) feats.push(f);
+  const misses = hits.filter(h => h === 'm').length;
+  const chipped = misses > 0 && Math.random() < Math.min(.6, .22 * misses);
+  const crown = stone.z >= CROWN.giant.z ? 'giant' : stone.z <= CROWN.mini.z ? 'mini' : null;
+  const s = {id:++save.n, sid:sp.id, loc:stone.loc, g:stone.g, z:stone.z, gi, feats, crown, chipped, uvHidden:stone.uvHidden, uvChecked:false, date:today()};
+  price(s);
+  return s;
+}
+function price(s){
+  const sp = SPM[s.sid], loc = LOCM[s.loc];
+  let pr = poolProb(loc, s.sid) * GR[s.gi].w / 100;
+  let mult = GR[s.gi].m;
+  for (const f of s.feats) { pr *= f === 'uv' ? sp.uv : FEATS[f].p; mult *= FEATS[f].m; }
+  if (s.crown) { pr *= CROWN[s.crown].p; mult *= CROWN[s.crown].m; }
+  if (s.chipped) mult *= FEATS.chip.m;
+  s.rar = 1 / Math.max(pr, 1e-9);
+  s.value = Math.max(1, Math.round(sp.pg * Math.pow(s.g, .85) * mult));
+  s.cm = +(Math.cbrt(s.g / 2.6) * 1.7).toFixed(1);
+}
+
+/* ---------- records ---------- */
+function record(s){
+  const st = save.sp[s.sid] || {n:0, bestG:0, bestGi:-1, bestRar:0, grades:[], feats:[], crowns:[], first:s.id};
+  const out = [], isNew = !st.n;
+  if (isNew) out.push({k:'rec', t:`Новый вид в журнале: ${SPM[s.sid].name}`});
+  else {
+    if (s.g > st.bestG) out.push({k:'rec', t:`Рекорд вида по весу: ${wtxt(SPM[s.sid], s.g)} (было ${wtxt(SPM[s.sid], st.bestG)})`});
+    else if (s.g > st.bestG * .88) out.push({k:'near', t:`До рекорда по весу не хватило ${wtxt(SPM[s.sid], st.bestG - s.g)}`});
+    if (s.gi > st.bestGi) out.push({k:'rec', t:`Лучшее качество вида: ${GR[s.gi].n}`});
+    if (s.rar > st.bestRar && st.n >= 1) out.push({k:'rec', t:`Самый редкий экземпляр вида: ${oneIn(s.rar)}`});
+  }
+  if (!save.best || s.rar > save.best.rar) { if (save.best) out.push({k:'rec', t:`Самая редкая находка за всё время: ${oneIn(s.rar)}`}); save.best = {id:s.id, rar:s.rar}; }
+  if (!save.top || s.value > save.top.value) { if (save.top) out.push({k:'rec', t:`Самая дорогая находка: ${fmt(s.value)} ₽`}); save.top = {id:s.id, value:s.value}; }
+  st.n++; st.bestG = Math.max(st.bestG, s.g); st.bestGi = Math.max(st.bestGi, s.gi); st.bestRar = Math.max(st.bestRar, s.rar);
+  if (!st.grades.includes(s.gi)) st.grades.push(s.gi);
+  for (const f of s.feats) if (!st.feats.includes(f)) st.feats.push(f);
+  if (s.crown && !st.crowns.includes(s.crown)) st.crowns.push(s.crown);
+  if (!st.bestId || s.rar >= (save.cat.find(x => x.id === st.bestId) || {rar:0}).rar) st.bestId = s.id;
+  save.sp[s.sid] = st;
+  return {out, isNew};
+}
+function keep(s){
+  save.cat.push(s);
+  if (save.cat.length > 300) { // drop the least remarkable unpinned specimen
+    const drop = save.cat.filter(x => !save.showcase.includes(x.id) && !Object.values(save.sp).some(st => st.bestId === x.id)).sort((a, b) => a.rar - b.rar)[0];
+    if (drop) save.cat = save.cat.filter(x => x !== drop);
+  }
+}
+
+/* ---------- label ---------- */
+function labelHTML(s, opt = {}){
+  const sp = SPM[s.sid], loc = LOCM[s.loc];
+  const chips = [...(s.crown ? [`<span class="chip crown">♛ ${CROWN[s.crown].name}</span>`] : []), ...s.feats.map(f => `<span class="chip${f === 'uv' ? ' uv' : ''}" title="${FEATS[f].d}">${FEATS[f].name}</span>`), ...(s.chipped ? ['<span class="chip bad">Скол</span>'] : [])].join('');
+  return `<div class="label" ${opt.id ? `id="${opt.id}"` : ''}>
+    <div class="no"><span>№ ${String(s.id).padStart(5, '0')}</span><span>${TIERS[sp.t].toLowerCase()}</span></div>
+    <h3>${sp.name}</h3>
+    <div class="lat">${sp.f} · твёрдость ${sp.h}</div>
+    <dl><dt>Место</dt><dd>${loc.name}, ${loc.region}</dd>
+      <dt>Вес</dt><dd id="${opt.id ? 'lw' : ''}">${opt.live ? '…' : wtxt(sp, s.g)}</dd>
+      <dt>Размер</dt><dd>${s.cm.toString().replace('.', ',')} см</dd>
+      <dt>Качество</dt><dd><span class="qual" id="${opt.id ? 'lq' : ''}" style="--gc:${GR_C[s.gi]}">${opt.live ? '…' : GR[s.gi].n}</span></dd></dl>
+    <div class="feats" id="${opt.id ? 'lf' : ''}">${opt.live ? '' : chips}</div>
+    <div class="rar" style="--rc:${rarColor(s.rar)}"><b id="${opt.id ? 'lr' : ''}">${opt.live ? '…' : oneIn(s.rar)}</b><span id="${opt.id ? 'lv' : ''}">${opt.live ? '' : fmt(s.value) + ' ₽'}</span></div>
+  </div>`;
+}
+
+/* ---------- stage ---------- */
+const stage = $('#stage');
+let ST = null, skipAnim = false, ringRAF = 0;
+function openStone(idx){
+  const stone = trayFor(save.loc)[idx];
+  if (!stone) return;
+  SFX.pick();
+  skipAnim = false;
+  ST = {idx, stone, hits:[], phase:'hit', t0:performance.now()};
+  const loc = LOCM[stone.loc];
+  stage.hidden = false;
+  stage.innerHTML = `<button type="button" class="ghost st-back" data-act="back">← Развал</button>
+    <div class="st-top"><div class="eyebrow">${loc.name} · ${loc.region}</div><div class="t">Необработанный камень, ${fmt(stone.rough)} г</div>
+      <div class="s">Бейте, когда золотое кольцо совпадёт с пунктиром. Чистые удары — выше качество, промах может оставить скол.</div></div>
+    <div class="arena" id="arena" style="--glow:${stone.hint}">
+      <div class="halo"></div>
+      <img class="stone" src="${IMG('nodule')}" alt="" style="transform:rotate(${stone.rot}deg)">
+      <svg class="cracks" id="cracks" viewBox="0 0 100 100" aria-hidden="true"></svg>
+      <div class="target"></div><div class="ring" id="ring"></div>
+    </div>
+    <div class="dots" id="dots"><i></i><i></i><i></i></div>
+    <div class="st-bottom" id="stb"><div class="tap-hint">Нажмите на камень</div></div>`;
+  ringLoop();
+}
+function ringScale(){ const k = ST.hits.length, period = [1300, 1050, 850][k] || 850, t = (performance.now() - ST.t0) / period; return 1 + .45 * (1 - Math.cos(t * Math.PI * 2)) / 2; }
+function ringLoop(){
+  cancelAnimationFrame(ringRAF);
+  const step = () => { if (!ST || ST.phase !== 'hit') return; const r = $('#ring'); if (r) r.style.transform = `scale(${ringScale().toFixed(3)})`; ringRAF = requestAnimationFrame(step); };
+  if (window.requestAnimationFrame) ringRAF = requestAnimationFrame(step);
+}
+function strike(){
+  if (!ST || ST.phase !== 'hit') return;
+  const d = RM ? .15 : (ringScale() - 1) / .45;
+  const h = d < .08 ? 'p' : d < .28 ? 'g' : 'm';
+  ST.hits.push(h);
+  const arena = $('#arena'), ring = $('#ring');
+  arena.classList.remove('hit'); void arena.offsetWidth; arena.classList.add('hit');
+  ring.classList.remove('ok', 'miss'); ring.classList.add(h === 'm' ? 'miss' : 'ok');
+  setTimeout(() => ring && ring.classList.remove('ok', 'miss'), 250);
+  ({p:SFX.perfect, g:SFX.good, m:SFX.miss})[h]();
+  const msg = document.createElement('div'); msg.className = 'hitmsg';
+  msg.textContent = {p:'Чисто!', g:'Хорошо', m:'Мимо'}[h]; msg.style.color = {p:'#9be07a', g:'var(--brass)', m:'#ff6a4a'}[h];
+  arena.appendChild(msg); setTimeout(() => msg.remove(), 800);
+  $('#dots').children[ST.hits.length - 1].className = h;
+  const n = ST.hits.length;
+  $('#cracks').innerHTML = crackPaths(ST.stone.seed, n * 2 + 1).map(p => `<path d="${p}"/>`).join('');
+  arena.style.setProperty('--ho', String(.25 + n * .2));
+  const [x, y] = elXY(arena);
+  burst(x, y, {n:6 + n * 6, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:3 + n * 1.4, lift:2, grav:.3, size:5, life:40});
+  if (n === 2) { const sp = SPM[ST.stone.sid]; if (sp.t >= 3) { arena.style.setProperty('--glow', TIER_C[sp.t]); arena.style.setProperty('--ho', '1'); } }
+  ST.t0 = performance.now() - Math.random() * 400;
+  if (n >= 3) { ST.phase = 'reveal'; setTimeout(reveal, 350); }
+}
+
+async function reveal(){
+  const stone = ST.stone, sp = SPM[stone.sid];
+  const s = resolveSpec(stone, ST.hits);
+  const {out, isNew} = record(s);
+  keep(s);
+  save.tray[save.loc].splice(ST.idx, 1); trayFor(save.loc);
+  save.sinceUv++; if (save.sinceUv >= 4) { save.sinceUv = 0; save.uv = Math.min(5, save.uv + 1); }
+  persist();
+  ST.spec = s;
+  const level = s.rar >= 20000 ? 3 : s.rar >= 1000 ? 2 : (isNew || out.some(o => o.k === 'rec')) ? 1 : 0;
+  const tc = TIER_C[sp.t];
+  const arena = $('#arena');
+  const tws = Array.from({length:7}, (_, k) => `<i class="tw" style="left:${8 + (k * 37) % 84}%;top:${10 + (k * 53) % 80}%;--d:${(k * .27).toFixed(2)}s"></i>`).join('');
+  arena.style.setProperty('--tc', tc);
+  arena.innerHTML = `<div class="rays"></div><div class="burst"></div><div class="gem" id="gem">${img(sp)}</div>${tws}`;
+  $('#dots').remove();
+  stage.insertAdjacentHTML('beforeend', '<button type="button" class="ghost skip" data-act="skip">Пропустить</button>');
+  const [x, y] = elXY(arena);
+  burst(x, y, {n:26, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:8, lift:2, grav:.35, size:7, life:45});
+  burst(x, y, {n:16 + sp.t * 10, colors:[tc, '#ffffff'], kind:'spark', speed:4 + sp.t, grav:.02, size:3.5, life:60});
+  SFX.reveal(Math.min(3, Math.floor(sp.t / 1.5)));
+  $('#stb').innerHTML = `<div class="tierline" style="--tc:${tc}">${TIERS[sp.t]}${isNew ? ' · новый вид' : ''}</div>${labelHTML(s, {id:'lab', live:true})}<div class="news" id="news"></div><div id="acts"></div>`;
+  await sleep(450);
+  await tween(0, s.g, 700, v => { $('#lw').textContent = wtxt(sp, v); });
+  // quality spins like a slot reel and slows down onto the result
+  const q = $('#lq'); let k = 0, delay = 55;
+  while (!skipAnim) {
+    q.textContent = GR[k % 5].n; q.style.setProperty('--gc', GR_C[k % 5]); SFX.tick();
+    if (k >= 9 + s.gi && k % 5 === s.gi) break;
+    k++; delay *= 1.13; await sleep(delay);
+  }
+  q.textContent = GR[s.gi].n; q.style.setProperty('--gc', GR_C[s.gi]); SFX.land(s.gi);
+  const lf = $('#lf');
+  const chips = [];
+  if (s.crown) chips.push([`<span class="chip crown">♛ ${CROWN[s.crown].name}</span>`, true]);
+  for (const f of s.feats) chips.push([`<span class="chip" title="${FEATS[f].d}">${FEATS[f].name}</span>`, false]);
+  if (s.chipped) chips.push(['<span class="chip bad">Скол</span>', false]);
+  for (const [h, isCrown] of chips) { await sleep(320); lf.insertAdjacentHTML('beforeend', h); if (isCrown) { SFX.crown(); FXat(lf, ['#ffd75a', '#fff']); } else SFX.chip(); }
+  await sleep(300);
+  const lr = $('#lr'); lr.parentElement.style.setProperty('--rc', rarColor(s.rar));
+  await tween(1, s.rar, 1100, v => { lr.textContent = oneIn(v); });
+  $('#lv').textContent = fmt(s.value) + ' ₽';
+  if (level >= 2) { SFX.glow(); burst(x, y, {n:level === 3 ? 90 : 50, colors:[rarColor(s.rar), '#fff', '#ffd75a'], kind:'spark', speed:8, grav:.03, size:4, life:70}); buzz([60, 40, 120]); }
+  const news = $('#news');
+  for (const o of out) { await sleep(250); news.insertAdjacentHTML('beforeend', `<div class="${o.k}">${o.k === 'rec' ? '★ ' : ''}${o.t}</div>`); if (o.k === 'rec') SFX.record(); }
+  finishReveal();
+}
+function finishReveal(){
+  const s = ST.spec, pinned = save.showcase.includes(s.id);
+  $('.skip') && $('.skip').remove();
+  $('#acts').innerHTML = `<div class="acts">
+      <button type="button" class="ghost" data-act="uv"${save.uv <= 0 || s.uvChecked ? ' disabled' : ''}>УФ-лампа <span class="uvc">· ${save.uv}</span></button>
+      <button type="button" class="ghost" data-act="pin">${pinned ? 'На витрине ✓' : 'На витрину'}</button>
+    </div>
+    <button type="button" class="btn" data-act="next" style="margin-top:8px">Следующий камень</button>`;
+  ST.phase = 'done';
+}
+function FXat(el, colors){ const [x, y] = elXY(el); burst(x, y, {n:24, colors, kind:'spark', speed:4, grav:.04, size:3, life:50}); }
+
+async function useUV(s, inStage){
+  if (save.uv <= 0 || s.uvChecked) return;
+  save.uv--; s.uvChecked = true;
+  const veil = document.createElement('div'); veil.className = 'uvveil'; document.body.appendChild(veil); setTimeout(() => veil.remove(), 1700);
+  SFX.uv();
+  await sleep(700);
+  const gem = $('#gem');
+  if (s.uvHidden) {
+    s.feats.push('uv'); price(s);
+    const st = save.sp[s.sid]; if (!st.feats.includes('uv')) st.feats.push('uv'); st.bestRar = Math.max(st.bestRar, s.rar);
+    if (save.best && s.rar > save.best.rar) save.best = {id:s.id, rar:s.rar};
+    if (gem) gem.classList.add('uvon');
+    SFX.glow();
+    if (gem) FXat(gem, ['#b48cff', '#e2d4ff', '#ffffff']);
+  }
+  persist();
+  if (inStage) {
+    $('#stb').querySelector('.label').outerHTML = labelHTML(s);
+    $('#news').insertAdjacentHTML('beforeend', s.uvHidden ? `<div class="rec">★ Светится под ультрафиолетом! Теперь ${oneIn(s.rar)}</div>` : '<div class="near">Под ультрафиолетом не светится</div>');
+    finishReveal();
+  }
+  return s.uvHidden;
+}
+function closeStage(){ cancelAnimationFrame(ringRAF); stage.hidden = true; ST = null; render(); }
+
+/* ---------- screens ---------- */
+let tab = 'stall', lastTab = null;
+function renderTop(){
+  $('#stat').innerHTML = `вскрыто <b>${save.n}</b><br>видов <b>${found()}/${SPECIES.length}</b>`;
+  $('#mute').textContent = save.mute ? '🔇' : '🔊';
+}
+function render(){
+  renderTop();
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  let html = '';
+  if (tab === 'stall') {
+    const loc = LOCM[save.loc], tray = trayFor(save.loc), dsp = SPM[DAILY.sp], dloc = LOCM[DAILY.loc];
+    html = `<div class="daily">${img(dsp)}<div>Сегодня в <b>${dloc.name}</b> втрое чаще попадается <b>${dsp.name.toLowerCase()}</b>.</div></div>
+      <div class="sec-h"><h2>Месторождения</h2><span class="muted" style="font-size:12px">открываются новыми видами в журнале</span></div>
+      <div class="locs">${LOCS.map(l => { const lock = found() < l.need; return `<button type="button" class="loc${l.id === save.loc ? ' on' : ''}" data-loc="${l.id}"${lock ? ' disabled' : ''}>${lock ? '🔒 ' : ''}${l.name}<small>${lock ? `нужно видов: ${l.need}` : l.region}</small></button>`; }).join('')}</div>
+      <p class="locinfo">Встречается: ${Object.keys(loc.pool).map(id => save.sp[id] ? SPM[id].name.toLowerCase() : '???').join(', ')}</p>
+      <div class="sec-h"><h2>Камни на прилавке</h2><span class="uvc">УФ-лампа · ${save.uv}</span></div>
+      <div class="tray">${tray.map((s, i) => `<button type="button" class="rough" data-stone="${i}" style="--rot:${s.rot}deg;--sc:${s.sc};--dl:${(i * .6).toFixed(1)}s">
+        <img src="${IMG('nodule')}" alt=""><span class="w">${fmt(s.rough)} г</span>
+        <span class="hint"><i style="--hc:${s.hint}"></i>корка</span><span class="sp">${'✦'.repeat(s.spark)}</span></button>`).join('')}</div>
+      <div class="row-btns"><span class="muted" style="font-size:12.5px">Вес, цвет корки и искры — подсказки, но не обещания.</span><button type="button" class="ghost" data-act="reroll">Другие камни</button></div>`;
+  } else if (tab === 'case') {
+    const items = save.showcase.map(id => save.cat.find(x => x.id === id)).filter(Boolean);
+    const slots = Array.from({length:9}, (_, k) => items[k]);
+    html = `<div class="sec-h"><h2>Витрина</h2><span class="muted" style="font-size:12px">${items.length} из 9</span></div>
+      <div class="case">${[0, 1, 2].map(r => `<div class="shelf">${slots.slice(r * 3, r * 3 + 3).map(s => s
+        ? `<div class="slot full" data-spec="${s.id}">${img(SPM[s.sid])}${s.crown ? '<span class="crown">♛</span>' : ''}<span class="tag">${SPM[s.sid].name}</span></div>`
+        : '<div class="slot empty"><span>пусто</span></div>').join('')}</div>`).join('')}</div>
+      <p class="muted" style="font-size:13px;margin:0">Ставьте сюда лучшие экземпляры: кнопка «На витрину» после вскрытия или в рекордах.</p>`;
+  } else if (tab === 'journal') {
+    html = `<div class="sec-h"><h2>Журнал</h2><span class="muted" style="font-size:12px">${found()} из ${SPECIES.length} видов</span></div>
+      <div class="grid3">${SPECIES.map(sp => { const st = save.sp[sp.id];
+        return st ? `<button type="button" class="sp-card" data-sp="${sp.id}" style="--tc:${TIER_C[sp.t]}">${img(sp)}<span class="n">${sp.name}</span><span class="m">×${st.n} · ${wtxt(sp, st.bestG)} · ${GR[st.bestGi].n}</span></button>`
+          : `<div class="sp-card lock" style="--tc:var(--line)">${img(sp)}<span class="n muted">???</span><span class="m">${TIERS[sp.t].toLowerCase()}</span></div>`; }).join('')}</div>`;
+  } else {
+    const top = save.cat.slice().sort((a, b) => b.rar - a.rar).slice(0, 15);
+    const heavy = SPECIES.filter(sp => save.sp[sp.id]);
+    html = `<div class="sec-h"><h2>Самые редкие экземпляры</h2></div>
+      ${top.length ? `<div class="list">${top.map(s => `<button type="button" class="li" data-spec="${s.id}">${img(SPM[s.sid])}<div><b>${SPM[s.sid].name}${s.crown ? ' ♛' : ''}</b><p>${wtxt(SPM[s.sid], s.g)} · ${GR[s.gi].n}${s.feats.length ? ' · ' + s.feats.map(f => FEATS[f].name.toLowerCase()).join(', ') : ''}</p></div><span class="r" style="color:${rarColor(s.rar)}">${oneIn(s.rar)}</span></button>`).join('')}</div>` : '<p class="empty">Пока пусто. Вскройте первый камень на развале.</p>'}
+      ${heavy.length ? `<div class="sec-h"><h2>Рекорды по видам</h2></div><div class="rows">${heavy.map(sp => { const st = save.sp[sp.id]; return `<div class="row"><span>${sp.name}</span><span>${wtxt(sp, st.bestG)} · ${GR[st.bestGi].n}${st.crowns.length ? ' · ♛' : ''}</span></div>`; }).join('')}</div>` : ''}
+      <div class="rows"><div class="row"><span>Вскрыто камней</span><span>${save.n}</span></div><div class="row"><span>Самая дорогая находка</span><span>${save.top ? fmt(save.top.value) + ' ₽' : '—'}</span></div></div>
+      <button type="button" class="ghost" data-act="help">Как играть</button>
+      <button type="button" class="ghost" data-act="reset">Сбросить коллекцию</button>`;
+  }
+  $('#main').innerHTML = html;
+  if (lastTab !== tab) { lastTab = tab; let i = 0; $('#main').querySelectorAll('.daily, .sec-h, .locs, .tray > *, .case, .grid3 > *, .list > *, .rows').forEach(el => { el.classList.add('fx-in'); el.style.setProperty('--i', Math.min(i++, 14)); }); }
+  persist();
+}
+
+/* ---------- sheets ---------- */
+const sheet = $('#sheet'), panel = $('#panel');
+function openPanel(html){ panel.innerHTML = html; sheet.hidden = false; panel.scrollTop = 0; }
+function closeSheet(){ sheet.hidden = true; }
+const head = (e, t) => `<div class="p-head"><div><div class="eyebrow">${e}</div><h2>${t}</h2></div><button type="button" class="x" data-close aria-label="Закрыть">✕</button></div>`;
+function openSpec(id){
+  const s = save.cat.find(x => x.id === id); if (!s) return;
+  const sp = SPM[s.sid], pinned = save.showcase.includes(s.id);
+  openPanel(`${head('Экземпляр', sp.name)}<div class="big-img"><div class="gem" id="gem" style="position:static;animation:none">${img(sp, '', 'width:min(60vw,220px);aspect-ratio:1')}</div></div>${labelHTML(s)}
+    <div class="acts"><button type="button" class="ghost" data-uvspec="${s.id}"${save.uv <= 0 || s.uvChecked ? ' disabled' : ''}>УФ-лампа · ${save.uv}</button>
+    <button type="button" class="${pinned ? 'ghost' : 'btn'}" data-pin="${s.id}">${pinned ? 'Убрать с витрины' : 'На витрину'}</button></div>`);
+}
+function openSpecies(id){
+  const sp = SPM[id], st = save.sp[id]; if (!st) return;
+  const best = save.cat.find(x => x.id === st.bestId);
+  const feats = [...new Set([...sp.feats, 'uv'])].filter(f => f !== 'uv' || sp.uv > 0);
+  openPanel(`${head(TIERS[sp.t], sp.name)}<div class="big-img">${img(sp, '', 'width:min(50vw,180px);aspect-ratio:1')}</div>
+    <div class="rows"><div class="row"><span>Найдено</span><span>${st.n}</span></div><div class="row"><span>Рекорд по весу</span><span>${wtxt(sp, st.bestG)}</span></div>
+    <div class="row"><span>Самый редкий</span><span>${oneIn(st.bestRar)}</span></div>
+    <div class="row"><span>Где встречается</span><span>${LOCS.filter(l => l.pool[id]).map(l => l.name).join(', ')}</span></div></div>
+    <div class="eyebrow">Качество</div><div class="badges">${GR.map((g, k) => `<span class="bd${st.grades.includes(k) ? ' on' : ''}">${g.n}</span>`).join('')}</div>
+    <div class="eyebrow">Особенности</div><div class="badges">${feats.map(f => `<span class="bd${st.feats.includes(f) ? ' on' : ''}">${st.feats.includes(f) ? FEATS[f].name : '???'}</span>`).join('')}</div>
+    <div class="eyebrow">Короны</div><div class="badges">${Object.entries(CROWN).map(([k, c]) => `<span class="bd${st.crowns.includes(k) ? ' on' : ''}">♛ ${c.name}</span>`).join('')}</div>
+    ${best ? `<div class="eyebrow">Лучший экземпляр</div>${labelHTML(best)}` : ''}`);
+}
+function openHelp(){
+  save.help = true; persist();
+  openPanel(`${head('Как играть', 'Кабинет минералога')}
+    <ul class="help">
+      <li>На прилавке лежат три необработанных камня с месторождения. Вес, цвет корки и искры ✦ подсказывают, что внутри, но могут обмануть.</li>
+      <li>Камень раскалывают в три удара. Бейте, когда золотое кольцо совпадёт с пунктиром: чистые удары повышают качество, промах может оставить скол.</li>
+      <li>Каждый экземпляр уникален: вес, размер, качество от C до AAA, особенности вроде двойника, фантома или скипетра. Самые крупные и самые мелкие получают корону.</li>
+      <li>Внизу этикетки — редкость экземпляра: насколько редко выпадает именно такое сочетание.</li>
+      <li>УФ-лампа проверяет скрытую флюоресценцию. Заряд восстанавливается каждые 4 вскрытия.</li>
+      <li>Новые виды в журнале открывают новые месторождения. Лучшее ставьте на витрину.</li>
+    </ul><button type="button" class="btn" data-close>Понятно</button>`);
+}
+
+/* ---------- events ---------- */
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; render(); } });
+$('#mute').addEventListener('click', () => { save.mute = !save.mute; persist(); renderTop(); });
+$('#main').addEventListener('click', e => {
+  const st = e.target.closest('[data-stone]'); if (st) return openStone(+st.dataset.stone);
+  const l = e.target.closest('[data-loc]'); if (l && !l.disabled) { save.loc = l.dataset.loc; lastTab = null; return render(); }
+  const a = e.target.closest('[data-act]');
+  if (a) {
+    if (a.dataset.act === 'reroll') { save.tray[save.loc] = []; lastTab = null; return render(); }
+    if (a.dataset.act === 'help') return openHelp();
+    if (a.dataset.act === 'reset') { if (a.dataset.armed) { save = Object.assign(BLANK(), {help:true}); persist(); render(); } else { a.dataset.armed = 1; a.textContent = 'Нажмите ещё раз, чтобы стереть всё'; } return; }
+  }
+  const sp = e.target.closest('[data-spec]'); if (sp) return openSpec(+sp.dataset.spec);
+  const sc = e.target.closest('[data-sp]'); if (sc) return openSpecies(sc.dataset.sp);
+});
+stage.addEventListener('pointerdown', e => {
+  if (!ST) return;
+  if (ST.phase === 'hit' && !e.target.closest('[data-act]')) { e.preventDefault(); strike(); }
+});
+stage.addEventListener('click', async e => {
+  const a = e.target.closest('[data-act]'); if (!a || !ST) return;
+  const act = a.dataset.act;
+  if (act === 'back') { if (ST.phase === 'reveal') return; return closeStage(); }
+  if (act === 'skip') { skipAnim = true; return; }
+  if (act === 'next') { const idx = ST.idx; closeStage(); return openStone(Math.min(idx, 2)); }
+  if (act === 'pin') { togglePin(ST.spec.id); return finishReveal(); }
+  if (act === 'uv') { a.disabled = true; await useUV(ST.spec, true); }
+});
+function togglePin(id){
+  if (save.showcase.includes(id)) save.showcase = save.showcase.filter(x => x !== id);
+  else { if (save.showcase.length >= 9) save.showcase.shift(); save.showcase.push(id); SFX.chip(); }
+  persist();
+}
+sheet.addEventListener('click', async e => {
+  const p = e.target.closest('[data-pin]'); if (p) { togglePin(+p.dataset.pin); openSpec(+p.dataset.pin); render(); return; }
+  const u = e.target.closest('[data-uvspec]'); if (u) { u.disabled = true; const s = save.cat.find(x => x.id === +u.dataset.uvspec); await useUV(s, false); openSpec(s.id); render(); return; }
+  if (e.target === sheet || e.target.closest('[data-close]')) closeSheet();
+});
+document.addEventListener('keydown', e => {
+  if (!sheet.hidden && e.key === 'Escape') return closeSheet();
+  if (ST && ST.phase === 'hit' && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); strike(); }
+});
+
+render();
+if (!save.help) openHelp();
+</script>

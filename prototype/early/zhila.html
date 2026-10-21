@@ -1,0 +1,1412 @@
+<title>Жила</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column — camp with four tabs (base, map, workshop, museum) and the mine (risk, depth, bag, rock face) */
+:root{
+  --bg:#15110e; --surface:#211b17; --raise:#2c241e; --line:#43382f; --frame:#2a221c;
+  --bgimg:radial-gradient(ellipse at 50% -10%, rgba(240,178,90,.13), transparent 60%);
+  --fg:#efe6da; --muted:#a8998a; --lamp:#f0b25a; --hole:#0e0b09; --danger:#ff5a4a; --luck:#7fd8ff;
+  --display:'Unbounded', 'Arial Black', system-ui, sans-serif;
+  --body:'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --rock:none;
+  color-scheme:dark;
+}
+[data-scene="adit"]{--bg:#15110e;--surface:#211b17;--raise:#2c241e;--line:#43382f;--frame:#2a221c;--bgimg:radial-gradient(ellipse at 50% -10%, rgba(240,178,90,.13), transparent 60%)}
+[data-scene="desert"]{--bg:#121122;--surface:#1c1a30;--raise:#26233f;--line:#3a3660;--frame:#221f3a;
+  --bgimg:radial-gradient(2px 2px at 18% 12%, #fff 50%, transparent 51%),radial-gradient(2px 2px at 72% 7%, #fff 50%, transparent 51%),radial-gradient(2px 2px at 86% 26%, #ffe 50%, transparent 51%),radial-gradient(1.5px 1.5px at 42% 30%, #fff 50%, transparent 51%),radial-gradient(1.5px 1.5px at 8% 48%, #fff 50%, transparent 51%),radial-gradient(1.5px 1.5px at 60% 55%, #fff 50%, transparent 51%),radial-gradient(ellipse at 50% 112%, rgba(255,140,90,.28), transparent 60%)}
+[data-scene="ice"]{--bg:#0c151c;--surface:#14212b;--raise:#1c2d3a;--line:#2f4556;--frame:#162633;
+  --bgimg:radial-gradient(ellipse at 20% -5%, rgba(140,220,255,.2), transparent 50%),radial-gradient(ellipse at 90% 100%, rgba(120,200,255,.14), transparent 55%)}
+[data-scene="volcano"]{--bg:#190c09;--surface:#251310;--raise:#321a15;--line:#55291f;--frame:#2c1510;
+  --bgimg:radial-gradient(ellipse at 50% 115%, rgba(255,80,30,.35), transparent 60%),radial-gradient(ellipse at 50% -10%, rgba(255,150,60,.08), transparent 50%)}
+[data-scene="cosmos"]{--bg:#0a0a14;--surface:#141426;--raise:#1d1d36;--line:#33335a;--frame:#16162b;
+  --bgimg:radial-gradient(2px 2px at 12% 18%, #fff 50%, transparent 51%),radial-gradient(1.5px 1.5px at 55% 9%, #cdf 50%, transparent 51%),radial-gradient(2px 2px at 88% 40%, #fff 50%, transparent 51%),radial-gradient(1.5px 1.5px at 30% 62%, #fff 50%, transparent 51%),radial-gradient(ellipse at 75% 20%, rgba(170,90,255,.22), transparent 45%),radial-gradient(ellipse at 15% 85%, rgba(60,140,255,.18), transparent 50%)}
+html{background:var(--bg);color:var(--fg)}
+body{background:var(--bgimg), var(--bg);background-attachment:fixed;color:var(--fg);min-height:100%;font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.app{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:12px 28px;display:flex;flex-direction:column;gap:12px}
+section{display:flex;flex-direction:column;gap:12px}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono)}
+
+.top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
+.brand{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.02em;color:var(--lamp)}
+.lvl{min-width:0;display:flex;flex-direction:column;gap:3px}
+.lvl b{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xpbar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.xpbar i{display:block;height:100%;background:var(--luck)}
+.top-r{display:flex;align-items:center;gap:8px}
+.bal{font-family:var(--display);font-weight:500;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.icon-btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:8px 2px;font-size:13px;font-weight:500;color:var(--muted);position:relative}
+.tabs button.on{background:var(--raise);color:var(--fg)}
+.tabs .dot{position:absolute;top:4px;right:6px;min-width:16px;height:16px;border-radius:8px;background:var(--lamp);color:#1b130b;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 3px}
+
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.sec-h h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:500;margin:0}
+.empty{margin:0;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:16px;color:var(--muted);font-size:14px}
+.roughs{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.rc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;position:relative}
+.rc:hover{border-color:var(--lamp)}
+.rc svg{width:70px;height:70px}
+.rc .n{font-size:12.5px;font-weight:600}
+.rc .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.rc .sp{color:var(--lamp);font-size:12px;letter-spacing:.15em}
+.rc.done{border-color:var(--tc)}
+.rc .tag{position:absolute;top:6px;right:6px;font-size:10px;background:var(--tc);color:#120d09;border-radius:4px;padding:0 4px;font-weight:600}
+.rc .lk{position:absolute;top:6px;left:6px;font-family:var(--mono);font-size:10px;color:var(--luck)}
+.orders{display:grid;gap:6px}
+.order{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center}
+.order svg{width:44px;height:44px}
+.order b{font-weight:600}
+.order p{margin:0;font-size:12.5px;color:var(--muted)}
+.order .x3{font-family:var(--display);font-size:16px;color:var(--lamp)}
+.locs,.ups{display:grid;gap:6px}
+.loc{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.loc:hover:not(:disabled){border-color:var(--lamp)}
+.loc:disabled{opacity:.5;cursor:default}
+.loc div{display:flex;flex-direction:column;min-width:0}
+.loc span{font-size:12.5px;color:var(--muted)}
+.loc .fams{display:flex;gap:4px;margin-top:4px}
+.loc .fams i{width:9px;height:9px;border-radius:2px;background:var(--fc)}
+.loc .price{font-family:var(--mono);font-weight:600;color:var(--lamp);white-space:nowrap;font-size:14px;text-align:right}
+.loc .price small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
+.up{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.up div{min-width:0}
+.up b{font-weight:600}
+.up p{margin:0;font-size:12.5px;color:var(--muted)}
+.lv{font-family:var(--mono);font-size:11px;color:var(--lamp)}
+.buy{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:13px;white-space:nowrap}
+.buy:disabled{opacity:.45;cursor:default}
+.buy.on{border-color:var(--lamp);color:var(--lamp)}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.skin{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:4px;text-align:left}
+.skin.on{border-color:var(--lamp)}
+.skin:disabled{opacity:.5;cursor:default}
+.sw{height:54px;border-radius:8px;background-size:160px 160px;box-shadow:inset 0 2px 0 rgba(255,235,210,.14),inset 0 -3px 0 rgba(0,0,0,.35)}
+.sw.scene{background:var(--bgimg), var(--bg);border:1px solid var(--line)}
+.skin b{font-size:12.5px;font-weight:600}
+.skin span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.tile:hover{border-color:var(--lamp)}
+.tile b{font-weight:600}
+.tile span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.tile .pbar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
+.tile .pbar i{display:block;height:100%;background:var(--lamp)}
+
+/* mine */
+.site{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px}
+.site b{color:var(--fg);font-weight:500}
+.gauges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.g{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.g-l{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-v{font-family:var(--display);font-weight:500;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.g-s{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g.risk .g-v{color:var(--rc)}
+.g.depth .g-v{color:var(--luck)}
+.g.depth .g-s b{color:var(--luck);font-weight:600}
+.rbar{height:5px;border-radius:3px;background:var(--line);margin-top:4px;overflow:hidden}
+.rbar i{display:block;height:100%;background:var(--rc);transition:width .25s}
+.g.bump{animation:bump .4s}
+@keyframes bump{40%{transform:scale(1.06)}}
+
+.board-wrap{position:relative;border-radius:12px;padding:6px;background:var(--frame);border:1px solid var(--line)}
+.board{display:grid;grid-template-columns:repeat(8,1fr);gap:3px}
+.cell{aspect-ratio:1;border:0;border-radius:5px;padding:0;position:relative;display:grid;place-items:center;min-width:0}
+.rock{background-color:#5b4e43;background-image:var(--rock);background-size:160px 160px;
+  box-shadow:inset 0 2px 0 rgba(255,235,210,.14),inset 0 -3px 0 rgba(0,0,0,.35);transition:filter .12s, transform .08s}
+.rock:hover{filter:brightness(1.15)}
+.rock:active{transform:scale(.94)}
+.rock:disabled{cursor:default;filter:brightness(.7)}
+.rock.probed::before{content:"";position:absolute;inset:3px;border-radius:4px;border:2px solid var(--fc);box-shadow:0 0 10px var(--fc);animation:pulse 1.4s ease-in-out infinite}
+.rock.probed::after{content:"?";font-family:var(--display);font-size:14px;color:var(--fc);text-shadow:0 0 6px #000}
+.rock.flag::after{content:"";width:0;height:0;border-left:7px solid var(--lamp);border-top:5px solid transparent;border-bottom:5px solid transparent;margin-left:4px;filter:drop-shadow(0 1px 1px #000)}
+.rock.flag::before{content:"";position:absolute;left:calc(50% - 4px);top:28%;width:2px;height:44%;background:#d8c9b6}
+@keyframes pulse{50%{opacity:.45}}
+.hole{background:var(--hole);box-shadow:inset 0 3px 6px rgba(0,0,0,.8);animation:crack .25s ease-out}
+.hole span{font-family:var(--mono);font-weight:600;font-size:17px;color:var(--fc)}
+.ore,.spc{background:radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--fc) 22%, var(--hole)), var(--hole) 75%);box-shadow:inset 0 2px 6px rgba(0,0,0,.7);animation:crack .3s ease-out}
+.ore svg,.spc svg{width:88%;height:88%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
+.ore.done{box-shadow:inset 0 0 0 2px var(--fc),0 0 10px color-mix(in srgb, var(--fc) 50%, transparent)}
+.ore.glow::after{content:"";position:absolute;inset:0;border-radius:5px;box-shadow:0 0 12px 2px #c690ff, inset 0 0 8px #c690ff;animation:pulse 1.6s infinite}
+.ore.blocked svg{opacity:.35;filter:grayscale(1)}
+.ore.missed,.spc.missed{background:var(--hole);animation:none;outline:1px dashed color-mix(in srgb, var(--fc) 50%, transparent);outline-offset:-3px}
+.ore.missed svg,.spc.missed svg{opacity:.3}
+@keyframes crack{from{transform:scale(.8);filter:brightness(2)}to{transform:none;filter:none}}
+.board-wrap.tremor{animation:tremor .3s}
+@keyframes tremor{20%{transform:translate(-2px,1px)}40%{transform:translate(2px,-1px)}60%{transform:translate(-1px,2px)}80%{transform:translate(1px,-1px)}}
+.board-wrap.quake{animation:quake .9s}
+@keyframes quake{10%,30%,50%,70%{transform:translate(-6px,3px) rotate(-.6deg)}20%,40%,60%,80%{transform:translate(6px,-3px) rotate(.6deg)}}
+.board.fall .cell{animation:fall .8s ease-in forwards;animation-delay:var(--d)}
+@keyframes fall{to{transform:translateY(40px) rotate(var(--r));opacity:0}}
+.board-wrap.dark::after{content:"";position:absolute;inset:0;border-radius:12px;background:radial-gradient(circle, rgba(60,45,35,.6), rgba(10,8,6,.92));animation:fade .9s forwards}
+@keyframes fade{from{opacity:0}}
+
+.reveal{position:absolute;left:12px;right:12px;top:12px;z-index:5;display:flex;gap:10px;align-items:center;
+  background:color-mix(in srgb, var(--bg) 94%, transparent);border:1px solid var(--tc);border-radius:12px;padding:8px 12px;box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 18px color-mix(in srgb, var(--tc) 35%, transparent)}
+.reveal.pop{animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:translateY(-10px) scale(.95);opacity:0}}
+.rv-ico{width:40px;height:40px;flex:none}
+.rv-ico svg{width:100%;height:100%}
+.rv-name{font-family:var(--display);font-weight:500;font-size:14px}
+.rv-sub{font-size:12.5px;color:var(--muted)}
+.rv-sub b{color:var(--tc)}
+
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tool{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 6px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:1px}
+.tool small{font-size:11px;color:var(--muted);font-weight:400}
+.tool.on{background:color-mix(in srgb, var(--lamp) 18%, var(--surface));border-color:var(--lamp)}
+.tool:disabled{opacity:.4;cursor:default}
+.btn{background:var(--lamp);color:#1b130b;border:0;border-radius:10px;padding:12px;font-weight:600}
+.btn:disabled{opacity:.4;cursor:default}
+.btn small{display:block;font-weight:400;font-size:12px;opacity:.8}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:12px;font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px;background:var(--fc)}
+
+/* sheets */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(8,6,5,.72);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
+.panel{width:100%;max-width:520px;max-height:92%;overflow:auto;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:12px;animation:up .28s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.p-head h2{font-family:var(--display);font-weight:500;font-size:20px;margin:2px 0 0;text-wrap:balance}
+.x{background:var(--raise);border:1px solid var(--line);border-radius:8px;width:34px;height:34px;flex:none}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+.panel h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:6px 0 0;font-weight:500}
+.note{font-size:14px;margin:0}
+.fam-h{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;margin-top:4px}
+.fam-h i{width:10px;height:10px;border-radius:2px;background:var(--fc)}
+.fam-h span{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400}
+.fam-h span.ok{color:var(--lamp)}
+.coll{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px}
+.cc{background:var(--raise);border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;border-bottom:2px solid var(--tc)}
+.cc svg{width:46px;height:46px}
+.cc.lock svg{filter:brightness(0) opacity(.5)}
+.cc .n{font-size:12px;font-weight:600;line-height:1.2;text-wrap:balance}
+.cc .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.spec{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;background:var(--raise);border-radius:10px;padding:8px 10px;border-left:3px solid var(--tc)}
+.spec svg{width:44px;height:44px}
+.spec>div{min-width:0}
+.spec-name{font-weight:600}
+.spec-meta{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:6px}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{text-align:right;font-weight:500}
+.ach{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:var(--raise);border-radius:10px;padding:8px 12px}
+.ach b{font-weight:600}
+.ach p{margin:0;font-size:12.5px;color:var(--muted)}
+.ach .rw{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.ach.got{outline:1px solid var(--lamp)}
+.ach.got .rw{color:var(--lamp)}
+.help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.mini{display:flex;flex-wrap:wrap;gap:6px}
+.mini span{display:inline-flex;align-items:center;gap:4px;background:var(--raise);border-radius:8px;padding:3px 8px 3px 3px;font-size:12px}
+.mini svg{width:26px;height:26px}
+
+.toasts{position:fixed;top:calc(10px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;gap:6px;width:min(420px, calc(100% - 32px));pointer-events:none}
+.toast{background:var(--raise);border:1px solid var(--lamp);border-radius:12px;padding:8px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+.toast b{display:block;font-weight:600}
+.toast span{font-size:12.5px;color:var(--muted)}
+
+/* opening stage */
+.stage{position:fixed;inset:0;z-index:30;background:radial-gradient(ellipse at 50% 42%, var(--raise) 0%, var(--bg) 70%);display:flex;flex-direction:column;align-items:center;
+  padding:calc(16px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));gap:10px;overflow:auto}
+.st-back{position:absolute;top:calc(12px + env(safe-area-inset-top, 0px));left:16px}
+.st-top{text-align:center;display:flex;flex-direction:column;gap:2px;max-width:420px;margin-top:30px}
+.st-top .t{font-family:var(--display);font-weight:500;font-size:18px}
+.st-top .s{font-size:13px;color:var(--muted)}
+.st-top .s .sp{color:var(--lamp);letter-spacing:.15em}
+.st-top .s .lk{color:var(--luck);font-family:var(--mono)}
+.stone{position:relative;width:min(72vw,300px);aspect-ratio:1;max-width:100%;border:0;background:transparent;padding:0;flex:none;margin-block:8px}
+.stone>svg{position:absolute;inset:0;width:100%;height:100%}
+.stone.hit .rough{animation:hit .25s}
+@keyframes hit{30%{transform:scale(.95) rotate(-2deg)}60%{transform:scale(1.02) rotate(1deg)}}
+.stone .cracks path{stroke:var(--glow);stroke-width:2.2;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 3px var(--glow)) drop-shadow(0 0 8px var(--glow));stroke-dasharray:200;stroke-dashoffset:200;animation:draw .35s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.stone .halo{position:absolute;inset:8%;border-radius:50%;background:radial-gradient(circle, color-mix(in srgb, var(--glow) 45%, transparent), transparent 65%);opacity:var(--ho,0);transition:opacity .4s}
+.rays{position:absolute;inset:-25%;border-radius:50%;background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tc) 30%, transparent) 0 8deg, transparent 8deg 24deg);
+  mask:radial-gradient(circle, #000 20%, transparent 68%);-webkit-mask:radial-gradient(circle, #000 20%, transparent 68%);animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stone .gem{position:absolute;inset:12%;animation:emerge .6s cubic-bezier(.2,1.5,.4,1)}
+.stone .gem svg{width:100%;height:100%;filter:drop-shadow(0 6px 14px rgba(0,0,0,.6))}
+@keyframes emerge{from{transform:scale(.3) rotate(-20deg);opacity:0}}
+.burst{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, #fff, var(--tc) 30%, transparent 65%);animation:burst .7s ease-out forwards;pointer-events:none}
+@keyframes burst{from{transform:scale(.4);opacity:1}to{transform:scale(1.8);opacity:0}}
+.st-bottom{display:flex;flex-direction:column;gap:10px;align-items:stretch;width:100%;max-width:420px}
+.tap-hint{text-align:center;color:var(--muted);font-size:14px;animation:pulse 1.6s infinite}
+.res{text-align:center;display:flex;flex-direction:column;gap:4px;align-items:center}
+.res .tier{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--tc);font-weight:600}
+.res .nm{font-family:var(--display);font-weight:700;font-size:24px;text-wrap:balance}
+.res .meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.grade{display:flex;align-items:baseline;gap:10px;justify-content:center;margin-top:4px}
+.grade .gl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+.grade .gv{font-family:var(--display);font-weight:700;font-size:30px;min-width:3ch;text-align:left;color:var(--gc,var(--fg))}
+.grade .gv.land{animation:land .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes land{from{transform:scale(1.6)}}
+.val{font-family:var(--display);font-weight:700;font-size:28px;color:var(--lamp);font-variant-numeric:tabular-nums}
+.recs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.rec{background:color-mix(in srgb, var(--lamp) 20%, transparent);border:1px solid var(--lamp);color:var(--lamp);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600}
+.acts{display:grid;gap:8px}
+.acts .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+@media (max-width:380px){.g-v{font-size:16px}.hole span{font-size:15px}.tabs button{font-size:12px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.stone .cracks path{stroke-dashoffset:0}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Жила</div>
+    <div class="lvl"><b id="lvlName">Разряд 1 · Старатель</b><div class="xpbar"><i id="xpbar"></i></div></div>
+    <div class="top-r"><span class="bal" id="bal">0 ₽</span><button type="button" class="icon-btn" id="mute" aria-label="Звук">🔊</button></div>
+  </header>
+
+  <section id="camp"></section>
+
+  <section id="mine" hidden>
+    <div class="site"><span class="mono" id="siteNo"></span><b id="siteLoc"></b></div>
+    <div class="gauges">
+      <div class="g risk" id="riskBox"><div class="g-l">Риск обвала</div><div class="g-v" id="risk">0%</div><div class="rbar"><i id="rbar"></i></div><div class="g-s" id="riskStep">удар: 0%</div></div>
+      <div class="g depth" id="depthBox"><div class="g-l">Глубина</div><div class="g-v" id="depth">0 м</div><div class="g-s">удача <b id="luck">×1,0</b></div></div>
+      <div class="g" id="bagBox"><div class="g-l">Рюкзак</div><div class="g-v" id="bag">0/4</div><div class="g-s" id="bagSub">пусто</div></div>
+    </div>
+    <div class="board-wrap" id="wrap">
+      <div id="board" class="board"></div>
+      <div id="reveal" class="reveal" hidden></div>
+    </div>
+    <div class="tools" id="tools">
+      <button type="button" class="tool on" data-tool="pick">Кирка<small>глубже и рискованнее</small></button>
+      <button type="button" class="tool" data-tool="probe">Щуп<small id="probeSmall">без риска · 3</small></button>
+      <button type="button" class="tool" data-tool="flag">Метка<small>для заметок</small></button>
+    </div>
+    <button type="button" class="btn" id="btnOut">Вынести находки<small id="outSmall">рюкзак пуст</small></button>
+    <div class="legend" id="legend"></div>
+  </section>
+</div>
+
+<div id="stage" class="stage" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="panel" id="panel"></div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+let R = 10;
+const C = 8, PROBES = 3, PRICE_K = .25, LUCK_STEP = .06, LUCK_MAX = 3.5;
+const TIERS = ['Обычный','Необычный','Редкий','Эпический','Легендарный'];
+const TIER_C = ['#b3aba0','#7fd38b','#68aefc','#c690ff','#ffb547'];
+const GR = [{n:'C',w:38,m:1},{n:'B',w:30,m:1.5},{n:'A',w:19,m:2.4},{n:'AA',w:10,m:4},{n:'AAA',w:3,m:8}];
+const GR_C = ['#b3aba0','#d8cfc2','#7fd38b','#68aefc','#ffb547'];
+
+const FAM = {
+  quartz:{name:'Кварцевая жила', short:'кварц', color:'#d7dee8', shape:'vein', len:[4,7], gram:[18,60], icon:'prism', hint:'на сколе прозрачные грани', species:[
+    {id:'crystal', name:'Горный хрусталь', f:'SiO₂', h:'7', w:60, p:4, c1:'#f6f9ff', c2:'#8ea3ba', t:0},
+    {id:'smoky', name:'Дымчатый кварц', f:'SiO₂', h:'7', w:25, p:6, c1:'#c8b296', c2:'#3e3024', t:1},
+    {id:'amethyst', name:'Аметист', f:'SiO₂', h:'7', w:12, p:14, c1:'#d4b0ff', c2:'#5a2690', t:2},
+    {id:'scepter', name:'Аметист-скипетр', f:'SiO₂', h:'7', w:2.5, p:60, c1:'#ecd2ff', c2:'#3d0f73', t:3},
+    {id:'rutile', name:'Рутиловый кварц', f:'SiO₂ + TiO₂', h:'7', w:.5, p:150, c1:'#fff1c4', c2:'#9a6a22', t:4}]},
+  copper:{name:'Медное гнездо', short:'медь', color:'#43c98a', shape:'blob', size:[3,5], gram:[20,70], icon:'botryoid', hint:'зелёные натёки по трещинам', species:[
+    {id:'malachite', name:'Малахит', f:'Cu₂CO₃(OH)₂', h:'3,5–4', w:55, p:5, c1:'#6ff0ad', c2:'#0b5233', t:0},
+    {id:'azurite', name:'Азурит', f:'Cu₃(CO₃)₂(OH)₂', h:'3,5–4', w:30, p:9, c1:'#7ea6ff', c2:'#152a86', t:1},
+    {id:'cuprite', name:'Куприт', f:'Cu₂O', h:'3,5–4', w:10, p:22, c1:'#ff7a66', c2:'#5e0c08', t:2},
+    {id:'copper', name:'Самородная медь', f:'Cu', h:'2,5–3', w:4, p:40, c1:'#f6b27e', c2:'#6e3210', t:3, icon:'nugget'}]},
+  gold:{name:'Золотоносная зона', short:'золото', color:'#f0c64a', shape:'vein', len:[2,4], gram:[3,14], icon:'nugget', hint:'металлический блеск в кварце', species:[
+    {id:'pyrite', name:'Пирит', f:'FeS₂', h:'6–6,5', w:70, p:3, c1:'#eadb9e', c2:'#5e5226', t:0, icon:'cube'},
+    {id:'goldq', name:'Золото в кварце', f:'Au', h:'2,5–3', w:22, p:30, c1:'#ffe48f', c2:'#8a6810', t:1},
+    {id:'nugget', name:'Самородок золота', f:'Au', h:'2,5–3', w:7, p:90, c1:'#fff0a8', c2:'#a87a08', t:2},
+    {id:'crystgold', name:'Кристаллическое золото', f:'Au', h:'2,5–3', w:1, p:400, c1:'#fff6c8', c2:'#c48e00', t:4, icon:'octa'}]},
+  fluorite:{name:'Флюоритовый карман', short:'флюорит', color:'#a08cff', shape:'blob', size:[3,4], gram:[15,55], icon:'cube', hint:'ступенчатый кубический скол', species:[
+    {id:'flgreen', name:'Флюорит зелёный', f:'CaF₂', h:'4', w:50, p:4, c1:'#a6f7cb', c2:'#1a6646', t:0},
+    {id:'flpurple', name:'Флюорит фиолетовый', f:'CaF₂', h:'4', w:35, p:7, c1:'#cdb0ff', c2:'#38197a', t:1},
+    {id:'bluejohn', name:'Блю Джон', f:'CaF₂', h:'4', w:12, p:20, c1:'#a7c0ff', c2:'#3a2458', t:2},
+    {id:'flpink', name:'Розовый флюорит', f:'CaF₂', h:'4', w:3, p:120, c1:'#ffc2db', c2:'#97335f', t:3, icon:'octa'}]},
+  beryl:{name:'Пегматит', short:'берилл', color:'#5fd4e6', shape:'blob', size:[2,3], gram:[6,28], icon:'column', hint:'шестигранное сечение в полевом шпате', species:[
+    {id:'beryl', name:'Берилл', f:'Be₃Al₂Si₆O₁₈', h:'7,5–8', w:60, p:10, c1:'#f3f1c6', c2:'#7f7a44', t:1},
+    {id:'aqua', name:'Аквамарин', f:'Be₃Al₂Si₆O₁₈', h:'7,5–8', w:28, p:35, c1:'#c8f6ff', c2:'#1f7f9e', t:2},
+    {id:'morganite', name:'Морганит', f:'Be₃Al₂Si₆O₁₈', h:'7,5–8', w:9, p:60, c1:'#ffdbe1', c2:'#a65f72', t:3},
+    {id:'emerald', name:'Изумруд', f:'Be₃Al₂Si₆O₁₈:Cr', h:'7,5–8', w:3, p:250, c1:'#8dffbc', c2:'#03602f', t:4}]},
+  gypsum:{name:'Гипсовая полость', short:'гипс', color:'#efe2c2', shape:'vein', len:[3,6], gram:[40,120], icon:'blade', hint:'шелковистый блеск, царапается ногтем', species:[
+    {id:'gypsum', name:'Гипс', f:'CaSO₄·2H₂O', h:'2', w:55, p:1.5, c1:'#f4efe4', c2:'#a89d86', t:0},
+    {id:'selenite', name:'Селенит', f:'CaSO₄·2H₂O', h:'2', w:28, p:3, c1:'#fbfbff', c2:'#94a2b6', t:1},
+    {id:'deserose', name:'Роза пустыни', f:'CaSO₄·2H₂O', h:'2', w:12, p:8, c1:'#f0c9a0', c2:'#8a5a34', t:2, icon:'rose'},
+    {id:'naicagiant', name:'Гигантский селенит', f:'CaSO₄·2H₂O', h:'2', w:4, p:22, c1:'#ffffff', c2:'#b9d0e3', t:3},
+    {id:'bubble', name:'Селенит с пузырьком', f:'CaSO₄·2H₂O + H₂O', h:'2', w:.8, p:80, c1:'#e8fbff', c2:'#5f9fbd', t:4}]},
+  corundum:{name:'Россыпь корунда', short:'корунд', color:'#ff6f8a', shape:'blob', size:[2,3], gram:[2,10], icon:'barrel', hint:'очень твёрдый, режет стекло', species:[
+    {id:'corundum', name:'Корунд', f:'Al₂O₃', h:'9', w:55, p:15, c1:'#cdbcab', c2:'#5a4a3e', t:1},
+    {id:'sapphire', name:'Сапфир', f:'Al₂O₃:Fe,Ti', h:'9', w:25, p:120, c1:'#7aa0ff', c2:'#0d1f7a', t:2},
+    {id:'ruby', name:'Рубин', f:'Al₂O₃:Cr', h:'9', w:12, p:260, c1:'#ff7088', c2:'#7a0820', t:3},
+    {id:'padpa', name:'Падпараджа', f:'Al₂O₃', h:'9', w:3, p:700, c1:'#ffb98f', c2:'#b8405a', t:4},
+    {id:'starsapph', name:'Звёздчатый сапфир', f:'Al₂O₃ + TiO₂', h:'9', w:1.5, p:900, c1:'#b4c2ff', c2:'#22327f', t:4}]},
+  opal:{name:'Опаловый пласт', short:'опал', color:'#8fe6dc', shape:'vein', len:[2,4], gram:[3,15], icon:'opal', hint:'в песчанике вспыхивают пятна цвета', species:[
+    {id:'potch', name:'Обыкновенный опал', f:'SiO₂·nH₂O', h:'5,5–6', w:50, p:6, c1:'#ebe5d9', c2:'#9a9282', t:0, poc:.15},
+    {id:'fireopal', name:'Огненный опал', f:'SiO₂·nH₂O', h:'5,5–6', w:22, p:60, c1:'#ffb060', c2:'#c03a10', t:2, poc:.35},
+    {id:'whiteopal', name:'Благородный опал', f:'SiO₂·nH₂O', h:'5,5–6', w:18, p:90, c1:'#f4fbff', c2:'#9fc8e0', t:2, poc:.75},
+    {id:'blackopal', name:'Чёрный опал', f:'SiO₂·nH₂O', h:'5,5–6', w:3, p:600, c1:'#34466a', c2:'#07070f', t:4, poc:1},
+    {id:'harlequin', name:'Опал-арлекин', f:'SiO₂·nH₂O', h:'5,5–6', w:.8, p:1200, c1:'#2a3050', c2:'#05050c', t:4, poc:1.4}]},
+};
+const SP = {};
+for (const [fid, fam] of Object.entries(FAM)) for (const s of fam.species) { s.fam = fid; SP[s.id] = s; }
+
+const LOC = [
+  {id:'dump', name:'Старый отвал', hint:'бедная порода, зато бесплатно', lvl:1, cost:0, risk:.8, rows:10, target:[9,12], fam:{quartz:3, copper:2, gold:1, fluorite:2, beryl:.4}},
+  {id:'ural', name:'Средний Урал', hint:'малахит, кварц, берилл', lvl:1, cost:400, risk:1, rows:10, target:[18,22], fam:{quartz:3, copper:3, gold:1.2, fluorite:1, beryl:1.4}},
+  {id:'derby', name:'Дербишир', hint:'флюорит и «Блю Джон»', lvl:2, cost:550, risk:1.1, rows:10, target:[18,22], fam:{quartz:1.6, copper:1.2, gold:.5, fluorite:4, beryl:.3}},
+  {id:'minas', name:'Минас-Жерайс', hint:'кварц, аквамарин, золото', lvl:3, cost:800, risk:1.2, rows:11, target:[20,24], fam:{quartz:4, copper:.4, gold:1.8, fluorite:.6, beryl:2.6}},
+  {id:'naica', name:'Наика', hint:'пещера гигантских кристаллов селенита', lvl:4, cost:1000, risk:1.15, rows:11, target:[20,24], fam:{gypsum:5, quartz:1, fluorite:1, gold:.6}},
+  {id:'ratna', name:'Ратнапура', hint:'сапфиры и рубины в речных гравиях', lvl:6, cost:1600, risk:1.3, rows:11, target:[20,24], fam:{corundum:3.5, beryl:1.6, quartz:1.5, gold:.8}},
+  {id:'coober', name:'Кубер-Педи', hint:'столица благородного опала', lvl:8, cost:2400, risk:1.4, rows:12, target:[22,26], fam:{opal:4, gypsum:1.5, quartz:1, gold:.8}},
+  {id:'muzo', name:'Мусо', hint:'лучшие изумруды мира', lvl:10, cost:3600, risk:1.5, rows:12, target:[22,26], fam:{beryl:4, quartz:2, gold:1, corundum:.6}, boost:{emerald:5}},
+];
+const LOCM = Object.fromEntries(LOC.map(l => [l.id, l]));
+
+const UPS = [
+  {id:'krep', name:'Крепь', d:lv => `Риск обвала ниже на ${12 * lv}%`, next:'−12% к риску', cost:[800, 2000, 4500, 9000, 16000], lvl:[1, 2, 4, 6, 9]},
+  {id:'bag', name:'Рюкзак', d:lv => `Вмещает ${BAGCAP[lv]} камней`, next:'больше камней за вынос', cost:[600, 2000, 5000, 11000], lvl:[1, 3, 5, 8]},
+  {id:'saw', name:'Алмазная пила', d:lv => lv ? `Качество при вскрытии выше, уровень ${lv}` : 'Повышает шанс высокого качества', next:'выше качество', cost:[1200, 3000, 6500, 12000, 22000], lvl:[2, 3, 5, 7, 10]},
+  {id:'probe', name:'Длинный щуп', d:lv => `${PROBES + lv} щупа на участок`, next:'+1 щуп', cost:[700, 2500, 7000], lvl:[1, 4, 8]},
+  {id:'lamp', name:'Карбидная лампа', d:lv => lv ? `+${lv} особых находки на участке` : 'Больше жеод, кладов и окаменелостей', next:'+1 особая находка', cost:[2500, 9000], lvl:[3, 7]},
+  {id:'drill', name:'Бур', d:lv => lv ? `Старт с удачей ×${fmtX(1 + .15 * lv)}` : 'Начинаете глубже, с бо́льшей удачей', next:'+0,15 к стартовой удаче', cost:[3000, 8000, 18000], lvl:[4, 7, 10]},
+  {id:'safe', name:'Страховой ящик', d:lv => lv ? `При обвале спасается ${lv} ${plural(lv, 'камень', 'камня', 'камней')}` : 'Часть добычи переживает обвал', next:'+1 камень спасается', cost:[5000, 15000], lvl:[5, 9]},
+];
+const BAGCAP = [4, 5, 6, 8, 10];
+
+const SKINS = {
+  basalt:{name:'Базальт', lvl:1, cost:0, base:'#5b4e43', dark:'28,20,14', light:'215,195,170', specks:2600, strata:7},
+  granite:{name:'Гранит', lvl:2, cost:1500, base:'#8b6f68', dark:'30,22,22', light:'245,225,220', specks:1800, grains:['#231c1c', '#efe2da', '#c9968a']},
+  sandstone:{name:'Песчаник', lvl:3, cost:2500, base:'#b07a48', dark:'95,48,16', light:'255,220,165', specks:1600, strata:20},
+  marble:{name:'Мрамор', lvl:5, cost:4000, base:'#cbc6bd', dark:'80,80,88', light:'255,255,255', specks:700, veins:8},
+  malachite:{name:'Малахит', lvl:7, cost:7000, base:'#1f6e4c', dark:'4,40,24', light:'130,235,175', specks:500, bands:true},
+  obsidian:{name:'Обсидиан', lvl:9, cost:10000, base:'#1d1b22', dark:'0,0,0', light:'190,180,230', specks:400, gloss:true},
+};
+const SCENES = {
+  adit:{name:'Штольня', lvl:1, cost:0},
+  desert:{name:'Ночная пустыня', lvl:3, cost:2000},
+  ice:{name:'Ледяная пещера', lvl:5, cost:4000},
+  volcano:{name:'Вулкан', lvl:8, cost:8000},
+  cosmos:{name:'Метеоритный кратер', lvl:11, cost:15000},
+};
+
+const SPECIALS = {
+  geode:{name:'Жеода', w:3, color:'#c690ff'},
+  stash:{name:'Клад старателя', w:3, color:'#f0c64a'},
+  prop:{name:'Старая крепь', w:2, color:'#c9a274'},
+  fossil:{name:'Окаменелость', w:2.2, color:'#d9c3a3'},
+};
+const FOSSILS = [
+  {id:'ammonite', name:'Аммонит', w:30, p:300, c1:'#d8c2a2', c2:'#7a5f40', shape:'spiral'},
+  {id:'belemnite', name:'Белемнит', w:30, p:150, c1:'#c99a6a', c2:'#6a4220', shape:'bullet'},
+  {id:'fern', name:'Отпечаток папоротника', w:20, p:250, c1:'#5d5a55', c2:'#c9c2b0', shape:'fern'},
+  {id:'trilobite', name:'Трилобит', w:18, p:450, c1:'#6e655c', c2:'#2e2924', shape:'trilobite'},
+  {id:'megalodon', name:'Зуб мегалодона', w:5, p:1500, c1:'#4a4a52', c2:'#c9bfae', shape:'tooth'},
+  {id:'amber', name:'Янтарь с насекомым', w:3, p:2500, c1:'#ffb84a', c2:'#a3480a', shape:'amber'},
+];
+const FOSM = Object.fromEntries(FOSSILS.map(f => [f.id, f]));
+
+const TITLES = [[1, 'Старатель'], [3, 'Забойщик'], [5, 'Горный мастер'], [7, 'Штейгер'], [9, 'Маркшейдер'], [11, 'Геолог'], [14, 'Главный геолог']];
+
+/* ---------- utils ---------- */
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const fmt = n => Math.round(n).toLocaleString('ru-RU');
+const fmtG = g => (g < 10 ? g.toFixed(1).replace('.', ',') : Math.round(g)) + ' г';
+const fmtX = x => x.toFixed(1).replace('.', ',');
+const pct = r => (r * 100 < 10 && r > 0 ? (r * 100).toFixed(1).replace('.', ',') : Math.round(r * 100)) + '%';
+const pad = n => String(n).padStart(4, '0');
+function pickW(entries){ let t = entries.reduce((s, e) => s + e[1], 0), r = Math.random() * t; for (const e of entries) { if ((r -= e[1]) <= 0) return e[0]; } return entries[entries.length - 1][0]; }
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function plural(n, a, b, c){ const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; }
+const D8 = [[-1,-1],[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1]];
+const D4 = [[-1,0],[1,0],[0,-1],[0,1]];
+const idx = (r, c) => r * C + c;
+const inb = (r, c) => r >= 0 && r < R && c >= 0 && c < C;
+function neigh(i, dirs = D8){ const r = Math.floor(i / C), c = i % C, o = []; for (const [a, b] of dirs) if (inb(r + a, c + b)) o.push(idx(r + a, c + b)); return o; }
+const sparks = n => '✦'.repeat(n);
+const title = L => { let t = TITLES[0][1]; for (const [l, n] of TITLES) if (L >= l) t = n; return t; };
+const xpNeed = L => Math.round(120 * Math.pow(L, 1.55));
+
+/* ---------- save ---------- */
+const BLANK = () => ({bal:1500, xp:0, lvl:1, up:{krep:0, saw:0, probe:0, bag:0, drill:0, safe:0, lamp:0}, rough:[], shelf:[], col:{}, fos:{}, runs:0, cat:0, orders:[],
+  big:null, price:null, rare:null, deep:null, lucky:null, bestRun:null, runTot:{},
+  st:{earned:0, outs:0, whole:0, geodes:0, fossils:0, orders:0, collapses:0, maxOut:0, visited:{}, legend:0, epic:0, aaa:0},
+  ach:{}, skin:'basalt', scene:'adit', owned:{basalt:1, adit:1}, help:false, mute:false});
+function load(){
+  try {
+    const s = JSON.parse(localStorage.getItem('zhila-v3') || 'null');
+    if (!s) return BLANK();
+    const b = BLANK();
+    return Object.assign(b, s, {up:Object.assign(b.up, s.up), st:Object.assign(b.st, s.st)});
+  } catch (e) { return BLANK(); }
+}
+function persist(){ try { localStorage.setItem('zhila-v3', JSON.stringify(save)); } catch (e) {} }
+let save = load();
+
+/* ---------- sound ---------- */
+let AC;
+function ac(){ if (save.mute) return null; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch (e) { return null; } }
+function noise(dur, freq, vol, type = 'lowpass'){
+  const a = ac(); if (!a) return;
+  const b = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const s = a.createBufferSource(); s.buffer = b;
+  const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+function tone(freq, at, dur, vol, type = 'sine'){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const SFX = {
+  strike(){ noise(.12, 700, .6); },
+  hollow(){ noise(.07, 2400, .25, 'bandpass'); },
+  ore(){ noise(.1, 900, .5); tone(660, .03, .25, .08, 'triangle'); },
+  done(){ [523, 659, 784].forEach((f, k) => tone(f, k * .07, .3, .09, 'triangle')); },
+  special(){ [784, 988, 1175, 1568].forEach((f, k) => tone(f, k * .06, .4, .08, 'triangle')); buzz(40); },
+  probe(){ tone(1200, 0, .12, .06, 'sine'); tone(1600, .08, .15, .05, 'sine'); },
+  creak(){ noise(.5, 180, .5); },
+  collapse(){ noise(1.6, 220, 1); noise(.8, 90, .8); buzz([80, 40, 200, 60, 300]); },
+  crack(k){ noise(.18, 2600 + k * 600, .45, 'highpass'); noise(.1, 500, .4); buzz(30); },
+  reveal(t){ const base = 392, steps = [0, 4, 7, 12, 16, 19, 24]; for (let k = 0; k < 2 + t; k++) tone(base * Math.pow(2, steps[k] / 12), k * .09, .6, .1, 'triangle'); if (t >= 3) { tone(base * 4, .55, 1.2, .06, 'sine'); buzz([60, 40, 60, 40, 160]); } },
+  tick(){ tone(1800, 0, .03, .04, 'square'); },
+  land(gi){ tone([330, 392, 523, 659, 880][gi], 0, .35, .12, 'triangle'); },
+  coin(){ tone(1568, 0, .1, .1, 'square'); tone(2093, .07, .18, .08, 'square'); },
+  level(){ [523, 659, 784, 1047, 1319].forEach((f, k) => tone(f, k * .08, .5, .09, 'triangle')); buzz([50, 30, 50]); },
+};
+
+/* ---------- textures ---------- */
+const TEX = {};
+function rockTexture(id){
+  if (TEX[id]) return TEX[id];
+  const k = SKINS[id];
+  try {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 160; const x = cv.getContext('2d');
+    x.fillStyle = k.base; x.fillRect(0, 0, 160, 160);
+    if (k.bands) {
+      for (let r = 200; r > 4; r -= 6 + Math.random() * 6) { x.beginPath(); x.arc(30, 140, r, 0, Math.PI * 2); x.fillStyle = Math.random() < .5 ? `rgba(${k.dark},.55)` : `rgba(${k.light},.25)`; x.fill(); }
+    }
+    for (let n = 0; n < k.specks; n++) {
+      x.fillStyle = Math.random() < .55 ? `rgba(${k.dark},${Math.random() * .35})` : `rgba(${k.light},${Math.random() * .16})`;
+      const s = Math.random() * 2.6 + .4; x.fillRect(Math.random() * 160, Math.random() * 160, s, s);
+    }
+    if (k.grains) for (let n = 0; n < 160; n++) { x.fillStyle = k.grains[n % k.grains.length]; x.globalAlpha = .55 + Math.random() * .4; const s = 2 + Math.random() * 5; x.fillRect(Math.random() * 160, Math.random() * 160, s, s * (.6 + Math.random() * .6)); }
+    x.globalAlpha = 1;
+    for (let n = 0; n < (k.strata || 0); n++) {
+      x.strokeStyle = `rgba(${n % 2 ? k.light : k.dark},${.08 + Math.random() * .2})`; x.lineWidth = Math.random() * 3 + .5;
+      x.beginPath(); let y = Math.random() * 160; x.moveTo(0, y);
+      for (let px = 20; px <= 160; px += 20) { y += (Math.random() - .5) * 6; x.lineTo(px, y); } x.stroke();
+    }
+    for (let n = 0; n < (k.veins || 0); n++) {
+      x.strokeStyle = `rgba(${k.dark},${.25 + Math.random() * .3})`; x.lineWidth = Math.random() * 1.6 + .4;
+      x.beginPath(); let px = Math.random() * 160, py = 0; x.moveTo(px, py);
+      while (py < 160) { px += (Math.random() - .45) * 20; py += 8 + Math.random() * 12; x.lineTo(px, py); } x.stroke();
+    }
+    if (k.gloss) { const g = x.createLinearGradient(0, 0, 160, 160); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.48, 'rgba(255,255,255,.14)'); g.addColorStop(.52, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 160, 160); }
+    TEX[id] = cv.toDataURL('image/png');
+  } catch (e) { TEX[id] = ''; }
+  return TEX[id];
+}
+function applyLook(){
+  const t = rockTexture(save.skin);
+  document.documentElement.style.setProperty('--rock', t ? `url(${t})` : 'none');
+  document.documentElement.dataset.scene = save.scene;
+}
+
+/* ---------- vector art ---------- */
+let gid = 0;
+function gemSVG(sp){
+  const id = 'g' + (gid++), a = sp.c1, b = sp.c2, G = `url(#${id})`;
+  const defs = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
+  let body = '';
+  switch (sp.icon || FAM[sp.fam].icon) {
+    case 'prism': {
+      const crystal = (tx, ty, s, rot) => `<g transform="translate(${tx} ${ty}) rotate(${rot}) scale(${s})">
+        <polygon points="-12,40 -12,-8 0,-34 12,-8 12,40" fill="${G}"/>
+        <polygon points="-12,40 -12,-8 0,-34 -4,-8 -4,40" fill="#fff" opacity=".32"/>
+        <polygon points="0,-34 12,-8 12,40 5,40 5,-8" fill="#000" opacity=".25"/></g>`;
+      body = crystal(36, 58, .75, -24) + crystal(66, 60, .7, 22) + crystal(52, 52, 1, -4);
+      if (sp.id === 'rutile') body += '<g stroke="#e0a830" stroke-width="1.2" opacity=".9"><path d="M46,40 L56,78"/><path d="M50,34 L48,70"/><path d="M54,44 L60,66"/></g>';
+      if (sp.id === 'scepter') body += `<g transform="translate(52 22) scale(.55)"><polygon points="-16,20 -16,-6 0,-26 16,-6 16,20" fill="${G}"/><polygon points="-16,20 -16,-6 0,-26 -5,-6 -5,20" fill="#fff" opacity=".35"/></g>`;
+      break;
+    }
+    case 'column':
+      body = `<g transform="rotate(-14 50 55)"><polygon points="34,88 34,30 42,22 58,22 66,30 66,88" fill="${G}"/>
+        <polygon points="34,30 42,22 58,22 66,30 58,36 42,36" fill="#fff" opacity=".35"/>
+        <polygon points="58,36 66,30 66,88 58,88" fill="#000" opacity=".25"/>
+        <polygon points="34,30 42,36 42,88 34,88" fill="#fff" opacity=".15"/></g>`;
+      break;
+    case 'botryoid':
+      body = [[34,62,20],[60,50,22],[56,76,15],[76,70,13]].map(([x, y, r]) =>
+        `<circle cx="${x}" cy="${y}" r="${r}" fill="${G}"/><circle cx="${x}" cy="${y}" r="${r * .62}" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="2"/><circle cx="${x}" cy="${y}" r="${r * .3}" fill="none" stroke="#000" stroke-opacity=".14" stroke-width="2"/><circle cx="${x - r * .35}" cy="${y - r * .4}" r="${r * .22}" fill="#fff" opacity=".45"/>`).join('');
+      break;
+    case 'nugget':
+      body = `<path d="M24,56 C20,38 38,24 54,29 C68,22 84,36 78,50 C86,64 72,80 56,76 C44,86 26,76 24,56 Z" fill="${G}"/>
+        <path d="M34,44 C40,34 52,32 58,36" stroke="#fff" stroke-opacity=".5" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <circle cx="46" cy="60" r="3" fill="#000" opacity=".25"/><circle cx="62" cy="54" r="2.5" fill="#000" opacity=".22"/><circle cx="56" cy="68" r="2" fill="#000" opacity=".2"/>`;
+      break;
+    case 'cube':
+      body = `<polygon points="50,16 82,33 50,50 18,33" fill="${G}"/><polygon points="50,16 82,33 50,50 18,33" fill="#fff" opacity=".3"/>
+        <polygon points="18,33 50,50 50,88 18,71" fill="${G}"/>
+        <polygon points="50,50 82,33 82,71 50,88" fill="${G}"/><polygon points="50,50 82,33 82,71 50,88" fill="#000" opacity=".28"/>
+        <path d="M28,38 L50,49" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`;
+      break;
+    case 'octa':
+      body = `<polygon points="50,10 80,50 50,90 20,50" fill="${G}"/>
+        <polygon points="50,10 20,50 46,56" fill="#fff" opacity=".35"/>
+        <polygon points="50,10 80,50 46,56" fill="#fff" opacity=".12"/>
+        <polygon points="20,50 46,56 50,90" fill="#000" opacity=".12"/>
+        <polygon points="80,50 46,56 50,90" fill="#000" opacity=".3"/>`;
+      break;
+    case 'blade': {
+      const blade = (tx, rot, s) => `<g transform="translate(${tx} 52) rotate(${rot}) scale(${s})"><polygon points="-6,42 -6,-36 0,-46 6,-36 6,42" fill="${G}"/><polygon points="-6,42 -6,-36 0,-46 -1,-36 -1,42" fill="#fff" opacity=".45"/><polygon points="0,-46 6,-36 6,42 3,42 3,-36" fill="#000" opacity=".18"/></g>`;
+      body = blade(38, -28, .85) + blade(64, 24, .8) + blade(50, -4, 1);
+      if (sp.id === 'bubble') body += '<ellipse cx="50" cy="56" rx="3.5" ry="5" fill="#fff" opacity=".9"/><ellipse cx="50" cy="56" rx="3.5" ry="5" fill="none" stroke="#2a6a8a" stroke-width="1"/>';
+      break;
+    }
+    case 'rose':
+      body = [[-40, 50, 46], [0, 50, 42], [40, 50, 46], [-70, 36, 60], [70, 64, 60], [20, 38, 66]].map(([rot, x, y]) =>
+        `<ellipse cx="${x}" cy="${y}" rx="20" ry="9" transform="rotate(${rot} ${x} ${y})" fill="${G}" stroke="#5a3a1c" stroke-opacity=".5" stroke-width="1.2"/>`).join('') +
+        '<ellipse cx="50" cy="52" rx="10" ry="6" fill="#fff" opacity=".18"/>';
+      break;
+    case 'barrel':
+      body = `<polygon points="50,8 70,28 70,72 50,92 30,72 30,28" fill="${G}"/>
+        <polygon points="30,28 50,8 44,28 44,72 50,92 30,72" fill="#fff" opacity=".28"/>
+        <polygon points="50,8 70,28 70,72 50,92 56,72 56,28" fill="#000" opacity=".25"/>
+        <path d="M30,50 L70,50" stroke="#000" stroke-opacity=".15" stroke-width="1.5"/>` +
+        (sp.id === 'starsapph' ? '<g stroke="#fff" stroke-opacity=".85" stroke-width="1.6"><path d="M50,36 L50,64"/><path d="M38,43 L62,57"/><path d="M38,57 L62,43"/></g>' : '');
+      break;
+    case 'opal': {
+      const rand = mulberry([...sp.id].reduce((s, ch) => s + ch.charCodeAt(0), 0));
+      const n = Math.round(4 + sp.poc * 8);
+      let patches = '';
+      for (let k = 0; k < n; k++) {
+        const hue = sp.id === 'fireopal' ? 10 + rand() * 40 : rand() * 360;
+        patches += `<ellipse cx="${(28 + rand() * 44).toFixed(1)}" cy="${(36 + rand() * 32).toFixed(1)}" rx="${(3 + rand() * 9).toFixed(1)}" ry="${(2 + rand() * 6).toFixed(1)}" fill="hsl(${hue.toFixed(0)} 95% 62%)" opacity="${Math.min(.9, .25 + sp.poc * .5).toFixed(2)}"/>`;
+      }
+      const cid = id + 'c';
+      body = `<clipPath id="${cid}"><ellipse cx="50" cy="52" rx="34" ry="26"/></clipPath><ellipse cx="50" cy="52" rx="34" ry="26" fill="${G}"/><g clip-path="url(#${cid})">${patches}</g><ellipse cx="40" cy="40" rx="14" ry="6" fill="#fff" opacity=".3"/>`;
+      break;
+    }
+  }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${defs}${body}</svg>`;
+}
+
+function roughSVG(seed, famId, cls = ''){
+  const rand = mulberry(seed), col = FAM[famId].color, id = 'r' + (gid++);
+  const pts = [], n = 12;
+  for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2 + rand() * .3, r = 30 + rand() * 12; pts.push([50 + Math.cos(a) * r, 54 + Math.sin(a) * r * .86]); }
+  const poly = pts.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ');
+  let veins = '';
+  for (let k = 0; k < 3; k++) {
+    const x1 = 20 + rand() * 60, y1 = 25 + rand() * 55, x2 = 20 + rand() * 60, y2 = 25 + rand() * 55;
+    veins += `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} Q${(50 + (rand() - .5) * 40).toFixed(1)},${(54 + (rand() - .5) * 40).toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}" stroke="${col}" stroke-opacity="${(.45 + rand() * .35).toFixed(2)}" stroke-width="${(2 + rand() * 4).toFixed(1)}" fill="none" stroke-linecap="round"/>`;
+  }
+  const blot = `<ellipse cx="${(35 + rand() * 30).toFixed(1)}" cy="${(40 + rand() * 30).toFixed(1)}" rx="${(5 + rand() * 7).toFixed(1)}" ry="${(4 + rand() * 5).toFixed(1)}" fill="${col}" opacity=".55"/>`;
+  return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><defs>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a7a6a"/><stop offset=".55" stop-color="#55493e"/><stop offset="1" stop-color="#2a221c"/></linearGradient>
+    <clipPath id="${id}c"><polygon points="${poly}"/></clipPath></defs>
+    <polygon points="${poly}" fill="url(#${id}g)"/>
+    <g clip-path="url(#${id}c)">${veins}${blot}<polygon points="${pts.slice(7, 12).map(p => p.join(',')).join(' ')} 50,54" fill="#fff" opacity=".08"/></g>
+    <polygon points="${poly}" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1.5"/></svg>`;
+}
+
+function fossilSVG(f){
+  const id = 'f' + (gid++), G = `url(#${id})`;
+  const defs = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${f.c1}"/><stop offset="1" stop-color="${f.c2}"/></linearGradient></defs>`;
+  let body = '';
+  switch (f.shape) {
+    case 'spiral': {
+      let d = 'M50,52';
+      for (let a = 0; a <= Math.PI * 4.3; a += .2) { const r = 2 + a * 2.35; d += ` L${(50 + Math.cos(a) * r).toFixed(1)},${(52 + Math.sin(a) * r).toFixed(1)}`; }
+      let ribs = '';
+      for (let a = 0; a < Math.PI * 2; a += .35) ribs += `<path d="M${(50 + Math.cos(a) * 24).toFixed(1)},${(52 + Math.sin(a) * 24).toFixed(1)} L${(50 + Math.cos(a) * 34).toFixed(1)},${(52 + Math.sin(a) * 34).toFixed(1)}"/>`;
+      body = `<circle cx="50" cy="52" r="35" fill="${G}"/><g stroke="${f.c2}" stroke-opacity=".5" stroke-width="1.5">${ribs}</g><path d="${d}" stroke="${f.c2}" stroke-width="3" fill="none"/>`;
+      break;
+    }
+    case 'bullet':
+      body = `<g transform="rotate(35 50 50)"><path d="M42,14 L58,14 L58,70 Q50,96 42,70 Z" fill="${G}"/><path d="M45,16 L45,70" stroke="#fff" stroke-opacity=".35" stroke-width="3"/></g>`;
+      break;
+    case 'fern':
+      body = `<ellipse cx="50" cy="52" rx="40" ry="34" fill="${f.c1}"/><g stroke="${f.c2}" stroke-width="2" stroke-linecap="round"><path d="M30,82 Q50,50 70,20"/>` +
+        Array.from({length:8}, (_, k) => { const t = .12 + k * .1, x = 30 + 40 * t, y = 82 - 62 * t; return `<path d="M${x},${y} l${-10 + k},${-4}"/><path d="M${x},${y} l${8 - k * .6},${6}"/>`; }).join('') + '</g>';
+      break;
+    case 'trilobite':
+      body = `<ellipse cx="50" cy="52" rx="26" ry="36" fill="${G}"/><path d="M28,32 Q50,10 72,32" fill="${f.c1}" stroke="${f.c2}" stroke-width="2"/>` +
+        Array.from({length:8}, (_, k) => `<path d="M${27 + k * .5},${40 + k * 6} L${73 - k * .5},${40 + k * 6}" stroke="${f.c2}" stroke-width="1.6" opacity=".7"/>`).join('') +
+        `<rect x="45" y="30" width="10" height="52" rx="5" fill="${f.c2}" opacity=".45"/>`;
+      break;
+    case 'tooth':
+      body = `<path d="M22,30 Q50,22 78,30 L54,90 Q50,94 46,90 Z" fill="${f.c2}"/><path d="M22,30 Q50,22 78,30 L74,40 Q50,34 26,40 Z" fill="${f.c1}"/><path d="M30,42 L50,86" stroke="#fff" stroke-opacity=".3" stroke-width="3"/>`;
+      break;
+    case 'amber':
+      body = `<path d="M26,56 C22,34 42,22 58,26 C76,30 84,48 76,64 C68,82 34,84 26,56 Z" fill="${G}" opacity=".95"/><g fill="#2a1406"><ellipse cx="52" cy="54" rx="7" ry="4"/><circle cx="44" cy="53" r="3"/><path d="M50,50 L44,40 M54,50 L62,40 M50,58 L44,66 M55,58 L62,66" stroke="#2a1406" stroke-width="1.4"/></g><ellipse cx="42" cy="38" rx="10" ry="4" fill="#fff" opacity=".35"/>`;
+      break;
+  }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${defs}${body}</svg>`;
+}
+
+function specialSVG(type){
+  switch (type) {
+    case 'geode': return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="52" r="38" fill="#7a6a5a"/><circle cx="50" cy="52" r="30" fill="#2a1840"/>${
+      Array.from({length:14}, (_, k) => { const a = k / 14 * Math.PI * 2, x = 50 + Math.cos(a) * 30, y = 52 + Math.sin(a) * 30, tx = 50 + Math.cos(a) * 14, ty = 52 + Math.sin(a) * 14; return `<polygon points="${(x + Math.sin(a) * 5).toFixed(1)},${(y - Math.cos(a) * 5).toFixed(1)} ${tx.toFixed(1)},${ty.toFixed(1)} ${(x - Math.sin(a) * 5).toFixed(1)},${(y + Math.cos(a) * 5).toFixed(1)}" fill="${k % 2 ? '#b27cff' : '#e2c8ff'}"/>`; }).join('')}<circle cx="50" cy="52" r="38" fill="none" stroke="#3a2e24" stroke-width="3"/></svg>`;
+    case 'stash': return `<svg viewBox="0 0 100 100" aria-hidden="true">${[[50,72],[50,62],[50,52],[34,72],[66,72]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="16" ry="7" fill="#b88a14"/><ellipse cx="${x}" cy="${y - 3}" rx="16" ry="7" fill="#ffd75a"/><ellipse cx="${x}" cy="${y - 3}" rx="9" ry="3.5" fill="none" stroke="#b88a14" stroke-width="1.5"/>`).join('')}</svg>`;
+    case 'prop': return `<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="20" width="12" height="70" fill="#8a5e34"/><rect x="66" y="20" width="12" height="70" fill="#8a5e34"/><rect x="14" y="14" width="72" height="12" fill="#a8743f"/><path d="M24,30 L76,80" stroke="#6a4520" stroke-width="5"/><g stroke="#4a2e14" stroke-width="1" opacity=".6"><path d="M26,30 V88"/><path d="M70,30 V88"/><path d="M18,18 H82"/></g></svg>`;
+    case 'fossil': return fossilSVG(FOSSILS[0]);
+  }
+  return '';
+}
+
+function crackPaths(seed, count){
+  const rand = mulberry(seed * 7 + 3), out = [];
+  for (let k = 0; k < count; k++) {
+    let x = 50 + (rand() - .5) * 10, y = 54 + (rand() - .5) * 10;
+    const a0 = rand() * Math.PI * 2; let d = `M${x.toFixed(1)},${y.toFixed(1)}`;
+    for (let s = 0; s < 5; s++) { const a = a0 + (rand() - .5) * 1.1, len = 5 + rand() * 6; x += Math.cos(a) * len; y += Math.sin(a) * len * .86; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; }
+    out.push(d);
+  }
+  return out;
+}
+
+/* ---------- toasts, levels, achievements ---------- */
+function toast(t, s){
+  const el = document.createElement('div'); el.className = 'toast';
+  el.innerHTML = `<b>${t}</b>${s ? `<span>${s}</span>` : ''}`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3600);
+}
+function unlocksAt(L){
+  const out = [];
+  LOC.filter(l => l.lvl === L).forEach(l => out.push(l.name));
+  UPS.forEach(u => u.lvl.forEach((lv, k) => { if (lv === L) out.push(`${u.name} ${k + 1}`); }));
+  Object.values(SKINS).filter(s => s.lvl === L).forEach(s => out.push('порода «' + s.name + '»'));
+  Object.values(SCENES).filter(s => s.lvl === L).forEach(s => out.push('фон «' + s.name + '»'));
+  return out;
+}
+function gainXP(x){
+  save.xp += Math.round(x);
+  while (save.xp >= xpNeed(save.lvl)) {
+    save.xp -= xpNeed(save.lvl); save.lvl++;
+    const bonus = 250 * save.lvl; save.bal += bonus;
+    const unl = unlocksAt(save.lvl);
+    SFX.level();
+    toast(`Новый разряд ${save.lvl} · ${title(save.lvl)}`, `+${fmt(bonus)} ₽${unl.length ? ' · открыто: ' + unl.join(', ') : ''}`);
+    fillOrders();
+  }
+}
+const famDone = f => FAM[f].species.every(s => save.col[s.id]);
+const famBonus = f => famDone(f) ? 1.15 : 1;
+const ACH = [
+  {id:'first', name:'Первый вынос', d:'Вынести находки из шахты', r:200, ok:s => s.st.outs >= 1},
+  {id:'deep15', name:'Глубокий забой', d:'Вынести находки после 15 и более ударов', r:600, ok:s => s.st.maxOut >= 15},
+  {id:'deep25', name:'Без тормозов', d:'Вынести находки после 25 и более ударов', r:2500, ok:s => s.st.maxOut >= 25},
+  {id:'whole5', name:'Чистая работа', d:'Вскрыть 5 залежей целиком', r:600, ok:s => s.st.whole >= 5},
+  {id:'whole30', name:'Мастер забоя', d:'Вскрыть 30 залежей целиком', r:3000, ok:s => s.st.whole >= 30},
+  {id:'geode', name:'Внутри пустоты', d:'Вынести жеоду', r:300, ok:s => s.st.geodes >= 1},
+  {id:'fossil5', name:'Палеонтолог', d:'Вынести 5 окаменелостей', r:900, ok:s => s.st.fossils >= 5},
+  {id:'epic', name:'Эпическая находка', d:'Вскрыть эпический образец', r:1000, ok:s => s.st.epic >= 1},
+  {id:'legend', name:'Легенда', d:'Вскрыть легендарный образец', r:4000, ok:s => s.st.legend >= 1},
+  {id:'aaa', name:'Музейное качество', d:'Получить качество AAA', r:1500, ok:s => s.st.aaa >= 1},
+  {id:'orders3', name:'Поставщик', d:'Выполнить 3 заказа коллекционеров', r:1200, ok:s => s.st.orders >= 3},
+  {id:'set', name:'Полный набор', d:'Собрать все виды одного семейства', r:2500, ok:() => Object.keys(FAM).some(famDone)},
+  {id:'rich', name:'Состояние', d:'Заработать 50 000 ₽', r:5000, ok:s => s.st.earned >= 50000},
+  {id:'survivor', name:'Каска спасла', d:'Пережить 3 обвала', r:300, ok:s => s.st.collapses >= 3},
+  {id:'travel', name:'Путешественник', d:'Поработать во всех регионах', r:6000, ok:s => LOC.every(l => s.st.visited[l.id])},
+];
+function checkAch(){
+  for (const a of ACH) if (!save.ach[a.id] && a.ok(save)) { save.ach[a.id] = 1; save.bal += a.r; SFX.coin(); toast('Веха: ' + a.name, `${a.d} · +${fmt(a.r)} ₽`); }
+  persist();
+}
+
+/* ---------- orders ---------- */
+function orderPool(){
+  const fams = new Set();
+  LOC.filter(l => l.lvl <= save.lvl).forEach(l => Object.entries(l.fam).forEach(([f, w]) => { if (w >= 1) fams.add(f); }));
+  return Object.values(SP).filter(s => fams.has(s.fam) && s.t >= 1 && s.t <= 3);
+}
+function newOrder(){
+  const pool = orderPool().filter(s => !save.orders.some(o => o.sid === s.id));
+  const sp = pool[ri(0, pool.length - 1)] || orderPool()[0];
+  return {sid:sp.id, min:ri(0, 2), mult:sp.t >= 3 ? 2.5 : 3};
+}
+function fillOrders(){ while (save.orders.length < 3) save.orders.push(newOrder()); }
+
+/* ---------- field generation ---------- */
+function genField(loc){
+  const cells = Array.from({length: R * C}, () => ({dep:-1, sp:null, open:false, probed:false, flag:false, n:0, tint:null, g:0, bx:-ri(0, 120), by:-ri(0, 120)}));
+  const deps = [], blocked = new Set();
+  let used = 0, tries = 0;
+  const target = ri(loc.target[0], loc.target[1]);
+  while (used < target && tries < 600) {
+    tries++;
+    const fid = pickW(Object.entries(loc.fam)), fam = FAM[fid];
+    const start = ri(0, R * C - 1);
+    if (blocked.has(start)) continue;
+    const shape = [start];
+    if (fam.shape === 'vein') {
+      const want = ri(fam.len[0], fam.len[1]);
+      let d = ri(0, 7), r = Math.floor(start / C), c = start % C;
+      while (shape.length < want) {
+        if (Math.random() < .3) d = (d + (Math.random() < .5 ? 1 : 7)) % 8;
+        const nr = r + D8[d][0], nc = c + D8[d][1];
+        if (!inb(nr, nc)) break;
+        const ni = idx(nr, nc);
+        if (blocked.has(ni) || shape.includes(ni)) break;
+        shape.push(ni); r = nr; c = nc;
+      }
+      if (shape.length < 2 || shape.length < want - 2) continue;
+    } else {
+      const want = ri(fam.size[0], fam.size[1]);
+      while (shape.length < want) {
+        const cand = [];
+        for (const s of shape) for (const ni of neigh(s, D4)) if (!blocked.has(ni) && !shape.includes(ni)) cand.push(ni);
+        if (!cand.length) break;
+        shape.push(cand[ri(0, cand.length - 1)]);
+      }
+      if (shape.length < 2) continue;
+    }
+    if (used + shape.length > target + 2) continue;
+    const dep = {id:deps.length, fam:fid, cells:shape, found:0, seen:false, done:false, blocked:false, glow:Math.random() < .08, seed:ri(1, 1e9)};
+    deps.push(dep);
+    for (const i of shape) {
+      cells[i].dep = dep.id;
+      cells[i].g = +rnd(fam.gram[0], fam.gram[1]).toFixed(1);
+      blocked.add(i);
+      for (const n of neigh(i, D4)) blocked.add(n);
+    }
+    used += shape.length;
+  }
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].dep >= 0) continue;
+    const cnt = {}; let n = 0;
+    for (const j of neigh(i)) if (cells[j].dep >= 0) { n++; const f = deps[cells[j].dep].fam; cnt[f] = (cnt[f] || 0) + 1; }
+    cells[i].n = n;
+    if (n) cells[i].tint = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  // special finds hide in empty rock; they never show up in the numbers
+  const free = cells.map((c, i) => c.dep < 0 ? i : -1).filter(i => i >= 0);
+  const nSpec = ri(1, 2) + save.up.lamp + (Math.random() < .3 ? 1 : 0);
+  for (let k = 0; k < nSpec && free.length; k++) {
+    const i = free.splice(ri(0, free.length - 1), 1)[0];
+    cells[i].sp = pickW(Object.entries(SPECIALS).map(([id, s]) => [id, s.w]));
+  }
+  return {cells, deps};
+}
+
+/* ---------- mine ---------- */
+let M = null;
+const bagCap = () => BAGCAP[save.up.bag];
+function riskFor(n){ if (!M) return 0; const e = n - M.off; if (e <= 4) return 0; return Math.min(.5, .008 * (e - 4) * M.loc.risk * (1 - .12 * save.up.krep)); }
+const cumNext = () => 1 - M.surv * (1 - riskFor(M.strikes + 1));
+const riskColor = r => r < .12 ? '#9bd17a' : r < .25 ? '#f0c64a' : r < .4 ? '#ff9a4a' : '#ff5a4a';
+const depthM = () => M.strikes * 3 + save.up.drill * 10;
+
+function startRun(locId){
+  const loc = LOCM[locId];
+  if (!loc || save.bal < loc.cost || save.lvl < loc.lvl) return;
+  save.bal -= loc.cost; save.runs++;
+  persist();
+  R = loc.rows;
+  M = Object.assign({loc, no:save.runs, strikes:0, off:0, lastRisk:0, surv:1, cumEnd:0, luck:1 + .15 * save.up.drill, pot:0, extras:[],
+    probes:PROBES + save.up.probe, tool:'pick', over:false}, genField(loc));
+  const zeros = M.cells.map((c, i) => c.dep < 0 && !c.sp && c.n === 0 ? i : -1).filter(i => i >= 0);
+  const empties = M.cells.map((c, i) => c.dep < 0 && !c.sp ? i : -1).filter(i => i >= 0);
+  const pool = zeros.length ? zeros : empties;
+  if (pool.length) openEmpty(pool[ri(0, pool.length - 1)]);
+  closeSheet();
+  $('#reveal').hidden = true;
+  $('#board').classList.remove('fall');
+  $('#wrap').classList.remove('dark', 'quake');
+  showScreen('mine');
+  renderMine();
+}
+
+function openEmpty(i){
+  const st = [i];
+  while (st.length) {
+    const k = st.pop(), c = M.cells[k];
+    if (c.open) continue;
+    c.open = true; c.flag = false;
+    if (c.n === 0) for (const j of neigh(k)) { const cj = M.cells[j]; if (!cj.open && cj.dep < 0 && !cj.sp) st.push(j); }
+  }
+}
+
+function bump(id){ const el = $(id); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+
+function tap(i){
+  if (M.over) return;
+  const c = M.cells[i];
+  if (c.open) return;
+  if (M.tool === 'flag') { c.flag = !c.flag; renderMine(); return; }
+  if (c.flag) return;
+  if (M.tool === 'probe') {
+    if (M.probes <= 0 || c.probed) return;
+    M.probes--;
+    SFX.probe();
+    if (c.dep >= 0) {
+      c.probed = true;
+      const d = M.deps[c.dep], fam = FAM[d.fam];
+      notify(`<div class="rv-ico">${roughSVG(d.seed, d.fam)}</div>`, 'Сигнал', `Под клеткой ${fam.name.toLowerCase()}.`, fam.color);
+    } else if (c.sp) {
+      c.probed = true;
+      notify(`<div class="rv-ico">${specialSVG(c.sp)}</div>`, 'Что-то необычное', 'Щуп упёрся в странную полость.', SPECIALS[c.sp].color);
+    } else openEmpty(i);
+    if (M.probes === 0) M.tool = 'pick';
+    renderMine(); return;
+  }
+  const risk = riskFor(M.strikes + 1);
+  M.strikes++;
+  M.lastRisk = risk;
+  if (Math.random() < risk) { M.cumEnd = 1 - M.surv * (1 - risk); collapse(); return; }
+  M.surv *= 1 - risk;
+  M.cumEnd = 1 - M.surv;
+  M.luck = Math.min(LUCK_MAX, M.luck + LUCK_STEP);
+  if (c.dep >= 0) extract(i); else if (c.sp) openSpecial(i); else { openEmpty(i); SFX.hollow(); }
+  SFX.strike();
+  const next = cumNext();
+  if (next >= .25) { const w = $('#wrap'); w.classList.remove('tremor'); void w.offsetWidth; w.classList.add('tremor'); if (next >= .4) SFX.creak(); }
+  renderMine();
+}
+
+function bagStones(){ return M ? M.deps.filter(d => d.found > 0 && !d.blocked) : []; }
+function bagCount(){ return bagStones().length + M.extras.filter(x => x.kind === 'geode').length; }
+
+function extract(i){
+  const c = M.cells[i], d = M.deps[c.dep], fam = FAM[d.fam];
+  c.open = true; c.probed = false; c.flag = false;
+  const ico = `<div class="rv-ico">${roughSVG(d.seed, d.fam)}</div>`;
+  if (!d.seen && bagCount() >= bagCap()) {
+    d.blocked = true; d.seen = true; d.found++;
+    SFX.hollow();
+    notify(ico, 'Рюкзак полон', `${fam.name} остаётся в забое. Рюкзак побольше продаётся в мастерской.`, '#ff9a4a');
+    return;
+  }
+  d.found++;
+  if (d.blocked) return;
+  if (d.found === d.cells.length) {
+    d.done = true; SFX.done();
+    M.luck = Math.min(LUCK_MAX, M.luck + .1);
+    bump('#depthBox');
+    const g = d.cells.reduce((s, k) => s + M.cells[k].g, 0);
+    notify(ico, 'Залежь целиком', `${fam.name} · ${fmtG(g)} · <b>удача +0,1</b>`, fam.color, true);
+  } else {
+    SFX.ore();
+    if (!d.seen) {
+      if (d.glow) { SFX.special(); notify(ico, 'Порода светится', `${fam.name}. Внутри что-то <b>редкое</b>.`, '#c690ff', true); }
+      else notify(ico, fam.name, 'Есть руда. Ищите продолжение, целиком дороже.', fam.color);
+    }
+  }
+  d.seen = true;
+  bump('#bagBox');
+}
+
+function rollSpecies(fid, luck, floor = 0, loc = M.loc){
+  const list = FAM[fid].species.filter(s => s.t >= floor);
+  return pickW((list.length ? list : FAM[fid].species).map(s => [s, s.w * Math.pow(luck, s.t * .8) * ((loc.boost && loc.boost[s.id]) || 1)]));
+}
+
+function openSpecial(i){
+  const c = M.cells[i], type = c.sp;
+  c.open = true; c.probed = false; c.flag = false;
+  SFX.special();
+  if (type === 'geode') {
+    const fid = pickW([['quartz', 5], ['fluorite', 2], ['gypsum', 1]]);
+    const sp = rollSpecies(fid, M.luck + .3, 1);
+    M.extras.push({kind:'geode', sid:sp.id, fam:fid, seed:ri(1, 1e9)});
+    c.show = gemSVG(sp);
+    notify(`<div class="rv-ico">${gemSVG(sp)}</div>`, 'Жеода!', `Внутри <b>${sp.name}</b>. Вынесите её, и узнаете качество.`, TIER_C[sp.t], true);
+    bump('#bagBox');
+  } else if (type === 'stash') {
+    const amt = Math.round(rnd(80, 320) * M.luck / 10) * 10;
+    M.pot += amt;
+    notify(`<div class="rv-ico">${specialSVG('stash')}</div>`, 'Клад старателя', `<b>+${fmt(amt)} ₽</b>, если успеете вынести.`, SPECIALS.stash.color, true);
+    bump('#bagBox');
+  } else if (type === 'prop') {
+    M.off += 4; M.surv = M.surv + (1 - M.surv) * .5;
+    notify(`<div class="rv-ico">${specialSVG('prop')}</div>`, 'Старая крепь', 'Укрепили забой: <b>риск снижен</b>.', SPECIALS.prop.color, true);
+    bump('#riskBox');
+  } else if (type === 'fossil') {
+    const f = pickW(FOSSILS.map(x => [x, x.w]));
+    M.extras.push({kind:'fossil', id:f.id});
+    c.show = fossilSVG(f);
+    notify(`<div class="rv-ico">${fossilSVG(f)}</div>`, 'Окаменелость', `<b>${f.name}</b> · ${fmt(f.p)} ₽ при выносе.`, SPECIALS.fossil.color, true);
+    bump('#bagBox');
+  }
+}
+
+let rvT;
+function notify(ico, title, sub, color, long){
+  const el = $('#reveal');
+  el.innerHTML = `${ico}<div><div class="rv-name">${title}</div><div class="rv-sub">${sub}</div></div>`;
+  el.style.setProperty('--tc', color);
+  el.hidden = false; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  clearTimeout(rvT); rvT = setTimeout(() => { el.hidden = true; }, long ? 2800 : 2000);
+}
+
+function stoneFromDep(d){
+  const sp = rollSpecies(d.fam, M.luck, d.glow ? 2 : 0);
+  const taken = d.cells.filter(i => M.cells[i].open);
+  const g = +taken.reduce((s, i) => s + M.cells[i].g, 0).toFixed(1);
+  return mkStone(sp, d.fam, d.seed, d.done, taken.length, d.cells.length, g, false);
+}
+function mkStone(sp, fam, seed, complete, parts, total, g, geode){
+  const P = [[.05, .01], [.15, .04], [.35, .12], [.6, .35], [.85, .6]][sp.t];
+  save.cat++;
+  return {id:save.cat, seed, fam, sid:sp.id, complete, parts, total, g, geode, luck:+M.luck.toFixed(2),
+    spark:1 + (Math.random() < P[0]) + (Math.random() < P[1]), loc:M.loc.id, run:M.no, res:null};
+}
+function geodeStone(x){ const fam = FAM[x.fam]; return mkStone(SP[x.sid], x.fam, x.seed, true, 3, 3, +rnd(fam.gram[0] * 2, fam.gram[1] * 3).toFixed(1), true); }
+
+function cashOut(){
+  if (M.over) return;
+  M.over = true;
+  const stones = bagStones().map(stoneFromDep).concat(M.extras.filter(x => x.kind === 'geode').map(geodeStone));
+  const fossils = M.extras.filter(x => x.kind === 'fossil').map(x => FOSM[x.id]);
+  save.rough.push(...stones);
+  let cash = M.pot;
+  for (const f of fossils) { save.fos[f.id] = (save.fos[f.id] || 0) + 1; cash += f.p; }
+  save.bal += cash; save.st.earned += cash;
+  save.st.outs++; save.st.maxOut = Math.max(save.st.maxOut, M.strikes); save.st.visited[M.loc.id] = 1;
+  save.st.whole += M.deps.filter(d => d.done && !d.blocked).length;
+  save.st.geodes += stones.filter(s => s.geode).length; save.st.fossils += fossils.length;
+  const rec = [];
+  if (M.cumEnd > 0 && (!save.deep || M.cumEnd > save.deep.risk)) { if (save.deep) rec.push(`самый рискованный вынос, ${pct(M.cumEnd)}`); save.deep = {risk:M.cumEnd, strikes:M.strikes, loc:M.loc.id}; }
+  if (!save.lucky || M.luck > save.lucky.luck) { if (save.lucky) rec.push(`самая большая удача, ×${fmtX(M.luck)}`); save.lucky = {luck:M.luck, depth:depthM()}; }
+  gainXP(stones.length * 5 + fossils.length * 20 + M.strikes);
+  persist();
+  renderMine();
+  SFX.done(); if (cash) SFX.coin();
+  openPanel(`${head(`Участок № ${M.no} · ${M.loc.name}`, stones.length || cash ? `Вынесено с глубины ${depthM()} м` : 'Вышли пустыми', false)}
+    ${rec.length ? `<div class="recs" style="justify-content:flex-start">${rec.map(r => `<span class="rec">★ Рекорд: ${r}</span>`).join('')}</div>` : ''}
+    <p class="note">Удача забоя <b style="color:var(--luck)">×${fmtX(M.luck)}</b> переходит на все камни этого выноса.</p>
+    ${stones.length ? `<div class="mini">${stones.map(s => `<span>${s.geode ? gemSVG(SP[s.sid]) : roughSVG(s.seed, s.fam)}${s.geode ? 'жеода' : FAM[s.fam].short} · ${fmtG(s.g)}${s.complete ? ' · целый' : ''} <b style="color:var(--lamp)">${sparks(s.spark)}</b></span>`).join('')}</div>` : ''}
+    ${fossils.length ? `<h3>Окаменелости</h3><div class="mini">${fossils.map(f => `<span>${fossilSVG(f)}${f.name} · ${fmt(f.p)} ₽</span>`).join('')}</div>` : ''}
+    ${cash ? `<p class="note">В кассу: <b style="color:var(--lamp)">+${fmt(cash)} ₽</b>${M.pot ? ` (клад ${fmt(M.pot)} ₽)` : ''}</p>` : ''}
+    <button type="button" class="btn" data-camp>В лагерь${stones.length ? ', вскрывать' : ''}</button>`, true);
+  checkAch();
+}
+
+function collapse(){
+  M.over = true;
+  const deps = bagStones(), geodes = M.extras.filter(x => x.kind === 'geode');
+  const all = deps.map(d => ({d})).concat(geodes.map(g => ({g})));
+  const saved = [];
+  for (let k = 0; k < save.up.safe && all.length; k++) saved.push(all.splice(ri(0, all.length - 1), 1)[0]);
+  const stones = saved.map(x => x.d ? stoneFromDep(x.d) : geodeStone(x.g));
+  save.rough.push(...stones);
+  save.st.collapses++; save.st.visited[M.loc.id] = 1;
+  SFX.collapse();
+  const w = $('#wrap'), b = $('#board');
+  renderMine();
+  b.querySelectorAll('.cell').forEach(el => { el.style.setProperty('--d', (Math.random() * .4).toFixed(2) + 's'); el.style.setProperty('--r', ri(-25, 25) + 'deg'); });
+  w.classList.add('quake', 'dark'); b.classList.add('fall');
+  persist();
+  const lostExtras = M.extras.filter(x => x.kind === 'fossil').length + (M.pot ? 1 : 0);
+  setTimeout(() => {
+    openPanel(`${head(`Участок № ${M.no} · ${M.loc.name}`, '<span style="color:var(--danger)">Обвал</span>', false)}
+      <p class="note">Порода не выдержала на ${M.strikes}-м ударе, на глубине ${depthM()} м. Риск этого удара ${pct(M.lastRisk)}, накопленный ${pct(M.cumEnd)}.</p>
+      ${all.length ? `<h3>Осталось под завалом</h3><div class="mini">${all.map(x => x.d ? `<span>${roughSVG(x.d.seed, x.d.fam)}${FAM[x.d.fam].short} · ${x.d.done ? 'целый' : 'часть'}</span>` : `<span>${gemSVG(SP[x.g.sid])}жеода: ${SP[x.g.sid].name}</span>`).join('')}</div>` : ''}
+      ${lostExtras ? `<p class="note muted">${M.pot ? `Клад ${fmt(M.pot)} ₽ потерян. ` : ''}${M.extras.some(x => x.kind === 'fossil') ? 'Окаменелости тоже остались в завале.' : ''}</p>` : ''}
+      ${stones.length ? `<h3>Страховой ящик спас</h3><div class="mini">${stones.map(s => `<span>${roughSVG(s.seed, s.fam)}${FAM[s.fam].short} · ${fmtG(s.g)}</span>`).join('')}</div>` : ''}
+      ${!all.length && !stones.length && !lostExtras ? '<p class="note muted">Вы ничего не успели добыть.</p>' : ''}
+      <button type="button" class="btn" data-camp>В лагерь</button>`, true);
+    checkAch();
+  }, 1000);
+}
+
+/* ---------- opening ---------- */
+function resolve(r){
+  const sp = SP[r.sid];
+  let gi = -1, mult = .35;
+  if (r.complete) {
+    gi = pickW(GR.map((x, k) => [k, x.w * Math.pow(1 + .25 * save.up.saw, k) * Math.pow(r.luck || 1, k * .35)]));
+    mult = GR[gi].m * (1 + .15 * (r.total - 1));
+  }
+  const value = Math.max(1, Math.round(r.g * sp.p * mult * PRICE_K * famBonus(sp.fam)));
+  const rec = [], isNew = !save.col[sp.id];
+  if (!save.big || r.g > save.big.g) { if (save.big) rec.push('Самый крупный образец'); save.big = {name:sp.name, g:r.g}; }
+  if (!save.price || value > save.price.value) { if (save.price) rec.push('Самый дорогой образец'); save.price = {name:sp.name, value}; }
+  if (!save.rare || sp.t > save.rare.tier) { if (save.rare) rec.push('Самая редкая находка'); save.rare = {name:sp.name, tier:sp.t}; }
+  save.runTot[r.run] = (save.runTot[r.run] || 0) + value;
+  if (!save.bestRun || save.runTot[r.run] > save.bestRun.value) { if (save.bestRun && save.bestRun.run !== r.run) rec.push('Лучший участок'); save.bestRun = {run:r.run, value:save.runTot[r.run], loc:r.loc}; }
+  const e = save.col[sp.id] || {n:0, bg:-1, bw:0};
+  e.n++; e.bg = Math.max(e.bg, gi); e.bw = Math.max(e.bw, r.g);
+  save.col[sp.id] = e;
+  if (sp.t === 3) save.st.epic++;
+  if (sp.t === 4) save.st.legend++;
+  if (gi === 4) save.st.aaa++;
+  const setNow = isNew && famDone(sp.fam);
+  r.res = {gi, grade: gi >= 0 ? GR[gi].n : 'обломок', value, rec, isNew, setNow};
+  gainXP(value / 6 + 15 * sp.t);
+  persist();
+}
+
+const stage = $('#stage');
+let ST = null;
+function openStone(id){
+  const r = save.rough.find(x => x.id === id);
+  if (!r) return;
+  ST = {r, phase: r.res ? 3 : 0, busy:false};
+  stage.hidden = false;
+  drawStage();
+  if (r.res) showResult(true);
+}
+
+function drawStage(){
+  const r = ST.r, fam = FAM[r.fam];
+  stage.innerHTML = `
+    <button type="button" class="icon-btn st-back" data-act="back">← Лагерь</button>
+    <div class="st-top"><div class="eyebrow">Камень № ${pad(r.id)} · ${LOCM[r.loc].name}</div>
+      <div class="t">${r.geode ? 'Жеода: ' + SP[r.sid].name : fam.name}</div>
+      <div class="s">${fmtG(r.g)} · ${r.complete ? 'целый' : `часть залежи, ${r.parts} из ${r.total}`} · ${r.geode ? 'полость с кристаллами' : fam.hint} · <span class="lk">удача ×${fmtX(r.luck || 1)}</span> · <span class="sp">${sparks(r.spark)}</span></div></div>
+    <button type="button" class="stone" id="stone" aria-label="Расколоть камень" style="--glow:${fam.color}">
+      <div class="halo"></div>
+      ${r.geode ? `<svg class="rough" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="52" r="40" fill="#6e5f50"/><circle cx="50" cy="52" r="40" fill="none" stroke="#3a2e24" stroke-width="3"/><circle cx="38" cy="40" r="8" fill="#fff" opacity=".07"/></svg>` : roughSVG(r.seed, r.fam, 'rough')}
+      <svg class="cracks" id="cracks" viewBox="0 0 100 100" aria-hidden="true"></svg>
+    </button>
+    <div class="st-bottom" id="stBottom"><div class="tap-hint">Нажмите на камень, чтобы расколоть</div></div>`;
+}
+
+function hitStone(){
+  if (!ST || ST.busy || ST.phase >= 3) return;
+  const r = ST.r, sp = SP[r.sid], fam = FAM[r.fam], st = $('#stone');
+  ST.phase++;
+  st.classList.remove('hit'); void st.offsetWidth; st.classList.add('hit');
+  SFX.crack(ST.phase);
+  if (ST.phase === 1) {
+    $('#cracks').innerHTML = crackPaths(r.seed, 2).map(d => `<path d="${d}"/>`).join('');
+    st.style.setProperty('--ho', '.35');
+    $('#stBottom').innerHTML = '<div class="tap-hint">Ещё удар</div>';
+  } else if (ST.phase === 2) {
+    // light through the cracks hints at rarity; a legendary sometimes pretends to be merely rare
+    let tease = fam.color;
+    if (sp.t >= 2) tease = TIER_C[sp.t === 4 && Math.random() < .5 ? 2 + ri(0, 1) : sp.t];
+    st.style.setProperty('--glow', tease);
+    st.style.setProperty('--ho', sp.t >= 3 ? '1' : '.6');
+    $('#cracks').innerHTML = crackPaths(r.seed, 6).map(d => `<path d="${d}"/>`).join('');
+    $('#stBottom').innerHTML = '<div class="tap-hint">Последний удар</div>';
+  } else {
+    ST.busy = true;
+    if (!r.res) resolve(r);
+    showResult(false);
+  }
+}
+
+function showResult(instant){
+  const r = ST.r, sp = SP[r.sid], st = $('#stone'), res = r.res;
+  st.style.setProperty('--tc', TIER_C[sp.t]);
+  st.style.setProperty('--ho', '0');
+  st.innerHTML = `<div class="rays"></div>${instant ? '' : '<div class="burst"></div>'}<div class="gem">${gemSVG(sp)}</div>`;
+  st.setAttribute('aria-label', sp.name);
+  if (!instant) SFX.reveal(sp.t);
+  $('#stBottom').innerHTML = `<div class="res" style="--tc:${TIER_C[sp.t]}">
+      <div class="tier">${TIERS[sp.t]}${res.isNew ? ' · новый вид' : ''}</div>
+      <div class="nm">${sp.name}</div>
+      <div class="meta">${sp.f} · тв. ${sp.h} · ${fmtG(r.g)}</div>
+      <div class="grade"><span class="gl">Качество</span><span class="gv" id="gv">${instant || !r.complete ? res.grade : '…'}</span></div>
+    </div>
+    <div id="after"></div>`;
+  if (instant || !r.complete) { if (res.gi >= 0) $('#gv').style.setProperty('--gc', GR_C[res.gi]); finishResult(); return; }
+  let k = 0, delay = 60;
+  const steps = 10 + res.gi, gv = $('#gv');
+  const spin = () => {
+    gv.textContent = GR[k % GR.length].n; gv.style.setProperty('--gc', GR_C[k % GR.length]); SFX.tick();
+    if (k >= steps && k % GR.length === res.gi) {
+      gv.classList.add('land'); SFX.land(res.gi); if (res.gi >= 3) buzz([40, 30, 80]);
+      setTimeout(finishResult, 250); return;
+    }
+    k++; delay *= 1.12; setTimeout(spin, delay);
+  };
+  setTimeout(spin, 450);
+}
+
+function matchOrder(r){ return save.orders.findIndex(o => o.sid === r.sid && r.complete && r.res.gi >= o.min); }
+
+function finishResult(){
+  const r = ST.r, res = r.res, oi = matchOrder(r), o = save.orders[oi];
+  const more = save.rough.filter(x => x.id !== r.id).length;
+  $('#after').innerHTML = `<div class="res" style="gap:8px">
+      <div class="val">${fmt(res.value)} ₽</div>
+      ${res.rec.length || res.setNow ? `<div class="recs">${res.setNow ? `<span class="rec">★ Набор «${FAM[SP[r.sid].fam].short}» собран: цены +15%</span>` : ''}${res.rec.map(x => `<span class="rec">★ ${x}</span>`).join('')}</div>` : ''}
+    </div>
+    <div class="acts" style="margin-top:10px">
+      ${o ? `<button type="button" class="btn" data-act="order">Отдать коллекционеру · ${fmt(res.value * o.mult)} ₽</button>` : ''}
+      <div class="two">
+        <button type="button" class="${o ? 'ghost' : 'btn'}" data-act="sell">Продать · ${fmt(res.value)} ₽</button>
+        <button type="button" class="ghost" data-act="keep">В витрину</button>
+      </div>
+      <div class="muted" style="text-align:center;font-size:12.5px">${more ? `Ещё ${more} ${plural(more, 'камень ждёт', 'камня ждут', 'камней ждут')} вскрытия` : 'Это был последний камень'}</div>
+    </div>`;
+  ST.busy = false;
+  checkAch();
+}
+
+function decide(act){
+  const r = ST.r, res = r.res;
+  if (act === 'sell') { save.bal += res.value; save.st.earned += res.value; SFX.coin(); }
+  if (act === 'order') {
+    const oi = matchOrder(r); if (oi < 0) return;
+    const v = Math.round(res.value * save.orders[oi].mult);
+    save.bal += v; save.st.earned += v; save.st.orders++;
+    save.orders.splice(oi, 1); fillOrders(); gainXP(60);
+    SFX.coin(); SFX.done();
+  }
+  if (act === 'keep') { save.shelf.push({id:r.id, sid:r.sid, g:r.g, grade:res.grade, gi:res.gi, value:res.value, loc:r.loc}); SFX.done(); }
+  save.rough = save.rough.filter(x => x.id !== r.id);
+  checkAch();
+  persist();
+  const next = save.rough.find(x => !x.res) || save.rough[0];
+  if (next) openStone(next.id); else { stage.hidden = true; ST = null; showScreen('camp'); }
+  renderTop();
+}
+
+/* ---------- rendering ---------- */
+let campTab = 'base';
+function renderTop(){
+  $('#bal').textContent = fmt(save.bal) + ' ₽';
+  $('#mute').textContent = save.mute ? '🔇' : '🔊';
+  $('#lvlName').textContent = `Разряд ${save.lvl} · ${title(save.lvl)}`;
+  $('#xpbar').style.width = Math.min(100, save.xp / xpNeed(save.lvl) * 100) + '%';
+}
+function showScreen(name){
+  $('#camp').hidden = name !== 'camp'; $('#mine').hidden = name !== 'mine';
+  if (name === 'camp') renderCamp();
+  renderTop(); window.scrollTo(0, 0);
+}
+
+function renderCamp(){
+  fillOrders();
+  const unopened = save.rough.filter(r => !r.res).length;
+  const tabs = [['base', 'Лагерь', save.rough.length], ['map', 'Карта', 0], ['shop', 'Мастерская', 0], ['museum', 'Музей', 0]];
+  let body = '';
+  if (campTab === 'base') {
+    const rs = save.rough;
+    body = `
+      <div class="sec-h"><h2>Камни на вскрытие</h2><span class="muted mono">${rs.length}</span></div>
+      ${rs.length ? `<div class="roughs">${rs.map(r => {
+          const sp = SP[r.sid];
+          return `<button type="button" class="rc${r.res ? ' done' : ''}" data-open="${r.id}" style="--tc:${r.res ? TIER_C[sp.t] : 'var(--line)'}">
+            ${r.res ? `<span class="tag">${r.res.grade}</span>${gemSVG(sp)}<span class="n">${sp.name}</span>` : `<span class="lk">×${fmtX(r.luck || 1)}</span>${r.geode ? specialSVG('geode') : roughSVG(r.seed, r.fam)}<span class="n">${r.geode ? 'жеода' : FAM[r.fam].short}</span>`}
+            <span class="m">${fmtG(r.g)}${r.complete ? ' · целый' : ''}</span>${r.res ? '' : `<span class="sp">${sparks(r.spark)}</span>`}</button>`;
+        }).join('')}</div>${unopened > 1 ? `<button type="button" class="btn" data-openall>Вскрывать по очереди · ${unopened}</button>` : ''}`
+        : `<p class="empty">Рюкзак пуст. На вкладке «Карта» выберите участок, добудьте руду и вынесите её до обвала.</p>
+           <button type="button" class="btn" data-tab="map">Выбрать участок</button>`}
+      <div class="sec-h"><h2>Заказы коллекционеров</h2><button type="button" class="buy" data-reorder${save.bal < 200 ? ' disabled' : ''}>Новые · 200 ₽</button></div>
+      <div class="orders">${save.orders.map(o => { const sp = SP[o.sid]; return `<div class="order">${gemSVG(sp)}<div><b>${sp.name}</b>
+        <p>Целый, качество ${GR[o.min].n} или выше${save.col[o.sid] ? '' : ' · ещё не находили'}</p></div><span class="x3">×${fmtX(o.mult)}</span></div>`; }).join('')}</div>`;
+  } else if (campTab === 'map') {
+    body = `<div class="sec-h"><h2>Лицензии на участки</h2><span class="muted mono">${LOC.filter(l => l.lvl <= save.lvl).length}/${LOC.length}</span></div>
+      <div class="locs">${LOC.map(l => {
+        const locked = save.lvl < l.lvl, poor = save.bal < l.cost;
+        return `<button type="button" class="loc" data-run="${l.id}"${locked || poor ? ' disabled' : ''}>
+          <div><b>${locked ? '🔒 ' : ''}${l.name}</b><span>${l.hint}</span>
+            <span class="fams">${Object.entries(l.fam).sort((a, b) => b[1] - a[1]).map(([f]) => `<i style="--fc:${FAM[f].color}" title="${FAM[f].short}"></i>`).join('')}</span></div>
+          <span class="price">${locked ? `разряд ${l.lvl}` : l.cost ? fmt(l.cost) + ' ₽' : 'бесплатно'}<small>${l.rows * C} клеток · риск ×${fmtX(l.risk)}</small></span></button>`;
+      }).join('')}</div>`;
+  } else if (campTab === 'shop') {
+    body = `<div class="sec-h"><h2>Снаряжение</h2></div>
+      <div class="ups">${UPS.map(u => {
+        const lv = save.up[u.id], max = lv >= u.cost.length, price = u.cost[lv], need = u.lvl[lv];
+        const locked = !max && save.lvl < need;
+        return `<div class="up"><div><b>${u.name}</b> <span class="lv">${lv}/${u.cost.length}</span><p>${u.d(lv)}${max ? '' : ` · дальше: ${u.next}`}</p></div>
+          <button type="button" class="buy" data-buy="${u.id}"${max || locked || save.bal < price ? ' disabled' : ''}>${max ? 'макс.' : locked ? `разряд ${need}` : fmt(price) + ' ₽'}</button></div>`;
+      }).join('')}</div>
+      <div class="sec-h"><h2>Порода</h2></div>
+      <div class="skins">${Object.entries(SKINS).map(([id, s]) => cosmetic('skin', id, s, `<div class="sw" style="background-image:url(${rockTexture(id)});background-color:${s.base}"></div>`)).join('')}</div>
+      <div class="sec-h"><h2>Фон</h2></div>
+      <div class="skins">${Object.entries(SCENES).map(([id, s]) => cosmetic('scene', id, s, `<div class="sw scene" data-scene="${id}"></div>`)).join('')}</div>`;
+  } else {
+    const allSp = Object.values(SP), found = allSp.filter(s => save.col[s.id]).length;
+    const fosFound = FOSSILS.filter(f => save.fos[f.id]).length, achGot = ACH.filter(a => save.ach[a.id]).length;
+    const tile = (key, name, a, b) => `<button type="button" class="tile" data-sheet="${key}"><b>${name}</b><span>${a} из ${b}</span><div class="pbar"><i style="width:${b ? a / b * 100 : 0}%"></i></div></button>`;
+    body = `<div class="sec-h"><h2>Музей</h2></div>
+      <div class="tiles">
+        ${tile('col', 'Минералы', found, allSp.length)}
+        ${tile('fos', 'Окаменелости', fosFound, FOSSILS.length)}
+        ${tile('ach', 'Вехи', achGot, ACH.length)}
+        <button type="button" class="tile" data-sheet="shelf"><b>Витрина</b><span>${save.shelf.length} ${plural(save.shelf.length, 'образец', 'образца', 'образцов')}</span></button>
+        <button type="button" class="tile" data-sheet="rec"><b>Рекорды</b><span>${save.runs} ${plural(save.runs, 'участок', 'участка', 'участков')}</span></button>
+        <button type="button" class="tile" data-sheet="help"><b>Правила</b><span>как играть</span></button>
+      </div>`;
+  }
+  $('#camp').innerHTML = `<nav class="tabs">${tabs.map(([id, n, c]) => `<button type="button" data-tab="${id}" class="${campTab === id ? 'on' : ''}">${n}${c ? `<span class="dot">${c}</span>` : ''}</button>`).join('')}</nav>${body}`;
+}
+function cosmetic(kind, id, s, preview){
+  const owned = save.owned[id], active = save[kind] === id, locked = save.lvl < s.lvl;
+  const label = active ? 'выбрано' : owned ? 'выбрать' : locked ? `разряд ${s.lvl}` : fmt(s.cost) + ' ₽';
+  return `<button type="button" class="skin${active ? ' on' : ''}" data-cos="${kind}:${id}"${!owned && (locked || save.bal < s.cost) ? ' disabled' : ''}>${preview}<b>${s.name}</b><span>${label}</span></button>`;
+}
+
+function cellHTML(c, i){
+  if (!c.open) {
+    if (M.over && c.dep >= 0) { const d = M.deps[c.dep]; return `<div class="cell ore missed" style="--fc:${FAM[d.fam].color}">${roughSVG(d.seed, d.fam)}</div>`; }
+    if (M.over && c.sp) return `<div class="cell spc missed" style="--fc:${SPECIALS[c.sp].color}">${specialSVG(c.sp)}</div>`;
+    const cls = ['cell', 'rock']; let st = `background-position:${c.bx}px ${c.by}px`;
+    if (c.probed) { cls.push('probed'); st += `;--fc:${c.dep >= 0 ? FAM[M.deps[c.dep].fam].color : SPECIALS[c.sp].color}`; }
+    if (c.flag) cls.push('flag');
+    return `<button type="button" class="${cls.join(' ')}" style="${st}" data-i="${i}" aria-label="Порода"${M.over ? ' disabled' : ''}></button>`;
+  }
+  if (c.dep >= 0) {
+    const d = M.deps[c.dep];
+    return `<div class="cell ore${d.done ? ' done' : ''}${d.glow && !d.blocked ? ' glow' : ''}${d.blocked ? ' blocked' : ''}" style="--fc:${FAM[d.fam].color}">${roughSVG(d.seed, d.fam)}</div>`;
+  }
+  if (c.sp) return `<div class="cell spc" style="--fc:${SPECIALS[c.sp].color}">${c.show || specialSVG(c.sp)}</div>`;
+  return `<div class="cell hole" style="--fc:${c.tint ? FAM[c.tint].color : 'transparent'}">${c.n ? `<span>${c.n}</span>` : ''}</div>`;
+}
+
+function renderMine(){
+  $('#siteNo').textContent = 'Участок № ' + M.no;
+  $('#siteLoc').textContent = M.loc.name;
+  const next = M.over ? M.cumEnd : cumNext();
+  $('#riskBox').style.setProperty('--rc', riskColor(next));
+  $('#risk').textContent = pct(next);
+  $('#rbar').style.width = Math.min(100, next * 100) + '%';
+  $('#riskStep').textContent = M.over ? `последний удар ${pct(M.lastRisk)}` : `этот удар ${pct(riskFor(M.strikes + 1))}`;
+  $('#depth').textContent = depthM() + ' м';
+  $('#luck').textContent = '×' + fmtX(M.luck);
+  const n = bagCount(), fos = M.extras.filter(x => x.kind === 'fossil').length;
+  $('#bag').textContent = `${n}/${bagCap()}`;
+  $('#bagSub').textContent = [M.pot ? `клад ${fmt(M.pot)} ₽` : '', fos ? `${fos} окам.` : ''].filter(Boolean).join(' · ') || (n ? 'камни' : 'пусто');
+  $('#probeSmall').textContent = 'без риска · ' + M.probes;
+  document.querySelectorAll('.tool').forEach(b => { b.classList.toggle('on', b.dataset.tool === M.tool); b.disabled = M.over || (b.dataset.tool === 'probe' && M.probes === 0); });
+  $('#btnOut').disabled = M.over;
+  const parts = [];
+  if (n) parts.push(`${n} ${plural(n, 'камень', 'камня', 'камней')} с удачей ×${fmtX(M.luck)}`);
+  if (M.pot) parts.push(`${fmt(M.pot)} ₽`);
+  if (fos) parts.push(`${fos} окам.`);
+  $('#outSmall').textContent = parts.length ? parts.join(' · ') + ' · обвал заберёт всё' : 'рюкзак пуст, можно уйти';
+  $('#board').innerHTML = M.cells.map(cellHTML).join('');
+}
+
+$('#legend').innerHTML = '<span>Цвет цифры:</span>' + Object.values(FAM).map(f => `<span style="--fc:${f.color}"><i></i>${f.short}</span>`).join('');
+
+/* ---------- sheets ---------- */
+const sheet = $('#sheet'), panel = $('#panel');
+let sheetLocked = false;
+function openPanel(html, locked){ panel.innerHTML = html; sheet.hidden = false; panel.scrollTop = 0; sheetLocked = !!locked; }
+function closeSheet(){ sheet.hidden = true; sheetLocked = false; }
+const head = (eyebrow, t, closable = true) => `<div class="p-head"><div><div class="eyebrow">${eyebrow}</div><h2>${t}</h2></div>${closable ? '<button type="button" class="x" data-close aria-label="Закрыть">✕</button>' : ''}</div>`;
+
+function openCollection(){
+  const all = Object.values(SP), found = all.filter(s => save.col[s.id]).length;
+  openPanel(`${head('Музей', `Минералы: ${found} из ${all.length}`)}
+    <p class="note muted">Соберите все виды семейства, и цены на него вырастут на 15% навсегда.</p>
+    ${Object.entries(FAM).map(([fid, f]) => { const got = f.species.filter(s => save.col[s.id]).length; return `<div class="fam-h" style="--fc:${f.color}"><i></i>${f.name}<span class="${got === f.species.length ? 'ok' : ''}">${got === f.species.length ? 'набор собран · +15%' : `${got}/${f.species.length}`}</span></div>
+      <div class="coll">${f.species.map(s => {
+        const e = save.col[s.id];
+        return e
+          ? `<div class="cc" style="--tc:${TIER_C[s.t]}">${gemSVG(s)}<div class="n">${s.name}</div><div class="m">×${e.n} · ${e.bg >= 0 ? GR[e.bg].n : 'обл.'} · ${fmtG(e.bw)}</div></div>`
+          : `<div class="cc lock" style="--tc:var(--line)">${gemSVG(s)}<div class="n muted">???</div><div class="m">${TIERS[s.t].toLowerCase()}</div></div>`;
+      }).join('')}</div>`; }).join('')}`);
+}
+function openFossils(){
+  openPanel(`${head('Музей', 'Окаменелости')}
+    <p class="note muted">Прячутся в пустой породе и не видны в цифрах. Продаются сразу при выносе.</p>
+    <div class="coll">${FOSSILS.map(f => save.fos[f.id]
+      ? `<div class="cc" style="--tc:var(--lamp)">${fossilSVG(f)}<div class="n">${f.name}</div><div class="m">×${save.fos[f.id]} · ${fmt(f.p)} ₽</div></div>`
+      : `<div class="cc lock" style="--tc:var(--line)">${fossilSVG(f)}<div class="n muted">???</div><div class="m">${f.w < 10 ? 'редкая' : 'обычная'}</div></div>`).join('')}</div>`);
+}
+function openShelf(){
+  openPanel(`${head('Музей', 'Витрина')}
+    ${save.shelf.length ? `<div class="list">${save.shelf.map(s => {
+      const sp = SP[s.sid];
+      return `<div class="spec" style="--tc:${TIER_C[sp.t]}">${gemSVG(sp)}<div><div class="spec-name">${sp.name}</div><div class="spec-meta">${s.grade} · ${fmtG(s.g)} · № ${pad(s.id)} · ${LOCM[s.loc].name}</div></div>
+        <button type="button" class="buy" data-sellshelf="${s.id}">продать ${fmt(s.value)} ₽</button></div>`;
+    }).join('')}</div>` : '<p class="note muted">Пока пусто. После вскрытия нажмите «В витрину», чтобы оставить образец себе.</p>'}`);
+}
+function openAch(){
+  openPanel(`${head('Музей', 'Вехи')}
+    <div class="list">${ACH.map(a => `<div class="ach${save.ach[a.id] ? ' got' : ''}"><div><b>${save.ach[a.id] ? '✓ ' : ''}${a.name}</b><p>${a.d}</p></div><span class="rw">+${fmt(a.r)} ₽</span></div>`).join('')}</div>`);
+}
+function openRecords(){
+  const r = (label, val) => `<div class="row"><span>${label}</span><span>${val}</span></div>`;
+  openPanel(`${head('Музей', 'Рекорды')}
+    <div class="rows">
+      ${r('Самый рискованный вынос', save.deep ? `${pct(save.deep.risk)} · ${save.deep.strikes} ударов` : '—')}
+      ${r('Самая большая удача', save.lucky ? `×${fmtX(save.lucky.luck)} · ${save.lucky.depth} м` : '—')}
+      ${r('Лучший участок', save.bestRun ? `${fmt(save.bestRun.value)} ₽ · № ${save.bestRun.run}, ${LOCM[save.bestRun.loc].name}` : '—')}
+      ${r('Самый крупный образец', save.big ? `${save.big.name}, ${fmtG(save.big.g)}` : '—')}
+      ${r('Самый дорогой образец', save.price ? `${save.price.name}, ${fmt(save.price.value)} ₽` : '—')}
+      ${r('Самая редкая находка', save.rare ? `${save.rare.name} · ${TIERS[save.rare.tier].toLowerCase()}` : '—')}
+      ${r('Участков', save.runs)}
+      ${r('Обвалов', save.st.collapses)}
+      ${r('Заработано всего', fmt(save.st.earned) + ' ₽')}
+    </div>
+    <button type="button" class="ghost" data-reset>Сбросить прогресс</button>`);
+}
+function openHelp(){
+  save.help = true; persist();
+  openPanel(`${head('Как играть', 'Сапёр наоборот, с обвалом')}
+    <ul class="help">
+      <li>На карте купите лицензию на участок. Под клетками пустая порода или руда.</li>
+      <li>Цифра показывает, сколько рудных клеток в восьми соседних. Цвет цифры подсказывает тип руды.</li>
+      <li>Каждый удар кирки уводит глубже: растёт <b>удача</b> (шанс редких видов и высокого качества), но растёт и риск обвала. Обвал забирает всё невынесенное.</li>
+      <li>Вскрыли залежь целиком — получите целый камень и +0,1 к удаче. Светящаяся порода гарантирует редкий вид.</li>
+      <li>В пустой породе прячутся жеоды, клады, старая крепь (снижает риск) и окаменелости. В цифрах их не видно, только щуп их чувствует.</li>
+      <li>Рюкзак ограничен. Когда он полон, новые залежи приходится оставлять.</li>
+      <li>В лагере камни раскалывают. Продайте находку, оставьте в витрину или отдайте коллекционеру втридорога.</li>
+      <li>Опыт поднимает разряд и открывает новые регионы, снаряжение, породы и фоны.</li>
+    </ul>
+    <button type="button" class="btn" data-close>Понятно</button>`);
+}
+
+/* ---------- events ---------- */
+$('#board').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) tap(+b.dataset.i); });
+$('#tools').addEventListener('click', e => { const b = e.target.closest('[data-tool]'); if (!b || b.disabled) return; M.tool = b.dataset.tool; renderMine(); });
+$('#btnOut').addEventListener('click', cashOut);
+$('#mute').addEventListener('click', () => { save.mute = !save.mute; persist(); renderTop(); });
+$('#camp').addEventListener('click', e => {
+  const t = e.target.closest('[data-tab]'); if (t) { campTab = t.dataset.tab; renderCamp(); return; }
+  const o = e.target.closest('[data-open]'); if (o) return openStone(+o.dataset.open);
+  if (e.target.closest('[data-openall]')) { const r = save.rough.find(x => !x.res); if (r) openStone(r.id); return; }
+  const run = e.target.closest('[data-run]'); if (run && !run.disabled) return startRun(run.dataset.run);
+  if (e.target.closest('[data-reorder]') && save.bal >= 200) { save.bal -= 200; save.orders = []; fillOrders(); persist(); renderCamp(); renderTop(); return; }
+  const buy = e.target.closest('[data-buy]');
+  if (buy && !buy.disabled) {
+    const u = UPS.find(x => x.id === buy.dataset.buy), lv = save.up[u.id];
+    if (lv < u.cost.length && save.bal >= u.cost[lv] && save.lvl >= u.lvl[lv]) { save.bal -= u.cost[lv]; save.up[u.id]++; persist(); SFX.coin(); toast(`${u.name}: уровень ${save.up[u.id]}`, u.d(save.up[u.id])); renderCamp(); renderTop(); }
+    return;
+  }
+  const cos = e.target.closest('[data-cos]');
+  if (cos && !cos.disabled) {
+    const [kind, id] = cos.dataset.cos.split(':'), s = (kind === 'skin' ? SKINS : SCENES)[id];
+    if (!save.owned[id]) { if (save.bal < s.cost || save.lvl < s.lvl) return; save.bal -= s.cost; save.owned[id] = 1; SFX.coin(); }
+    save[kind] = id; persist(); applyLook(); renderCamp(); renderTop();
+    return;
+  }
+  const sh = e.target.closest('[data-sheet]'); if (sh) ({col:openCollection, fos:openFossils, ach:openAch, shelf:openShelf, rec:openRecords, help:openHelp})[sh.dataset.sheet]();
+});
+stage.addEventListener('click', e => {
+  if (e.target.closest('#stone')) return hitStone();
+  const a = e.target.closest('[data-act]');
+  if (a && a.dataset.act === 'back') { if (ST && ST.busy) return; stage.hidden = true; ST = null; return showScreen('camp'); }
+  if (a) decide(a.dataset.act);
+});
+sheet.addEventListener('click', e => {
+  if (e.target.closest('[data-camp]')) { closeSheet(); M = null; campTab = 'base'; return showScreen('camp'); }
+  if ((e.target === sheet && !sheetLocked) || e.target.closest('[data-close]')) return closeSheet();
+  const ss = e.target.closest('[data-sellshelf]');
+  if (ss) { const id = +ss.dataset.sellshelf, s = save.shelf.find(x => x.id === id); if (s) { save.bal += s.value; save.st.earned += s.value; save.shelf = save.shelf.filter(x => x.id !== id); persist(); SFX.coin(); renderTop(); renderCamp(); openShelf(); checkAch(); } return; }
+  const rs = e.target.closest('[data-reset]');
+  if (rs) {
+    if (rs.dataset.armed) { save = Object.assign(BLANK(), {help:true}); persist(); applyLook(); closeSheet(); campTab = 'base'; showScreen('camp'); }
+    else { rs.dataset.armed = '1'; rs.textContent = 'Нажмите ещё раз, чтобы стереть всё'; }
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheetLocked) closeSheet(); });
+
+applyLook();
+fillOrders();
+showScreen('camp');
+if (!save.help) openHelp();
+</script>

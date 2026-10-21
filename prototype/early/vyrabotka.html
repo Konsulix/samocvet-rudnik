@@ -1,0 +1,1152 @@
+<meta charset="utf-8">
+<title>Выработка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* Layout: camp is a scrolling logbook; the descent is a full-screen 3D canvas with a thin HUD on top and context actions at the bottom */
+:root{
+  --bg:#081114; --surface:#11242c; --raise:#183340; --line:#24414f;
+  --fg:#e4ddcc; --muted:#8fa3a8; --lamp:#e3a857; --anom:#7fe0c8; --danger:#e2604a; --water:#4fa8d8; --gas:#a9d65a;
+  --paper:#d9ccb0; --ink:#2a2218; --ink2:#6a5a42;
+  --display:'Old Standard TT', 'Times New Roman', Georgia, serif;
+  --body:'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, Consolas, monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html{background:var(--bg);color:var(--fg)}
+body{background:radial-gradient(ellipse at 50% -10%, rgba(227,168,87,.08), transparent 55%), var(--bg);color:var(--fg);min-height:100%;font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body.inrun{overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.app{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:10px 28px;display:flex;flex-direction:column;gap:10px}
+.muted{color:var(--muted)}
+h2,h3{font-family:var(--display);font-weight:700;margin:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.brand{font-family:var(--display);font-weight:700;font-size:23px;color:var(--lamp)}
+.brand small{display:block;font-family:var(--body);font-weight:400;font-size:11px;color:var(--muted)}
+.pill{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--surface);white-space:nowrap}
+.icon-btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:8px 0;font-size:13px;font-weight:500;color:var(--muted);position:relative}
+.tabs button.on{background:var(--raise);color:var(--fg)}
+.tabs .dot{position:absolute;top:1px;right:3px;min-width:16px;height:16px;border-radius:8px;background:var(--lamp);color:#1b130b;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 3px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.sec-h h2{font-family:var(--body);font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500}
+.btn{background:var(--lamp);color:#1b130b;border:0;border-radius:10px;padding:12px;font-weight:600}
+.btn:disabled{opacity:.4;cursor:default}
+.btn small{display:block;font-weight:400;font-size:12px;opacity:.8}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:500}
+.ghost:disabled{opacity:.4;cursor:default}
+.buy{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.buy:disabled{opacity:.4;cursor:default}
+.empty{margin:0;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:14px;color:var(--muted);font-size:14px}
+.hero{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:2.2;background:#0d1a1f url(../web/img/key_art.webp) center 45% / cover;border:1px solid var(--line)}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(8,17,20,.1), rgba(8,17,20,.9))}
+.hero div{position:absolute;left:14px;right:14px;bottom:10px;z-index:1}
+.hero b{font-family:var(--display);font-size:19px;display:block}
+.hero span{font-size:12.5px;color:#c8d2cf}
+.mine{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.mine.locked{opacity:.6}
+.mine-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mine-h b{font-family:var(--display);font-size:19px}
+.mine-h span{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.mine p{margin:0;font-size:13px;color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tags span{font-size:11.5px;border-radius:6px;padding:2px 7px;background:var(--raise)}
+.tags .gas{color:var(--gas)}.tags .water{color:var(--water)}.tags .magma{color:#ff8a4a}.tags .quake{color:#d9c39a}
+.minis{display:flex;flex-wrap:wrap;gap:3px}
+.minis img{width:26px;height:26px;object-fit:contain}
+.ups{display:grid;gap:6px}
+.up{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.up b{font-weight:600}
+.up p{margin:0;font-size:12.5px;color:var(--muted)}
+.lv{font-family:var(--mono);font-size:11px;color:var(--lamp)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px;border-bottom:3px solid var(--rc, var(--line))}
+.fc img{width:64px;height:64px;object-fit:contain}
+.fc .n{font-size:12px;font-weight:600;line-height:1.2}
+.fc .m{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.fc.dirty img{filter:brightness(.35) saturate(.4) blur(1px)}
+.rows{display:flex;flex-direction:column}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{text-align:right}
+.fx-in{animation:fxin .45s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i, 0) * 45ms)}
+@keyframes fxin{from{opacity:0;transform:translateY(10px)}}
+
+/* run */
+#view{position:fixed;inset:0;z-index:5;display:block;width:100%;height:100%;touch-action:none;background:#030607}
+.hud{position:fixed;left:0;right:0;top:0;z-index:10;padding:calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;display:flex;flex-direction:column;gap:6px;pointer-events:none;
+  background:linear-gradient(rgba(3,6,7,.8), transparent)}
+.hud-r{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.hud .mn{font-family:var(--display);font-size:16px}
+.hud .dp{font-family:var(--mono);font-size:13px;color:var(--anom)}
+.oil{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:11.5px;color:var(--lamp)}
+.oil .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.oil .bar i{display:block;height:100%;background:linear-gradient(90deg, #a8601e, var(--lamp));transition:width .3s}
+.oil.low{color:var(--danger)}
+.oil.low .bar i{background:var(--danger)}
+.hearts{font-size:15px;letter-spacing:2px;color:var(--danger)}
+.hearts i{font-style:normal;color:#3a2a2a}
+.warn{font-size:12.5px;color:var(--danger);min-height:1.2em;text-shadow:0 1px 4px #000}
+.bottom{position:fixed;left:0;right:0;bottom:0;z-index:10;padding:10px 12px calc(14px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:8px;align-items:center;
+  background:linear-gradient(transparent, rgba(3,6,7,.85));pointer-events:none}
+.bottom > *{pointer-events:auto}
+.ctx{display:flex;gap:8px;width:100%;max-width:480px}
+.ctx .btn{flex:1}
+.ctx .ghost{background:rgba(17,36,44,.9)}
+.hint{font-size:12px;color:var(--muted);text-align:center;max-width:420px;text-shadow:0 1px 4px #000}
+.toastbox{position:fixed;top:calc(96px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);z-index:12;display:flex;flex-direction:column;gap:6px;width:min(420px, calc(100% - 32px));pointer-events:none}
+.tst{background:rgba(17,36,44,.95);border:1px solid var(--tc, var(--lamp));border-radius:12px;padding:8px 12px;display:flex;gap:10px;align-items:center;animation:fxin .3s both;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.tst img{width:36px;height:36px;object-fit:contain}
+.tst b{display:block;font-size:14px}
+.tst span{font-size:12.5px;color:var(--muted)}
+.mineui{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px;padding:0 20px calc(110px + env(safe-area-inset-bottom, 0px));background:radial-gradient(ellipse at 50% 70%, transparent 30%, rgba(3,6,7,.6));touch-action:manipulation}
+.mtitle{font-family:var(--display);font-size:20px;text-shadow:0 2px 8px #000;text-align:center}
+.mtitle small{display:block;font-family:var(--body);font-size:12.5px;color:var(--muted)}
+.mbar{position:relative;width:min(88vw,380px);height:34px;border-radius:17px;background:rgba(17,36,44,.92);border:1px solid var(--line);overflow:hidden}
+.mzone{position:absolute;top:0;bottom:0;background:rgba(227,168,87,.25);border-inline:2px solid rgba(227,168,87,.6)}
+.mzone i{position:absolute;top:0;bottom:0;left:30%;right:30%;background:rgba(155,224,122,.45)}
+.mneedle{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 10px #fff}
+.mhits{display:flex;gap:10px}
+.mhits i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:rgba(0,0,0,.4)}
+.mhits i.p{background:#9be07a;border-color:#9be07a}.mhits i.g{background:var(--lamp);border-color:var(--lamp)}.mhits i.m{background:var(--danger);border-color:var(--danger)}
+.mmsg{font-family:var(--display);font-size:22px;font-weight:700;min-height:1.3em;text-shadow:0 2px 8px #000}
+.flash{position:fixed;inset:0;z-index:14;pointer-events:none;background:radial-gradient(circle, rgba(255,200,120,.85), rgba(255,90,20,.4) 40%, transparent 70%);animation:flash .7s ease-out forwards}
+@keyframes flash{from{opacity:1}to{opacity:0}}
+.bag{display:grid;gap:3px;background:#0c1a20;border:1px solid var(--line);border-radius:10px;padding:6px;position:relative;align-self:center}
+.bag .cell{width:var(--bc);height:var(--bc);border-radius:4px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.08)}
+.bag .it{position:absolute;border-radius:6px;background:linear-gradient(160deg, #263f4c, #162a33);border:1px solid #3e6273;display:grid;place-items:center;overflow:hidden;cursor:pointer}
+.bag .it img{width:88%;height:88%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+.bag .it.sel{outline:2px solid var(--lamp)}
+.bag .it.new{outline:2px dashed var(--anom)}
+.bag .it small{position:absolute;bottom:1px;right:3px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.pending{display:flex;gap:10px;align-items:center;background:var(--raise);border:1px dashed var(--anom);border-radius:10px;padding:8px 10px;font-size:13px}
+.pending img{width:44px;height:44px;object-fit:contain}
+
+/* overlays */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(3,8,10,.78);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
+.panel{width:100%;max-width:480px;max-height:92%;overflow:auto;background:var(--surface);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom, 0px));display:flex;flex-direction:column;gap:12px;animation:up .28s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.p-head h2{font-size:22px}
+.x{background:var(--raise);border:1px solid var(--line);border-radius:8px;width:34px;height:34px;flex:none}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.stage{position:fixed;inset:0;z-index:30;background:radial-gradient(ellipse at 50% 38%, #1e3440 0%, #050b0d 72%);display:flex;flex-direction:column;align-items:center;
+  padding:calc(16px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));gap:10px;overflow:auto}
+.st-top{text-align:center;margin-top:24px}
+.st-top .t{font-family:var(--display);font-size:20px}
+.st-top .s{font-size:12.5px;color:var(--muted)}
+.arena{position:relative;width:min(70vw,270px);aspect-ratio:1;flex:none;touch-action:manipulation;user-select:none}
+.arena .obj{position:absolute;inset:6%;width:88%;height:88%;object-fit:contain;filter:drop-shadow(0 16px 22px rgba(0,0,0,.65));animation:bob 3.4s ease-in-out infinite;transition:filter .4s}
+@keyframes bob{50%{transform:translateY(-5px) rotate(-1deg)}}
+.arena.hit .obj{animation:hit .25s}
+@keyframes hit{30%{transform:scale(.94) rotate(-3deg)}60%{transform:scale(1.03) rotate(1deg)}}
+.cracks{position:absolute;inset:6%;width:88%;height:88%;pointer-events:none}
+.cracks path{stroke:var(--glow);stroke-width:1.8;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 3px var(--glow)) drop-shadow(0 0 8px var(--glow));stroke-dasharray:200;stroke-dashoffset:200;animation:draw .35s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.dirt{position:absolute;inset:6%;border-radius:50%;background:radial-gradient(circle at 40% 40%, rgba(70,55,40,.0), rgba(70,55,40,.0));pointer-events:none}
+.rays{position:absolute;inset:-25%;border-radius:50%;background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rc) 32%, transparent) 0 8deg, transparent 8deg 24deg);
+  mask:radial-gradient(circle, #000 20%, transparent 68%);-webkit-mask:radial-gradient(circle, #000 20%, transparent 68%);animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gem{position:absolute;inset:4%;animation:emerge .6s cubic-bezier(.2,1.5,.4,1)}
+.gem img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6))}
+@keyframes emerge{from{transform:scale(.3) rotate(-20deg);opacity:0}}
+.tap-hint{text-align:center;color:var(--muted);font-size:14px}
+.label{background:var(--paper);color:var(--ink);border-radius:3px;padding:12px 14px 10px;box-shadow:0 10px 30px rgba(0,0,0,.5);position:relative;width:100%;max-width:420px}
+.label::before{content:"";position:absolute;inset:5px;border:1px solid rgba(42,34,24,.3);pointer-events:none}
+.label .no{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink2)}
+.label h3{font-size:22px;line-height:1.1;margin-top:2px}
+.label .sub{font-family:var(--display);font-style:italic;font-size:13.5px;color:var(--ink2)}
+.label dl{display:grid;grid-template-columns:auto 1fr;gap:1px 12px;margin:8px 0 0;font-size:13.5px}
+.label dt{color:var(--ink2)}
+.label dd{margin:0;font-weight:700}
+.label .val{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:6px;border-top:1px solid rgba(42,34,24,.25);padding-top:6px;display:flex;justify-content:space-between}
+.qual{color:var(--gc)}
+.news{display:flex;flex-direction:column;gap:6px;width:100%;max-width:420px}
+.news div{border-radius:10px;padding:8px 12px;font-size:13.5px;background:color-mix(in srgb, var(--lamp) 18%, transparent);border:1px solid var(--lamp);color:var(--lamp);font-weight:600;animation:fxin .35s both}
+.fxc{position:fixed;inset:0;width:100%;height:100%;z-index:45;pointer-events:none}
+.nogl{padding:30px;text-align:center}
+
+/* mobile controls */
+.joy{position:fixed;z-index:11;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:2px solid rgba(227,168,87,.35);background:rgba(17,36,44,.35);pointer-events:none}
+.joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(227,168,87,.55);box-shadow:0 0 14px rgba(227,168,87,.5)}
+.hzc{font-family:var(--body);font-size:11.5px;border:1px solid var(--hc);color:var(--hc);border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:2px}
+.tags .rich{background:color-mix(in srgb, var(--lamp) 22%, transparent);color:var(--lamp);font-weight:600}
+.hzcard{display:flex;gap:12px;align-items:center;background:var(--raise);border:1px solid var(--hc);border-radius:12px;padding:12px}
+.hzcard b{font-family:var(--display);font-size:20px;color:var(--hc);display:block}
+.hzcard i{font-style:normal;font-size:30px}
+.mineui .ghost{background:rgba(17,36,44,.9)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app" id="campApp">
+  <header class="top">
+    <div class="brand">Выработка<small>спуститься, найти, вынести</small></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="pill" id="money">0 ₽</span><button type="button" class="icon-btn" id="mute" aria-label="Звук">🔊</button></div>
+  </header>
+  <section id="camp" style="display:flex;flex-direction:column;gap:10px"></section>
+</div>
+
+<canvas id="view" hidden></canvas>
+<div class="hud" id="hud" hidden>
+  <div class="hud-r"><span class="mn" id="hMine"></span><span class="dp" id="hDepth">0 м</span></div>
+  <div class="oil" id="hOil"><span>Масло</span><div class="bar"><i id="hOilBar"></i></div><span id="hOilTxt">100%</span></div>
+  <div class="hud-r"><span class="hearts" id="hHearts"></span><span class="pill" id="hBag">рюкзак 0/16</span></div>
+  <div class="warn" id="hWarn"></div>
+</div>
+<div class="toastbox" id="toasts"></div>
+<div class="bottom" id="bottom" hidden>
+  <div class="ctx" id="ctx"></div>
+  <div class="hint" id="hint">Ведите пальцем — шахтёр идёт следом. Остановитесь у блеска в стене — начнётся добыча.</div>
+</div>
+<div class="mineui" id="mineUI" hidden>
+  <div class="mmsg" id="mMsg"></div>
+  <div class="mtitle" id="mTitle"></div>
+  <div class="mbar"><div class="mzone" id="mZone"><i></i></div><div class="mneedle" id="mNeedle"></div></div>
+  <div class="mhits" id="mHits"><i></i><i></i><i></i></div>
+  <div class="hint">Тап в любом месте, когда игла в светлой зоне. В центре — чисто.</div>
+  <button type="button" class="ghost" data-cancel>Отойти</button>
+</div>
+<div class="joy" id="joy" hidden><i id="joyKnob"></i></div>
+<div id="stage" class="stage" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="panel" id="panel"></div></div>
+<canvas class="fxc" id="fxc" aria-hidden="true"></canvas>
+
+<script>
+/* ===================== data ===================== */
+const IMG = n => `../web/img/${n}.webp`;
+const AMETHYST = 'sepia(.5) saturate(4) hue-rotate(225deg) brightness(.95)';
+const SP = {
+  quartz:{n:'Горный хрусталь', img:'quartz', c:0xdfe8f2, v:20, r:0},
+  amethyst:{n:'Аметист', img:'quartz', fl:AMETHYST, c:0xb47cff, v:60, r:1},
+  calcite:{n:'Кальцит', img:'quartz', fl:'sepia(.6) saturate(1.8) hue-rotate(-15deg) brightness(1.05)', c:0xf2c27a, v:15, r:0},
+  fluorite:{n:'Флюорит', img:'fluorite', c:0x5fe0a0, v:35, r:1},
+  malachite:{n:'Малахит', img:'malachite', c:0x43c98a, v:30, r:0},
+  azurite:{n:'Азурит', img:'malachite', fl:'hue-rotate(85deg) saturate(1.4)', c:0x5f8bff, v:55, r:1},
+  gypsum:{n:'Селенит', img:'gypsum', c:0xe6eef6, v:15, r:0},
+  pyrite:{n:'Пирит', img:'gold', fl:'saturate(.45) brightness(.85) contrast(1.1)', c:0xc9b26a, v:25, r:0},
+  gold:{n:'Самородное золото', img:'gold', c:0xffd24a, v:250, r:2, metal:true},
+  garnet:{n:'Альмандин', img:'garnet', c:0xe0566a, v:70, r:1},
+  beryl:{n:'Берилл', img:'beryl', c:0xe6dd8a, v:90, r:1},
+  aquamarine:{n:'Аквамарин', img:'beryl', fl:'hue-rotate(130deg) saturate(1.8) brightness(1.05)', c:0x7fd8ff, v:160, r:2},
+  emerald:{n:'Изумруд', img:'beryl', fl:'hue-rotate(60deg) saturate(3) brightness(.9)', c:0x3fe08a, v:600, r:3},
+  opal:{n:'Благородный опал', img:'opal', c:0x8fe6dc, v:300, r:2},
+  sapphire:{n:'Сапфир', img:'corundum', c:0x5f7fff, v:500, r:3},
+  ruby:{n:'Рубин', img:'corundum', fl:'hue-rotate(140deg) saturate(1.4)', c:0xff3a5a, v:900, r:3},
+  diamond:{n:'Алмаз', img:'diamond', c:0xeaf6ff, v:2000, r:4},
+};
+const RAR = ['Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный'];
+const RC = ['#b0c3d9', '#4b69ff', '#8847ff', '#d32ce6', '#e4ae39'];
+const GR = [{n:'C', w:40, m:1}, {n:'B', w:30, m:1.5}, {n:'A', w:18, m:2.4}, {n:'AA', w:9, m:4}, {n:'AAA', w:3, m:8}];
+const GR_C = ['#7a7060', '#4e6b8a', '#3f8a3a', '#2f6fc4', '#c27a00'];
+const KIND = {
+  crystal:{n:'Кристалл', g:'кристаллов'}, druse:{n:'Друза', g:'друз'}, nugget:{n:'Самородок', g:'самородков'}, geode:{n:'Жеода', g:'жеод'},
+};
+const MINES = [
+  {id:'adit', name:'Старая штольня', place:'Берёзовский рудник, Урал', cost:0, hint:'Неглубокая заброшенная выработка. Кварцевые жилы, пирит, немного золота. Газ скапливается в тупиках.',
+    pool:{quartz:30, calcite:18, pyrite:16, fluorite:12, amethyst:8, malachite:8, gold:4}, geo:{quartz:5, amethyst:3, calcite:3, fluorite:1},
+    gas:4, water:1, quake:75, magma:0, deps:24, oil:1},
+  {id:'ural', name:'Уральские копи', place:'Мурзинка, Средний Урал', cost:1500, hint:'Пегматитовые жилы с бериллом и изумрудом. Вода поднимается быстрее, чаще толчки.',
+    pool:{malachite:16, azurite:8, quartz:14, amethyst:10, garnet:12, beryl:8, aquamarine:4, emerald:1.2, gold:3}, geo:{amethyst:5, quartz:4, calcite:2, fluorite:2},
+    gas:3, water:3, quake:55, magma:0, deps:28, oil:1.1},
+  {id:'volcano', name:'Рудник у вулкана', place:'Камчатка', cost:5000, hint:'Горячо: на глубине течёт магма, рядом с ней — опалы, рубины и даже алмазы. Газ повсюду.',
+    pool:{garnet:14, pyrite:12, gypsum:10, quartz:8, opal:6, gold:6, sapphire:4, ruby:2, diamond:.7}, geo:{opal:3, amethyst:4, quartz:3},
+    gas:7, water:0, quake:45, magma:5, deps:30, oil:1.25},
+];
+const MINEM = Object.fromEntries(MINES.map(m => [m.id, m]));
+MINEM.adit.hz = ['gas', 'water', 'quake']; MINEM.ural.hz = ['water', 'quake', 'gas']; MINEM.volcano.hz = ['gas', 'quake'];
+const HZ = {
+  gas:{n:'Газ', i:'☁', d:'в нижних камерах скопился газ. Кайло искрит — рядом с зелёной дымкой бейте осторожно.', c:'#a9d65a'},
+  water:{n:'Вода', i:'≈', d:'штреки подтапливает, вода прибывает со временем и замедляет.', c:'#4fa8d8'},
+  quake:{n:'Толчки', i:'⚠', d:'порода неустойчива, толчки будут заваливать проходы.', c:'#d9c39a'},
+};
+const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const isRich = id => { const seed = [...dayKey()].reduce((a, ch) => a * 31 + ch.charCodeAt(0) | 0, 11); return MINES[Math.abs(seed) % MINES.length].id === id; };
+const UPS = [
+  {id:'lamp', n:'Карбидный фонарь', d:lv => `Масла хватает на ${Math.round(100 * (1 + .35 * lv))}%, свет шире`, cost:[400, 1200, 3000]},
+  {id:'bag', n:'Рюкзак', d:lv => `${BAGS[lv][0]}×${BAGS[lv][1]} клеток`, cost:[500, 1500, 4000]},
+  {id:'pick', n:'Кайло', d:lv => `Точная зона ${['узкая', 'шире', 'широкая', 'очень широкая'][lv]}`, cost:[300, 1000, 2500]},
+  {id:'helmet', n:'Каска', d:lv => `${3 + lv} ${['', '', '', 'попытки', 'попытки', 'попыток'][3 + lv]} до спасателей`, cost:[800, 2500]},
+  {id:'gas', n:'Газоанализатор', d:lv => lv ? (lv > 1 ? 'Показывает облака газа и вдвое реже искрит' : 'Показывает границы газовых облаков') : 'Предупреждает о газе', cost:[600, 2000]},
+  {id:'boots', n:'Болотные сапоги', d:lv => `Скорость в воде ${[45, 65, 85][lv]}%`, cost:[500, 1500]},
+];
+const BAGS = [[4, 4], [5, 4], [5, 5], [6, 5]];
+
+/* ===================== utils & save ===================== */
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const fmt = n => Math.round(n).toLocaleString('ru-RU');
+function pickW(entries){ let t = entries.reduce((s, e) => s + e[1], 0), r = Math.random() * t; for (const e of entries) { if ((r -= e[1]) <= 0) return e[0]; } return entries[entries.length - 1][0]; }
+function plural(n, a, b, c){ const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; }
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hex = c => '#' + c.toString(16).padStart(6, '0');
+const imgTag = (sid, extra = '') => { const s = SP[sid]; return `<img src="${IMG(s.img)}" alt="" style="${s.fl ? 'filter:' + s.fl + ';' : ''}${extra}">`; };
+const itemImg = it => it.kind === 'geode' ? `<img src="${IMG('nodule')}" alt="">` : imgTag(it.sid);
+const itemName = it => it.kind === 'geode' ? (it.cracked ? 'Треснувшая жеода' : 'Жеода') : `${KIND[it.kind].n}: ${SP[it.sid].n.toLowerCase()}`;
+const BLANK = () => ({money:0, up:{lamp:0, bag:0, pick:0, helmet:0, gas:0, boots:0}, finds:[], coll:[], open:{adit:true}, uid:0, st:{runs:0, ups:0, rescues:0, deepest:0, best:null, haul:0, opened:0}, help:false, mute:false});
+function load(){ try { const s = JSON.parse(localStorage.getItem('vyrabotka-v1') || 'null'); if (!s) return BLANK(); const b = BLANK(); return Object.assign(b, s, {up:Object.assign(b.up, s.up), st:Object.assign(b.st, s.st)}); } catch (e) { return BLANK(); } }
+function persist(){ try { localStorage.setItem('vyrabotka-v1', JSON.stringify(save)); } catch (e) {} }
+let save = load();
+const nid = () => ++save.uid;
+
+/* ===================== sound ===================== */
+let AC;
+function ac(){ if (save.mute) return null; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; } catch (e) { return null; } }
+function noise(dur, freq, vol, type = 'lowpass'){
+  const a = ac(); if (!a) return;
+  const b = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const s = a.createBufferSource(); s.buffer = b;
+  const f = a.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start();
+}
+function tone(freq, at, dur, vol, type = 'sine'){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const SFX = {
+  step(){ noise(.05, 400, .06); },
+  perfect(){ noise(.15, 3200, .5, 'highpass'); tone(1320, 0, .2, .07, 'triangle'); buzz(25); },
+  good(){ noise(.15, 2400, .45, 'highpass'); tone(990, 0, .15, .05, 'triangle'); buzz(20); },
+  miss(){ noise(.25, 400, .7); tone(110, 0, .2, .08, 'square'); buzz([40, 20, 40]); },
+  got(r){ [523, 659, 784, 1047, 1319].slice(0, 2 + r).forEach((f, k) => tone(f, k * .07, .4, .07, 'triangle')); },
+  boom(){ noise(1.2, 120, 1); noise(.4, 2000, .5); buzz([100, 50, 200]); },
+  quake(){ noise(2, 70, .9); noise(1.4, 180, .4); buzz([200, 100, 300]); },
+  water(){ noise(.6, 600, .2, 'bandpass'); },
+  hiss(){ noise(.4, 4000, .15, 'highpass'); },
+  lift(){ tone(110, 0, 1.6, .12, 'sawtooth'); noise(1.6, 300, .2); },
+  crack(k){ noise(.18, 2600 + k * 600, .45, 'highpass'); noise(.1, 500, .4); buzz(30); },
+  brush(){ noise(.25, 5000, .25, 'highpass'); },
+  reveal(t){ const st = [0, 4, 7, 12, 16, 19, 24]; for (let k = 0; k < 3 + t; k++) tone(392 * Math.pow(2, st[Math.min(6, k)] / 12), k * .08, .6, .09, 'triangle'); if (t >= 3) buzz([60, 40, 120]); },
+  coin(){ tone(1568, 0, .1, .08, 'square'); tone(2093, .07, .16, .07, 'square'); },
+  hurt(){ tone(180, 0, .3, .12, 'sawtooth'); buzz([80, 40, 80]); },
+  heart(){ tone(60, 0, .12, .15, 'sine'); tone(60, .18, .12, .12, 'sine'); },
+};
+
+/* 2D particles for UI moments */
+const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const fxc = $('#fxc');
+let fx2 = null;
+try { fx2 = fxc.getContext('2d'); } catch (e) {}
+let parts = [], fxRun = false;
+function fxSize(){ if (!fx2) return; const dpr = Math.min(2, window.devicePixelRatio || 1); fxc.width = innerWidth * dpr; fxc.height = innerHeight * dpr; fx2.setTransform(dpr, 0, 0, dpr, 0, 0); }
+fxSize(); addEventListener('resize', fxSize);
+function burst(x, y, o){
+  if (!fx2 || RM) return;
+  for (let i = 0; i < o.n; i++) { const a = Math.random() * Math.PI * 2, sp = (o.speed || 3) * (.35 + Math.random() * .9);
+    parts.push({x, y, vx:Math.cos(a) * sp, vy:Math.sin(a) * sp - (o.lift || 0), g:o.grav === undefined ? .05 : o.grav, life:0, max:(o.life || 45) * (.6 + Math.random() * .6), s:(o.size || 3) * (.5 + Math.random()), c:o.colors[i % o.colors.length], rot:Math.random() * 6, k:o.kind || 'spark'}); }
+  if (!fxRun) { fxRun = true; requestAnimationFrame(fxTick); }
+}
+function fxTick(){
+  fx2.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter(p => p.life < p.max);
+  for (const p of parts) {
+    p.life++; p.vx *= .985; p.vy = p.vy * .985 + p.g; p.x += p.vx; p.y += p.vy; p.rot += .1;
+    const t = 1 - p.life / p.max, sz = p.s * (.6 + t * .6);
+    fx2.globalAlpha = Math.min(1, t * 1.6); fx2.fillStyle = p.c; fx2.save(); fx2.translate(p.x, p.y); fx2.rotate(p.rot);
+    if (p.k === 'chip') fx2.fillRect(-sz / 2, -sz / 3, sz, sz * .7);
+    else { fx2.beginPath(); for (let i = 0; i < 8; i++) { const r = i % 2 ? sz * .35 : sz * 1.6, a = i * Math.PI / 4; fx2.lineTo(Math.cos(a) * r, Math.sin(a) * r); } fx2.closePath(); fx2.fill(); }
+    fx2.restore();
+  }
+  fx2.globalAlpha = 1;
+  if (parts.length) requestAnimationFrame(fxTick); else { fxRun = false; fx2.clearRect(0, 0, innerWidth, innerHeight); }
+}
+const elXY = el => { const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; };
+const anim = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+function toast(t, s, ic, color){
+  const el = document.createElement('div'); el.className = 'tst'; if (color) el.style.setProperty('--tc', color);
+  el.innerHTML = `${ic || ''}<div><b>${t}</b>${s ? `<span>${s}</span>` : ''}</div>`;
+  $('#toasts').appendChild(el); setTimeout(() => el.remove(), 3200);
+  while ($('#toasts').children.length > 3) $('#toasts').firstChild.remove();
+}
+
+/* ===================== level generation ===================== */
+const W = 13, H = 62;
+let L = null;
+const idx = (x, y) => y * W + x;
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+function genLevel(mine, hz, rich){
+  // the descent goes down the screen: a lift chamber, then compact chambers linked by winding shafts
+  const g = new Uint8Array(W * H); // 0 rock, 1 floor, 2 magma
+  const lift = {x:Math.floor(W / 2), y:2};
+  const carve = (x, y) => { if (x > 0 && y > 0 && x < W - 1 && y < H - 1) g[idx(x, y)] = 1; };
+  const chambers = [];
+  let cy = 1;
+  for (let k = 0; k < 5; k++) {
+    const hgt = k === 0 ? 3 : ri(6, 8), wid = k === 0 ? 5 : ri(7, 10);
+    const cx = k === 0 ? lift.x : ri(4, W - 5);
+    const top = cy, bottom = Math.min(H - 3, cy + hgt);
+    for (let y = top; y <= bottom; y++) for (let x = 1; x < W - 1; x++) {
+      const nx = (x - cx) / (wid / 2), ny = (y - (top + bottom) / 2) / ((bottom - top) / 2 + .5);
+      if (nx * nx + ny * ny + (Math.random() - .5) * .35 < 1) carve(x, y);
+    }
+    if (k > 0) for (let p = 0; p < ri(1, 2); p++) { const px = Math.round(cx + rnd(-wid / 4, wid / 4)), py = ri(top + 2, bottom - 2); g[idx(px, py)] = 0; if (Math.random() < .5) g[idx(px + 1, py)] = 0; }
+    chambers.push({k, cx, top, bottom});
+    cy = bottom + ri(3, 4);
+    if (cy > H - 10) break;
+  }
+  for (let k = 0; k < chambers.length - 1; k++) {
+    const a = chambers[k], b = chambers[k + 1];
+    let x = a.cx + ri(-1, 1), y = Math.round((a.top + a.bottom) / 2);
+    const ty = Math.round((b.top + b.bottom) / 2), tx = b.cx;
+    while (y < ty) { carve(x, y); if (Math.random() < .35 && x !== tx) x += Math.sign(tx - x); else y++; if (Math.random() < .2) carve(x + 1, y); }
+    if (Math.random() < .7) { let px = x, py = Math.round((a.bottom + b.top) / 2); const dir = Math.random() < .5 ? -1 : 1; for (let st = 0; st < ri(2, 3); st++) { px += dir; carve(px, py); } }
+  }
+  for (let dy = 0; dy <= 2; dy++) for (let dx = -1; dx <= 1; dx++) carve(lift.x + dx, lift.y + dy);
+  const lv = {g, lift, mine, hz, rich, chambers, dist:null, maxD:1, deps:[], gas:[], water:new Set(), waterSrc:[], magma:new Set(), rubble:new Map()};
+  computeDist(lv);
+  // magma pools in the deep part of the volcano mine
+  for (let k = 0; k < mine.magma; k++) {
+    const deep = floorCells(lv).filter(i => lv.dist[i] > lv.maxD * .62 && N4.every(([dx, dy]) => g[i + dx + dy * W] === 1));
+    if (!deep.length) break;
+    const c = deep[ri(0, deep.length - 1)];
+    const pool = [c];
+    if (Math.random() < .6) { const n = c + (Math.random() < .5 ? 1 : W); if (g[n] === 1) pool.push(n); }
+    pool.forEach(i => { g[i] = 2; lv.magma.add(i); });
+    computeDist(lv);
+    if (!reachableOk(lv)) { pool.forEach(i => { g[i] = 1; lv.magma.delete(i); }); computeDist(lv); }
+  }
+  // deposits sit in rock walls facing a passage
+  const cands = [];
+  for (let y = lift.y + 4; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = idx(x, y); if (g[i] !== 0) continue;
+    const faces = N4.map(([dx, dy]) => idx(x + dx, y + dy)).filter(j => g[j] === 1 && lv.dist[j] >= 0);
+    if (faces.length) cands.push({i, x, y, face:faces[ri(0, faces.length - 1)]});
+  }
+  const used = new Set();
+  for (let k = 0; k < Math.round(mine.deps * .8) && cands.length; k++) {
+    const free = cands.filter(c => !used.has(c.i));
+    if (!free.length) break;
+    const c = pickW(free.map(c => [c, .3 + Math.pow(lv.dist[c.face] / lv.maxD, 1.3) * 2]));
+    used.add(c.i); N4.forEach(([dx, dy]) => used.add(idx(c.x + dx, c.y + dy)));
+    const d = lv.dist[c.face] / lv.maxD;
+    const nearMagma = [...lv.magma].some(m => Math.abs(m % W - c.x) + Math.abs(Math.floor(m / W) - c.y) <= 3);
+    const kind = pickW([['crystal', 36], ['druse', 22], ['geode', 10 + d * 22], ['nugget', mine.pool.gold ? 12 : 0]]);
+    let sid = null;
+    if (kind === 'nugget') sid = Math.random() < .55 ? 'pyrite' : 'gold';
+    else if (kind !== 'geode') sid = pickW(Object.entries(mine.pool).filter(([s]) => s !== 'gold').map(([s, w]) => [s, w * Math.pow(1 + d * 2.2 + (nearMagma ? 1.5 : 0) + (rich ? .8 : 0), SP[s].r)]));
+    lv.deps.push({id:k, i:c.i, x:c.x, y:c.y, face:c.face, kind, sid, d, mesh:null});
+  }
+  // gas collects in dead ends and deep pockets
+  const gcand = floorCells(lv).filter(i => lv.dist[i] > lv.maxD * .25 && lv.dist[i] > 6);
+  for (let k = 0; k < (hz === 'gas' ? mine.gas + 2 : 0) && gcand.length; k++) { const i = gcand.splice(ri(0, gcand.length - 1), 1)[0]; lv.gas.push({x:i % W, y:Math.floor(i / W), r:1.5, mesh:null, alive:true}); }
+  const wcand = floorCells(lv).filter(i => lv.dist[i] > lv.maxD * .3 && lv.dist[i] < lv.maxD * .85);
+  for (let k = 0; k < (hz === 'water' ? 2 : 0) && wcand.length; k++) lv.waterSrc.push(wcand.splice(ri(0, wcand.length - 1), 1)[0]);
+  return lv;
+}
+function chamberOf(i){ const y = Math.floor(i / W); let c = 0; L.chambers.forEach((ch, k) => { if (y >= ch.top - 1) c = k; }); return c; }
+function floorCells(lv){ const out = []; for (let i = 0; i < W * H; i++) if (lv.g[i] === 1) out.push(i); return out; }
+const passable = (lv, i) => lv.g[i] === 1 && !lv.rubble.has(i);
+function computeDist(lv){
+  const d = new Int16Array(W * H).fill(-1), q = [idx(lv.lift.x, lv.lift.y)];
+  d[q[0]] = 0; let max = 1;
+  while (q.length) { const i = q.shift(); for (const [dx, dy] of N4) { const j = i + dx + dy * W; if (d[j] < 0 && lv.g[j] === 1) { d[j] = d[i] + 1; max = Math.max(max, d[j]); q.push(j); } } }
+  lv.dist = d; lv.maxD = max;
+}
+function reachableOk(lv){ let n = 0; for (let i = 0; i < W * H; i++) if (lv.g[i] === 1 && lv.dist[i] < 0) n++; return n < 3; }
+function path(lv, from, to){
+  if (from === to) return [];
+  const prev = new Int32Array(W * H).fill(-1), q = [from]; prev[from] = from;
+  while (q.length) { const i = q.shift(); if (i === to) break; for (const [dx, dy] of N4) { const j = i + dx + dy * W; if (prev[j] < 0 && passable(lv, j)) { prev[j] = i; q.push(j); } } }
+  if (prev[to] < 0) return null;
+  const out = []; for (let i = to; i !== from; i = prev[i]) out.unshift(i);
+  return out;
+}
+
+/* ===================== three.js scene ===================== */
+const canvas = $('#view');
+let R3 = null, scene, camera, clock, lampLight, player, liftBeam, walls, waterMesh, glintTex, floorMat;
+const wx = x => x - W / 2 + .5, wz = y => y - H / 2 + .5;
+function initRenderer(){
+  if (R3) return true;
+  if (!window.THREE) return false;
+  try { R3 = new THREE.WebGLRenderer({canvas, antialias:true}); } catch (e) { R3 = null; return false; }
+  R3.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  R3.outputEncoding = THREE.sRGBEncoding;
+  R3.toneMapping = THREE.ACESFilmicToneMapping;
+  clock = new THREE.Clock();
+  addEventListener('resize', resize3);
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(31, 4, 2, 56); x.fillRect(4, 31, 56, 2);
+  glintTex = new THREE.CanvasTexture(c);
+  return true;
+}
+// keep about 8 tiles across on a portrait phone: the narrower the screen, the higher the camera
+const CAM = {h:11, back:4.6};
+function resize3(){
+  if (!R3) return; R3.setSize(innerWidth, innerHeight, false);
+  if (camera) {
+    const a = innerWidth / innerHeight; camera.aspect = a; camera.fov = 52; camera.updateProjectionMatrix();
+    const half = Math.tan(26 * Math.PI / 180) * a;
+    CAM.h = Math.max(9, Math.min(17, 4.1 / half)); CAM.back = CAM.h * .4;
+  }
+}
+function rockTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.fillStyle = '#4a4038'; x.fillRect(0, 0, 256, 256);
+  for (let n = 0; n < 5000; n++) { x.fillStyle = Math.random() < .5 ? `rgba(20,14,10,${Math.random() * .4})` : `rgba(200,180,150,${Math.random() * .12})`; const s = Math.random() * 3 + .5; x.fillRect(Math.random() * 256, Math.random() * 256, s, s); }
+  for (let n = 0; n < 14; n++) { x.strokeStyle = `rgba(20,14,10,${.2 + Math.random() * .3})`; x.lineWidth = Math.random() * 2 + .5; x.beginPath(); let px = Math.random() * 256, py = Math.random() * 256; x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (Math.random() - .5) * 60; py += (Math.random() - .5) * 60; x.lineTo(px, py); } x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function buildScene(lv){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x020405);
+  scene.fog = new THREE.FogExp2(0x020405, .04);
+  camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, .1, 80);
+  scene.add(new THREE.AmbientLight(0x1a2a33, .55));
+  scene.add(new THREE.HemisphereLight(0x23404d, 0x0a0806, .35));
+  const tex = rockTexture();
+  const floorTex = tex.clone(); floorTex.needsUpdate = true; floorTex.repeat.set(W / 3, H / 3);
+  floorMat = new THREE.MeshStandardMaterial({map:floorTex, color:0x5a4c40, roughness:.95});
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, H), floorMat);
+  floor.rotation.x = -Math.PI / 2; floor.name = 'floor'; scene.add(floor);
+  // rock: every solid cell is a box, tinted by depth
+  const solid = []; for (let i = 0; i < W * H; i++) if (lv.g[i] === 0) solid.push(i);
+  const wallMat = new THREE.MeshStandardMaterial({map:tex, roughness:.9});
+  walls = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.3, 1), wallMat, solid.length);
+  const m4 = new THREE.Matrix4(), col = new THREE.Color();
+  solid.forEach((i, k) => {
+    const x = i % W, y = Math.floor(i / W);
+    m4.makeTranslation(wx(x), .65 + (Math.random() - .5) * .18, wz(y)); walls.setMatrixAt(k, m4);
+    const dd = Math.min(1, (y - lv.lift.y) / (H - lv.lift.y));
+    col.setHSL(.07 - dd * .05, .18 + dd * .1, .34 - dd * .12 + Math.random() * .06); walls.setColorAt(k, col);
+  });
+  scene.add(walls);
+  // magma pools
+  if (lv.magma.size) {
+    const mm = new THREE.MeshStandardMaterial({color:0x3a0a02, emissive:0xff4a10, emissiveIntensity:1.6, roughness:.6});
+    for (const i of lv.magma) {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(.96, .96), mm); p.rotation.x = -Math.PI / 2; p.position.set(wx(i % W), .03, wz(Math.floor(i / W))); scene.add(p);
+    }
+    const seen = new Set();
+    [...lv.magma].slice(0, 5).forEach(i => { if (seen.has(i)) return; seen.add(i); const l = new THREE.PointLight(0xff5a1a, 2.2, 6, 2); l.position.set(wx(i % W), .8, wz(Math.floor(i / W))); scene.add(l); });
+  }
+  // deposits
+  const geoOct = new THREE.OctahedronGeometry(.16, 0), geoIco = new THREE.IcosahedronGeometry(.34, 0), geoDod = new THREE.DodecahedronGeometry(.14, 0);
+  for (const dep of lv.deps) {
+    const grp = new THREE.Group();
+    const fx = dep.face % W - dep.x, fy = Math.floor(dep.face / W) - dep.y;
+    grp.position.set(wx(dep.x) + fx * .5, .62, wz(dep.y) + fy * .5);
+    const color = dep.sid ? SP[dep.sid].c : 0x6a5a48;
+    if (dep.kind === 'geode') {
+      const m = new THREE.Mesh(geoIco, new THREE.MeshStandardMaterial({color:0x5c4c3c, roughness:.95, flatShading:true}));
+      m.scale.set(1, .85, .8); grp.add(m);
+      const sp = new THREE.Mesh(new THREE.SphereGeometry(.06, 6, 6), new THREE.MeshBasicMaterial({color:0xc690ff})); sp.position.set(fx * .25, .05, fy * .25); grp.add(sp);
+    } else if (dep.kind === 'nugget') {
+      const m = new THREE.Mesh(geoDod, new THREE.MeshStandardMaterial({color, metalness:1, roughness:.35, emissive:color, emissiveIntensity:.15}));
+      grp.add(m); m.position.set(fx * .08, 0, fy * .08);
+    } else {
+      const mat = new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:.25, roughness:.15, metalness:.1, transparent:true, opacity:.92});
+      const n = dep.kind === 'druse' ? 7 : 3;
+      for (let k = 0; k < n; k++) {
+        const m = new THREE.Mesh(geoOct, mat);
+        m.scale.set(.7, 2.2 + Math.random(), .7);
+        m.position.set(fx * .1 + (Math.random() - .5) * .45 * Math.abs(fy || 1), (Math.random() - .5) * .45, fy * .1 + (Math.random() - .5) * .45 * Math.abs(fx || 1));
+        m.rotation.set((Math.random() - .5) * .8 + fy * .5, Math.random() * 3, (Math.random() - .5) * .8 - fx * .5);
+        grp.add(m);
+      }
+    }
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({map:glintTex, color:dep.kind === 'geode' ? 0xc690ff : color, blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, opacity:0}));
+    gl.scale.set(1.35, 1.35, 1.35); gl.position.set(fx * .2, .15, fy * .2); grp.add(gl);
+    grp.userData = {dep:dep.id, glint:gl, phase:Math.random() * 6};
+    grp.traverse(o => { o.userData.dep = dep.id; });
+    dep.mesh = grp; scene.add(grp);
+  }
+  // gas clouds
+  for (const g of lv.gas) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(g.r, 16, 12), new THREE.MeshBasicMaterial({color:0x9fd34a, transparent:true, opacity:.07, depthWrite:false}));
+    m.position.set(wx(g.x), .7, wz(g.y)); m.scale.y = .55;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(g.r - .06, g.r, 40), new THREE.MeshBasicMaterial({color:0xb8f05a, transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false}));
+    ring.rotation.x = -Math.PI / 2; m.add(ring); ring.position.set(0, -.66 / .55, 0);
+    g.mesh = m; g.ring = ring; scene.add(m);
+  }
+  // water tiles grow over time
+  waterMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({color:0x184a66, emissive:0x0a2a3e, emissiveIntensity:.6, roughness:.15, metalness:.3, transparent:true, opacity:.82}), W * H);
+  waterMesh.count = 0; scene.add(waterMesh);
+  // the lift
+  const lift = new THREE.Group();
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(.7, .7, .1, 20), new THREE.MeshStandardMaterial({color:0x6a5236, roughness:.8, metalness:.3}));
+  plat.position.y = .05; lift.add(plat);
+  for (const [a, b] of [[-.5, -.5], [.5, -.5], [-.5, .5], [.5, .5]]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, 2.4, 6), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:.8})); r.position.set(a, 1.2, b); lift.add(r); }
+  liftBeam = new THREE.Mesh(new THREE.CylinderGeometry(.55, .7, 2.2, 20, 1, true), new THREE.MeshBasicMaterial({color:0xe3a857, transparent:true, opacity:.06, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending}));
+  liftBeam.position.y = 1.1; lift.add(liftBeam);
+  const ll = new THREE.PointLight(0xffc77a, 1.2, 5, 2); ll.position.y = 2.2; lift.add(ll);
+  lift.position.set(wx(lv.lift.x), 0, wz(lv.lift.y)); scene.add(lift);
+  // the miner and his lamp
+  player = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.2, .24, .85, 10), new THREE.MeshStandardMaterial({color:0x3e5a66, roughness:.8})); body.position.y = .5; player.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.17, 12, 10), new THREE.MeshStandardMaterial({color:0xd8b48a, roughness:.7})); head.position.y = 1.05; player.add(head);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(.19, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({color:0xc89a2a, roughness:.5, metalness:.3})); helm.position.y = 1.08; player.add(helm);
+  const lampBulb = new THREE.Mesh(new THREE.SphereGeometry(.05, 8, 8), new THREE.MeshBasicMaterial({color:0xfff1c0})); lampBulb.position.set(0, 1.18, .17); player.add(lampBulb);
+  lampLight = new THREE.PointLight(0xffd59a, 2.4, 9, 1.6); lampLight.position.set(0, 1.6, .2); player.add(lampLight);
+  scene.add(player);
+  resize3();
+}
+function updateWaterMesh(){
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), s = new THREE.Vector3(1, 1, 1);
+  let k = 0;
+  for (const i of L.water) { m4.compose(new THREE.Vector3(wx(i % W), .06, wz(Math.floor(i / W))), q, s); waterMesh.setMatrixAt(k++, m4); }
+  waterMesh.count = k; waterMesh.instanceMatrix.needsUpdate = true;
+}
+function addRubble(i){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({color:0x6a5a4a, roughness:.95, flatShading:true});
+  for (let k = 0; k < 6; k++) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(.15, .3), 0), mat); m.position.set(rnd(-.35, .35), rnd(.1, .5), rnd(-.35, .35)); m.rotation.set(rnd(0, 3), rnd(0, 3), 0); g.add(m); }
+  g.position.set(wx(i % W), 0, wz(Math.floor(i / W)));
+  g.traverse(o => { o.userData.rubble = i; });
+  scene.add(g); L.rubble.set(i, g);
+}
+
+/* ===================== run state ===================== */
+let S = null, raf = 0;
+function newRun(mineId, hz){
+  hz = hz || 'gas';
+  const mine = MINEM[mineId];
+  if (!initRenderer()) { openPanel(`${head('Нет 3D', 'WebGL недоступен')}<p class="nogl">Этому браузеру не удалось запустить 3D. Попробуйте открыть страницу в другом браузере.</p><button type="button" class="btn" data-close>Понятно</button>`); return; }
+  L = genLevel(mine, hz, isRich(mineId));
+  buildScene(L);
+  const bag = BAGS[save.up.bag];
+  S = {mine, hz, joy:null, skipDep:null, idle:0, maxCh:0, cell:idx(L.lift.x, L.lift.y), pos:{x:wx(L.lift.x), z:wz(L.lift.y)}, path:[], target:null, oil:100, oilMax:100 * (1 + .35 * save.up.lamp),
+    hearts:3 + save.up.helmet, heartsMax:3 + save.up.helmet, bag:{cols:bag[0], rows:bag[1], items:[]}, pending:null, mode:'walk', t:0,
+    quakeAt:hz === 'quake' ? mine.quake * .45 * rnd(.8, 1.2) : 1e9, floodAt:14, hurtT:0, clearing:null, deepest:0, keys:{}, shake:0, walkT:0};
+  S.oil = S.oilMax;
+  save.st.runs++; persist();
+  $('#campApp').hidden = true; canvas.hidden = false; $('#hud').hidden = false; $('#bottom').hidden = false;
+  document.body.classList.add('inrun');
+  $('#hMine').innerHTML = `${mine.name}<span class="hzc" style="--hc:${HZ[hz].c}">${HZ[hz].n}</span>`;
+  $('#hint').hidden = save.st.runs > 3;
+  player.position.set(S.pos.x, 0, S.pos.z);
+  camera.position.set(S.pos.x, CAM.h, S.pos.z + 1 + CAM.back);
+  clock.getDelta();
+  cancelAnimationFrame(raf); loop();
+  hud(); ctx();
+  toast(`Опасность: ${HZ[hz].n.toLowerCase()}`, HZ[hz].d, '', HZ[hz].c);
+}
+function endRun(){
+  cancelAnimationFrame(raf); raf = 0;
+  canvas.hidden = true; $('#hud').hidden = true; $('#bottom').hidden = true; $('#mineUI').hidden = true;
+  $('#campApp').hidden = false; document.body.classList.remove('inrun');
+  $('#toasts').innerHTML = '';
+  S = null;
+}
+
+/* ===================== loop ===================== */
+function loop(){
+  raf = requestAnimationFrame(loop);
+  const dt = Math.min(.05, clock.getDelta());
+  if (S.mode === 'walk' || S.mode === 'clear') tick(dt);
+  const t = clock.elapsedTime;
+  // lamp radius follows the oil left
+  const frac = S.oil / S.oilMax, flick = frac < .2 ? (Math.random() < .08 ? .4 : 1) : 1;
+  lampLight.distance = (2.2 + 7.5 * Math.sqrt(frac)) * (1 + .1 * save.up.lamp);
+  lampLight.intensity = (S.oil > 0 ? 2.4 : .5) * flick;
+  scene.fog.density = .03 + (1 - frac) * .06;
+  // glints only show inside the lamp's reach
+  for (const dep of L.deps) {
+    if (!dep.mesh) continue;
+    const dx = dep.mesh.position.x - S.pos.x, dz = dep.mesh.position.z - S.pos.z, dist = Math.hypot(dx, dz);
+    const vis = Math.max(0, 1 - dist / (lampLight.distance * .9));
+    dep.mesh.userData.glint.material.opacity = vis * (.35 + .65 * Math.pow(Math.max(0, Math.sin(t * 2.2 + dep.mesh.userData.phase)), 6)) * (S.oil > 0 ? 1 : .3);
+  }
+  for (const g of L.gas) if (g.alive) { g.mesh.material.opacity = .06 + .03 * Math.sin(t * 1.5 + g.x); g.ring.material.opacity = save.up.gas ? .35 + .2 * Math.sin(t * 3) : 0; g.mesh.rotation.y += dt * .2; }
+  liftBeam.material.opacity = .05 + .03 * Math.sin(t * 2);
+  // camera follows with a little lag; shakes during quakes
+  S.shake = Math.max(0, S.shake - dt);
+  const sh = S.shake > 0 ? S.shake * .25 : 0;
+  camera.position.x += (S.pos.x - camera.position.x) * Math.min(1, dt * 4) + (Math.random() - .5) * sh;
+  camera.position.z += (S.pos.z + 1 + CAM.back - camera.position.z) * Math.min(1, dt * 4) + (Math.random() - .5) * sh;
+  camera.position.y = CAM.h;
+  camera.lookAt(camera.position.x, 0, camera.position.z - CAM.back);
+  player.position.set(S.pos.x, 0, S.pos.z);
+  R3.render(scene, camera);
+}
+function cellAt(x, z){ return idx(Math.floor(x + W / 2), Math.floor(z + H / 2)); }
+function tick(dt){
+  S.t += dt;
+  const inWater = L.water.has(S.cell);
+  S.oil = Math.max(0, S.oil - dt * .62 * S.mine.oil * (inWater ? 1.6 : 1));
+  // movement: keyboard or path
+  let kx = (S.keys.right ? 1 : 0) - (S.keys.left ? 1 : 0), kz = (S.keys.down ? 1 : 0) - (S.keys.up ? 1 : 0);
+  if (S.joy) { kx = S.joy.x; kz = S.joy.z; }
+  const speed = 3.1 * (inWater ? [.45, .65, .85][save.up.boots] : 1);
+  if (S.mode === 'walk') {
+    if (kx || kz) {
+      S.path = []; S.target = null;
+      const l = Math.max(1, Math.hypot(kx, kz)), nx = S.pos.x + kx / l * speed * dt, nz = S.pos.z + kz / l * speed * dt;
+      if (canStand(nx, S.pos.z)) S.pos.x = nx;
+      if (canStand(S.pos.x, nz)) S.pos.z = nz;
+      player.rotation.y = Math.atan2(kx, kz);
+      stepSound(dt);
+    } else if (S.path.length) {
+      const n = S.path[0], tx = wx(n % W), tz = wz(Math.floor(n / W));
+      const dx = tx - S.pos.x, dz = tz - S.pos.z, d = Math.hypot(dx, dz);
+      if (!passable(L, n)) { S.path = []; }
+      else if (d < speed * dt) { S.pos.x = tx; S.pos.z = tz; S.path.shift(); if (!S.path.length) arrived(); }
+      else { S.pos.x += dx / d * speed * dt; S.pos.z += dz / d * speed * dt; player.rotation.y = Math.atan2(dx, dz); }
+      stepSound(dt);
+    }
+  }
+  const c = cellAt(S.pos.x, S.pos.z);
+  if (c !== S.cell) {
+    S.cell = c; S.skipDep = null; S.idle = 0; ctx();
+    const ch = chamberOf(c);
+    if (ch > S.maxCh) { S.maxCh = ch; toast(`Камера ${ch + 1} из ${L.chambers.length}`, `Глубина ${Math.round(Math.max(0, L.dist[c]) * 4.5)} м${ch === L.chambers.length - 1 ? ' · самая глубокая' : ''}`, '', 'var(--anom)'); }
+  }
+  // standing still next to a glint starts the dig on its own
+  const moving = S.path.length || Math.abs(kx) > .05 || Math.abs(kz) > .05;
+  if (!moving && S.mode === 'walk') { const dep = adjDep(); if (dep && dep.id !== S.skipDep) { S.idle += dt; if (S.idle > .3) { S.idle = 0; startMining(dep); } } else S.idle = 0; } else S.idle = 0;
+  const depth = Math.round(Math.max(0, L.dist[S.cell]) * 4.5);
+  S.deepest = Math.max(S.deepest, depth);
+  // heat near magma
+  const nearMagma = N4.some(([dx, dy]) => L.magma.has(S.cell + dx + dy * W));
+  if (nearMagma) { S.hurtT += dt; if (S.hurtT > 2.5) { S.hurtT = 0; hurt('Жар от магмы'); } } else S.hurtT = 0;
+  // darkness is dangerous
+  if (S.oil <= 0) { S.darkT = (S.darkT || 0) + dt; if (S.darkT > 7) { S.darkT = 0; hurt('В темноте вы оступились'); } }
+  // rising water
+  if (L.waterSrc.length && S.t > S.floodAt) {
+    S.floodAt = S.t + rnd(6, 9);
+    let grew = false;
+    for (const src of L.waterSrc) {
+      if (!L.water.has(src)) { L.water.add(src); grew = true; continue; }
+      const front = [...L.water].flatMap(i => N4.map(([dx, dy]) => i + dx + dy * W)).filter(j => L.g[j] === 1 && !L.water.has(j));
+      for (let k = 0; k < 2 && front.length; k++) { L.water.add(front.splice(ri(0, front.length - 1), 1)[0]); grew = true; }
+    }
+    if (L.water.size > 70) L.waterSrc = [];
+    if (grew) { updateWaterMesh(); if (Math.random() < .3) SFX.water(); }
+  }
+  // tremors bury passages
+  if (S.t > S.quakeAt) {
+    S.quakeAt = S.t + S.mine.quake * .45 * rnd(.7, 1.1);
+    quake();
+  }
+  if (S.mode === 'clear') { S.clearing.t += dt; if (S.clearing.t > 2.2) finishClear(); }
+  hudTick();
+}
+function canStand(x, z){
+  for (const [ox, oz] of [[-.28, -.28], [.28, -.28], [-.28, .28], [.28, .28]]) { const i = cellAt(x + ox, z + oz); if (!passable(L, i)) return false; }
+  return true;
+}
+function stepSound(dt){ S.walkT += dt; if (S.walkT > .38) { S.walkT = 0; SFX.step(); } }
+function hurt(why){
+  S.hearts--; SFX.hurt(); S.shake = .4;
+  toast(why, S.hearts > 0 ? `Осталось попыток: ${S.hearts}` : 'Спасатели выводят вас наверх', '', 'var(--danger)');
+  hud();
+  if (S.hearts <= 0) rescue();
+}
+function quake(){
+  SFX.quake(); S.shake = 1.4;
+  const cand = floorCells(L).filter(i => i !== S.cell && Math.abs(i % W - S.cell % W) + Math.abs(Math.floor(i / W) - Math.floor(S.cell / W)) < 12 && i !== idx(L.lift.x, L.lift.y) && !L.rubble.has(i) && L.dist[i] > 3);
+  const n = ri(2, 4);
+  for (let k = 0; k < n && cand.length; k++) addRubble(cand.splice(ri(0, cand.length - 1), 1)[0]);
+  toast('Толчок!', 'Часть проходов завалило. Завал можно разобрать кайлом, но это время.', '', '#d9c39a');
+  if (S.path.length && S.path.some(i => L.rubble.has(i))) S.path = [];
+  ctx();
+}
+
+/* ===================== interaction ===================== */
+const ray = new (window.THREE ? THREE.Raycaster : Object)();
+let down = null;
+const joyEl = $('#joy'), knob = $('#joyKnob');
+function endJoy(){ joyEl.hidden = true; if (S) S.joy = null; down = null; }
+canvas.addEventListener('pointerdown', e => { down = {x:e.clientX, y:e.clientY, joy:false}; ac(); try { canvas.setPointerCapture(e.pointerId); } catch (er) {} });
+canvas.addEventListener('pointermove', e => {
+  if (!down || !S || S.mode !== 'walk') return;
+  const dx = e.clientX - down.x, dy = e.clientY - down.y, d = Math.hypot(dx, dy);
+  if (!down.joy && d > 14) { down.joy = true; S.path = []; S.target = null; joyEl.hidden = false; joyEl.style.left = down.x + 'px'; joyEl.style.top = down.y + 'px'; }
+  if (down.joy) { const k = Math.min(1, d / 45); S.joy = {x:dx / (d || 1) * k, z:dy / (d || 1) * k}; knob.style.transform = `translate(${dx / (d || 1) * Math.min(d, 32)}px,${dy / (d || 1) * Math.min(d, 32)}px)`; }
+});
+canvas.addEventListener('pointercancel', endJoy);
+canvas.addEventListener('pointerup', e => {
+  if (down && down.joy) return endJoy();
+  if (!S || S.mode !== 'walk' || !down) return;
+  if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) return;
+  const v = new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(v, camera);
+  const hits = ray.intersectObjects(scene.children, true);
+  for (const h of hits) {
+    if (h.object.userData.dep !== undefined) { const dep = L.deps[h.object.userData.dep]; if (dep && dep.mesh) return goTo(dep.face, {dep}); }
+    if (h.object.userData.rubble !== undefined) { const i = h.object.userData.rubble; const adj = N4.map(([dx, dy]) => i + dx + dy * W).filter(j => passable(L, j)).sort((a, b) => Math.abs(a - S.cell) - Math.abs(b - S.cell)); if (adj.length) return goTo(adj[0], {rubble:i}); }
+    if (h.object.name === 'floor') {
+      let c = cellAt(h.point.x, h.point.z);
+      if (!passable(L, c)) { const alt = N4.map(([dx, dy]) => c + dx + dy * W).find(j => passable(L, j)); if (alt === undefined) return; c = alt; }
+      return goTo(c, null);
+    }
+  }
+});
+function goTo(cell, intent){
+  const p = path(L, S.cell, cell);
+  if (p === null) return toast('Не пройти', 'Путь перекрыт водой, магмой или завалом.', '', 'var(--danger)');
+  S.path = p; S.target = intent;
+  if (!p.length) arrived();
+}
+function arrived(){
+  const it = S.target; S.target = null;
+  if (it && it.dep && it.dep.mesh && S.cell === it.dep.face) startMining(it.dep);
+  if (it && it.rubble !== undefined && L.rubble.has(it.rubble)) startClear(it.rubble);
+  ctx();
+}
+function adjDep(){ return L.deps.find(d => d.mesh && d.face === S.cell) || L.deps.find(d => d.mesh && N4.some(([dx, dy]) => d.i === S.cell + dx + dy * W)); }
+function adjRubble(){ for (const [dx, dy] of N4) { const j = S.cell + dx + dy * W; if (L.rubble.has(j)) return j; } return null; }
+const onLift = () => S.cell === idx(L.lift.x, L.lift.y) || N4.some(([dx, dy]) => S.cell === idx(L.lift.x, L.lift.y) + dx + dy * W);
+function ctx(){
+  if (!S) return;
+  const bits = [];
+  const dep = adjDep(), rub = adjRubble();
+  if (rub !== null) bits.push(`<button type="button" class="btn" data-act="clear" data-rub="${rub}">Разобрать завал</button>`);
+  if (onLift()) bits.push(`<button type="button" class="btn" data-act="up">Подняться<small>${S.bag.items.length} ${plural(S.bag.items.length, 'находка', 'находки', 'находок')}</small></button>`);
+  else bits.push(`<button type="button" class="ghost" data-act="home">К лифту</button>`);
+  bits.push(`<button type="button" class="ghost" data-act="bag">Рюкзак</button>`);
+  $('#ctx').innerHTML = bits.join('');
+}
+function hud(){
+  if (!S) return;
+  $('#hHearts').innerHTML = '⛑'.repeat(Math.max(0, S.hearts)) + `<i>${'⛑'.repeat(Math.max(0, S.heartsMax - S.hearts))}</i>`;
+  const used = S.bag.items.reduce((s, it) => s + it.w * it.h, 0);
+  $('#hBag').textContent = `рюкзак ${used}/${S.bag.cols * S.bag.rows}`;
+}
+let lastHud = 0;
+function hudTick(){
+  if (S.t - lastHud < .2) return; lastHud = S.t;
+  const f = S.oil / S.oilMax;
+  $('#hOilBar').style.width = (f * 100) + '%';
+  $('#hOilTxt').textContent = Math.round(f * 100) + '%';
+  $('#hOil').classList.toggle('low', f < .25);
+  $('#hDepth').textContent = `${Math.round(Math.max(0, L.dist[S.cell]) * 4.5)} м · рекорд ${Math.max(save.st.deepest, S.deepest)} м`;
+  const nearGas = L.gas.find(g => g.alive && Math.hypot(wx(g.x) - S.pos.x, wz(g.y) - S.pos.z) < g.r + 1.2);
+  const w = [];
+  if (f <= 0) w.push('Масло кончилось — пора к лифту');
+  else if (f < .25) w.push('Масла мало');
+  if (nearGas) w.push(save.up.gas ? 'Газоанализатор: рядом газ, кайлом осторожно' : 'Пахнет газом…');
+  if (L.water.has(S.cell)) w.push('Вы в воде');
+  if (N4.some(([dx, dy]) => L.magma.has(S.cell + dx + dy * W))) w.push('Нестерпимый жар');
+  $('#hWarn').textContent = w.join(' · ');
+  if (nearGas && Math.random() < .05) SFX.hiss();
+}
+
+/* ===================== mining minigame ===================== */
+let MG = null;
+function startMining(dep){
+  if (!dep || !dep.mesh) return;
+  S.mode = 'mining'; S.path = [];
+  const zw = [.22, .27, .33, .4][save.up.pick];
+  MG = {dep, hits:[], t:0, zc:rnd(.25, .75), zw, raf:0, speed:rnd(2.2, 2.8)};
+  const ui = $('#mineUI'); ui.hidden = false; $('#bottom').hidden = true;
+  $('#mTitle').innerHTML = `${dep.kind === 'geode' ? 'Жеода в стене' : `${KIND[dep.kind].n}: ${SP[dep.sid].n.toLowerCase()}`}<small>${dep.kind === 'geode' ? 'что внутри — узнаете в лагере' : RAR[SP[dep.sid].r].toLowerCase()}</small>`;
+  $('#mZone').style.left = ((MG.zc - zw / 2) * 100) + '%'; $('#mZone').style.width = (zw * 100) + '%';
+  $('#mHits').innerHTML = '<i></i><i></i><i></i>'; $('#mMsg').textContent = '';
+  const step = () => { if (!MG) return; MG.t += 1 / 60; const p = (Math.sin(MG.t * MG.speed * (1 + MG.hits.length * .25)) + 1) / 2; MG.p = p; $('#mNeedle').style.left = (p * 100) + '%'; MG.raf = requestAnimationFrame(step); };
+  step();
+}
+function strike(){
+  if (!MG || MG.hits.length >= 3) return;
+  const d = Math.abs(MG.p - MG.zc) / (MG.zw / 2);
+  const h = d < .3 ? 'p' : d < 1 ? 'g' : 'm';
+  MG.hits.push(h);
+  $('#mHits').children[MG.hits.length - 1].className = h;
+  ({p:SFX.perfect, g:SFX.good, m:SFX.miss})[h]();
+  $('#mMsg').textContent = {p:'Чисто!', g:'Хорошо', m:'Мимо'}[h];
+  $('#mMsg').style.color = {p:'#9be07a', g:'var(--lamp)', m:'var(--danger)'}[h];
+  const [x, y] = elXY($('#mNeedle'));
+  burst(x, y, {n:10, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:4, grav:.3, size:4, kind:'chip'});
+  S.shake = .15;
+  // an iron pick throws sparks; gas nearby can catch
+  const gas = L.gas.find(g => g.alive && Math.hypot(wx(g.x) - S.pos.x, wz(g.y) - S.pos.z) < g.r + .6);
+  if (gas && Math.random() < (h === 'm' ? .45 : .2) / (save.up.gas >= 2 ? 2 : 1)) return explode(gas);
+  if (MG.hits.length >= 3) setTimeout(finishMining, 450);
+}
+function explode(gas){
+  cancelAnimationFrame(MG.raf); MG = null; $('#mineUI').hidden = true; $('#bottom').hidden = false; S.mode = 'walk';
+  gas.alive = false; scene.remove(gas.mesh);
+  SFX.boom(); S.shake = 1.2;
+  const f = document.createElement('div'); f.className = 'flash'; document.body.appendChild(f); setTimeout(() => f.remove(), 800);
+  const lost = S.bag.items.length ? S.bag.items.splice(ri(0, S.bag.items.length - 1), 1)[0] : null;
+  toast('Взрыв газа!', lost ? `Искра от кайла. В суматохе потеряно: ${itemName(lost).toLowerCase()}.` : 'Искра от кайла подожгла газ.', '', 'var(--danger)');
+  hurt('Вас отбросило взрывом');
+  hud(); ctx();
+}
+function finishMining(){
+  if (!MG) return;
+  cancelAnimationFrame(MG.raf);
+  const dep = MG.dep, score = MG.hits.reduce((s, h) => s + (h === 'p' ? 2 : h === 'g' ? 1 : 0), 0), misses = MG.hits.filter(h => h === 'm').length;
+  MG = null; $('#mineUI').hidden = true; $('#bottom').hidden = false; S.mode = 'walk';
+  let w = 1, h = 1, cracked = false;
+  if (dep.kind === 'crystal') { if (score >= 5) h = 3; else if (score >= 2) h = 2; }
+  if (dep.kind === 'druse') { if (score >= 4) { w = 2; h = 2; } else if (score >= 2) h = 2; }
+  if (dep.kind === 'nugget' && score >= 5) w = 2;
+  if (dep.kind === 'geode') { w = 2; h = 2; if (misses && Math.random() < .35 * misses) { cracked = true; w = 1; h = 1; } }
+  const item = {id:nid(), kind:dep.kind, sid:dep.sid, w, h, q:score, d:dep.d, depth:Math.round(Math.max(0, L.dist[dep.face]) * 4.5), mine:S.mine.id, cracked};
+  scene.remove(dep.mesh); dep.mesh = null;
+  const r = dep.sid ? SP[dep.sid].r : 2;
+  SFX.got(r);
+  const sizeTxt = w * h === 1 ? (score < 2 && dep.kind !== 'nugget' ? 'обломок' : 'мелкий') : w * h >= 4 ? 'крупный' : 'средний';
+  toast(itemName(item), `${sizeTxt}, ${w}×${h} · ${['', 'неплохо', 'аккуратно', 'отлично'][Math.min(3, Math.ceil(score / 2))] || 'грубая работа'}`, itemImg(item), dep.sid ? hex(SP[dep.sid].c) : '#c690ff');
+  if (!place(S.bag, item)) { S.pending = item; openBag(); }
+  hud(); ctx();
+}
+function startClear(i){ S.mode = 'clear'; S.path = []; S.clearing = {i, t:0}; toast('Разбираете завал…', 'Пара секунд', '', '#d9c39a'); SFX.miss(); }
+function finishClear(){ const i = S.clearing.i; const g = L.rubble.get(i); if (g) scene.remove(g); L.rubble.delete(i); S.clearing = null; S.mode = 'walk'; SFX.good(); ctx(); }
+
+/* ===================== backpack ===================== */
+function fits(bag, it, x, y, w, h, ignore){
+  if (x < 0 || y < 0 || x + w > bag.cols || y + h > bag.rows) return false;
+  return !bag.items.some(o => o !== ignore && o !== it && x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h);
+}
+function place(bag, it){
+  for (const [w, h] of [[it.w, it.h], [it.h, it.w]]) for (let y = 0; y < bag.rows; y++) for (let x = 0; x < bag.cols; x++) if (fits(bag, it, x, y, w, h)) { it.x = x; it.y = y; it.w = w; it.h = h; bag.items.push(it); return true; }
+  return false;
+}
+function repack(){
+  // greedy repack by size; if anything no longer fits, keep the old layout
+  const before = S.bag.items.map(it => ({it, x:it.x, y:it.y, w:it.w, h:it.h}));
+  const all = S.bag.items.slice().sort((a, b) => b.w * b.h - a.w * a.h); S.bag.items = [];
+  const left = all.filter(it => !place(S.bag, it));
+  if (left.length) { S.bag.items = before.map(b => Object.assign(b.it, {x:b.x, y:b.y, w:b.w, h:b.h})); return false; }
+  return true;
+}
+let bagSel = null;
+function openBag(){
+  if (!S) return;
+  const b = S.bag, bc = Math.min(52, Math.floor((Math.min(innerWidth, 480) - 70) / b.cols));
+  const grid = `<div class="bag" style="--bc:${bc}px;grid-template-columns:repeat(${b.cols}, ${bc}px)">${Array.from({length:b.cols * b.rows}, () => '<div class="cell"></div>').join('')}
+    ${b.items.map(it => `<button type="button" class="it${bagSel === it.id ? ' sel' : ''}" data-bit="${it.id}" style="left:${6 + it.x * (bc + 3)}px;top:${6 + it.y * (bc + 3)}px;width:${it.w * bc + (it.w - 1) * 3}px;height:${it.h * bc + (it.h - 1) * 3}px">${itemImg(it)}<small>${it.w}×${it.h}</small></button>`).join('')}</div>`;
+  const sel = b.items.find(it => it.id === bagSel);
+  openPanel(`${head('Рюкзак', `${b.items.length} ${plural(b.items.length, 'находка', 'находки', 'находок')}`)}
+    ${S.pending ? `<div class="pending">${itemImg(S.pending)}<div><b>${itemName(S.pending)}</b> (${S.pending.w}×${S.pending.h}) не помещается. Выбросьте что-нибудь или оставьте находку в шахте.</div></div>` : ''}
+    ${grid}
+    ${sel ? `<div class="two"><span style="font-size:13.5px">${itemName(sel)} · ${sel.w}×${sel.h}</span><button type="button" class="ghost" data-drop="${sel.id}">Выбросить</button></div>` : '<p class="muted" style="margin:0;font-size:12.5px">Нажмите на находку, чтобы выбрать её. Разные находки занимают разное место: жеода 2×2, крупный кристалл 1×3.</p>'}
+    <div class="two"><button type="button" class="ghost" data-repack>Уплотнить</button>${S.pending ? '<button type="button" class="ghost" data-leave>Оставить находку</button>' : '<button type="button" class="btn" data-close>Закрыть</button>'}</div>`);
+}
+
+/* ===================== leaving the mine ===================== */
+function ascend(){
+  if (!S || !onLift()) return;
+  SFX.lift();
+  const items = S.bag.items.map(({x, y, ...it}) => it);
+  save.finds.push(...items);
+  save.st.ups++; save.st.deepest = Math.max(save.st.deepest, S.deepest);
+  persist();
+  const depth = S.deepest, mine = S.mine;
+  endRun();
+  showCamp('finds');
+  openPanel(`${head(mine.name, 'Вы наверху')}<div class="rows"><div class="row"><span>Находок</span><span>${items.length}</span></div><div class="row"><span>Глубина</span><span>${depth} м</span></div></div>
+    ${items.length ? `<div class="grid3">${items.map(it => `<div class="fc dirty">${itemImg(it)}<span class="n">${itemName(it)}</span><span class="m">${it.w}×${it.h}</span></div>`).join('')}</div>` : ''}
+    <button type="button" class="btn" data-close>${items.length ? 'Расчищать и раскалывать' : 'В лагерь'}</button>`);
+}
+function rescue(){
+  S.mode = 'dead';
+  const lost = S.bag.items.length;
+  save.st.rescues++; save.st.deepest = Math.max(save.st.deepest, S.deepest); persist();
+  const mine = S.mine;
+  setTimeout(() => {
+    endRun(); showCamp('mines');
+    openPanel(`${head(mine.name, 'Вас подняли спасатели')}<p style="margin:0">Рюкзак остался внизу${lost ? `: ${lost} ${plural(lost, 'находка', 'находки', 'находок')}` : ''}. Каска и фонарь получше дадут больше времени.</p><button type="button" class="btn" data-close>В лагерь</button>`);
+  }, 900);
+}
+
+/* ===================== camp ===================== */
+let tab = 'mines', lastTab = null;
+function showCamp(t){ if (t) tab = t; renderCamp(); }
+function renderCamp(){
+  $('#money').textContent = fmt(save.money) + ' ₽'; $('#mute').textContent = save.mute ? '🔇' : '🔊';
+  const tabs = [['mines', 'Шахты', 0], ['finds', 'Находки', save.finds.length], ['coll', 'Коллекция', 0], ['gear', 'Снаряжение', 0]];
+  let body = '';
+  if (tab === 'mines') {
+    body = `<div class="hero"><div><b>Спуститься, найти, вынести</b><span>Чем глубже, тем богаче. И тем меньше масла на обратный путь.</span></div></div>
+      ${MINES.map(m => { const open = save.open[m.id];
+        return `<div class="mine${open ? '' : ' locked'}"><div class="mine-h"><b>${m.name}</b><span>${m.place}</span></div><p>${m.hint}</p>
+          <div class="tags">${isRich(m.id) ? '<span class="rich">★ богатый забой сегодня</span>' : ''}${m.hz.map(h => `<span class="${h}">${HZ[h].n.toLowerCase()}</span>`).join('')}${m.magma ? '<span class="magma">магма</span>' : ''}</div>
+          <div class="minis">${Object.keys(m.pool).map(id => imgTag(id)).join('')}</div>
+          ${open ? `<button type="button" class="btn" data-run="${m.id}">Спуститься</button>` : `<button type="button" class="ghost" data-unlock="${m.id}"${save.money < m.cost ? ' disabled' : ''}>Купить лицензию · ${fmt(m.cost)} ₽</button>`}</div>`; }).join('')}`;
+  } else if (tab === 'finds') {
+    body = `<div class="sec-h"><h2>Не обработано · ${save.finds.length}</h2></div>
+      ${save.finds.length ? `<div class="grid3">${save.finds.map(it => `<button type="button" class="fc dirty" data-find="${it.id}">${itemImg(it)}<span class="n">${itemName(it)}</span><span class="m">${it.w}×${it.h} · ${it.depth} м</span></button>`).join('')}</div>
+        <button type="button" class="btn" data-findall>Обрабатывать по очереди</button>` : '<p class="empty">Пока ничего. Спуститесь в шахту и вынесите хоть что-нибудь.</p>'}`;
+  } else if (tab === 'coll') {
+    const c = save.coll.slice().sort((a, b) => b.value - a.value);
+    body = `<div class="sec-h"><h2>Коллекция · ${c.length}</h2></div>
+      ${c.length ? `<div class="grid3">${c.map(s => `<button type="button" class="fc" data-coll="${s.id}" style="--rc:${RC[SP[s.sid].r]}">${imgTag(s.sid)}<span class="n">${SP[s.sid].n}</span><span class="m">${GR[s.gi].n} · ${fmt(s.value)} ₽</span></button>`).join('')}</div>` : '<p class="empty">Пусто. После обработки нажмите «В коллекцию».</p>'}
+      <div class="rows"><div class="row"><span>Спусков</span><span>${save.st.runs}</span></div><div class="row"><span>Подъёмов</span><span>${save.st.ups}</span></div><div class="row"><span>Выносили спасатели</span><span>${save.st.rescues}</span></div>
+        <div class="row"><span>Глубже всего</span><span>${save.st.deepest} м</span></div><div class="row"><span>Лучшая находка</span><span>${save.st.best ? `${save.st.best.name}, ${fmt(save.st.best.value)} ₽` : '—'}</span></div></div>
+      <button type="button" class="ghost" data-help>Как играть</button><button type="button" class="ghost" data-reset>Сбросить прогресс</button>`;
+  } else {
+    body = `<div class="sec-h"><h2>Снаряжение</h2></div><div class="ups">${UPS.map(u => { const lv = save.up[u.id], max = lv >= u.cost.length;
+      return `<div class="up"><div><b>${u.n}</b> <span class="lv">${lv}/${u.cost.length}</span><p>${u.d(lv)}${max ? '' : ` → ${u.d(lv + 1).toLowerCase()}`}</p></div><button type="button" class="buy" data-up="${u.id}"${max || save.money < u.cost[lv] ? ' disabled' : ''}>${max ? 'макс.' : fmt(u.cost[lv]) + ' ₽'}</button></div>`; }).join('')}</div>`;
+  }
+  $('#camp').innerHTML = `<nav class="tabs">${tabs.map(([id, n, c]) => `<button type="button" data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}${c ? `<span class="dot">${c}</span>` : ''}</button>`).join('')}</nav>${body}`;
+  if (lastTab !== tab) { lastTab = tab; let i = 0; $('#camp').querySelectorAll('.hero, .mine, .fc, .up, .sec-h, .btn').forEach(el => { el.classList.add('fx-in'); el.style.setProperty('--i', Math.min(i++, 14)); }); }
+}
+
+/* ===================== processing finds (the reveal) ===================== */
+const stage = $('#stage');
+let ST = null;
+function crackPaths(seed, count){
+  const rand = mulberry(seed), out = [];
+  for (let k = 0; k < count; k++) { let x = 50 + (rand() - .5) * 10, y = 50 + (rand() - .5) * 10; const a0 = rand() * Math.PI * 2; let d = `M${x.toFixed(1)},${y.toFixed(1)}`;
+    for (let s = 0; s < 5; s++) { const a = a0 + (rand() - .5) * 1.1, len = 5 + rand() * 6; x += Math.cos(a) * len; y += Math.sin(a) * len; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; } out.push(d); }
+  return out;
+}
+function resolveFind(it){
+  const mine = MINEM[it.mine];
+  let sid = it.sid;
+  if (it.kind === 'geode') sid = pickW(Object.entries(mine.geo).map(([s, w]) => [s, w * Math.pow(1 + it.d * 2, SP[s].r)]));
+  const luck = 1 + it.d * 1.4 + it.q * .12;
+  const gi = pickW(GR.map((g, k) => [k, g.w * Math.pow(luck, k * .55)]));
+  const area = it.w * it.h, sizeM = [0, 1, 2.2, 3.6, 5.2, 6, 7.5][area] || 7;
+  const value = Math.round(SP[sid].v * sizeM * GR[gi].m * (it.kind === 'geode' ? (it.cracked ? 1.1 : 1.8) : 1));
+  return {sid, gi, value};
+}
+function openFind(id){
+  const it = save.finds.find(x => x.id === id); if (!it) return;
+  if (!it.res) { it.res = resolveFind(it); persist(); }
+  ST = {it, phase:0, busy:false};
+  const geo = it.kind === 'geode';
+  stage.hidden = false;
+  stage.innerHTML = `<div class="st-top"><div class="t">${itemName(it)}</div><div class="s">${MINEM[it.mine].name} · ${it.depth} м · ${it.w}×${it.h}</div></div>
+    <button type="button" class="arena" id="arena" style="--glow:${geo ? '#c690ff' : hex(SP[it.res.sid].c)};border:0;background:transparent;padding:0" aria-label="${geo ? 'Расколоть' : 'Расчистить'}">
+      ${geo ? `<img class="obj" src="${IMG('nodule')}" alt="">` : `<img class="obj" id="dirtyImg" src="${IMG(SP[it.res.sid].img)}" alt="" style="filter:${SP[it.res.sid].fl ? SP[it.res.sid].fl + ' ' : ''}brightness(.25) saturate(.3) blur(2px)">`}
+      <svg class="cracks" id="cracks" viewBox="0 0 100 100" aria-hidden="true"></svg></button>
+    <div class="tap-hint" id="stHint">${geo ? 'Нажимайте, чтобы расколоть жеоду' : 'Нажимайте, чтобы расчистить образец от породы'}</div>
+    <div id="stOut" style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:10px;align-items:center"></div>`;
+}
+function hitFind(){
+  if (!ST || ST.busy || ST.phase >= 3) return;
+  const it = ST.it, geo = it.kind === 'geode', a = $('#arena');
+  ST.phase++;
+  anim(a, 'hit');
+  const [x, y] = elXY(a);
+  if (geo) { SFX.crack(ST.phase); $('#cracks').innerHTML = crackPaths(it.id, ST.phase * 2 + 1).map(d => `<path d="${d}"/>`).join(''); burst(x, y, {n:8 + ST.phase * 6, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:3 + ST.phase * 1.4, grav:.3, size:5, kind:'chip'}); }
+  else { SFX.brush(); const k = ST.phase; const sp = SP[it.res.sid]; $('#dirtyImg').style.filter = `${sp.fl ? sp.fl + ' ' : ''}brightness(${.25 + k * .22}) saturate(${.3 + k * .23}) blur(${2 - k * .7}px)`; burst(x, y, {n:12, colors:['rgba(140,110,80,.7)', 'rgba(90,70,50,.6)'], speed:3, grav:.15, size:4, kind:'chip'}); }
+  if (ST.phase === 2 && SP[it.res.sid].r >= 2) a.style.setProperty('--glow', RC[SP[it.res.sid].r]);
+  if (ST.phase >= 3) { ST.busy = true; setTimeout(revealFind, 250); }
+}
+function revealFind(){
+  const it = ST.it, res = it.res, sp = SP[res.sid], tier = Math.min(4, sp.r + (res.gi >= 3 ? 1 : 0));
+  const a = $('#arena');
+  a.style.setProperty('--rc', RC[tier]);
+  a.innerHTML = `<div class="rays"></div><div class="gem">${imgTag(res.sid)}</div>`;
+  SFX.reveal(tier);
+  const [x, y] = elXY(a);
+  burst(x, y, {n:26, colors:['#8a7660', '#5e4e3e', '#b09a80'], speed:8, grav:.35, size:7, kind:'chip'});
+  burst(x, y, {n:20 + tier * 14, colors:[RC[tier], '#ffffff'], speed:4 + tier, size:3.5});
+  $('#stHint').textContent = '';
+  const news = [];
+  if (!save.st.best || res.value > save.st.best.value) { if (save.st.best) news.push(`Лучшая находка за всё время: ${fmt(res.value)} ₽`); save.st.best = {name:sp.n, value:res.value}; }
+  save.st.opened++; persist();
+  $('#stOut').innerHTML = `<div class="label"><div class="no"><span>№ ${String(it.id).padStart(5, '0')}</span><span>${RAR[sp.r].toLowerCase()}</span></div><h3>${sp.n}</h3>
+      <div class="sub">${it.kind === 'geode' ? 'из жеоды · ' : ''}${MINEM[it.mine].place}, ${it.depth} м</div>
+      <dl><dt>Размер</dt><dd>${it.w}×${it.h}${it.cracked ? ', треснула при добыче' : ''}</dd><dt>Качество</dt><dd><span class="qual" style="--gc:${GR_C[res.gi]}">${GR[res.gi].n}</span></dd><dt>Добыча</dt><dd>${['грубая', 'грубая', 'неплохая', 'неплохая', 'аккуратная', 'аккуратная', 'безупречная'][it.q]}</dd></dl>
+      <div class="val"><span>Оценка</span><span>${fmt(res.value)} ₽</span></div></div>
+    ${news.length ? `<div class="news">${news.map(n => `<div>★ ${n}</div>`).join('')}</div>` : ''}
+    <div class="two" style="width:100%"><button type="button" class="ghost" data-keep>В коллекцию</button><button type="button" class="btn" data-sell>Продать · ${fmt(res.value)} ₽</button></div>`;
+}
+function decideFind(keep){
+  const it = ST.it, res = it.res;
+  save.finds = save.finds.filter(x => x.id !== it.id);
+  if (keep) save.coll.push({id:it.id, sid:res.sid, gi:res.gi, value:res.value, mine:it.mine, depth:it.depth, size:`${it.w}×${it.h}`});
+  else { save.money += res.value; SFX.coin(); }
+  persist();
+  const next = save.finds[0];
+  if (next) openFind(next.id); else { stage.hidden = true; ST = null; renderCamp(); }
+  $('#money').textContent = fmt(save.money) + ' ₽';
+}
+
+/* ===================== sheets & events ===================== */
+const sheet = $('#sheet'), panel = $('#panel');
+function openPanel(html){ panel.innerHTML = html; sheet.hidden = false; panel.scrollTop = 0; }
+function closeSheet(){ sheet.hidden = true; }
+const head = (e, t) => `<div class="p-head"><div><div class="eyebrow">${e}</div><h2>${t}</h2></div><button type="button" class="x" data-close aria-label="Закрыть">✕</button></div>`;
+function openHelp(){
+  save.help = true; persist();
+  openPanel(`${head('Как играть', 'Выработка')}<ul class="help">
+    <li>Шахта уходит вниз по экрану: пять камер, чем ниже, тем богаче. Спуск длится пару минут — столько хватает масла.</li>
+    <li>Ведите пальцем по экрану — появится джойстик. Короткий тап по проходу или по блеску — шахтёр пойдёт туда сам. На компьютере — WASD или стрелки.</li>
+    <li>Остановитесь у блеска в стене — начнётся добыча: три тапа в любом месте экрана, когда игла в светлой зоне. Чем точнее, тем крупнее и целее находка.</li>
+    <li>У каждого спуска своя главная опасность — газ, вода или толчки. Её показывают перед спуском.</li>
+    <li>Рюкзак ограничен: находки разного размера. Решайте, что нести наверх.</li>
+    <li>Масло в фонаре кончается, свет сжимается. Газ взрывается от искры кайла, вода прибывает, толчки заваливают проходы, у магмы жарко.</li>
+    <li>Подняться можно только на лифте. Если силы кончатся, спасатели вынесут вас, но рюкзак останется внизу.</li>
+    <li>В лагере жеоды раскалывают, а остальное расчищают от породы — только там видно качество и цену.</li></ul>
+    <button type="button" class="btn" data-close>Понятно</button>`);
+}
+$('#mute').addEventListener('click', () => { save.mute = !save.mute; persist(); renderCamp(); });
+$('#camp').addEventListener('click', e => {
+  const t = e.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; return renderCamp(); }
+  const r = e.target.closest('[data-run]');
+  if (r) {
+    const m = MINEM[r.dataset.run], hz = m.hz[ri(0, m.hz.length - 1)], mins = Math.round(100 * (1 + .35 * save.up.lamp) / (.62 * m.oil) / 60 * 10) / 10;
+    return openPanel(`${head(m.place, m.name)}
+      <div class="hzcard" style="--hc:${HZ[hz].c}"><i>${HZ[hz].i}</i><div><span class="eyebrow">Опасность этого спуска</span><b>${HZ[hz].n}</b><span style="font-size:13.5px">${HZ[hz].d}</span></div></div>
+      ${m.magma ? '<p style="margin:0;font-size:13.5px;color:#ff8a4a">И, как всегда, магма на глубине: рядом с ней жарко, зато попадаются рубины и алмазы.</p>' : ''}
+      ${isRich(m.id) ? '<p style="margin:0;font-size:13.5px;color:var(--lamp)">★ Сегодня здесь богатый забой: редкие минералы встречаются чаще.</p>' : ''}
+      <div class="rows"><div class="row"><span>Масла в фонаре</span><span>≈ ${String(mins).replace('.', ',')} мин</span></div><div class="row"><span>Рюкзак</span><span>${BAGS[save.up.bag].join('×')}</span></div><div class="row"><span>Каски</span><span>${3 + save.up.helmet}</span></div></div>
+      <button type="button" class="btn" data-go="${m.id}:${hz}">Спуститься</button>`);
+  }
+  const u = e.target.closest('[data-unlock]'); if (u) { const m = MINEM[u.dataset.unlock]; if (save.money >= m.cost) { save.money -= m.cost; save.open[m.id] = true; SFX.coin(); persist(); renderCamp(); } return; }
+  const f = e.target.closest('[data-find]'); if (f) return openFind(+f.dataset.find);
+  if (e.target.closest('[data-findall]')) { if (save.finds[0]) openFind(save.finds[0].id); return; }
+  const up = e.target.closest('[data-up]'); if (up) { const def = UPS.find(x => x.id === up.dataset.up), lv = save.up[def.id]; if (lv < def.cost.length && save.money >= def.cost[lv]) { save.money -= def.cost[lv]; save.up[def.id]++; SFX.coin(); persist(); renderCamp(); } return; }
+  const c = e.target.closest('[data-coll]');
+  if (c) { const s = save.coll.find(x => x.id === +c.dataset.coll); if (!s) return; openPanel(`${head(RAR[SP[s.sid].r], SP[s.sid].n)}<div style="display:grid;place-items:center">${imgTag(s.sid, 'width:min(50vw,180px);aspect-ratio:1;object-fit:contain')}</div>
+      <div class="rows"><div class="row"><span>Качество</span><span>${GR[s.gi].n}</span></div><div class="row"><span>Размер</span><span>${s.size}</span></div><div class="row"><span>Откуда</span><span>${MINEM[s.mine].name}, ${s.depth} м</span></div><div class="row"><span>Оценка</span><span>${fmt(s.value)} ₽</span></div></div>
+      <button type="button" class="ghost" data-sellcoll="${s.id}">Продать · ${fmt(s.value)} ₽</button>`); return; }
+  if (e.target.closest('[data-help]')) return openHelp();
+  const rs = e.target.closest('[data-reset]'); if (rs) { if (rs.dataset.armed) { save = BLANK(); save.help = true; persist(); renderCamp(); } else { rs.dataset.armed = 1; rs.textContent = 'Нажмите ещё раз, чтобы стереть всё'; } }
+});
+$('#bottom').addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if (!a || !S) return;
+  const act = a.dataset.act;
+  if (act === 'mine') { const dep = L.deps[+a.dataset.dep]; if (dep) { if (S.cell !== dep.face && dep.face !== undefined) goTo(dep.face, {dep}); else startMining(dep); } }
+  if (act === 'clear') startClear(+a.dataset.rub);
+  if (act === 'up') ascend();
+  if (act === 'home') goTo(idx(L.lift.x, L.lift.y), null);
+  if (act === 'bag') { bagSel = null; openBag(); }
+});
+$('#mineUI').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (e.target.closest('[data-cancel]')) { if (!MG) return; cancelAnimationFrame(MG.raf); S.skipDep = MG.dep.id; MG = null; $('#mineUI').hidden = true; $('#bottom').hidden = false; S.mode = 'walk'; return; }
+  strike();
+});
+stage.addEventListener('click', e => {
+  if (e.target.closest('#arena')) return hitFind();
+  if (e.target.closest('[data-keep]')) return decideFind(true);
+  if (e.target.closest('[data-sell]')) return decideFind(false);
+});
+sheet.addEventListener('click', e => {
+  const bi = e.target.closest('[data-bit]'); if (bi) { bagSel = +bi.dataset.bit; return openBag(); }
+  const dr = e.target.closest('[data-drop]');
+  if (dr) { S.bag.items = S.bag.items.filter(it => it.id !== +dr.dataset.drop); bagSel = null; if (S.pending && place(S.bag, S.pending)) { toast('Уложено', itemName(S.pending), itemImg(S.pending)); S.pending = null; } hud(); return openBag(); }
+  if (e.target.closest('[data-repack]')) { const pend = S.pending; repack(); if (pend && place(S.bag, pend)) { S.pending = null; } hud(); return openBag(); }
+  if (e.target.closest('[data-leave]')) { S.pending = null; closeSheet(); return; }
+  const go = e.target.closest('[data-go]'); if (go) { const [id, hz] = go.dataset.go.split(':'); closeSheet(); return newRun(id, hz); }
+  const sc = e.target.closest('[data-sellcoll]'); if (sc) { const s = save.coll.find(x => x.id === +sc.dataset.sellcoll); if (s) { save.coll = save.coll.filter(x => x !== s); save.money += s.value; SFX.coin(); persist(); closeSheet(); renderCamp(); } return; }
+  if (e.target === sheet || e.target.closest('[data-close]')) { if (S && S.pending) S.pending = null; closeSheet(); }
+});
+const KEYMAP = {ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down', ArrowLeft:'left', KeyA:'left', ArrowRight:'right', KeyD:'right'};
+addEventListener('keydown', e => {
+  if (!sheet.hidden && e.key === 'Escape') return closeSheet();
+  if (!stage.hidden && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); return hitFind(); }
+  if (!S) return;
+  if (S.mode === 'mining' && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); return strike(); }
+  const k = KEYMAP[e.code]; if (k && sheet.hidden) { S.keys[k] = true; e.preventDefault(); }
+  if (e.key === 'e' || e.key === 'E') { const dep = adjDep(); if (dep && S.mode === 'walk') startMining(dep); }
+});
+addEventListener('keyup', e => { if (!S) return; const k = KEYMAP[e.code]; if (k) S.keys[k] = false; });
+
+renderCamp();
+if (!save.help) openHelp();
+</script>
