@@ -7,6 +7,7 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 OUT = argv[0]
 SAMPLES = int(argv[1]) if len(argv) > 1 else 128
 random.seed(int(argv[2]) if len(argv) > 2 else 3)
+TRAY_ONLY = len(argv) > 3 and argv[3] == "tray"
 R, C = 9, 8
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -16,8 +17,8 @@ sc.cycles.samples = SAMPLES
 sc.cycles.use_denoising = True
 sc.render.resolution_x = 780
 sc.render.resolution_y = 880
-sc.view_settings.view_transform = 'AgX'
-sc.view_settings.look = 'AgX - Medium High Contrast'
+sc.view_settings.view_transform = 'Standard' if TRAY_ONLY else 'AgX'
+sc.view_settings.look = 'Medium High Contrast' if TRAY_ONLY else 'AgX - Medium High Contrast'
 sc.cycles.max_bounces = 16
 sc.cycles.transmission_bounces = 16
 sc.cycles.caustics_refractive = True
@@ -70,15 +71,15 @@ def stone_mat(name, tint, rough=0.55):
     b.inputs["Roughness"].default_value = rough
     return m
 
-slab_m = stone_mat("slab", (0.45, 0.37, 0.27), 0.8)
-tile_m = stone_mat("tile", (0.52, 0.45, 0.35), 0.75)
+slab_m = stone_mat("slab", (0.58, 0.55, 0.5) if TRAY_ONLY else (0.45, 0.37, 0.27), 0.8)
+tile_m = stone_mat("tile", (0.66, 0.63, 0.58) if TRAY_ONLY else (0.52, 0.45, 0.35), 0.75)
 
 bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -0.12))
 slab = bpy.context.object; slab.scale = (C + 0.7, R + 0.7, 0.24)
 bpy.ops.object.modifier_add(type='BEVEL'); slab.modifiers[-1].width = 0.12; slab.modifiers[-1].segments = 4
 slab.data.materials.append(slab_m)
 disp = slab.modifiers.new("d", 'DISPLACE'); tx = bpy.data.textures.new("ragged", 'CLOUDS'); tx.noise_scale = 0.4
-disp.texture = tx; disp.strength = 0.05
+disp.texture = tx; disp.strength = 0.0 if TRAY_ONLY else 0.05
 sub = slab.modifiers.new("s", 'SUBSURF'); sub.levels = 3; sub.render_levels = 3
 slab.modifiers.move(slab.modifiers.find("s"), 1)
 # raised tiles, one per cell: the grid is the shadowed gap between them
@@ -239,7 +240,7 @@ def make_gem(kind):
     bev.limit_method = 'ANGLE'
     return o
 
-for r in range(R):
+for r in range(0 if TRAY_ONLY else R):
     for c in range(C):
         t = random.randrange(len(KINDS))
         o = make_gem(KINDS[t][2])
