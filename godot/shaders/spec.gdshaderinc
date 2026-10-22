@@ -324,7 +324,9 @@ void fragment() {
 			float gleam = pow(0.5 + 0.5 * sin(dot(v_op, vec3(3.0, 5.0, 2.0)) * 1.5 - TIME * 1.8), 12.0);
 			float k = vk * kin_k;
 			body *= 1.0 - k;
-			ALBEDO = mix(ALBEDO, gd * vec3(1.0, 0.86, 0.6), k);
+			// the same gold as the native gold finds, with the worked texture's wear on top
+			vec3 native_gold = vec3(0.87, 0.53, 0.08);
+			ALBEDO = mix(ALBEDO, native_gold * (gd.r * 1.15), k);
 			METALLIC = mix(METALLIC, 1.0, k);
 			ROUGHNESS = mix(ROUGHNESS, clamp(gr * 0.9, 0.08, 0.6), k);
 			SPECULAR = mix(SPECULAR, 0.5, k);

@@ -388,7 +388,9 @@ func _specimen(o: Dictionary) -> Node3D:
 				main.material_override = hm
 				if mat in dt_mats: dt_mats.append(hm)
 		"levitate": SpecLegend.levitate(root, mat if mat else any_cmat.call(), rng, habit, zcfg)
-		"lightning": SpecLegend.lightning(main, rng)
+		"lightning":
+			SpecLegend.lightning(main, rng)
+			if main and main.material_override != mat and mat in dt_mats: dt_mats.append(main.material_override)
 		"lava": SpecLegend.lava(root, st.rock if st.rock else main)
 	crust_ok = layout != "geode"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)

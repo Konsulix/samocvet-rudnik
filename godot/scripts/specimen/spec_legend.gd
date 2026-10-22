@@ -117,9 +117,22 @@ static func levitate(root: Node3D, _mat: Material, rng: Rng32, habit: String, zc
 static func lightning(main: Node3D, rng: Rng32) -> void:
 	if not main: return
 	var bb: AABB = (main.get_meta("geo") as Geo).aabb()
+	var g: Geo = main.get_meta("geo")
+	var surf := PackedVector3Array()
+	for i in range(0, g.v.size(), maxi(1, g.v.size() / 300)):
+		if g.v[i].y > bb.position.y + bb.size.y * 0.2:
+			surf.append(g.v[i])
 	var bolt := SpecBolt.new()
 	main.add_child(bolt)
-	bolt.setup(bb, int(rng.next() * 100000), Color(0.5, 0.75, 3.2))
+	# a storm in the glass: the crystal turns smoky blue-violet so the lightning stands out
+	if main is MeshInstance3D and (main as MeshInstance3D).material_override is ShaderMaterial:
+		var gm := ((main as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+		gm.set_shader_parameter("smoke_k", 1.0)
+		gm.set_shader_parameter("smoke_col", Vector3(0.06, 0.07, 0.16))
+		gm.set_shader_parameter("frost_k", 0.15)
+		(main as MeshInstance3D).material_override = gm
+		bolt.glass = gm
+	bolt.setup(bb, int(rng.next() * 100000), Color(0.55, 0.65, 3.4), surf)
 
 ## lava: the rock's own material glows (shader); here drops of lava swell and fall from its underside,
 ## and embers rise
