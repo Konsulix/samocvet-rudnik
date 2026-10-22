@@ -81,6 +81,8 @@ func show_stone(s: Dictionary, others := []) -> void:
 	view.custom_minimum_size = Vector2(314, 290)
 	v.add_child(view)
 	view.show_spec(Spec.of_stone(s))
+	if s.get("legend", false):
+		view.add_child(legend_frame())
 	var rc := Data.rarity_color(tier)
 	var rar := UI.label("легендарная находка" if s.get("legend", false) else String(Data.RAR[tier]), 13, UI.body_bold, rc)
 	rar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -126,6 +128,31 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.close()
 		Ov.toast("Камень в коллекции")
 		finished.emit()))
+
+## a golden frame for legendary finds: light running round it, sparks of colour, like a golden card
+static func legend_frame() -> ColorRect:
+	var fr := ColorRect.new()
+	fr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = "shader_type canvas_item;
+void fragment(){
+	vec2 d = min(UV, 1.0 - UV);
+	float e = min(d.x, d.y);
+	float band = 1.0 - smoothstep(0.0, 0.035, e);
+	float ang = atan(UV.y - 0.5, UV.x - 0.5) / 6.2832;
+	float run = pow(0.5 + 0.5 * sin((ang - TIME * 0.35) * 6.2832 * 2.0), 8.0);
+	vec3 gold = vec3(1.0, 0.75, 0.3);
+	vec3 hue = 0.5 + 0.5 * cos(6.2832 * (ang * 2.0 + TIME * 0.2 + vec3(0.0, 0.33, 0.67)));
+	vec3 c = mix(gold, hue, 0.35) * (0.55 + 1.6 * run);
+	float glow = (1.0 - smoothstep(0.0, 0.12, e)) * 0.35 * (0.6 + 0.4 * run);
+	COLOR = vec4(c * 1.4, clamp(band + glow, 0.0, 1.0));
+}
+"
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	fr.material = m
+	return fr
 
 static func _row(box: VBoxContainer, k: String, val: String, col := UI.INK) -> void:
 	var h := HBoxContainer.new()

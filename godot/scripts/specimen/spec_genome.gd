@@ -88,11 +88,22 @@ static func of(o: Dictionary) -> Dictionary:
 	# tests and showcases may pin a gene
 	form = o.get("form", form)
 	lustre = o.get("lustre", lustre)
+	# a legendary find always carries one living effect, one that suits its body
+	var fx := ""
+	if o.get("legend", false):
+		var fpool := ["fluor", "levitate"]
+		if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
+		if lustre == "glass" and not (form in ["geode", "botryoid", "vein", "nugget"]):
+			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
+		fx = fpool[int(rng.next() * fpool.size())]
+	fx = o.get("fx", fx)
 	var size_k := int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 2.5], [3, 0.6]], rng))
 	var anomaly := "anomaly" in tr
 	return {
 		form = form,
 		lustre = lustre,
+		fx = fx,
+		fx_v = rng.next(),
 		accents = o.get("accents", acc),
 		# where moss, lichen and little plants settle: over the rock, or only in its pits and pockets
 		nest = o.get("nest", "hollows" if rng.next() < 0.5 else "surface"),
@@ -115,6 +126,8 @@ static func of(o: Dictionary) -> Dictionary:
 static func describe(g: Dictionary) -> Array:
 	var lus := {glass = "стеклянный", dark = "тёмный, маслянистый", metal = "металлический"}
 	var out := [["Форма", FORM_N.get(g.form, g.form)], ["Блеск", lus.get(g.lustre, "")], ["Порода", ROCK_N.get(g.rock, g.rock) + (", рыхлый" if float(g.loose) > 0.0 else "")], ["Размер", SIZE_N[int(g.size)]]]
+	if g.fx != "":
+		out.push_front(["Легендарный эффект", SpecLegend.FX_N.get(g.fx, g.fx)])
 	if g.accents.size():
 		var names := []
 		for a in g.accents: names.append(ACC_N.get(a, a))

@@ -87,6 +87,12 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 	m.set_shader_parameter("bd_k", o.get("bd", 0.0))
 	m.set_shader_parameter("d_ao", o.get("ao", 0.0))
 	m.set_shader_parameter("oil_k", o.get("oil", 0.0))
+	for k in ["lava", "fluor", "cham", "opal", "star", "kin"]:
+		if o.has(k): m.set_shader_parameter(k + "_k", o[k])
+	for k in ["fluor_col", "cham_col"]:
+		if o.has(k):
+			var kc: Color = o[k]
+			m.set_shader_parameter(k, Vector3(kc.r, kc.g, kc.b))
 	m.set_shader_parameter("rough_var", o.get("rough_var", 0.0))
 	if o.has("dirt") and o.dirt != null:
 		var d: Dictionary = o.dirt

@@ -103,6 +103,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5, rf = 0.3, st = stria, dirt = dt, prio = 2,
 			rim = gene.rim, holo = gene.holo, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
+			lava = 1.0 if gene.fx == "lava" else 0.0,
 			frost = 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25, thick = 1.0 + op * 0.4, seed = float(seed_v % 97)}
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
@@ -111,7 +112,10 @@ func _specimen(o: Dictionary) -> Node3D:
 			dt_mats.append(m)
 		return m
 	var rock_mat := func(c: Color) -> ShaderMaterial:
-		return SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}})
+		var rd := {col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}}
+		if gene.fx == "lava": rd.lava = 1.0
+		if gene.fx == "fluor": rd.merge(SpecLegend.shader_params("fluor", gene.fx_v))
+		return SpecMat.make(rd)
 	var use_rock := func(shape: String) -> MeshInstance3D:
 		var loose: float = gene.loose
 		var R := RockKit.rock(rng, rtype, shape, 32, loose)
@@ -138,7 +142,9 @@ func _specimen(o: Dictionary) -> Node3D:
 			var dc: Color = gene.dark_col
 			dt.fb = 0.15
 			dt.fr = 0.0
-			d = {col = dc, metal = 0.55, rough = 0.16, coat = 0.5, coat_r = 0.1, flat = true, oil = 1.0, st = stria, dirt = dt, prio = 2, env = 1.4}
+			d = {col = dc, metal = 0.55, rough = 0.16, coat = 0.5, coat_r = 0.1, flat = true, oil = 1.0, st = stria, dirt = dt, prio = 2, env = 1.4,
+				lava = 1.0 if gene.fx == "lava" else 0.0}
+		d.merge(SpecLegend.shader_params(gene.fx, gene.fx_v), true)
 		mat = make_cmat.call(d)
 	var any_cmat := func() -> ShaderMaterial: return mat if mat else make_cmat.call(cmat_spec.call())
 	var main: MeshInstance3D = null
@@ -368,6 +374,22 @@ func _specimen(o: Dictionary) -> Node3D:
 		"geode":
 			main = _geode(sp, col, rtype, habit, elongated, metal, cmat_spec, make_cmat, crystal, st)
 
+	match gene.fx:
+		"heart":
+			SpecLegend.heart(root, main, rng, col)
+			if main and main.material_override is ShaderMaterial:
+				# the core glows through the main crystal's own glass, whatever the angle
+				var hm := (main.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+				var bb: AABB = (main.get_meta("geo") as Geo).aabb()
+				var hc := Color(col.r * 2.5 + 1.0, col.g * 2.5 + 0.9, col.b * 2.5 + 0.7)
+				hm.set_shader_parameter("heart_pos", bb.get_center() + Vector3(0, bb.size.y * 0.05, 0))
+				hm.set_shader_parameter("heart_r", minf(bb.size.x, bb.size.z) * 0.32)
+				hm.set_shader_parameter("heart_col", Vector3(hc.r, hc.g, hc.b))
+				main.material_override = hm
+				if mat in dt_mats: dt_mats.append(hm)
+		"levitate": SpecLegend.levitate(root, mat if mat else any_cmat.call(), rng, habit, zcfg)
+		"lightning": SpecLegend.lightning(main, rng)
+		"lava": SpecLegend.lava(root, st.rock if st.rock else main)
 	crust_ok = layout != "geode"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)
 	if gene.gold:
@@ -376,8 +398,6 @@ func _specimen(o: Dictionary) -> Node3D:
 	_accents(main, mat, gene, st, layout)
 	_finish()
 	if legend:
-		var halo := U.mesh(Geo.torus(1.05, 0.008, 6, 90), SpecMat.make({col = U.raw(0xe4ae39), unshaded = true}), root, Vector3.ZERO, Basis(Vector3.RIGHT, PI / 2 - 0.3))
-		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.set_meta("glow", U.raw(0xe4ae39))
 	return root
 

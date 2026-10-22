@@ -37,6 +37,10 @@ func _ready() -> void:
 	if args.has("reveal"):
 		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
 		st.integ = 86
+		if args.has("legend"):
+			st.legend = true
+			st.tier = 4
+			if args.legend != "1": st.fx = args.legend
 		if args.has("crack"): Reveal.new().crack(st)
 		else: Reveal.new().show_stone(st)
 	if args.has("shot"):

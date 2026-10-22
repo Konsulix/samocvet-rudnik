@@ -21,7 +21,9 @@ static func key_of(o: Dictionary) -> String:
 
 ## the description of a stone from the save, as the builder wants it
 static func of_stone(s: Dictionary) -> Dictionary:
-	return {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
+	var o := {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
+	if s.has("fx"): o.fx = s.fx
+	return o
 
 static func of_jewel(j: Dictionary) -> Dictionary:
 	return {seed = j.id, jewel = {rid = j.rid, cols = j.cols}}

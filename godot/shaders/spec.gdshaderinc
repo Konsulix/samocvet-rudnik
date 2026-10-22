@@ -24,6 +24,18 @@ uniform vec3 d_col = vec3(0.1);
 uniform float d_fr = 0.0;
 uniform float d_is = 0.0;
 uniform float d_fb = 1.0;
+// legendary effects, all of them alive (TIME): see SpecLegend
+uniform float lava_k = 0.0;     // molten veins glowing in the rock
+uniform float fluor_k = 0.0;    // every few seconds the lamps dim and the stone flares under ultraviolet
+uniform vec3 fluor_col = vec3(0.3, 1.0, 0.2);
+uniform float cham_k = 0.0;     // colour flows with the viewing angle and breathes slowly
+uniform vec3 cham_col = vec3(0.6, 0.05, 0.15);
+uniform float opal_k = 0.0;     // spectral flakes flashing in the body
+uniform float star_k = 0.0;     // a night sky inside: twinkling stars, drifting nebula
+uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
+uniform float heart_r = 0.0;    // a throbbing core of light deep inside (object space)
+uniform vec3 heart_pos = vec3(0.0);
+uniform vec3 heart_col = vec3(2.0, 1.6, 1.2);
 uniform float oil_k = 0.0;      // dark lustrous stones: an oil-slick rainbow in their reflections
 uniform float rough_var = 0.0;  // metals: polished bumps, dull hollows
 uniform float d_ao = 0.0;       // rocks: vertex colour carries the shading of pits and ridges
@@ -94,6 +106,10 @@ void fragment() {
 	float m = metal;
 	float cc = coat;
 	float dirt = 0.0, frost = 0.0;
+	vec3 lava_e = vec3(0.0);
+	// ultraviolet flash: a few seconds of ordinary light, then the lamps dim and the stone glows
+	float uv_ph = fract(TIME / 7.0 + fract(v_op.x * 0.0) );
+	float uvk = fluor_k * smoothstep(0.55, 0.6, uv_ph) * (1.0 - smoothstep(0.88, 0.95, uv_ph));
 #ifdef DIRT
 	// below a ragged line the crystal turns into the rock it grew from; just above it, milky and etched
 	float edge = v_rp.y - (d_h + (fbm(v_rp * 4.0) - 0.47) * d_a + (fbm(v_rp * 1.7 + 3.0) - 0.5) * d_a * 0.9);
@@ -134,6 +150,15 @@ void fragment() {
 		rk = mix(rk, tinted * (1.0 + rim * 0.5) + vec3(0.5, 0.48, 0.44) * grains * 0.25, scan_k);
 	}
 	rk *= mix(1.0, COLOR.r * 1.25, d_ao);
+	if (lava_k > 0.0) {
+		// molten rock: a black cooled crust split by veins of lava that throb and creep
+		float hollow_r = smoothstep(0.35, 0.75, 1.0 - COLOR.r);
+		float vein = 1.0 - smoothstep(0.0, 0.045, abs(fbm(v_rp * 3.2 + vec3(0.0, TIME * 0.04, 0.0)) - 0.5));
+		float flow = 0.55 + 0.45 * sin(TIME * 2.2 + fbm(v_rp * 6.0 + TIME * 0.1) * 9.0);
+		float heat = clamp(vein * 1.2 + hollow_r * 0.8, 0.0, 1.0) * flow;
+		rk = mix(rk * 0.35, vec3(0.04, 0.02, 0.015), 0.5 * lava_k);
+		lava_e = mix(vec3(2.2, 0.35, 0.03), vec3(4.0, 1.9, 0.35), heat * heat) * heat * lava_k * dirt;
+	}
 	base = mix(base, vec3(0.86, 0.88, 0.9), frost * 0.5);
 	a = mix(a, 0.96, frost * 0.55);
 	base = mix(base, rk, dirt);
@@ -186,8 +211,37 @@ void fragment() {
 	float blur = (0.002 + 0.012 * milk) * (0.5 + 0.5 * thick);
 	vec2 uv = SCREEN_UV - bend;
 	vec3 refr = vec3(behind(uv - bend * split, blur).r, behind(uv, blur).g, behind(uv + bend * split, blur).b);
+	if (cham_k > 0.0) {
+		// alexandrite-like: one colour face-on, another at a glance, the balance breathing over time
+		float cm = clamp(edge_k * 1.6 + 0.25 * sin(TIME * 0.6 + v_op.y * 2.0), 0.0, 1.0);
+		tint0 = mix(tint0, cham_col, cm * cham_k);
+	}
 	vec3 absorb = mix(vec3(1.0), tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b))), clamp(0.35 + edge_k * 0.75, 0.0, 1.0));
 	vec3 body = refr * absorb * mix(1.0, 0.75, edge_k);
+	if (star_k > 0.0) {
+		// a night sky trapped inside: deep blue body, nebula drifting, stars twinkling at two depths
+		body = mix(body, body * vec3(0.05, 0.06, 0.14), star_k * 0.85);
+		vec3 sp = v_op + (INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz * 0.15;
+		float neb = fbm(sp * 2.2 + vec3(TIME * 0.02, 0.0, TIME * 0.015));
+		body += mix(vec3(0.25, 0.05, 0.45), vec3(0.05, 0.35, 0.6), fbm(sp * 1.3)) * smoothstep(0.45, 0.8, neb) * star_k * 0.9;
+		for (int L = 0; L < 2; L++) {
+			vec3 q = sp * (28.0 + float(L) * 19.0) + float(L) * 7.0;
+			vec3 cell = floor(q);
+			float h = h3(cell);
+			float d = length(fract(q) - 0.5);
+			float tw = 0.5 + 0.5 * sin(TIME * (2.0 + h * 5.0) + h * 40.0);
+			body += vec3(1.6, 1.5, 1.3) * step(0.93, h) * (1.0 - smoothstep(0.05, 0.16, d)) * tw * star_k * 2.5;
+		}
+	}
+	if (opal_k > 0.0) {
+		// play of colour: flakes that flash pure spectral colours as the stone turns
+		vec3 q = v_op * 11.0;
+		vec3 cell = floor(q);
+		float h = h3(cell);
+		float fl = smoothstep(0.55, 1.0, sin(h * 37.0 + TIME * 1.4 + edge_k * 7.0) * 0.5 + 0.5);
+		vec3 sc = 0.5 + 0.5 * cos(6.2832 * (h * 3.0 + edge_k + TIME * 0.05 + vec3(0.0, 0.33, 0.67)));
+		body += sc * fl * opal_k * 1.6 * (1.0 - smoothstep(0.35, 0.5, length(fract(q) - 0.5)));
+	}
 	body = mix(body, tint0 * 0.5 + vec3(0.22), milk * 0.75);
 	body = mix(body, body * smoke_col * 2.0, smoke);
 	// silver rims: the edges frost over into a bright, ragged, slightly metallic band
@@ -220,7 +274,33 @@ void fragment() {
 	CLEARCOAT = 0.0;
 	// the rainbow film only blooms in patches, as on real crystals
 	float film = 0.12 + 0.88 * smoothstep(0.5, 0.72, fbm(v_op * 1.6 + g_seed + 5.0));
-	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92);
+	if (heart_r > 0.0) {
+		// how close the line of sight passes to the core: a glow seen through the whole thickness
+		mat4 inv_m = inverse(MODEL_MATRIX);
+		vec3 o = (inv_m * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
+		vec3 dir = normalize((inv_m * vec4((INV_VIEW_MATRIX * vec4(-VIEW, 0.0)).xyz, 0.0)).xyz);
+		vec3 hv = heart_pos - o;
+		float dd = length(hv - dir * dot(hv, dir)) / heart_r;
+		float beat = 0.7 + 0.3 * pow(0.5 + 0.5 * sin(TIME * 2.6), 4.0);
+		body += heart_col * (exp(-dd * dd * 2.2) * 1.4 + exp(-dd * 0.9) * 0.25) * beat * (1.0 - dirt);
+	}
+	if (kin_k > 0.0) {
+		// kintsugi: thin veins of gold over the faces, a gleam sliding along them
+		// lines of even width: the zero-crossings of a noise, widened by how fast it changes on screen
+		float kn = fbm(v_op * 7.0 + g_seed) - 0.5;
+		float kw = fwidth(kn) * 2.5 + 0.014;
+		float vk = 1.0 - smoothstep(kw * 0.5, kw, abs(kn));
+		float gleam = pow(0.5 + 0.5 * sin(dot(v_op, vec3(3.0, 5.0, 2.0)) - TIME * 2.5), 6.0);
+		vec3 gold = vec3(1.0, 0.52, 0.1);
+		body = mix(body, gold * (0.45 + 1.8 * gleam), vk * kin_k);
+		ALBEDO = mix(ALBEDO, gold, vk * kin_k);
+		METALLIC = max(METALLIC, vk * kin_k);
+		ROUGHNESS = mix(ROUGHNESS, 0.15, vk * kin_k);
+	}
+	// ultraviolet: the stone drowns in its own glow while the lamps go dark
+	body = mix(body, fluor_col * (1.2 + 0.8 * fbm(v_op * 4.0 + TIME * 0.3)) * (1.0 - milk * 0.3), uvk);
+	ALBEDO *= 1.0 - uvk * 0.85;
+	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
 	NORMAL = n;
 	ALPHA = 1.0;
 #elif defined(UNSHADED)
@@ -253,7 +333,8 @@ void fragment() {
 	SPECULAR = spec;
 	CLEARCOAT = cc;
 	CLEARCOAT_ROUGHNESS = coat_rough;
-	EMISSION = (e + e_ir) * (1.0 - o_pit);
+	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + fluor_col * uvk * 1.4;
+	ALBEDO *= 1.0 - uvk * 0.85;
 	NORMAL = n;
 #endif
 #if defined(TRANSP) && !defined(GLASS)
