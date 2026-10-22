@@ -52,6 +52,10 @@ static func make(o: Dictionary) -> ShaderMaterial:
 		g.set_shader_parameter("g_seed", o.get("seed", 0.0))
 		g.set_shader_parameter("rim_k", o.get("rim", 0.0))
 		g.set_shader_parameter("holo_k", o.get("holo", 0.0))
+		if o.get("kin", 0.0) > 0.0:
+			g.set_shader_parameter("gold_diff", load("res://assets/textures/gold/gold_diff.png"))
+			g.set_shader_parameter("gold_nrm", load("res://assets/textures/gold/gold_nrm.png"))
+			g.set_shader_parameter("gold_rough", load("res://assets/textures/gold/gold_rough.png"))
 		return g
 	if transp and side == "double":
 		var back := _one(o, _shader(flat, true, "front", irid, dirt, unshaded, add))

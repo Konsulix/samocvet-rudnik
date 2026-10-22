@@ -113,39 +113,13 @@ static func levitate(root: Node3D, _mat: Material, rng: Rng32, habit: String, zc
 			SpecUtil.mesh(g, mat, orbit, p, SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3.ONE * s))
 		_anim(root, orbit, "y", (0.35 + rng.next() * 0.25) * (1.0 if ring == 0 else -1.0))
 
-## a branching crack of light frozen inside the crystal, pulses running along it
+## lightning trapped inside the crystal: it strikes, flickers and strikes again along a new path
 static func lightning(main: Node3D, rng: Rng32) -> void:
 	if not main: return
 	var bb: AABB = (main.get_meta("geo") as Geo).aabb()
-	var segs := []
-	var grow := func(fn: Callable, p: Vector3, d: Vector3, n: int, w: float, depth: int) -> void:
-		var q := p
-		for i in n:
-			var nd := (d + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 0.9).normalized()
-			var e := q + nd * bb.size.y * 0.06
-			e = e.clamp(bb.position + bb.size * 0.15, bb.end - bb.size * 0.15)
-			segs.append([q, e, w, float(i) / n])
-			if depth > 0 and rng.next() < 0.18:
-				fn.call(fn, e, (nd + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5)).normalized(), n / 2, w * 0.6, depth - 1)
-			q = e
-	var start := bb.position + Vector3(bb.size.x * 0.5, bb.size.y * 0.15, bb.size.z * 0.5)
-	grow.call(grow, start, Vector3.UP, 13, 0.045 * minf(bb.size.x, bb.size.z), 2)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	mm.mesh = Geo.cylinder(1, 1, 1, 5).translate(0, 0.5, 0).to_mesh()
-	mm.instance_count = segs.size()
-	for i in segs.size():
-		var a: Vector3 = segs[i][0]
-		var b: Vector3 = segs[i][1]
-		var w: float = segs[i][2]
-		mm.set_instance_transform(i, Transform3D(Basis(SpecUtil.quat_to(Vector3.UP, (b - a).normalized())) * Basis.from_scale(Vector3(w, a.distance_to(b), w)), a))
-		mm.set_instance_color(i, Color(segs[i][3], 0, 0))
-	var mi := MultiMeshInstance3D.new()
-	mi.multimesh = mm
-	mi.material_override = over_mat(Color(0.45, 0.9, 2.6))
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	main.add_child(mi)
+	var bolt := SpecBolt.new()
+	main.add_child(bolt)
+	bolt.setup(bb, int(rng.next() * 100000), Color(0.5, 0.75, 3.2))
 
 ## lava: the rock's own material glows (shader); here drops of lava swell and fall from its underside,
 ## and embers rise

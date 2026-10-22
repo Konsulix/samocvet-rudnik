@@ -33,6 +33,9 @@ uniform vec3 cham_col = vec3(0.6, 0.05, 0.15);
 uniform float opal_k = 0.0;     // spectral flakes flashing in the body
 uniform float star_k = 0.0;     // a night sky inside: twinkling stars, drifting nebula
 uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
+uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
+uniform sampler2D gold_rough : filter_linear_mipmap, repeat_enable;
 uniform float heart_r = 0.0;    // a throbbing core of light deep inside (object space)
 uniform vec3 heart_pos = vec3(0.0);
 uniform vec3 heart_col = vec3(2.0, 1.6, 1.2);
@@ -285,17 +288,49 @@ void fragment() {
 		body += heart_col * (exp(-dd * dd * 2.2) * 1.4 + exp(-dd * 0.9) * 0.25) * beat * (1.0 - dirt);
 	}
 	if (kin_k > 0.0) {
-		// kintsugi: thin veins of gold over the faces, a gleam sliding along them
-		// lines of even width: the zero-crossings of a noise, widened by how fast it changes on screen
-		float kn = fbm(v_op * 7.0 + g_seed) - 0.5;
-		float kw = fwidth(kn) * 2.5 + 0.014;
-		float vk = 1.0 - smoothstep(kw * 0.5, kw, abs(kn));
-		float gleam = pow(0.5 + 0.5 * sin(dot(v_op, vec3(3.0, 5.0, 2.0)) - TIME * 2.5), 6.0);
-		vec3 gold = vec3(1.0, 0.52, 0.1);
-		body = mix(body, gold * (0.45 + 1.8 * gleam), vk * kin_k);
-		ALBEDO = mix(ALBEDO, gold, vk * kin_k);
-		METALLIC = max(METALLIC, vk * kin_k);
-		ROUGHNESS = mix(ROUGHNESS, 0.15, vk * kin_k);
+		// kintsugi: cracks mended with worked gold. The seams are raised beads of real metal
+		// (hammered, scratched, tarnished in the grooves) that swell where cracks meet.
+		// cracks: the borders between irregular cells (voronoi F2 - F1), warped so they wander
+		vec3 kq = v_op * 4.5 + g_seed + (vec3(vn(v_op * 2.5), vn(v_op * 2.5 + 7.0), vn(v_op * 2.5 + 13.0)) - 0.5) * 1.3;
+		vec3 ci = floor(kq);
+		float f1 = 9.0, f2 = 9.0;
+		for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) for (int l = -1; l <= 1; l++) {
+			vec3 c = ci + vec3(float(i), float(j), float(l));
+			vec3 pt = c + vec3(h3(c), h3(c + 17.0), h3(c + 31.0)) * 0.85;
+			float dd = length(kq - pt);
+			if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) { f2 = dd; }
+		}
+		float kn = (f2 - f1) * 0.5;
+		float kw = fwidth(kn) * 1.2 + 0.035 * (0.6 + 0.8 * vn(v_op * 6.0));
+		float d1 = kn / kw;
+		// some stretches of crack were never mended
+		float d = d1 + smoothstep(0.62, 0.8, vn(kq * 0.9 + 40.0)) * 3.0;
+		float vk = 1.0 - smoothstep(0.75, 1.0, d);
+		if (vk > 0.0) {
+			// the bead's slope: across the seam the surface rises to a rounded crest
+			// screen-space slope of the distance to the crack: the bead rises towards its centre line
+			vec3 gv = normalize(vec3(dFdx(kn), dFdy(kn), 0.0) + 1e-6);
+			float slope = clamp(d1, 0.0, 1.0);
+			// triplanar worked-gold texture
+			vec3 tp = v_op * 3.2;
+			vec3 w = pow(abs(normalize(v_no)), vec3(4.0));
+			w /= (w.x + w.y + w.z);
+			vec3 gd = texture(gold_diff, tp.zy).rgb * w.x + texture(gold_diff, tp.xz).rgb * w.y + texture(gold_diff, tp.xy).rgb * w.z;
+			float gr = texture(gold_rough, tp.zy).r * w.x + texture(gold_rough, tp.xz).r * w.y + texture(gold_rough, tp.xy).r * w.z;
+			vec3 tn = (texture(gold_nrm, tp.zy).xyz * w.x + texture(gold_nrm, tp.xz).xyz * w.y + texture(gold_nrm, tp.xy).xyz * w.z) * 2.0 - 1.0;
+			vec3 gn = normalize(n - gv * slope * 0.9);
+			gn = normalize(gn + (VIEW_MATRIX * MODEL_MATRIX * vec4(tn.x, tn.y, 0.0, 0.0)).xyz * 0.5);
+			// a glint sliding along the seams now and then
+			float gleam = pow(0.5 + 0.5 * sin(dot(v_op, vec3(3.0, 5.0, 2.0)) * 1.5 - TIME * 1.8), 12.0);
+			float k = vk * kin_k;
+			body *= 1.0 - k;
+			ALBEDO = mix(ALBEDO, gd * vec3(1.0, 0.86, 0.6), k);
+			METALLIC = mix(METALLIC, 1.0, k);
+			ROUGHNESS = mix(ROUGHNESS, clamp(gr * 0.9, 0.08, 0.6), k);
+			SPECULAR = mix(SPECULAR, 0.5, k);
+			n = normalize(mix(n, gn, k));
+			body += vec3(1.6, 1.1, 0.45) * gleam * k * (1.0 - gr);
+		}
 	}
 	// ultraviolet: the stone drowns in its own glow while the lamps go dark
 	body = mix(body, fluor_col * (1.2 + 0.8 * fbm(v_op * 4.0 + TIME * 0.3)) * (1.0 - milk * 0.3), uvk);
