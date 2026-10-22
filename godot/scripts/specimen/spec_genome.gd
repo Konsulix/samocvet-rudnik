@@ -12,7 +12,7 @@ const FORM_N := {single = "одиночный кристалл", cluster = "др
 	geode = "жеода", nugget = "самородок", botryoid = "натёчный", vein = "жила в кварце"}
 const SIZE_N := ["мелкий", "средний", "крупный", "гигант"]
 const ACC_N := {pompom = "помпоны волокон", straw = "золотистые пряди", lichen = "лишайник", needles = "иглы", crust = "щётка",
-	dust = "гематитовая пыль", inkspots = "тёмные включения", clouds = "цветные облака"}
+	dust = "гематитовая пыль", inkspots = "тёмные включения", clouds = "цветные облака", fronds = "веточки папоротника", flowers = "мелкие цветы"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -68,7 +68,7 @@ static func of(o: Dictionary) -> Dictionary:
 		form = "vein"
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
-	var apool := [["pompom", 1.0], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35]]
+	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
 	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	if form in ["geode", "botryoid"]:
@@ -82,6 +82,8 @@ static func of(o: Dictionary) -> Dictionary:
 		lichen = int(rng.next() * SpecAccents.LICHEN.size()),
 		clouds = int(rng.next() * SpecAccents.CLOUDS.size()),
 		moss = int(Stones.pick_w([[0, 4.0], [1, 2.0], [2, 1.0], [3, 1.5], [4, 0.8]], rng)),
+		frond = int(Stones.pick_w([[0, 3.0], [1, 2.0], [2, 1.0]], rng)),
+		flower = int(rng.next() * SpecAccents.FLOWER.size()),
 	}
 	# tests and showcases may pin a gene
 	form = o.get("form", form)
@@ -92,6 +94,10 @@ static func of(o: Dictionary) -> Dictionary:
 		form = form,
 		lustre = lustre,
 		accents = o.get("accents", acc),
+		# where moss, lichen and little plants settle: over the rock, or only in its pits and pockets
+		nest = o.get("nest", "hollows" if rng.next() < 0.5 else "surface"),
+		# a crumbling, spongy host rock
+		loose = o.get("loose", 0.45 + rng.next() * 0.55 if rng.next() < 0.28 else 0.0),
 		palette = palette,
 		dark_col = dark_col,
 		rock = rock,
@@ -108,7 +114,7 @@ static func of(o: Dictionary) -> Dictionary:
 ## the lines for the reveal card: what the find is made of
 static func describe(g: Dictionary) -> Array:
 	var lus := {glass = "стеклянный", dark = "тёмный, маслянистый", metal = "металлический"}
-	var out := [["Форма", FORM_N.get(g.form, g.form)], ["Блеск", lus.get(g.lustre, "")], ["Порода", ROCK_N.get(g.rock, g.rock)], ["Размер", SIZE_N[int(g.size)]]]
+	var out := [["Форма", FORM_N.get(g.form, g.form)], ["Блеск", lus.get(g.lustre, "")], ["Порода", ROCK_N.get(g.rock, g.rock) + (", рыхлый" if float(g.loose) > 0.0 else "")], ["Размер", SIZE_N[int(g.size)]]]
 	if g.accents.size():
 		var names := []
 		for a in g.accents: names.append(ACC_N.get(a, a))

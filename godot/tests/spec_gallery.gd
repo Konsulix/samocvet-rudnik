@@ -40,6 +40,16 @@ const SETS := [
 	{seed = 103, sid = "pyrite", kind = "druse", gi = 2, traits = [], accents = ["dust"]}, {seed = 104, sid = "pyrite", kind = "crystal", gi = 3, traits = [], accents = ["pompom"]},
 	{seed = 105, sid = "amethyst", kind = "crystal", gi = 3, traits = ["moss"], accents = ["pompom", "straw"]}, {seed = 106, sid = "calcite", kind = "druse", gi = 2, traits = [], accents = ["clouds", "lichen"]},
 	{seed = 107, sid = "gold", kind = "nugget", gi = 2, traits = [], form = "nugget", accents = []}, {seed = 108, sid = "fluorite", kind = "druse", gi = 2, traits = ["moss"], accents = ["inkspots", "pompom"]}],
+	[{seed = 111, sid = "quartz", kind = "crystal", gi = 3, traits = ["moss"], nest = "hollows", loose = 0.8, accents = ["fronds"]},
+	{seed = 112, sid = "amethyst", kind = "druse", gi = 2, traits = ["moss"], nest = "hollows", loose = 0.0, accents = ["flowers", "fronds"]},
+	{seed = 113, sid = "fluorite", kind = "crystal", gi = 2, traits = [], nest = "hollows", loose = 0.9, accents = ["lichen", "flowers"]},
+	{seed = 114, sid = "gypsum", kind = "crystal", gi = 2, traits = ["moss"], nest = "surface", loose = 0.0, accents = ["fronds", "flowers"]},
+	{seed = 115, sid = "aquamarine", kind = "druse", gi = 3, traits = [], nest = "hollows", loose = 1.0, accents = ["lichen"]},
+	{seed = 116, sid = "calcite", kind = "crystal", gi = 2, traits = ["moss"], nest = "hollows", loose = 0.6, accents = ["fronds", "pompom"]},
+	{seed = 117, sid = "garnet", kind = "crystal", gi = 2, traits = [], nest = "surface", loose = 0.7, accents = ["flowers"]},
+	{seed = 118, sid = "emerald", kind = "crystal", gi = 3, traits = ["moss"], nest = "hollows", loose = 0.5, accents = ["fronds", "flowers"]}],
+	[{seed = 116, sid = "calcite", kind = "crystal", gi = 2, traits = [], nest = "surface", loose = 0.0, accents = ["fronds", "flowers"]},
+	{seed = 111, sid = "quartz", kind = "crystal", gi = 3, traits = ["moss"], nest = "hollows", loose = 0.8, accents = ["fronds", "flowers"]}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
 ]
 

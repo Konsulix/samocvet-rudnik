@@ -296,7 +296,8 @@ static func ball(detail: int) -> Geo:
 
 ## host rock: a weathered chunk, eaten into by pores and pockets, ridged, darker in every hollow.
 ## Returns {geo, top, scale, base, rough}
-static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dictionary:
+## loose > 0: a crumbling, spongy rock riddled with deep pockets (an optional gene)
+static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose := 0.0) -> Dictionary:
 	var R: Dictionary = ROCKS[type]
 	var S: Array = ROCK_SHAPES[shape]
 	var g := ball(detail)
@@ -314,7 +315,7 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dicti
 	var pores := FastNoiseLite.new()
 	pores.seed = sd + 2
 	pores.noise_type = FastNoiseLite.TYPE_CELLULAR
-	pores.frequency = 4.6 if type != "quartzite" else 3.0
+	pores.frequency = (4.6 if type != "quartzite" else 3.0) * (1.0 + loose * 0.25)
 	pores.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
 	pores.cellular_jitter = 1.0
 	var fine := FastNoiseLite.new()
@@ -334,11 +335,12 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dicti
 		var f := form.get_noise_3dv(p) * 0.22
 		var rd2 := ridge.get_noise_3dv(p) * 0.05
 		# pockets cluster in eroded zones; tiny pores everywhere
-		var zone := clampf(where.get_noise_3dv(p) * 1.4 + spongy, 0.0, 1.0)
+		var zone := clampf(where.get_noise_3dv(p) * 1.4 + spongy + loose * 0.8, 0.0, 1.0)
 		var cd := (pores.get_noise_3dv(p) + 1.0) * 0.5
-		var pit := pow(clampf((0.44 - cd) / 0.44, 0.0, 1.0), 1.3) * 0.24 * zone
+		var thr := 0.44 + loose * 0.12
+		var pit := pow(clampf((thr - cd) / thr, 0.0, 1.0), 1.3 - loose * 0.5) * 0.24 * (1.0 + loose * 1.4) * zone
 		var fd := (fine.get_noise_3dv(p) + 1.0) * 0.5
-		var pit2 := clampf((0.3 - fd) / 0.3, 0.0, 1.0) * 0.045 * (0.3 + zone)
+		var pit2 := clampf((0.3 - fd) / 0.3, 0.0, 1.0) * 0.045 * (0.3 + zone) * (1.0 + loose)
 		g.v[i] = u * 0.62 * (1.0 + f + rd2 - pit - pit2)
 		cav[i] = clampf(pit * 5.0 + pit2 * 12.0 + maxf(0.0, -f) * 1.6 - maxf(0.0, rd2) * 4.0, 0.0, 1.0)
 	g.scale(S[0], S[1], S[2])
@@ -364,7 +366,13 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dicti
 	for i in g.v.size():
 		if g.v[i].y > ymax * 0.25:
 			top.append(g.v[i])
-	return {geo = g, top = top, scale = Vector3(S[0], S[1], S[2]), base = base, rough = 0.7 if type == "quartzite" else 0.96}
+	# hollows: the pits and pockets facing outwards, where moss and lichen like to settle
+	var hollows := []
+	var nr := g.normals()
+	for i in g.v.size():
+		if cav[i] > 0.42 and g.v[i].y > -ymax * 0.2 and i % 2 == 0:
+			hollows.append([g.v[i], nr[i]])
+	return {geo = g, top = top, hollows = hollows, scale = Vector3(S[0], S[1], S[2]), base = base, rough = 0.7 if type == "quartzite" else 0.96}
 
 ## a spongy, crumbling lump of native metal: frothy ridges, bubbles and deep pockets.
 ## Vertex colour carries the shading of the hollows.

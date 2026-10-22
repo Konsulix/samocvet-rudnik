@@ -16,6 +16,7 @@ var dt := {}            # where the crystals turn into rock; final values are ap
 var dt_mats := []
 var crust_ok := true
 var gene_m := {}
+var green_spots := []
 
 static func build(o: Dictionary) -> Node3D:
 	var b := SpecimenBuilder.new()
@@ -92,7 +93,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	dt.scan = scan
 
 	var st := {pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
-		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1}
+		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = []}
 	var stria := 1.0 if elongated else 0.0
 	var cmat_spec := func() -> Dictionary:
 		var irk2: float = st.irk
@@ -112,10 +113,15 @@ func _specimen(o: Dictionary) -> Node3D:
 	var rock_mat := func(c: Color) -> ShaderMaterial:
 		return SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}})
 	var use_rock := func(shape: String) -> MeshInstance3D:
-		var R := RockKit.rock(rng, rtype, shape)
-		var mi := U.mesh(R.geo, rock_mat.call(R.base), root)
+		var loose: float = gene.loose
+		var R := RockKit.rock(rng, rtype, shape, 32, loose)
+		var rm: ShaderMaterial = rock_mat.call(R.base)
+		var mi := U.mesh(R.geo, rm, root)
 		dt.col = R.base
 		var top: Array = R.top
+		st.hollows = R.hollows
+		if loose > 0.0:
+			_crumbs(rm, top, R.scale, loose)
 		var sc: Vector3 = R.scale
 		st.pick = func() -> Vector3: return top[int(floor(rng.next() * top.size()))] if top.size() else Vector3(0, 0.3, 0)
 		st.nrm = func(w: Vector3) -> Vector3: return RockKit.rock_nrm(sc, w)
@@ -674,6 +680,22 @@ func _gold(main: MeshInstance3D, st: Dictionary) -> void:
 			return [_rot_inst(p, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3(s, s * 0.45, s)), Color(1, 1, 1)]
 		U.inst(flake, gm, 40 + int(rng.next() * 60), place2, root)
 
+# a crumbling rock sheds bits: chips lying on it, a few about to fall, sand in the hollows
+func _crumbs(rm: ShaderMaterial, top: Array, sc: Vector3, loose: float) -> void:
+	if top.is_empty():
+		return
+	for k in int(6 + loose * 18):
+		var p: Vector3 = top[int(rng.next() * top.size())]
+		var n := RockKit.rock_nrm(sc, p)
+		var s := 0.02 + pow(rng.next(), 1.8) * 0.06
+		U.mesh(RockKit.crumble(rng, s, Vector3(1.3, 0.6, 1.0)), rm, root, p + n * s * 0.25, Basis(U.quat_to(UP, n)) * Basis(UP, rng.next() * 6.3))
+	var gm := SpecMat.make({col = dt.col * 1.6, rough = 0.9, flat = true})
+	var place := func(k: int) -> Array:
+		var p: Vector3 = top[int(rng.next() * top.size())]
+		var s := 0.004 + rng.next() * 0.008
+		return [_rot_inst(p * 1.005, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3.ONE * s), Color(1, 1, 1)]
+	U.inst(Geo.icosa(1, 0), gm, int(150 + loose * 250), place, root)
+
 # the accent genes: fibre pom-poms, straw hairs, lichen, dark spots and coloured clouds in the glass
 func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: Dictionary, layout: String) -> void:
 	var acc: Array = gene.accents
@@ -717,15 +739,35 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			var sweep: Vector3 = ((a[1] as Vector3) + Vector3(rng.next() - 0.5, rng.next() * 0.3, rng.next() - 0.5) * 2.2).normalized()
 			for bend in [1.4, 2.4]:
 				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.45, bend, sc, 0.09 * gs)
-	if "lichen" in acc and st.rock:
-		var pool := []
+	var hollows: Array = st.get("hollows", [])
+	var in_pits: bool = gene.nest == "hollows" and hollows.size() > 30
+	var rock_spots := []
+	if st.rock:
 		for k in 700:
 			var q: Vector3 = st.pick.call()
-			pool.append([q, st.nrm.call(q)])
+			rock_spots.append([q, st.nrm.call(q)])
+	var nest_spots: Array = hollows if in_pits else rock_spots
+	if "lichen" in acc and st.rock:
 		var lt: Color = SpecAccents.LICHEN[int(pal.lichen)]
-		for k in 2 + int(rng.next() * 4):
-			var c0: Vector3 = st.pick.call()
-			SpecPlants.cushion(root, rng, pool, c0, 0.1 + rng.next() * 0.14, 0.012, lt)
+		for k in (5 + int(rng.next() * 5)) if in_pits else (2 + int(rng.next() * 4)):
+			var c0: Vector3 = nest_spots[int(rng.next() * nest_spots.size())][0]
+			SpecPlants.cushion(root, rng, nest_spots, c0, (0.06 + rng.next() * 0.07) if in_pits else (0.1 + rng.next() * 0.14), 0.012, lt)
+	# little plants root where there is moss, or in the pits, or anywhere on the rock
+	var green: Array = green_spots if green_spots.size() else nest_spots
+	if green.size():
+		if "fronds" in acc:
+			var fp: Array = SpecAccents.FROND[int(pal.frond)]
+			for k in 1 + int(rng.next() * 3):
+				var at: Array = green[int(rng.next() * green.size())]
+				SpecAccents.fronds(root, rng, [at], 8 + int(rng.next() * 9), (0.3 + rng.next() * 0.22) * gs, fp)
+		if "flowers" in acc:
+			var fc: Color = SpecAccents.FLOWER[int(pal.flower)]
+			for k in 1 + int(rng.next() * 3):
+				var c0: Array = green[int(rng.next() * green.size())]
+				var near := []
+				for g2 in green:
+					if (g2[0] as Vector3).distance_to(c0[0]) < 0.12: near.append(g2)
+				SpecAccents.flowers(root, rng, near if near.size() else [c0], 4 + int(rng.next() * 7), (0.12 + rng.next() * 0.08) * gs, fc)
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
 			SpecAccents.inkspots(main, rng, 3 + int(rng.next() * 9))
@@ -864,9 +906,14 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		for k in 900:
 			var q: Vector3 = pick.call()
 			pool.append([q, nrm.call(q)])
-		for k in 4 + int(rng.next() * 3):
-			var c0: Vector3 = pick.call()
-			var rad := 0.18 + rng.next() * 0.2
+		var hollows: Array = st.get("hollows", [])
+		var in_pits: bool = gene_m.nest == "hollows" and hollows.size() > 30
+		if in_pits:
+			pool = hollows
+		for k in (7 + int(rng.next() * 5)) if in_pits else (4 + int(rng.next() * 3)):
+			var c0: Vector3 = (pool[int(rng.next() * pool.size())][0] as Vector3) if in_pits else (pick.call() as Vector3)
+			var rad := (0.07 + rng.next() * 0.09) if in_pits else (0.18 + rng.next() * 0.2)
+			green_spots.append([c0, nrm.call(c0)])
 			var tint: Color = (SpecAccents.MOSS[int(gene_m.palette.moss)] as Color).lerp(Color(1.2, 1.1, 0.6), rng.next() * 0.3)
 			# a cushion of moss bed, then sprigs, blades and the odd fern standing in it
 			var top := SpecPlants.cushion(root, rng, pool, c0, rad, 0.035 + rng.next() * 0.03, tint)

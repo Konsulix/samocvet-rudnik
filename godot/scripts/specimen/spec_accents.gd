@@ -101,3 +101,151 @@ static func inkspots(main: MeshInstance3D, rng: Rng32, count: int) -> void:
 		var s := (0.025 + pow(rng.next(), 1.5) * 0.06) * minf(bb.size.x, bb.size.z) * 2.0
 		var p := bb.position + Vector3(0.2 + rng.next() * 0.6, 0.25 + rng.next() * 0.65, 0.2 + rng.next() * 0.6) * bb.size
 		SpecUtil.mesh(g, m, main, p, SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3(s, s * (0.7 + rng.next() * 0.5), s)))
+
+# ---------------------------------------------------------------- little plants
+
+static var _leaf: ArrayMesh
+static var _petal: ArrayMesh
+static var _stem: ArrayMesh
+static var _plant_mat: ShaderMaterial
+
+## a small rounded leaflet (or petal), base at the origin, one unit long along +Y, gently cupped
+static func leaf_mesh(petal := false) -> ArrayMesh:
+	if not petal and _leaf: return _leaf
+	if petal and _petal: return _petal
+	var v := PackedVector3Array([Vector3(0, 0, 0)])
+	var c := PackedColorArray([Color(0.55, 0.55, 0.55)])
+	var n := 12
+	for i in n + 1:
+		var a := float(i) / n * TAU
+		var x := sin(a) * (0.42 if not petal else 0.5)
+		var y := (0.5 - cos(a) * 0.5)
+		if petal: y = pow(y, 0.8)
+		v.append(Vector3(x, y, -0.12 * (1.0 - absf(x) * 2.0)))
+		c.append(Color(1, 1, 1))
+	var idx := PackedInt32Array()
+	for i in n:
+		idx.append_array([0, i + 1, i + 2])
+	var g := Geo.new()
+	g.v = v
+	g.idx = idx
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	arr[Mesh.ARRAY_NORMAL] = g.normals()
+	arr[Mesh.ARRAY_COLOR] = c
+	arr[Mesh.ARRAY_INDEX] = idx
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	if petal: _petal = m
+	else: _leaf = m
+	return m
+
+static func stem_mesh() -> ArrayMesh:
+	if not _stem:
+		_stem = Geo.cylinder(1, 1, 1, 5).translate(0, 0.5, 0).to_mesh()
+	return _stem
+
+static func plant_mat() -> ShaderMaterial:
+	if not _plant_mat:
+		_plant_mat = SpecMat.make({col = Color(1, 1, 1), rough = 0.55, side = "double"})
+	return _plant_mat
+
+static func _mm(mesh: Mesh, xs: Array, cs: Array, parent: Node3D) -> void:
+	if xs.is_empty(): return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = mesh
+	mm.instance_count = xs.size()
+	for i in xs.size():
+		mm.set_instance_transform(i, xs[i])
+		mm.set_instance_color(i, cs[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = plant_mat()
+	parent.add_child(mi)
+
+const FROND := [
+	[Color(0.06, 0.22, 0.04), Color(0.16, 0.42, 0.07), Color(0.03, 0.025, 0.02)],   # spleenwort: dark leaflets, black stems
+	[Color(0.2, 0.42, 0.06), Color(0.42, 0.6, 0.1), Color(0.12, 0.08, 0.03)],      # fresh yellow-green
+	[Color(0.3, 0.12, 0.05), Color(0.5, 0.35, 0.08), Color(0.08, 0.03, 0.02)],     # autumn red-brown
+]
+const FLOWER := [Color(1.0, 1.0, 0.97), Color(1.1, 0.85, 0.15), Color(1.1, 0.4, 0.65), Color(0.55, 0.35, 1.0), Color(0.35, 0.55, 1.1)]
+
+## little fern fronds: a thin dark stem arching out and drooping, paired rounded leaflets shrinking to the tip
+static func fronds(parent: Node3D, rng: Rng32, spots: Array, count: int, size: float, pal: Array) -> void:
+	var lx := []
+	var lc := []
+	var sx := []
+	var sc := []
+	for f in count:
+		var at: Array = spots[int(rng.next() * spots.size())]
+		var p: Vector3 = at[0]
+		var n: Vector3 = at[1]
+		var d := (n * 0.7 + Vector3(rng.next() - 0.5, rng.next() * 0.6, rng.next() - 0.5)).normalized()
+		var L := size * (0.6 + rng.next() * 0.7)
+		var droop := 0.3 + rng.next() * 0.6
+		var side := d.cross(Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT).normalized()
+		var pts := []
+		var steps := 12
+		for i in steps + 1:
+			var t := i / float(steps)
+			pts.append(p + d * L * t + Vector3.DOWN * droop * L * t * t)
+		for i in steps:
+			var a: Vector3 = pts[i]
+			var b: Vector3 = pts[i + 1]
+			var seg := b - a
+			sx.append(Transform3D(Basis(SpecUtil.quat_to(Vector3.UP, seg.normalized())) * Basis.from_scale(Vector3(0.0035 * size / 0.2, seg.length(), 0.0035 * size / 0.2)), a))
+			sc.append(pal[2])
+			if i >= 1:
+				var t := i / float(steps)
+				var ls := L * 0.16 * (1.0 - t * 0.65)
+				var tang := seg.normalized()
+				var up := tang.cross(side).normalized()
+				if up.y < 0: up = -up
+				for sgn in [-1.0, 1.0]:
+					var out: Vector3 = (side * sgn + tang * 0.35).normalized()
+					var nrm := (up + tang * 0.2).normalized()
+					nrm = (nrm - out * nrm.dot(out)).normalized()
+					# the leaflet's +Y runs out from the stem, its face looks up
+					var basis := Basis(out.cross(nrm), out, nrm)
+					lx.append(Transform3D(basis * Basis.from_scale(Vector3(ls, ls, ls)), a + seg * 0.5))
+					var c: Color = (pal[0] as Color).lerp(pal[1], rng.next())
+					lc.append(c)
+	_mm(stem_mesh(), sx, sc, parent)
+	_mm(leaf_mesh(), lx, lc, parent)
+
+## tiny five-petalled flowers on thin stems, in little groups
+static func flowers(parent: Node3D, rng: Rng32, spots: Array, count: int, size: float, col: Color) -> void:
+	var px := []
+	var pc := []
+	var sx := []
+	var sc := []
+	var cx := []
+	var cc := []
+	for f in count:
+		var at: Array = spots[int(rng.next() * spots.size())]
+		var p: Vector3 = at[0]
+		var n: Vector3 = at[1]
+		var d := (n.lerp(Vector3.UP, 0.6) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.6).normalized()
+		var h := size * (0.35 + rng.next() * 0.55)
+		sx.append(Transform3D(Basis(SpecUtil.quat_to(Vector3.UP, d)) * Basis.from_scale(Vector3(0.0018 * size / 0.1, h, 0.0018 * size / 0.1)), p))
+		sc.append(Color(0.15, 0.35, 0.08))
+		var head := p + d * h
+		var face := (d + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.4).normalized()
+		var ps := size * (0.3 + rng.next() * 0.12)
+		var ref := face.cross(Vector3.RIGHT if absf(face.x) < 0.9 else Vector3.FORWARD).normalized()
+		var spin := rng.next() * TAU
+		for k in 5:
+			var out: Vector3 = ref.rotated(face, spin + k * TAU / 5.0)
+			var fz := (face - out * face.dot(out)).normalized()
+			var b := Basis(out.cross(fz), out, fz)
+			px.append(Transform3D(b * Basis.from_scale(Vector3(ps, ps, ps)), head))
+			var v := 0.85 + rng.next() * 0.3
+			pc.append(Color(col.r * v, col.g * v, col.b * v))
+		cx.append(Transform3D(Basis.from_scale(Vector3.ONE * ps * 0.28), head + face * ps * 0.05))
+		cc.append(Color(1.1, 0.75, 0.1))
+	_mm(stem_mesh(), sx, sc, parent)
+	_mm(leaf_mesh(true), px, pc, parent)
+	_mm(Geo.sphere(1, 8, 6).to_mesh(), cx, cc, parent)
