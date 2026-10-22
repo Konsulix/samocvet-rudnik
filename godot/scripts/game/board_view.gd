@@ -47,7 +47,7 @@ func _layer(fn: Callable) -> Node2D:
 ## fit the board into `avail` (pixels) and centre it there
 func layout(avail: Vector2) -> void:
 	TS = floorf(minf(minf((avail.x - 8) / C, (avail.y - 8) / R), 62.0))
-	PAD = roundf(TS * 0.14)
+	PAD = roundf(TS * 0.26)
 	custom_minimum_size = Vector2(C * TS + PAD * 2, R * TS + PAD * 2)
 	size = custom_minimum_size
 
@@ -204,18 +204,24 @@ const SLAB := preload("res://assets/board/pieces/slab.png")
 ## the tray: a slab of pale marble with a raised marble tile in every cell
 func _draw() -> void:
 	if model == null: return
-	var e := PAD * 0.9
+	var e := PAD * 0.92
 	# outer edge of the slab: a soft drop shadow, then the slab itself
 	for r in R:
 		for c in C:
 			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
 				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e) + Vector2(2, 6), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color(0, 0, 0, 0.35))
+	# the frame's darker outer lip, rounded
 	for r in R:
 		for c in C:
 			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				var rr := Rect2(p - Vector2(e, e), Vector2(TS, TS) + Vector2(e, e) * 2.0)
+				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color("#b9ae9c"))
+	for r in R:
+		for c in C:
+			if model.playable(r, c):
+				var p := Vector2(PAD + c * TS, PAD + r * TS)
+				var rr := Rect2(p - Vector2(e, e) * 0.72, Vector2(TS, TS) + Vector2(e, e) * 1.44)
 				draw_texture_rect_region(SLAB, rr, Rect2(rr.position * 1.6, rr.size * 1.6), Color(0.9, 0.88, 0.85))
 	# a thin warm catch-light on the slab's upper edges
 	for r in R:
@@ -248,7 +254,7 @@ func _draw_under(ci: Node2D) -> void:
 			if model.GAS[r][c]:
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
-				GemArt.gas(ci, TS)
+				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	for gi in model.geos.size():
 		var geo: Dictionary = model.geos[gi]
@@ -284,7 +290,7 @@ func _draw_geode(ci: Node2D, geo: Dictionary, gi: int, now: float) -> void:
 	if since < 0.22: shake = sin(since * 55.0) * 3.0
 	var ctr := Vector2(PAD + (geo.c + 1) * TS + shake, PAD + (geo.r + 1) * TS)
 	GemArt.radial_disc(ci, ctr, TS * 1.1, Color(0.78, 0.59, 1, 0.15 + (4 - geo.hp) * 0.08), Color(0.78, 0.59, 1, 0.08), Color(0.78, 0.59, 1, 0))
-	ci.draw_texture_rect(GemArt.NODULE, Rect2(ctr - Vector2(TS, TS) * 0.95, Vector2(TS, TS) * 1.9), false)
+	BoardSprites.draw(ci, BoardSprites.tex("geode"), ctr, TS * 2.0)
 	if geo.hp < 4:
 		for line in crack_paths(geo.r * 31 + geo.c, (4 - geo.hp) * 2):
 			var pts := PackedVector2Array()
@@ -299,7 +305,9 @@ func _draw_find(ci: Node2D, now: float) -> void:
 	var k: float = float(F.hp) / F.hp_max
 	var col := Data.rarity_color(F.stone.tier)
 	var box := GemArt.rrect(p + Vector2(2, 2), Vector2(TS * 2 - 4, TS * 2 - 4), TS * 0.3)
-	ci.draw_colored_polygon(box, Color("#05070a"))
+	# a dark slate niche with a gold rim, like the goals panel
+	ci.draw_colored_polygon(box, Color("#202326"))
+	ci.draw_polyline(GemArt.closed(box), Color("#c9a35a"), 2.0, true)
 	var pulse := 0.25 + 0.15 * sin(now * 2.0)
 	GemArt.radial_disc(ci, p + Vector2(TS, TS), TS * 1.05, Color(col, pulse * (1.2 - k)), Color(col, pulse * 0.4), Color(col, 0))
 	var a := 0.55 + (1.0 - k) * 0.45

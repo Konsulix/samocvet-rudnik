@@ -271,9 +271,9 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 		"c": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
 		"rock": BoardSprites.draw(ci, BoardSprites.tex("rock1"), Vector2(S / 2, S / 2), S * 0.9)
 		"mud": BoardSprites.draw(ci, BoardSprites.tex("mud"), Vector2(S / 2, S / 2), S * 0.9)
-		"gas": gas(ci, S)
+		"gas": BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(S / 2, S / 2), S * 0.9)
 		"lock":
 			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
-		"geo": geode_icon(ci, S)
+		"geo": BoardSprites.draw(ci, BoardSprites.tex("geode"), Vector2(S / 2, S / 2), S * 0.5)
 		_: BoardSprites.draw(ci, BoardSprites.tex("nug"), Vector2(S / 2, S / 2), S * 0.9)

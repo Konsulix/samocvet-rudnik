@@ -87,6 +87,54 @@ func button(text: String, kind := "glass", font_size := 20) -> Button:
 	b.pressed.connect(func(): Sfx.buzz(8))
 	return b
 
+# ---------------------------------------------------------------- the stone look (marble and slate)
+
+const STONE_INK := Color("#3b332a")       # text on marble
+const STONE_MUTED := Color("#7d7264")
+
+## a pale marble surface: buttons, pills, the moves disc
+func marble(radius := 18, raised := true) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color("#ece6dc")
+	s.border_color = Color("#cfc4b2")
+	s.set_border_width_all(1)
+	s.border_width_bottom = 4 if raised else 1
+	s.set_corner_radius_all(radius)
+	s.shadow_color = Color(0.25, 0.18, 0.1, 0.22)
+	s.shadow_size = 10
+	s.shadow_offset = Vector2(3, 5)
+	s.set_content_margin_all(10)
+	return s
+
+## dark slate with a thin gold rim: the goals panel
+func slate(radius := 22) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color("#2c2f33")
+	s.border_color = Color("#c9a35a")
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(radius)
+	s.shadow_color = Color(0.2, 0.14, 0.08, 0.3)
+	s.shadow_size = 12
+	s.shadow_offset = Vector2(3, 6)
+	s.set_content_margin_all(10)
+	return s
+
+func marble_button(text: String, font_size := 18) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.add_theme_font_override("font", body_bold)
+	b.add_theme_font_size_override("font_size", font_size)
+	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(st, STONE_INK)
+	b.add_theme_stylebox_override("normal", marble())
+	b.add_theme_stylebox_override("hover", marble())
+	var pr := marble(18, false)
+	pr.bg_color = Color("#e2dbcf")
+	b.add_theme_stylebox_override("pressed", pr)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.pressed.connect(func(): Sfx.buzz(8))
+	return b
+
 func label(text: String, size := 16, font: Font = null, col := INK) -> Label:
 	var l := Label.new()
 	l.text = text

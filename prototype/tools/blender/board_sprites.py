@@ -182,6 +182,29 @@ def lock():
         bpy.ops.mesh.primitive_uv_sphere_add(radius=0.035, location=(x, y, 0.36))
         link(bpy.context.object, iron)
 
+def gas():
+    # a pocket of toxic gas: soft, glowing yellow-green puffs
+    m = mat("gas", (0.22, 0.5, 0.06), 0.6, emit=(0.35, 0.75, 0.08), emit_k=0.25)
+    p = m.node_tree.nodes["Principled BSDF"]
+    p.inputs["Transmission Weight"].default_value = 0.5
+    random.seed(17)
+    for k in range(7):
+        a = k / 7 * math.tau + random.uniform(-0.3, 0.3)
+        rr = random.uniform(0.12, 0.25) if k else 0.0
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=random.uniform(0.16, 0.24), location=(math.cos(a) * rr, math.sin(a) * rr, 0.18))
+        o = bpy.context.object; o.scale = (1, 1, 0.7); bpy.ops.object.shade_smooth()
+        link(o, m)
+
+def geode():
+    # a round nodule of crusty rock spanning 2x2 cells, a ring of violet crystal showing where it split
+    shell = noise_color(mat("shell", (0.35, 0.3, 0.25), 0.95), (0.2, 0.17, 0.14), (0.42, 0.37, 0.3), 3.0, 0.8)
+    o = lump(0.82, (1, 1, 0.55), shell, 41, 0.18, 4)
+    vio = mat("vio", (0.4, 0.15, 0.75), 0.15, coat=1.0, emit=(0.4, 0.15, 0.85), emit_k=0.4)
+    for k in range(28):
+        a = k / 28 * math.tau
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.06, depth=0.12, location=(math.cos(a) * 0.62, math.sin(a) * 0.62, 0.3), rotation=(0, math.pi / 2.4, a))
+        link(bpy.context.object, vio)
+
 def marble_mat(light=True):
     m = bpy.data.materials.new("marble"); m.use_nodes = True
     n = m.node_tree; L = n.links; p = n.nodes["Principled BSDF"]
@@ -219,12 +242,12 @@ def slab_texture(path):
 
 JOBS = {
     "rh": lambda: dynamite(0.0), "rv": lambda: dynamite(math.pi / 2), "bomb": bundle, "drill": drill, "orb": orb,
-    "nug": nugget, "rock1": lambda: rock(False), "rock2": lambda: rock(True), "mud": mud, "lock": lock, "tile": tile,
+    "nug": nugget, "gas": gas, "geode": geode, "rock1": lambda: rock(False), "rock2": lambda: rock(True), "mud": mud, "lock": lock, "tile": tile,
 }
 os.makedirs(OUT, exist_ok=True)
 for name, fn in JOBS.items():
     if ONLY and name not in ONLY: continue
-    sc = setup(scale=1.15 if name != "tile" else 1.0, shadow=name != "tile")
+    sc = setup(scale=2.3 if name == "geode" else 1.15 if name != "tile" else 1.0, shadow=name != "tile")
     fn()
     sc.render.filepath = os.path.join(OUT, name + ".png")
     bpy.ops.render.render(write_still=True)

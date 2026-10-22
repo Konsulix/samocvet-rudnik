@@ -7,7 +7,7 @@ extends Control
 signal finished(result: Dictionary)   # {won, n, stone, bonus, coins}
 
 var model := BoardModel.new()
-var bg: GalleryBg
+var bg: TextureRect
 var bg_layer: CanvasLayer
 var holder: Control
 var shaker: Node2D
@@ -34,10 +34,12 @@ func _ready() -> void:
 	bg_layer = CanvasLayer.new()
 	bg_layer.layer = -1
 	add_child(bg_layer)
-	var mod := CanvasModulate.new()
-	mod.color = Color(0.78, 0.74, 0.72)
-	bg_layer.add_child(mod)
-	bg = GalleryBg.new()
+	# a pale marble table in window light (rendered in Blender: prototype/tools/blender/level_bg.py)
+	bg = TextureRect.new()
+	bg.texture = load("res://assets/ui/level_bg.png")
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg_layer.add_child(bg)
 	holder = Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -65,7 +67,7 @@ func start(n: int, pre: Array = [], dl: int = 0) -> void:
 	model.setup(n, pre, dl, eq, Save.area())
 	Save.persist()
 	var vp := get_viewport_rect().size
-	bg.setup(Save.area(), dl, vp)
+	bg.size = vp
 	_layout()
 	board.rebuild(model)
 	_mount_find()
@@ -119,15 +121,27 @@ func _build_hud() -> void:
 	# top line: close and the level title
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var close := UI.button("✕", "glass", 16)
-	close.custom_minimum_size = Vector2(38, 38)
+	var close := UI.marble_button("✕", 18)
+	close.add_theme_stylebox_override("normal", UI.marble(22))
+	close.custom_minimum_size = Vector2(44, 44)
 	close.pressed.connect(_on_quit)
 	top.add_child(close)
-	title_label = UI.title("Уровень", 15)
-	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(title_label)
+	top.add_theme_constant_override("separation", 10)
+	var title_pill := PanelContainer.new()
+	title_pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tp := UI.marble(20)
+	tp.content_margin_top = 6
+	tp.content_margin_bottom = 8
+	title_pill.add_theme_stylebox_override("panel", tp)
+	title_label = UI.label("Уровень", 15, UI.display, UI.STONE_INK)
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.clip_text = true
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_label.custom_minimum_size = Vector2(60, 0)
+	title_pill.add_child(title_label)
+	top.add_child(title_pill)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(38, 38)
+	spacer.custom_minimum_size = Vector2(44, 44)
 	top.add_child(spacer)
 	root.add_child(top)
 	# goals and the moves token
@@ -136,30 +150,28 @@ func _build_hud() -> void:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var goals_panel := PanelContainer.new()
 	goals_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	goals_panel.add_theme_stylebox_override("panel", UI.glass(18))
+	goals_panel.clip_contents = true
+	goals_panel.custom_minimum_size = Vector2(60, 0)
+	goals_panel.add_theme_stylebox_override("panel", UI.slate(22))
 	var goals_row := HBoxContainer.new()
 	goals_row.name = "Goals"
-	goals_row.add_theme_constant_override("separation", 10)
+	goals_row.add_theme_constant_override("separation", 6)
 	goals_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	goals_panel.add_child(goals_row)
 	line.add_child(goals_panel)
 	moves_token = PanelContainer.new()
-	moves_token.custom_minimum_size = Vector2(74, 74)
-	var token := StyleBoxFlat.new()
-	token.bg_color = Color("#e0aa30")
-	token.set_corner_radius_all(37)
-	token.border_color = Color("#4a3006")
+	moves_token.custom_minimum_size = Vector2(78, 78)
+	var token := UI.marble(39)
+	token.border_color = Color("#c9a35a")
 	token.set_border_width_all(3)
-	token.shadow_color = Color(1, 0.8, 0.35, 0.35)
-	token.shadow_size = 12
 	moves_token.add_theme_stylebox_override("panel", token)
 	var mv := VBoxContainer.new()
 	mv.alignment = BoxContainer.ALIGNMENT_CENTER
 	mv.add_theme_constant_override("separation", -4)
-	var small := UI.label("ХОДЫ", 9, UI.body_bold, Color("#5a3604"))
+	var small := UI.label("ХОДЫ", 10, UI.body_bold, UI.STONE_MUTED)
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(small)
-	moves_label = UI.label("0", 28, UI.display, Color("#3a2200"))
+	moves_label = UI.label("0", 28, UI.display, UI.STONE_INK)
 	moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(moves_label)
 	moves_token.add_child(mv)
@@ -169,17 +181,14 @@ func _build_hud() -> void:
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fill)
-	hint_label = UI.label("", 13, UI.body, UI.MUTED)
+	hint_label = UI.label("", 13, UI.body_bold, UI.STONE_INK)
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(hint_label)
 	# booster bar at the bottom, like the game's tab bar
 	var bar := PanelContainer.new()
-	var bs := StyleBoxFlat.new()
-	bs.bg_color = Color("#151d2c")
-	bs.border_color = Color(1, 1, 1, 0.1)
-	bs.border_width_top = 1
-	bs.content_margin_top = 10
-	bs.content_margin_bottom = 14
+	var bs := StyleBoxEmpty.new()
+	bs.content_margin_top = 6
+	bs.content_margin_bottom = 18
 	bar.add_theme_stylebox_override("panel", bs)
 	booster_bar = HBoxContainer.new()
 	booster_bar.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -196,7 +205,7 @@ func _build_hud() -> void:
 	hud.add_child(overlay)
 
 func _render_hud() -> void:
-	title_label.text = "Уровень %d · %d м%s" % [model.n, int(Data.DEPTHS[model.depth].m), " · сложный" if model.hard else ""]
+	title_label.text = "Уровень %d · %d м%s" % [model.n, int(Data.DEPTHS[model.depth].m), " · ★" if model.hard else ""]
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -207,10 +216,11 @@ func _render_hud() -> void:
 		var glow := Data.rarity_color(model.find.stone.tier) if g.k == "find" else Color("#c8b0ff")
 		var k: String = g.k
 		var colour: int = g.t
-		box.add_child(UI.icon(34, func(ci):
+		var isz := 34 if model.goals.size() <= 3 else 28
+		box.add_child(UI.icon(isz, func(ci):
 			GemArt.begin(ci, Transform2D.IDENTITY)
-			GemArt.goal_icon(ci, k, colour, 34, glow)))
-		var l := UI.label("", 16, UI.display)
+			GemArt.goal_icon(ci, k, colour, isz, glow)))
+		var l := UI.label("", 16 if model.goals.size() <= 3 else 14, UI.display)
 		box.add_child(l)
 		row.add_child(box)
 		goal_boxes.append({root = box, label = l, shown = g.left})
@@ -231,7 +241,7 @@ func _render_goal(i: int) -> void:
 func _render_moves() -> void:
 	moves_label.text = str(model.moves)
 	var low := model.moves <= 5 and not model.over
-	moves_label.add_theme_color_override("font_color", Color("#a80e1c") if low else Color("#3a2200"))
+	moves_label.add_theme_color_override("font_color", Color("#b0242c") if low else UI.STONE_INK)
 
 func _render_boosters() -> void:
 	for ch in booster_bar.get_children(): ch.queue_free()
@@ -239,16 +249,15 @@ func _render_boosters() -> void:
 		var id: String = bo.id
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(64, 64)
-		var st := UI.button_style("glass")
-		st.bg_color = Color("#2c3c5a") if booster != id else Color("#4a5a7a")
-		st.border_color = UI.GOLD if booster == id else Color("#0a0f18")
-		st.set_border_width_all(2 if booster == id else 0)
-		st.border_width_bottom = 4
+		var st := UI.marble(16)
+		if booster == id:
+			st.border_color = Color("#c9a35a")
+			st.set_border_width_all(3)
 		for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, st)
 		var ic := UI.icon(44, func(ci):
 			if id == "dyn":
-				GemArt.begin(ci, Transform2D(0.0, Vector2(22, 22)))
-				GemArt.special(ci, "rh", 44)
+				BoardSprites.draw(ci, BoardSprites.tex("rh"), Vector2(22, 22), 44)
+				return
 			else:
 				GemArt.begin(ci, Transform2D(-0.7, Vector2(22, 22)))
 				ci.draw_rect(Rect2(-2, -2, 4, 21), Color("#8a5a2c"))
@@ -262,7 +271,7 @@ func _render_boosters() -> void:
 		var bstyle := StyleBoxFlat.new()
 		bstyle.bg_color = Color("#e23a55") if n else Color("#e3a51e")
 		bstyle.set_corner_radius_all(11)
-		bstyle.border_color = Color("#151d2c")
+		bstyle.border_color = Color("#ece6dc")
 		bstyle.set_border_width_all(2)
 		badge.add_theme_stylebox_override("normal", bstyle)
 		badge.custom_minimum_size = Vector2(24, 22)
