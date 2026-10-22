@@ -35,6 +35,11 @@ const SETS := [
 	{seed = 93, sid = "quartz", kind = "crystal", gi = 3, traits = ["twin"], lustre = "dark", form = "columnar"}, {seed = 94, sid = "emerald", kind = "crystal", gi = 2, traits = [], lustre = "dark", form = "slabs"},
 	{seed = 95, sid = "gold", kind = "nugget", gi = 2, traits = [], form = "vein"}, {seed = 96, sid = "amethyst", kind = "druse", gi = 2, traits = ["eroded"], lustre = "dark"},
 	{seed = 97, sid = "aquamarine", kind = "crystal", gi = 3, traits = [], lustre = "dark", form = "single"}, {seed = 98, sid = "nativecu", kind = "nugget", gi = 3, traits = [], form = "vein"}],
+	[{seed = 101, sid = "quartz", kind = "druse", gi = 3, traits = [], form = "slabs", accents = ["pompom", "inkspots", "clouds"]},
+	{seed = 102, sid = "gypsum", kind = "crystal", gi = 2, traits = [], form = "slabs", accents = ["straw", "lichen"]},
+	{seed = 103, sid = "pyrite", kind = "druse", gi = 2, traits = [], accents = ["dust"]}, {seed = 104, sid = "pyrite", kind = "crystal", gi = 3, traits = [], accents = ["pompom"]},
+	{seed = 105, sid = "amethyst", kind = "crystal", gi = 3, traits = ["moss"], accents = ["pompom", "straw"]}, {seed = 106, sid = "calcite", kind = "druse", gi = 2, traits = [], accents = ["clouds", "lichen"]},
+	{seed = 107, sid = "gold", kind = "nugget", gi = 2, traits = [], form = "nugget", accents = []}, {seed = 108, sid = "fluorite", kind = "druse", gi = 2, traits = ["moss"], accents = ["inkspots", "pompom"]}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
 ]
 

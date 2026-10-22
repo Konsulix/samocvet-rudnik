@@ -15,6 +15,7 @@ var root: Node3D
 var dt := {}            # where the crystals turn into rock; final values are applied in _finish()
 var dt_mats := []
 var crust_ok := true
+var gene_m := {}
 
 static func build(o: Dictionary) -> Node3D:
 	var b := SpecimenBuilder.new()
@@ -54,6 +55,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	if gi < 2:
 		col = col.lerp(SpecMat.lin(0xb8b4ac), 0.25 - gi * 0.1)
 	var gene := SpecGenome.of(o)
+	gene_m = gene
 	root.set_meta("genome", gene)
 	if gene.anomaly:
 		# an anomaly: the stone grew in a colour its species never has, and glows faintly from inside
@@ -95,7 +97,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	var cmat_spec := func() -> Dictionary:
 		var irk2: float = st.irk
 		if metal:
-			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.25, coat = 1.0, flat = true, env = 1.6, ir = irk2, rf = 0.16 + gi * 0.07, st = stria, prio = 2}
+			# brassy metal crystals: striated faces, a rainbow tarnish here and there, sunk into the rock
+			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5, rf = 0.3, st = stria, dirt = dt, prio = 2,
 			rim = gene.rim, holo = gene.holo, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
@@ -364,6 +367,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	if gene.gold:
 		_gold(main, st)
 	_growths(main, mat, col, tr, layout, sid, st, legend)
+	_accents(main, mat, gene, st, layout)
 	_finish()
 	if legend:
 		var halo := U.mesh(Geo.torus(1.05, 0.008, 6, 90), SpecMat.make({col = U.raw(0xe4ae39), unshaded = true}), root, Vector3.ZERO, Basis(Vector3.RIGHT, PI / 2 - 0.3))
@@ -381,13 +385,12 @@ func _nugget(sid: String, col: Color) -> MeshInstance3D:
 	var lump := func(r: float, at: Vector3, o2 := {}) -> MeshInstance3D:
 		var o := {r = r, sx = 1.2 + rng.next() * 0.3, sy = 0.7 + rng.next() * 0.25, sz = 1.0, wave = 0.16, bumps = [[14, 0.5, 0.14], [40, 0.2, 0.05]], pits = [30, 0.12, 0.05], seg = 72}
 		o.merge(o2, true)
-		var L := RockKit.lump(rng, o)
-		var m := U.mesh(RockKit.tint_cav(L[0], L[1], 0.55), mm, root, at, U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
+		var m := U.mesh(RockKit.crumble(rng, r, Vector3(o.sx, o.sy, o.sz)), mm, root, at, U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
 		return m
 	if not copper and rng.next() < 0.45:
 		# gold set in a lump of milky vein quartz
 		var Q := RockKit.lump(rng, {r = 0.55, sx = 1.25, sy = 0.85, sz = 1.0, wave = 0.22, bumps = [[8, 0.6, 0.12]], pits = [20, 0.15, 0.06], seg = 64})
-		var qm := SpecMat.make({col = U.raw(0xbdb8ae), rough = 0.3, coat = 0.5, flat = true, dirt = {h = -99.0, a = 0.3, col = SpecMat.lin(0x7a4018), fr = 0.0, isl = 0.32, fb = 0.0}})
+		var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xd8d0c0), fr = 0.0, scan = 0}})
 		var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.5)
 		first = U.mesh(qg, qm, root)
 		var n := 3 + int(floor(rng.next() * 4))
@@ -671,6 +674,66 @@ func _gold(main: MeshInstance3D, st: Dictionary) -> void:
 			return [_rot_inst(p, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3(s, s * 0.45, s)), Color(1, 1, 1)]
 		U.inst(flake, gm, 40 + int(rng.next() * 60), place2, root)
 
+# the accent genes: fibre pom-poms, straw hairs, lichen, dark spots and coloured clouds in the glass
+func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: Dictionary, layout: String) -> void:
+	var acc: Array = gene.accents
+	if acc.is_empty():
+		return
+	var pal: Dictionary = gene.palette
+	var cols := []
+	for c in root.get_children():
+		if c is MeshInstance3D and c.get_meta("col", false):
+			cols.append(c)
+	if main and not main in cols:
+		cols.append(main)
+	var on_rock := func() -> Array:
+		if not st.rock:
+			return []
+		var q: Vector3 = st.pick.call()
+		return [q, st.nrm.call(q)]
+	var on_crystal := func() -> Array:
+		if cols.is_empty():
+			return []
+		var pts := RockKit.surf_pts(cols[int(rng.next() * cols.size())], 1, rng)
+		return pts[0] if pts.size() else []
+	var spot := func(crystal_first: float) -> Array:
+		var a: Array = on_crystal.call() if rng.next() < crystal_first else on_rock.call()
+		if a.is_empty(): a = on_rock.call() if rng.next() < 0.5 else on_crystal.call()
+		return a
+	var gs: float = gene.scale
+	if "pompom" in acc:
+		var pc: Array = SpecAccents.POMPOM[int(pal.pompom)]
+		for k in 1 + int(rng.next() * 4):
+			var a: Array = spot.call(0.6)
+			if a.is_empty(): continue
+			SpecAccents.tuft(root, rng, a[0], a[1], 450 + int(rng.next() * 350), (0.16 + rng.next() * 0.14) * gs, 0.012, 0.8, 0.2, pc)
+	if "straw" in acc:
+		var sc: Array = SpecAccents.STRAW[int(pal.straw)]
+		for k in 2 + int(rng.next() * 3):
+			var a: Array = spot.call(0.35)
+			if a.is_empty(): continue
+			# tangled hair: roots spread over a patch, long, strongly bent, every which way
+			# all swept one way, like hair combed by water
+			var sweep: Vector3 = ((a[1] as Vector3) + Vector3(rng.next() - 0.5, rng.next() * 0.3, rng.next() - 0.5) * 2.2).normalized()
+			for bend in [1.4, 2.4]:
+				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.45, bend, sc, 0.09 * gs)
+	if "lichen" in acc and st.rock:
+		var pool := []
+		for k in 700:
+			var q: Vector3 = st.pick.call()
+			pool.append([q, st.nrm.call(q)])
+		var lt: Color = SpecAccents.LICHEN[int(pal.lichen)]
+		for k in 2 + int(rng.next() * 4):
+			var c0: Vector3 = st.pick.call()
+			SpecPlants.cushion(root, rng, pool, c0, 0.1 + rng.next() * 0.14, 0.012, lt)
+	if mat and main and gene.lustre == "glass":
+		if "inkspots" in acc:
+			SpecAccents.inkspots(main, rng, 3 + int(rng.next() * 9))
+		if "clouds" in acc:
+			var cc: Color = SpecAccents.CLOUDS[int(pal.clouds)]
+			mat.set_shader_parameter("smoke_k", 0.75 + rng.next() * 0.25)
+			mat.set_shader_parameter("smoke_col", Vector3(cc.r, cc.g, cc.b) * 0.6)
+
 # crusts, tufts, sprays, moss and bubbles on the rock and the crystals
 func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, layout: String, sid: String, st: Dictionary, legend: bool) -> void:
 	var cols := []
@@ -743,7 +806,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 	var strong := "coral" in tr
 	var style := -1
 	if has_base:
-		style = int(floor(rng.next() * 3)) if strong else 1 + int(floor(rng.next() * 2)) if rng.next() < 0.4 else -1
+		style = 0 if strong else 1 if "needles" in gene_m.accents else 2 if "crust" in gene_m.accents else -1
 	if style == 0:
 		# coralloid branches: forking stems with knobbly tips
 		var list := []
@@ -804,7 +867,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		for k in 4 + int(rng.next() * 3):
 			var c0: Vector3 = pick.call()
 			var rad := 0.18 + rng.next() * 0.2
-			var tint := Color(1.0, 1.0, 1.0).lerp(Color(1.25, 1.15, 0.6), rng.next() * 0.6)
+			var tint: Color = (SpecAccents.MOSS[int(gene_m.palette.moss)] as Color).lerp(Color(1.2, 1.1, 0.6), rng.next() * 0.3)
 			# a cushion of moss bed, then sprigs, blades and the odd fern standing in it
 			var top := SpecPlants.cushion(root, rng, pool, c0, rad, 0.035 + rng.next() * 0.03, tint)
 			var on: Array = top if top.size() > 8 else pool
@@ -815,7 +878,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			if rng.next() < 0.35:
 				SpecPlants.scatter(root, rng, on, c0, 0.05, 1 + int(rng.next() * 2), "fern", 0.3 + rng.next() * 0.15, 0.5)
 	# a dusting of red hematite on some
-	if has_base and rng.next() < 0.15:
+	if has_base and "dust" in gene_m.accents:
 		var place := func(k: int) -> Array:
 			var v: Vector3 = (pick.call() as Vector3) * 1.01
 			var s := 0.006 + rng.next() * 0.01
