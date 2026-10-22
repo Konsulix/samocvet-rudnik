@@ -25,18 +25,21 @@ var _down := {}
 func _init() -> void:
 	clip_contents = true
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	light_mask = 0   # the gallery's lamps light the wall, not the tray
+	# the sprites are rendered big and shown small: sample their mipmaps so they stay clean
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _ready() -> void:
 	under = _layer(_draw_under)
-	board3d = Board3D.new()
-	add_child(board3d)
 	gems = Node2D.new()
+	gems.light_mask = 0
 	add_child(gems)
 	over = _layer(_draw_over)
 
 func _layer(fn: Callable) -> Node2D:
 	var n := Node2D.new()
+	n.light_mask = 0
 	n.draw.connect(fn.bind(n))
 	add_child(n)
 	return n
@@ -47,7 +50,6 @@ func layout(avail: Vector2) -> void:
 	PAD = roundf(TS * 0.14)
 	custom_minimum_size = Vector2(C * TS + PAD * 2, R * TS + PAD * 2)
 	size = custom_minimum_size
-	if board3d: board3d.layout(size, TS)
 
 func cell_center(r: float, c: float) -> Vector2:
 	return Vector2(PAD + (c + 0.5) * TS, PAD + (r + 0.5) * TS)
@@ -69,7 +71,6 @@ func rebuild(m: BoardModel) -> void:
 
 func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
 	var n := GemNode.new()
-	n.b3 = board3d
 	n.setup(g, TS)
 	n.position = cell_center(r, c)
 	gems.add_child(n)
@@ -198,9 +199,9 @@ func hint(mv: Array) -> void:
 
 # ---------------------------------------------------------------- drawing
 
-const SLAB := preload("res://assets/textures/rock_face_03/rock_face_03_diff_1k.jpg")
+const SLAB := preload("res://assets/board/pieces/slab.png")
 
-## the tray: a slab of dark basalt (photo scan) with a pocket carved for every cell
+## the tray: a slab of pale marble with a raised marble tile in every cell
 func _draw() -> void:
 	if model == null: return
 	var e := PAD * 0.9
@@ -209,19 +210,19 @@ func _draw() -> void:
 		for c in C:
 			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e) + Vector2(0, 4), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color(0, 0, 0, 0.55))
+				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e) + Vector2(2, 6), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color(0, 0, 0, 0.35))
 	for r in R:
 		for c in C:
 			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
 				var rr := Rect2(p - Vector2(e, e), Vector2(TS, TS) + Vector2(e, e) * 2.0)
-				draw_texture_rect_region(SLAB, rr, Rect2(rr.position * 2.2, rr.size * 2.2), Color(0.3, 0.31, 0.35))
+				draw_texture_rect_region(SLAB, rr, Rect2(rr.position * 1.6, rr.size * 1.6), Color(0.9, 0.88, 0.85))
 	# a thin warm catch-light on the slab's upper edges
 	for r in R:
 		for c in C:
 			if model.playable(r, c) and not model.playable(r - 1, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_line(p + Vector2(-e * 0.6, -e + 1), p + Vector2(TS + e * 0.6, -e + 1), Color(1, 0.85, 0.6, 0.18), 1.5)
+				draw_line(p + Vector2(-e * 0.6, -e + 1), p + Vector2(TS + e * 0.6, -e + 1), Color(1, 1, 1, 0.5), 1.5)
 	# the pockets: darker, with an inner shadow at the top and a faint rim of light at the bottom
 	for r in R:
 		for c in C:
@@ -229,11 +230,9 @@ func _draw() -> void:
 				_pocket(Vector2(PAD + c * TS, PAD + r * TS))
 
 func _pocket(p: Vector2) -> void:
-	var inset := TS * 0.05
-	var box := GemArt.rrect(p + Vector2(inset, inset), Vector2(TS, TS) - Vector2(inset, inset) * 2.0, TS * 0.16)
-	# a shallow, barely darker pocket with a hairline edge: the grid is felt, not seen
-	draw_colored_polygon(box, Color(0.0, 0.0, 0.02, 0.18))
-	draw_polyline(GemArt.closed(box), Color(1, 1, 1, 0.07), 1.0, true)
+	# a marble tile per cell, the seams between them read as the grid
+	var tile := BoardSprites.tex("tile")
+	draw_texture_rect_region(tile, Rect2(p, Vector2(TS, TS)), Rect2(Vector2(0, 0), Vector2(tile.get_width(), tile.get_height())), Color(1, 1, 1))
 
 func _draw_under(ci: Node2D) -> void:
 	if model == null: return
@@ -243,7 +242,9 @@ func _draw_under(ci: Node2D) -> void:
 			if not model.playable(r, c): continue
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
 			ci.draw_set_transform(p, 0, Vector2.ONE)
-			board3d.set_block(r, c, model.ROCK[r][c], model.MUD[r][c], cell_center(r, c))
+			var cc := Vector2(TS, TS) * 0.5
+			if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
+			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex("rock%d" % mini(2, model.ROCK[r][c])), cc, TS)
 			if model.GAS[r][c]:
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
@@ -260,8 +261,7 @@ func _draw_over(ci: Node2D) -> void:
 	for r in R:
 		for c in C:
 			if model.playable(r, c) and model.LOCK[r][c]:
-				ci.draw_set_transform(Vector2(PAD + c * TS, PAD + r * TS), 0, Vector2.ONE)
-				GemArt.lock(ci, TS)
+				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 static func crack_paths(seed_v: int, count: int) -> Array:

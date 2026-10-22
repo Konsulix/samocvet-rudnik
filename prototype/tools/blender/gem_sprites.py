@@ -107,8 +107,8 @@ def stone(name, col, cut):
     p = n.nodes["Principled BSDF"]
     lw = n.nodes.new("ShaderNodeLayerWeight"); lw.inputs["Blend"].default_value = 0.45
     ramp = n.nodes.new("ShaderNodeValToRGB")
-    lite = tuple(min(1.0, c * 1.05 + 0.05) for c in col)
-    deep = tuple(c * 0.22 for c in col)
+    lite = tuple(min(1.0, c * 1.1 + 0.06) for c in col)
+    deep = tuple(c * 0.3 for c in col)
     ramp.color_ramp.elements[0].color = (*lite, 1)
     ramp.color_ramp.elements[1].color = (*deep, 1)
     ramp.color_ramp.elements[1].position = 0.85
@@ -158,13 +158,13 @@ def stone(name, col, cut):
     fl2 = n.nodes.new("ShaderNodeMath"); fl2.operation = 'FLOOR'; L.new(rings.outputs[0], fl2.inputs[0])
     rp0 = n.nodes.new("ShaderNodeMath"); rp0.operation = 'FLOORED_MODULO'; rp0.inputs[1].default_value = 2.0
     L.new(fl2.outputs[0], rp0.inputs[0])
-    rp = n.nodes.new("ShaderNodeMath"); rp.operation = 'MULTIPLY'; rp.inputs[1].default_value = 0.6
+    rp = n.nodes.new("ShaderNodeMath"); rp.operation = 'MULTIPLY'; rp.inputs[1].default_value = 0.25 if cut in ("emerald", "kite") else 0.6
     L.new(rp0.outputs[0], rp.inputs[0])
     pat = n.nodes.new("ShaderNodeMath"); pat.operation = 'ADD'
     L.new(fr.outputs[0], pat.inputs[0]); L.new(rp.outputs[0], pat.inputs[1])
     pr = n.nodes.new("ShaderNodeMapRange"); pr.inputs["From Min"].default_value = 0.0; pr.inputs["From Max"].default_value = 1.0
     pr.inputs["From Max"].default_value = 1.6
-    pr.inputs["To Min"].default_value = 0.6; pr.inputs["To Max"].default_value = 1.3
+    pr.inputs["To Min"].default_value = 0.55; pr.inputs["To Max"].default_value = 1.2
     L.new(pat.outputs[0], pr.inputs["Value"])
     shade = n.nodes.new("ShaderNodeMix"); shade.data_type = 'RGBA'; shade.blend_type = 'MULTIPLY'
     shade.inputs["Factor"].default_value = 1.0
@@ -178,7 +178,7 @@ def stone(name, col, cut):
     L.new(lw.outputs["Facing"], inv.inputs[1])
     gl = n.nodes.new("ShaderNodeMath"); gl.operation = 'POWER'; gl.inputs[1].default_value = 2.0
     L.new(inv.outputs[0], gl.inputs[0])
-    em = n.nodes.new("ShaderNodeMath"); em.operation = 'MULTIPLY'; em.inputs[1].default_value = 0.45 if name != "diamond" else 0.15
+    em = n.nodes.new("ShaderNodeMath"); em.operation = 'MULTIPLY'; em.inputs[1].default_value = 0.5 if name != "diamond" else 0.12
     L.new(gl.outputs[0], em.inputs[0])
     p.inputs["Emission Color"].default_value = (*col, 1)
     L.new(em.outputs[0], p.inputs["Emission Strength"])

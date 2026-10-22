@@ -1,6 +1,6 @@
 class_name GemNode
 extends Node2D
-## One stone, special or nugget on the board. Draws itself with GemArt; moves and pops are tweened by BoardView.
+## One stone, special or nugget on the board, drawn from its pre-rendered sprite; moves and pops are tweened by BoardView.
 
 const GLINT := preload("res://shaders/gem_glint.gdshader")
 static var _mat_plain: ShaderMaterial
@@ -25,13 +25,14 @@ static func materials() -> void:
 
 func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	materials()
+	light_mask = 0
 	id = gem.id
 	t = gem.t
 	sp = gem.sp
 	item = gem.item
 	S = size
 	material = _mat_special if sp != "" else _mat_plain
-	if b3 and sp == "" and item != "nug" and t >= 0:
+	if b3 and Board3D.STYLE >= 99 and sp == "" and item != "nug" and t >= 0:
 		stone = b3.make_stone(t)
 		_sync()
 	queue_redraw()
@@ -65,10 +66,9 @@ func become(new_sp: String) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	GemArt.begin(self, Transform2D.IDENTITY)
 	if item == "nug":
-		GemArt.nugget(self, S)
+		BoardSprites.draw(self, BoardSprites.tex("nug"), Vector2.ZERO, S)
 	elif sp != "":
-		GemArt.special(self, sp, S)
+		BoardSprites.draw(self, BoardSprites.tex(sp), Vector2.ZERO, S)
 	elif t >= 0 and not stone:
-		GemArt.gem(self, t, S)
+		BoardSprites.draw(self, BoardSprites.gem(t), Vector2.ZERO, S)

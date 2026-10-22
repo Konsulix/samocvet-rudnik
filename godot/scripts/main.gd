@@ -55,7 +55,7 @@ func _setup_glow() -> void:
 	env.glow_intensity = 0.45
 	env.glow_strength = 1.0
 	env.glow_bloom = 0.0
-	env.glow_hdr_threshold = 0.97
+	env.glow_hdr_threshold = 1.05
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	env.set_glow_level(0, 0.0)
 	env.set_glow_level(1, 1.0)

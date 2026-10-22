@@ -268,20 +268,12 @@ static func geode_icon(ci: CanvasItem, S: float) -> void:
 static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := Color("#c8b0ff")) -> void:
 	match k:
 		"find": find_icon(ci, S, glow)
-		"c":
-			_xf(ci, Vector2(S / 2, S / 2), 0, Vector2.ONE)
-			gem(ci, colour, S)
-			ci.draw_set_transform_matrix(base)
-		"rock": rock(ci, 1, S)
-		"mud": mud(ci, S)
+		"c": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
+		"rock": BoardSprites.draw(ci, BoardSprites.tex("rock1"), Vector2(S / 2, S / 2), S * 0.9)
+		"mud": BoardSprites.draw(ci, BoardSprites.tex("mud"), Vector2(S / 2, S / 2), S * 0.9)
 		"gas": gas(ci, S)
 		"lock":
-			_xf(ci, Vector2(S / 2, S / 2), 0, Vector2.ONE)
-			gem(ci, 2, S)
-			ci.draw_set_transform_matrix(base)
-			lock(ci, S)
+			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
+			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
 		"geo": geode_icon(ci, S)
-		_:
-			_xf(ci, Vector2(S / 2, S / 2), 0, Vector2.ONE)
-			nugget(ci, S)
-			ci.draw_set_transform_matrix(base)
+		_: BoardSprites.draw(ci, BoardSprites.tex("nug"), Vector2(S / 2, S / 2), S * 0.9)
