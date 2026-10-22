@@ -366,5 +366,41 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32) -> Dicti
 			top.append(g.v[i])
 	return {geo = g, top = top, scale = Vector3(S[0], S[1], S[2]), base = base, rough = 0.7 if type == "quartzite" else 0.96}
 
+## a spongy, crumbling lump of native metal: frothy ridges, bubbles and deep pockets.
+## Vertex colour carries the shading of the hollows.
+static func crumble(rng: Rng32, r: float, sc := Vector3.ONE) -> Geo:
+	var g := ball(16)
+	var sd := int(rng.next() * 1000000)
+	var form := FastNoiseLite.new()
+	form.seed = sd
+	form.frequency = 1.2
+	form.fractal_octaves = 3
+	var ridge := FastNoiseLite.new()
+	ridge.seed = sd + 1
+	ridge.frequency = 3.5
+	ridge.fractal_type = FastNoiseLite.FRACTAL_RIDGED
+	ridge.fractal_octaves = 3
+	var froth := FastNoiseLite.new()
+	froth.seed = sd + 2
+	froth.noise_type = FastNoiseLite.TYPE_CELLULAR
+	froth.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	froth.frequency = 6.0
+	var cav := PackedFloat32Array()
+	cav.resize(g.v.size())
+	for i in g.v.size():
+		var u := g.v[i]
+		var f := form.get_noise_3dv(u) * 0.35
+		var rd2 := ridge.get_noise_3dv(u) * 0.22
+		var cd := (froth.get_noise_3dv(u) + 1.0) * 0.5
+		var bub := sqrt(clampf((0.35 - cd) / 0.35, 0.0, 1.0)) * 0.12
+		var pit := pow(clampf((cd - 0.55) / 0.45, 0.0, 1.0), 1.5) * 0.3
+		g.v[i] = u * r * (1.0 + f + rd2 + bub - pit) * sc
+		cav[i] = clampf(pit * 4.0 + maxf(0.0, -f) * 1.2 - rd2 * 1.5, 0.0, 1.0)
+	g.col.resize(g.v.size())
+	for i in g.v.size():
+		var k := clampf(1.0 - cav[i] * 0.85, 0.12, 1.0)
+		g.col[i] = Color(k, k, k)
+	return g
+
 static func rock_nrm(sc: Vector3, w: Vector3) -> Vector3:
 	return Vector3(w.x / (sc.x * sc.x), w.y / (sc.y * sc.y), w.z / (sc.z * sc.z)).normalized()

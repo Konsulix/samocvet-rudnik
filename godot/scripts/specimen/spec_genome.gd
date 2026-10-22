@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "базальт", slate = "чёрный сланец", ironstone = "железняк", limestone = "известняк", quartzite = "кварцит"}
 const FORM_N := {single = "одиночный кристалл", cluster = "друза", columnar = "столбчатый", radial = "ёж", rosette = "розетка",
 	floater = "плавающий кристалл", slabs = "пластины", hopper = "скелетные кубы", pile = "россыпь глыб", hexplates = "таблички",
-	geode = "жеода", nugget = "самородок", botryoid = "натёчный"}
+	geode = "жеода", nugget = "самородок", botryoid = "натёчный", vein = "жила в кварце"}
 const SIZE_N := ["мелкий", "средний", "крупный", "гигант"]
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
@@ -56,10 +56,23 @@ static func of(o: Dictionary) -> Dictionary:
 	var rock: String
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
 	else: rock = Stones.pick_w([["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]], rng)
+	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
+	var lustre := "metal" if metal else "glass"
+	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < 0.2:
+		lustre = "dark"
+	var dark_cols := [Color(0.012, 0.045, 0.045), Color(0.015, 0.035, 0.02), Color(0.012, 0.018, 0.045), Color(0.04, 0.026, 0.018), Color(0.02, 0.02, 0.022)]
+	var dark_col: Color = dark_cols[int(rng.next() * dark_cols.size())]
+	if form == "nugget" and rng.next() < 0.7:
+		form = "vein"
+	# tests and showcases may pin a gene
+	form = o.get("form", form)
+	lustre = o.get("lustre", lustre)
 	var size_k := int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 2.5], [3, 0.6]], rng))
 	var anomaly := "anomaly" in tr
 	return {
 		form = form,
+		lustre = lustre,
+		dark_col = dark_col,
 		rock = rock,
 		size = size_k,
 		scale = [0.8, 1.0, 1.18, 1.4][size_k],
@@ -73,4 +86,5 @@ static func of(o: Dictionary) -> Dictionary:
 
 ## the lines for the reveal card: what the find is made of
 static func describe(g: Dictionary) -> Array:
-	return [["Форма", FORM_N.get(g.form, g.form)], ["Порода", ROCK_N.get(g.rock, g.rock)], ["Размер", SIZE_N[int(g.size)]]]
+	var lus := {glass = "стеклянный", dark = "тёмный, маслянистый", metal = "металлический"}
+	return [["Форма", FORM_N.get(g.form, g.form)], ["Блеск", lus.get(g.lustre, "")], ["Порода", ROCK_N.get(g.rock, g.rock)], ["Размер", SIZE_N[int(g.size)]]]

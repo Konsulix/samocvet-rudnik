@@ -24,6 +24,8 @@ uniform vec3 d_col = vec3(0.1);
 uniform float d_fr = 0.0;
 uniform float d_is = 0.0;
 uniform float d_fb = 1.0;
+uniform float oil_k = 0.0;      // dark lustrous stones: an oil-slick rainbow in their reflections
+uniform float rough_var = 0.0;  // metals: polished bumps, dull hollows
 uniform float d_ao = 0.0;       // rocks: vertex colour carries the shading of pits and ridges
 // photo-scanned rock, laid on from three sides (no UVs needed)
 uniform sampler2D scan_diff : source_color, filter_linear_mipmap, repeat_enable;
@@ -224,13 +226,34 @@ void fragment() {
 #elif defined(UNSHADED)
 	ALBEDO = base + e + e_ir;
 #else
+	// opaque stones and metals. Eaten hollows (vertex alpha) go dark and dull.
+	float o_pit = smoothstep(0.3, 0.75, 1.0 - COLOR.a) * (1.0 - dirt);
+	float o_fr = 1.0 - abs(dot(n, VIEW));
+	if (oil_k > 0.0) {
+		// a dark crystal with an oily, rainbow sheen sliding over its faces
+		float oh = fbm(v_op * 1.7 + 3.0) * 1.6 + o_fr * 1.3 + v_op.y * 0.4;
+		vec3 oil = 0.5 + 0.5 * cos(6.2832 * (oh + vec3(0.0, 0.33, 0.67)));
+		float om = smoothstep(0.55, 0.72, fbm(v_op * 1.1 + 9.0)) * (1.0 - dirt);
+		base = mix(base, oil * 0.4, om * oil_k * 0.7);
+		m = mix(m, 0.9, om * oil_k);
+		e += oil * om * oil_k * (0.02 + 0.12 * o_fr * o_fr);
+		// a cold sheen at grazing angles even where there is no rainbow
+		e += vec3(0.05, 0.12, 0.13) * o_fr * o_fr * oil_k * (1.0 - om);
+		// glinting scratches and chips along the faces
+		float sc = smoothstep(0.82, 0.9, vn(v_op * vec3(4.0, 40.0, 4.0)));
+		r = mix(r, 0.05, sc * 0.6);
+	}
+	if (rough_var > 0.0) {
+		r = clamp(r + (fbm(v_op * 18.0) - 0.5) * rough_var + (1.0 - COLOR.g) * rough_var, 0.04, 1.0);
+	}
+	base = mix(base, base * 0.08, o_pit);
 	ALBEDO = base;
-	METALLIC = m;
-	ROUGHNESS = r;
+	METALLIC = m * (1.0 - o_pit * 0.7);
+	ROUGHNESS = mix(r, 0.85, o_pit);
 	SPECULAR = spec;
 	CLEARCOAT = cc;
 	CLEARCOAT_ROUGHNESS = coat_rough;
-	EMISSION = e + e_ir;
+	EMISSION = (e + e_ir) * (1.0 - o_pit);
 	NORMAL = n;
 #endif
 #if defined(TRANSP) && !defined(GLASS)

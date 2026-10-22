@@ -84,6 +84,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	var rtype: String = gene.rock
 	var gs: float = gene.scale
 	var ero: float = gene.eroded
+	if gene.lustre == "dark":
+		ero = maxf(ero, 0.3)
 	var scan: int = RockKit.SCAN_OF[rtype]
 	dt.scan = scan
 
@@ -116,22 +118,18 @@ func _specimen(o: Dictionary) -> Node3D:
 		st.nrm = func(w: Vector3) -> Vector3: return RockKit.rock_nrm(sc, w)
 		st.rock = mi
 		return mi
-	# some columns are dark and oily with a rainbow sheen, like hematite-coated quartz
-	var dark := layout == "columnar" and not metal and rng.next() < 0.22
 	if layout == "columnar" or layout == "cluster":
-		irk = maxf(irk, 0.75 if dark else 0.3)
+		irk = maxf(irk, 0.3)
 		st.irk = irk
 	var mat: ShaderMaterial = null
-	if not metal and not (layout in ["nugget", "botryoid"]):
+	if not metal and not (layout in ["nugget", "botryoid", "vein"]):
 		var d: Dictionary = cmat_spec.call()
-		if dark:
-			d.col = Color(0.09, 0.09, 0.1)
-			d.smoke = 0.9
-			d.smoke_col = Color(0.08, 0.07, 0.08)
-			d.a = 0.93
-			d.metal = 0.45
-			d.rough = 0.1
-			d.emis = col * 0.08 * 0.3
+		if gene.lustre == "dark":
+			# a dark, lustrous stone: opaque, nearly black, an oil-slick rainbow sliding over it
+			var dc: Color = gene.dark_col
+			dt.fb = 0.15
+			dt.fr = 0.0
+			d = {col = dc, metal = 0.55, rough = 0.16, coat = 0.5, coat_r = 0.1, flat = true, oil = 1.0, st = stria, dirt = dt, prio = 2, env = 1.4}
 		mat = make_cmat.call(d)
 	var any_cmat := func() -> ShaderMaterial: return mat if mat else make_cmat.call(cmat_spec.call())
 	var main: MeshInstance3D = null
@@ -149,6 +147,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	match layout:
 		"nugget":
 			main = _nugget(sid, col)
+		"vein":
+			main = _vein(sid, col)
 		"botryoid":
 			_botryoid(sid, col, irk)
 		"single":
@@ -430,6 +430,60 @@ func _nugget(sid: String, col: Color) -> MeshInstance3D:
 		U.inst(Geo.sphere(1, 12, 8), SpecMat.make({metal = 1.0, rough = 0.3, env = 1.7}), joints.size(), place2, root)
 	return null
 
+# native metal grown through vein quartz: clear slabs of quartz with a spongy, crumbling mass of gold
+# (or copper) wrapped round their feet and clinging to their faces, foil flakes caught inside the glass,
+# rust-red oxide in the hollows (green patina and red cuprite on copper)
+func _vein(sid: String, col: Color) -> MeshInstance3D:
+	var copper := sid == "nativecu"
+	var metal_c := SpecMat.lin(0xd9773a) if copper else SpecMat.lin(0xf0c050)
+	var crust := SpecMat.lin(0x2f8a62) if copper else SpecMat.lin(0x7a2a10)
+	var mm := SpecMat.make({col = metal_c, metal = 1.0, rough = 0.26, coat = 0.25, env = 1.8, grain = 0.5, rough_var = 0.4,
+		dirt = {h = -99.0, a = 0.3, col = crust, fr = 0.0, isl = 0.4 if copper else 0.34, fb = 0.0}})
+	var qtint := Color(0.97, 0.95, 0.86) if not copper else Color(0.92, 0.95, 0.97)
+	var qm := SpecMat.make({col = qtint, flat = true, glass = true, frost = 0.15 + rng.next() * 0.25, holo = 0.08 + rng.next() * 0.18, thick = 1.1, seed = rng.next() * 50.0, prio = 2})
+	var axis: Vector3 = (UP + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.6).normalized()
+	var common := Basis(U.quat_to(UP, axis)) * Basis(UP, rng.next() * TAU)
+	var slabs := []
+	var main: MeshInstance3D = null
+	for k in 2 + int(rng.next() * 3):
+		var w := 0.16 + rng.next() * 0.16
+		var g := RockKit.prism(rng, {sides = 4, w = w, d = w * (0.35 + rng.next() * 0.4), h = 0.8 + rng.next() * 0.8, point = rng.next() < 0.3,
+			slope = 0.5 + rng.next() * 1.2, y0 = -0.35, detail = 2}, {cA = Color(1, 1, 1), cB = Color(1, 1, 1), zk = 0.0})
+		var c := U.mesh(g, qm, root)
+		var tilt := Basis(Vector3.BACK, (rng.next() - 0.5) * 0.7) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.5)
+		c.transform = Transform3D(common * tilt, common * Vector3((rng.next() - 0.5) * 0.35, 0, (k - 1.5) * 0.12))
+		slabs.append(c)
+		if not main: main = c
+	# the metal mass round the feet
+	var big := RockKit.crumble(rng, 0.3, Vector3(1.25, 0.6, 1.05))
+	U.mesh(big, mm, root, common * Vector3(0, -0.28, 0), common)
+	# masses climbing the faces
+	# masses grown right through the quartz, seen bent and broken up by the glass
+	for sl in slabs:
+		var sbb: AABB = (sl.get_meta("geo") as Geo).aabb()
+		for k in 2 + int(rng.next() * 4):
+			var p: Vector3 = sl.transform * (sbb.position + Vector3(0.2 + rng.next() * 0.6, 0.05 + rng.next() * 0.6, 0.3 + rng.next() * 0.4) * sbb.size)
+			var s := 0.04 + pow(rng.next(), 1.5) * 0.09
+			U.mesh(RockKit.crumble(rng, s, Vector3(1.4, 0.8, 1.0)), mm, root, p, U.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6))
+	for k in 6 + int(rng.next() * 8):
+		var sl: MeshInstance3D = slabs[int(rng.next() * slabs.size())]
+		var pts := RockKit.surf_pts(sl, 1, rng, func(p: Vector3, n: Vector3) -> bool: return true)
+		if pts.is_empty(): continue
+		var p: Vector3 = pts[0][0]
+		var s := 0.05 + pow(rng.next(), 1.6) * 0.14
+		var cg := RockKit.crumble(rng, s, Vector3(1.0 + rng.next() * 0.6, 0.6 + rng.next() * 0.5, 1.0))
+		U.mesh(cg, mm, root, p, U.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6))
+	# foil caught in the glass
+	var fm := SpecMat.make({col = metal_c, metal = 1.0, rough = 0.2, flat = true, env = 1.8})
+	for sl in slabs:
+		var bb: AABB = (sl.get_meta("geo") as Geo).aabb()
+		var place := func(k: int) -> Array:
+			var p := bb.position + Vector3(0.15 + rng.next() * 0.7, rng.next() * 0.75, 0.15 + rng.next() * 0.7) * bb.size
+			var s := 0.012 + pow(rng.next(), 2.0) * 0.06
+			return [_rot_inst(p, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3(s, s * 0.12, s * (0.5 + rng.next()))), Color(1, 1, 1)]
+		U.inst(Geo.icosa(1, 0), fm, 60 + int(rng.next() * 70), place, sl)
+	return main
+
 # one flowing mass of melted-together grapes (or a stand of rounded stalagmites), banded like a polished slab, weathered in the hollows
 func _botryoid(sid: String, col: Color, irk: float) -> void:
 	var banded := sid in ["malachite", "azurite", "chrysocolla"]
@@ -685,7 +739,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var L: Array = list[k]
 			return [Transform3D(Basis(U.quat_to(UP, L[1])) * Basis.from_scale(Vector3(L[3], L[2], L[3])), L[0]), L[4]]
 		U.inst(geo, m, list.size(), place, root)
-	var has_base := not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid"])
+	var has_base := not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein"])
 	var strong := "coral" in tr
 	var style := -1
 	if has_base:

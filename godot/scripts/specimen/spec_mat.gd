@@ -86,6 +86,8 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 	m.set_shader_parameter("st_k", o.get("st", 0.0))
 	m.set_shader_parameter("bd_k", o.get("bd", 0.0))
 	m.set_shader_parameter("d_ao", o.get("ao", 0.0))
+	m.set_shader_parameter("oil_k", o.get("oil", 0.0))
+	m.set_shader_parameter("rough_var", o.get("rough_var", 0.0))
 	if o.has("dirt") and o.dirt != null:
 		var d: Dictionary = o.dirt
 		var dc: Color = d.get("col", Color(0.1, 0.1, 0.1))

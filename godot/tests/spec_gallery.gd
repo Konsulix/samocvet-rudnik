@@ -31,6 +31,10 @@ const SETS := [
 	{seed = 85, sid = "garnet", kind = "crystal", gi = 2, traits = ["eroded", "moss"]}, {seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver", "eroded"]},
 	{seed = 87, sid = "sapphire", kind = "crystal", gi = 3, traits = ["irid"]}, {seed = 88, sid = "calcite", kind = "druse", gi = 2, traits = ["eroded", "goldfleck"]}],
 	[{seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver", "eroded"]}, {seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["eroded", "irid"]}],
+	[{seed = 91, sid = "gold", kind = "nugget", gi = 3, traits = [], form = "vein"}, {seed = 92, sid = "nativecu", kind = "nugget", gi = 2, traits = [], form = "vein"},
+	{seed = 93, sid = "quartz", kind = "crystal", gi = 3, traits = ["twin"], lustre = "dark", form = "columnar"}, {seed = 94, sid = "emerald", kind = "crystal", gi = 2, traits = [], lustre = "dark", form = "slabs"},
+	{seed = 95, sid = "gold", kind = "nugget", gi = 2, traits = [], form = "vein"}, {seed = 96, sid = "amethyst", kind = "druse", gi = 2, traits = ["eroded"], lustre = "dark"},
+	{seed = 97, sid = "aquamarine", kind = "crystal", gi = 3, traits = [], lustre = "dark", form = "single"}, {seed = 98, sid = "nativecu", kind = "nugget", gi = 3, traits = [], form = "vein"}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
 ]
 
