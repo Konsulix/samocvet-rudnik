@@ -11,6 +11,8 @@ var t := 0
 var sp := ""
 var item := ""
 var S := 46.0
+var b3: Board3D               # when set, plain stones are drawn as 3D gems that follow this node
+var stone: MeshInstance3D
 
 static func materials() -> void:
 	if _mat_plain: return
@@ -29,12 +31,37 @@ func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	item = gem.item
 	S = size
 	material = _mat_special if sp != "" else _mat_plain
+	if b3 and sp == "" and item != "nug" and t >= 0:
+		stone = b3.make_stone(t)
+		_sync()
 	queue_redraw()
 	return self
+
+func _process(_dt: float) -> void:
+	if stone: _sync()
+
+## carry the 3D stone along: position, squash-and-stretch, fading
+func _sync() -> void:
+	var p := get_parent() as Node2D
+	var at := position if p == null else p.position + position
+	stone.position = b3.to_world(at)
+	var s := scale
+	stone.scale = Vector3(s.x, (s.x + s.y) * 0.5, s.y) * (S / b3.TS)
+	stone.rotation.y = -rotation
+	stone.transparency = clampf(1.0 - modulate.a * self_modulate.a, 0.0, 1.0)
+	stone.visible = visible and modulate.a > 0.01
+
+func _exit_tree() -> void:
+	if stone:
+		stone.queue_free()
+		stone = null
 
 func become(new_sp: String) -> void:
 	sp = new_sp
 	material = _mat_special
+	if stone:
+		stone.queue_free()
+		stone = null
 	queue_redraw()
 
 func _draw() -> void:
@@ -43,5 +70,5 @@ func _draw() -> void:
 		GemArt.nugget(self, S)
 	elif sp != "":
 		GemArt.special(self, sp, S)
-	elif t >= 0:
+	elif t >= 0 and not stone:
 		GemArt.gem(self, t, S)

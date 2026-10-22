@@ -16,6 +16,7 @@ var nodes := {}               # gem id -> GemNode
 var under: Node2D            # mud, rocks, gas, geodes, the find
 var gems: Node2D
 var over: Node2D             # timber locks sit on top of their stones
+var board3d: Board3D         # the stones themselves, faceted 3D gems seen from straight above
 var find_tex: Texture2D       # the sealed specimen, rendered in 3D when available
 var find_hit_at := -10.0
 var geo_hit_at := {}
@@ -23,10 +24,13 @@ var _down := {}
 
 func _init() -> void:
 	clip_contents = true
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _ready() -> void:
 	under = _layer(_draw_under)
+	board3d = Board3D.new()
+	add_child(board3d)
 	gems = Node2D.new()
 	add_child(gems)
 	over = _layer(_draw_over)
@@ -43,6 +47,7 @@ func layout(avail: Vector2) -> void:
 	PAD = roundf(TS * 0.14)
 	custom_minimum_size = Vector2(C * TS + PAD * 2, R * TS + PAD * 2)
 	size = custom_minimum_size
+	if board3d: board3d.layout(size, TS)
 
 func cell_center(r: float, c: float) -> Vector2:
 	return Vector2(PAD + (c + 0.5) * TS, PAD + (r + 0.5) * TS)
@@ -63,7 +68,9 @@ func rebuild(m: BoardModel) -> void:
 	refresh()
 
 func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
-	var n := GemNode.new().setup(g, TS)
+	var n := GemNode.new()
+	n.b3 = board3d
+	n.setup(g, TS)
 	n.position = cell_center(r, c)
 	gems.add_child(n)
 	nodes[g.id] = n
@@ -191,35 +198,44 @@ func hint(mv: Array) -> void:
 
 # ---------------------------------------------------------------- drawing
 
+const SLAB := preload("res://assets/textures/rock_face_03/rock_face_03_diff_1k.jpg")
+
+## the tray: a slab of dark basalt (photo scan) with a pocket carved for every cell
 func _draw() -> void:
 	if model == null: return
-	var wood := Color("#7a4e24")
+	var e := PAD * 0.9
+	# outer edge of the slab: a soft drop shadow, then the slab itself
 	for r in R:
 		for c in C:
 			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_colored_polygon(GemArt.rrect(p - Vector2(PAD, PAD) * 0.7 + Vector2(0, 3), Vector2(TS, TS) + Vector2(PAD, PAD) * 1.4, TS * 0.22), Color("#24160a"))
+				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e) + Vector2(0, 4), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color(0, 0, 0, 0.55))
 	for r in R:
 		for c in C:
 			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				var rim := GemArt.rrect(p - Vector2(PAD, PAD) * 0.7, Vector2(TS, TS) + Vector2(PAD, PAD) * 1.4, TS * 0.22)
-				GemArt.grad_poly(self, rim, Vector2(0, 0), Vector2(0, size.y), Color("#9a6a34"), wood, Color("#5a3618"))
+				var rr := Rect2(p - Vector2(e, e), Vector2(TS, TS) + Vector2(e, e) * 2.0)
+				draw_texture_rect_region(SLAB, rr, Rect2(rr.position * 2.2, rr.size * 2.2), Color(0.3, 0.31, 0.35))
+	# a thin warm catch-light on the slab's upper edges
+	for r in R:
+		for c in C:
+			if model.playable(r, c) and not model.playable(r - 1, c):
+				var p := Vector2(PAD + c * TS, PAD + r * TS)
+				draw_line(p + Vector2(-e * 0.6, -e + 1), p + Vector2(TS + e * 0.6, -e + 1), Color(1, 0.85, 0.6, 0.18), 1.5)
+	# the pockets: darker, with an inner shadow at the top and a faint rim of light at the bottom
 	for r in R:
 		for c in C:
 			if model.playable(r, c):
-				_tile(Vector2(PAD + c * TS, PAD + r * TS), (r * 7 + c * 13) % 4)
+				_pocket(Vector2(PAD + c * TS, PAD + r * TS))
 
-func _tile(p: Vector2, v: int) -> void:
-	var top := Color("#2a3448") if v % 2 else Color("#26304a")
-	var bot := Color("#1c2434") if v % 2 else Color("#1a2132")
-	draw_polygon(PackedVector2Array([p, p + Vector2(TS, 0), p + Vector2(TS, TS), p + Vector2(0, TS)]), PackedColorArray([top, top, bot, bot]))
-	var rng := Rng32.new(v * 97 + 3)
-	for k in 18:
-		var dark := rng.next() < 0.5
-		draw_circle(p + Vector2(rng.next(), rng.next()) * TS, TS * (0.01 + rng.next() * 0.04), Color(0, 0, 0, 0.05) if dark else Color(1, 1, 1, 0.04))
-	draw_rect(Rect2(p, Vector2(TS, TS)), Color(1, 1, 1, 0.05), false, 1.0)
-	draw_line(p + Vector2(0, TS - 0.5), p + Vector2(TS, TS - 0.5), Color(0, 0, 0, 0.3), 1.0)
+func _pocket(p: Vector2) -> void:
+	var inset := TS * 0.05
+	var box := GemArt.rrect(p + Vector2(inset, inset), Vector2(TS, TS) - Vector2(inset, inset) * 2.0, TS * 0.16)
+	draw_colored_polygon(box, Color(0.0, 0.0, 0.02, 0.5))
+	var top := GemArt.rrect(p + Vector2(inset, inset), Vector2(TS - inset * 2.0, TS * 0.32), TS * 0.16)
+	GemArt.grad_poly(self, top, p + Vector2(0, inset), p + Vector2(0, inset + TS * 0.32), Color(0, 0, 0, 0.45), Color(0, 0, 0, 0.15), Color(0, 0, 0, 0))
+	draw_polyline(GemArt.closed(box), Color(0, 0, 0, 0.6), 1.2, true)
+	draw_line(p + Vector2(inset + TS * 0.12, TS - inset), p + Vector2(TS - inset - TS * 0.12, TS - inset), Color(1, 0.9, 0.75, 0.12), 1.2)
 
 func _draw_under(ci: Node2D) -> void:
 	if model == null: return
@@ -229,8 +245,7 @@ func _draw_under(ci: Node2D) -> void:
 			if not model.playable(r, c): continue
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
 			ci.draw_set_transform(p, 0, Vector2.ONE)
-			if model.MUD[r][c]: GemArt.mud(ci, TS)
-			if model.ROCK[r][c]: GemArt.rock(ci, model.ROCK[r][c], TS, r * 8 + c)
+			board3d.set_block(r, c, model.ROCK[r][c], model.MUD[r][c], cell_center(r, c))
 			if model.GAS[r][c]:
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
