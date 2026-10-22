@@ -7,6 +7,11 @@ extends SubViewportContainer
 
 const SKY := preload("res://shaders/studio_sky.gdshader")
 const GEM_SHADER := preload("res://shaders/board_gem.gdshader")
+const PIECE_SHADER := preload("res://shaders/board_piece.gdshader")
+## the pieces' colours (sRGB): six hues that never get confused
+const PALETTE := ["#d9dde2", "#7d4fc9", "#d99a3e", "#1f8f86", "#c8553a", "#3a3f4a"]
+## which look the pieces wear: -1 the old cut gems, 0 frosted glass, 1 satin, 2 polished
+static var STYLE := 0
 const SS := 2.0   # supersampling for crisp edges
 
 var vp: SubViewport
@@ -36,10 +41,10 @@ func _init() -> void:
 	env.sky = sky
 	env.background_mode = Environment.BG_CLEAR_COLOR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.25
+	env.ambient_light_energy = 0.12
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.95
+	env.tonemap_exposure = 0.85
 	cam = Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
 	cam.near = 0.1
@@ -49,13 +54,13 @@ func _init() -> void:
 	# lamplight from the upper left, casting short soft shadows onto the tray
 	var key := DirectionalLight3D.new()
 	key.light_color = Color("#ffe6c4")
-	key.light_energy = 1.3
+	key.light_energy = 0.9
 	key.shadow_enabled = true
 	key.shadow_blur = 2.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	key.directional_shadow_max_distance = 30.0
 	vp.add_child(key)
-	key.look_at_from_position(Vector3(-3, 10, -4), Vector3.ZERO)
+	key.look_at_from_position(Vector3(-5, 4.5, -6), Vector3.ZERO)
 	var rim := DirectionalLight3D.new()
 	rim.light_color = Color("#9fc0ff")
 	rim.light_energy = 0.5
@@ -92,6 +97,14 @@ func to_world(p: Vector2, lift := 0.0) -> Vector3:
 func gem_material(t: int) -> ShaderMaterial:
 	if _mats.has(t):
 		return _mats[t]
+	if STYLE >= 0:
+		var pm := ShaderMaterial.new()
+		pm.shader = PIECE_SHADER
+		var pc := Color.html(PALETTE[t % PALETTE.size()]).srgb_to_linear()
+		pm.set_shader_parameter("col", Vector3(pc.r, pc.g, pc.b))
+		pm.set_shader_parameter("style", STYLE)
+		_mats[t] = pm
+		return pm
 	var g: Dictionary = Data.GEMS[t]
 	var m := ShaderMaterial.new()
 	m.shader = GEM_SHADER
@@ -199,7 +212,7 @@ func _mud(seed_v: int) -> MeshInstance3D:
 
 func make_stone(t: int) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	mi.mesh = GemCut.mesh(Data.GEMS[t].shape)
+	mi.mesh = PieceForm.mesh(t) if STYLE >= 0 else GemCut.mesh(Data.GEMS[t].shape)
 	mi.material_override = gem_material(t)
 	root.add_child(mi)
 	return mi

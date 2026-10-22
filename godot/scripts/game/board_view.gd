@@ -231,11 +231,9 @@ func _draw() -> void:
 func _pocket(p: Vector2) -> void:
 	var inset := TS * 0.05
 	var box := GemArt.rrect(p + Vector2(inset, inset), Vector2(TS, TS) - Vector2(inset, inset) * 2.0, TS * 0.16)
-	draw_colored_polygon(box, Color(0.0, 0.0, 0.02, 0.5))
-	var top := GemArt.rrect(p + Vector2(inset, inset), Vector2(TS - inset * 2.0, TS * 0.32), TS * 0.16)
-	GemArt.grad_poly(self, top, p + Vector2(0, inset), p + Vector2(0, inset + TS * 0.32), Color(0, 0, 0, 0.45), Color(0, 0, 0, 0.15), Color(0, 0, 0, 0))
-	draw_polyline(GemArt.closed(box), Color(0, 0, 0, 0.6), 1.2, true)
-	draw_line(p + Vector2(inset + TS * 0.12, TS - inset), p + Vector2(TS - inset - TS * 0.12, TS - inset), Color(1, 0.9, 0.75, 0.12), 1.2)
+	# a shallow, barely darker pocket with a hairline edge: the grid is felt, not seen
+	draw_colored_polygon(box, Color(0.0, 0.0, 0.02, 0.18))
+	draw_polyline(GemArt.closed(box), Color(1, 1, 1, 0.07), 1.0, true)
 
 func _draw_under(ci: Node2D) -> void:
 	if model == null: return

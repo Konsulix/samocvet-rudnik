@@ -10,6 +10,7 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if not args.has("noglow"): _setup_glow()
+	if args.has("style"): Board3D.STYLE = int(args.style)
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))
