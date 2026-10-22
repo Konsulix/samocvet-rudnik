@@ -63,6 +63,8 @@ var _arc_t := 0.0
 var _mat: ShaderMaterial
 var _arc_mat: ShaderMaterial
 var glass: ShaderMaterial
+var sparks: CPUParticles3D
+var fizz: CPUParticles3D
 
 func setup(bb: AABB, seed_v: int, glow: Color, surf := PackedVector3Array()) -> SpecBolt:
 	bounds = bb
@@ -91,9 +93,49 @@ func setup(bb: AABB, seed_v: int, glow: Color, surf := PackedVector3Array()) -> 
 	light.omni_range = bb.size.length() * 1.6
 	light.position = bb.get_center()
 	add_child(light)
+	# sparks: a burst flying off with every strike, and a constant faint crackle around
+	sparks = _spark_emitter(40, 0.5, 0.9, true)
+	fizz = _spark_emitter(16, 0.7, 0.35, false)
 	_strike()
 	_crackle()
 	return self
+
+func _spark_emitter(n: int, life: float, speed: float, burst: bool) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = n
+	p.lifetime = life
+	p.one_shot = burst
+	p.explosiveness = 0.9 if burst else 0.0
+	p.emitting = not burst
+	if surface.size():
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
+		p.emission_points = surface
+	else:
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		p.emission_box_extents = bounds.size * 0.4
+	p.direction = Vector3.UP
+	p.spread = 180
+	p.gravity = Vector3(0, -0.6, 0)
+	p.initial_velocity_min = speed * bounds.size.y * 0.4
+	p.initial_velocity_max = speed * bounds.size.y
+	p.damping_min = 1.0
+	p.damping_max = 2.0
+	p.scale_amount_min = 0.012 * bounds.size.y
+	p.scale_amount_max = 0.028 * bounds.size.y
+	p.local_coords = true
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 1))
+	curve.add_point(Vector2(1, 0))
+	p.scale_amount_curve = curve
+	var m := SphereMesh.new()
+	m.radius = 0.5
+	m.height = 1.0
+	m.radial_segments = 6
+	m.rings = 3
+	m.material = SpecLegend.glow_mat(Color(1.6, 2.2, 5.0))
+	p.mesh = m
+	add_child(p)
+	return p
 
 func _process(dt: float) -> void:
 	_t += dt
@@ -135,7 +177,19 @@ func _strike() -> void:
 	var wl := b.position + b.size * Vector3(0.22, 0.06, 0.22)
 	var wh := b.end - b.size * Vector3(0.22, 0.12, 0.22)
 	_bolt(a, z, b.size.y * 0.22, 7, segs, halo, 1.0, 0.05 * b.size.y + 0.012, wl, wh, rng.randf())
+	# now and then the discharge leaps out of the crystal into the air around it
+	if surface.size() and rng.randf() < 0.65:
+		var big := AABB(b.position - b.size * 1.2, b.size * 3.4)
+		for k in 1 + rng.randi() % 2:
+			var p0 := surface[rng.randi() % surface.size()]
+			var c := b.get_center()
+			var out := (p0 - Vector3(c.x, b.position.y, c.z)).normalized()
+			out = (out + Vector3(rng.randf() - 0.5, rng.randf() * 0.6, rng.randf() - 0.5) * 0.8).normalized()
+			var p1 := p0 + out * b.size.y * rng.randf_range(0.45, 0.8)
+			_bolt(p0, p1, p0.distance_to(p1) * 0.22, 6, segs, halo, 0.85, 0.035 * b.size.y + 0.008, big.position, big.end, rng.randf())
 	mesh = _build(segs, halo)
+	if sparks:
+		sparks.restart()
 
 ## arcs crackling over the outside: short jagged sparks between nearby points of the surface
 func _crackle() -> void:
