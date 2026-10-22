@@ -233,6 +233,8 @@ func _open_stone(s: Dictionary) -> void:
 	var rows := VBoxContainer.new()
 	Reveal._row(rows, "Вес", Stones.fmt_weight(int(s.g)))
 	Reveal._row(rows, "Качество", String(Data.GR[int(s.gi)].n))
+	for line in SpecGenome.describe(SpecGenome.of(Spec.of_stone(s))):
+		Reveal._row(rows, line[0], line[1])
 	Reveal._row(rows, "Оценка", UI.coins(int(s.value)), UI.GOLD)
 	v.add_child(rows)
 	var traits: Array = s.get("traits", [])

@@ -105,7 +105,7 @@ void fragment() {
 	vec3 rk = d_col * (0.3 + 1.2 * fbm(v_rp * 26.0)) * (0.7 + 0.5 * vn(v_rp * 5.0));
 	rk = mix(rk, vec3(0.3, 0.11, 0.035) * (0.6 + 0.8 * vn(v_rp * 30.0)), smoothstep(0.55, 0.8, vn(v_rp * 9.0 + 5.0)) * 0.45);
 	// glittering mineral grains
-	float grains = smoothstep(0.8, 0.88, vn(v_rp * 70.0));
+	float grains = smoothstep(0.86, 0.92, vn(v_rp * 70.0)) * 0.6;
 	rk += vec3(0.55, 0.52, 0.48) * grains * 0.4;
 	rk = mix(rk, rk * 1.7 + 0.04, rim * 0.6);
 	float s_rough = 0.8;
@@ -174,6 +174,9 @@ void fragment() {
 	n = normalize(n + (vec3(vn(gq), vn(gq + 3.3), vn(gq + 7.1)) - 0.5) * 0.06);
 	float cosv = abs(dot(n, VIEW));
 	float edge_k = 1.0 - cosv;
+	// eaten hollows: dark pockets ringed with frosted, etched glass
+	float pit = clamp(1.0 - COLOR.a, 0.0, 1.0);
+	frost = max(frost, smoothstep(0.05, 0.35, pit) * 0.4);
 	float milk = clamp(smoothstep(0.52, 0.74, fbm(v_op * 2.6 + g_seed)) * frost_k + frost * 0.9, 0.0, 1.0);
 	float smoke = smoothstep(0.42, 0.78, fbm(v_op * 2.1 + g_seed + 17.0)) * smoke_k;
 	vec2 bend = n.xy * (0.03 + 0.05 * thick) * (0.6 + edge_k);
@@ -203,16 +206,19 @@ void fragment() {
 		float hm = smoothstep(0.35, 0.7, vn(v_op * 1.2 + g_seed + 5.0) * 0.7 + vn(v_op * 2.3 + g_seed) * 0.3);
 		body += holo * holo_k * hm * (0.35 + 0.65 * fr2) * (1.0 - milk * 0.5) * (1.0 - dirt);
 	}
+	vec3 pitc = tint0 * 0.035 + vec3(0.004, 0.003, 0.006);
+	float hollow = smoothstep(0.3, 0.7, pit) * (1.0 - dirt);
+	body = mix(body, pitc, hollow);
 	vec3 silver = vec3(0.85, 0.87, 0.9) * (0.6 + 0.6 * fbm(v_op * 40.0));
 	body = mix(body, silver * 0.55, srim * 0.85);
-	ALBEDO = mix(mix(tint0 * milk * 0.35, silver, srim), base, dirt);
+	ALBEDO = mix(mix(mix(tint0 * milk * 0.35, silver, srim), pitc, hollow), base, dirt);
 	METALLIC = srim * 0.65;
-	ROUGHNESS = mix(mix(mix(0.02, 0.32, milk), 0.38, srim), r, dirt);
-	SPECULAR = 0.6;
+	ROUGHNESS = mix(mix(mix(mix(0.02, 0.32, milk), 0.38, srim), 0.8, hollow), r, dirt);
+	SPECULAR = mix(0.6, 0.08, hollow);
 	CLEARCOAT = 0.0;
 	// the rainbow film only blooms in patches, as on real crystals
 	float film = 0.12 + 0.88 * smoothstep(0.5, 0.72, fbm(v_op * 1.6 + g_seed + 5.0));
-	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8);
+	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92);
 	NORMAL = n;
 	ALPHA = 1.0;
 #elif defined(UNSHADED)

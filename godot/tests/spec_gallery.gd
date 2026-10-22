@@ -26,6 +26,11 @@ const SETS := [
 	{seed = 73, sid = "gypsum", kind = "crystal", gi = 2, traits = ["irid"]}, {seed = 74, sid = "aquamarine", kind = "crystal", gi = 3, traits = []},
 	{seed = 75, sid = "celestine", kind = "druse", gi = 2, traits = ["moss"]}, {seed = 76, sid = "sylvite", kind = "crystal", gi = 2, traits = []},
 	{seed = 77, sid = "amethyst", kind = "crystal", gi = 3, traits = ["aurora"]}, {seed = 78, sid = "quartz", kind = "druse", gi = 3, traits = ["moss"]}],
+	[{seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["eroded", "irid"]}, {seed = 82, sid = "quartz", kind = "druse", gi = 2, traits = ["silver", "moss"]},
+	{seed = 83, sid = "aquamarine", kind = "crystal", gi = 3, traits = ["goldfleck"]}, {seed = 84, sid = "fluorite", kind = "crystal", gi = 2, traits = ["anomaly"]},
+	{seed = 85, sid = "garnet", kind = "crystal", gi = 2, traits = ["eroded", "moss"]}, {seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver", "eroded"]},
+	{seed = 87, sid = "sapphire", kind = "crystal", gi = 3, traits = ["irid"]}, {seed = 88, sid = "calcite", kind = "druse", gi = 2, traits = ["eroded", "goldfleck"]}],
+	[{seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver", "eroded"]}, {seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["eroded", "irid"]}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
 ]
 

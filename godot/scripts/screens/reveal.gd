@@ -95,6 +95,8 @@ func show_stone(s: Dictionary, others := []) -> void:
 	if s.has("integ"):
 		var ig := int(s.integ)
 		_row(rows, "Целостность", "%d%%" % ig, UI.GOOD if ig >= 90 else Color("#f0b040") if ig >= 60 else Color("#ff6a5a"))
+	for line in SpecGenome.describe(SpecGenome.of(Spec.of_stone(s))):
+		_row(rows, line[0], line[1])
 	_row(rows, "Оценка", UI.coins(int(s.value)), UI.GOLD)
 	v.add_child(rows)
 	var traits: Array = s.get("traits", [])

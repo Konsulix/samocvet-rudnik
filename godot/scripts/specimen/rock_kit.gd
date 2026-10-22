@@ -68,8 +68,10 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	# hand-made glass: faces that are not quite flat, so what shows through them ripples
 	g.mark_edges()
 	var det: int = cfg.get("detail", 0)
+	var ero: float = cfg.get("erode", 0.0)
+	if ero > 0.0: det = maxi(det, 3)
 	if det > 0:
-		g.subdivide(det).jitter(0.009, 6.0, int(rng.next() * 100000))
+		g.subdivide(det).jitter(0.009 * (0.4 if ero > 0.0 else 1.0), 6.0, int(rng.next() * 100000))
 	# colour along the length: plain, smoky base, coloured tip or two-tone
 	var cA: Color = cfg.get("cA", Color(1, 1, 1))
 	var cB: Color = cfg.get("cB", cA)
@@ -80,6 +82,8 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		var c := cA.lerp(cB, zk * (t * t * (3.0 - 2.0 * t)))
 		c.a = 1.0
 		g.col[i] = c
+	if ero > 0.0:
+		g.erode(ero, int(rng.next() * 100000))
 	return g
 
 ## a chunky column: uneven polygon section, slanted broken top or a point, foot sunk into the rock
@@ -141,8 +145,10 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 			g.v.append_array([A, B, C])
 	g.mark_edges()
 	var det: int = o.get("detail", 0)
+	var ero: float = o.get("erode", 0.0)
+	if ero > 0.0: det = maxi(det, 3)
 	if det > 0:
-		g.subdivide(det).jitter(minf(w, d) * 0.035, 2.5 / maxf(0.05, w), int(rng.next() * 100000))
+		g.subdivide(det).jitter(minf(w, d) * (0.012 if ero > 0.0 else 0.035), 2.5 / maxf(0.05, w), int(rng.next() * 100000))
 	var cA: Color = zc.get("cA", Color(1, 1, 1))
 	var cB: Color = zc.get("cB", cA)
 	var zk: float = zc.get("zk", 0.0)
@@ -153,6 +159,8 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 		var c := cA.lerp(cB, zk * t * t * (3.0 - 2.0 * t))
 		c.a = 1.0
 		g.col[i] = c
+	if ero > 0.0:
+		g.erode(ero, int(rng.next() * 100000))
 	return g
 
 ## random points on a mesh's surface in its parent's space, with outward normals
@@ -186,10 +194,11 @@ static func gem(cut: String) -> Geo:
 # ---------------------------------------------------------------- host rock
 
 const ROCKS := {
-	"basalt": {h = [0.07, 0.05], s = [0.08, 0.1], l = [0.12, 0.08], crust = [0.1, 0.12, 0.55], rust = 0x7a4a2a},
+	"basalt": {h = [0.07, 0.05], s = [0.06, 0.08], l = [0.08, 0.06], crust = [0.1, 0.12, 0.55], rust = 0x7a4a2a},
 	"quartzite": {h = [0.1, 0.03], s = [0.03, 0.04], l = [0.6, 0.1], crust = [0.1, 0.05, 0.85], rust = 0x9a7a5a},
 	"ironstone": {h = [0.03, 0.02], s = [0.4, 0.15], l = [0.22, 0.06], crust = [0.09, 0.5, 0.45], rust = 0x4a2010},
 	"limestone": {h = [0.1, 0.03], s = [0.15, 0.08], l = [0.5, 0.08], crust = [0.12, 0.1, 0.82], rust = 0xa07a40},
+	"slate": {h = [0.56, 0.08], s = [0.06, 0.08], l = [0.07, 0.05], crust = [0.6, 0.05, 0.4], rust = 0x3a3028},
 }
 const ROCK_SHAPES := {slab = [1.35, 0.42, 1.05], chunk = [1.05, 0.72, 0.95], long = [1.55, 0.5, 0.75], small = [0.8, 0.55, 0.75]}
 
@@ -259,7 +268,7 @@ static var _sphere_cache := {}
 static var _disp := {}
 
 ## which photo scan dresses which rock
-const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, quartzite = 3}
+const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, slate = 3, quartzite = 3}
 
 ## height map of a scan, for pressing its relief into the geometry
 static func disp_img(i: int) -> Image:

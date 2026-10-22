@@ -31,6 +31,7 @@ func _init() -> void:
 	var d: Dictionary = JSON.parse_string(f.get_as_text())
 	for k in d:
 		set(k, d[k])
+	TRAITS.append_array(SpecGenome.EXTRA_TRAITS)
 	for t in TRAITS:
 		TR[t.id] = t
 

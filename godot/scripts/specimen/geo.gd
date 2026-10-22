@@ -273,6 +273,66 @@ func mark_edges(angle_deg := 14.0) -> Geo:
 		bary[t * 3 + 2] = Vector3(0, 0, hc) + add
 	return self
 
+## eat into the crystal: pits and caverns, mostly along its edges, pushed in towards its core.
+## How deep each spot was eaten goes into the vertex alpha, so the shader can darken the hollows.
+func erode(amount: float, seed_v: int) -> Geo:
+	if bary.size() != v.size() or v.is_empty():
+		return self
+	var bb := aabb()
+	var rr := maxf(0.02, minf(bb.size.x, bb.size.z) * 0.5)
+	var ymin := bb.position.y
+	var ymax := bb.end.y
+	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 5000.0), roundi(p.y * 5000.0), roundi(p.z * 5000.0))
+	var cell := FastNoiseLite.new()
+	cell.seed = seed_v
+	cell.noise_type = FastNoiseLite.TYPE_CELLULAR
+	cell.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	cell.frequency = 1.5 / rr
+	var soft := FastNoiseLite.new()
+	soft.seed = seed_v + 7
+	soft.frequency = 1.6 / rr
+	soft.fractal_octaves = 3
+	var emin := {}
+	for i in v.size():
+		var e := minf(bary[i].x, minf(bary[i].y, bary[i].z))
+		var k: Vector3i = key.call(v[i])
+		emin[k] = minf(emin.get(k, 1e9), e)
+	# cell distances for every corner, then thresholds by share of the surface rather than by value
+	var cds := {}
+	for i in v.size():
+		var k: Vector3i = key.call(v[i])
+		if not cds.has(k):
+			cds[k] = cell.get_noise_3dv(v[i])
+	var sorted: Array = cds.values()
+	sorted.sort()
+	var lo: float = sorted[0]
+	var q_face: float = sorted[int(sorted.size() * 0.16)]
+	var q_edge: float = sorted[int(sorted.size() * 0.4)]
+	var depth := {}
+	var holes := {}
+	for k in cds:
+		var p := Vector3(k) / 5000.0
+		var edge := 1.0 - smoothstep(0.0, rr * 0.45, emin[k])
+		var thr := lerpf(q_face, q_edge, edge)
+		# distinct holes (more of them near the edges); the faces between them stay flat
+		var pit := clampf((thr - float(cds[k])) / maxf(0.0001, thr - lo), 0.0, 1.0)
+		pit = sqrt(pit)
+		var f := (soft.get_noise_3dv(p) + 1.0) * 0.5
+		# the edges themselves gnawed raggedly
+		var gnaw := maxf(0.0, f - 0.5) * 1.2 * edge
+		depth[k] = amount * rr * (pit * 0.45 + gnaw * 0.3)
+		holes[k] = pit
+	if col.size() != v.size():
+		fill_color(Color(1, 1, 1))
+	for i in v.size():
+		var kk: Vector3i = key.call(v[i])
+		var d: float = depth[kk]
+		var p := v[i]
+		var c := Vector3(0, clampf(p.y, ymin + rr, ymax - rr), 0)
+		v[i] = p + (c - p).normalized() * d
+		col[i].a = 1.0 - clampf(float(holes[kk]) * 1.3, 0.0, 1.0)
+	return self
+
 ## nudge every vertex by a smooth function of where it is (shared corners move together)
 func jitter(amp: float, freq: float, seed_v: int) -> Geo:
 	var fn := FastNoiseLite.new()

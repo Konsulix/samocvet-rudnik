@@ -22,7 +22,7 @@ static func roll_traits(id: int, legend: bool, gi: int) -> Array:
 	for t in Data.TRAITS:
 		if rng.next() < t.p * luck:
 			out.append(t.id)
-	return out.slice(0, 3)
+	return out.slice(0, 4)
 
 static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
