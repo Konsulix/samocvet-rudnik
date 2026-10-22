@@ -70,8 +70,8 @@ def stone_mat(name, tint, rough=0.55):
     b.inputs["Roughness"].default_value = rough
     return m
 
-slab_m = stone_mat("slab", (0.5, 0.42, 0.32), 0.8)
-tile_m = stone_mat("tile", (0.62, 0.55, 0.45), 0.75)
+slab_m = stone_mat("slab", (0.45, 0.37, 0.27), 0.8)
+tile_m = stone_mat("tile", (0.52, 0.45, 0.35), 0.75)
 
 bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -0.12))
 slab = bpy.context.object; slab.scale = (C + 0.7, R + 0.7, 0.24)
@@ -102,30 +102,87 @@ area("fill", (6, -4, 8), 250, 9, (0.9, 0.94, 1.0))
 # ---------------------------------------------------------------- stones
 
 def gem_mat(name, col, density=2.2, sss=0.12):
+    """a cut stone, not plastic: colour clouds and veins through the body, tiny inclusions,
+    fine grain on the faces, worn frosty edges, polish varying from face to face"""
     m = bpy.data.materials.new(name); m.use_nodes = True
-    p = m.node_tree.nodes["Principled BSDF"]
-    p.inputs["Base Color"].default_value = (*col, 1)
-    # honed, not polished: light sinks in and scatters, highlights are soft and live on the edges
-    p.inputs["Transmission Weight"].default_value = 0.55
-    p.inputs["Subsurface Weight"].default_value = 0.2
+    n = m.node_tree; L = n.links
+    p = n.nodes["Principled BSDF"]
+    tc = n.nodes.new("ShaderNodeTexCoord")
+    oi = n.nodes.new("ShaderNodeObjectInfo")
+    # every stone its own pattern: shift the coordinates by the object's random value
+    off = n.nodes.new("ShaderNodeVectorMath"); off.operation = 'ADD'
+    L.new(tc.outputs["Object"], off.inputs[0])
+    rnd = n.nodes.new("ShaderNodeCombineXYZ")
+    mul = n.nodes.new("ShaderNodeMath"); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = 100.0
+    L.new(oi.outputs["Random"], mul.inputs[0])
+    for k in ("X", "Y", "Z"): L.new(mul.outputs[0], rnd.inputs[k])
+    L.new(rnd.outputs[0], off.inputs[1])
+    co = off.outputs[0]
+    # clouds of deeper and paler colour
+    nz = n.nodes.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 2.5; nz.inputs["Detail"].default_value = 8; nz.inputs["Roughness"].default_value = 0.65
+    L.new(co, nz.inputs["Vector"])
+    ramp = n.nodes.new("ShaderNodeValToRGB")
+    cr = ramp.color_ramp
+    cr.elements[0].position = 0.35; cr.elements[0].color = (col[0] * 0.55, col[1] * 0.55, col[2] * 0.55, 1)
+    cr.elements[1].position = 0.7; cr.elements[1].color = (min(1, col[0] * 1.1), min(1, col[1] * 1.1), min(1, col[2] * 1.1), 1)
+    L.new(nz.outputs["Fac"], ramp.inputs["Fac"])
+    # veins: thin ridges of a warped noise
+    wv = n.nodes.new("ShaderNodeTexWave"); wv.wave_type = 'BANDS'; wv.inputs["Scale"].default_value = 1.4
+    wv.inputs["Distortion"].default_value = 9.0; wv.inputs["Detail"].default_value = 6
+    L.new(co, wv.inputs["Vector"])
+    vein = n.nodes.new("ShaderNodeMath"); vein.operation = 'GREATER_THAN'; vein.inputs[1].default_value = 0.992
+    L.new(wv.outputs["Fac"], vein.inputs[0])
+    mixv = n.nodes.new("ShaderNodeMix"); mixv.data_type = 'RGBA'
+    L.new(vein.outputs[0], mixv.inputs["Factor"]); L.new(ramp.outputs[0], mixv.inputs["A"])
+    mixv.inputs["B"].default_value = (min(1, col[0] * 0.9 + 0.08), min(1, col[1] * 0.9 + 0.08), min(1, col[2] * 0.9 + 0.08), 1)
+    # worn edges: pointiness picks out the ridges, which turn paler and frosted
+    geo = n.nodes.new("ShaderNodeNewGeometry")
+    edge = n.nodes.new("ShaderNodeMapRange"); edge.inputs["From Min"].default_value = 0.6; edge.inputs["From Max"].default_value = 0.72
+    L.new(geo.outputs["Pointiness"], edge.inputs["Value"])
+    mixe = n.nodes.new("ShaderNodeMix"); mixe.data_type = 'RGBA'
+    L.new(edge.outputs["Result"], mixe.inputs["Factor"]); L.new(mixv.outputs["Result"], mixe.inputs["A"])
+    mixe.inputs["B"].default_value = (min(1, col[0] * 0.9 + 0.2), min(1, col[1] * 0.9 + 0.2), min(1, col[2] * 0.9 + 0.2), 1)
+    L.new(mixe.outputs["Result"], p.inputs["Base Color"])
+    # polish varies over the faces; the worn edges are rough
+    rn = n.nodes.new("ShaderNodeTexNoise"); rn.inputs["Scale"].default_value = 9.0
+    L.new(co, rn.inputs["Vector"])
+    rr = n.nodes.new("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = 0.14; rr.inputs["To Max"].default_value = 0.45
+    L.new(rn.outputs["Fac"], rr.inputs["Value"])
+    radd = n.nodes.new("ShaderNodeMath"); radd.operation = 'ADD'; radd.use_clamp = True
+    L.new(rr.outputs["Result"], radd.inputs[0])
+    rem = n.nodes.new("ShaderNodeMath"); rem.operation = 'MULTIPLY'; rem.inputs[1].default_value = 0.45
+    L.new(edge.outputs["Result"], rem.inputs[0]); L.new(rem.outputs[0], radd.inputs[1])
+    L.new(radd.outputs[0], p.inputs["Roughness"])
+    # fine grain and a few pits on the faces
+    gr = n.nodes.new("ShaderNodeTexNoise"); gr.inputs["Scale"].default_value = 160.0; gr.inputs["Detail"].default_value = 4
+    L.new(co, gr.inputs["Vector"])
+    vo = n.nodes.new("ShaderNodeTexVoronoi"); vo.inputs["Scale"].default_value = 30.0
+    L.new(co, vo.inputs["Vector"])
+    pit = n.nodes.new("ShaderNodeMath"); pit.operation = 'LESS_THAN'; pit.inputs[1].default_value = 0.06
+    L.new(vo.outputs["Distance"], pit.inputs[0])
+    hs = n.nodes.new("ShaderNodeMath"); hs.operation = 'SUBTRACT'
+    L.new(gr.outputs["Fac"], hs.inputs[0]); L.new(pit.outputs[0], hs.inputs[1])
+    bump = n.nodes.new("ShaderNodeBump"); bump.inputs["Strength"].default_value = 0.12; bump.inputs["Distance"].default_value = 0.004
+    L.new(hs.outputs[0], bump.inputs["Height"]); L.new(bump.outputs[0], p.inputs["Normal"])
+    # light still sinks into the body a little
+    p.inputs["Transmission Weight"].default_value = 0.2
+    p.inputs["Subsurface Weight"].default_value = 0.1
     p.inputs["Subsurface Radius"].default_value = (1.0, 0.6, 0.4)
-    p.inputs["Subsurface Scale"].default_value = 0.06
-    p.inputs["Roughness"].default_value = 0.3
-    p.inputs["Coat Weight"].default_value = 0.35
-    p.inputs["Coat Roughness"].default_value = 0.22
+    p.inputs["Subsurface Scale"].default_value = 0.05
     p.inputs["IOR"].default_value = 1.6
-    vol = m.node_tree.nodes.new("ShaderNodeVolumeAbsorption")
+    p.inputs["Coat Weight"].default_value = 0.0
+    vol = n.nodes.new("ShaderNodeVolumeAbsorption")
     vol.inputs["Color"].default_value = (*col, 1); vol.inputs["Density"].default_value = density
-    m.node_tree.links.new(vol.outputs[0], m.node_tree.nodes["Material Output"].inputs["Volume"])
+    L.new(vol.outputs[0], n.nodes["Material Output"].inputs["Volume"])
     return m
 
 KINDS = [
-    ("ruby",     (0.62, 0.05, 0.06), "crystal"),
-    ("emerald",  (0.06, 0.42, 0.16), "emerald"),
-    ("sapphire", (0.06, 0.16, 0.6),  "round"),
-    ("citrine",  (0.85, 0.5, 0.06),  "trillion"),
-    ("amethyst", (0.36, 0.12, 0.6),  "marquise"),
-    ("diamond",  (0.8, 0.8, 0.78),   "cushion"),
+    ("ruby",     (0.55, 0.06, 0.06), "crystal"),
+    ("emerald",  (0.07, 0.36, 0.17), "emerald"),
+    ("sapphire", (0.07, 0.15, 0.5),  "round"),
+    ("citrine",  (0.78, 0.45, 0.08), "trillion"),
+    ("amethyst", (0.33, 0.13, 0.52), "marquise"),
+    ("diamond",  (0.72, 0.72, 0.7),  "cushion"),
 ]
 mats = [gem_mat(k[0], k[1], 0.6 if k[0] == "diamond" else 4.0) for k in KINDS]
 
@@ -160,9 +217,9 @@ def make_gem(kind):
     girdle_z, crown_z = 0.1, 0.36 if kind != "crystal" else 0.42
     table = 0.42 if kind not in ("crystal", "trillion") else 0.3
     for p in base:
-        pts.append(j(p * 0.92, 0.008) + Vector((0, 0, 0.0)))          # pavilion foot
-        pts.append(j(p, 0.012) + Vector((0, 0, girdle_z)))              # girdle
-        pts.append(j(p * table, 0.012) + Vector((0, 0, crown_z)))       # table edge
+        pts.append(j(p * 0.92, 0.012) + Vector((0, 0, 0.0)))          # pavilion foot
+        pts.append(j(p, 0.022) + Vector((0, 0, girdle_z + random.uniform(-0.02, 0.02))))   # girdle
+        pts.append(j(p * table, 0.025) + Vector((0, 0, crown_z + random.uniform(-0.025, 0.02))))   # table edge
     if kind == "crystal":
         pts += [Vector((0, 0.3, crown_z + 0.06)), Vector((0, -0.3, crown_z + 0.06))]   # a ridge
     if kind == "trillion":
