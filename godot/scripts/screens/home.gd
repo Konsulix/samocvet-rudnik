@@ -50,26 +50,14 @@ func render() -> void:
 	var pad := MarginContainer.new()
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right"]: pad.add_theme_constant_override("margin_" + side, 12)
-	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_top", 10 + int(UI.safe_top()))
 	pad.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	ui_root.add_child(pad)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 4)
 	pad.add_child(col)
-	var top := HBoxContainer.new()
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pills := Chrome.pills()
-	pills.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(pills)
-	var mute := UI.button("♪" if not Save.d.mute else "×", "glass", 15)
-	mute.custom_minimum_size = Vector2(38, 32)
-	mute.pressed.connect(func():
-		Save.d.mute = not Save.d.mute
-		Save.persist()
-		render())
-	top.add_child(mute)
-	col.add_child(top)
+	col.add_child(Chrome.top_bar())
 	var A: Dictionary = Data.AREAS[ai()]
 	var title := UI.title(A.n, 22)
 	title.add_theme_constant_override("outline_size", 8)
@@ -98,12 +86,17 @@ func render() -> void:
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(fill)
-	col.add_child(_tasks_button())
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(gap)
-	col.add_child(_play_button())
+	# one row at the bottom, as in a mobile match-three: the big Play, the mine's progress beside it
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var play := _play_button()
+	play.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	play.size_flags_stretch_ratio = 1.25
+	row.add_child(play)
+	var task := _tasks_button()
+	task.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(task)
+	col.add_child(row)
 	var gap2 := Control.new()
 	gap2.custom_minimum_size = Vector2(0, 10)
 	gap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -119,22 +112,26 @@ func _tasks_button() -> Button:
 			next = t
 			break
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 56)
+	b.custom_minimum_size = Vector2(0, 64)
 	for s in ["normal", "hover", "pressed", "focus"]:
-		var st := UI.glass(16, 0.78)
-		st.content_margin_left = 14
-		st.content_margin_right = 14
+		var st := UI.glass(18, 0.82)
+		st.border_color = Color("#e3a51e", 0.45)
 		b.add_theme_stylebox_override(s, st)
 	var h := HBoxContainer.new()
 	h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 14
-	h.offset_right = -14
+	h.offset_left = 12
+	h.offset_right = -10
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var v := VBoxContainer.new()
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(UI.label(("Task: " + String(next[1])) if next.size() else "The mine is fitted out!", 14, UI.body_bold))
+	v.add_child(UI.label("Mine · %d/%d" % [built.size(), A.tasks.size()], 11, UI.body_bold, UI.MUTED))
+	var tl := UI.label(String(next[1]) if next.size() else "Fitted out!", 13, UI.body_bold)
+	tl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	tl.clip_text = true
+	v.add_child(tl)
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(0, 7)
@@ -160,33 +157,45 @@ func _tasks_button() -> Button:
 func _play_button() -> Button:
 	var n: int = Save.d.level
 	var def := Data.level_def(n)
-	var b := UI.button("", "green", 24)
-	b.custom_minimum_size = Vector2(0, 76)
+	var b := UI.button("", "green", 20)
+	b.custom_minimum_size = Vector2(0, 64)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", -2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var t := UI.label("Level %d" % n, 24, UI.display, Color("#06260f"))
+	var t := UI.label("Level %d" % n, 22, UI.display, Color("#06260f"))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var sub := UI.moves_text(int(def.moves)) + (" · hard" if def.get("hard", false) else "") + (" · streak %d" % Save.d.streak if Save.d.streak >= 2 else "")
-	var s := UI.label(sub, 13, UI.body_bold, Color(0.02, 0.15, 0.06, 0.8))
+	var s := UI.label(sub, 12, UI.body_bold, Color(0.02, 0.15, 0.06, 0.8))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
 	b.add_child(v)
 	# a glint sweeping across, like the prototype's shine
+	# clipped by a rounded mask the shape of the button's face (clip_contents would square off its
+	# corners and cut its glow into a hard-edged slab)
+	var mask := Panel.new()
+	var ms := StyleBoxFlat.new()
+	ms.bg_color = Color.WHITE
+	ms.set_corner_radius_all(18)
+	ms.anti_aliasing = true
+	mask.add_theme_stylebox_override("panel", ms)
+	mask.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mask.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mask.offset_bottom = -6
+	b.add_child(mask)
 	var shine := ColorRect.new()
 	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shine.color = Color(1, 1, 1, 0.0)
-	b.clip_contents = true
-	b.add_child(shine)
+	shine.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mask.add_child(shine)
 	var mat := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = "shader_type canvas_item;\nvoid fragment(){ float x = fract(TIME / 3.2) * 2.4 - 0.7; float d = abs(UV.x - x - (UV.y - 0.5) * 0.25); COLOR = vec4(1.0, 1.0, 1.0, 0.45 * (1.0 - smoothstep(0.0, 0.12, d))); }"
 	mat.shader = sh
 	shine.material = mat
-	b.resized.connect(func(): shine.size = b.size)
 	b.pressed.connect(_on_play)
 	return b
 

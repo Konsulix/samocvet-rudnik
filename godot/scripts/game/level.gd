@@ -100,8 +100,8 @@ func _mount_find() -> void:
 
 func _layout() -> void:
 	var vp := get_viewport_rect().size
-	var top := 150.0
-	var bottom := 118.0
+	var top := 150.0 + UI.safe_top()
+	var bottom := 118.0 + UI.safe_bottom()
 	board.layout(Vector2(vp.x - 12, vp.y - top - bottom))
 	holder.position = Vector2((vp.x - board.size.x) / 2, top + (vp.y - top - bottom - board.size.y) / 2)
 	holder.size = board.size
@@ -117,7 +117,7 @@ func _build_hud() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right"]: margin.add_theme_constant_override("margin_" + side, 12)
-	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_top", 8 + int(UI.safe_top()))
 	hud.add_child(margin)
 	margin.add_child(root)
 	# top line: close and the level title
@@ -190,7 +190,7 @@ func _build_hud() -> void:
 	var bar := PanelContainer.new()
 	var bs := StyleBoxEmpty.new()
 	bs.content_margin_top = 6
-	bs.content_margin_bottom = 18
+	bs.content_margin_bottom = maxf(18.0, UI.safe_bottom() + 4.0)
 	bar.add_theme_stylebox_override("panel", bs)
 	booster_bar = HBoxContainer.new()
 	booster_bar.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -692,7 +692,7 @@ func _panel(title_text: String, body_text: String, buttons: Array) -> void:
 	v.add_child(body)
 	for b in buttons:
 		var btn := UI.button(b[0], b[1], 17)
-		btn.custom_minimum_size = Vector2(0, 54)
+		btn.custom_minimum_size = Vector2(0, 50)
 		btn.disabled = not b[3]
 		btn.pressed.connect(b[2])
 		v.add_child(btn)

@@ -11,6 +11,9 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if not args.has("noglow"): _setup_glow()
 	if args.has("uv"): Spec.force_uv = float(args.uv)
+	if args.has("notch"):
+		var ins: PackedStringArray = String(args.notch).split(",")
+		UI.fake_insets = Vector2(float(ins[0]), float(ins[1]) if ins.size() > 1 else 0.0)
 	if args.has("style"): Board3D.STYLE = int(args.style)
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
@@ -77,6 +80,7 @@ func _swap(n: Node) -> void:
 	if screen: screen.queue_free()
 	screen = n
 	add_child(n)
+	Sfx.music("level" if n is Level else "home")
 
 func show_home() -> void:
 	var h := Home.new()

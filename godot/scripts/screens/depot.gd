@@ -66,14 +66,14 @@ func render() -> void:
 	add_child(root)
 	var pad := MarginContainer.new()
 	for side in ["left", "right"]: pad.add_theme_constant_override("margin_" + side, 12)
-	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_top", 10 + int(UI.safe_top()))
 	pad.add_theme_constant_override("margin_bottom", 8)
 	pad.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(pad)
 	body = VBoxContainer.new()
 	body.add_theme_constant_override("separation", 8)
 	pad.add_child(body)
-	body.add_child(Chrome.pills())
+	body.add_child(Chrome.top_bar())
 	body.add_child(UI.title("Depot", 22))
 	var a := ai()
 	var sub := Ov.text(("%s: digging to %d m" % [Data.AREAS[a].n, int(Data.DEPTHS[int(Save.d.depth[a])].m)] if tab == "depth" else "Gear works in every mine") + " · you have " + UI.coins(Save.d.coins), 13, Color("#d8e0ee"))
@@ -170,7 +170,7 @@ func _info(it: Dictionary, prev: Dictionary) -> PanelContainer:
 	else:
 		btn = UI.button("Need " + UI.coins(int(it.cost) - Save.d.coins), "glass", 15)
 		btn.disabled = true
-	btn.custom_minimum_size = Vector2(0, 50)
+	btn.custom_minimum_size = Vector2(0, 46)
 	v.add_child(btn)
 	p.add_child(v)
 	return p
@@ -216,9 +216,8 @@ func _sparks() -> void:
 	get_tree().create_timer(1.8).timeout.connect(p.queue_free)
 
 func _strip(list: Array, it: Dictionary) -> ScrollContainer:
-	var sc := ScrollContainer.new()
+	var sc := UI.scroller(true)
 	sc.custom_minimum_size = Vector2(0, 146)
-	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	sc.add_child(h)

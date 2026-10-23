@@ -1,27 +1,114 @@
 extends Node
-## Sound effects synthesised once at start-up (the same recipes as the prototype's WebAudio synth),
-## played from a small pool of players. Also the phone's haptics.
+## Sounds and music. Most effects are recorded samples (Kenney, CC0: assets/audio/CREDITS.md), picked at random
+## from a few takes and nudged in pitch so repeats do not sound mechanical; the rest are synthesised once at
+## start-up (the prototype's WebAudio recipes). Background music: one loop on the home screens, two
+## alternating ones in the levels, cross-faded. Also the phone's haptics.
 
 const RATE := 22050
+const SFX := "res://assets/audio/sfx/"
+## name -> takes, volume (dB), pitch step per arg (a cascade climbs), synth layer underneath
+const SAMPLES := {
+	swap = {f = ["impactGlass_light_000", "impactGlass_light_001", "impactGlass_light_002"], db = -8.0},
+	pop = {f = ["impactGlass_medium_000", "impactGlass_medium_001", "impactGlass_medium_002"], db = -6.0, step = 0.06},
+	bad = {f = ["error_006"], db = -6.0},
+	rock = {f = ["impactMining_000", "impactMining_001", "impactMining_002", "impactMining_003"], db = -3.0},
+	crack = {f = ["impactMining_001", "impactMining_003"], db = -2.0, step = 0.12},
+	boom = {f = ["impactPunch_heavy_000", "impactPunch_heavy_001"], db = -2.0, pitch = 0.7, synth = true},
+	special = {f = ["glass_002"], db = -4.0},
+	coin = {f = ["chips-stack-1", "chips-stack-2", "chips-collide-1"], db = -6.0},
+	build = {f = ["impactPlank_medium_000", "confirmation_002"], db = -4.0, all = true},
+	win = {f = ["jingles_SAX02"], db = -2.0},
+	lose = {f = ["jingles_SAX07"], db = -3.0},
+	reveal = {f = ["jingles_SAX10"], db = -3.0},
+	reveal_rare = {f = ["jingles_SAX16", "impactBell_heavy_000"], db = -3.0, all = true},
+	click = {f = ["click_002"], db = -10.0},
+	tab = {f = ["switch_002"], db = -8.0},
+	open = {f = ["open_001"], db = -10.0},
+}
+const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"]}
+const MUSIC_DB := -14.0
+
 var _cache := {}
+var _streams := {}
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
+var _music: Array[AudioStreamPlayer] = []
+var _cur := 0
+var _track := ""
+var _level_i := 0
 
 func _ready() -> void:
-	for i in 10:
+	for i in 12:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_pool.append(p)
+	for i in 2:
+		var m := AudioStreamPlayer.new()
+		m.volume_db = -80.0
+		add_child(m)
+		_music.append(m)
 
 func play(sfx_name: String, arg := 0) -> void:
 	if Save.d.get("mute", false): return
+	if sfx_name == "reveal" and arg >= 3: sfx_name = "reveal_rare"
+	if SAMPLES.has(sfx_name):
+		var d: Dictionary = SAMPLES[sfx_name]
+		var takes: Array = d.f
+		var pick: Array = takes if d.get("all", false) else [takes[randi() % takes.size()]]
+		for f in pick:
+			var p := _player()
+			p.stream = _sample(f)
+			p.volume_db = d.get("db", 0.0)
+			p.pitch_scale = float(d.get("pitch", 1.0)) * (1.0 + float(d.get("step", 0.0)) * mini(arg, 10)) * randf_range(0.96, 1.04)
+			p.play()
+		if not d.get("synth", false):
+			return
 	var key := "%s%d" % [sfx_name, arg]
 	if not _cache.has(key):
 		_cache[key] = _make(sfx_name, arg)
+	var sp := _player()
+	sp.stream = _cache[key]
+	sp.volume_db = 0.0
+	sp.pitch_scale = 1.0
+	sp.play()
+
+func _player() -> AudioStreamPlayer:
 	var p := _pool[_next]
 	_next = (_next + 1) % _pool.size()
-	p.stream = _cache[key]
-	p.play()
+	return p
+
+func _sample(f: String) -> AudioStream:
+	if not _streams.has(f):
+		_streams[f] = load(SFX + f + ".ogg")
+	return _streams[f]
+
+## background music for "home" or "level": cross-fades to it (levels alternate between their two loops)
+func music(track: String) -> void:
+	if track == _track and _music[_cur].playing:
+		return
+	_track = track
+	var list: Array = MUSIC[track]
+	var path: String = list[_level_i % list.size()]
+	if track == "level": _level_i += 1
+	var st := load(path) as AudioStreamOggVorbis
+	st.loop = true
+	var old := _music[_cur]
+	_cur = 1 - _cur
+	var nw := _music[_cur]
+	nw.stream = st
+	nw.volume_db = -40.0
+	nw.play()
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(nw, "volume_db", _music_db(), 1.2)
+	tw.tween_property(old, "volume_db", -60.0, 0.9)
+	tw.chain().tween_callback(old.stop)
+
+func _music_db() -> float:
+	return -80.0 if Save.d.get("mute", false) else MUSIC_DB
+
+## sound switched on or off
+func apply_mute() -> void:
+	_music[_cur].volume_db = _music_db()
 
 ## light taps for hits, a longer thump for blasts
 func buzz(ms := 20) -> void:

@@ -28,6 +28,35 @@ func _ready() -> void:
 	theme.set_stylebox("panel", "PanelContainer", glass(16))
 	get_tree().root.theme = theme
 
+## the screen's unsafe edges in layout units: the Dynamic Island / notch on top, the home indicator below.
+## Only phones report them; screenshots on a desktop can fake one with the notch=TOP,BOTTOM key.
+var fake_insets := Vector2(-1, -1)
+
+func safe_top() -> float:
+	return _insets().x
+
+func safe_bottom() -> float:
+	return _insets().y
+
+func _insets() -> Vector2:
+	if fake_insets.x >= 0.0:
+		return fake_insets
+	if not OS.has_feature("mobile"):
+		return Vector2.ZERO
+	var win := DisplayServer.window_get_size()
+	if win.y <= 0:
+		return Vector2.ZERO
+	var sa := DisplayServer.get_display_safe_area()
+	var k := get_tree().root.get_visible_rect().size.y / float(win.y)
+	return Vector2(maxf(0.0, sa.position.y) * k, maxf(0.0, win.y - sa.end.y) * k)
+
+## a scroll area for touch: dragged with the finger, no desktop-style scroll bars
+func scroller(horizontal := false) -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if horizontal else ScrollContainer.SCROLL_MODE_DISABLED
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if horizontal else ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	return sc
+
 func _font(path: String, weight: int) -> FontVariation:
 	var f := FontVariation.new()
 	f.base_font = load(path)
@@ -91,7 +120,9 @@ func button(text: String, kind := "glass", font_size := 20) -> Button:
 		b.add_theme_stylebox_override("pressed", soft_style(bc, a0 * 3.0, rim))
 		b.add_theme_stylebox_override("disabled", soft_style(bc, a0 * 0.4, rim))
 		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-		b.pressed.connect(func(): Sfx.buzz(8))
+		b.pressed.connect(func():
+			Sfx.buzz(8)
+			Sfx.play("click"))
 		return b
 	b.add_theme_font_override("font", display if kind != "glass" else body_bold)
 	b.add_theme_font_size_override("font_size", font_size)
@@ -113,7 +144,9 @@ func button(text: String, kind := "glass", font_size := 20) -> Button:
 		dis.bg_color = Color(dis.bg_color, 0.45)
 		b.add_theme_stylebox_override("disabled", dis)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.pressed.connect(func(): Sfx.buzz(8))
+	b.pressed.connect(func():
+		Sfx.buzz(8)
+		Sfx.play("click"))
 	return b
 
 # ---------------------------------------------------------------- the stone look (marble and slate)
@@ -161,7 +194,9 @@ func marble_button(text: String, font_size := 18) -> Button:
 	pr.bg_color = Color("#e2dbcf")
 	b.add_theme_stylebox_override("pressed", pr)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.pressed.connect(func(): Sfx.buzz(8))
+	b.pressed.connect(func():
+		Sfx.buzz(8)
+		Sfx.play("click"))
 	return b
 
 func label(text: String, size := 16, font: Font = null, col := INK) -> Label:

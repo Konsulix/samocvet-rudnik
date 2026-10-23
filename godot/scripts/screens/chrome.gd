@@ -2,17 +2,62 @@ class_name Chrome
 extends RefCounted
 ## Pieces every screen shares: the lives / coins / stars pills and the bottom tab bar.
 
-## lives (with the time to the next one), coins and stars, as little glass pills
-static func pills() -> HBoxContainer:
+## the bar on top of every screen, the same everywhere: lives, coins and stars sharing the width
+## in even plates, a round sound button on the right
+static func top_bar() -> HBoxContainer:
 	Save.tick_lives()
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 6)
+	h.add_theme_constant_override("separation", 8)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mins := Save.minutes_to_life()
-	h.add_child(pill("heart", str(Save.d.lives) + (" · %d min" % mins if mins else "")))
-	h.add_child(pill("coin", UI.fmt(Save.d.coins)))
-	h.add_child(pill("star", str(Save.d.stars)))
+	h.add_child(plate("heart", str(Save.d.lives) if not mins else "%d · %dm" % [Save.d.lives, mins]))
+	h.add_child(plate("coin", UI.fmt(Save.d.coins)))
+	h.add_child(plate("star", str(Save.d.stars)))
+	var snd := UI.button("♪" if not Save.d.mute else "×", "glass", 17)
+	snd.custom_minimum_size = Vector2(38, 38)
+	for k in ["normal", "hover", "pressed", "disabled"]:
+		var st := UI.glass(19, 0.78)
+		st.set_content_margin_all(0)
+		snd.add_theme_stylebox_override(k, st)
+	snd.pressed.connect(func():
+		Save.d.mute = not Save.d.mute
+		Save.persist()
+		Sfx.apply_mute()
+		snd.text = "♪" if not Save.d.mute else "×")
+	h.add_child(snd)
 	return h
+
+## one resource plate: a dark rounded bar with its round badge sitting over the left end
+static func plate(kind: String, text: String) -> Control:
+	var w := Control.new()
+	w.custom_minimum_size = Vector2(0, 38)
+	w.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := Panel.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.04, 0.06, 0.1, 0.78)
+	st.border_color = Color(1, 1, 1, 0.14)
+	st.set_border_width_all(1)
+	st.set_corner_radius_all(14)
+	bg.add_theme_stylebox_override("panel", st)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.offset_left = 12
+	bg.offset_top = 4
+	bg.offset_bottom = -4
+	w.add_child(bg)
+	var l := UI.label(text, 15, UI.body_bold)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	l.offset_left = 30
+	l.offset_right = -4
+	l.clip_text = true
+	w.add_child(l)
+	var ic := UI.icon(32, func(ci: Control): coin_icon(ci, kind, Vector2(16, 16), 15))
+	ic.position = Vector2(0, 3)
+	w.add_child(ic)
+	return w
 
 static func pill(kind: String, text: String) -> PanelContainer:
 	var p := PanelContainer.new()
@@ -59,52 +104,66 @@ static func coin_icon(ci: CanvasItem, kind: String, c: Vector2, r: float) -> voi
 				pts2.append(c + Vector2(cos(a), sin(a)) * (r * 0.68 if i % 2 == 0 else r * 0.3))
 			ci.draw_colored_polygon(pts2, w)
 
-## the bottom tab bar: mine, depot, museum
+## the bottom tab bar: mine, depot, museum, three even segments edge to edge; the open one is lit,
+## with a gold top edge, a bigger icon and its label, the others show just their icon
 static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	var bar := PanelContainer.new()
 	var st := StyleBoxFlat.new()
 	st.bg_color = Color("#151d2c")
 	st.border_color = Color(1, 1, 1, 0.1)
 	st.border_width_top = 1
-	st.content_margin_left = 10
-	st.content_margin_right = 10
-	st.content_margin_top = 6
-	st.content_margin_bottom = 12
+	st.content_margin_left = 0
+	st.content_margin_right = 0
+	st.content_margin_top = 0
+	st.content_margin_bottom = UI.safe_bottom()
 	st.shadow_color = Color(0, 0, 0, 0.45)
 	st.shadow_size = 18
 	bar.add_theme_stylebox_override("panel", st)
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 4)
-	for tab in [["home", "Mine"], ["depot", "Machines"], ["museum", "Collection"]]:
+	h.add_theme_constant_override("separation", 0)
+	var tabs := [["home", "Mine"], ["depot", "Machines"], ["museum", "Collection"]]
+	for ti in tabs.size():
+		var tab: Array = tabs[ti]
 		var id: String = tab[0]
 		var on := id == active
+		if ti > 0:
+			var sep := ColorRect.new()
+			sep.color = Color(1, 1, 1, 0.07)
+			sep.custom_minimum_size = Vector2(1, 0)
+			sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(sep)
 		var b := Button.new()
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 58)
 		var bs := StyleBoxFlat.new()
-		bs.set_corner_radius_all(14)
-		bs.bg_color = Color("#26344e") if on else Color(0, 0, 0, 0)
+		bs.bg_color = Color("#24324b") if on else Color(0, 0, 0, 0)
 		if on:
-			bs.border_color = Color("#e3a51e")
-			bs.border_width_bottom = 3
+			bs.border_color = Color("#f2b630")
+			bs.border_width_top = 3
 		for s in ["normal", "hover", "pressed", "focus"]:
 			b.add_theme_stylebox_override(s, bs)
-		var col := Color("#ffd77a") if on else Color("#9fb0c8")
+		var col := Color("#ffd77a") if on else Color("#7d8ba3")
 		var v := VBoxContainer.new()
 		v.set_anchors_preset(Control.PRESET_FULL_RECT)
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		v.add_theme_constant_override("separation", 1)
+		v.add_theme_constant_override("separation", 2)
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ic := UI.icon(26, func(ci: Control): tab_icon(ci, id, col))
+		var isz := 30.0 if on else 26.0
+		var ic := UI.icon(isz, func(ci: Control):
+			ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE * isz / 26.0)
+			tab_icon(ci, id, col))
 		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(ic)
-		var l := UI.label(tab[1], 12, UI.body_bold, col)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(l)
+		if on:
+			var l := UI.label(tab[1], 12, UI.body_bold, col)
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			v.add_child(l)
 		b.add_child(v)
 		b.pressed.connect(func():
 			Sfx.buzz(8)
-			if not on: on_go.call(id))
+			if not on:
+				Sfx.play("tab")
+				on_go.call(id))
 		h.add_child(b)
 	bar.add_child(h)
 	return bar

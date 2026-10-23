@@ -22,6 +22,7 @@ func is_open() -> bool:
 ## glow: a coloured rim and halo round the card (the find's rarity); transparent = the plain gold hairline
 func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	close(false)
+	Sfx.play("open")
 	var dim := ColorRect.new()
 	_dim = dim
 	dim.color = Color(0.01, 0.02, 0.04, 0.0)
@@ -73,7 +74,7 @@ func text(s: String, size := 15, col := UI.MUTED) -> Label:
 
 func btn(label: String, kind: String, fn: Callable, enabled := true) -> Button:
 	var b := UI.button(label, kind, 17)
-	b.custom_minimum_size = Vector2(0, 54)
+	b.custom_minimum_size = Vector2(0, 50)
 	b.disabled = not enabled
 	b.pressed.connect(fn)
 	return b
@@ -103,7 +104,7 @@ func toast(s: String) -> void:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(p)
 	var vp := root.get_viewport_rect().size
-	p.position = Vector2((vp.x - 324) / 2, 96)
+	p.position = Vector2((vp.x - 324) / 2, 96 + UI.safe_top())
 	p.modulate.a = 0
 	var tw := create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.2)

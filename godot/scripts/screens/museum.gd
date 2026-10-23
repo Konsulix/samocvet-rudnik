@@ -39,16 +39,15 @@ func render() -> void:
 	add_child(root)
 	var pad := MarginContainer.new()
 	for side in ["left", "right"]: pad.add_theme_constant_override("margin_" + side, 12)
-	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_top", 10 + int(UI.safe_top()))
 	pad.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(pad)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	pad.add_child(col)
-	col.add_child(Chrome.pills())
-	scroll = ScrollContainer.new()
+	col.add_child(Chrome.top_bar())
+	scroll = UI.scroller()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
 	content = VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
