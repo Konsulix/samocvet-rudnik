@@ -70,6 +70,8 @@ func _ready() -> void:
 	_bar_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(_bar_fill)
 	_paths = BoardSprites.paths() + EXTRA
+	for f in ResourceLoader.list_directory("res://assets/thumbs/"):
+		if f.ends_with(".png"): _paths.append("res://assets/thumbs/" + f)
 	for p in _paths:
 		ResourceLoader.load_threaded_request(p)
 	# on its own canvas layer there is no parent to fill: take the screen's size

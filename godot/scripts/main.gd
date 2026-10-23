@@ -60,6 +60,18 @@ func _ready() -> void:
 		await get_tree().create_timer(float(args.enter)).timeout
 		print("enter level")
 		show_level(Save.d.level, [], 0)
+	if args.has("bake_thumbs"):
+		# render every machine's picture once and save it into the project (Spec.BAKED)
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/thumbs"))
+		var ids := Array(Depot.DMACH.slice(1))
+		for e in Data.EQUIP: ids.append(e.id)
+		for id in ids:
+			var got := [null]
+			Spec.thumb({machine = id, bake = true}, func(t: Texture2D): got[0] = t)
+			while got[0] == null: await get_tree().process_frame
+			(got[0] as Texture2D).get_image().save_png(ProjectSettings.globalize_path(Spec.BAKED % id))
+			print("baked ", id)
+		get_tree().quit()
 	if args.has("hitch"):
 		_hitch(float(args.hitch))
 	if args.has("perf"):

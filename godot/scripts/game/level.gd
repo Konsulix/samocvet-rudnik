@@ -79,16 +79,32 @@ func start(n: int, pre: Array = [], dl: int = 0) -> void:
 	busy = false
 	idle = 0.0
 
+## one studio for the sealed find, kept for the whole session and moved from level to level: a fresh
+## viewport, world and render targets every level were part of the hitch on entering one. Same
+## anti-aliasing as the start-up shader warm-up, so its shaders are already compiled for it.
+static var _find_pool: SpecStudio
+
+func _exit_tree() -> void:
+	# hand the pooled studio back alive: it outlives this level
+	if find_studio and find_studio.vp.get_parent() == self:
+		find_studio.clear()
+		remove_child(find_studio.vp)
+
 func _mount_find() -> void:
 	if find_studio:
-		find_studio.vp.queue_free()
-		find_studio = null
+		find_studio.clear()
+		find_spec = null
 	board.find_tex = null
 	if model.find.is_empty():
 		return
-	find_studio = SpecStudio.make(200, Viewport.MSAA_2X)
+	if not _find_pool:
+		_find_pool = SpecStudio.make(200, Viewport.MSAA_4X)
+	find_studio = _find_pool
+	find_studio.clear()
 	# the sealed find turns slowly: 30 renders a second are plenty (see _process)
 	find_studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if find_studio.vp.get_parent():
+		find_studio.vp.get_parent().remove_child(find_studio.vp)
 	add_child(find_studio.vp)
 	board.find_tex = find_studio.vp.get_texture()
 	var st := find_studio

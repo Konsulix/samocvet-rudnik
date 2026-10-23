@@ -49,8 +49,9 @@ func reset() -> void:
 	d = blank()
 	persist()
 
+## ids double as the seeds of finds: step by a random amount so every new game digs up different stones
 func next_uid() -> int:
-	d.uid += 1
+	d.uid += 1 + randi() % 9973
 	return d.uid
 
 func now_ms() -> int:

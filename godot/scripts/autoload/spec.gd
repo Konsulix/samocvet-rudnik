@@ -91,10 +91,18 @@ static func of_jewel(j: Dictionary) -> Dictionary:
 func cached(o: Dictionary) -> Texture2D:
 	return _cache.get(key_of(o))
 
+## machines never change: their pictures are baked into the project (bake_thumbs key), not rendered on the phone
+const BAKED := "res://assets/thumbs/machine_%s.png"
+
 func thumb(o: Dictionary, cb: Callable) -> void:
 	var t := cached(o)
 	if t:
 		cb.call(t)
+		return
+	if o.has("machine") and not o.has("bake") and ResourceLoader.exists(BAKED % o.machine):
+		var bt: Texture2D = load(BAKED % o.machine)
+		_cache[key_of(o)] = bt
+		cb.call(bt)
 		return
 	_queue.append([o, cb])
 	if not _busy:

@@ -10,6 +10,9 @@ config/name="Gemcore"
 config/description="Match-three with mineral finds"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.png"
+boot_splash/bg_color=Color(0.051, 0.071, 0.106, 1)
+boot_splash/show_image=false
+boot_splash/image="res://assets/ui/splash.png"
 config/features=PackedStringArray("4.7", "Mobile")
 
 [autoload]
