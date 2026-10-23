@@ -60,6 +60,28 @@ func _ready() -> void:
 		await get_tree().create_timer(float(args.enter)).timeout
 		print("enter level")
 		show_level(Save.d.level, [], 0)
+	if args.has("bake_boot"):
+		# the loading screen's stone as a flipbook: one full turn in FRAMES pictures, a sheet of 8 per row,
+		# so the loading screen shows it without any 3D (nothing to compile while it is up)
+		var studio := SpecStudio.make(Boot.CELL, Viewport.MSAA_4X, true)
+		add_child(studio.vp)
+		studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		var stone: Dictionary = Boot.STONE.duplicate()
+		stone.seed = Boot.seed_v
+		var piv: Node3D = await studio.show_async(stone)
+		await get_tree().create_timer(1.0).timeout
+		var sheet := Image.create(Boot.CELL * 8, Boot.CELL * ceili(Boot.FRAMES / 8.0), false, Image.FORMAT_RGBA8)
+		for i in Boot.FRAMES:
+			piv.rotation = Vector3(0.12, float(i) / Boot.FRAMES * TAU, 0)
+			for k in 2:
+				studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+				await RenderingServer.frame_post_draw
+			var img := studio.vp.get_texture().get_image()
+			img.convert(Image.FORMAT_RGBA8)
+			sheet.blit_rect(img, Rect2i(0, 0, Boot.CELL, Boot.CELL), Vector2i((i % 8) * Boot.CELL, (i / 8) * Boot.CELL))
+		sheet.save_png(ProjectSettings.globalize_path(Boot.SHEET))
+		print("baked boot flipbook")
+		get_tree().quit()
 	if args.has("bake_thumbs"):
 		# render every machine's picture once and save it into the project (Spec.BAKED)
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/thumbs"))

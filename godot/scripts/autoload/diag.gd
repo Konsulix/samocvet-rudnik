@@ -46,7 +46,27 @@ func end(job: String, ok := true) -> void:
 	_lock.unlock()
 	note("%s %s in %d ms" % [job, "done" if ok else "FAILED", Time.get_ticks_msec() - t0])
 
+var _win_t := 0.0
+var _win_n := 0
+var _win_worst := 0.0
+var _measuring := false
+
 func _process(dt: float) -> void:
+	# every 2 s: frames per second, the worst frame, and what the CPU and the GPU spend on a frame
+	if not _measuring:
+		_measuring = true
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	_win_t += dt
+	_win_n += 1
+	_win_worst = maxf(_win_worst, dt)
+	if _win_t >= 2.0:
+		var rid := get_viewport().get_viewport_rid()
+		note("%d fps, worst %d ms, cpu %.1f ms, gpu %.1f ms" % [roundi(_win_n / _win_t), roundi(_win_worst * 1000.0),
+			RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
+			RenderingServer.viewport_get_measured_render_time_gpu(rid)])
+		_win_t = 0.0
+		_win_n = 0
+		_win_worst = 0.0
 	var ms := int(dt * 1000.0)
 	if ms >= SLOW_MS:
 		_lock.lock()

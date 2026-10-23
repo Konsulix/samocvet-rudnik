@@ -16,8 +16,11 @@ var stone: MeshInstance3D
 
 static func materials() -> void:
 	if _mat_special: return
-	# plain stones need no shader at all; specials only glow a little brighter (no sweeping glint)
-	_mat_plain = null
+	# both through the gem shader with its glint switched off: plain stones drawn with the engine's own
+	# canvas shader went missing on the iPhone once shaders were baked at export (specials never did)
+	_mat_plain = ShaderMaterial.new()
+	_mat_plain.shader = GLINT
+	_mat_plain.set_shader_parameter("strength", 0.0)
 	_mat_special = ShaderMaterial.new()
 	_mat_special.shader = GLINT
 	_mat_special.set_shader_parameter("boost", 1.25)

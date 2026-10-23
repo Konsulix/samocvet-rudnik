@@ -98,7 +98,7 @@ func _mount_find() -> void:
 	if model.find.is_empty():
 		return
 	if not _find_pool:
-		_find_pool = SpecStudio.make(200, Viewport.MSAA_4X)
+		_find_pool = SpecStudio.make(200, Viewport.MSAA_4X).lite()
 	find_studio = _find_pool
 	find_studio.clear()
 	# the sealed find turns slowly: 30 renders a second are plenty (see _process)

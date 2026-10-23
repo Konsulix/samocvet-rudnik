@@ -63,6 +63,9 @@ func _warm() -> void:
 		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 		await RenderingServer.frame_post_draw
 		mi.visible = false
+		# breathe between compiles, so the loading screen keeps moving and its bar keeps filling
+		for k in 3:
+			await get_tree().process_frame
 		done += 1
 		warm_progress = done / float(mats.size())
 	balls.queue_free()

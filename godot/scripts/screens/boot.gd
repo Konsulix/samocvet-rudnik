@@ -14,6 +14,12 @@ const EXTRA := ["res://assets/ui/level_bg.png", "res://assets/audio/music/home.o
 	"res://assets/audio/music/level2.ogg"]
 
 static var cache := []
+## the stone on show is a pre-rendered turn (main.gd bake_boot), not a live 3D view: a live one needs
+## its shaders compiled at the very moment the loading screen should be moving
+const SHEET := "res://assets/ui/boot_stone.png"
+const CELL := 256
+const FRAMES := 48
+const FPS := 16.0
 ## the stone on show; boot_seed=N picks another for screenshots
 static var seed_v := 88
 const STONE := {sid = "ruby", kind = "crystal", gi = 3, traits = [], legend = true, fx = "lava"}
@@ -21,7 +27,8 @@ const STONE := {sid = "ruby", kind = "crystal", gi = 3, traits = [], legend = tr
 var _paths := []
 var _t := 0.0
 var _shown := 0.0
-var _gem: SpecView
+var _gem: TextureRect
+var _frame: AtlasTexture
 var _halo: Control
 var _bar_fill: Panel
 var _bar_w := 220.0
@@ -39,15 +46,17 @@ func _ready() -> void:
 	_halo.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_halo.draw.connect(_draw_halo)
 	add_child(_halo)
-	_gem = SpecView.new(384, true)
+	_frame = AtlasTexture.new()
+	_frame.atlas = load(SHEET)
+	_frame.region = Rect2(0, 0, CELL, CELL)
+	_gem = TextureRect.new()
+	_gem.texture = _frame
+	_gem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_gem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_gem.size = Vector2(250, 250)
 	_gem.pivot_offset = _gem.size / 2
-	_gem.zoomable = false
 	_gem.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gem)
-	var o: Dictionary = STONE.duplicate()
-	o.seed = seed_v
-	_gem.show_spec(o)
 	var title := UI.label("GEMCORE", 34, UI.display, Color("#f3e3bd"))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_constant_override("outline_size", 0)
@@ -107,6 +116,8 @@ func _process(dt: float) -> void:
 	var lift := sin(_t * 2.2)
 	_gem.position.y = size.y / 2 - _gem.size.y / 2 - 50 - lift * 12.0
 	_gem.scale = Vector2.ONE * (1.0 + 0.02 * sin(_t * 2.2 + 0.6))
+	var f := int(_t * FPS) % FRAMES
+	_frame.region = Rect2((f % 8) * CELL, (f / 8) * CELL, CELL, CELL)
 	_halo.queue_redraw()
 	if _leaving:
 		return
