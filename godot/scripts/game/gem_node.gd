@@ -15,13 +15,13 @@ var b3: Board3D               # when set, plain stones are drawn as 3D gems that
 var stone: MeshInstance3D
 
 static func materials() -> void:
-	if _mat_plain: return
-	_mat_plain = ShaderMaterial.new()
-	_mat_plain.shader = GLINT
+	if _mat_special: return
+	# plain stones need no shader at all; specials only glow a little brighter (no sweeping glint)
+	_mat_plain = null
 	_mat_special = ShaderMaterial.new()
 	_mat_special.shader = GLINT
 	_mat_special.set_shader_parameter("boost", 1.25)
-	_mat_special.set_shader_parameter("strength", 0.9)
+	_mat_special.set_shader_parameter("strength", 0.0)
 
 func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	materials()

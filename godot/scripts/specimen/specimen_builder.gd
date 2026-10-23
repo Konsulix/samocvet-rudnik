@@ -803,6 +803,14 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 				for g2 in green:
 					if (g2[0] as Vector3).distance_to(c0[0]) < 0.12: near.append(g2)
 				SpecAccents.flowers(root, rng, near if near.size() else [c0], 4 + int(rng.next() * 7), (0.12 + rng.next() * 0.08) * gs, fc)
+	if "mushrooms" in acc and nest_spots.size():
+		# their own random stream too: the rest of the stone stays as it was
+		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)
+		var kind: int = gene.shroom
+		var tiny := kind == 3
+		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
+			var n := (4 + int(fr.next() * 6)) if tiny else (2 + int(fr.next() * 4))
+			SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0))
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
 			SpecAccents.inkspots(main, rng, 3 + int(rng.next() * 9))

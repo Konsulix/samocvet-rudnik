@@ -1,5 +1,5 @@
 # Renders the board's pieces as game sprites: one clean, symmetric cut per colour, seen straight down,
-# transparent background with a soft contact shadow baked in. A hidden bright plate under each stone
+# transparent background, no shadow (set SPRITE_SHADOW=1 for the old soft contact shadow). A hidden bright plate under each stone
 # lights it from behind, so the colour glows through the facets the way cut stones do.
 #   blender -b -P gem_sprites.py -- <out_dir> [px] [samples]
 import bpy, bmesh, sys, math, os
@@ -74,9 +74,10 @@ def setup():
     s = bpy.data.objects.new("sun", d)
     s.rotation_euler = Vector((0.55, -0.6, -1.0)).to_track_quat('-Z', 'Y').to_euler()   # shadows fall down and right
     sc.collection.objects.link(s)
-    # the floor: only the stone's shadow is kept
-    bpy.ops.mesh.primitive_plane_add(size=4, location=(0, 0, 0))
-    fl = bpy.context.object; fl.is_shadow_catcher = True
+    # the floor: only the stone's shadow is kept (off by default: the board reads cleaner without)
+    if os.environ.get("SPRITE_SHADOW") == "1":
+        bpy.ops.mesh.primitive_plane_add(size=4, location=(0, 0, 0))
+        fl = bpy.context.object; fl.is_shadow_catcher = True
     # a hidden bright plate just under the stone: light coming up through it
     bpy.ops.mesh.primitive_plane_add(size=1.3, location=(0, 0, 0.002))
     bp = bpy.context.object; bp.visible_camera = False; bp.visible_shadow = False

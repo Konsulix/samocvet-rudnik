@@ -13,6 +13,10 @@ var _busy := false
 var uv := 0.0
 var beat := 0.0
 var force_uv := -1.0   # screenshots: uv=0..1 holds the flash still
+## the start-up shader warm-up, watched by the loading screen
+signal warmed
+var warm_done := false
+var warm_progress := 0.0
 
 func _process(_dt: float) -> void:
 	var ph := fmod(Time.get_ticks_msec() / 1000.0, 7.0) / 7.0
@@ -43,8 +47,15 @@ func _warm() -> void:
 	mesh.radial_segments = 8
 	mesh.rings = 4
 	studio.stage.add_child(balls)
-	# one variant per frame: each compile is a short stall instead of one long freeze
-	for m in SpecMat.warm_materials():
+	# one variant per frame: each compile is a short stall instead of one long freeze;
+	# the mushrooms' and the star heart's own shaders too
+	var mats: Array[Material] = []
+	mats.append_array(SpecMat.warm_materials())
+	mats.append(SpecFungi.material(0))
+	mats.append(SpecLegend.heart_mat(Color.WHITE, 2.0, 0.5))
+	mats.append(SpecLegend.glow_mat(Color.WHITE))
+	var done := 0
+	for m in mats:
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		mi.material_override = m
@@ -52,8 +63,12 @@ func _warm() -> void:
 		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 		await RenderingServer.frame_post_draw
 		mi.visible = false
+		done += 1
+		warm_progress = done / float(mats.size())
 	balls.queue_free()
 	BoardSprites.preload_all()
+	warm_done = true
+	warmed.emit()
 	_busy = false
 	if _queue.size():
 		_pump()
@@ -67,6 +82,7 @@ static func key_of(o: Dictionary) -> String:
 static func of_stone(s: Dictionary) -> Dictionary:
 	var o := {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
 	if s.has("fx"): o.fx = s.fx
+	if s.has("shroom"): o.shroom = s.shroom
 	return o
 
 static func of_jewel(j: Dictionary) -> Dictionary:

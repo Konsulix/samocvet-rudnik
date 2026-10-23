@@ -1,6 +1,7 @@
 # Everything else on the board, as sprites in the same light as the gems: specials (dynamite, bundle,
 # drill, resonator), the gold nugget, blockers (soft and hard rock, mud, a timber lock), the marble
-# tile and a marble slab texture. Straight-down camera, transparent background, soft contact shadow.
+# tile and a marble slab texture. Straight-down camera, transparent background, no shadow
+# (SPRITE_SHADOW=1 brings back the soft contact shadow).
 #   blender -b -P board_sprites.py -- <out_dir> [px] [samples] [only]
 import bpy, bmesh, sys, math, os, random
 from mathutils import Vector
@@ -247,7 +248,7 @@ JOBS = {
 os.makedirs(OUT, exist_ok=True)
 for name, fn in JOBS.items():
     if ONLY and name not in ONLY: continue
-    sc = setup(scale=2.3 if name == "geode" else 1.15 if name != "tile" else 1.0, shadow=name != "tile")
+    sc = setup(scale=2.3 if name == "geode" else 1.15 if name != "tile" else 1.0, shadow=name != "tile" and os.environ.get("SPRITE_SHADOW") == "1")
     fn()
     sc.render.filepath = os.path.join(OUT, name + ".png")
     bpy.ops.render.render(write_still=True)

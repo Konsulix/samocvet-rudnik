@@ -11,6 +11,7 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if not args.has("noglow"): _setup_glow()
 	if args.has("uv"): Spec.force_uv = float(args.uv)
+	if args.has("boot_seed"): Boot.seed_v = int(args.boot_seed)
 	if args.has("notch"):
 		var ins: PackedStringArray = String(args.notch).split(",")
 		UI.fake_insets = Vector2(float(ins[0]), float(ins[1]) if ins.size() > 1 else 0.0)
@@ -35,7 +36,7 @@ func _ready() -> void:
 	elif args.has("level"):
 		show_level(int(args.level), [], int(args.get("depth", "0")))
 	else:
-		show_home()
+		_boot()
 	if args.has("ui"):
 		await get_tree().process_frame
 		if screen.has_method("_" + args.ui): screen.call("_" + args.ui)
@@ -44,6 +45,7 @@ func _ready() -> void:
 		st.integ = 86
 		if args.has("sid"): st.sid = args.sid
 		if args.has("kind"): st.kind = args.kind
+		if args.has("shroom"): st.shroom = int(args.shroom)
 		if args.has("traits"): st.traits = Array(args.traits.split(","))
 		if args.has("legend"):
 			st.legend = true
@@ -53,6 +55,11 @@ func _ready() -> void:
 		else: Reveal.new().show_stone(st)
 	if args.has("shot"):
 		_take_shot()
+	if args.has("enter"):
+		# enter=SECONDS: open the current level from the home screen after a while, as a tap on Play would
+		await get_tree().create_timer(float(args.enter)).timeout
+		print("enter level")
+		show_level(Save.d.level, [], 0)
 	if args.has("hitch"):
 		_hitch(float(args.hitch))
 	if args.has("perf"):
@@ -81,6 +88,17 @@ func _swap(n: Node) -> void:
 	screen = n
 	add_child(n)
 	Sfx.music("level" if n is Level else "home")
+
+## the loading screen over everything; the home screen appears under it as it fades
+func _boot() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	var b := Boot.new()
+	if args.has("boot_seed"): b.set_meta("hold", true)
+	layer.add_child(b)
+	b.done.connect(show_home)
+	b.tree_exited.connect(layer.queue_free)
 
 func show_home() -> void:
 	var h := Home.new()

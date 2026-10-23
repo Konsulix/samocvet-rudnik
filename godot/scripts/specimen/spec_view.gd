@@ -2,6 +2,7 @@ class_name SpecView
 extends Control
 ## A live 3D specimen on screen: it drifts and turns by itself, answers the finger,
 ## and when let go keeps spinning, slowing back to a drift. Machines keep their parts moving.
+## Two fingers pinch to look closer (the mouse wheel on a desktop); a double tap jumps in and back out.
 ## The studio renders at real screen pixels (not the 390-wide layout units the UI is laid out in),
 ## so on a 3x phone the stone is not blown up from a small picture and does not shimmer as it turns.
 
@@ -16,6 +17,14 @@ var still := false     # a fixed three-quarter pose, as in thumbnails
 var _drag := false
 var _t := 0.0
 var _req := 0
+var zoomable := true
+const ZOOM_MAX := 3.0
+var _zoom := 1.0       # shown
+var _zoom_to := 1.0    # wanted
+var _fov0 := 28.0
+var _touch := {}       # finger index -> position, for the pinch
+var _pinch0 := 0.0
+var _pinch_zoom := 1.0
 
 func _init(px := 512, transparent := false) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -59,6 +68,9 @@ func show_spec(o: Dictionary) -> void:
 		live.rotation = Vector3(0.12, 0.6, 0)
 
 func _process(dt: float) -> void:
+	if absf(_zoom - _zoom_to) > 0.001:
+		_zoom = lerpf(_zoom, _zoom_to, minf(1.0, dt * 12.0))
+		studio.cam.fov = _fov0 / _zoom
 	# a fluorescent find: the studio goes dark in step with its glow; a star heart dims it a little
 	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.4 if live and live.has_meta("heart_light") else 0.0)
 	if live and live.has_meta("heart_light"):
@@ -81,7 +93,13 @@ func _process(dt: float) -> void:
 			"y": n.rotate_object_local(Vector3.UP, a[2] * dt)
 			_: n.rotate_object_local(Vector3.BACK, a[2] * dt)
 
+func _set_zoom(z: float) -> void:
+	_zoom_to = clampf(z, 1.0, ZOOM_MAX)
+
 func _gui_input(e: InputEvent) -> void:
+	if zoomable and _zoom_gesture(e):
+		accept_event()
+		return
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		_drag = e.pressed
 		accept_event()
@@ -95,3 +113,38 @@ func _gui_input(e: InputEvent) -> void:
 			spin_v = clampf(r.x * 0.7, -9.0, 9.0)
 			tilt = clampf(tilt + r.y * 0.008, -0.7, 0.7)
 		accept_event()
+
+## pinch, wheel and double tap; true when the event was a zoom (it then does not turn the stone)
+func _zoom_gesture(e: InputEvent) -> bool:
+	if e is InputEventScreenTouch:
+		if e.pressed: _touch[e.index] = e.position
+		else: _touch.erase(e.index)
+		if _touch.size() == 2:
+			var pts: Array = _touch.values()
+			_pinch0 = maxf(1.0, (pts[0] as Vector2).distance_to(pts[1]))
+			_pinch_zoom = _zoom_to
+			_drag = false
+			return true
+		if e.pressed and e.double_tap:
+			_set_zoom(1.0 if _zoom_to > 1.3 else 2.2)
+			return true
+		return _touch.size() > 1
+	if e is InputEventScreenDrag and _touch.size() >= 2:
+		_touch[e.index] = e.position
+		var pts: Array = _touch.values()
+		_set_zoom(_pinch_zoom * (pts[0] as Vector2).distance_to(pts[1]) / _pinch0)
+		return true
+	if e is InputEventMagnifyGesture:
+		_set_zoom(_zoom_to * e.factor)
+		return true
+	if e is InputEventMouseButton and e.pressed:
+		match e.button_index:
+			MOUSE_BUTTON_WHEEL_UP: _set_zoom(_zoom_to * 1.12)
+			MOUSE_BUTTON_WHEEL_DOWN: _set_zoom(_zoom_to / 1.12)
+			MOUSE_BUTTON_LEFT:
+				if not e.double_click: return false
+				_set_zoom(1.0 if _zoom_to > 1.3 else 2.2)
+			_: return false
+		return true
+	# while two fingers are down the emulated mouse must not turn the stone either
+	return _touch.size() > 1 and e is InputEventMouseMotion

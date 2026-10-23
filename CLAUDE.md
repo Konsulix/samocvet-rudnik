@@ -6,7 +6,7 @@
 ## Как работать
 - Godot: `C:\Users\Максим\Desktop\godot\Godot_v4.7.2-stable_win64_console.exe`.
   Снимок экрана: `"$G" --path godot --resolution 390x844 -- level=8 shot=user://lv.png after=3`
-  (файл в `%APPDATA%\Godot\app_userdata\Gemstone Mine\`). Другие ключи: `screen=depot|museum`,
+  (файл в `%APPDATA%\Godot\app_userdata\Gemcore\`). Другие ключи: `screen=depot|museum`,
   `reveal=<seed> [legend=heart]`, `win`, `autoplay=N`, `fill=14`, `noglow`.
 - Витрина минералов: `res://tests/spec_gallery.tscn -- set=N still px=330`.
 - После добавления новых class_name / ассетов: `"$G" --headless --path godot --import`.

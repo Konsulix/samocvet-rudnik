@@ -119,15 +119,6 @@ func animate_collapse(spawned: Array) -> void:
 				any = true
 	if any:
 		await tw.finished
-		# a little settle bounce on landing
-		var tw2 := create_tween().set_parallel(true)
-		for n in gems.get_children():
-			tw2.tween_property(n, "scale", Vector2(1.08, 0.92), 0.05)
-		await tw2.finished
-		var tw3 := create_tween().set_parallel(true)
-		for n in gems.get_children():
-			tw3.tween_property(n, "scale", Vector2.ONE, 0.08)
-		await tw3.finished
 	else:
 		tw.kill()
 

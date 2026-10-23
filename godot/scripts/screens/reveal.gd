@@ -157,7 +157,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		var t: Dictionary = Data.TR[id]
 		flow.add_child(chip(t.n, float(t.p) < 0.06))
 	for a in gene.accents:
-		flow.add_child(chip(SpecGenome.ACC_N.get(a, a), false, true))
+		var an: String = SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a)
+		flow.add_child(chip(an, false, true))
 	if flow.get_child_count():
 		v.add_child(flow)
 	return view

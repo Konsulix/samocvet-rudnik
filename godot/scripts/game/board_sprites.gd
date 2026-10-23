@@ -16,11 +16,17 @@ static func tex(name: String) -> Texture2D:
 ## start loading every board sprite on background threads, so the first level does not read them from disk
 ## mid-frame; tex() then picks up the finished ones
 static func preload_all() -> void:
+	for p in paths():
+		ResourceLoader.load_threaded_request(p)
+
+static func paths() -> Array:
+	var out := []
 	for name in GEMS:
-		ResourceLoader.load_threaded_request("res://assets/board/gems/%s.png" % name)
+		out.append("res://assets/board/gems/%s.png" % name)
 	for f in ResourceLoader.list_directory("res://assets/board/pieces/"):
 		if f.ends_with(".png"):
-			ResourceLoader.load_threaded_request("res://assets/board/pieces/" + f)
+			out.append("res://assets/board/pieces/" + f)
+	return out
 
 static func gem(t: int) -> Texture2D:
 	return tex(GEMS[t % GEMS.size()])

@@ -12,7 +12,7 @@ const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "col
 	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
-	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers"}
+	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -97,6 +97,13 @@ static func of(o: Dictionary) -> Dictionary:
 			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
 		fx = fpool[int(rng.next() * fpool.size())]
 	fx = o.get("fx", fx)
+	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
+	# no other gene of any stone that already existed
+	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
+	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid"]) and not "mushrooms" in acc:
+		acc.append("mushrooms")
+	else:
+		shroom = -1
 	var size_k := int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 2.5], [3, 0.6]], rng))
 	var anomaly := "anomaly" in tr
 	return {
@@ -110,6 +117,8 @@ static func of(o: Dictionary) -> Dictionary:
 		# a crumbling, spongy host rock
 		loose = o.get("loose", 0.45 + rng.next() * 0.55 if rng.next() < 0.28 else 0.0),
 		palette = palette,
+		shroom = shroom,
+		shroom_seed = seed_v,
 		dark_col = dark_col,
 		rock = rock,
 		size = size_k,

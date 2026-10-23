@@ -6,7 +6,7 @@ config_version=5
 
 [application]
 
-config/name="Gemstone Mine"
+config/name="Gemcore"
 config/description="Match-three with mineral finds"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.png"

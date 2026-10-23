@@ -152,13 +152,16 @@ func _build_hud() -> void:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var goals_panel := PanelContainer.new()
 	goals_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	goals_panel.clip_contents = true
-	goals_panel.custom_minimum_size = Vector2(60, 0)
-	goals_panel.add_theme_stylebox_override("panel", UI.slate(22))
+	goals_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	goals_panel.custom_minimum_size = Vector2(60, 70)
+	var gp := UI.slate(22)
+	gp.content_margin_top = 6
+	gp.content_margin_bottom = 6
+	goals_panel.add_theme_stylebox_override("panel", gp)
+	# the goals share the plate in even cells, each centred in its own
 	var goals_row := HBoxContainer.new()
 	goals_row.name = "Goals"
-	goals_row.add_theme_constant_override("separation", 6)
-	goals_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	goals_row.add_theme_constant_override("separation", 0)
 	goals_panel.add_child(goals_row)
 	line.add_child(goals_panel)
 	moves_token = PanelContainer.new()
@@ -214,7 +217,9 @@ func _render_hud() -> void:
 	for i in model.goals.size():
 		var g: Dictionary = model.goals[i]
 		var box := HBoxContainer.new()
-		box.add_theme_constant_override("separation", 2)
+		box.add_theme_constant_override("separation", 4)
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var glow := Data.rarity_color(model.find.stone.tier) if g.k == "find" else Color("#c8b0ff")
 		var k: String = g.k
 		var colour: int = g.t
@@ -223,6 +228,7 @@ func _render_hud() -> void:
 			GemArt.begin(ci, Transform2D.IDENTITY)
 			GemArt.goal_icon(ci, k, colour, isz, glow)))
 		var l := UI.label("", 16 if model.goals.size() <= 3 else 14, UI.display)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		box.add_child(l)
 		row.add_child(box)
 		goal_boxes.append({root = box, label = l, shown = g.left})
