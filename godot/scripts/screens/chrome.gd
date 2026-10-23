@@ -19,7 +19,15 @@ static func top_bar() -> HBoxContainer:
 		var st := UI.glass(19, 0.78)
 		st.set_content_margin_all(0)
 		snd.add_theme_stylebox_override(k, st)
+	# hold it for a second: the diagnostics card (Diag)
+	var held := [0]
+	snd.button_down.connect(func(): held[0] = Time.get_ticks_msec())
+	snd.button_up.connect(func():
+		if Time.get_ticks_msec() - held[0] >= 900:
+			held[0] = -1
+			Diag.show_card())
 	snd.pressed.connect(func():
+		if held[0] == -1: return
 		Save.d.mute = not Save.d.mute
 		Save.persist()
 		Sfx.apply_mute()

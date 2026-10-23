@@ -166,23 +166,41 @@ func show(o: Dictionary) -> Node3D:
 	set_glow(p.get_meta("glow"))
 	return p
 
-static var _build_lock := Mutex.new()
+static var _building := false
+const BUILD_GIVE_UP_MS := 20000
 
-## build a specimen on a worker thread so the screen keeps moving; await it from the main thread
+## build a specimen on a worker thread so the screen keeps moving; await it from the main thread.
+## One build at a time, queued here on the main thread. (It used to be a lock taken inside the thread:
+## a build that hit an error never let go of it, and every later build then waited forever, each one
+## holding a worker thread the engine needs for its own loading — the board stalled more and more.)
+## A failed build gives null; one that never finishes is given up on so the queue moves on.
 static func build_async(o: Dictionary) -> Node3D:
-	var out := [null]
-	var id := WorkerThreadPool.add_task(func():
-		_build_lock.lock()
-		out[0] = seat(SpecimenBuilder.build(o))
-		_build_lock.unlock())
 	var tree := Engine.get_main_loop() as SceneTree
-	while not WorkerThreadPool.is_task_completed(id):
+	while _building:
 		await tree.process_frame
-	WorkerThreadPool.wait_for_task_completion(id)
-	return out[0]
+	_building = true
+	var job := "build %s#%s" % [o.get("sid", o.get("machine", o.get("jewel", {}).get("rid", "?"))), o.get("seed", "")]
+	Diag.begin(job)
+	var out := [null]
+	var id := WorkerThreadPool.add_task(func(): out[0] = seat(SpecimenBuilder.build(o)), true, "specimen")
+	var t0 := Time.get_ticks_msec()
+	var done := true
+	while not WorkerThreadPool.is_task_completed(id):
+		if Time.get_ticks_msec() - t0 > BUILD_GIVE_UP_MS:
+			done = false
+			Diag.note("%s still running after %d s: given up" % [job, BUILD_GIVE_UP_MS / 1000])
+			break
+		await tree.process_frame
+	if done:
+		WorkerThreadPool.wait_for_task_completion(id)
+	Diag.end(job, out[0] != null)
+	_building = false
+	return out[0] if done else null
 
 func show_async(o: Dictionary) -> Node3D:
 	var p: Node3D = await build_async(o)
+	if p == null:
+		return null
 	if not is_instance_valid(stage):
 		p.free()
 		return null

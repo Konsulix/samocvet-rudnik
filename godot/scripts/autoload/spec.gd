@@ -117,6 +117,8 @@ func _pump() -> void:
 		var key := key_of(o)
 		if not _cache.has(key):
 			var p: Node3D = await studio.show_async(o)
+			if p == null:
+				continue   # the build failed (see Diag): no picture, but the queue goes on
 			p.rotation = Vector3(0.12, 0.6, 0)
 			for i in 2:
 				studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE

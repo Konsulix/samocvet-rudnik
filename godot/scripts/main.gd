@@ -72,6 +72,16 @@ func _ready() -> void:
 			(got[0] as Texture2D).get_image().save_png(ProjectSettings.globalize_path(Spec.BAKED % id))
 			print("baked ", id)
 		get_tree().quit()
+	if args.has("stress"):
+		# stress=N: build N random finds one after another and print the diagnostics log
+		await get_tree().create_timer(2.0).timeout
+		for i in int(args.stress):
+			var st := Stones.roll(randi() % 1000000, randi() % Data.AREAS.size(), randf() * 2.0, randi() % 4)
+			if randf() < 0.3: st.legend = true
+			var p := await SpecStudio.build_async(Spec.of_stone(st))
+			if p: p.free()
+		print(Diag.text())
+		get_tree().quit()
 	if args.has("hitch"):
 		_hitch(float(args.hitch))
 	if args.has("perf"):

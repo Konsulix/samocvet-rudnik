@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.7", "Mobile")
 
 [autoload]
 
+Diag="*res://scripts/autoload/diag.gd"
 Data="*res://scripts/autoload/data.gd"
 Save="*res://scripts/autoload/save_game.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
