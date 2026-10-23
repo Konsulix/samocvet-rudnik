@@ -6,12 +6,45 @@ extends RefCounted
 ## lightning, dripping lava). Turning parts are listed in the root's "anim" meta, which SpecView spins.
 
 const FX := ["lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi"]
-const FX_N := {lava = "лава", heart = "сердце звезды", fluor = "флуоресценция", levitate = "левитация", chameleon = "хамелеон",
-	lightning = "застывшая молния", starry = "звёздное небо", opal = "опаловый огонь", kintsugi = "кинцуги"}
+const FX_N := {lava = "lava", heart = "star heart", fluor = "fluorescence", levitate = "levitation", chameleon = "chameleon",
+	lightning = "frozen lightning", starry = "starry sky", opal = "opal fire", kintsugi = "kintsugi"}
 const FLUOR := [Color(0.35, 1.6, 0.25), Color(1.1, 0.3, 1.8), Color(0.3, 0.9, 2.0), Color(1.8, 0.9, 0.15)]
 const CHAM := [Color(0.55, 0.04, 0.12), Color(0.1, 0.5, 0.15), Color(0.6, 0.35, 0.02), Color(0.15, 0.1, 0.6)]
 
 const GLOW := "shader_type spatial;\nrender_mode unshaded, cull_disabled;\nuniform vec3 col = vec3(1.0);\nuniform float pulse = 0.0;\nuniform float speed = 3.0;\nvoid fragment() {\n\tfloat p = 1.0 - pulse + pulse * pow(0.5 + 0.5 * sin(TIME * speed + COLOR.r * 6.0), 3.0);\n\tALBEDO = col * p;\n}\n"
+
+## the star heart: a soft additive ball whose edge fades out (a core, or a halo round it), beating
+const HEART := "shader_type spatial;
+render_mode unshaded, blend_add, cull_back, depth_draw_never, shadows_disabled;
+uniform vec3 col = vec3(1.0);
+uniform float soft = 2.0;
+uniform float swell = 0.5;
+global uniform float heart_beat;
+void fragment() {
+	float f = pow(clamp(dot(normalize(NORMAL), VIEW), 0.0, 1.0), soft);
+	ALBEDO = col * f * (1.0 - swell + swell * heart_beat);
+}
+"
+static var _heart_shader: Shader
+
+static func heart_mat(c: Color, soft: float, swell: float) -> ShaderMaterial:
+	if not _heart_shader:
+		_heart_shader = Shader.new()
+		_heart_shader.code = HEART
+	var m := ShaderMaterial.new()
+	m.shader = _heart_shader
+	m.set_shader_parameter("col", Vector3(c.r, c.g, c.b))
+	m.set_shader_parameter("soft", soft)
+	m.set_shader_parameter("swell", swell)
+	m.render_priority = 100
+	return m
+
+## the heart's colour: the opposite hue to the crystal, fully saturated, so it never melts into the stone;
+## a colourless crystal gets a deep crimson. Linear, HDR-bright but short of white.
+static func heart_color(col: Color) -> Color:
+	var c := col.linear_to_srgb()
+	var hc := Color.from_hsv(fposmod(c.h + 0.5, 1.0), 0.92, 1.0) if c.s > 0.2 else Color.from_hsv(0.985, 0.9, 1.0)
+	return hc.srgb_to_linear()
 
 static var _glow_shader: Shader
 static var _over_shader: Shader
@@ -70,15 +103,17 @@ static func heart(root: Node3D, main: Node3D, rng: Rng32, col: Color) -> void:
 	var bb: AABB = (main.get_meta("geo") as Geo).aabb()
 	var c := bb.get_center() + Vector3(0, bb.size.y * 0.05, 0)
 	var r := minf(bb.size.x, bb.size.z) * 0.22
-	var hot := Color(col.r * 2.5 + 1.0, col.g * 2.5 + 0.9, col.b * 2.5 + 0.7)
-	SpecUtil.mesh(Geo.sphere(r, 16, 12), glow_mat(hot, 0.6, 2.6), main, c)
-	SpecUtil.mesh(Geo.sphere(r * 1.9, 16, 12), glow_mat(hot * 0.25, 0.8, 2.6), main, c)
+	var hc := heart_color(col)
+	# a hot core, a wide halo round it; both additive with soft edges, both beating with the light
+	SpecUtil.mesh(Geo.sphere(r, 24, 16), heart_mat(hc * 3.0, 1.2, 0.45), main, c)
+	SpecUtil.mesh(Geo.sphere(r * 3.2, 24, 16), heart_mat(hc * 0.8, 2.6, 0.7), main, c)
 	var light := OmniLight3D.new()
-	light.light_color = Color(col.r * 0.5 + 0.5, col.g * 0.5 + 0.5, col.b * 0.5 + 0.5)
-	light.light_energy = 2.5
+	light.light_color = hc.linear_to_srgb()
+	light.light_energy = 2.0
 	light.omni_range = bb.size.length() * 1.5
 	light.position = c
 	main.add_child(light)
+	root.set_meta("heart_light", light)
 	var orbit := Node3D.new()
 	orbit.position = c
 	main.add_child(orbit)
@@ -86,7 +121,7 @@ static func heart(root: Node3D, main: Node3D, rng: Rng32, col: Color) -> void:
 		var a := k / 14.0 * TAU
 		var rr := r * (2.6 + rng.next() * 1.4)
 		var p := Vector3(cos(a) * rr, (rng.next() - 0.5) * r * 3.0, sin(a) * rr)
-		SpecUtil.mesh(Geo.sphere(r * (0.08 + rng.next() * 0.08), 6, 4), glow_mat(hot * 1.2, 0.7, 5.0 + rng.next() * 4.0), orbit, p)
+		SpecUtil.mesh(Geo.sphere(r * (0.08 + rng.next() * 0.08), 6, 4), glow_mat(hc * 2.0, 0.7, 5.0 + rng.next() * 4.0), orbit, p)
 	_anim(root, orbit, "y", 1.3)
 
 ## shards of the crystal drifting round it on slow orbits

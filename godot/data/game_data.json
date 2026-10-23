@@ -1,127 +1,127 @@
 {
  "SP": {
   "quartz": {
-   "n": "Горный хрусталь",
+   "n": "Rock Crystal",
    "c": "#dfe8f2",
    "v": 20,
    "r": 0
   },
   "amethyst": {
-   "n": "Аметист",
+   "n": "Amethyst",
    "c": "#b47cff",
    "v": 60,
    "r": 1
   },
   "calcite": {
-   "n": "Кальцит",
+   "n": "Calcite",
    "c": "#f2c27a",
    "v": 15,
    "r": 0
   },
   "fluorite": {
-   "n": "Флюорит",
+   "n": "Fluorite",
    "c": "#5fe0a0",
    "v": 35,
    "r": 1
   },
   "malachite": {
-   "n": "Малахит",
+   "n": "Malachite",
    "c": "#43c98a",
    "v": 30,
    "r": 0
   },
   "azurite": {
-   "n": "Азурит",
+   "n": "Azurite",
    "c": "#5f8bff",
    "v": 55,
    "r": 1
   },
   "gypsum": {
-   "n": "Селенит",
+   "n": "Selenite",
    "c": "#e6eef6",
    "v": 15,
    "r": 0
   },
   "pyrite": {
-   "n": "Пирит",
+   "n": "Pyrite",
    "c": "#c9b26a",
    "v": 25,
    "r": 0
   },
   "gold": {
-   "n": "Самородное золото",
+   "n": "Native Gold",
    "c": "#ffd24a",
    "v": 250,
    "r": 2
   },
   "garnet": {
-   "n": "Альмандин",
+   "n": "Almandine",
    "c": "#e0566a",
    "v": 70,
    "r": 1
   },
   "beryl": {
-   "n": "Берилл",
+   "n": "Beryl",
    "c": "#e6dd8a",
    "v": 90,
    "r": 1
   },
   "aquamarine": {
-   "n": "Аквамарин",
+   "n": "Aquamarine",
    "c": "#7fd8ff",
    "v": 160,
    "r": 2
   },
   "emerald": {
-   "n": "Изумруд",
+   "n": "Emerald",
    "c": "#3fe08a",
    "v": 600,
    "r": 3
   },
   "opal": {
-   "n": "Благородный опал",
+   "n": "Precious Opal",
    "c": "#8fe6dc",
    "v": 300,
    "r": 2
   },
   "sapphire": {
-   "n": "Сапфир",
+   "n": "Sapphire",
    "c": "#5f7fff",
    "v": 500,
    "r": 3
   },
   "ruby": {
-   "n": "Рубин",
+   "n": "Ruby",
    "c": "#ff3a5a",
    "v": 900,
    "r": 3
   },
   "diamond": {
-   "n": "Алмаз",
+   "n": "Diamond",
    "c": "#eaf6ff",
    "v": 2000,
    "r": 4
   },
   "nativecu": {
-   "n": "Самородная медь",
+   "n": "Native Copper",
    "c": "#d07040",
    "v": 70,
    "r": 1
   },
   "cuprite": {
-   "n": "Куприт",
+   "n": "Cuprite",
    "c": "#b02020",
    "v": 110,
    "r": 2
   },
   "chrysocolla": {
-   "n": "Хризоколла",
+   "n": "Chrysocolla",
    "c": "#3fc0c0",
    "v": 45,
    "r": 1
   },
   "celestine": {
-   "n": "Целестин",
+   "n": "Celestine",
    "c": "#9fd0ff",
    "v": 50,
    "r": 1
@@ -553,8 +553,8 @@
  ],
  "AREAS": [
   {
-   "n": "Старая штольня",
-   "sub": "Берёзовский рудник, Урал",
+   "n": "Old Adit",
+   "sub": "Berezovsky Mine, Urals",
    "pool": {
     "quartz": 30,
     "calcite": 18,
@@ -569,39 +569,39 @@
    "tasks": [
     [
      "rubble",
-     "Разобрать завал у входа",
+     "Clear the rubble at the entrance",
      1
     ],
     [
      "timber",
-     "Поставить деревянную крепь",
+     "Put up timber supports",
      2
     ],
     [
      "rails",
-     "Проложить рельсы",
+     "Lay the rails",
      2
     ],
     [
      "lamps",
-     "Повесить фонари",
+     "Hang the lanterns",
      2
     ],
     [
      "cart",
-     "Выкатить вагонетку",
+     "Roll out a mine cart",
      2
     ],
     [
      "headframe",
-     "Построить копёр с подъёмником",
+     "Build a headframe with a hoist",
      3
     ]
    ]
   },
   {
-   "n": "Медная гора",
-   "sub": "Нижний Тагил, Урал",
+   "n": "Copper Mountain",
+   "sub": "Nizhny Tagil, Urals",
    "pool": {
     "malachite": 22,
     "azurite": 12,
@@ -617,39 +617,39 @@
    "tasks": [
     [
      "rubble",
-     "Расчистить отвалы",
+     "Clear the spoil heaps",
      2
     ],
     [
      "timber",
-     "Укрепить вход",
+     "Shore up the entrance",
      2
     ],
     [
      "rails",
-     "Пути для вагонеток",
+     "Cart tracks",
      3
     ],
     [
      "lamps",
-     "Электрическое освещение",
+     "Electric lighting",
      3
     ],
     [
      "cart",
-     "Рудная вагонетка",
+     "Ore cart",
      3
     ],
     [
      "headframe",
-     "Копёр Медной горы",
+     "Copper Mountain headframe",
      4
     ]
    ]
   },
   {
-   "n": "Огненный горизонт",
-   "sub": "Камчатка, у вулкана",
+   "n": "Fire Horizon",
+   "sub": "Kamchatka, by the volcano",
    "pool": {
     "garnet": 16,
     "pyrite": 10,
@@ -664,32 +664,32 @@
    "tasks": [
     [
      "rubble",
-     "Убрать застывшую лаву",
+     "Clear the cooled lava",
      3
     ],
     [
      "timber",
-     "Жаропрочная крепь",
+     "Heat-proof supports",
      3
     ],
     [
      "rails",
-     "Рельсы через пепел",
+     "Rails through the ash",
      3
     ],
     [
      "lamps",
-     "Прожекторы",
+     "Floodlights",
      4
     ],
     [
      "cart",
-     "Вагонетка для рубинов",
+     "A cart for rubies",
      4
     ],
     [
      "headframe",
-     "Огненный копёр",
+     "Fire headframe",
      5
     ]
    ]
@@ -718,7 +718,7 @@
  "SETS": [
   {
    "id": "uq",
-   "n": "Уральский кварц",
+   "n": "Ural Quartz",
    "need": [
     "quartz",
     "amethyst",
@@ -731,7 +731,7 @@
   },
   {
    "id": "col",
-   "n": "Цветные камни",
+   "n": "Coloured Stones",
    "need": [
     "fluorite",
     "malachite",
@@ -745,7 +745,7 @@
   },
   {
    "id": "cu",
-   "n": "Медная гора",
+   "n": "Copper Mountain",
    "need": [
     "malachite",
     "azurite",
@@ -761,7 +761,7 @@
   },
   {
    "id": "gem",
-   "n": "Самоцветы",
+   "n": "Gemstones",
    "need": [
     "emerald",
     "aquamarine",
@@ -776,7 +776,7 @@
   },
   {
    "id": "fire",
-   "n": "Огненное сердце",
+   "n": "Heart of Fire",
    "need": [
     "garnet",
     "opal",
@@ -791,7 +791,7 @@
   },
   {
    "id": "crown",
-   "n": "Корона рудника",
+   "n": "Crown of the Mine",
    "need": [
     "diamond",
     "ruby",
@@ -811,44 +811,44 @@
   },
   {
    "m": 200,
-   "tool": "Отбойный молоток",
+   "tool": "Jackhammer",
    "cost": 800
   },
   {
    "m": 350,
-   "tool": "Буровая установка",
+   "tool": "Drilling rig",
    "cost": 2500
   },
   {
    "m": 500,
-   "tool": "Проходческий комбайн",
+   "tool": "Tunnel borer",
    "cost": 6000
   },
   {
    "m": 650,
-   "tool": "Глубинный бур",
+   "tool": "Deep drill",
    "cost": 15000
   }
  ],
  "DMODS": [
-  "обычное поле",
-  "песчаник твердеет до гранита",
-  "на поле газ, ходов меньше",
-  "деревянная крепь на камнях",
-  "шестой цвет камней"
+  "ordinary board",
+  "sandstone hardens into granite",
+  "gas on the board, fewer moves",
+  "timber supports on the stones",
+  "a sixth stone colour"
  ],
  "DSHORT": [
   "",
-  "гранит",
-  "газ",
-  "крепь",
-  "6 цветов"
+  "granite",
+  "gas",
+  "supports",
+  "6 colours"
  ],
  "EQUIP": [
   {
    "id": "lift",
-   "n": "Лебёдка",
-   "d": "взрывы откалывают от находки на 25% меньше",
+   "n": "Winch",
+   "d": "blasts chip 25% less off a find",
    "cost": [
     1200,
     4000
@@ -856,8 +856,8 @@
   },
   {
    "id": "crush",
-   "n": "Дробилка",
-   "d": "+25% монет за уровень",
+   "n": "Crusher",
+   "d": "+25% coins per level",
    "cost": [
     600,
     2000,
@@ -866,8 +866,8 @@
   },
   {
    "id": "food",
-   "n": "Провиант",
-   "d": "+1 ход на старте каждого уровня",
+   "n": "Provisions",
+   "d": "+1 move at the start of every level",
    "cost": [
     1000,
     3000,
@@ -876,8 +876,8 @@
   },
   {
    "id": "vent",
-   "n": "Вентиляция",
-   "d": "газ расползается вдвое реже",
+   "n": "Ventilation",
+   "d": "gas spreads half as often",
    "cost": [
     1500
    ]
@@ -886,8 +886,8 @@
  "JEWELS": [
   {
    "id": "ring",
-   "n": "Кольцо",
-   "d": "любой огранённый камень",
+   "n": "Ring",
+   "d": "any cut stone",
    "m": 1.5,
    "need": [
     {}
@@ -895,15 +895,15 @@
   },
   {
    "id": "ear",
-   "n": "Серьги",
-   "d": "два огранённых камня одного вида",
+   "n": "Earrings",
+   "d": "two cut stones of one kind",
    "m": 1.7,
    "need": "pair"
   },
   {
    "id": "pend",
-   "n": "Кулон",
-   "d": "огранённый редкий камень и ещё один",
+   "n": "Pendant",
+   "d": "a cut rare stone and one more",
    "m": 1.8,
    "need": [
     {
@@ -914,16 +914,16 @@
   },
   {
    "id": "brooch",
-   "n": "Брошь",
-   "d": "три огранённых камня разных видов",
+   "n": "Brooch",
+   "d": "three cut stones of different kinds",
    "m": 2,
    "need": "trio",
-   "perk": "+5% ко всем монетам"
+   "perk": "+5% to all coins"
   },
   {
    "id": "diadem",
-   "n": "Диадема",
-   "d": "два огранённых редких и два любых",
+   "n": "Diadem",
+   "d": "two cut rare stones and any two",
    "m": 2.3,
    "need": [
     {
@@ -935,12 +935,12 @@
     {},
     {}
    ],
-   "perk": "находки на 10% дороже"
+   "perk": "finds are worth 10% more"
   },
   {
    "id": "crown",
-   "n": "Корона рудника",
-   "d": "огранённые рубин, сапфир, изумруд, алмаз и ещё один",
+   "n": "Crown of the Mine",
+   "d": "cut ruby, sapphire, emerald, diamond and one more",
    "m": 3,
    "need": [
     {
@@ -957,13 +957,13 @@
     },
     {}
    ],
-   "perk": "+10% ко всем монетам"
+   "perk": "+10% to all coins"
   }
  ],
  "CUTS": [
   {
    "id": "cab",
-   "n": "Кабошон",
+   "n": "Cabochon",
    "p": 0.94,
    "m": 1.35,
    "fail": 0.85,
@@ -971,7 +971,7 @@
   },
   {
    "id": "facet",
-   "n": "Фацетная огранка",
+   "n": "Faceted cut",
    "p": 0.66,
    "m": 2.3,
    "fail": 0.5,
@@ -979,7 +979,7 @@
   },
   {
    "id": "master",
-   "n": "Мастер-огранка",
+   "n": "Master cut",
    "p": 0.36,
    "m": 4.5,
    "fail": 0.25,
@@ -987,16 +987,16 @@
   }
  ],
  "CUTN": {
-  "cab": "кабошон",
-  "facet": "фацетная",
-  "master": "мастер-огранка",
-  "broken": "треснул на круге"
+  "cab": "cabochon",
+  "facet": "faceted",
+  "master": "master cut",
+  "broken": "cracked on the wheel"
  },
  "PRE": [
   {
    "id": "rocket",
-   "n": "Динамит",
-   "d": "2 шашки",
+   "n": "Dynamite",
+   "d": "2 sticks",
    "price": 300,
    "sp": [
     "rh",
@@ -1005,8 +1005,8 @@
   },
   {
    "id": "bomb",
-   "n": "Заряд",
-   "d": "связка",
+   "n": "Charge",
+   "d": "a bundle",
    "price": 400,
    "sp": [
     "bomb"
@@ -1014,8 +1014,8 @@
   },
   {
    "id": "orb",
-   "n": "Резонатор",
-   "d": "жеода",
+   "n": "Resonator",
+   "d": "geode",
    "price": 600,
    "sp": [
     "orb"
@@ -1025,55 +1025,55 @@
  "BOOSTS": [
   {
    "id": "pick",
-   "n": "Кирка",
-   "d": "Разбить одну клетку",
+   "n": "Pickaxe",
+   "d": "Break one cell",
    "price": 250
   },
   {
    "id": "dyn",
-   "n": "Динамит",
-   "d": "Подорвать весь ряд",
+   "n": "Dynamite",
+   "d": "Blast a whole row",
    "price": 350
   }
  ],
  "GEMS": [
   {
-   "n": "рубин",
+   "n": "ruby",
    "c": "#ee3a55",
    "d": "#8a0f27",
    "l": "#ffb3bf",
    "shape": "cushion"
   },
   {
-   "n": "сапфир",
+   "n": "sapphire",
    "c": "#3484ff",
    "d": "#11338a",
    "l": "#b4d4ff",
    "shape": "round"
   },
   {
-   "n": "изумруд",
+   "n": "emerald",
    "c": "#25c071",
    "d": "#0a5a31",
    "l": "#9af3c4",
    "shape": "octagon"
   },
   {
-   "n": "цитрин",
+   "n": "citrine",
    "c": "#ffbd2e",
    "d": "#a05a06",
    "l": "#fff0b0",
    "shape": "kite"
   },
   {
-   "n": "аметист",
+   "n": "amethyst",
    "c": "#a05ef7",
    "d": "#46199a",
    "l": "#dcc4ff",
    "shape": "trillion"
   },
   {
-   "n": "лунный камень",
+   "n": "moonstone",
    "c": "#dfe8f4",
    "d": "#5f6e86",
    "l": "#ffffff",
@@ -1081,11 +1081,11 @@
   }
  ],
  "RAR": [
-  "обычный",
-  "необычный",
-  "редкий",
-  "эпический",
-  "легендарный"
+  "common",
+  "uncommon",
+  "rare",
+  "epic",
+  "legendary"
  ],
  "RC": [
   "#b0c3d9",
@@ -1125,73 +1125,73 @@
  "TRAITS": [
   {
    "id": "irid",
-   "n": "радужная плёнка",
+   "n": "rainbow film",
    "p": 0.15,
    "m": 1.4
   },
   {
    "id": "moss",
-   "n": "моховик",
+   "n": "moss agate",
    "p": 0.12,
    "m": 1.15
   },
   {
    "id": "coral",
-   "n": "коралловая корка",
+   "n": "coral crust",
    "p": 0.12,
    "m": 1.2
   },
   {
    "id": "zoned",
-   "n": "зональный",
+   "n": "zoned",
    "p": 0.1,
    "m": 1.3
   },
   {
    "id": "phantom",
-   "n": "фантом",
+   "n": "phantom",
    "p": 0.09,
    "m": 1.3
   },
   {
    "id": "twin",
-   "n": "двойник",
+   "n": "twin",
    "p": 0.08,
    "m": 1.25
   },
   {
    "id": "druzy",
-   "n": "щётка поверх",
+   "n": "druzy coat",
    "p": 0.08,
    "m": 1.25
   },
   {
    "id": "bubbles",
-   "n": "газовые пузырьки",
+   "n": "gas bubbles",
    "p": 0.08,
    "m": 1.2
   },
   {
    "id": "rutile",
-   "n": "волосатик",
+   "n": "rutilated",
    "p": 0.06,
    "m": 1.5
   },
   {
    "id": "floater",
-   "n": "плавающий кристалл",
+   "n": "floater",
    "p": 0.05,
    "m": 1.6
   },
   {
    "id": "scepter",
-   "n": "скипетр",
+   "n": "sceptre",
    "p": 0.04,
    "m": 1.8
   },
   {
    "id": "aurora",
-   "n": "северное сияние",
+   "n": "aurora",
    "p": 0.015,
    "m": 3
   }

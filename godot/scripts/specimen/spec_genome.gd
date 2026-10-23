@@ -6,20 +6,20 @@ extends RefCounted
 ## The genes are read from the find's seed and traits, so the same find always grows the same way,
 ## and the reveal card can tell the player what they got.
 
-const ROCK_N := {basalt = "базальт", slate = "чёрный сланец", ironstone = "железняк", limestone = "известняк", quartzite = "кварцит"}
-const FORM_N := {single = "одиночный кристалл", cluster = "друза", columnar = "столбчатый", radial = "ёж", rosette = "розетка",
-	floater = "плавающий кристалл", slabs = "пластины", hopper = "скелетные кубы", pile = "россыпь глыб", hexplates = "таблички",
-	geode = "жеода", nugget = "самородок", botryoid = "натёчный", vein = "жила в кварце"}
-const SIZE_N := ["мелкий", "средний", "крупный", "гигант"]
-const ACC_N := {pompom = "помпоны волокон", straw = "золотистые пряди", lichen = "лишайник", needles = "иглы", crust = "щётка",
-	dust = "гематитовая пыль", inkspots = "тёмные включения", clouds = "цветные облака", fronds = "веточки папоротника", flowers = "мелкие цветы"}
+const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
+const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
+	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz"}
+const SIZE_N := ["small", "medium", "large", "giant"]
+const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
+	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
-	{id = "silver", n = "серебряный кант", p = 0.1, m = 1.35},
-	{id = "eroded", n = "изъеденный", p = 0.1, m = 1.3},
-	{id = "goldfleck", n = "вкрапления золота", p = 0.07, m = 1.7},
-	{id = "anomaly", n = "аномальный", p = 0.03, m = 2.5},
+	{id = "silver", n = "silver rim", p = 0.1, m = 1.35},
+	{id = "eroded", n = "etched", p = 0.1, m = 1.3},
+	{id = "goldfleck", n = "gold flecks", p = 0.07, m = 1.7},
+	{id = "anomaly", n = "anomalous", p = 0.03, m = 2.5},
 ]
 
 static func of(o: Dictionary) -> Dictionary:
@@ -114,7 +114,7 @@ static func of(o: Dictionary) -> Dictionary:
 		rock = rock,
 		size = size_k,
 		scale = [0.8, 1.0, 1.18, 1.4][size_k],
-		rim = 0.8 + rng.next() * 0.5 if "silver" in tr else 0.0,
+		silv = 0.8 + rng.next() * 0.5 if "silver" in tr else 0.0,   # native silver along the rock's ridges
 		eroded = 0.55 + rng.next() * 0.45 if "eroded" in tr else 0.0,
 		gold = "goldfleck" in tr,
 		anomaly = anomaly,
@@ -124,12 +124,12 @@ static func of(o: Dictionary) -> Dictionary:
 
 ## the lines for the reveal card: what the find is made of
 static func describe(g: Dictionary) -> Array:
-	var lus := {glass = "стеклянный", dark = "тёмный, маслянистый", metal = "металлический"}
-	var out := [["Форма", FORM_N.get(g.form, g.form)], ["Блеск", lus.get(g.lustre, "")], ["Порода", ROCK_N.get(g.rock, g.rock) + (", рыхлый" if float(g.loose) > 0.0 else "")], ["Размер", SIZE_N[int(g.size)]]]
+	var lus := {glass = "vitreous", dark = "dark, oily", metal = "metallic"}
+	var out := [["Form", FORM_N.get(g.form, g.form)], ["Lustre", lus.get(g.lustre, "")], ["Rock", ROCK_N.get(g.rock, g.rock) + (", crumbly" if float(g.loose) > 0.0 else "")], ["Size", SIZE_N[int(g.size)]]]
 	if g.fx != "":
-		out.push_front(["Легендарный эффект", SpecLegend.FX_N.get(g.fx, g.fx)])
+		out.push_front(["Legendary effect", SpecLegend.FX_N.get(g.fx, g.fx)])
 	if g.accents.size():
 		var names := []
 		for a in g.accents: names.append(ACC_N.get(a, a))
-		out.append(["Наросты", ", ".join(names)])
+		out.append(["Growths", ", ".join(names)])
 	return out

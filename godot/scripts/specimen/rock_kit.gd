@@ -329,6 +329,8 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose :=
 	var spongy := 0.6 if type == "basalt" else 0.75 if type == "ironstone" else 0.35 if type == "limestone" else 0.2
 	var cav := PackedFloat32Array()
 	cav.resize(g.v.size())
+	var crest := PackedFloat32Array()
+	crest.resize(g.v.size())
 	for i in g.v.size():
 		var u := g.v[i]
 		var p := u * 0.62
@@ -342,6 +344,7 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose :=
 		var fd := (fine.get_noise_3dv(p) + 1.0) * 0.5
 		var pit2 := clampf((0.3 - fd) / 0.3, 0.0, 1.0) * 0.045 * (0.3 + zone) * (1.0 + loose)
 		g.v[i] = u * 0.62 * (1.0 + f + rd2 - pit - pit2)
+		crest[i] = clampf(rd2 / 0.05 * 0.5 + 0.5, 0.0, 1.0)
 		cav[i] = clampf(pit * 5.0 + pit2 * 12.0 + maxf(0.0, -f) * 1.6 - maxf(0.0, rd2) * 4.0, 0.0, 1.0)
 	g.scale(S[0], S[1], S[2])
 	# the scanned rock's own relief, pressed in from three sides like the texture laid on it
@@ -360,7 +363,8 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose :=
 	g.col.resize(g.v.size())
 	for i in g.v.size():
 		var k := clampf(1.0 - cav[i], 0.06, 1.0)
-		g.col[i] = Color(k, k, k)
+		# red: shading of pits and ridges; green: how high a ridge stands (where silver rims run)
+		g.col[i] = Color(k, crest[i], k)
 	var top := []
 	var ymax: float = S[1] * 0.62
 	for i in g.v.size():
@@ -407,7 +411,7 @@ static func crumble(rng: Rng32, r: float, sc := Vector3.ONE) -> Geo:
 	g.col.resize(g.v.size())
 	for i in g.v.size():
 		var k := clampf(1.0 - cav[i] * 0.85, 0.12, 1.0)
-		g.col[i] = Color(k, k, k)
+		g.col[i] = Color(k, 0.0, k)
 	return g
 
 static func rock_nrm(sc: Vector3, w: Vector3) -> Vector3:

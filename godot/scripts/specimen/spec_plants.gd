@@ -109,6 +109,7 @@ static func scatter(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, ra
 		mm.use_colors = true
 		mm.mesh = ms[vi]
 		mm.instance_count = list.size()
+		var buf := SpecUtil.mm_buf(list.size())
 		for i in list.size():
 			var pn: Array = near[int(rng.next() * near.size())]
 			var p: Vector3 = pn[0]
@@ -117,9 +118,10 @@ static func scatter(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, ra
 			var up := (nrm.lerp(Vector3.UP, 0.35) + Vector3(rng.next() - 0.5, rng.next() * 0.2, rng.next() - 0.5) * lean * 2.0).normalized()
 			var s := size * (0.6 + rng.next() * 0.7) * (1.2 - d * 0.5)
 			var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s)
-			mm.set_instance_transform(i, Transform3D(b, p - nrm * s * 0.004))
+			var xf := Transform3D(b, p - nrm * s * 0.004)
 			var v := 0.75 + rng.next() * 0.45
-			mm.set_instance_color(i, Color(tint.r * v, tint.g * v * (0.95 + rng.next() * 0.1), tint.b * v))
+			SpecUtil.put(buf, i, xf, Color(tint.r * v, tint.g * v * (0.95 + rng.next() * 0.1), tint.b * v))
+		mm.buffer = buf
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		mi.material_override = material(kind)

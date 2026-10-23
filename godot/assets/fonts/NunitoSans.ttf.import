@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dsuqyb5w4sfl8"
-path="res://.godot/imported/Unbounded.ttf-6ab2d8fd8c35f656fb770c53c15e9bd7.fontdata"
+uid="uid://bhn00hawcg7o1"
+path="res://.godot/imported/NunitoSans.ttf-3534d008ada260d85b28f151af816d8e.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/Unbounded.ttf"
-dest_files=["res://.godot/imported/Unbounded.ttf-6ab2d8fd8c35f656fb770c53c15e9bd7.fontdata"]
+source_file="res://assets/fonts/NunitoSans.ttf"
+dest_files=["res://.godot/imported/NunitoSans.ttf-3534d008ada260d85b28f151af816d8e.fontdata"]
 
 [params]
 

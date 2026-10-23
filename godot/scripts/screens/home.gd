@@ -81,7 +81,7 @@ func render() -> void:
 	sub.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	sub.add_theme_constant_override("shadow_outline_size", 6)
 	col.add_child(sub)
-	var chip := UI.label("⛏ копаете на %d м · открыто до %d м" % [int(Data.DEPTHS[dl_sel()].m), int(Data.DEPTHS[int(Save.d.depth[ai()])].m)], 12, UI.body_bold, Color("#ffd27a"))
+	var chip := UI.label("⛏ digging at %d m · open to %d m" % [int(Data.DEPTHS[dl_sel()].m), int(Data.DEPTHS[int(Save.d.depth[ai()])].m)], 12, UI.body_bold, Color("#ffd27a"))
 	var cs := StyleBoxFlat.new()
 	cs.bg_color = Color(0.1, 0.07, 0.02, 0.75)
 	cs.border_color = Color("#e3a51e", 0.5)
@@ -134,7 +134,7 @@ func _tasks_button() -> Button:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(UI.label(("Задание: " + String(next[1])) if next.size() else "Рудник обустроен!", 14, UI.body_bold))
+	v.add_child(UI.label(("Task: " + String(next[1])) if next.size() else "The mine is fitted out!", 14, UI.body_bold))
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(0, 7)
@@ -167,10 +167,10 @@ func _play_button() -> Button:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", -2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var t := UI.label("Уровень %d" % n, 24, UI.display, Color("#06260f"))
+	var t := UI.label("Level %d" % n, 24, UI.display, Color("#06260f"))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var sub := UI.moves_text(int(def.moves)) + (" · сложный" if def.get("hard", false) else "") + (" · серия %d" % Save.d.streak if Save.d.streak >= 2 else "")
+	var sub := UI.moves_text(int(def.moves)) + (" · hard" if def.get("hard", false) else "") + (" · streak %d" % Save.d.streak if Save.d.streak >= 2 else "")
 	var s := UI.label(sub, 13, UI.body_bold, Color(0.02, 0.15, 0.06, 0.8))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
@@ -207,7 +207,7 @@ func _gui_input(e: InputEvent) -> void:
 			Save.persist()
 			Sfx.play("swap")
 			render()
-			Ov.toast("Копаем на %d м" % int(Data.DEPTHS[k].m))
+			Ov.toast("Digging at %d m" % int(Data.DEPTHS[k].m))
 	else:
 		go.emit("depot")
 
@@ -240,8 +240,8 @@ func _dust() -> void:
 func _on_play() -> void:
 	Save.tick_lives()
 	if Save.d.lives <= 0:
-		Ov.panel("Нет жизней", "Следующая жизнь через %d мин." % Save.minutes_to_life(), [
-			["Восполнить · 300 монет", "gold", func():
+		Ov.panel("No lives", "Next life in %d min." % Save.minutes_to_life(), [
+			["Refill · 300 coins", "gold", func():
 				if Save.d.coins < 300: return
 				Save.d.coins -= 300
 				Save.d.lives = Save.MAX_LIVES
@@ -249,7 +249,7 @@ func _on_play() -> void:
 				Save.persist()
 				Ov.close()
 				render(), Save.d.coins >= 300],
-			["Подождать", "glass", func(): Ov.close()]])
+			["Wait", "glass", func(): Ov.close()]])
 		return
 	_level_panel(dl_sel(), Data.streak_free(Save.d.streak))
 
@@ -260,13 +260,13 @@ func _level_panel(dl: int, sel: Array) -> void:
 	for f in free:
 		if not f in sel: sel.append(f)
 	var v := Ov.card(350)
-	v.add_child(UI.title("Уровень %d" % n, 24))
-	v.add_child(Ov.text("%s%s · в породе ждёт образец" % [UI.moves_text(int(def.moves) - dl / 2 + int(Save.d.eq.food)), " · сложный" if def.get("hard", false) else ""], 14))
+	v.add_child(UI.title("Level %d" % n, 24))
+	v.add_child(Ov.text("%s%s · a specimen waits in the rock" % [UI.moves_text(int(def.moves) - dl / 2 + int(Save.d.eq.food)), " · hard" if def.get("hard", false) else ""], 14))
 	# what the level asks for, read from its map
 	var goals := HBoxContainer.new()
 	goals.alignment = BoxContainer.ALIGNMENT_CENTER
 	goals.add_theme_constant_override("separation", 12)
-	goals.add_child(_goal_chip("find", 0, "образец"))
+	goals.add_child(_goal_chip("find", 0, "specimen"))
 	var map: String = def.get("map", "")
 	var cnt := func(ch: String) -> int: return map.count(ch)
 	for g in def.goals:
@@ -295,10 +295,10 @@ func _level_panel(dl: int, sel: Array) -> void:
 	var mid := VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_theme_constant_override("separation", 0)
-	var dt := UI.label("Глубина %d м" % int(Data.DEPTHS[dl].m), 16, UI.display, UI.GOLD)
+	var dt := UI.label("Depth %d m" % int(Data.DEPTHS[dl].m), 16, UI.display, UI.GOLD)
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(dt)
-	var mods := ", ".join(Data.DSHORT.slice(1, dl + 1)) + " · монеты ×%s, камни дороже" % str(Data.depth_pay(dl)).replace(".", ",") if dl else "обычное поле и обычные награды"
+	var mods := ", ".join(Data.DSHORT.slice(1, dl + 1)) + " · coins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary board and ordinary rewards"
 	var ds := Ov.text(mods, 12)
 	mid.add_child(ds)
 	drow.add_child(mid)
@@ -312,9 +312,9 @@ func _level_panel(dl: int, sel: Array) -> void:
 	drow.add_child(plus)
 	v.add_child(drow)
 	if open < Data.DEPTHS.size() - 1:
-		v.add_child(Ov.text("Глубже %d м пустит только техника: %s." % [int(Data.DEPTHS[open].m), String(Data.DEPTHS[open + 1].tool).to_lower()], 12))
+		v.add_child(Ov.text("Below %d m only machines get through: %s." % [int(Data.DEPTHS[open].m), String(Data.DEPTHS[open + 1].tool).to_lower()], 12))
 	if Save.d.streak >= 2:
-		v.add_child(Ov.text("Серия побед: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)], 13, UI.GOLD))
+		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)], 13, UI.GOLD))
 	# pre-boosters to start with
 	var pre := HBoxContainer.new()
 	pre.add_theme_constant_override("separation", 8)
@@ -346,7 +346,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 		var nl := UI.label(p.n, 13, UI.body_bold)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(nl)
-		var sl := UI.label("бесплатно" if fr else ("есть %d" % have) if have else "%d монет" % int(p.price), 11, UI.body, UI.GOOD if fr else UI.MUTED)
+		var sl := UI.label("free" if fr else ("have %d" % have) if have else "%d coins" % int(p.price), 11, UI.body, UI.GOOD if fr else UI.MUTED)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(sl)
 		b.add_child(bv)
@@ -361,12 +361,12 @@ func _level_panel(dl: int, sel: Array) -> void:
 				Sfx.play("coin")
 				sel.append(id)
 			else:
-				Ov.toast("Не хватает монет")
+				Ov.toast("Not enough coins")
 				return
 			_level_panel(dl, sel))
 		pre.add_child(b)
 	v.add_child(pre)
-	v.add_child(Ov.btn("Играть", "green", func():
+	v.add_child(Ov.btn("Play", "green", func():
 		var sps := []
 		for p in Data.PRE:
 			if p.id in sel:
@@ -375,7 +375,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 		Save.persist()
 		Ov.close()
 		play.emit(n, sps, dl)))
-	v.add_child(Ov.btn("Назад", "glass", func(): Ov.close()))
+	v.add_child(Ov.btn("Back", "glass", func(): Ov.close()))
 
 func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -395,10 +395,10 @@ func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 # ---------------------------------------------------------------- tasks
 
 static func chest_text(c: Dictionary) -> String:
-	if c.get("coins", 0): return "%d монет" % int(c.coins)
-	if c.get("pick", 0): return "кирка"
-	if c.get("dyn", 0): return "динамит"
-	return "заряд перед уровнем"
+	if c.get("coins", 0): return "%d coins" % int(c.coins)
+	if c.get("pick", 0): return "pickaxe"
+	if c.get("dyn", 0): return "dynamite"
+	return "a charge before the level"
 
 func _open_tasks() -> void:
 	var a := ai()
@@ -406,7 +406,7 @@ func _open_tasks() -> void:
 	var built: Array = Save.d.built[a]
 	var v := Ov.card(350)
 	v.add_child(UI.title(A.n, 22))
-	v.add_child(Ov.text("Звёзды даются за каждый пройденный уровень. У вас ★ %d." % Save.d.stars, 14))
+	v.add_child(Ov.text("You earn a star for every level you clear. You have ★ %d." % Save.d.stars, 14))
 	var all_done := true
 	for i in A.tasks.size():
 		var t: Array = A.tasks[i]
@@ -424,7 +424,7 @@ func _open_tasks() -> void:
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tv.add_child(nl)
 		var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
-		tv.add_child(UI.label("Готово" if done else "★ %d · в сундуке: %s" % [int(t[2]), chest_text(ch)], 12, UI.body, UI.MUTED))
+		tv.add_child(UI.label("Done" if done else "★ %d · in the chest: %s" % [int(t[2]), chest_text(ch)], 12, UI.body, UI.MUTED))
 		h.add_child(tv)
 		var cost: int = t[2]
 		var b := UI.button("✓" if done else "★ %d" % cost, "gold" if not done and Save.d.stars >= cost else "glass", 14)
@@ -436,12 +436,12 @@ func _open_tasks() -> void:
 		row.add_child(h)
 		v.add_child(row)
 	if all_done and a < Data.AREAS.size() - 1:
-		v.add_child(Ov.btn("Новый рудник: " + String(Data.AREAS[a + 1].n), "green", func():
+		v.add_child(Ov.btn("New mine: " + String(Data.AREAS[a + 1].n), "green", func():
 			Save.d.area = a + 1
 			Save.persist()
 			Ov.close()
 			render()))
-	v.add_child(Ov.btn("Закрыть", "glass", func(): Ov.close()))
+	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
 func _build(tid: String, i: int) -> void:
 	var a := ai()
@@ -461,7 +461,7 @@ func _build(tid: String, i: int) -> void:
 	Ov.close()
 	render()
 	_build_pop()
-	get_tree().create_timer(0.5).timeout.connect(func(): Ov.toast("Сундук рудника: " + chest_text(ch)))
+	get_tree().create_timer(0.5).timeout.connect(func(): Ov.toast("Mine chest: " + chest_text(ch)))
 	var all := true
 	for x in A.tasks:
 		if not x[0] in Save.d.built[a]: all = false
@@ -474,13 +474,13 @@ func _build(tid: String, i: int) -> void:
 		render()
 		var btns := []
 		if a < Data.AREAS.size() - 1:
-			btns.append(["Открыть: " + String(Data.AREAS[a + 1].n), "green", func():
+			btns.append(["Open: " + String(Data.AREAS[a + 1].n), "green", func():
 				Save.d.area = a + 1
 				Save.persist()
 				Ov.close()
 				render()])
-		btns.append(["Позже", "glass", func(): Ov.close()])
-		Ov.panel(A.n + " обустроена!", "Награда: 500 монет, кирка и динамит." + ("" if a < Data.AREAS.size() - 1 else " Новые рудники появятся в следующей версии."), btns)
+		btns.append(["Later", "glass", func(): Ov.close()])
+		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and dynamite." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
 
 ## a little thump of the picture and a burst of sparks when something gets built
 func _build_pop() -> void:

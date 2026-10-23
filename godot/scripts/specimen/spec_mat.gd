@@ -31,6 +31,24 @@ static func _shader(flat: bool, transp: bool, cull: String, irid: bool, dirt: bo
 	_shaders[key] = sh
 	return sh
 
+## the shader variants specimens actually use (flat, transp, cull, irid, dirt, unshaded, add, glass);
+## Spec renders each once at startup so a find never waits for a shader to compile
+const COMMON := [
+	[false, false, "back", false, false, false, false, false], [false, false, "back", false, true, false, false, false],
+	[false, false, "disabled", false, false, false, false, false], [false, false, "front", false, false, false, false, false],
+	[true, false, "back", false, false, false, false, false], [true, false, "back", false, true, false, false, false],
+	[true, false, "back", true, true, false, false, false], [true, false, "disabled", false, false, false, false, false],
+	[false, true, "disabled", true, false, false, false, true], [true, true, "disabled", true, false, false, false, true],
+	[true, true, "disabled", true, true, false, false, true]]
+
+static func warm_materials() -> Array[ShaderMaterial]:
+	var out: Array[ShaderMaterial] = []
+	for f in COMMON:
+		var m := ShaderMaterial.new()
+		m.shader = _shader(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7])
+		out.append(m)
+	return out
+
 static func make(o: Dictionary) -> ShaderMaterial:
 	var transp: bool = o.get("transp", false) or o.get("add", false)
 	var side: String = o.get("side", "front")
@@ -98,6 +116,11 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 			var kc: Color = o[k]
 			m.set_shader_parameter(k, Vector3(kc.r, kc.g, kc.b))
 	m.set_shader_parameter("rough_var", o.get("rough_var", 0.0))
+	if o.get("silv", 0.0) > 0.0:
+		m.set_shader_parameter("silv_k", o.silv)
+		m.set_shader_parameter("silver_diff", load("res://assets/textures/silver/silver_diff.png"))
+		m.set_shader_parameter("silver_nrm", load("res://assets/textures/silver/silver_nrm.png"))
+		m.set_shader_parameter("silver_rough", load("res://assets/textures/silver/silver_rough.png"))
 	if o.has("dirt") and o.dirt != null:
 		var d: Dictionary = o.dirt
 		var dc: Color = d.get("col", Color(0.1, 0.1, 0.1))

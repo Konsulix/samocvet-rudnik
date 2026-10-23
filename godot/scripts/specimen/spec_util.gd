@@ -35,6 +35,22 @@ static func mesh(geo: Geo, mat: Material, parent: Node3D, at := Vector3.ZERO, ba
 	parent.add_child(m)
 	return m
 
+## MultiMesh data in one go: a whole buffer is a single call to the renderer, where per-instance setters
+## are thousands of calls from the build thread that the render thread (on a phone, a visible hitch) must chew through.
+## Layout for TRANSFORM_3D with colours: 12 floats of the transform (basis rows with origin), then RGBA.
+static func mm_buf(n: int) -> PackedFloat32Array:
+	var buf := PackedFloat32Array()
+	buf.resize(n * 16)
+	return buf
+
+static func put(buf: PackedFloat32Array, k: int, t: Transform3D, c: Color) -> void:
+	var i := k * 16
+	var b := t.basis
+	buf[i] = b.x.x; buf[i + 1] = b.y.x; buf[i + 2] = b.z.x; buf[i + 3] = t.origin.x
+	buf[i + 4] = b.x.y; buf[i + 5] = b.y.y; buf[i + 6] = b.z.y; buf[i + 7] = t.origin.y
+	buf[i + 8] = b.x.z; buf[i + 9] = b.y.z; buf[i + 10] = b.z.z; buf[i + 11] = t.origin.z
+	buf[i + 12] = c.r; buf[i + 13] = c.g; buf[i + 14] = c.b; buf[i + 15] = c.a
+
 static func inst(geo: Geo, mat: Material, n: int, place: Callable, parent: Node3D) -> MultiMeshInstance3D:
 	if n <= 0:
 		return null
@@ -43,10 +59,11 @@ static func inst(geo: Geo, mat: Material, n: int, place: Callable, parent: Node3
 	mm.use_colors = true
 	mm.mesh = geo.to_mesh()
 	mm.instance_count = n
+	var buf := mm_buf(n)
 	for k in n:
 		var r: Array = place.call(k)
-		mm.set_instance_transform(k, r[0])
-		mm.set_instance_color(k, r[1])
+		put(buf, k, r[0], r[1])
+	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = mat

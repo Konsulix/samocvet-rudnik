@@ -9,7 +9,7 @@ static func pills() -> HBoxContainer:
 	h.add_theme_constant_override("separation", 6)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mins := Save.minutes_to_life()
-	h.add_child(pill("heart", str(Save.d.lives) + (" · %d мин" % mins if mins else "")))
+	h.add_child(pill("heart", str(Save.d.lives) + (" · %d min" % mins if mins else "")))
 	h.add_child(pill("coin", UI.fmt(Save.d.coins)))
 	h.add_child(pill("star", str(Save.d.stars)))
 	return h
@@ -75,7 +75,7 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", st)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
-	for tab in [["home", "Рудник"], ["depot", "Техника"], ["museum", "Коллекция"]]:
+	for tab in [["home", "Mine"], ["depot", "Machines"], ["museum", "Collection"]]:
 		var id: String = tab[0]
 		var on := id == active
 		var b := Button.new()

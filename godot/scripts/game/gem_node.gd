@@ -35,6 +35,7 @@ func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	if b3 and Board3D.STYLE >= 99 and sp == "" and item != "nug" and t >= 0:
 		stone = b3.make_stone(t)
 		_sync()
+	set_process(stone != null)
 	queue_redraw()
 	return self
 
@@ -63,6 +64,7 @@ func become(new_sp: String) -> void:
 	if stone:
 		stone.queue_free()
 		stone = null
+	set_process(false)
 	queue_redraw()
 
 func _draw() -> void:

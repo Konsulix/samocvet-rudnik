@@ -36,7 +36,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	for k in Data.GR.size():
 		ge.append([k, Data.GR[k].w * pow(1.0 + luck * 0.5, k * 0.6)])
 	var gi: int = pick_w(ge, rng)
-	var legend := rng.next() < 0.006 * (1.0 + luck)
+	var legend := rng.next() < 0.02 * (1.0 + luck)
 	var traits := roll_traits(seed_id, legend, gi)
 	var tm := 1.0
 	for t in traits:
@@ -52,5 +52,5 @@ static func tier_of(sid: String, gi: int, legend: bool) -> int:
 
 static func fmt_weight(g: int) -> String:
 	if g >= 1000:
-		return ("%.2f кг" % (g / 1000.0)).replace(".", ",")
-	return "%d г" % g
+		return "%.2f kg" % (g / 1000.0)
+	return "%d g" % g

@@ -19,7 +19,8 @@ func _ready() -> void:
 func is_open() -> bool:
 	return _card != null
 
-func card(width := 340.0) -> VBoxContainer:
+## glow: a coloured rim and halo round the card (the find's rarity); transparent = the plain gold hairline
+func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	close(false)
 	var dim := ColorRect.new()
 	_dim = dim
@@ -35,6 +36,11 @@ func card(width := 340.0) -> VBoxContainer:
 	var st := UI.glass(26, 0.94)
 	st.set_content_margin_all(18)
 	st.border_color = Color(1, 0.85, 0.5, 0.22)
+	if glow.a > 0.0:
+		st.set_border_width_all(2)
+		st.border_color = Color(glow, 0.85)
+		st.shadow_color = Color(glow, 0.45)
+		st.shadow_size = 22
 	_card.add_theme_stylebox_override("panel", st)
 	_card.custom_minimum_size = Vector2(width, 0)
 	var v := VBoxContainer.new()

@@ -26,7 +26,8 @@ uniform float d_is = 0.0;
 uniform float d_fb = 1.0;
 // legendary effects, all of them alive (TIME): see SpecLegend
 uniform float lava_k = 0.0;     // molten veins glowing in the rock
-uniform float fluor_k = 0.0;    // every few seconds the lamps dim and the stone flares under ultraviolet
+uniform float fluor_k = 0.0;    // every few seconds the lamps dim and the crystal glows under ultraviolet
+global uniform float fluor_uv;  // 0..1, how far into the ultraviolet flash we are (driven by Spec, in step with the lamps)
 uniform vec3 fluor_col = vec3(0.3, 1.0, 0.2);
 uniform float cham_k = 0.0;     // colour flows with the viewing angle and breathes slowly
 uniform vec3 cham_col = vec3(0.6, 0.05, 0.15);
@@ -36,9 +37,15 @@ uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
 uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_rough : filter_linear_mipmap, repeat_enable;
+// native silver edging the crests of the host rock (the "silver rim" trait), a worked-silver texture
+uniform float silv_k = 0.0;
+uniform sampler2D silver_diff : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D silver_nrm : filter_linear_mipmap, repeat_enable;
+uniform sampler2D silver_rough : filter_linear_mipmap, repeat_enable;
 uniform float heart_r = 0.0;    // a throbbing core of light deep inside (object space)
 uniform vec3 heart_pos = vec3(0.0);
 uniform vec3 heart_col = vec3(2.0, 1.6, 1.2);
+global uniform float heart_beat;  // 0..1, a lub-dub heartbeat shared with the core, its halo and its light (Spec)
 uniform float oil_k = 0.0;      // dark lustrous stones: an oil-slick rainbow in their reflections
 uniform float rough_var = 0.0;  // metals: polished bumps, dull hollows
 uniform float d_ao = 0.0;       // rocks: vertex colour carries the shading of pits and ridges
@@ -110,9 +117,8 @@ void fragment() {
 	float cc = coat;
 	float dirt = 0.0, frost = 0.0;
 	vec3 lava_e = vec3(0.0);
-	// ultraviolet flash: a few seconds of ordinary light, then the lamps dim and the stone glows
-	float uv_ph = fract(TIME / 7.0 + fract(v_op.x * 0.0) );
-	float uvk = fluor_k * smoothstep(0.55, 0.6, uv_ph) * (1.0 - smoothstep(0.88, 0.95, uv_ph));
+	// ultraviolet flash: a few seconds of ordinary light, then the lamps dim and the crystal glows
+	float uvk = fluor_k * fluor_uv;
 #ifdef DIRT
 	// below a ragged line the crystal turns into the rock it grew from; just above it, milky and etched
 	float edge = v_rp.y - (d_h + (fbm(v_rp * 4.0) - 0.47) * d_a + (fbm(v_rp * 1.7 + 3.0) - 0.5) * d_a * 0.9);
@@ -169,6 +175,25 @@ void fragment() {
 	r = mix(mix(r, 0.5, frost), mix(mix(0.82, 0.35, grains), s_rough, scan_k), dirt);
 	m *= 1.0 - dirt;
 	cc *= 1.0 - max(dirt, frost * 0.6);
+	if (silv_k > 0.0) {
+		// silver along the rock's ridges: vertex green carries how high a ridge stands, its contour is the rim;
+		// ragged, broken in places, the worked-silver texture laid on from three sides
+		float cr = COLOR.g + (fbm(v_rp * 9.0 + 4.0) - 0.5) * 0.06;
+		float sv = (1.0 - smoothstep(0.02, 0.05, abs(cr - 0.82))) * smoothstep(0.38, 0.48, vn(v_rp * 2.2 + 2.0));
+		sv *= dirt * silv_k;
+		if (sv > 0.0) {
+			vec3 tp = v_rp * 4.0;
+			vec3 w = pow(abs(normalize(v_no)), vec3(4.0));
+			w /= (w.x + w.y + w.z);
+			vec3 sd = texture(silver_diff, tp.zy).rgb * w.x + texture(silver_diff, tp.xz).rgb * w.y + texture(silver_diff, tp.xy).rgb * w.z;
+			float sr = texture(silver_rough, tp.zy).r * w.x + texture(silver_rough, tp.xz).r * w.y + texture(silver_rough, tp.xy).r * w.z;
+			vec3 tn = (texture(silver_nrm, tp.zy).xyz * w.x + texture(silver_nrm, tp.xz).xyz * w.y + texture(silver_nrm, tp.xy).xyz * w.z) * 2.0 - 1.0;
+			base = mix(base, sd * 0.8, sv);
+			m = mix(m, 1.0, sv);
+			r = mix(r, clamp(sr * 0.9, 0.08, 0.55), sv);
+			n = normalize(mix(n, normalize(n + (VIEW_MATRIX * MODEL_MATRIX * vec4(tn.x, tn.y, 0.0, 0.0)).xyz * 0.5), sv));
+		}
+	}
 	vec3 gp = v_rp * 38.0;
 	n = normalize(n + (dirt * 1.1 * (1.0 - scan_k * 0.8) + frost * 0.25) * (vec3(vn(gp), vn(gp + 3.1), vn(gp + 5.7)) - 0.5));
 	n = normalize(mix(n, s_nv, dirt * scan_k));
@@ -284,8 +309,10 @@ void fragment() {
 		vec3 dir = normalize((inv_m * vec4((INV_VIEW_MATRIX * vec4(-VIEW, 0.0)).xyz, 0.0)).xyz);
 		vec3 hv = heart_pos - o;
 		float dd = length(hv - dir * dot(hv, dir)) / heart_r;
-		float beat = 0.7 + 0.3 * pow(0.5 + 0.5 * sin(TIME * 2.6), 4.0);
-		body += heart_col * (exp(-dd * dd * 2.2) * 1.4 + exp(-dd * 0.9) * 0.25) * beat * (1.0 - dirt);
+		// a tight core and a wide aura that swells on every beat
+		float core = exp(-dd * dd * 2.6) * (0.75 + 0.5 * heart_beat);
+		float aura = exp(-dd * (1.1 - 0.35 * heart_beat)) * (0.18 + 0.3 * heart_beat);
+		body += heart_col * (core + aura) * (1.0 - dirt);
 	}
 	if (kin_k > 0.0) {
 		// kintsugi: cracks mended with worked gold. The seams are raised beads of real metal
@@ -334,9 +361,15 @@ void fragment() {
 			body += vec3(1.6, 1.1, 0.45) * gleam * k * (1.0 - gr);
 		}
 	}
-	// ultraviolet: the stone drowns in its own glow while the lamps go dark
-	body = mix(body, fluor_col * (1.2 + 0.8 * fbm(v_op * 4.0 + TIME * 0.3)) * (1.0 - milk * 0.3), uvk);
-	ALBEDO *= 1.0 - uvk * 0.85;
+	// ultraviolet: the lamps go dark and the crystal lights up from within, a soft core that thickens
+	// towards the silhouette (more glass to glow through there) and drifts slowly; kept below white
+	// so the colour survives the tonemapper, the studio's bloom makes the halo
+	float uvf = 1.0 - clamp(dot(n, VIEW), 0.0, 1.0);
+	float uvn = fbm(v_op * 2.6 + vec3(0.0, TIME * 0.15, 0.0));
+	vec3 uvc = fluor_col * 0.5 * (0.25 + 0.95 * uvn * uvn * 1.6) * (0.6 + 1.3 * uvf * uvf);
+	body = mix(body, uvc, uvk);
+	ALBEDO *= 1.0 - uvk * 0.9;
+	SPECULAR *= 1.0 - uvk * 0.7;
 	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
 	NORMAL = n;
 	ALPHA = 1.0;
@@ -370,8 +403,9 @@ void fragment() {
 	SPECULAR = spec;
 	CLEARCOAT = cc;
 	CLEARCOAT_ROUGHNESS = coat_rough;
-	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + fluor_col * uvk * 1.4;
-	ALBEDO *= 1.0 - uvk * 0.85;
+	// ultraviolet on an opaque mineral: a glow skin, brighter at the rim, none on the rock part (dirt)
+	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + fluor_col * uvk * (1.0 - dirt) * 0.45 * (0.7 + 0.8 * o_fr * o_fr);
+	ALBEDO *= 1.0 - uvk * 0.9 * (1.0 - dirt);
 	NORMAL = n;
 #endif
 #if defined(TRANSP) && !defined(GLASS)

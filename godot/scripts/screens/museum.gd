@@ -6,7 +6,7 @@ extends Control
 
 signal go(screen: String)
 
-const SORTS := [["value", "Ценные"], ["rare", "Редкие"], ["new", "Новые"]]
+const SORTS := [["value", "Valuable"], ["rare", "Rare"], ["new", "New"]]
 
 var tab := "spc"
 var sort := "value"
@@ -77,11 +77,11 @@ func _head() -> void:
 	var seen := 0
 	for id in Save.d.seen:
 		if id in minable: seen += 1
-	content.add_child(UI.title("Коллекция", 22))
-	content.add_child(Ov.text("Минералогический музей", 13, Color("#d8c8a8")))
+	content.add_child(UI.title("Collection", 22))
+	content.add_child(Ov.text("Mineralogical museum", 13, Color("#d8c8a8")))
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 6)
-	for st in [["%d/%d" % [seen, minable.size()], "видов"], [UI.fmt(worth), "ценность"], ["%d/%d" % [Save.d.sets.size(), Data.SETS.size()], "наборов"]]:
+	for st in [["%d/%d" % [seen, minable.size()], "species"], [UI.fmt(worth), "worth"], ["%d/%d" % [Save.d.sets.size(), Data.SETS.size()], "sets"]]:
 		var p := PanelContainer.new()
 		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var ps := StyleBoxFlat.new()
@@ -102,7 +102,7 @@ func _head() -> void:
 		p.add_child(v)
 		stats.add_child(p)
 	content.add_child(stats)
-	content.add_child(Depot.tabs([["spc", "Витрина · %d" % Save.d.coll.size()], ["jw", "Украшения · %d" % Save.d.jewels.size()], ["atlas", "Атлас"]], tab, func(id: String):
+	content.add_child(Depot.tabs([["spc", "Showcase · %d" % Save.d.coll.size()], ["jw", "Jewellery · %d" % Save.d.jewels.size()], ["atlas", "Atlas"]], tab, func(id: String):
 		tab = id
 		scroll.scroll_vertical = 0
 		render()))
@@ -143,7 +143,7 @@ func _cases() -> void:
 		"new": list.sort_custom(func(a, b): return int(a.id) > int(b.id))
 		_: list.sort_custom(func(a, b): return int(a.value) > int(b.value))
 	if list.is_empty():
-		content.add_child(note("Витрины пока пусты. Камни выпадают на уровнях: доберитесь до образца в породе."))
+		content.add_child(note("The showcases are empty for now. Stones drop on levels: reach the specimen in the rock."))
 		return
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
@@ -219,52 +219,46 @@ func _case(s: Dictionary, w: float) -> Button:
 	b.pressed.connect(func(): _open_stone(s))
 	return b
 
+## for screenshots: ui=open_first
+func _open_first() -> void:
+	if Save.d.coll.size(): _open_stone(Save.d.coll[0])
+
+## for screenshots: ui=open_uncut
+func _open_uncut() -> void:
+	for s in Save.d.coll:
+		if s.get("cut", "") == "":
+			_open_stone(s)
+			return
+
 func _open_stone(s: Dictionary) -> void:
-	var v := Ov.card(350)
-	var view := SpecView.new(384)
-	view.custom_minimum_size = Vector2(314, 270)
-	v.add_child(view)
-	view.show_spec(Spec.of_stone(s))
-	var rar := UI.label("легендарная находка" if s.get("legend", false) else String(Data.RAR[int(s.tier)]), 13, UI.body_bold, Data.rarity_color(int(s.tier)))
-	rar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rar.uppercase = true
-	v.add_child(rar)
-	v.add_child(UI.title(Data.SP[s.sid].n, 22))
-	var rows := VBoxContainer.new()
-	Reveal._row(rows, "Вес", Stones.fmt_weight(int(s.g)))
-	Reveal._row(rows, "Качество", String(Data.GR[int(s.gi)].n))
-	for line in SpecGenome.describe(SpecGenome.of(Spec.of_stone(s))):
-		Reveal._row(rows, line[0], line[1])
-	Reveal._row(rows, "Оценка", UI.coins(int(s.value)), UI.GOLD)
-	v.add_child(rows)
-	var traits: Array = s.get("traits", [])
-	if traits.size():
-		var flow := HFlowContainer.new()
-		flow.add_theme_constant_override("h_separation", 6)
-		flow.add_theme_constant_override("v_separation", 6)
-		for id in traits: flow.add_child(Reveal.chip(Data.TR[id].n))
-		v.add_child(flow)
-	if s.get("cut", "") != "":
-		v.add_child(Ov.text("Огранка: " + String(Data.CUTN[s.cut])))
-	else:
-		v.add_child(Ov.btn("Огранить · рискнуть ради цены", "purple", func(): _cut_panel(s)))
+	var v := Ov.card(350, Data.rarity_color(int(s.tier)))
+	Reveal.stone_card(v, s, 400, func(): Ov.close())
+	var cut_done: bool = s.get("cut", "") != ""
+	if cut_done:
+		v.add_child(Ov.text("Cut: " + String(Data.CUTN[s.cut]), 13))
 	var price := roundi(float(s.value) * Save.coin_mul())
-	v.add_child(Ov.btn("Продать · " + UI.coins(price), "gold", func():
+	var sell := func():
 		Save.d.coll.erase(s)
 		Save.d.coins += price
 		Save.persist()
 		Sfx.play("coin")
 		Ov.close()
-		render()))
-	v.add_child(Ov.btn("Закрыть", "glass", func(): Ov.close()))
+		render()
+	var sell_b := UI.button("Sell · " + UI.coins(price), "ghost_gold", 15)
+	if cut_done:
+		sell_b.custom_minimum_size = Vector2(0, 46)
+		sell_b.pressed.connect(sell)
+		v.add_child(sell_b)
+	else:
+		v.add_child(Reveal.action_row(UI.button("Cut", "ghost_purple", 15), func(): _cut_panel(s), sell_b, sell))
 
 # ---------------------------------------------------------------- cutting
 
 func _cut_panel(s: Dictionary) -> void:
 	var chance := func(c: Dictionary) -> float: return minf(0.98, float(c.p) + int(s.gi) * 0.025)
 	var v := Ov.card(350)
-	v.add_child(UI.title("Огранка", 22))
-	v.add_child(Ov.text("%s · сейчас %s" % [Data.SP[s.sid].n, UI.coins(int(s.value))]))
+	v.add_child(UI.title("Cutting", 22))
+	v.add_child(Ov.text("%s · now %s" % [Data.SP[s.sid].n, UI.coins(int(s.value))]))
 	for c in Data.CUTS:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 66)
@@ -284,13 +278,13 @@ func _cut_panel(s: Dictionary) -> void:
 		top.add_child(nl)
 		top.add_child(UI.label("%d%%" % roundi(chance.call(c) * 100), 15, UI.display, UI.GOOD))
 		bv.add_child(top)
-		var sm := UI.label("удача: %s · провал: %s · работа %d монет" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), int(c.cost)], 11, UI.body, UI.MUTED)
+		var sm := UI.label("success: %s · failure: %s · labour %d coins" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), int(c.cost)], 11, UI.body, UI.MUTED)
 		bv.add_child(sm)
 		b.add_child(bv)
 		if b.disabled: b.modulate.a = 0.5
 		b.pressed.connect(func(): _do_cut(s, c, chance.call(c)))
 		v.add_child(b)
-	v.add_child(Ov.btn("Не рисковать", "glass", func(): Ov.close()))
+	v.add_child(Ov.btn("Don't risk it", "glass", func(): Ov.close()))
 
 func _do_cut(s: Dictionary, c: Dictionary, chance: float) -> void:
 	if Save.d.coins < int(c.cost): return
@@ -323,9 +317,9 @@ func _do_cut(s: Dictionary, c: Dictionary, chance: float) -> void:
 	rv.custom_minimum_size = Vector2(314, 290)
 	r.add_child(rv)
 	rv.show_spec(Spec.of_stone(s))
-	r.add_child(UI.title("Огранка удалась!" if win else "Камень треснул", 22))
-	r.add_child(Ov.text("Теперь он стоит %s." % UI.coins(int(s.value))))
-	r.add_child(Ov.btn("Отлично", "green", func():
+	r.add_child(UI.title("The cut worked!" if win else "The stone cracked", 22))
+	r.add_child(Ov.text("Now it is worth %s." % UI.coins(int(s.value))))
+	r.add_child(Ov.btn("Great", "green", func():
 		Ov.close()
 		render()))
 
@@ -396,7 +390,7 @@ func _jewels() -> void:
 	for s in Save.d.coll:
 		if cut_ok(s): cut += 1
 	if Save.d.jewels.is_empty():
-		content.add_child(note("Украшений пока нет. Соберите первое в мастерской."))
+		content.add_child(note("No jewellery yet. Make your first piece in the workshop."))
 	else:
 		var grid := GridContainer.new()
 		grid.columns = 2
@@ -406,8 +400,8 @@ func _jewels() -> void:
 		for j in Save.d.jewels:
 			grid.add_child(_jewel_case(j, w))
 		content.add_child(grid)
-	content.add_child(h3("Мастерская · огранённых камней: %d" % cut))
-	content.add_child(note("Мастер берёт самые дешёвые подходящие камни, ценные остаются в витрине."))
+	content.add_child(h3("Workshop · cut stones: %d" % cut))
+	content.add_child(note("The jeweller takes the cheapest stones that fit; valuable ones stay in the showcase."))
 	for j in Data.JEWELS:
 		content.add_child(_workshop_row(j))
 
@@ -485,8 +479,8 @@ func _workshop_row(j: Dictionary) -> PanelContainer:
 	if st.size():
 		var names := []
 		for x in st: names.append(Data.SP[x.sid].n)
-		v.add_child(note("Из: %s → %s" % [", ".join(names), UI.coins(val)]))
-	var b := UI.button("Собрать" if st.size() else "Нет камней", "gold" if st.size() else "glass", 13)
+		v.add_child(note("From: %s → %s" % [", ".join(names), UI.coins(val)]))
+	var b := UI.button("Make" if st.size() else "No stones", "gold" if st.size() else "glass", 13)
 	b.custom_minimum_size = Vector2(0, 36)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.disabled = st.is_empty()
@@ -524,14 +518,14 @@ func _show_jewel(j: Dictionary, fresh := false) -> void:
 	view.custom_minimum_size = Vector2(314, 280)
 	v.add_child(view)
 	view.show_spec(Spec.of_jewel(j))
-	var rar := UI.label("новое украшение" if fresh else "украшение", 13, UI.body_bold, Color("#e4ae39"))
+	var rar := UI.label("new jewellery" if fresh else "jewellery", 13, UI.body_bold, Color("#e4ae39"))
 	rar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rar.uppercase = true
 	v.add_child(rar)
 	v.add_child(UI.title(R0.get("n", ""), 22))
 	var rows := VBoxContainer.new()
-	Reveal._row(rows, "Камни", ", ".join(j.get("names", [])))
-	Reveal._row(rows, "Стоимость", UI.coins(int(j.value)), UI.GOLD)
+	Reveal._row(rows, "Stones", ", ".join(j.get("names", [])))
+	Reveal._row(rows, "Value", UI.coins(int(j.value)), UI.GOLD)
 	v.add_child(rows)
 	if R0.has("perk"):
 		var c := Reveal.chip(R0.perk, true)
@@ -539,11 +533,11 @@ func _show_jewel(j: Dictionary, fresh := false) -> void:
 		v.add_child(c)
 	var price := roundi(float(j.value) * Save.coin_mul())
 	var armed := [false]
-	var sell := Ov.btn("Продать · " + UI.coins(price), "gold", func(): pass)
+	var sell := Ov.btn("Sell · " + UI.coins(price), "gold", func(): pass)
 	sell.pressed.connect(func():
 		if not armed[0]:
 			armed[0] = true
-			sell.text = "Точно продать? " + ("Бонус пропадёт" if R0.has("perk") else "Его не вернуть")
+			sell.text = "Sell for sure? " + ("The bonus will be lost" if R0.has("perk") else "You can't get it back")
 			return
 		Save.d.jewels.erase(j)
 		Save.d.coins += price
@@ -552,7 +546,7 @@ func _show_jewel(j: Dictionary, fresh := false) -> void:
 		Ov.close()
 		render())
 	v.add_child(sell)
-	v.add_child(Ov.btn("Закрыть", "glass", func(): Ov.close()))
+	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
 # ---------------------------------------------------------------- atlas
 
@@ -567,7 +561,7 @@ func _atlas() -> void:
 	var nseen := 0
 	for id in ids:
 		if id in Save.d.seen: nseen += 1
-	content.add_child(h3("Виды · найдено %d из %d" % [nseen, ids.size()]))
+	content.add_child(h3("Species · found %d of %d" % [nseen, ids.size()]))
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 8)
@@ -612,7 +606,7 @@ func _atlas() -> void:
 			v.add_child(wl)
 		grid.add_child(v)
 	content.add_child(grid)
-	content.add_child(h3("Наборы"))
+	content.add_child(h3("Sets"))
 	for st in Data.SETS:
 		content.add_child(_set_row(st, got))
 
@@ -659,11 +653,11 @@ func _set_row(st: Dictionary, got: Dictionary) -> PanelContainer:
 		chips.add_child(Reveal.chip(Data.SP[x].n, got.has(x)))
 	v.add_child(chips)
 	var rw: Dictionary = st.reward
-	v.add_child(note("Награда: %d монет%s%s" % [int(rw.coins), (", кирка ×%d" % int(rw.pick)) if rw.get("pick", 0) else "", (", динамит ×%d" % int(rw.dyn)) if rw.get("dyn", 0) else ""]))
+	v.add_child(note("Reward: %d coins%s%s" % [int(rw.coins), (", pickaxe ×%d" % int(rw.pick)) if rw.get("pick", 0) else "", (", dynamite ×%d" % int(rw.dyn)) if rw.get("dyn", 0) else ""]))
 	if claimed:
-		v.add_child(UI.label("✓ Получено", 13, UI.body_bold, UI.GOOD))
+		v.add_child(UI.label("✓ Claimed", 13, UI.body_bold, UI.GOOD))
 	elif full:
-		var b := UI.button("Забрать награду", "gold", 15)
+		var b := UI.button("Claim reward", "gold", 15)
 		b.custom_minimum_size = Vector2(0, 44)
 		b.pressed.connect(func():
 			if st.id in Save.d.sets: return
@@ -674,7 +668,7 @@ func _set_row(st: Dictionary, got: Dictionary) -> PanelContainer:
 			Save.persist()
 			Sfx.play("coin")
 			render()
-			Ov.toast("%s: награда получена" % st.n))
+			Ov.toast("%s: reward claimed" % st.n))
 		v.add_child(b)
 	p.add_child(v)
 	return p

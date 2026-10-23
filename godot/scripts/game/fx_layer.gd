@@ -9,16 +9,22 @@ var shake := 0.0
 var _rings := []     # {pos, rad, t0, dur, col}
 var _zaps := []      # {a, b, t0, pts}
 var _flash := []     # {pos, r, t0, col}
+var _was_busy := false
 
 func cell(r: float, c: float) -> Vector2:
 	return board.cell_center(r, c)
 
 func _process(dt: float) -> void:
-	# camera-style shake applied to the board and this layer together
-	shake = maxf(0.0, shake * pow(0.02, dt))
-	var off := Vector2(randf() - 0.5, randf() - 0.5) * shake
-	board.get_parent().position = off
-	queue_redraw()
+	# camera-style shake applied to the board and this layer together; at rest nothing is moved or redrawn
+	if shake > 0.05:
+		shake = maxf(0.0, shake * pow(0.02, dt))
+		board.get_parent().position = Vector2(randf() - 0.5, randf() - 0.5) * shake
+	elif shake > 0.0:
+		shake = 0.0
+		board.get_parent().position = Vector2.ZERO
+	if _rings.size() or _flash.size() or _zaps.size() or _was_busy:
+		queue_redraw()
+	_was_busy = _rings.size() > 0 or _flash.size() > 0 or _zaps.size() > 0
 
 func _draw() -> void:
 	var now := Time.get_ticks_msec() / 1000.0

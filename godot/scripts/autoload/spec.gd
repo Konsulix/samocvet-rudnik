@@ -8,11 +8,55 @@ var studio: SpecStudio
 var _cache := {}
 var _queue := []
 var _busy := false
+## the ultraviolet flash, shared by every fluorescent specimen (shader global fluor_uv) and their studios:
+## every 7 s the lamps dim for about two and a half seconds
+var uv := 0.0
+var beat := 0.0
+var force_uv := -1.0   # screenshots: uv=0..1 holds the flash still
+
+func _process(_dt: float) -> void:
+	var ph := fmod(Time.get_ticks_msec() / 1000.0, 7.0) / 7.0
+	uv = force_uv if force_uv >= 0.0 else smoothstep(0.55, 0.6, ph) * (1.0 - smoothstep(0.88, 0.95, ph))
+	RenderingServer.global_shader_parameter_set("fluor_uv", uv)
+	# lub-dub, about 70 beats a minute: a strong beat, a softer echo, then rest
+	var hb := fmod(Time.get_ticks_msec() / 1000.0, 0.86) / 0.86
+	beat = exp(-pow((hb - 0.12) * 11.0, 2.0)) + 0.55 * exp(-pow((hb - 0.36) * 11.0, 2.0))
+	RenderingServer.global_shader_parameter_set("heart_beat", beat)
 
 func _ready() -> void:
 	studio = SpecStudio.make(PX, Viewport.MSAA_4X)
 	studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(studio.vp)
+	_warm()
+
+## compile the specimen shaders right at launch, while the boot splash is still up (the first one takes
+## a good fraction of a second): a little ball per variant, drawn once in the offscreen studio,
+## so neither the home screen nor the first find stutters
+func _warm() -> void:
+	while _busy:
+		await get_tree().process_frame
+	_busy = true
+	var balls := Node3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.2
+	mesh.height = 0.4
+	mesh.radial_segments = 8
+	mesh.rings = 4
+	studio.stage.add_child(balls)
+	# one variant per frame: each compile is a short stall instead of one long freeze
+	for m in SpecMat.warm_materials():
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.material_override = m
+		balls.add_child(mi)
+		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		await RenderingServer.frame_post_draw
+		mi.visible = false
+	balls.queue_free()
+	BoardSprites.preload_all()
+	_busy = false
+	if _queue.size():
+		_pump()
 
 static func key_of(o: Dictionary) -> String:
 	var j: Dictionary = o.get("jewel", {})

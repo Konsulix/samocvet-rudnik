@@ -6,7 +6,7 @@ extends RefCounted
 signal finished
 
 ## a bonus stone from a geode: tap it open first
-func crack(s: Dictionary, title := "Расколите камень") -> void:
+func crack(s: Dictionary, title := "Crack the stone") -> void:
 	var v := Ov.card()
 	v.add_child(UI.title(title, 22))
 	var hits := [0]
@@ -22,7 +22,7 @@ func crack(s: Dictionary, title := "Расколите камень") -> void:
 			for q in line: pts.append(Vector2(30, 30) + q * 1.8)
 			nod.draw_polyline(pts, Color(0.08, 0.05, 0.03), 4.0, true)
 			nod.draw_polyline(pts, Color(1, 0.86, 0.6), 1.6, true))
-	var hint := Ov.text("Нажимайте на камень")
+	var hint := Ov.text("Tap the stone")
 	var wrap := CenterContainer.new()
 	wrap.add_child(nod)
 	v.add_child(wrap)
@@ -69,65 +69,110 @@ func _chips(at: Control, n: int) -> void:
 
 ## the reveal: a live specimen, its label, sell or keep. `others` were the stones not chosen.
 func show_stone(s: Dictionary, others := []) -> void:
-	var sp: Dictionary = Data.SP[s.sid]
 	var tier: int = s.tier
 	Sfx.play("reveal", tier)
 	Sfx.buzz(140 if tier >= 3 else 40)
 	if not s.sid in Save.d.seen:
 		Save.d.seen.append(s.sid)
 		Save.persist()
-	var v := Ov.card(350)
-	var view := SpecView.new(384)
-	view.custom_minimum_size = Vector2(314, 290)
-	v.add_child(view)
-	view.show_spec(Spec.of_stone(s))
-	if s.get("legend", false):
-		view.add_child(legend_frame())
-	var rc := Data.rarity_color(tier)
-	var rar := UI.label("легендарная находка" if s.get("legend", false) else String(Data.RAR[tier]), 13, UI.body_bold, rc)
-	rar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rar.uppercase = true
-	v.add_child(rar)
-	var name_l := UI.title(sp.n, 24)
-	v.add_child(name_l)
-	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation", 2)
-	_row(rows, "Вес", Stones.fmt_weight(int(s.g)))
-	_row(rows, "Качество", String(Data.GR[int(s.gi)].n))
-	if s.has("integ"):
-		var ig := int(s.integ)
-		_row(rows, "Целостность", "%d%%" % ig, UI.GOOD if ig >= 90 else Color("#f0b040") if ig >= 60 else Color("#ff6a5a"))
-	for line in SpecGenome.describe(SpecGenome.of(Spec.of_stone(s))):
-		_row(rows, line[0], line[1])
-	_row(rows, "Оценка", UI.coins(int(s.value)), UI.GOLD)
-	v.add_child(rows)
+	var v := Ov.card(350, Data.rarity_color(tier))
 	var traits: Array = s.get("traits", [])
-	if traits.size():
-		var flow := HFlowContainer.new()
-		flow.alignment = FlowContainer.ALIGNMENT_CENTER
-		flow.add_theme_constant_override("h_separation", 6)
-		flow.add_theme_constant_override("v_separation", 6)
-		for id in traits:
-			var t: Dictionary = Data.TR[id]
-			flow.add_child(chip(t.n, float(t.p) < 0.06))
-		v.add_child(flow)
+	stone_card(v, s, 400 if others.is_empty() else 360)
 	if others.size():
 		var names := []
 		for o in others: names.append(Data.SP[o.sid].n)
-		v.add_child(Ov.text("Остальные были: " + ", ".join(names), 13))
+		v.add_child(Ov.text("The others were: " + ", ".join(names), 13))
 	var price := roundi(float(s.value) * Save.coin_mul())
-	v.add_child(Ov.btn("Продать · " + UI.coins(price), "gold", func():
+	var sell := func():
 		Save.d.coins += price
 		Save.persist()
 		Sfx.play("coin")
 		Ov.close()
-		finished.emit()))
-	v.add_child(Ov.btn("В коллекцию", "green", func():
+		finished.emit()
+	var keep := func():
 		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = traits, legend = s.get("legend", false), g = s.g, value = s.value, tier = tier})
 		Save.persist()
 		Ov.close()
-		Ov.toast("Камень в коллекции")
-		finished.emit()))
+		Ov.toast("Added to the collection")
+		finished.emit()
+	v.add_child(action_row(UI.button("Sell · " + UI.coins(price), "soft_gold", 16), sell, UI.button("Keep", "soft_green", 16), keep))
+
+## the stone is the star: name on top, a big live specimen in a rounded frame, then only weight,
+## grade and soundness; rarity is the colour of the card's glow, the rest are badges. Shared with the museum.
+## on_close: a small ✕ in the header (the museum's card), instead of a Close button
+static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close := Callable()) -> SpecView:
+	v.add_theme_constant_override("separation", 10)
+	# the name in the same colour as the card's glow: the rarity at a glance
+	var name_l := UI.title(Data.SP[s.sid].n, 26)
+	name_l.add_theme_color_override("font_color", Data.rarity_color(int(s.tier)).lightened(0.15))
+	if on_close.is_valid():
+		# the name stays centred: an empty slot on the left balances the ✕ on the right
+		var head := HBoxContainer.new()
+		var pad := Control.new()
+		pad.custom_minimum_size = Vector2(36, 0)
+		head.add_child(pad)
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(name_l)
+		var x := UI.button("✕", "glass", 16)
+		x.custom_minimum_size = Vector2(36, 36)
+		x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		x.pressed.connect(on_close)
+		head.add_child(x)
+		v.add_child(head)
+	else:
+		v.add_child(name_l)
+	var so := Spec.of_stone(s)
+	var frame := PanelContainer.new()
+	var fst := StyleBoxFlat.new()
+	fst.bg_color = Color.WHITE
+	fst.set_corner_radius_all(20)
+	fst.anti_aliasing = true
+	frame.add_theme_stylebox_override("panel", fst)
+	frame.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	var view := SpecView.new(384)
+	view.custom_minimum_size = Vector2(314, view_h)
+	frame.add_child(view)
+	v.add_child(frame)
+	view.show_spec(so)
+	if s.get("legend", false):
+		view.add_child(legend_frame())
+	var stats := HBoxContainer.new()
+	stats.add_theme_constant_override("separation", 8)
+	_stat(stats, "Weight", Stones.fmt_weight(int(s.g)))
+	_stat(stats, "Grade", String(Data.GR[int(s.gi)].n))
+	if s.has("integ"):
+		var ig := int(s.integ)
+		_stat(stats, "Soundness", "%d%%" % ig, UI.GOOD if ig >= 90 else Color("#f0b040") if ig >= 60 else Color("#ff6a5a"))
+	else:
+		_stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
+	v.add_child(stats)
+	var gene := SpecGenome.of(so)
+	var flow := HFlowContainer.new()
+	flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 6)
+	if String(gene.fx) != "":
+		flow.add_child(chip(SpecLegend.FX_N.get(gene.fx, gene.fx), true))
+	for id in s.get("traits", []):
+		var t: Dictionary = Data.TR[id]
+		flow.add_child(chip(t.n, float(t.p) < 0.06))
+	for a in gene.accents:
+		flow.add_child(chip(SpecGenome.ACC_N.get(a, a), false, true))
+	if flow.get_child_count():
+		v.add_child(flow)
+	return view
+
+## two quiet buttons side by side: [left] [right]
+static func action_row(left: Button, on_left: Callable, right: Button, on_right: Callable) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	for pair in [[left, on_left], [right, on_right]]:
+		var b: Button = pair[0]
+		b.custom_minimum_size = Vector2(0, 48)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(pair[1])
+		h.add_child(b)
+	return h
 
 ## a golden frame for legendary finds: light running round it, sparks of colour, like a golden card
 static func legend_frame() -> ColorRect:
@@ -156,16 +201,37 @@ void fragment(){
 
 static func _row(box: VBoxContainer, k: String, val: String, col := UI.INK) -> void:
 	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
 	var a := UI.label(k, 15, UI.body, UI.MUTED)
-	a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	a.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	h.add_child(a)
-	h.add_child(UI.label(val, 15, UI.body_bold, col))
+	# a long value (three growths, a legendary effect) wraps onto more lines instead of pushing the card off screen
+	var b := UI.label(val, 15, UI.body_bold, col)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.custom_minimum_size = Vector2(60, 0)
+	h.add_child(b)
 	box.add_child(h)
 
-static func chip(t: String, rare := false) -> Label:
-	var l := UI.label(t, 12, UI.body_bold, Color("#2a1a00") if rare else UI.INK)
+## one figure under the specimen: a small muted caption over a bold value
+static func _stat(box: HBoxContainer, k: String, val: String, col := UI.INK) -> void:
+	var c := VBoxContainer.new()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.add_theme_constant_override("separation", 0)
+	for l in [UI.label(k, 12, UI.body, UI.MUTED), UI.label(val, 17, UI.body_bold, col)]:
+		(l as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		c.add_child(l)
+	box.add_child(c)
+
+## rare: a gold badge (a valuable trait); growth: a quiet outlined one (what grew on the stone)
+static func chip(t: String, rare := false, growth := false) -> Label:
+	var l := UI.label(t, 12, UI.body_bold, Color("#2a1a00") if rare else UI.MUTED if growth else UI.INK)
 	var st := StyleBoxFlat.new()
-	st.bg_color = UI.GOLD if rare else Color(1, 1, 1, 0.1)
+	st.bg_color = UI.GOLD if rare else Color(1, 1, 1, 0.03) if growth else Color(1, 1, 1, 0.1)
+	if growth:
+		st.set_border_width_all(1)
+		st.border_color = Color(1, 1, 1, 0.18)
 	st.set_corner_radius_all(10)
 	st.content_margin_left = 9
 	st.content_margin_right = 9

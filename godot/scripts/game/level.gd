@@ -87,6 +87,8 @@ func _mount_find() -> void:
 	if model.find.is_empty():
 		return
 	find_studio = SpecStudio.make(200, Viewport.MSAA_2X)
+	# the sealed find turns slowly: 30 renders a second are plenty (see _process)
+	find_studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(find_studio.vp)
 	board.find_tex = find_studio.vp.get_texture()
 	var st := find_studio
@@ -133,7 +135,7 @@ func _build_hud() -> void:
 	tp.content_margin_top = 6
 	tp.content_margin_bottom = 8
 	title_pill.add_theme_stylebox_override("panel", tp)
-	title_label = UI.label("Уровень", 15, UI.display, UI.STONE_INK)
+	title_label = UI.label("Level", 15, UI.display, UI.STONE_INK)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.clip_text = true
 	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -168,7 +170,7 @@ func _build_hud() -> void:
 	var mv := VBoxContainer.new()
 	mv.alignment = BoxContainer.ALIGNMENT_CENTER
 	mv.add_theme_constant_override("separation", -4)
-	var small := UI.label("ХОДЫ", 10, UI.body_bold, UI.STONE_MUTED)
+	var small := UI.label("MOVES", 10, UI.body_bold, UI.STONE_MUTED)
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(small)
 	moves_label = UI.label("0", 28, UI.display, UI.STONE_INK)
@@ -205,7 +207,7 @@ func _build_hud() -> void:
 	hud.add_child(overlay)
 
 func _render_hud() -> void:
-	title_label.text = "Уровень %d · %d м%s" % [model.n, int(Data.DEPTHS[model.depth].m), " · ★" if model.hard else ""]
+	title_label.text = "Level %d · %d m%s" % [model.n, int(Data.DEPTHS[model.depth].m), " · ★" if model.hard else ""]
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -288,9 +290,15 @@ func _goal_target(gi: int) -> Vector2:
 
 # ---------------------------------------------------------------- input
 
+var _find_frame := 0
+
 func _process(dt: float) -> void:
 	if find_spec:
 		find_spec.rotation.y += dt * 0.5
+	if find_studio:
+		_find_frame += 1
+		if _find_frame % 2 == 0 or not find_spec:
+			find_studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	if busy or model.over: return
 	idle += dt
 	if idle > 5.0 and not _hinted:
@@ -378,9 +386,9 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 				if model.G[s.r][s.c] == g:
 					board.grow_special(g, s.r, s.c)
 					fx.ring(s.r, s.c, 0.3, Color(1.6, 1.3, 2.0))
-		if cascade == 3: _cheer("Отлично!")
-		elif cascade == 5: _cheer("Блестяще!")
-		elif cascade == 7: _cheer("Самородок!")
+		if cascade == 3: _cheer("Great!")
+		elif cascade == 5: _cheer("Brilliant!")
+		elif cascade == 7: _cheer("Nugget!")
 		board.refresh()
 		await board.animate_collapse(model.collapse())
 		while true:
@@ -395,7 +403,7 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 			await board.animate_collapse(model.collapse())
 		sw = []
 	if not model.over and not model.has_moves():
-		_cheer("Перемешиваю")
+		_cheer("Shuffling")
 		model.shuffle()
 		await board.animate_shuffle()
 
@@ -413,16 +421,16 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			if e.color >= 0 and not merges.has(e.id):
 				fx.debris(e.r, e.c, Color.html(Data.GEMS[e.color].c), 6)
 		"rock":
-			board.under.queue_redraw()
+			board.redraw_under()
 			fx.debris(e.r, e.c, Color("#c89a62") if e.left == 0 else Color("#8a919c"), 10)
 			Sfx.play("rock")
 			Sfx.buzz(10)
 		"gas":
-			board.under.queue_redraw()
+			board.redraw_under()
 			fx.debris(e.r, e.c, Color("#a2dc3c"), 12)
 			Sfx.play("rock")
 		"mud":
-			board.under.queue_redraw()
+			board.redraw_under()
 			fx.debris(e.r, e.c, Color("#7a5a3a"), 8)
 		"lock":
 			board.over.queue_redraw()
@@ -434,10 +442,10 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			var geo: Dictionary = model.geos[e.gi]
 			fx.debris(geo.r + 0.5, geo.c + 0.5, Color("#9a8a78"), 12)
 		"geo_open":
-			board.under.queue_redraw()
+			board.redraw_under()
 			fx.sparkle(e.r + 0.5, e.c + 0.5, Color("#d8b8ff"), 30)
 			Sfx.play("reveal", 1)
-			_toast("Жеода расколота: камень ждёт вас в конце уровня")
+			_toast("Geode cracked: a stone awaits you at the end of the level")
 		"find_hit":
 			board.find_hit_at = Time.get_ticks_msec() / 1000.0
 			var F: Dictionary = model.find
@@ -445,20 +453,20 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				Sfx.play("crack", 3)
 				Sfx.buzz(35)
 				fx.debris(F.r + 0.5, F.c + 0.5, Color("#ffb090"), 16)
-				fx.pop_text(F.r + 0.5, F.c + 0.5, "скол −%d%%" % e.chip)
+				fx.pop_text(F.r + 0.5, F.c + 0.5, "chip −%d%%" % e.chip)
 			else:
 				Sfx.play("rock")
 				fx.debris(F.r + 0.5, F.c + 0.5, Color("#9a8a78"), 9)
 			var gi := model.goal_index("find")
 			if gi >= 0: _render_goal(gi)
 		"find_done":
-			board.under.queue_redraw()
+			board.redraw_under()
 			var col := Data.rarity_color(model.find.stone.tier)
 			fx.sparkle(e.r + 0.5, e.c + 0.5, Color(col.r * 1.5, col.g * 1.5, col.b * 1.5), 44)
 			fx.flash(e.r + 0.5, e.c + 0.5, Color(col.r * 2, col.g * 2, col.b * 2), 2.0)
 			Sfx.play("reveal", model.find.stone.tier)
 			Sfx.buzz(60)
-			_toast("Образец извлечён · целостность %d%%" % model.find.integ)
+			_toast("Specimen extracted · soundness %d%%" % model.find.integ)
 		"goal":
 			_flights += 1
 			var gi: int = e.gi
@@ -511,7 +519,7 @@ func _after_turn() -> void:
 	var p := model.gas_spread()
 	if p.x >= 0:
 		board.remove_node(_gem_id_at_removed(p))
-		board.under.queue_redraw()
+		board.redraw_under()
 		fx.sparkle(p.x, p.y, Color("#c8f070"), 14)
 		Sfx.play("gas")
 		var gi := model.goal_index("gas")
@@ -520,7 +528,7 @@ func _after_turn() -> void:
 			_render_goal(gi)
 		if not has_meta("gas_told"):
 			set_meta("gas_told", true)
-			_toast("Газ расползается — задевайте его каждый ход")
+			_toast("Gas is spreading — hit it every move")
 		await _wait(0.26)
 	if model.moves <= 0:
 		model.over = true
@@ -549,7 +557,7 @@ func _on_booster(bo: Dictionary) -> void:
 		_buy_booster(bo)
 		return
 	booster = "" if booster == id else id
-	hint_label.text = ("%s: %s — нажмите на клетку" % [bo.n, String(bo.d).to_lower()]) if booster != "" else ""
+	hint_label.text = ("%s: %s — tap a cell" % [bo.n, String(bo.d).to_lower()]) if booster != "" else ""
 	_render_boosters()
 
 func _use_booster(r: int, c: int) -> void:
@@ -572,8 +580,8 @@ func _use_booster(r: int, c: int) -> void:
 
 func _buy_booster(bo: Dictionary) -> void:
 	var price: int = bo.price
-	_panel("%s" % bo.n, "%s. Купить 3 штуки?" % bo.d, [
-		["Купить · %s" % UI.coins(price), "gold", func():
+	_panel("%s" % bo.n, "%s. Buy 3?" % bo.d, [
+		["Buy · %s" % UI.coins(price), "gold", func():
 			if Save.d.coins < price: return
 			Save.d.coins -= price
 			Save.d.boost[bo.id] += 3
@@ -581,13 +589,13 @@ func _buy_booster(bo: Dictionary) -> void:
 			Sfx.play("coin")
 			_close_panel()
 			_render_boosters(), Save.d.coins >= price],
-		["Не сейчас", "glass", _close_panel, true]])
+		["Not now", "glass", _close_panel, true]])
 
 # ---------------------------------------------------------------- level end
 
 func _finale() -> void:
 	if model.moves <= 0: return
-	_cheer("Взрывная смена!")
+	_cheer("Blast shift!")
 	await _wait(0.5)
 	var picks := model.finale_picks()
 	for p in picks:
@@ -623,9 +631,9 @@ func _out_of_moves() -> void:
 	var left := 0
 	for g in model.goals:
 		if g.left > 0: left += 1
-	var msg := "Осталось целей: %d.%s Ещё пять ходов?" % [left, " Образец так и останется в породе." if not model.find.is_empty() and not model.find.done else ""]
-	_panel("Ходы закончились", msg, [
-		["+5 ходов · 300 монет", "gold", func():
+	var msg := "Goals left: %d.%s Five more moves?" % [left, " The specimen will stay in the rock." if not model.find.is_empty() and not model.find.done else ""]
+	_panel("Out of moves", msg, [
+		["+5 moves · 300 coins", "gold", func():
 			if Save.d.coins < 300: return
 			Save.d.coins -= 300
 			Save.persist()
@@ -635,7 +643,7 @@ func _out_of_moves() -> void:
 			_close_panel()
 			Sfx.play("coin")
 			busy = false, Save.d.coins >= 300],
-		["Сдаться (−1 жизнь)", "glass", func():
+		["Give up (−1 life)", "glass", func():
 			Save.tick_lives()
 			Save.d.streak = 0
 			Save.d.lives = maxi(0, Save.d.lives - 1)
@@ -647,8 +655,8 @@ func _out_of_moves() -> void:
 func _on_quit() -> void:
 	if model.over or busy:
 		if not model.over: return
-	_panel("Выйти из уровня?", "Уровень засчитается как проигрыш, жизнь сгорит.", [
-		["Выйти", "red", func():
+	_panel("Leave the level?", "It counts as a loss and costs a life.", [
+		["Leave", "red", func():
 			Save.tick_lives()
 			Save.d.streak = 0
 			Save.d.lives = maxi(0, Save.d.lives - 1)
@@ -656,7 +664,7 @@ func _on_quit() -> void:
 			Save.persist()
 			_close_panel()
 			finished.emit({won = false, n = model.n}), true],
-		["Играть дальше", "glass", _close_panel, true]])
+		["Keep playing", "glass", _close_panel, true]])
 
 # ---------------------------------------------------------------- small UI helpers
 

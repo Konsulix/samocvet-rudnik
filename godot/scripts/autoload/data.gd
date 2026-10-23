@@ -77,8 +77,8 @@ func streak_free(streak: int) -> Array:
 func streak_text(streak: int) -> String:
 	var f := streak_free(streak)
 	if f.is_empty():
-		return "Ещё победа — и динамит на старте бесплатно."
+		return "One more win and dynamite at the start is free."
 	var names := []
 	for p in PRE:
 		if p.id in f: names.append(String(p.n).to_lower())
-	return "Бесплатно на старте: %s." % ", ".join(names)
+	return "Free at the start: %s." % ", ".join(names)

@@ -416,7 +416,7 @@ func _bands() -> void:
 			draw_polyline(GemArt.closed(pill), hx("#e3a51e" if nxt else "#2a3442"), 1.0, true)
 			_lock_icon(Vector2(cx - tw / 2 + 13, gy), hx("#ffd27a" if nxt else "#8d97a6"))
 			draw_string(font, Vector2(cx - tw / 2 + 22, gy + 3.5), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, hx("#ffd27a" if nxt else "#8d97a6"))
-		draw_string(font, Vector2(10, y + 15), "%d м" % int(D.m), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, hx("#ffd27a" if open else "#6a7484"))
+		draw_string(font, Vector2(10, y + 15), "%d m" % int(D.m), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, hx("#ffd27a" if open else "#6a7484"))
 
 func _lock_icon(c: Vector2, col: Color) -> void:
 	draw_rect(Rect2(c + Vector2(-3.5, -1), Vector2(7, 5.5)), col)

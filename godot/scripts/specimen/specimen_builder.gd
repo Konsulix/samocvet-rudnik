@@ -102,7 +102,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5, rf = 0.3, st = stria, dirt = dt, prio = 2,
-			rim = gene.rim, holo = gene.holo, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
+			holo = gene.holo, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
 			lava = 1.0 if gene.fx == "lava" else 0.0,
 			frost = 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25, thick = 1.0 + op * 0.4, seed = float(seed_v % 97)}
 		return d
@@ -112,10 +112,11 @@ func _specimen(o: Dictionary) -> Node3D:
 			dt_mats.append(m)
 		return m
 	var rock_mat := func(c: Color) -> ShaderMaterial:
-		var rd := {col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}}
+		var rd := {col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}, silv = gene.silv}
 		if gene.fx == "lava": rd.lava = 1.0
-		if gene.fx == "fluor": rd.merge(SpecLegend.shader_params("fluor", gene.fx_v))
-		return SpecMat.make(rd)
+		var rm := SpecMat.make(rd)
+		rm.set_meta("rock", true)   # ultraviolet lights the crystals, never the rock
+		return rm
 	var use_rock := func(shape: String) -> MeshInstance3D:
 		var loose: float = gene.loose
 		var R := RockKit.rock(rng, rtype, shape, 32, loose)
@@ -381,7 +382,7 @@ func _specimen(o: Dictionary) -> Node3D:
 				# the core glows through the main crystal's own glass, whatever the angle
 				var hm := (main.material_override as ShaderMaterial).duplicate() as ShaderMaterial
 				var bb: AABB = (main.get_meta("geo") as Geo).aabb()
-				var hc := Color(col.r * 2.5 + 1.0, col.g * 2.5 + 0.9, col.b * 2.5 + 0.7)
+				var hc := SpecLegend.heart_color(col) * 2.0
 				hm.set_shader_parameter("heart_pos", bb.get_center() + Vector3(0, bb.size.y * 0.05, 0))
 				hm.set_shader_parameter("heart_r", minf(bb.size.x, bb.size.z) * 0.32)
 				hm.set_shader_parameter("heart_col", Vector3(hc.r, hc.g, hc.b))
@@ -392,6 +393,16 @@ func _specimen(o: Dictionary) -> Node3D:
 			SpecLegend.lightning(main, rng)
 			if main and main.material_override != mat and mat in dt_mats: dt_mats.append(main.material_override)
 		"lava": SpecLegend.lava(root, st.rock if st.rock else main)
+		"fluor":
+			# nuggets, veins, kidneys, geodes and metal crystals build their own materials: light up every mineral,
+			# but not the host rock
+			root.set_meta("fluor", true)
+			var fc: Color = SpecLegend.shader_params("fluor", gene.fx_v).fluor_col
+			for n in root.find_children("*", "GeometryInstance3D", true, false):
+				var gm := (n as GeometryInstance3D).material_override as ShaderMaterial
+				if gm and gm.has_meta("dirt") and not gm.has_meta("rock"):   # made by SpecMat (asking the shader for its uniforms would stall the renderer)
+					gm.set_shader_parameter("fluor_k", 1.0)
+					gm.set_shader_parameter("fluor_col", Vector3(fc.r, fc.g, fc.b))
 	crust_ok = layout != "geode"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)
 	if gene.gold:
@@ -546,7 +557,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var R: Dictionary = RockKit.ROCKS["basalt" if rtype == "quartzite" else rtype]
 	var outer := RockKit.warp(Geo.sphere(1, 64, 32, 0, TAU, 0, PI / 2), rng, 0.3, 1.6)
 	var ocol := SpecMat.hsl(R.h[0], R.s[0] + 0.05, R.l[0] + 0.06).srgb_to_linear()
-	U.mesh(outer, SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}}), shell)
+	var om := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}})
+	om.set_meta("rock", true)
+	U.mesh(outer, om, shell)
 	var ic := col.lerp(Color(0.25, 0.27, 0.3), 0.6) * 0.35
 	ic.a = 1.0
 	U.mesh(Geo.sphere(0.9, 40, 20, 0, TAU, 0, PI / 2), SpecMat.make({col = ic, rough = 0.92, spec = 0.3, side = "back"}), shell)

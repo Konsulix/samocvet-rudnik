@@ -31,17 +31,17 @@ func items() -> Array:
 			var t: Dictionary = Data.DEPTHS[k]
 			var fx := []
 			for x in Data.DSHORT.slice(1, k + 1): fx.append(["bad", x])
-			fx.append(["good", "монеты ×%s" % str(Data.depth_pay(k)).replace(".", ",")])
-			fx.append(["good", "камни дороже"])
-			out.append({key = "d%d" % k, machine = DMACH[k], n = t.tool, sub = "%d → %d м" % [int(Data.DEPTHS[k - 1].m), int(t.m)], own = d >= k, next = k == d + 1,
+			fx.append(["good", "coins ×%s" % str(Data.depth_pay(k))])
+			fx.append(["good", "stones worth more"])
+			out.append({key = "d%d" % k, machine = DMACH[k], n = t.tool, sub = "%d → %d m" % [int(Data.DEPTHS[k - 1].m), int(t.m)], own = d >= k, next = k == d + 1,
 				cost = Data.depth_cost(a, k), fx = fx, k = k,
-				desc = "Открывает выработки до %d м." % int(t.m) if d >= k else "Пробьёт породу до %d м. На новой глубине: %s." % [int(t.m), Data.DMODS[k]]})
+				desc = "Opens workings down to %d m." % int(t.m) if d >= k else "Breaks through rock to %d m. At the new depth: %s." % [int(t.m), Data.DMODS[k]]})
 	else:
 		for e in Data.EQUIP:
 			var lv: int = Save.d.eq[e.id]
 			var mx: int = e.cost.size()
-			out.append({key = e.id, machine = e.id, n = e.n, sub = "уровень %d/%d" % [lv, mx], own = lv >= mx, next = lv < mx, cost = int(e.cost[lv]) if lv < mx else 0,
-				lv = lv, max = mx, fx = [["good", e.d]], desc = "Работает на всех рудниках. Уровень %d из %d." % [lv, mx] if lv else "Работает на всех рудниках сразу."})
+			out.append({key = e.id, machine = e.id, n = e.n, sub = "level %d/%d" % [lv, mx], own = lv >= mx, next = lv < mx, cost = int(e.cost[lv]) if lv < mx else 0,
+				lv = lv, max = mx, fx = [["good", e.d]], desc = "Works in every mine. Level %d of %d." % [lv, mx] if lv else "Works in every mine at once."})
 	return out
 
 func render() -> void:
@@ -74,11 +74,11 @@ func render() -> void:
 	body.add_theme_constant_override("separation", 8)
 	pad.add_child(body)
 	body.add_child(Chrome.pills())
-	body.add_child(UI.title("Депо", 22))
+	body.add_child(UI.title("Depot", 22))
 	var a := ai()
-	var sub := Ov.text(("%s: копаете до %d м" % [Data.AREAS[a].n, int(Data.DEPTHS[int(Save.d.depth[a])].m)] if tab == "depth" else "Снаряжение работает во всех рудниках") + " · у вас " + UI.coins(Save.d.coins), 13, Color("#d8e0ee"))
+	var sub := Ov.text(("%s: digging to %d m" % [Data.AREAS[a].n, int(Data.DEPTHS[int(Save.d.depth[a])].m)] if tab == "depth" else "Gear works in every mine") + " · you have " + UI.coins(Save.d.coins), 13, Color("#d8e0ee"))
 	body.add_child(sub)
-	body.add_child(tabs([["depth", "Проходка · %d/4" % int(Save.d.depth[a])], ["eq", "Снаряжение"]], tab, func(id: String):
+	body.add_child(tabs([["depth", "Sinking · %d/4" % int(Save.d.depth[a])], ["eq", "Gear"]], tab, func(id: String):
 		tab = id
 		sel = ""
 		render()))
@@ -95,7 +95,7 @@ func render() -> void:
 		view.position = Vector2((stage.size.x - s) / 2, (stage.size.y - s) / 2))
 	view.show_spec({machine = it.machine})
 	if it.own:
-		var owned := Reveal.chip("✓ в депо")
+		var owned := Reveal.chip("✓ in the depot")
 		var st := StyleBoxFlat.new()
 		st.bg_color = Color("#1f6a2a")
 		st.set_corner_radius_all(10)
@@ -159,16 +159,16 @@ func _info(it: Dictionary, prev: Dictionary) -> PanelContainer:
 	v.add_child(fx)
 	var btn: Button
 	if it.own:
-		btn = UI.button("✓ В работе" if tab == "depth" else "✓ Максимум", "glass", 16)
+		btn = UI.button("✓ In use" if tab == "depth" else "✓ Maxed", "glass", 16)
 		btn.disabled = true
 	elif not it.next:
-		btn = UI.button("Сначала: " + (String(prev.n).to_lower() if not prev.is_empty() else ""), "glass", 15)
+		btn = UI.button("First: " + (String(prev.n).to_lower() if not prev.is_empty() else ""), "glass", 15)
 		btn.disabled = true
 	elif Save.d.coins >= int(it.cost):
-		btn = UI.button(("Улучшить" if it.get("lv", 0) else "Купить") + " · " + UI.coins(int(it.cost)), "gold", 17)
+		btn = UI.button(("Upgrade" if it.get("lv", 0) else "Buy") + " · " + UI.coins(int(it.cost)), "gold", 17)
 		btn.pressed.connect(func(): _buy(it))
 	else:
-		btn = UI.button("Нужно ещё " + UI.coins(int(it.cost) - Save.d.coins), "glass", 15)
+		btn = UI.button("Need " + UI.coins(int(it.cost) - Save.d.coins), "glass", 15)
 		btn.disabled = true
 	btn.custom_minimum_size = Vector2(0, 50)
 	v.add_child(btn)
@@ -183,10 +183,10 @@ func _buy(it: Dictionary) -> void:
 		var k: int = it.k
 		Save.d.depth[ai()] = k
 		Save.d.depth_sel[ai()] = k
-		msg = "%s: открыта глубина %d м" % [it.n, int(Data.DEPTHS[k].m)]
+		msg = "%s: depth %d m opened" % [it.n, int(Data.DEPTHS[k].m)]
 	else:
 		Save.d.eq[it.key] += 1
-		msg = "%s: уровень %d" % [it.n, int(Save.d.eq[it.key])]
+		msg = "%s: level %d" % [it.n, int(Save.d.eq[it.key])]
 	Save.persist()
 	Sfx.play("build")
 	Sfx.buzz(50)
@@ -258,7 +258,7 @@ func _card(x: Dictionary, on: bool) -> Button:
 	n.custom_minimum_size = Vector2(86, 28)
 	n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(n)
-	var tag := UI.label("✓" if x.own else UI.fmt(int(x.cost)) if x.next else "закрыто", 11, UI.body_bold,
+	var tag := UI.label("✓" if x.own else UI.fmt(int(x.cost)) if x.next else "locked", 11, UI.body_bold,
 		Color("#c8ffc8") if x.own else Color("#2a1a04") if x.next else Color("#8a8270"))
 	var ts := StyleBoxFlat.new()
 	ts.bg_color = Color("#1f5a24") if x.own else Color("#e3a51e") if x.next else Color("#2a2a24")

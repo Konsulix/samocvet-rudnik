@@ -10,8 +10,17 @@ static var _tex := {}
 static func tex(name: String) -> Texture2D:
 	if not _tex.has(name):
 		var path := "res://assets/board/gems/%s.png" % name if name in GEMS else "res://assets/board/pieces/%s.png" % name
-		_tex[name] = load(path)
+		_tex[name] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
 	return _tex[name]
+
+## start loading every board sprite on background threads, so the first level does not read them from disk
+## mid-frame; tex() then picks up the finished ones
+static func preload_all() -> void:
+	for name in GEMS:
+		ResourceLoader.load_threaded_request("res://assets/board/gems/%s.png" % name)
+	for f in ResourceLoader.list_directory("res://assets/board/pieces/"):
+		if f.ends_with(".png"):
+			ResourceLoader.load_threaded_request("res://assets/board/pieces/" + f)
 
 static func gem(t: int) -> Texture2D:
 	return tex(GEMS[t % GEMS.size()])

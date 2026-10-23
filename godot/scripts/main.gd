@@ -10,6 +10,7 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if not args.has("noglow"): _setup_glow()
+	if args.has("uv"): Spec.force_uv = float(args.uv)
 	if args.has("style"): Board3D.STYLE = int(args.style)
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
@@ -22,7 +23,7 @@ func _ready() -> void:
 			if i % 4 == 0: st.cut = ["cab", "facet", "master"][i % 3]
 			Save.d.coll.append(st)
 			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
-		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["рубин", "сапфир"], value = 9000}]
+		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["ruby", "sapphire"], value = 9000}]
 		Save.d.coins = 5000
 	if args.has("tab"):
 		Museum.start_tab = args.tab
@@ -38,6 +39,9 @@ func _ready() -> void:
 	if args.has("reveal"):
 		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
 		st.integ = 86
+		if args.has("sid"): st.sid = args.sid
+		if args.has("kind"): st.kind = args.kind
+		if args.has("traits"): st.traits = Array(args.traits.split(","))
 		if args.has("legend"):
 			st.legend = true
 			st.tier = 4
@@ -46,6 +50,10 @@ func _ready() -> void:
 		else: Reveal.new().show_stone(st)
 	if args.has("shot"):
 		_take_shot()
+	if args.has("hitch"):
+		_hitch(float(args.hitch))
+	if args.has("perf"):
+		_perf(int(args.perf))
 
 func _setup_glow() -> void:
 	var we := WorldEnvironment.new()
@@ -112,7 +120,7 @@ func _on_level_finished(res: Dictionary) -> void:
 			rv.show_stone(res.stone)
 			await rv.finished
 		for s in res.bonus:
-			await Reveal.new().crack(s, "Камень из жеоды на поле")
+			await Reveal.new().crack(s, "A stone from a geode on the board")
 		await _win_card(res)
 	show_home()
 
@@ -122,9 +130,9 @@ func _win_card(res: Dictionary) -> void:
 	var star := UI.label("★", 54, UI.display, UI.GOLD)
 	star.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(star)
-	v.add_child(UI.title("Уровень %d пройден!" % res.n, 22))
+	v.add_child(UI.title("Level %d complete!" % res.n, 22))
 	if res.depth:
-		v.add_child(Ov.text("Глубина %d м: монеты ×%s" % [int(Data.DEPTHS[res.depth].m), str(Data.depth_pay(res.depth)).replace(".", ",")]))
+		v.add_child(Ov.text("Depth %d m: coins ×%s" % [int(Data.DEPTHS[res.depth].m), str(Data.depth_pay(res.depth))]))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 10)
@@ -132,12 +140,39 @@ func _win_card(res: Dictionary) -> void:
 	line.add_child(Reveal.chip("$ +%s" % UI.fmt(res.coins), true))
 	v.add_child(line)
 	if Save.d.streak >= 2:
-		v.add_child(Ov.text("Серия побед: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)]))
+		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)]))
 	else:
-		v.add_child(Ov.text("Звёзды тратятся на обустройство рудника."))
-	var go := Ov.btn("Дальше", "green", func(): Ov.close())
+		v.add_child(Ov.text("Stars are spent on fitting out the mine."))
+	var go := Ov.btn("Continue", "green", func(): Ov.close())
 	v.add_child(go)
 	await Ov.closed
+
+## hitch=SECONDS: watch every frame for that long, log the slow ones (wall time and script time), then quit
+func _hitch(secs: float) -> void:
+	var t0 := Time.get_ticks_msec()
+	var last := Time.get_ticks_usec()
+	var n := 0
+	var sum := 0.0
+	var worst := 0.0
+	var slow := 0
+	var proc_sum := 0.0
+	while Time.get_ticks_msec() - t0 < secs * 1000.0:
+		await get_tree().process_frame
+		var now := Time.get_ticks_usec()
+		var ms := (now - last) / 1000.0
+		last = now
+		var pr := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		n += 1
+		sum += ms
+		proc_sum += pr
+		worst = maxf(worst, ms)
+		if ms > 20.0:
+			slow += 1
+			print("hitch at %.2f s: frame %.1f ms, script %.1f ms, objects %d, draws %d" % [(Time.get_ticks_msec() - t0) / 1000.0, ms, pr,
+				Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
+	print("hitch summary: %d frames, avg %.1f ms, script avg %.2f ms, worst %.1f ms, slow %d, objects %d, nodes %d" % [n, sum / n, proc_sum / n, worst, slow,
+		Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+	get_tree().quit()
 
 ## plays a few moves by itself, for screenshots of a level in motion
 func _autoplay(lv: Level, turns: int) -> void:
@@ -149,6 +184,25 @@ func _autoplay(lv: Level, turns: int) -> void:
 		if mv[0] == mv[2] and mv[1] == mv[3]: lv._on_tap(mv[0], mv[1])
 		else: lv._on_swipe(mv[0], mv[1], mv[2], mv[3])
 		await get_tree().create_timer(0.3).timeout
+
+## perf=N: open N reveals in a row and log every frame slower than 20 ms (hitches while a specimen loads)
+func _perf(n: int) -> void:
+	await get_tree().create_timer(2.0).timeout
+	var worst := 0.0
+	for i in n:
+		Reveal.new().show_stone(Stones.roll(100 + i * 7, Save.area(), 0.8, 1))
+		var t0 := Time.get_ticks_msec()
+		var last := Time.get_ticks_usec()
+		while Time.get_ticks_msec() - t0 < 1500:
+			await get_tree().process_frame
+			var now := Time.get_ticks_usec()
+			var ms := (now - last) / 1000.0
+			last = now
+			worst = maxf(worst, ms)
+			if ms > 20.0: print("perf hitch: stone %d at +%d ms: %.1f ms" % [i, Time.get_ticks_msec() - t0, ms])
+		Ov.close()
+	print("perf worst frame: %.1f ms" % worst)
+	get_tree().quit()
 
 func _take_shot() -> void:
 	await get_tree().create_timer(float(args.get("after", "3"))).timeout

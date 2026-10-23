@@ -13,7 +13,8 @@ var model: BoardModel
 var TS := 46.0
 var PAD := 6.0
 var nodes := {}               # gem id -> GemNode
-var under: Node2D            # mud, rocks, gas, geodes, the find
+var under: Node2D            # mud and rocks: redrawn only when the board changes
+var live: Node2D             # gas, geodes, the find: they breathe, pulse and shake, so redrawn every frame while present
 var gems: Node2D
 var over: Node2D             # timber locks sit on top of their stones
 var board3d: Board3D         # the stones themselves, faceted 3D gems seen from straight above
@@ -32,6 +33,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	under = _layer(_draw_under)
+	live = _layer(_draw_live)
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
@@ -79,7 +81,7 @@ func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
 
 func refresh() -> void:
 	queue_redraw()
-	under.queue_redraw()
+	redraw_under()
 	over.queue_redraw()
 
 ## stones fall into the board from above at the start
@@ -240,9 +242,13 @@ func _pocket(p: Vector2) -> void:
 	var tile := BoardSprites.tex("tile")
 	draw_texture_rect_region(tile, Rect2(p, Vector2(TS, TS)), Rect2(Vector2(0, 0), Vector2(tile.get_width(), tile.get_height())), Color(1, 1, 1))
 
+## the layers under the stones changed (a rock cracked, mud cleared, a geode or the find was hit)
+func redraw_under() -> void:
+	under.queue_redraw()
+	live.queue_redraw()
+
 func _draw_under(ci: Node2D) -> void:
 	if model == null: return
-	var now := Time.get_ticks_msec() / 1000.0
 	for r in R:
 		for c in C:
 			if not model.playable(r, c): continue
@@ -250,7 +256,18 @@ func _draw_under(ci: Node2D) -> void:
 			ci.draw_set_transform(p, 0, Vector2.ONE)
 			var cc := Vector2(TS, TS) * 0.5
 			if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
-			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex("rock%d" % mini(2, model.ROCK[r][c])), cc, TS)
+			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex(ROCKS[mini(2, model.ROCK[r][c])]), cc, TS)
+	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+const ROCKS := ["rock0", "rock1", "rock2"]
+
+func _draw_live(ci: Node2D) -> void:
+	if model == null: return
+	var now := Time.get_ticks_msec() / 1000.0
+	for r in R:
+		for c in C:
+			if not model.playable(r, c): continue
+			var p := Vector2(PAD + c * TS, PAD + r * TS)
 			if model.GAS[r][c]:
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
@@ -339,7 +356,7 @@ func _draw_find(ci: Node2D, now: float) -> void:
 func _process(_dt: float) -> void:
 	# gas breathes, specimens pulse, shaken blocks settle
 	if model and (not model.find.is_empty() and not model.find.done or _has_gas() or not geo_hit_at.is_empty()):
-		under.queue_redraw()
+		live.queue_redraw()
 
 func _has_gas() -> bool:
 	for r in R:

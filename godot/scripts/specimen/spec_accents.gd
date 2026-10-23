@@ -58,6 +58,7 @@ static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int,
 	mm.use_colors = true
 	mm.mesh = strand_mesh(bend)
 	mm.instance_count = count
+	var buf := SpecUtil.mm_buf(count)
 	var T := n.cross(Vector3.FORWARD if absf(n.y) > 0.9 else Vector3.UP).normalized()
 	var B := n.cross(T)
 	for k in count:
@@ -65,10 +66,11 @@ static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int,
 		var ln := length * (0.45 + rng.next() * 0.7)
 		var b := Basis(SpecUtil.quat_to(Vector3.UP, d)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(thick, ln, thick))
 		var root := p + (T * (rng.next() - 0.5) + B * (rng.next() - 0.5)) * area * 2.0
-		mm.set_instance_transform(k, Transform3D(b, root + d * rng.next() * length * 0.08))
+		var xf := Transform3D(b, root + d * rng.next() * length * 0.08)
 		var cc: Color = cols[int(rng.next() * cols.size())]
 		var v := 0.75 + rng.next() * 0.5
-		mm.set_instance_color(k, Color(cc.r * v, cc.g * v, cc.b * v))
+		SpecUtil.put(buf, k, xf, Color(cc.r * v, cc.g * v, cc.b * v))
+	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = fibre_mat()
@@ -158,9 +160,10 @@ static func _mm(mesh: Mesh, xs: Array, cs: Array, parent: Node3D) -> void:
 	mm.use_colors = true
 	mm.mesh = mesh
 	mm.instance_count = xs.size()
+	var buf := SpecUtil.mm_buf(xs.size())
 	for i in xs.size():
-		mm.set_instance_transform(i, xs[i])
-		mm.set_instance_color(i, cs[i])
+		SpecUtil.put(buf, i, xs[i], cs[i])
+	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = plant_mat()

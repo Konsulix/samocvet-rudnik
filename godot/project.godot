@@ -6,8 +6,8 @@ config_version=5
 
 [application]
 
-config/name="Самоцветный рудник"
-config/description="Три в ряд с находками минералов"
+config/name="Gemstone Mine"
+config/description="Match-three with mineral finds"
 run/main_scene="res://scenes/main.tscn"
 config/icon="res://icon.png"
 config/features=PackedStringArray("4.7", "Mobile")
@@ -35,3 +35,14 @@ anti_aliasing/quality/msaa_2d=2
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+
+[shader_globals]
+
+fluor_uv={
+"type": "float",
+"value": 0.0
+}
+heart_beat={
+"type": "float",
+"value": 0.0
+}

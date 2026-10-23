@@ -141,6 +141,7 @@ static func patch(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, radi
 	mm.use_colors = true
 	mm.mesh = card_mesh()
 	mm.instance_count = count
+	var buf := SpecUtil.mm_buf(count)
 	for k in count:
 		var pn: Array = near[int(rng.next() * near.size())]
 		var p: Vector3 = pn[0]
@@ -149,10 +150,11 @@ static func patch(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, radi
 		var s := size * (0.5 + rng.next() * 0.8) * (1.15 - d * 0.6)
 		var b := Basis(SpecUtil.quat_to(Vector3.UP, (n + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.5).normalized())) * Basis(Vector3.UP, rng.next() * TAU)
 		b = b * Basis.from_scale(Vector3(s * (1.4 if kind == "fern" else 1.0), s * (1.0 + rng.next() * 0.6), s * (1.4 if kind == "fern" else 1.0)))
-		mm.set_instance_transform(k, Transform3D(b, p - n * s * 0.12))
+		var xf := Transform3D(b, p - n * s * 0.12)
 		var c := Color(0.42 + rng.next() * 0.3, 0.55 + rng.next() * 0.3, 0.3 + rng.next() * 0.2)
 		if rng.next() < 0.12: c = Color(0.9, 0.75, 0.35)
-		mm.set_instance_color(k, c)
+		SpecUtil.put(buf, k, xf, c)
+	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = material(kind)

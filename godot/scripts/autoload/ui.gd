@@ -1,8 +1,8 @@
 extends Node
 ## Shared look: fonts, the app theme, glass panels and the chunky game buttons.
 
-var display: FontVariation   # Unbounded — titles, numbers
-var body: FontVariation      # Nunito — everything else
+var display: FontVariation   # Nunito Sans black — titles, numbers
+var body: FontVariation      # Nunito Sans — everything else
 var body_bold: FontVariation
 var theme: Theme
 
@@ -12,9 +12,9 @@ const MUTED := Color("#9fb0c8")
 const GOOD := Color("#4cd480")
 
 func _ready() -> void:
-	display = _font("res://assets/fonts/Unbounded.ttf", 800)
-	body = _font("res://assets/fonts/Nunito.ttf", 700)
-	body_bold = _font("res://assets/fonts/Nunito.ttf", 850)
+	display = _font("res://assets/fonts/NunitoSans.ttf", 900)
+	body = _font("res://assets/fonts/NunitoSans.ttf", 600)
+	body_bold = _font("res://assets/fonts/NunitoSans.ttf", 800)
 	theme = Theme.new()
 	theme.default_font = body
 	theme.default_font_size = 16
@@ -61,9 +61,38 @@ func button_style(kind: String, pressed := false) -> StyleBoxFlat:
 	s.shadow_size = 10
 	return s
 
+## a quiet button for cards: dark glass with a thin coloured rim and coloured text (soft_gold, soft_green, ...);
+## ghost_gold, ghost_purple...: quieter still, a neutral hairline and only the text in colour
+func soft_style(c: Color, a: float, rim := 0.55) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(c, a)
+	s.set_corner_radius_all(16)
+	s.set_border_width_all(1)
+	s.border_color = Color(c, rim)
+	s.set_content_margin_all(10)
+	return s
+
 func button(text: String, kind := "glass", font_size := 20) -> Button:
 	var b := Button.new()
 	b.text = text
+	if kind.begins_with("soft_") or kind.begins_with("ghost_"):
+		var ghost := kind.begins_with("ghost_")
+		var c: Color = {gold = GOLD, green = GOOD, purple = Color("#b48cff")}.get(kind.get_slice("_", 1), INK)
+		b.add_theme_font_override("font", body_bold)
+		b.add_theme_font_size_override("font_size", font_size)
+		for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(st, c.lightened(0.15))
+		b.add_theme_color_override("font_disabled_color", Color(c, 0.4))
+		var bc := Color.WHITE if ghost else c
+		var a0 := 0.03 if ghost else 0.08
+		var rim := 0.12 if ghost else 0.55
+		b.add_theme_stylebox_override("normal", soft_style(bc, a0, rim))
+		b.add_theme_stylebox_override("hover", soft_style(bc, a0 * 1.8, rim))
+		b.add_theme_stylebox_override("pressed", soft_style(bc, a0 * 3.0, rim))
+		b.add_theme_stylebox_override("disabled", soft_style(bc, a0 * 0.4, rim))
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		b.pressed.connect(func(): Sfx.buzz(8))
+		return b
 	b.add_theme_font_override("font", display if kind != "glass" else body_bold)
 	b.add_theme_font_size_override("font_size", font_size)
 	var dark := kind in ["gold", "green"]
@@ -163,20 +192,15 @@ func fmt(n: int) -> String:
 	var s := str(absi(n))
 	var out := ""
 	while s.length() > 3:
-		out = " " + s.substr(s.length() - 3) + out
+		out = "," + s.substr(s.length() - 3) + out
 		s = s.substr(0, s.length() - 3)
 	return ("-" if n < 0 else "") + s + out
 
-func plural(n: int, one: String, few: String, many: String) -> String:
-	var a := absi(n) % 100
-	var b := a % 10
-	if a > 10 and a < 20: return many
-	if b > 1 and b < 5: return few
-	if b == 1: return one
-	return many
+func plural(n: int, one: String, many: String) -> String:
+	return one if absi(n) == 1 else many
 
 func coins(n: int) -> String:
-	return "%s %s" % [fmt(n), plural(n, "монета", "монеты", "монет")]
+	return "%s %s" % [fmt(n), plural(n, "coin", "coins")]
 
 func moves_text(n: int) -> String:
-	return "%d %s" % [n, plural(n, "ход", "хода", "ходов")]
+	return "%d %s" % [n, plural(n, "move", "moves")]
