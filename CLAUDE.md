@@ -30,6 +30,8 @@
   фон `assets/ui/level_bg.png` (`level_bg.py`), интерфейс «мрамор + сланец» (`UI.marble/slate/marble_button`).
 
 ## Что дальше
+- **Главное сейчас — переделка прогресса: руда вместо звёзд, рудники из глубин, босс.** Всё решено и посчитано
+  в `docs/progression-redesign.md` — читать первым делом.
 - Перевести в мраморный стиль: окна (победа/поражение/раскрытие находки — `autoload/overlay.gd`, `screens/reveal.gd`),
   главный экран (`screens/home.gd`, `mine_scene.gd`), депо, музей; эффекты взрывов (`game/fx_layer.gd`).
 - Старое (можно удалять со временем): `board3d.gd`, `gem_cut.gd`, `piece_form.gd`, `board_gem/board_piece.gdshader`,

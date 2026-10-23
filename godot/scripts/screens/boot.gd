@@ -63,6 +63,12 @@ func _ready() -> void:
 	title.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	title.name = "Title"
 	add_child(title)
+	# on the first launch after an install the phone prepares its graphics once; say so if it takes a while
+	var note := UI.label("Preparing graphics for your device — only this once", 12, UI.body, Color("#8a93a6"))
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.name = "Note"
+	note.modulate.a = 0.0
+	add_child(note)
 	var bar := Panel.new()
 	var bs := StyleBoxFlat.new()
 	bs.bg_color = Color(1, 1, 1, 0.08)
@@ -98,6 +104,9 @@ func _layout() -> void:
 	var bar: Panel = get_node("Bar")
 	bar.size = Vector2(_bar_w, 10)
 	bar.position = Vector2(c.x - _bar_w / 2, c.y + 170)
+	var note: Label = get_node("Note")
+	note.position = Vector2(0, c.y + 192)
+	note.size.x = size.x
 
 func _loaded_fraction() -> float:
 	var sum := 0.0
@@ -121,6 +130,9 @@ func _process(dt: float) -> void:
 	_halo.queue_redraw()
 	if _leaving:
 		return
+	if _t > 2.5 and not Spec.warm_done:
+		var note: Label = get_node("Note")
+		note.modulate.a = minf(1.0, note.modulate.a + dt * 2.0)
 	var want := 0.55 * Spec.warm_progress + 0.45 * _loaded_fraction()
 	_shown = move_toward(_shown, want, dt * 1.6)
 	_bar_fill.size = Vector2(maxf(10.0, _bar_w * _shown), 10)

@@ -60,6 +60,15 @@ func _ready() -> void:
 		await get_tree().create_timer(float(args.enter)).timeout
 		print("enter level")
 		show_level(Save.d.level, [], 0)
+	if args.has("sim_min"):
+		print(SimEconomy.minerals(int(args.sim_min)))
+		get_tree().quit()
+		return
+	if args.has("sim"):
+		# sim=N: N levels per depth played inside the board model, stones broken per colour (tests/sim_economy.gd)
+		print(SimEconomy.report(int(args.sim)))
+		get_tree().quit()
+		return
 	if args.has("bake_boot"):
 		# the loading screen's stone as a flipbook: one full turn in FRAMES pictures, a sheet of 8 per row,
 		# so the loading screen shows it without any 3D (nothing to compile while it is up)

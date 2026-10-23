@@ -50,10 +50,10 @@ static func make(size: int, msaa := Viewport.MSAA_4X, transparent := false) -> S
 	s._build(size, msaa, transparent)
 	return s
 
-## a cheap studio for small, always-on pictures (the sealed find on the board): no shadow map, no bloom
+## a cheaper studio for small, always-on pictures (the sealed find on the board): no bloom.
+## Shadows stay: switching them off makes other shader variants, compiled on the phone the first time.
 func lite() -> SpecStudio:
 	env.glow_enabled = false
-	for l in _lights: l.shadow_enabled = false
 	return self
 
 func _build(size: int, msaa: Viewport.MSAA, transparent: bool) -> void:

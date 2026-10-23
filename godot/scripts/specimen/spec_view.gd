@@ -6,7 +6,8 @@ extends Control
 ## The studio renders at real screen pixels (not the 390-wide layout units the UI is laid out in),
 ## so on a 3x phone the stone is not blown up from a small picture and does not shimmer as it turns.
 
-const MAX_PX := 1024   # longest side of the render, to keep the phone cool
+const MAX_PX := 800    # longest side of the render, to keep the phone cool
+const FPS := 60.0      # a slow-turning stone needs no more; on a 120 Hz iPhone this halves the work
 
 var studio: SpecStudio
 var live: Node3D
@@ -25,10 +26,12 @@ var _fov0 := 28.0
 var _touch := {}       # finger index -> position, for the pinch
 var _pinch0 := 0.0
 var _pinch_zoom := 1.0
+var _since := 0.0
 
 func _init(px := 512, transparent := false) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	studio = SpecStudio.make(px, Viewport.MSAA_4X, transparent)
+	studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED   # rendered from _process, at FPS
 	add_child(studio.vp)
 	_img = TextureRect.new()
 	_img.texture = studio.vp.get_texture()
@@ -68,6 +71,10 @@ func show_spec(o: Dictionary) -> void:
 		live.rotation = Vector3(0.12, 0.6, 0)
 
 func _process(dt: float) -> void:
+	_since += dt
+	if _since >= 1.0 / FPS - 0.002 and is_visible_in_tree():
+		_since = 0.0
+		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	if absf(_zoom - _zoom_to) > 0.001:
 		_zoom = lerpf(_zoom, _zoom_to, minf(1.0, dt * 12.0))
 		studio.cam.fov = _fov0 / _zoom
