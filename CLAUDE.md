@@ -1,33 +1,57 @@
-# Самоцветный рудник — памятка для новой сессии
+# Gemcore (Самоцветный рудник) — памятка для новой сессии
 
 Мобильная три-в-ряд с геологией. Живая версия — `godot/` (Godot 4.7.2, мобильный рендер),
 прототип — `prototype/web/`. Отвечать пользователю по-русски; сама игра на английском (шрифт Nunito Sans).
 
+Над проектом работают двое, **по очереди, в разные дни**. Личные пути и настройки каждого — в `CLAUDE.local.md`
+(в git не хранится; если его нет — см. «Как начать работу над проектом»).
+
+## Каждый сеанс
+- **В начале:** `git pull`, коротко посмотреть, что изменилось (`git log` с прошлого раза, раздел «Что дальше»).
+- **В конце:** закоммитить и запушить всё сделанное. Дописать в «Что дальше» пару строк: что сделано и что следующее.
+- В `main` пушить только то, что запускается: каждый push в `main` собирает версию для iPhone.
+  Незаконченное — в свою ветку, в `main` — когда готово.
+- Коммиты — по-русски, коротко о сути.
+
+## Как начать работу над проектом (один раз, на новом компьютере)
+1. Склонировать `https://github.com/Konsulix/samocvet-rudnik` (нужен доступ коллаборатора).
+2. В папке проекта: `git config user.name "…"` и `git config user.email "…"` — свои. Глобальный git-конфиг не трогать.
+3. Поставить **Godot 4.7.2** (строго эта версия, сборка `win64_console` с github.com/godotengine/godot/releases).
+   Blender 5.2 — только если нужно перерендеривать спрайты.
+4. Создать `CLAUDE.local.md` (уже в `.gitignore`) со своими путями: к Godot (`$G` ниже), к Blender, папка снимков.
+5. Проверка: `"$G" --headless --path godot --import`, затем снимок уровня (ниже).
+
 ## Как работать
-- Godot: `C:\Users\Максим\Desktop\godot\Godot_v4.7.2-stable_win64_console.exe`.
+- `$G` — путь к Godot из `CLAUDE.local.md`.
   Снимок экрана: `"$G" --path godot --resolution 390x844 -- level=8 shot=user://lv.png after=3`
-  (файл в `%APPDATA%\Godot\app_userdata\Gemcore\`). Другие ключи: `screen=depot|museum`,
-  `reveal=<seed> [legend=heart]`, `win`, `autoplay=N`, `fill=14`, `noglow`.
+  (файл в `%APPDATA%\Godot\app_userdata\Gemcore\`). Другие ключи — в `godot/scripts/main.gd` и
+  `docs/progression-redesign.md` (раздел «Инструменты»): `screen=depot|museum`, `reveal=<seed> [legend=heart]`,
+  `win`, `autoplay=N`, `fill=14`, `noglow`, `notch=59,34`, `hitch=S`, `sim=N`, `sim_min=N`…
 - Витрина минералов: `res://tests/spec_gallery.tscn -- set=N still px=330`.
 - После добавления новых class_name / ассетов: `"$G" --headless --path godot --import`.
 - Строгая типизация GDScript: значения из Dictionary/Array — с явным типом.
-- Blender 5.2: `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`, скрипты в `prototype/tools/blender/`
-  (запуск `-b -P script.py -- args`, пути передавать абсолютными).
-- Экономить: минимум промежуточных скриншотов/рендеров, правки пачкой.
+- Blender 5.2: скрипты в `prototype/tools/blender/` (запуск `-b -P script.py -- args`, пути передавать абсолютными).
+- Экономить: минимум промежуточных скриншотов/рендеров, правки пачкой. Прогоны и симуляции — маленькими выборками,
+  с таймаутом ~1–2 мин; дольше — в фон и предупредить.
 
 ## Git / сборка под iPhone
-- Репозиторий Konsulix/samocvet-rudnik (личный аккаунт; глобальный git-конфиг рабочий — не трогать).
-- push в main → GitHub Actions собирает `.ipa` (артефакт `samocvet-rudnik-ipa`, ~10 мин).
-  Токен для API: `printf "protocol=https\nhost=github.com\nusername=Konsulix\n\n" | git credential fill`.
+- Репозиторий Konsulix/samocvet-rudnik.
+- push в main → GitHub Actions собирает `.ipa` (артефакт `samocvet-rudnik-ipa`, ~10 мин); шейдеры запекаются при экспорте.
+  Токен для API: `printf "protocol=https\nhost=github.com\nusername=<свой логин GitHub>\n\n" | git credential fill`.
   Скачивать артефакт: взять redirect_url с `/actions/artifacts/<id>/zip`, качать `curl -C -` (рвётся).
-- Установка на телефон — через iloader пользователем. Пароли никогда не вводить.
+- Установка на телефон — через iloader самим пользователем, со своим Apple ID. Пароли никогда не вводить.
+- На телефоне: зажать кнопку ♪ ~1 с → журнал диагностики (ошибки, медленные кадры, FPS) → Copy.
+  На ПК может всё работать, а на iPhone нет — проверять каждую сборку на телефоне.
 
 ## Что сделано (стиль)
 - Генератор минералов `godot/scripts/specimen/` — главное достижение, стиль утверждён, НЕ трогать без запроса:
   гены образца (`spec_genome.gd`), стекло/порода/шейдеры (`shaders/spec.gdshaderinc`), мох и растения,
-  наросты, легендарные живые эффекты (`spec_legend.gd`, молния `spec_bolt.gd`).
+  наросты, грибы (`spec_fungi.gd`), легендарные живые эффекты (`spec_legend.gd`, молния `spec_bolt.gd`).
+  Новые гены — на отдельном генераторе случайных чисел, чтобы не менять вид уже найденных камней.
 - Поле уровня: спрайты из Blender (`assets/board/`, `gem_sprites.py`, `board_sprites.py`), мраморный лоток,
   фон `assets/ui/level_bg.png` (`level_bg.py`), интерфейс «мрамор + сланец» (`UI.marble/slate/marble_button`).
+  У фишек свой шейдер (`gem_glint`) — без него на iPhone они не рисовались.
+- Экран загрузки (`screens/boot.gd`): анимация камня из файла, прогрев шейдеров, фоновая загрузка.
 
 ## Что дальше
 - **Главное сейчас — переделка прогресса: руда вместо звёзд, рудники из глубин, босс.** Всё решено и посчитано

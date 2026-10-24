@@ -12,3 +12,6 @@ prototype/tools/assets/raw/
 .DS_Store
 Thumbs.db
 __pycache__/
+
+# personal Claude notes (paths, logins) — each developer keeps their own
+CLAUDE.local.md
