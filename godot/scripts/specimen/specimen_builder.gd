@@ -9,6 +9,7 @@ extends RefCounted
 
 const UP := Vector3.UP
 const U := preload("res://scripts/specimen/spec_util.gd")
+const Foundation := preload("res://scripts/specimen/spec_foundation.gd")
 
 var rng: Rng32
 var root: Node3D
@@ -118,6 +119,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		rm.set_meta("rock", true)   # ultraviolet lights the crystals, never the rock
 		return rm
 	var use_rock := func(shape: String) -> MeshInstance3D:
+		var first_part := root.get_child_count()
 		var loose: float = gene.loose
 		var R := RockKit.rock(rng, rtype, shape, 32, loose)
 		var rm: ShaderMaterial = rock_mat.call(R.base)
@@ -127,9 +129,10 @@ func _specimen(o: Dictionary) -> Node3D:
 		st.hollows = R.hollows
 		if loose > 0.0:
 			_crumbs(rm, top, R.scale, loose)
+		st.rock_parts = root.get_children().slice(first_part)
 		var sc: Vector3 = R.scale
-		st.pick = func() -> Vector3: return top[int(floor(rng.next() * top.size()))] if top.size() else Vector3(0, 0.3, 0)
-		st.nrm = func(w: Vector3) -> Vector3: return RockKit.rock_nrm(sc, w)
+		st.pick = func() -> Vector3: return mi.transform * (top[int(floor(rng.next() * top.size()))] if top.size() else Vector3(0, 0.3, 0))
+		st.nrm = func(w: Vector3) -> Vector3: return (mi.basis.inverse().transposed() * RockKit.rock_nrm(sc, mi.transform.affine_inverse() * w)).normalized()
 		st.rock = mi
 		return mi
 	if layout == "columnar" or layout == "cluster":
@@ -372,6 +375,24 @@ func _specimen(o: Dictionary) -> Node3D:
 				crystal.call(0.35 + rng.next() * 0.3, 0.45, Vector3((rng.next() - 0.5) * 0.3, 0.3 + rng.next() * 0.5, (rng.next() - 0.5) * 0.2), d, {dt = true})
 		"geode":
 			main = _geode(sp, col, rtype, habit, elongated, metal, cmat_spec, make_cmat, crystal, st)
+
+	# Fit only rock-mounted bodies, before effects, inclusions and surface accents.
+	# Geodes have their own cavity; radial sprays and floaters deliberately overhang.
+	if layout in ["single", "cluster", "columnar", "slabs", "rosette", "hopper", "pile", "hexplates"]:
+		var host: MeshInstance3D = st.rock
+		var attached: Array[MeshInstance3D] = []
+		for child in root.get_children():
+			if not (child is MeshInstance3D) or not child.has_meta("geo"): continue
+			var material: Material = child.material_override
+			if material and material.get_meta("rock", false):
+				if not host: host = child
+			else:
+				attached.append(child)
+		Foundation.fit(root, host, attached, dt_mats, st.get("rock_parts", []))
+		if st.rock:
+			for hollow: Array in st.hollows:
+				hollow[0] = host.transform * (hollow[0] as Vector3)
+				hollow[1] = (host.basis.inverse().transposed() * (hollow[1] as Vector3)).normalized()
 
 	match gene.fx:
 		"heart":
@@ -807,14 +828,41 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 				for g2 in green:
 					if (g2[0] as Vector3).distance_to(c0[0]) < 0.12: near.append(g2)
 				SpecAccents.flowers(root, rng, near if near.size() else [c0], 4 + int(rng.next() * 7), (0.12 + rng.next() * 0.08) * gs, fc)
-	if "mushrooms" in acc and nest_spots.size():
+	if "mushrooms" in acc and gene.shroom >= 0:
 		# their own random stream too: the rest of the stone stays as it was
 		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)
+		# Mushroom caps need exposed surfaces; deep moss/lichen hollows are unsuitable.
+		var mushroom_spots: Array = []
+		var blockers: Array[Dictionary] = []
+		var host: MeshInstance3D = st.rock
+		for child: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+			if not child.has_meta("geo"):
+				continue
+			var material: Material = child.material_override
+			if material and material.get_meta("rock", false):
+				if not host: host = child
+			elif child in cols or child.get_meta("col", false) or (mat and material == mat):
+				var crystal_geo: Geo = child.get_meta("geo")
+				var bounds := crystal_geo.aabb()
+				var transform := U.rel_xform(child, root)
+				if material in dt_mats and crust_ok:
+					# _finish() still has to swell the crystal's rocky foot.
+					var height := maxf(0.001, bounds.size.y) if child.get_meta("local", false) else 1.0
+					bounds = bounds.grow(0.05 * height / maxf(0.2, transform.basis.get_scale().x))
+				# Test in the crystal's own axes: a leaning column's world AABB
+				# would incorrectly cover large empty areas around its foot.
+				blockers.append({bounds = bounds, inverse = transform.affine_inverse()})
+		if host:
+			# Only the main matrix, never loose rock fragments. Sample exposed sides
+			# with the mushroom stream, leaving every other part of the stone unchanged.
+			mushroom_spots.append_array(RockKit.surf_pts(host, 350, fr,
+				func(_p: Vector3, normal: Vector3) -> bool: return normal.y > 0.15, root))
+		var rock: Dictionary = SpecFungi.rock_surface(host, root) if host else {}
 		var kind: int = gene.shroom
 		var tiny := kind == 3
 		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
 			var n := (4 + int(fr.next() * 6)) if tiny else (2 + int(fr.next() * 4))
-			SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0))
+			SpecFungi.cluster(root, fr, mushroom_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), blockers, rock)
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
 			SpecAccents.inkspots(main, rng, 3 + int(rng.next() * 9))
