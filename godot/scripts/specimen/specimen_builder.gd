@@ -217,9 +217,8 @@ func _specimen(o: Dictionary) -> Node3D:
 			# chunky columns pushing out of a crumbling rock that still climbs up their feet
 			var R := RockKit.rock(rng, rtype, "small" if rng.next() < 0.5 else "chunk")
 			dt.col = R.base
-			if rng.next() < 0.45:
-				var rm := U.mesh(R.geo, rock_mat.call(R.base), root)
-				rm.transform = Transform3D(Basis.from_scale(Vector3(0.7, 0.7, 0.7)), Vector3(0, -0.2, 0))
+			var rm := U.mesh(R.geo, rock_mat.call(R.base), root)
+			rm.transform = Transform3D(Basis.from_scale(Vector3(0.7, 0.7, 0.7)), Vector3(0, -0.2, 0))
 			var cubic := habit == "cube"
 			var sides := 4 if cubic or habit == "blade" or rng.next() < 0.3 else 6
 			var axis: Vector3 = lean.call(UP, 0.3 if cubic else 0.55)
@@ -239,10 +238,9 @@ func _specimen(o: Dictionary) -> Node3D:
 			dt.a = 0.5 + rng.next() * 0.5
 		"radial":
 			# a sunburst: crystals radiating from a small core
-			if rng.next() < 0.6:
-				var core := RockKit.rock(rng, rtype, "small")
-				var cm2 := U.mesh(core.geo, SpecMat.make({col = Color(1, 1, 1), rough = core.rough, flat = true}), root)
-				cm2.scale = Vector3(0.45, 0.45, 0.45)
+			var core := RockKit.rock(rng, rtype, "small")
+			var cm2 := U.mesh(core.geo, rock_mat.call(core.base), root)
+			cm2.scale = Vector3(1.2, 1.2, 1.2)
 			for k in 14 + int(floor(rng.next() * 12)):
 				var d := _rv().normalized()
 				var c: MeshInstance3D = crystal.call(0.5 + rng.next() * 0.7, 0.55 + rng.next() * 0.45, d * 0.12, d)
@@ -559,7 +557,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var ocol := SpecMat.hsl(R.h[0], R.s[0] + 0.05, R.l[0] + 0.06).srgb_to_linear()
 	var om := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}})
 	om.set_meta("rock", true)
-	U.mesh(outer, om, shell)
+	var outer_mesh := U.mesh(outer, om, shell)
 	var ic := col.lerp(Color(0.25, 0.27, 0.3), 0.6) * 0.35
 	ic.a = 1.0
 	U.mesh(Geo.sphere(0.9, 40, 20, 0, TAU, 0, PI / 2), SpecMat.make({col = ic, rough = 0.92, spec = 0.3, side = "back"}), shell)
@@ -581,7 +579,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			return SpecMat.hsl((20.0 + j * 8.0) / 360.0, 0.35 + j * 0.15, 0.12 + t * 0.4 + j * 0.06)
 		return SpecMat.hsl(hue if t > 0.8 else (30.0 + j * 180.0) / 360.0, 0.3 if t > 0.8 else 0.06 + j * 0.08, 0.18 + t * 0.28 + j * 0.12)
 	# a broken, uneven lip instead of a clean ring
-	var rg := Geo.ring(0.84, 1.01, 120, 16)
+	var rg := Geo.ring(0.74, 1.02, 64, 16)
 	var wob := []
 	for k in 4:
 		wob.append([1 + int(floor(rng.next() * 9)), rng.next() * 6.3])
@@ -589,16 +587,21 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		var p := rg.v[i]
 		var a := atan2(p.y, p.x)
 		var r := Vector2(p.x, p.y).length()
-		var t := (r - 0.84) / 0.17
+		var t := (r - 0.74) / 0.28
+		# The lip must meet the warped shell at its actual edge, at every angle.
+		var phi := fposmod(PI - a, TAU)
+		var edge_i := roundi(phi / TAU * 64.0)
+		var edge: Vector3 = outer.v[32 * 65 + edge_i]
+		var edge_r := Vector2(edge.x, edge.z).length()
 		var n := 0.0
 		for w in wob:
 			n += sin(a * w[0] + w[1]) * 0.25
 		n += sin(a * 37.0 + r * 9.0) * 0.12
-		var rr := r + (n * 0.03 if t > 0.5 else 0.0)
+		var rr := edge_r * (0.74 + t * 0.28)
 		rg.v[i] = Vector3(cos(a) * rr, sin(a) * rr, (n * 0.05 + sin(a * 53.0) * 0.012) * (1.0 - absf(t - 0.5)))
 	rg.col.resize(rg.v.size())
 	for i in rg.v.size():
-		var t := 1.0 - (Vector2(rg.v[i].x, rg.v[i].y).length() - 0.84) / 0.2
+		var t := 1.0 - float(i / 65) / 16.0
 		rg.col[i] = (band.call(clampf(t, 0.0, 1.0)) as Color).srgb_to_linear()
 	var rim := U.mesh(rg, SpecMat.make({col = Color(1, 1, 1), rough = 0.8, flat = true, side = "double"}), shell)
 	rim.rotation.x = PI / 2
@@ -633,9 +636,10 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		c.set_meta("local", true)
 		if not main: main = c
 	shell.transform = Transform3D(U.eul(-PI / 2 - 0.55, 0.35, 0), Vector3.ZERO)
+	st.rock = outer_mesh
 	st.pick = func() -> Vector3:
-		var a := rng.next() * PI
-		return Vector3(cos(a), sin(a) * 0.9, 0)
+		var points := RockKit.surf_pts(outer_mesh, 1, rng, Callable(), root)
+		return points[0][0] if points.size() else Vector3.ZERO
 	st.nrm = func(v: Vector3) -> Vector3: return v.normalized()
 	return main
 
@@ -751,7 +755,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 	var on_crystal := func() -> Array:
 		if cols.is_empty():
 			return []
-		var pts := RockKit.surf_pts(cols[int(rng.next() * cols.size())], 1, rng)
+		var pts := RockKit.surf_pts(cols[int(rng.next() * cols.size())], 1, rng, Callable(), root)
 		return pts[0] if pts.size() else []
 	var spot := func(crystal_first: float) -> Array:
 		var a: Array = on_crystal.call() if rng.next() < crystal_first else on_rock.call()
