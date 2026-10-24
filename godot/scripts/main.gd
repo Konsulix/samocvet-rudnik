@@ -9,6 +9,11 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	# Cosmetic alternatives for the falling collection target; rules stay the same.
+	if args.has("gem_style"):
+		Save.set_gem_style(args.gem_style)
+	if args.has("nug") and args.nug in BoardSprites.NUG_SKINS:
+		BoardSprites.nug_skin = args.nug
 	if not args.has("noglow"): _setup_glow()
 	if args.has("uv"): Spec.force_uv = float(args.uv)
 	if args.has("boot_seed"): Boot.seed_v = int(args.boot_seed)

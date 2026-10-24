@@ -2,6 +2,7 @@ extends Node
 ## The player's progress, kept in user://save.json. Same fields as the prototype's save.
 
 signal changed
+signal gem_style_changed
 
 const PATH := "user://save.json"
 const LIFE_MS := 8 * 60 * 1000
@@ -14,7 +15,7 @@ func blank() -> Dictionary:
 		level = 1, coins = 400, stars = 0, lives = 5, life_at = 0, area = 0,
 		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
-		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
+		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false, gem_style = "natural",
 	}
 
 func _init() -> void:
@@ -38,6 +39,16 @@ func _init() -> void:
 			d[k][i] = int(d[k][i])
 	while d.built.size() < 3:
 		d.built.append([])
+	if not d.gem_style is String or not BoardSprites.GEM_STYLES.has(d.gem_style):
+		d.gem_style = "natural"
+	BoardSprites.gem_style = d.gem_style
+
+func set_gem_style(style: String) -> void:
+	if not BoardSprites.GEM_STYLES.has(style): return
+	d.gem_style = style
+	BoardSprites.gem_style = style
+	persist()
+	gem_style_changed.emit()
 
 func persist() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
@@ -47,7 +58,9 @@ func persist() -> void:
 
 func reset() -> void:
 	d = blank()
+	BoardSprites.gem_style = d.gem_style
 	persist()
+	gem_style_changed.emit()
 
 ## ids double as the seeds of finds: step by a random amount so every new game digs up different stones
 func next_uid() -> int:

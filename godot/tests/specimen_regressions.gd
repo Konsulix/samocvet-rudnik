@@ -59,10 +59,7 @@ func _ready() -> void:
 			if arg.begins_with("baseline="):
 				var previous: Node3D = load(arg.substr(9)).new()._specimen(item)
 				var current: Node3D = SpecimenBuilder.build(item)
-				if current.has_meta("foundation_growth"):
-					check(bodies_equal(previous, current), "Keep crystal geometry while adapting the matrix: " + form)
-				else:
-					check(geometry_signature(previous) == geometry_signature(current), "Keep exception geometry: " + form)
+				check(geometry_signature(previous) == geometry_signature(current), "Keep host/crystal geometry: " + form)
 				previous.free()
 				current.free()
 	await get_tree().create_timer(2.0).timeout
@@ -78,23 +75,6 @@ func geometry_signature(specimen: Node3D) -> Array:
 	for node: MeshInstance3D in specimen.find_children("*", "MeshInstance3D", true, false):
 		result.append([SpecUtil.rel_xform(node, specimen), node.mesh.surface_get_arrays(0)])
 	return result
-
-func body_signature(specimen: Node3D) -> Array:
-	var result := []
-	for child in specimen.get_children():
-		if not (child is MeshInstance3D) or not child.has_meta("geo"): continue
-		if child.material_override and child.material_override.get_meta("rock", false): continue
-		result.append([child.transform, (child.get_meta("geo") as Geo).v])
-	return result
-
-func bodies_equal(previous: Node3D, current: Node3D) -> bool:
-	var a := body_signature(previous)
-	var b := body_signature(current)
-	if a.size() != b.size(): return false
-	for i in a.size():
-		# Normalizing transformed surface normals can change the last float bits.
-		if not (a[i][0] as Transform3D).is_equal_approx(b[i][0]) or a[i][1] != b[i][1]: return false
-	return true
 
 func check_blocked_mushrooms() -> void:
 	var parent := Node3D.new()

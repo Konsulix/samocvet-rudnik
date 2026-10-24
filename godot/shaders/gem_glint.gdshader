@@ -6,15 +6,18 @@ uniform float speed = 0.28;
 uniform float width = 0.03;
 uniform float strength = 0.32;
 uniform float boost = 1.0;   // >1 makes a stone bloom under the glow pass (used for specials)
+uniform float mip_bias = 0.0;
 
 varying vec2 wpos;
+varying vec4 tint;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
+	tint = COLOR;
 }
 
 void fragment() {
-	vec4 c = COLOR;
+	vec4 c = texture(TEXTURE, UV, mip_bias) * tint;
 	float lum = max(c.r, max(c.g, c.b));
 	float phase = fract((wpos.x * 0.8 + wpos.y) / 1100.0 - TIME * speed);
 	float band = 1.0 - smoothstep(0.0, width, abs(phase - 0.5));

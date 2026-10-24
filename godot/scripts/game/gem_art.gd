@@ -267,7 +267,7 @@ static func geode_icon(ci: CanvasItem, S: float) -> void:
 ## any goal's icon, top-left at 0,0
 static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := Color("#c8b0ff")) -> void:
 	match k:
-		"find": find_icon(ci, S, glow)
+		"find": BoardSprites.draw(ci, BoardSprites.tex("deposit_mineral_2"), Vector2(S / 2, S / 2), S * 0.9)
 		"c": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
 		"rock": BoardSprites.draw(ci, BoardSprites.tex("rock1"), Vector2(S / 2, S / 2), S * 0.9)
 		"mud": BoardSprites.draw(ci, BoardSprites.tex("mud"), Vector2(S / 2, S / 2), S * 0.9)
@@ -275,5 +275,5 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 		"lock":
 			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
-		"geo": BoardSprites.draw(ci, BoardSprites.tex("geode"), Vector2(S / 2, S / 2), S * 0.5)
+		"geo": BoardSprites.draw(ci, BoardSprites.tex("deposit_geode_2"), Vector2(S / 2, S / 2), S * 0.9)
 		_: BoardSprites.draw(ci, BoardSprites.tex("nug"), Vector2(S / 2, S / 2), S * 0.9)

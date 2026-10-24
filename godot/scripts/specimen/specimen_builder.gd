@@ -9,7 +9,6 @@ extends RefCounted
 
 const UP := Vector3.UP
 const U := preload("res://scripts/specimen/spec_util.gd")
-const Foundation := preload("res://scripts/specimen/spec_foundation.gd")
 
 var rng: Rng32
 var root: Node3D
@@ -119,7 +118,6 @@ func _specimen(o: Dictionary) -> Node3D:
 		rm.set_meta("rock", true)   # ultraviolet lights the crystals, never the rock
 		return rm
 	var use_rock := func(shape: String) -> MeshInstance3D:
-		var first_part := root.get_child_count()
 		var loose: float = gene.loose
 		var R := RockKit.rock(rng, rtype, shape, 32, loose)
 		var rm: ShaderMaterial = rock_mat.call(R.base)
@@ -129,10 +127,9 @@ func _specimen(o: Dictionary) -> Node3D:
 		st.hollows = R.hollows
 		if loose > 0.0:
 			_crumbs(rm, top, R.scale, loose)
-		st.rock_parts = root.get_children().slice(first_part)
 		var sc: Vector3 = R.scale
-		st.pick = func() -> Vector3: return mi.transform * (top[int(floor(rng.next() * top.size()))] if top.size() else Vector3(0, 0.3, 0))
-		st.nrm = func(w: Vector3) -> Vector3: return (mi.basis.inverse().transposed() * RockKit.rock_nrm(sc, mi.transform.affine_inverse() * w)).normalized()
+		st.pick = func() -> Vector3: return top[int(floor(rng.next() * top.size()))] if top.size() else Vector3(0, 0.3, 0)
+		st.nrm = func(w: Vector3) -> Vector3: return RockKit.rock_nrm(sc, w)
 		st.rock = mi
 		return mi
 	if layout == "columnar" or layout == "cluster":
@@ -375,24 +372,6 @@ func _specimen(o: Dictionary) -> Node3D:
 				crystal.call(0.35 + rng.next() * 0.3, 0.45, Vector3((rng.next() - 0.5) * 0.3, 0.3 + rng.next() * 0.5, (rng.next() - 0.5) * 0.2), d, {dt = true})
 		"geode":
 			main = _geode(sp, col, rtype, habit, elongated, metal, cmat_spec, make_cmat, crystal, st)
-
-	# Fit only rock-mounted bodies, before effects, inclusions and surface accents.
-	# Geodes have their own cavity; radial sprays and floaters deliberately overhang.
-	if layout in ["single", "cluster", "columnar", "slabs", "rosette", "hopper", "pile", "hexplates"]:
-		var host: MeshInstance3D = st.rock
-		var attached: Array[MeshInstance3D] = []
-		for child in root.get_children():
-			if not (child is MeshInstance3D) or not child.has_meta("geo"): continue
-			var material: Material = child.material_override
-			if material and material.get_meta("rock", false):
-				if not host: host = child
-			else:
-				attached.append(child)
-		Foundation.fit(root, host, attached, dt_mats, st.get("rock_parts", []))
-		if st.rock:
-			for hollow: Array in st.hollows:
-				hollow[0] = host.transform * (hollow[0] as Vector3)
-				hollow[1] = (host.basis.inverse().transposed() * (hollow[1] as Vector3)).normalized()
 
 	match gene.fx:
 		"heart":
