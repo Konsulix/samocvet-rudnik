@@ -38,6 +38,8 @@ func _ready() -> void:
 	gems.light_mask = 0
 	add_child(gems)
 	over = _layer(_draw_over)
+	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
+	over.material = BoardSprites.plain_material()
 
 func _layer(fn: Callable) -> Node2D:
 	var n := Node2D.new()

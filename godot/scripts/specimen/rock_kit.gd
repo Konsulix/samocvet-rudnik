@@ -411,7 +411,8 @@ static func crumble(rng: Rng32, r: float, sc := Vector3.ONE) -> Geo:
 	g.col.resize(g.v.size())
 	for i in g.v.size():
 		var k := clampf(1.0 - cav[i] * 0.85, 0.12, 1.0)
-		g.col[i] = Color(k, 0.0, k)
+		# Metal uses RGB as a tint, unlike the host rock's encoded ridge data.
+		g.col[i] = Color(k, k, k)
 	return g
 
 static func rock_nrm(sc: Vector3, w: Vector3) -> Vector3:
