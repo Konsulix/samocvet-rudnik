@@ -10,15 +10,17 @@ uniform float swell = 0.45;     // how bright it gets at its peak
 uniform float speed = 1.6;
 uniform float sparkle = 0.0;    // 1: short flashes moving over the stone instead of a breath
 
-varying vec2 wpos;
+// the stone's own number (GemNode puts it in the sprite's self_modulate.r): its rhythm and pattern stay with it
+// while it falls or flies; a seed taken from the screen position made the ore jump about on a moving stone
+varying float seed;
 
 void vertex() {
-	wpos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xy;
+	seed = COLOR.r * 61.7;
 }
 
 void fragment() {
 	vec4 m = texture(TEXTURE, UV);
-	float phase = wpos.x * 0.031 + wpos.y * 0.047;
+	float phase = seed;
 	float slow = 0.5 + 0.5 * sin(TIME * speed + phase);
 	// a ripple running along the stone, so the light seems to move through the veins
 	float run = 0.5 + 0.5 * sin(TIME * speed * 2.3 + phase * 1.7 - (UV.x + UV.y) * 9.0);

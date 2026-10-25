@@ -8,10 +8,12 @@ uniform int mode = 0;
 uniform vec3 hot : source_color = vec3(1.0, 0.78, 0.32);
 uniform vec3 cold : source_color = vec3(0.7, 0.88, 1.0);
 
-varying vec2 wpos;
+// the stone's own number (GemNode puts it in the sprite's self_modulate.r): its rhythm and pattern stay with it
+// while it falls or flies; a seed taken from the screen position made the ore jump about on a moving stone
+varying float seed;
 
 void vertex() {
-	wpos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xy;
+	seed = COLOR.r * 61.7;
 }
 
 vec2 hash2(vec2 p) {
@@ -42,7 +44,6 @@ void fragment() {
 	vec4 gem = texture(TEXTURE, UV);
 	float inside = smoothstep(0.6, 0.95, gem.a);
 	// pull the ore in from the outline a little: it is in the stone, not on its rim
-	float seed = wpos.x * 0.031 + wpos.y * 0.047;
 	vec2 q = UV + vec2(fract(seed * 13.1), fract(seed * 7.7));
 	vec3 col = gem.rgb;
 	if (mode == 0) {

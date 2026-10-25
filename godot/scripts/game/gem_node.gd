@@ -123,6 +123,8 @@ func _ore_glow(kind: String) -> void:
 		ore_glow.texture = BoardSprites.gem(t)
 		k = BoardSprites.gem_scale()
 	ore_glow.scale = Vector2.ONE * S * BoardSprites.SPAN * k / float(ore_glow.texture.get_width())
+	# the shaders read the stone's seed from here (red channel); they keep only the alpha of the colour
+	ore_glow.self_modulate = Color(fposmod(id * 0.618034, 1.0), 1, 1, 1)
 
 ## re-read the board's looks: gem set, ore look, timber
 func restyle() -> void:
