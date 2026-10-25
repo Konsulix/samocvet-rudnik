@@ -225,6 +225,23 @@ func _build(id: String) -> Node3D:
 			cyl(0.06, 0.03, 0.1, mat(0xa88860, 0.95), Vector3(-0.55, -0.1, 0.15))
 			var bread := put(Geo.sphere(0.12, 20, 12), mat(0xb87a3a, 0.7), Vector3(0.05, -0.47, 0.38))
 			bread.scale = Vector3(1.4, 0.6, 0.8)
+		"lens":
+			# the geologist's lens: a brass loupe on a wooden handle, held over a split geode of amethyst
+			var brass := mat(0xc99a3a, 0.3, {metal = 0.9, env = 1.3})
+			var loupe := group(Vector3(0.05, 0.22, 0.1))
+			loupe.rotation = Vector3(-0.35, 0.0, 0.25)
+			put(Geo.torus(0.36, 0.045, 12, 48), brass, Vector3.ZERO, Vector3.ZERO, loupe)
+			cyl(0.34, 0.34, 0.02, M.glass, Vector3.ZERO, Vector3(PI / 2, 0, 0), loupe, 40)
+			cyl(0.05, 0.05, 0.12, brass, Vector3(0, -0.44, 0), Vector3.ZERO, loupe)
+			cyl(0.055, 0.045, 0.5, M.wood, Vector3(0, -0.74, 0), Vector3.ZERO, loupe)
+			var shell := put(Geo.sphere(0.34, 24, 12, 0.0, TAU, PI / 2, PI / 2), mat(0x7d6b58, 0.95, {side = "double"}), Vector3(-0.1, -0.55, -0.15))
+			shell.scale = Vector3(1, 0.8, 1)
+			cyl(0.32, 0.32, 0.02, mat(0x5a4a3c, 0.9), Vector3(-0.1, -0.55, -0.15), Vector3.ZERO, null, 32)
+			var am := mat(0x9a5ad8, 0.15, {emis = SpecMat.lin(0x6a2aa8) * 0.4})
+			for k in 9:
+				var a := k / 9.0 * TAU
+				var r := 0.08 + (k % 3) * 0.07
+				put(Geo.cone(0.045, 0.16, 6), am, Vector3(-0.1 + cos(a) * r, -0.5, -0.15 + sin(a) * r), Vector3(0.25 * sin(a), 0, -0.25 * cos(a)))
 		_:
 			# ventilation fan: shroud, guard ring, spinning blades, stand and a duct behind
 			put(Geo.cylinder(0.56, 0.56, 0.32, 48, 1, true), mat(0xf2b01e, 0.42, {metal = 0.25, coat = 0.5, coat_r = 0.3, side = "double"}), Vector3(0, 0.1, 0), Vector3(PI / 2, 0, 0))

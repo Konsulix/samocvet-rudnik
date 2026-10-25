@@ -814,8 +814,7 @@ func _win() -> void:
 		model.mined = {iron = 0, ore = 0}
 		Save.d.boss_won[Save.area()] = true
 		LevelBoss.line(self, "win")
-		# the reward: a fine stone (9 geodes to choose one from come with the fight's look)
-		model.bonus.append(Stones.roll(Save.next_uid(), Save.area(), 2.5, 4))
+		# the reward, the boss's hoard (Hoard), is opened after the fight (Main._on_level_finished)
 	Save.d.fe += int(model.mined.iron)
 	Save.d.ore += int(model.mined.ore)
 	if model.depth < Save.d.vein.size():

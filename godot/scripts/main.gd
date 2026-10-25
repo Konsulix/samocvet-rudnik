@@ -50,6 +50,10 @@ func _ready() -> void:
 	if args.has("ui"):
 		await get_tree().create_timer(float(args.get("ui_after", "0"))).timeout
 		if screen.has_method("_" + args.ui): screen.call("_" + args.ui)
+	if args.has("lens"): Save.d.eq.lens = int(args.lens)
+	if args.has("hoard"):
+		# a look at the boss's reward: `-- screen=home hoard lens=2` (not awaited: the other keys go on)
+		_hoard_demo()
 	if args.has("reveal"):
 		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
 		st.integ = 86
@@ -114,6 +118,9 @@ func _ready() -> void:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/thumbs"))
 		var ids := ["hammer", "rig", "tbm", "deep"]
 		for e in Data.EQUIP: ids.append(e.id)
+		# bake_thumbs=lens,vent: only those
+		if String(args.bake_thumbs) != "1":
+			ids = Array(String(args.bake_thumbs).split(","))
 		for id in ids:
 			var got := [null]
 			Spec.thumb({machine = id, bake = true}, func(t: Texture2D): got[0] = t)
@@ -222,12 +229,23 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 		lv.model.over = true
 		lv._win()
 
+func _hoard_demo() -> void:
+	await get_tree().create_timer(float(args.get("ui_after", "1"))).timeout
+	var hs := await Hoard.pick(Save.area())
+	Reveal.new().show_stone(hs)
+
 func _on_level_finished(res: Dictionary) -> void:
 	Save.level_played(res.won, int(res.get("depth", 0)))
 	if res.get("boss", false) and not res.won:
 		Save.d.boss_tries[Save.area()] += 1
 	Save.persist()
 	if res.won:
+		if res.get("boss", false):
+			# the boss's hoard: nine geodes, one to keep
+			var hs := await Hoard.pick(Save.area())
+			var hr := Reveal.new()
+			hr.show_stone(hs)
+			await hr.finished
 		if not res.stone.is_empty():
 			var rv := Reveal.new()
 			rv.show_stone(res.stone)

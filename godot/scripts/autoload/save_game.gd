@@ -19,7 +19,7 @@ func blank() -> Dictionary:
 		fe = 0, ore = 0, vein = [], rich = 0, lseed = 1 + randi() % 999999, lrich = false, dwins = [],
 		boss_tries = [0, 0, 0], boss_won = [false, false, false],
 		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
-		eq = {lift = 0, crush = 0, food = 0, vent = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
+		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 	}

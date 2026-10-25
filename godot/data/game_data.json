@@ -1160,6 +1160,17 @@
    "cost": [
     1500
    ]
+  },
+  {
+   "id": "lens",
+   "n": "Geologist's lens",
+   "d": "shows the rarity of one more geode in a boss's hoard",
+   "cost": [
+    1500,
+    3500,
+    7000,
+    12000
+   ]
   }
  ],
  "JEWELS": [
