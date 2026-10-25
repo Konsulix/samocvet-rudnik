@@ -236,7 +236,7 @@ func _build_hud() -> void:
 	hud.add_child(overlay)
 
 func _render_hud() -> void:
-	title_label.text = "Level %d · %d m%s" % [model.n, int(Data.DEPTHS[model.depth].m), " · ★" if model.hard else ""]
+	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · hard" if model.hard else ""]
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -665,7 +665,6 @@ func _win() -> void:
 	Sfx.buzz(80)
 	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul())
 	Save.d.coins += coins
-	Save.d.stars += 1
 	Save.d.level = maxi(Save.d.level, model.n + 1)
 	Save.d.streak += 1
 	Save.persist()

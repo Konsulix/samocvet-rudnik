@@ -48,7 +48,7 @@ func setup(area: int, built_list: Array, dopen: int, dsel: int, hv: float) -> vo
 	cu = ai == 1
 	fire = ai == 2
 	OFF = roundf(clampf(Hv * 0.4 - 196.0, 0.0, 120.0))
-	BH = roundf(clampf((Hv - 222.0 - B0 - OFF) / 5.0, 40.0, 62.0))
+	BH = roundf(clampf((Hv - 222.0 - B0 - OFF) / float(Data.depths(ai).size()), 36.0, 62.0))
 	H = Hv - OFF
 	if fire:
 		pal = {sky = ["#3a120c", "#160806"], far = "#3a1d18", mid = "#2a1512", near = ["#3a2420", "#1c100e"], soil = "#2a1814", rock = ["#3a2420", "#24120e"], tree = "#000000"}
@@ -82,7 +82,7 @@ func setup(area: int, built_list: Array, dopen: int, dsel: int, hv: float) -> vo
 	_band_gems = []
 	_specks = []
 	_eyes = []
-	for k in Data.DEPTHS.size():
+	for k in Data.depths(ai).size():
 		var y := B0 + k * BH
 		var sp := []
 		for q in 22:
@@ -92,7 +92,7 @@ func setup(area: int, built_list: Array, dopen: int, dsel: int, hv: float) -> vo
 		for q in 7:
 			gems.append([20 + rng.next() * 320, y + 6 + rng.next() * (BH - 12), sp_cols[int(rng.next() * sp_cols.size())], 2.4 + rng.next() * 2.4, deg_to_rad(rng.next() * 60 - 30), 2.4 + rng.next() * 3, rng.next() * 4])
 		_band_gems.append(gems)
-		if k == Data.DEPTHS.size() - 1:
+		if k == Data.depths(ai).size() - 1:
 			var gy := y + BH / 2
 			for q in 2:
 				_eyes.append([70 + q * 170 + rng.next() * 40, gy + (rng.next() - 0.5) * 20, 7 + rng.next() * 6, q * 3.1])
@@ -121,7 +121,7 @@ func band_at(p: Vector2) -> int:
 	var y := p.y - OFF
 	if y < B0: return -1
 	var k := int(floor((y - B0) / BH))
-	return k if k < Data.DEPTHS.size() else -1
+	return k if k < Data.depths(ai).size() else -1
 
 # ---------------------------------------------------------------- helpers
 
@@ -374,17 +374,17 @@ func _headframe() -> void:
 	draw_line(Vector2(333, 187), Vector2(340, 187), hx("#2a1e14"), 0.7)
 
 func _band_rock(k: int) -> Color:
-	var tt := k / float(Data.DEPTHS.size() - 1)
+	var tt := k / float(Data.depths(ai).size() - 1)
 	return hx(pal.rock[0]).lerp(hx("#3a0c06" if fire else pal.rock[1]), tt * 0.75)
 
 func _bands() -> void:
 	var font: Font = UI.body_bold
-	for k in Data.DEPTHS.size():
-		var D: Dictionary = Data.DEPTHS[k]
+	for k in Data.depths(ai).size():
+		var D: Dictionary = Data.depth(ai, k)
 		var y := B0 + k * BH
 		var open := k <= d_open
 		var nxt := k == d_open + 1
-		var tt := k / float(Data.DEPTHS.size() - 1)
+		var tt := k / float(Data.depths(ai).size() - 1)
 		var top := PackedVector2Array()
 		if k:
 			for q in 13: top.append(Vector2(q * 30, y + sin(q * 1.7 + k * 2.3) * 3))
@@ -407,7 +407,7 @@ func _bands() -> void:
 			draw_line(Vector2(gx0 + 6, gy + 13), Vector2(gx1, gy + 13), hx("#8a96a4"), 1.2)
 		else:
 			_dashed(self, GemArt.closed(GemArt.rrect(Vector2(gx0, gy - 15), Vector2(gx1 - gx0, 30), 12)), 4, 5, Color(1, 1, 1, 0.12), 1.0)
-			var lbl: String = ("%s · %s" % [D.tool, UI.fmt(Data.depth_cost(ai, k))]) if nxt else String(D.tool)
+			var lbl: String = ("%s · %d iron + %s" % [D.tool, int(D.drill[0]), UI.fmt(int(D.drill[1]))]) if nxt else String(D.tool)
 			var fs := 10
 			var tw := font.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 30
 			var cx := (gx0 + gx1) / 2
@@ -484,7 +484,7 @@ func _draw_live() -> void:
 			lantern(ci, Vector2(108 if i == 0 else 212, 140), 0.95, 0.75 + 0.2 * sin(t * 3.1 + i))
 	if has("headframe"):
 		_wheel(ci)
-	for k in Data.DEPTHS.size():
+	for k in Data.depths(ai).size():
 		var y := B0 + k * BH
 		var gy := y + BH / 2
 		if k <= d_open:
@@ -506,7 +506,7 @@ func _draw_live() -> void:
 				var dx := 150.0 * (_ease(ph / 0.4) if ph < 0.4 else 1.0 if ph < 0.5 else 1.0 - _ease((ph - 0.5) / 0.4) if ph < 0.9 else 0.0)
 				cart(ci, Vector2(46 + 34 + dx, gy + 9), 0.5, sp_cols)
 				_dashed(ci, GemArt.closed(GemArt.rrect(Vector2(43, gy - 18), Vector2(256, 36), 14)), 5, 4, Color(1.3, 1.05, 0.55), 1.6, -t * 15.0)
-		elif k == Data.DEPTHS.size() - 1:
+		elif k == Data.depths(ai).size() - 1:
 			for e in _eyes:
 				var ph: float = fposmod(t - e[3], e[2]) / e[2]
 				var a := 0.0

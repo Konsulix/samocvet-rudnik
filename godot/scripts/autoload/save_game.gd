@@ -6,30 +6,38 @@ signal changed
 const PATH := "user://save.json"
 const LIFE_MS := 8 * 60 * 1000
 const MAX_LIVES := 5
+## the save's format; a save of another one is dropped
+const VER := 2
+## coins for each unit of a mine's own ore left over when the mine is done (a first guess)
+const ORE_PRICE := 10
 
 var d: Dictionary
 
 func blank() -> Dictionary:
-	return {
-		level = 1, coins = 400, stars = 0, lives = 5, life_at = 0, area = 0,
+	var b := {
+		ver = VER, level = 1, coins = 400, lives = 5, life_at = 0, area = 0,
+		fe = 0, ore = 0, vein = [], rich = 0,
 		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", ore_preview = false, zone_style = "hewn",
 	}
+	b.vein = fresh_veins(0)
+	return b
 
 func _init() -> void:
 	d = blank()
 	if FileAccess.file_exists(PATH):
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(PATH))
-		if parsed is Dictionary:
+		# a save from before ore replaced stars starts over: there are no players yet to keep it for
+		if parsed is Dictionary and int(parsed.get("ver", 0)) == VER:
 			for k in parsed:
 				if d.has(k) and d[k] is Dictionary and parsed[k] is Dictionary:
 					d[k].merge(parsed[k], true)
 				else:
 					d[k] = parsed[k]
 	# JSON brings numbers back as floats; the game counts in whole numbers
-	for k in ["level", "coins", "stars", "lives", "life_at", "area", "streak", "uid", "lab"]:
+	for k in ["ver", "level", "coins", "lives", "life_at", "area", "fe", "ore", "rich", "streak", "uid", "lab"]:
 		d[k] = int(d[k])
 	for k in ["boost", "pre", "eq"]:
 		for kk in d[k]:
@@ -37,6 +45,9 @@ func _init() -> void:
 	for k in ["depth", "depth_sel"]:
 		for i in d[k].size():
 			d[k][i] = int(d[k][i])
+	for v in d.vein:
+		for i in v.size():
+			v[i] = int(v[i])
 	while d.built.size() < 3:
 		d.built.append([])
 	looks_to_board()
@@ -88,6 +99,23 @@ func minutes_to_life() -> int:
 
 func area() -> int:
 	return mini(d.area, Data.AREAS.size() - 1)
+
+## what is left in each depth's veins, [iron, the mine's own ore], full at the start of a mine
+func fresh_veins(a: int) -> Array:
+	var out := []
+	for D in Data.depths(a):
+		out.append([int(D.fe), int(D.au)])
+	return out
+
+## the next mine: what is left of this one's own ore is sold, the new one starts with full veins
+func open_mine(a: int) -> int:
+	var sold := int(d.ore) * ORE_PRICE
+	d.coins += sold
+	d.ore = 0
+	d.area = a
+	d.vein = fresh_veins(a)
+	d.rich = 0
+	return sold
 
 func has_jewel(rid: String) -> bool:
 	for j in d.jewels:

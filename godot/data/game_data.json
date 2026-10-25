@@ -570,33 +570,111 @@
     [
      "rubble",
      "Clear the rubble at the entrance",
-     1
+     29
     ],
     [
      "timber",
      "Put up timber supports",
-     2
+     31
     ],
     [
      "rails",
      "Lay the rails",
-     2
+     33
     ],
     [
      "lamps",
      "Hang the lanterns",
-     2
+     35
     ],
     [
      "cart",
      "Roll out a mine cart",
-     2
+     37
     ],
     [
      "headframe",
      "Build a headframe with a hoist",
-     3
+     39
     ]
+   ],
+   "ore": {
+    "n": "Gold",
+    "iron": 0,
+    "local": 3,
+    "c": "#d99a2b"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 51,
+     "au": 51,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 55,
+     "au": 55,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      31,
+      400
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 58,
+     "au": 58,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      33,
+      500
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 62,
+     "au": 62,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      35,
+      600
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 65,
+     "au": 65,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      37,
+      750
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 69,
+     "au": 69,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      39,
+      900
+     ]
+    }
+   ],
+   "next": [
+    70,
+    2500
    ]
   },
   {
@@ -618,33 +696,111 @@
     [
      "rubble",
      "Clear the spoil heaps",
-     2
+     36
     ],
     [
      "timber",
      "Shore up the entrance",
-     2
+     39
     ],
     [
      "rails",
      "Cart tracks",
-     3
+     41
     ],
     [
      "lamps",
      "Electric lighting",
-     3
+     44
     ],
     [
      "cart",
      "Ore cart",
-     3
+     46
     ],
     [
      "headframe",
      "Copper Mountain headframe",
-     4
+     49
     ]
+   ],
+   "ore": {
+    "n": "Copper",
+    "iron": 0,
+    "local": 2,
+    "c": "#c4683c"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 64,
+     "au": 64,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 69,
+     "au": 69,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      39,
+      650
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 72,
+     "au": 72,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      41,
+      800
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 78,
+     "au": 78,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      44,
+      950
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 81,
+     "au": 81,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      46,
+      1200
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 86,
+     "au": 86,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      49,
+      1450
+     ]
+    }
+   ],
+   "next": [
+    88,
+    4000
    ]
   },
   {
@@ -665,33 +821,107 @@
     [
      "rubble",
      "Clear the cooled lava",
-     3
+     44
     ],
     [
      "timber",
      "Heat-proof supports",
-     3
+     46
     ],
     [
      "rails",
      "Rails through the ash",
-     3
+     50
     ],
     [
      "lamps",
      "Floodlights",
-     4
+     52
     ],
     [
      "cart",
      "A cart for rubies",
-     4
+     56
     ],
     [
      "headframe",
      "Fire headframe",
-     5
+     58
     ]
+   ],
+   "ore": {
+    "n": "Sulfur",
+    "iron": 0,
+    "local": 3,
+    "c": "#cfc23a"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 76,
+     "au": 76,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 82,
+     "au": 82,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      46,
+      1000
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 87,
+     "au": 87,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      50,
+      1250
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 93,
+     "au": 93,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      52,
+      1500
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 98,
+     "au": 98,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      56,
+      1900
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 104,
+     "au": 104,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      58,
+      2250
+     ]
+    }
    ]
   }
  ],
@@ -805,44 +1035,21 @@
    }
   }
  ],
- "DEPTHS": [
-  {
-   "m": 50
-  },
-  {
-   "m": 200,
-   "tool": "Jackhammer",
-   "cost": 800
-  },
-  {
-   "m": 350,
-   "tool": "Drilling rig",
-   "cost": 2500
-  },
-  {
-   "m": 500,
-   "tool": "Tunnel borer",
-   "cost": 6000
-  },
-  {
-   "m": 650,
-   "tool": "Deep drill",
-   "cost": 15000
-  }
- ],
  "DMODS": [
   "ordinary board",
   "sandstone hardens into granite",
   "gas on the board, fewer moves",
   "timber supports on the stones",
-  "a sixth stone colour"
+  "a sixth stone colour",
+  "more gas and timber, fewer moves"
  ],
  "DSHORT": [
   "",
   "granite",
   "gas",
   "supports",
-  "6 colours"
+  "6 colours",
+  "tighter"
  ],
  "EQUIP": [
   {

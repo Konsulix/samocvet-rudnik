@@ -1,8 +1,8 @@
 class_name Chrome
 extends RefCounted
-## Pieces every screen shares: the lives / coins / stars pills and the bottom tab bar.
+## Pieces every screen shares: the lives / coins / ore pills and the bottom tab bar.
 
-## the bar on top of every screen, the same everywhere: lives, coins and stars sharing the width
+## the bar on top of every screen, the same everywhere: lives, coins, iron and the mine's own ore sharing the width
 ## in even plates, a round sound button on the right
 static func top_bar() -> HBoxContainer:
 	Save.tick_lives()
@@ -12,7 +12,8 @@ static func top_bar() -> HBoxContainer:
 	var mins := Save.minutes_to_life()
 	h.add_child(plate("heart", str(Save.d.lives) if not mins else "%d · %dm" % [Save.d.lives, mins]))
 	h.add_child(plate("coin", UI.fmt(Save.d.coins)))
-	h.add_child(plate("star", str(Save.d.stars)))
+	h.add_child(plate("iron", str(Save.d.fe)))
+	h.add_child(plate("ore", str(Save.d.ore)))
 	var snd := UI.button("♪" if not Save.d.mute else "×", "glass", 17)
 	snd.custom_minimum_size = Vector2(38, 38)
 	for k in ["normal", "hover", "pressed", "disabled"]:
@@ -87,9 +88,10 @@ static func pill(kind: String, text: String) -> PanelContainer:
 	p.add_child(h)
 	return p
 
-## the round badges: a heart, a coin, a star
+## the round badges: a heart, a coin, iron (a steel cube), the mine's own ore (a nugget in the mine's colour)
 static func coin_icon(ci: CanvasItem, kind: String, c: Vector2, r: float) -> void:
-	var col: Color = {heart = Color("#e2334f"), coin = Color("#f2b630"), star = Color("#7a5cff")}.get(kind, Color.GRAY)
+	var col: Color = {heart = Color("#e2334f"), coin = Color("#f2b630"), iron = Color("#5f6d80")}.get(kind, Color.GRAY)
+	if kind == "ore": col = Color.html(Data.ore(Save.area()).c)
 	ci.draw_circle(c, r, col.darkened(0.35))
 	ci.draw_circle(c - Vector2(0, 1), r - 1.5, col)
 	var w := Color(1, 1, 1, 0.95)
@@ -105,12 +107,25 @@ static func coin_icon(ci: CanvasItem, kind: String, c: Vector2, r: float) -> voi
 		"coin":
 			ci.draw_arc(c, r * 0.58, 0, TAU, 18, Color(1, 0.95, 0.75, 0.9), 1.6, true)
 			ci.draw_string(UI.display, c + Vector2(-r * 0.3, r * 0.36), "$", HORIZONTAL_ALIGNMENT_LEFT, -1, int(r * 1.0), Color("#6a4204"))
+		"iron":
+			# a cube seen from a corner: lit top, two darker sides
+			var e := r * 0.52
+			var top := c + Vector2(0, -e)
+			var mid := c + Vector2(0, e * 0.1)
+			var lt := c + Vector2(-e * 0.92, -e * 0.45)
+			var rt := c + Vector2(e * 0.92, -e * 0.45)
+			ci.draw_colored_polygon(PackedVector2Array([top, rt, mid, lt]), Color(0.93, 0.96, 1.0))
+			ci.draw_colored_polygon(PackedVector2Array([lt, mid, mid + Vector2(0, e * 1.0), lt + Vector2(0, e * 1.0)]), Color(0.66, 0.72, 0.8))
+			ci.draw_colored_polygon(PackedVector2Array([mid, rt, rt + Vector2(0, e * 1.0), mid + Vector2(0, e * 1.0)]), Color(0.45, 0.5, 0.58))
 		_:
+			# a lumpy nugget with a highlight
 			var pts2 := PackedVector2Array()
-			for i in 10:
-				var a := -PI / 2 + i * PI / 5
-				pts2.append(c + Vector2(cos(a), sin(a)) * (r * 0.68 if i % 2 == 0 else r * 0.3))
-			ci.draw_colored_polygon(pts2, w)
+			for i in 9:
+				var a := i / 9.0 * TAU
+				pts2.append(c + Vector2(cos(a) * 1.15, sin(a) * 0.9) * r * (0.5 + 0.1 * sin(i * 2.7)))
+			var oc := Color.html(Data.ore(Save.area()).c)
+			ci.draw_colored_polygon(pts2, oc.lightened(0.65))
+			ci.draw_circle(c + Vector2(-r * 0.18, -r * 0.16), r * 0.15, Color(1, 1, 1, 0.9))
 
 ## the bottom tab bar: mine, depot, museum, three even segments edge to edge; the open one is lit,
 ## with a gold top edge, a bigger icon and its label, the others show just their icon

@@ -5,8 +5,6 @@ extends Control
 
 signal go(screen: String)
 
-const DMACH := ["", "hammer", "rig", "tbm", "deep"]
-
 var tab := "depth"
 var sel := ""
 var view: SpecView
@@ -27,15 +25,18 @@ func items() -> Array:
 	var d: int = Save.d.depth[a]
 	var out := []
 	if tab == "depth":
-		for k in range(1, Data.DEPTHS.size()):
-			var t: Dictionary = Data.DEPTHS[k]
+		var tasks: Array = Data.AREAS[a].tasks
+		for k in range(1, Data.depths(a).size()):
+			var t: Dictionary = Data.depth(a, k)
 			var fx := []
-			for x in Data.DSHORT.slice(1, k + 1): fx.append(["bad", x])
+			for x in Data.DSHORT.slice(1, mini(k, Data.DSHORT.size() - 1) + 1): fx.append(["bad", x])
 			fx.append(["good", "coins ×%s" % str(Data.depth_pay(k))])
 			fx.append(["good", "stones worth more"])
-			out.append({key = "d%d" % k, machine = DMACH[k], n = t.tool, sub = "%d → %d m" % [int(Data.DEPTHS[k - 1].m), int(t.m)], own = d >= k, next = k == d + 1,
-				cost = Data.depth_cost(a, k), fx = fx, k = k,
-				desc = "Opens workings down to %d m." % int(t.m) if d >= k else "Breaks through rock to %d m. At the new depth: %s." % [int(t.m), Data.DMODS[k]]})
+			# the job of the depth above has to be done before the drill goes through
+			var job: Array = tasks[k - 1]
+			out.append({key = "d%d" % k, machine = t.machine, n = t.tool, sub = "%d → %d m" % [Data.depth_m(a, k - 1), int(t.m)], own = d >= k, next = k == d + 1,
+				cost = int(t.drill[1]), fe = int(t.drill[0]), job = "" if job[0] in Save.d.built[a] else String(job[1]), fx = fx, k = k,
+				desc = "Opens workings down to %d m." % int(t.m) if d >= k else "Breaks through rock to %d m. At the new depth: %s." % [int(t.m), Data.DMODS[mini(k, Data.DMODS.size() - 1)]]})
 	else:
 		for e in Data.EQUIP:
 			var lv: int = Save.d.eq[e.id]
@@ -76,9 +77,9 @@ func render() -> void:
 	body.add_child(Chrome.top_bar())
 	body.add_child(UI.title("Depot", 22))
 	var a := ai()
-	var sub := Ov.text(("%s: digging to %d m" % [Data.AREAS[a].n, int(Data.DEPTHS[int(Save.d.depth[a])].m)] if tab == "depth" else "Gear works in every mine") + " · you have " + UI.coins(Save.d.coins), 13, Color("#d8e0ee"))
+	var sub := Ov.text(("%s: digging to %d m · you have %d iron, %s" % [Data.AREAS[a].n, Data.depth_m(a, int(Save.d.depth[a])), int(Save.d.fe), UI.coins(Save.d.coins)]) if tab == "depth" else "Gear works in every mine · you have " + UI.coins(Save.d.coins), 13, Color("#d8e0ee"))
 	body.add_child(sub)
-	body.add_child(tabs([["depth", "Sinking · %d/4" % int(Save.d.depth[a])], ["eq", "Gear"]], tab, func(id: String):
+	body.add_child(tabs([["depth", "Sinking · %d/%d" % [int(Save.d.depth[a]), Data.depths(a).size() - 1]], ["eq", "Gear"]], tab, func(id: String):
 		tab = id
 		sel = ""
 		render()))
@@ -164,26 +165,37 @@ func _info(it: Dictionary, prev: Dictionary) -> PanelContainer:
 	elif not it.next:
 		btn = UI.button("First: " + (String(prev.n).to_lower() if not prev.is_empty() else ""), "glass", 15)
 		btn.disabled = true
-	elif Save.d.coins >= int(it.cost):
-		btn = UI.button(("Upgrade" if it.get("lv", 0) else "Buy") + " · " + UI.coins(int(it.cost)), "gold", 17)
+	elif it.get("job", "") != "":
+		btn = UI.button("First: " + String(it.job).to_lower(), "glass", 15)
+		btn.disabled = true
+	elif _affords(it):
+		var price := ("%d iron + " % int(it.fe) if it.get("fe", 0) else "") + UI.coins(int(it.cost))
+		btn = UI.button(("Upgrade" if it.get("lv", 0) else "Buy") + " · " + price, "gold", 17)
 		btn.pressed.connect(func(): _buy(it))
 	else:
-		btn = UI.button("Need " + UI.coins(int(it.cost) - Save.d.coins), "glass", 15)
+		var need := []
+		if Save.d.fe < int(it.get("fe", 0)): need.append("%d iron" % (int(it.fe) - Save.d.fe))
+		if Save.d.coins < int(it.cost): need.append(UI.coins(int(it.cost) - Save.d.coins))
+		btn = UI.button("Need " + ", ".join(need), "glass", 15)
 		btn.disabled = true
 	btn.custom_minimum_size = Vector2(0, 46)
 	v.add_child(btn)
 	p.add_child(v)
 	return p
 
+func _affords(it: Dictionary) -> bool:
+	return Save.d.coins >= int(it.cost) and Save.d.fe >= int(it.get("fe", 0))
+
 func _buy(it: Dictionary) -> void:
-	if Save.d.coins < int(it.cost): return
+	if not _affords(it) or it.get("job", "") != "": return
 	Save.d.coins -= int(it.cost)
+	Save.d.fe -= int(it.get("fe", 0))
 	var msg := ""
 	if tab == "depth":
 		var k: int = it.k
 		Save.d.depth[ai()] = k
 		Save.d.depth_sel[ai()] = k
-		msg = "%s: depth %d m opened" % [it.n, int(Data.DEPTHS[k].m)]
+		msg = "%s: depth %d m opened" % [it.n, Data.depth_m(ai(), k)]
 	else:
 		Save.d.eq[it.key] += 1
 		msg = "%s: level %d" % [it.n, int(Save.d.eq[it.key])]

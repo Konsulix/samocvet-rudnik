@@ -8,7 +8,6 @@ var LEVELS: Array
 var AREAS: Array
 var CHEST: Array
 var SETS: Array
-var DEPTHS: Array
 var DMODS: Array
 var DSHORT: Array
 var EQUIP: Array
@@ -50,11 +49,23 @@ func level_def(n: int) -> Dictionary:
 	base.hard = n % 8 == 0
 	return base
 
-func depth_cost(area: int, k: int) -> int:
-	return int(round(DEPTHS[k].cost * (1.0 + area * 0.8) / 50.0)) * 50
+## a mine's depths, top first: {m, fe, au (the veins' stock), tool, machine, drill = [iron, coins] to dig down to it}
+func depths(area: int) -> Array:
+	return AREAS[mini(area, AREAS.size() - 1)].depths
+
+func depth(area: int, k: int) -> Dictionary:
+	var ds := depths(area)
+	return ds[clampi(k, 0, ds.size() - 1)]
+
+func depth_m(area: int, k: int) -> int:
+	return int(depth(area, k).m)
+
+## the mine's own ore: {n, c, iron (colour holding iron), local (colour holding it)}
+func ore(area: int) -> Dictionary:
+	return AREAS[mini(area, AREAS.size() - 1)].ore
 
 func depth_pay(dl: int) -> float:
-	return 1.0 + dl * 0.5
+	return 1.0 + dl * 0.2
 
 ## species that can actually turn up in some mine
 func minable() -> Array:

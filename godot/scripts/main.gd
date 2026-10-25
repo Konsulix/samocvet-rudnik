@@ -27,6 +27,8 @@ func _ready() -> void:
 	if args.has("iron"):
 		for c in String(args.iron).split(","):
 			BoardSprites.ore_demo[int(c)] = "iron"
+	if args.has("fe"): Save.d.fe = int(args.fe)
+	if args.has("au"): Save.d.ore = int(args.au)
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))
@@ -105,7 +107,7 @@ func _ready() -> void:
 	if args.has("bake_thumbs"):
 		# render every machine's picture once and save it into the project (Spec.BAKED)
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/thumbs"))
-		var ids := Array(Depot.DMACH.slice(1))
+		var ids := ["hammer", "rig", "tbm", "deep"]
 		for e in Data.EQUIP: ids.append(e.id)
 		for id in ids:
 			var got := [null]
@@ -226,25 +228,24 @@ func _on_level_finished(res: Dictionary) -> void:
 		await _win_card(res)
 	show_home()
 
-## the end-of-level card: stars, coins, the win streak
+## the end-of-level card: coins, the win streak
 func _win_card(res: Dictionary) -> void:
 	var v := Ov.card()
-	var star := UI.label("★", 54, UI.display, UI.GOLD)
-	star.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(star)
+	var badge := UI.icon(56, func(ci: Control): Chrome.coin_icon(ci, "coin", Vector2(28, 28), 26))
+	badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(badge)
 	v.add_child(UI.title("Level %d complete!" % res.n, 22))
 	if res.depth:
-		v.add_child(Ov.text("Depth %d m: coins ×%s" % [int(Data.DEPTHS[res.depth].m), str(Data.depth_pay(res.depth))]))
+		v.add_child(Ov.text("Depth %d m: coins ×%s" % [Data.depth_m(Save.area(), res.depth), str(Data.depth_pay(res.depth))]))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 10)
-	line.add_child(Reveal.chip("★ +1", true))
 	line.add_child(Reveal.chip("$ +%s" % UI.fmt(res.coins), true))
 	v.add_child(line)
 	if Save.d.streak >= 2:
 		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)]))
 	else:
-		v.add_child(Ov.text("Stars are spent on fitting out the mine."))
+		v.add_child(Ov.text("Iron sinks the shaft deeper, %s fits out the mine." % String(Data.ore(Save.area()).n).to_lower()))
 	var go := Ov.btn("Continue", "green", func(): Ov.close())
 	v.add_child(go)
 	await Ov.closed

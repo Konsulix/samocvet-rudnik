@@ -69,7 +69,7 @@ func render() -> void:
 	sub.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	sub.add_theme_constant_override("shadow_outline_size", 6)
 	col.add_child(sub)
-	var chip := UI.label("⛏ digging at %d m · open to %d m" % [int(Data.DEPTHS[dl_sel()].m), int(Data.DEPTHS[int(Save.d.depth[ai()])].m)], 12, UI.body_bold, Color("#ffd27a"))
+	var chip := UI.label("⛏ digging at %d m · open to %d m" % [Data.depth_m(ai(), dl_sel()), Data.depth_m(ai(), int(Save.d.depth[ai()]))], 12, UI.body_bold, Color("#ffd27a"))
 	var cs := StyleBoxFlat.new()
 	cs.bg_color = Color(0.1, 0.07, 0.02, 0.75)
 	cs.border_color = Color("#e3a51e", 0.5)
@@ -107,10 +107,14 @@ func _tasks_button() -> Button:
 	var A: Dictionary = Data.AREAS[ai()]
 	var built: Array = Save.d.built[ai()]
 	var next: Array = []
-	for t in A.tasks:
-		if not t[0] in built:
-			next = t
+	var ni := -1
+	for i in A.tasks.size():
+		if not A.tasks[i][0] in built:
+			next = A.tasks[i]
+			ni = i
 			break
+	# a depth's task waits until the shaft reaches it
+	var deeper: bool = ni > int(Save.d.depth[ai()])
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, 64)
 	for s in ["normal", "hover", "pressed", "focus"]:
@@ -128,7 +132,7 @@ func _tasks_button() -> Button:
 	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(UI.label("Mine · %d/%d" % [built.size(), A.tasks.size()], 11, UI.body_bold, UI.MUTED))
-	var tl := UI.label(String(next[1]) if next.size() else "Fitted out!", 13, UI.body_bold)
+	var tl := UI.label(("Dig down to %d m" % Data.depth_m(ai(), ni) if deeper else String(next[1])) if next.size() else "Fitted out!", 13, UI.body_bold)
 	tl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	tl.clip_text = true
 	v.add_child(tl)
@@ -148,10 +152,12 @@ func _tasks_button() -> Button:
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(bar)
 	h.add_child(v)
-	var stars := UI.label(("★ %d" % next[2]) if next.size() else "✓", 14, UI.display, UI.GOLD)
-	h.add_child(stars)
+	if next.size() and not deeper:
+		h.add_child(ore_tag("ore", int(next[2]), 14))
+	else:
+		h.add_child(UI.label("⛏" if next.size() else "✓", 14, UI.display, UI.GOLD))
 	b.add_child(h)
-	b.pressed.connect(_open_tasks)
+	b.pressed.connect(func(): go.emit("depot") if deeper else _open_tasks())
 	return b
 
 func _play_button() -> Button:
@@ -216,7 +222,7 @@ func _gui_input(e: InputEvent) -> void:
 			Save.persist()
 			Sfx.play("swap")
 			render()
-			Ov.toast("Digging at %d m" % int(Data.DEPTHS[k].m))
+			Ov.toast("Digging at %d m" % Data.depth_m(ai(), k))
 	else:
 		go.emit("depot")
 
@@ -304,7 +310,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 	var mid := VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_theme_constant_override("separation", 0)
-	var dt := UI.label("Depth %d m" % int(Data.DEPTHS[dl].m), 16, UI.display, UI.GOLD)
+	var dt := UI.label("Depth %d m" % Data.depth_m(ai(), dl), 16, UI.display, UI.GOLD)
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(dt)
 	var mods := ", ".join(Data.DSHORT.slice(1, dl + 1)) + " · coins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary board and ordinary rewards"
@@ -320,8 +326,8 @@ func _level_panel(dl: int, sel: Array) -> void:
 		_level_panel(dl + 1, sel))
 	drow.add_child(plus)
 	v.add_child(drow)
-	if open < Data.DEPTHS.size() - 1:
-		v.add_child(Ov.text("Below %d m only machines get through: %s." % [int(Data.DEPTHS[open].m), String(Data.DEPTHS[open + 1].tool).to_lower()], 12))
+	if open < Data.depths(ai()).size() - 1:
+		v.add_child(Ov.text("Below %d m only machines get through: %s." % [Data.depth_m(ai(), open), String(Data.depth(ai(), open + 1).tool).to_lower()], 12))
 	if Save.d.streak >= 2:
 		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)], 13, UI.GOLD))
 	# pre-boosters to start with
@@ -413,9 +419,11 @@ func _open_tasks() -> void:
 	var a := ai()
 	var A: Dictionary = Data.AREAS[a]
 	var built: Array = Save.d.built[a]
+	var open: int = Save.d.depth[a]
+	var on := String(Data.ore(a).n).to_lower()
 	var v := Ov.card(350)
 	v.add_child(UI.title(A.n, 22))
-	v.add_child(Ov.text("You earn a star for every level you clear. You have ★ %d." % Save.d.stars, 14))
+	v.add_child(Ov.text("Each depth has one job, paid in %s from the levels you win. Finish it to dig deeper. You have %d %s." % [on, int(Save.d.ore), on], 14))
 	var all_done := true
 	for i in A.tasks.size():
 		var t: Array = A.tasks[i]
@@ -433,31 +441,49 @@ func _open_tasks() -> void:
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tv.add_child(nl)
 		var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
-		tv.add_child(UI.label("Done" if done else "★ %d · in the chest: %s" % [int(t[2]), chest_text(ch)], 12, UI.body, UI.MUTED))
-		h.add_child(tv)
 		var cost: int = t[2]
-		var b := UI.button("✓" if done else "★ %d" % cost, "gold" if not done and Save.d.stars >= cost else "glass", 14)
+		var here := "%d m" % Data.depth_m(a, i)
+		tv.add_child(UI.label("Done" if done else "%s · %d %s · in the chest: %s" % [here, cost, on, chest_text(ch)], 12, UI.body, UI.MUTED))
+		h.add_child(tv)
+		var reach: bool = i <= open
+		var can: bool = not done and reach and Save.d.ore >= cost
+		var b := UI.button("✓" if done else str(cost) if reach else here, "gold" if can else "glass", 14)
 		b.custom_minimum_size = Vector2(70, 40)
-		b.disabled = done or Save.d.stars < cost
+		b.disabled = not can
 		var tid: String = t[0]
 		b.pressed.connect(func(): _build(tid, i))
 		h.add_child(b)
 		row.add_child(h)
 		v.add_child(row)
 	if all_done and a < Data.AREAS.size() - 1:
-		v.add_child(Ov.btn("New mine: " + String(Data.AREAS[a + 1].n), "green", func():
-			Save.d.area = a + 1
-			Save.persist()
-			Ov.close()
-			render()))
+		v.add_child(_next_mine_btn(a))
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
+
+## the way on to the next mine: iron and coins; the ore of this one left over is sold
+func _next_mine_btn(a: int) -> Button:
+	var cost: Array = Data.AREAS[a].next
+	var fe: int = cost[0]
+	var cn: int = cost[1]
+	var ok: bool = Save.d.fe >= fe and Save.d.coins >= cn
+	var nm := String(Data.AREAS[a + 1].n)
+	var b := Ov.btn("%s · %d iron + %s" % [nm, fe, UI.coins(cn)] if ok else "%s: need %d iron, %s" % [nm, fe, UI.coins(cn)], "green" if ok else "glass", func():
+		if Save.d.fe < fe or Save.d.coins < cn: return
+		Save.d.fe -= fe
+		Save.d.coins -= cn
+		var sold := Save.open_mine(a + 1)
+		Save.persist()
+		Ov.close()
+		render()
+		Ov.toast("Welcome to %s" % nm + (" · leftover ore sold for %s" % UI.coins(sold) if sold else "")))
+	b.disabled = not ok
+	return b
 
 func _build(tid: String, i: int) -> void:
 	var a := ai()
 	var A: Dictionary = Data.AREAS[a]
 	var t: Array = A.tasks[i]
-	if Save.d.stars < int(t[2]): return
-	Save.d.stars -= int(t[2])
+	if Save.d.ore < int(t[2]) or i > int(Save.d.depth[a]): return
+	Save.d.ore -= int(t[2])
 	Save.d.built[a].append(tid)
 	var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
 	if ch.get("coins", 0): Save.d.coins += int(ch.coins)
@@ -483,13 +509,29 @@ func _build(tid: String, i: int) -> void:
 		render()
 		var btns := []
 		if a < Data.AREAS.size() - 1:
-			btns.append(["Open: " + String(Data.AREAS[a + 1].n), "green", func():
-				Save.d.area = a + 1
+			var cost: Array = A.next
+			btns.append(["Open: %s · %d iron + %s" % [Data.AREAS[a + 1].n, int(cost[0]), UI.coins(int(cost[1]))], "green", func():
+				if Save.d.fe < int(cost[0]) or Save.d.coins < int(cost[1]): return
+				Save.d.fe -= int(cost[0])
+				Save.d.coins -= int(cost[1])
+				Save.open_mine(a + 1)
 				Save.persist()
 				Ov.close()
-				render()])
+				render(), Save.d.fe >= int(cost[0]) and Save.d.coins >= int(cost[1])])
 		btns.append(["Later", "glass", func(): Ov.close()])
 		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and dynamite." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
+
+## a price in ore: the round badge and the number
+static func ore_tag(kind: String, n: int, fs: int) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 3)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var r := fs * 0.62
+	var ic := UI.icon(int(r * 2 + 2), func(ci: Control): Chrome.coin_icon(ci, kind, Vector2(r + 1, r + 1), r))
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	h.add_child(UI.label(str(n), fs, UI.display, UI.GOLD))
+	return h
 
 ## a little thump of the picture and a burst of sparks when something gets built
 func _build_pop() -> void:
