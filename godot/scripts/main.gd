@@ -16,6 +16,7 @@ func _ready() -> void:
 		var ins: PackedStringArray = String(args.notch).split(",")
 		UI.fake_insets = Vector2(float(ins[0]), float(ins[1]) if ins.size() > 1 else 0.0)
 	if args.has("style"): Board3D.STYLE = int(args.style)
+	if args.has("rock"): BoardKit.force_rock = args.rock
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))

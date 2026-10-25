@@ -1,6 +1,6 @@
 class_name BoardView
 extends Control
-## The tray: timber rim, slate tiles, blockers and the stones themselves.
+## The tray: a stone frame round slate tiles (BoardKit), blockers and the stones themselves.
 ## Knows nothing about rules — it mirrors BoardModel and plays the animations Level asks for.
 
 signal swiped(r1: int, c1: int, r2: int, c2: int)
@@ -50,8 +50,10 @@ func _layer(fn: Callable) -> Node2D:
 
 ## fit the board into `avail` (pixels) and centre it there
 func layout(avail: Vector2) -> void:
-	TS = floorf(minf(minf((avail.x - 8) / C, (avail.y - 8) / R), 62.0))
-	PAD = roundf(TS * 0.26)
+	# room round the cells for the frame, its corner caps and their shadow
+	var rim := BoardKit.FW * 0.5 + BoardKit.CAP * 0.5 + 0.04
+	TS = floorf(minf(minf((avail.x - 4) / (C + rim * 2.0), (avail.y - 4) / (R + rim * 2.0)), 62.0))
+	PAD = ceilf(TS * rim)
 	custom_minimum_size = Vector2(C * TS + PAD * 2, R * TS + PAD * 2)
 	size = custom_minimum_size
 
@@ -194,46 +196,10 @@ func hint(mv: Array) -> void:
 
 # ---------------------------------------------------------------- drawing
 
-const SLAB := preload("res://assets/board/pieces/slab.png")
-
-## the tray: a slab of pale marble with a raised marble tile in every cell
+## the tray: the mine's stone kit (BoardKit) laid out to the board's shape
 func _draw() -> void:
 	if model == null: return
-	var e := PAD * 0.92
-	# outer edge of the slab: a soft drop shadow, then the slab itself
-	for r in R:
-		for c in C:
-			if model.playable(r, c):
-				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e) + Vector2(2, 6), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color(0, 0, 0, 0.35))
-	# the frame's darker outer lip, rounded
-	for r in R:
-		for c in C:
-			if model.playable(r, c):
-				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color("#b9ae9c"))
-	for r in R:
-		for c in C:
-			if model.playable(r, c):
-				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				var rr := Rect2(p - Vector2(e, e) * 0.72, Vector2(TS, TS) + Vector2(e, e) * 1.44)
-				draw_texture_rect_region(SLAB, rr, Rect2(rr.position * 1.6, rr.size * 1.6), Color(0.9, 0.88, 0.85))
-	# a thin warm catch-light on the slab's upper edges
-	for r in R:
-		for c in C:
-			if model.playable(r, c) and not model.playable(r - 1, c):
-				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_line(p + Vector2(-e * 0.6, -e + 1), p + Vector2(TS + e * 0.6, -e + 1), Color(1, 1, 1, 0.5), 1.5)
-	# the pockets: darker, with an inner shadow at the top and a faint rim of light at the bottom
-	for r in R:
-		for c in C:
-			if model.playable(r, c):
-				_pocket(Vector2(PAD + c * TS, PAD + r * TS))
-
-func _pocket(p: Vector2) -> void:
-	# a marble tile per cell, the seams between them read as the grid
-	var tile := BoardSprites.tex("tile")
-	draw_texture_rect_region(tile, Rect2(p, Vector2(TS, TS)), Rect2(Vector2(0, 0), Vector2(tile.get_width(), tile.get_height())), Color(1, 1, 1))
+	BoardKit.for_area(Save.area()).draw(self, Vector2(PAD, PAD), TS, R, C, model.playable)
 
 ## the layers under the stones changed (a rock cracked, mud cleared, a geode or the find was hit)
 func redraw_under() -> void:
