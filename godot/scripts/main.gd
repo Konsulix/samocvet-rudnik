@@ -20,6 +20,7 @@ func _ready() -> void:
 	if args.has("gems"): BoardSprites.gem_style = "" if args.gems == "classic" else args.gems
 	if args.has("ore_look"): BoardSprites.ore_look = args.ore_look
 	if args.has("locks"): BoardSprites.lock_style = args.locks
+	if args.has("zones"): BoardSprites.zone_style = args.zones
 	if args.has("ore"):
 		for c in String(args.ore).split(","):
 			BoardSprites.ore_demo[int(c)] = "ore"

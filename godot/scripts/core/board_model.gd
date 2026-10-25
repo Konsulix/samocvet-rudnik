@@ -47,9 +47,22 @@ var goals := []      # {k, t, left}
 var over := false
 var coins_won := 0
 var bonus := []      # stones freed from geodes, opened after the level
-var geos := []       # {r, c, hp}
+var geos := []       # {r, c, w, h, hp, hp_max, done}: a done geode stays on the board, an empty shell of rock
 var gas_hit := false
-var find := {}       # the sealed specimen: {r, c, hp, hp_max, integ, stone, done}
+var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, stone, done}
+## the shapes a find comes sealed in, [w, h, weight]
+const FIND_SHAPES := [[2, 2, 4.0], [2, 1, 2.0], [1, 2, 2.0], [3, 1, 1.0], [1, 3, 1.0]]
+
+## how many hits a big block takes: more the deeper the mine and the later the level, 3 to 8
+static func block_hp(level_n: int, dl: int) -> int:
+	return clampi(3 + level_n / 10 + dl, 3, 8)
+
+static func cells_of(b: Dictionary) -> Array:
+	var out := []
+	for dr in int(b.get("h", 2)):
+		for dc in int(b.get("w", 2)):
+			out.append(Vector2i(int(b.r) + dr, int(b.c) + dc))
+	return out
 var lift := 0        # equipment levels the rules care about
 var vent := 0
 
@@ -123,30 +136,34 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					locks += 1
 				"G":
 					var gi := geos.size()
-					geos.append({r = r, c = c, hp = 4})
+					var ghp := block_hp(level_n, dl)
+					geos.append({r = r, c = c, w = 2, h = 2, hp = ghp, hp_max = ghp, done = false})
 					for d in QUAD:
 						GEOC[r + d.x][c + d.y] = gi
 	# the find: a specimen sealed in a 2x2 block of rock, somewhere in the lower half
 	if roll_find:
+		var shape: Array = Stones.pick_w(FIND_SHAPES.map(func(sh): return [sh, sh[2]]), Rng32.new(rng.randi()))
+		var fw: int = shape[0]
+		var fh: int = shape[1]
 		var spots := []
-		for r in range(3, R - 2):
-			for c in range(1, C - 2):
+		for r in range(3, R - fh):
+			for c in range(1, C - fw):
 				var ok := true
-				for d in QUAD:
+				for d in cells_of({r = 0, c = 0, w = fw, h = fh}):
 					var rr: int = r + d.x
 					var cc: int = c + d.y
 					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or G[rr][cc] != null:
 						ok = false
 				if ok:
-					spots.append([r, c, absf(r - 5.5) + absf(c + 0.5 - C / 2.0) * 0.7])
+					spots.append([r, c, absf(r + fh * 0.5 - 6.5) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
 		spots.sort_custom(func(a, b): return a[2] < b[2])
 		if spots.size():
 			var s: Array = spots[rng.randi_range(0, mini(5, spots.size() - 1))]
-			var hp := mini(7, 3 + level_n / 10 + dl)
+			var hp := block_hp(level_n, dl)
 			var stone := Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
-			find = {r = s[0], c = s[1], hp = hp, hp_max = hp, integ = 100, stone = stone, done = false}
-			for d in QUAD:
-				FIND[s[0] + d.x][s[1] + d.y] = true
+			find = {r = s[0], c = s[1], w = fw, h = fh, hp = hp, hp_max = hp, integ = 100, stone = stone, done = false}
+			for p in cells_of(find):
+				FIND[p.x][p.y] = true
 	# the deeper you dig, the harder the board
 	if dl >= 1:
 		for r in R:
@@ -413,15 +430,15 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_goal_hit("gas", -1, r, c, t)
 		_fx(t, "gas", {r = r, c = c})
 		return
-	if GEOC[r][c] >= 0:   # a geode block takes one hit per blast, four in all
+	if GEOC[r][c] >= 0:   # a geode block takes one hit per blast; once open its empty shell stays, taking no more
 		var gi: int = GEOC[r][c]
 		var geo: Dictionary = geos[gi]
-		if _geo_hit.has(gi) or geo.hp <= 0: return
+		if _geo_hit.has(gi) or geo.done: return
 		_geo_hit[gi] = true
 		geo.hp -= 1
 		_fx(t, "geo_hit", {gi = gi, hp = geo.hp})
 		if geo.hp <= 0:
-			for d in QUAD: GEOC[geo.r + d.x][geo.c + d.y] = -1
+			geo.done = true
 			_goal_hit("geo", -1, geo.r + 0.5, geo.c + 0.5, t)
 			bonus.append(Stones.roll(Save.next_uid(), Save.area(), 0.5 + depth * 0.35, depth))
 			_fx(t, "geo_open", {gi = gi, r = geo.r, c = geo.c})
@@ -438,9 +455,10 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_fx(t, "find_hit", {rough = rough, chip = chip, hp = find.hp, integ = find.integ})
 		if find.hp <= 0:
 			find.done = true
-			for d in QUAD: FIND[find.r + d.x][find.c + d.y] = false
-			_goal_hit("find", -1, find.r + 0.5, find.c + 0.5, t)
-			_fx(t, "find_done", {r = find.r, c = find.c})
+			# the stone comes out and the block with it, whether it was dug out with care or blasted apart
+			for p in cells_of(find): FIND[p.x][p.y] = false
+			_goal_hit("find", -1, find.r + (find.h - 1) * 0.5, find.c + (find.w - 1) * 0.5, t)
+			_fx(t, "find_done", {r = find.r + (find.h - 2) * 0.5, c = find.c + (find.w - 2) * 0.5})
 		return
 	if LOCK[r][c]:   # the timber breaks, the stone under it stays
 		if kind == "adj": return
@@ -570,7 +588,7 @@ func drill_target(r: int, c: int) -> Vector2i:
 			var w := 0
 			if FIND[rr][cc] and need.has("find"): w = 7
 			elif GAS[rr][cc] and need.has("gas"): w = 6
-			elif GEOC[rr][cc] >= 0 and need.has("geo"): w = 6
+			elif GEOC[rr][cc] >= 0 and not geos[GEOC[rr][cc]].done and need.has("geo"): w = 6
 			elif LOCK[rr][cc] and need.has("lock"): w = 5
 			elif ROCK[rr][cc] and need.has("rock"): w = 6
 			elif MUD[rr][cc] and need.has("mud"): w = 5
@@ -717,11 +735,14 @@ func _walled(r: int, c: int) -> bool:
 func collect_nuggets() -> Array:
 	var out := []
 	for c in C:
-		var r := R - 1
-		while r >= 0 and not playable(r, c): r -= 1
-		if r < 0: continue
-		var g: Gem = G[r][c]
-		if g and g.item == "nug":
+		for r in R:
+			var g: Gem = G[r][c]
+			if g == null or g.item != "nug": continue
+			# it has come as far down as it can: the bottom of the board below it, or an opened geode's shell
+			var below := r + 1
+			while below < R and not playable(below, c): below += 1
+			var shell: bool = below < R and GEOC[below][c] >= 0 and geos[GEOC[below][c]].done
+			if below < R and not shell: continue
 			G[r][c] = null
 			fx = []
 			_goal_hit("nug", -1, r, c, 0.0)

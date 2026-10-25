@@ -488,17 +488,20 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"find_hit":
 			board.find_hit_at = Time.get_ticks_msec() / 1000.0
 			var F: Dictionary = model.find
+			var fr: float = F.r + (F.h - 2) * 0.5
+			var fc: float = F.c + (F.w - 2) * 0.5
 			if e.rough:
 				Sfx.play("crack", 3)
 				Sfx.buzz(35)
-				fx.debris(F.r + 0.5, F.c + 0.5, Color("#ffb090"), 16)
-				fx.pop_text(F.r + 0.5, F.c + 0.5, "chip −%d%%" % e.chip)
+				fx.debris(fr + 0.5, fc + 0.5, Color("#ffb090"), 16)
+				fx.pop_text(fr + 0.5, fc + 0.5, "chip −%d%%" % e.chip)
 			else:
 				Sfx.play("rock")
-				fx.debris(F.r + 0.5, F.c + 0.5, Color("#9a8a78"), 9)
+				fx.debris(fr + 0.5, fc + 0.5, Color("#9a8a78"), 9)
 			var gi := model.goal_index("find")
 			if gi >= 0: _render_goal(gi)
 		"find_done":
+			board.find_done_at = Time.get_ticks_msec() / 1000.0
 			board.redraw_under()
 			var col := Data.rarity_color(model.find.stone.tier)
 			fx.sparkle(e.r + 0.5, e.c + 0.5, Color(col.r * 1.5, col.g * 1.5, col.b * 1.5), 44)
@@ -751,6 +754,23 @@ func _show_looks() -> void:
 	var show := _looks_option("Ore on the board: " + ("on (red: iron, green: the mine's)" if Save.d.ore_preview else "off"), Save.d.ore_preview, 40)
 	show.pressed.connect(_set_look.bind("ore_preview", not Save.d.ore_preview))
 	add.call(show)
+	add.call(_looks_head("Blocks"))
+	var zones := HBoxContainer.new()
+	zones.add_theme_constant_override("separation", 6)
+	for style: String in BoardSprites.ZONE_STYLES:
+		var b := _looks_option(BoardSprites.ZONE_STYLES[style], BoardSprites.zone_style == style, 70)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if style != "classic":
+			var zt: Texture2D = load("res://assets/board/zones/%s/geode_2x2_0.png" % style)
+			var zi := UI.icon(40, func(ci): ci.draw_texture_rect(zt, Rect2(0, 0, 40, 40), false))
+			zi.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			var zc := CenterContainer.new()
+			zc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			zc.add_child(zi)
+			b.get_child(0).add_child(zc)
+		b.pressed.connect(_set_look.bind("zone_style", style))
+		zones.add_child(b)
+	add.call(zones)
 	add.call(_looks_head("Timber"))
 	var locks := HBoxContainer.new()
 	locks.add_theme_constant_override("separation", 6)

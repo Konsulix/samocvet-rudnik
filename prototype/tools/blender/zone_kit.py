@@ -5,7 +5,7 @@
 #   find   a golden nugget sealed inside; "open": the nest empty, the nugget spilled at the corner
 #   geode  an amethyst-lined cave inside; "open": the rim of rock left standing round the cave (it stays on the board)
 # Zone sizes: SIZES; stages 0 (whole) .. STAGES-1 (one hit from open). Same camera and lamp as the gem sets.
-#   blender -b -P zone_kit.py -- <out_dir> [px_per_cell] [samples] [only: kind_w x h,...]
+#   ZONE_LOOK=hewn|pillow blender -b -P zone_kit.py -- <out_dir> [px_per_cell] [samples] [only: kind_w x h,...]
 # writes <out_dir>/<kind>_<w>x<h>_<stage>.png and <kind>_<w>x<h>_open.png
 import bpy, bmesh, sys, math, os, random, importlib.util
 from mathutils import Vector, Quaternion
@@ -25,6 +25,16 @@ SIZES = [(2, 2), (2, 1), (1, 2), (3, 1), (1, 3)]
 STAGES = 8
 MARGIN = 0.12          # room round the zone in the sprite, in cells: chips and the shadow side
 BLOCK = 0.47           # a cell's stone block, half width (0.5 = touching its neighbour)
+# two looks the player can pick (BoardSprites.ZONE_STYLES):
+#   hewn    a few big uneven facets, darker stone, every block splitting at the first hit
+#   pillow  rounded blocks cut into many small facets, lighter stone, the cracks spreading block by block
+LOOKS = {
+    "hewn": dict(planes=46, power=3.2, depth=0.03, ramp=((0.02, 0.019, 0.018), (0.085, 0.08, 0.075), (0.24, 0.22, 0.2)),
+                 vein=0.6, glow=(0.3, 0.1), all_crack=True),
+    "pillow": dict(planes=150, power=2.7, depth=0.022, ramp=((0.025, 0.024, 0.023), (0.12, 0.115, 0.11), (0.36, 0.34, 0.32)),
+                   vein=0.45, glow=(0.15, 0.08), all_crack=False),
+}
+LOOK = LOOKS[os.environ.get("ZONE_LOOK", "hewn")]
 # softly glowing veins, close in colour: a warm hint for a find, a cool one for a geode, so a player has to look
 VEIN = {"find": (0.82, 0.62, 0.42), "geode": (0.66, 0.56, 0.8)}
 
@@ -54,8 +64,9 @@ def stone_mat(kind):
     lv = nd("ShaderNodeMapRange"); lv.inputs["From Min"].default_value = 0.05; lv.inputs["From Max"].default_value = 0.4
     L.new(bw.outputs[0], lv.inputs["Value"])
     ramp = nd("ShaderNodeValToRGB"); cr = ramp.color_ramp
-    cr.elements[0].color = (0.02, 0.019, 0.018, 1); cr.elements[1].color = (0.24, 0.22, 0.2, 1)
-    e = cr.elements.new(0.5); e.color = (0.085, 0.08, 0.075, 1)
+    lo, mid, hi = LOOK["ramp"]
+    cr.elements[0].color = (*lo, 1); cr.elements[1].color = (*hi, 1)
+    e = cr.elements.new(0.5); e.color = (*mid, 1)
     L.new(lv.outputs[0], ramp.inputs["Fac"])
     col = ramp.outputs[0]
     fa = nd("ShaderNodeVertexColor"); fa.layer_name = "facet"
@@ -66,7 +77,7 @@ def stone_mat(kind):
     wv.inputs["Scale"].default_value = 2.2; wv.inputs["Distortion"].default_value = 6.0; wv.inputs["Detail"].default_value = 4
     L.new(pos, wv.inputs["Vector"])
     vr = nd("ShaderNodeMapRange"); vr.inputs["From Min"].default_value = 0.93; vr.inputs["From Max"].default_value = 1.0
-    vr.inputs["To Max"].default_value = 0.6
+    vr.inputs["To Max"].default_value = LOOK["vein"]
     L.new(wv.outputs["Fac"], vr.inputs["Value"])
     vn = nd("ShaderNodeTexNoise"); vn.inputs["Scale"].default_value = 3.0
     L.new(pos, vn.inputs["Vector"])
@@ -78,7 +89,7 @@ def stone_mat(kind):
     L.new(vk.outputs[0], mv.inputs["Factor"]); L.new(col, mv.inputs["A"]); mv.inputs["B"].default_value = (*VEIN[kind], 1)
     L.new(mv.outputs[2], p.inputs["Base Color"])
     L.new(mv.outputs[2], p.inputs["Emission Color"])
-    em = nd("ShaderNodeMath"); em.operation = 'MULTIPLY_ADD'; em.inputs[1].default_value = 0.3; em.inputs[2].default_value = 0.1
+    em = nd("ShaderNodeMath"); em.operation = 'MULTIPLY_ADD'; em.inputs[1].default_value = LOOK["glow"][0]; em.inputs[2].default_value = LOOK["glow"][1]
     L.new(vk.outputs[0], em.inputs[0]); L.new(em.outputs[0], p.inputs["Emission Strength"])
     p.inputs["Roughness"].default_value = 0.8
     nm = nd("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = 1.3
@@ -102,8 +113,7 @@ def cell_pieces(cx, cz, inward, seed):
     """a cell's block cut in three by two planes through a point near its inner corner: the piece facing the
     zone's middle, and two behind it. Returns (object, how far towards the middle it faces)"""
     rnd = random.Random(seed)
-    # a hewn block: a few big uneven facets, so it breaks into sharp, angular pieces
-    base = gk.block_planes(46, seed, BLOCK, 0.26, BLOCK, 3.2, (0.0, 0.03))
+    base = gk.block_planes(LOOK["planes"], seed, BLOCK, 0.26, BLOCK, LOOK["power"], (0.0, LOOK["depth"]))
     hub = Vector((inward.x * 0.12 + rnd.uniform(-0.05, 0.05), 0, inward.z * 0.12 + rnd.uniform(-0.05, 0.05)))
     a0 = math.atan2(inward.z, inward.x)
     # first cut: across the inward direction; second: splitting the back half in two
@@ -188,7 +198,7 @@ def zone(kind, w, h, stage, open_=False):
             bpy.data.objects.remove(o)
             continue
         # a cell's block splits only once the cracks have reached it: one at the first hit, all by the third
-        cracked = True     # every block splits at the first hit: the breaks read across the whole zone
+        cracked = LOOK["all_crack"] or open_ or o["rank"] < max(0.0, stage) * (w * h) / 3.0
         o.location += Vector(o["out"]) * (spread if cracked else 0.0)
         if (stage >= 2 or open_) and i < gone + 2:
             o.rotation_euler = (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.15, 0.15), rnd.uniform(-0.12, 0.12))

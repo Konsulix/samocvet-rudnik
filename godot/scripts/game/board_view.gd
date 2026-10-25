@@ -21,6 +21,8 @@ var over: Node2D             # timber locks sit on top of their stones
 var board3d: Board3D         # the stones themselves, faceted 3D gems seen from straight above
 var find_tex: Texture2D       # the sealed specimen, rendered in 3D when available
 var find_hit_at := -10.0
+var find_done_at := -10.0
+var _zone_tex := {}
 var geo_hit_at := {}
 var _down := {}
 
@@ -277,11 +279,35 @@ func _draw_live(ci: Node2D) -> void:
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
 				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	if BoardSprites.zone_style != "classic":
+		for gi in model.geos.size():
+			var geo: Dictionary = model.geos[gi]
+			_draw_zone(ci, "geode", geo, now - geo_hit_at.get(gi, -10.0), now)
+		if not model.find.is_empty():
+			var since_done := now - find_done_at
+			if not model.find.done or since_done < 0.6:
+				_draw_zone(ci, "find", model.find, now - find_hit_at, now)
+		return
 	for gi in model.geos.size():
 		var geo: Dictionary = model.geos[gi]
-		if geo.hp > 0: _draw_geode(ci, geo, gi, now)
+		if not geo.get("done", false): _draw_geode(ci, geo, gi, now)
 	if not model.find.is_empty() and not model.find.done:
 		_draw_find(ci, now)
+
+## a big block in the rendered look (zone_kit.py): its stage by the hits taken; an opened geode stays as an empty
+## shell, a find just taken out shows its emptied nest a moment, fading
+func _draw_zone(ci: Node2D, kind: String, b: Dictionary, since_hit: float, now: float) -> void:
+	var w: int = b.get("w", 2)
+	var h: int = b.get("h", 2)
+	var stage := "open" if b.get("done", false) else str(clampi(int(floor(float(b.hp_max - b.hp) / float(b.hp_max) * 8.0)), 0, 7))
+	var path := "res://assets/board/zones/%s/%s_%dx%d_%s.png" % [BoardSprites.zone_style, kind, w, h, stage]
+	if not _zone_tex.has(path): _zone_tex[path] = load(path)
+	var shake := sin(since_hit * 55.0) * TS * 0.06 if since_hit < 0.22 else 0.0
+	var a := 1.0
+	if kind == "find" and b.get("done", false): a = clampf(1.0 - (now - find_done_at) / 0.6, 0.0, 1.0)
+	var size := Vector2(w + 0.24, h + 0.24) * TS
+	var ctr := Vector2(PAD + (b.c + w * 0.5) * TS + shake, PAD + (b.r + h * 0.5) * TS)
+	ci.draw_texture_rect(_zone_tex[path], Rect2(ctr - size * 0.5, size), false, Color(1, 1, 1, a))
 
 func _draw_over(ci: Node2D) -> void:
 	if model == null: return
@@ -359,7 +385,7 @@ func _draw_find(ci: Node2D, now: float) -> void:
 
 func _process(_dt: float) -> void:
 	# gas breathes, specimens pulse, shaken blocks settle
-	if model and (not model.find.is_empty() and not model.find.done or _has_gas() or not geo_hit_at.is_empty()):
+	if model and (not model.find.is_empty() and (not model.find.done or Time.get_ticks_msec() / 1000.0 - find_done_at < 0.7) or _has_gas() or not geo_hit_at.is_empty()):
 		live.queue_redraw()
 
 func _has_gas() -> bool:
