@@ -25,7 +25,8 @@ SIZES = [(2, 2), (2, 1), (1, 2), (3, 1), (1, 3)]
 STAGES = 8
 MARGIN = 0.12          # room round the zone in the sprite, in cells: chips and the shadow side
 BLOCK = 0.47           # a cell's stone block, half width (0.5 = touching its neighbour)
-VEIN = {"find": (1.0, 0.68, 0.22), "geode": (0.55, 0.3, 0.95)}   # glowing veins: gold for a find, violet for a geode
+# softly glowing veins, close in colour: a warm hint for a find, a cool one for a geode, so a player has to look
+VEIN = {"find": (0.82, 0.62, 0.42), "geode": (0.66, 0.56, 0.8)}
 
 def scene(w, h):
     sc = gk.setup()
@@ -65,7 +66,7 @@ def stone_mat(kind):
     wv.inputs["Scale"].default_value = 2.2; wv.inputs["Distortion"].default_value = 6.0; wv.inputs["Detail"].default_value = 4
     L.new(pos, wv.inputs["Vector"])
     vr = nd("ShaderNodeMapRange"); vr.inputs["From Min"].default_value = 0.93; vr.inputs["From Max"].default_value = 1.0
-    vr.inputs["To Max"].default_value = 0.8
+    vr.inputs["To Max"].default_value = 0.6
     L.new(wv.outputs["Fac"], vr.inputs["Value"])
     vn = nd("ShaderNodeTexNoise"); vn.inputs["Scale"].default_value = 3.0
     L.new(pos, vn.inputs["Vector"])
@@ -77,7 +78,7 @@ def stone_mat(kind):
     L.new(vk.outputs[0], mv.inputs["Factor"]); L.new(col, mv.inputs["A"]); mv.inputs["B"].default_value = (*VEIN[kind], 1)
     L.new(mv.outputs[2], p.inputs["Base Color"])
     L.new(mv.outputs[2], p.inputs["Emission Color"])
-    em = nd("ShaderNodeMath"); em.operation = 'MULTIPLY_ADD'; em.inputs[1].default_value = 0.6; em.inputs[2].default_value = 0.12
+    em = nd("ShaderNodeMath"); em.operation = 'MULTIPLY_ADD'; em.inputs[1].default_value = 0.3; em.inputs[2].default_value = 0.1
     L.new(vk.outputs[0], em.inputs[0]); L.new(em.outputs[0], p.inputs["Emission Strength"])
     p.inputs["Roughness"].default_value = 0.8
     nm = nd("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = 1.3
