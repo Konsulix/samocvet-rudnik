@@ -18,3 +18,5 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 [Interface Sounds](https://kenney.nl/assets/interface-sounds), [Casino Audio](https://kenney.nl/assets/casino-audio)
 и [Music Jingles](https://kenney.nl/assets/music-jingles). Какой звук на что — таблица `SAMPLES` в `scripts/autoload/sfx.gd`.
 Ракета, молния и газ по-прежнему синтезируются, а под взрывом синтезированный удар лежит вторым слоем.
+
+- `music/boss_poloz.mp3` — «Crystal Mine Serpent», тема боя с Великим Полозом; сделана владельцем проекта.

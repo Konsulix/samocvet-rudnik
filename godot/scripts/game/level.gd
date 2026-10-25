@@ -78,6 +78,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	board.rebuild(model)
 	_mount_find()
 	_render_hud()
+	if model.boss_on(): LevelBoss.mount(self)
 	busy = true
 	booster = ""
 	hint_label.text = ""
@@ -122,6 +123,9 @@ func _mount_find() -> void:
 	find_spec.rotation = Vector3(0.12, 0.6, 0)
 
 func _layout() -> void:
+	if model.boss_on():
+		LevelBoss.layout(self)
+		return
 	var vp := get_viewport_rect().size
 	var top := 162.0 + UI.safe_top()
 	var bottom := 118.0 + UI.safe_bottom()
@@ -372,6 +376,7 @@ func _render_moves() -> void:
 	moves_label.text = str(model.moves)
 	var low := model.moves <= 5 and not model.over
 	moves_label.add_theme_color_override("font_color", Color("#b0242c") if low else UI.STONE_INK)
+	if model.boss_on(): LevelBoss.moves(self)
 
 func _render_boosters() -> void:
 	for ch in booster_bar.get_children(): ch.queue_free()
@@ -379,7 +384,8 @@ func _render_boosters() -> void:
 		var id: String = bo.id
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(64, 64)
-		var st := UI.marble(16)
+		# the fight's buttons are dark slate like the rest of its interface
+		var st := BossHud.plate(16) if model.boss_on() else UI.marble(16)
 		if booster == id:
 			st.border_color = Color("#c9a35a")
 			st.set_border_width_all(3)
@@ -658,7 +664,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("coin"))
 		"boss_hit":
-			LevelBoss.refresh_hp(self)
+			LevelBoss.on_hit(self, e)
 			if int(e.dmg) >= 25: fx.pop_text(e.r, e.c, "−%d" % int(e.dmg), Color("#ffd27a"))
 		"rocket":
 			fx.rocket(e.sp, e.r, e.c)
@@ -788,6 +794,7 @@ func _buy_booster(bo: Dictionary) -> void:
 # ---------------------------------------------------------------- level end
 
 func _finale() -> void:
+	if model.boss_on(): await LevelBoss.defeat(self)
 	if model.moves <= 0: return
 	_cheer("Blast shift!")
 	await _wait(0.5)
@@ -873,6 +880,10 @@ func _on_quit() -> void:
 # ---------------------------------------------------------------- small UI helpers
 
 # ---------------------------------------------------------------- the looks panel
+
+## `-- level=1 gen depth=6 ui=boss_demo`: the boss' whole show without playing (hits, its turn, a lost board, the end)
+func _boss_demo() -> void:
+	if model.boss_on(): await LevelBoss.demo(self)
 
 func _show_looks() -> void:
 	if busy or model.over or overlay.visible: return

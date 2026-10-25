@@ -25,7 +25,9 @@ const SAMPLES := {
 	tab = {f = ["switch_002"], db = -8.0},
 	open = {f = ["open_001"], db = -10.0},
 }
-const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"]}
+const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"],
+	# a boss's own theme: "boss_<id>"
+	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"]}
 const MUSIC_DB := -14.0
 
 var _cache := {}
@@ -90,8 +92,8 @@ func music(track: String) -> void:
 	var list: Array = MUSIC[track]
 	var path: String = list[_level_i % list.size()]
 	if track == "level": _level_i += 1
-	var st := load(path) as AudioStreamOggVorbis
-	st.loop = true
+	var st: AudioStream = load(path)
+	st.set("loop", true)   # Ogg and MP3 both loop
 	var old := _music[_cur]
 	_cur = 1 - _cur
 	var nw := _music[_cur]

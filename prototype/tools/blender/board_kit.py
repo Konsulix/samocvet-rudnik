@@ -46,6 +46,10 @@ ROCKS = {
     "goldvein": dict(scan="rock_face_04", scale=0.55, dark=(0.025, 0.025, 0.027), mid=(0.075, 0.074, 0.072), light=(0.17, 0.165, 0.155),
                      edge=(0.42, 0.38, 0.32), grime=(0.01, 0.009, 0.008), vein=((1.0, 0.7, 0.25), 1.0, 1.0), speck=None,
                      tile_k=0.8, chip=0.02),
+    # boss frame: the Great Poloz' brown-grey stone with gold in the cracks
+    "poloz": dict(scan="rock_face_03", scale=0.5, dark=(0.05, 0.04, 0.03), mid=(0.16, 0.13, 0.1), light=(0.36, 0.3, 0.24),
+                  edge=(0.6, 0.5, 0.38), grime=(0.015, 0.012, 0.01), vein=((1.0, 0.68, 0.22), 1.0, 0.9), speck=None,
+                  tile_k=0.6, chip=0.03),
 }
 R = ROCKS[ROCK]
 
