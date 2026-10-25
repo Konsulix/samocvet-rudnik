@@ -25,12 +25,12 @@ static func tex(name: String) -> Texture2D:
 		_tex[path] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
 	return _tex[path]
 
-## ore-bearing stones are not in the rules yet: for a look, `-- ore=0:iron,2:copper` shows every third stone of
-## those colours with the mine's metal in it (gem_kit.py renders <name>_<ore>.png)
+## ore-bearing stones are not in the rules yet: for a look, `-- ore=0,2` shows every third stone of those
+## colours holding ore (gem_kit.py renders <name>_ore.png)
 static var ore_demo := {}
 
-static func gem_ore(t: int, ore: String) -> Texture2D:
-	return tex(GEMS[t % GEMS.size()] + "_" + ore)
+static func gem_ore(t: int) -> Texture2D:
+	return tex(GEMS[t % GEMS.size()] + "_ore")
 
 static func gem_path(name: String) -> String:
 	return "res://assets/board/gems/%s.png" % name if gem_style == "" else "res://assets/board/gems_kit/%s/%s.png" % [gem_style, name]

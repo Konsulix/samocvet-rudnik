@@ -397,87 +397,103 @@ def gem_mat(dark, mid, light, malachite=False, ore=None):
     L.new(line, es.inputs[0])
     glow_k = es.outputs[0]
     if ore:
-        # an ore-bearing stone: metal has crept along its cracks, in wide, branching veins over part of it
-        base, accent, k_acc = ORES[ore]
-        on = nd("ShaderNodeTexNoise"); on.inputs["Scale"].default_value = 2.5
+        # an ore-bearing stone: glowing veins run through part of it. Not a real metal's colour: one look that stands
+        # out on every stone: a hot bright core, a dark rim that cuts it from the stone's own colour, a faint halo
+        on = nd("ShaderNodeTexNoise"); on.inputs["Scale"].default_value = 2.2
         L.new(pos, on.inputs["Vector"])
         ow = nd("ShaderNodeTexNoise"); ow.inputs["Scale"].default_value = 2.0; ow.inputs["Detail"].default_value = 2
         L.new(pos, ow.inputs["Vector"])
         warp = nd("ShaderNodeMix"); warp.data_type = 'VECTOR'; warp.inputs["Factor"].default_value = 0.25
         L.new(pos, warp.inputs[4]); L.new(ow.outputs["Color"], warp.inputs[5])
-        ov = nd("ShaderNodeTexVoronoi"); ov.feature = 'DISTANCE_TO_EDGE'; ov.inputs["Scale"].default_value = 4.0
+        ov = nd("ShaderNodeTexVoronoi"); ov.feature = 'DISTANCE_TO_EDGE'; ov.inputs["Scale"].default_value = 3.6
         L.new(warp.outputs[1], ov.inputs["Vector"])
-        vein = math_('MULTIPLY', remap(ov.outputs["Distance"], 0.045, 0.02, 0.0, 1.0), remap(on.outputs["Fac"], 0.42, 0.52, 0.0, 1.0))
-        metal = ore_color(nd, L, pos, base, accent, k_acc)
-        mv = nd("ShaderNodeMix"); mv.data_type = 'RGBA'
-        L.new(vein, mv.inputs["Factor"]); L.new(col, mv.inputs["A"]); L.new(metal, mv.inputs["B"])
-        col = mv.outputs[2]
-        L.new(math_('MULTIPLY', vein, value=0.8), p.inputs["Metallic"])
-        L.new(remap(vein, 0.0, 1.0, 0.45, 0.3), p.inputs["Roughness"])
-        # the metal shines on its own a little, so the veins read bright on the board, not as dark cracks
-        glow_k = math_('ADD', glow_k, math_('MULTIPLY', vein, value=0.35))
+        where = remap(on.outputs["Fac"], 0.4, 0.5, 0.0, 1.0)            # veins over about half the stone
+        dist = ov.outputs["Distance"]
+        core = math_('MULTIPLY', remap(dist, 0.024, 0.013, 0.0, 1.0), where)
+        rim = math_('MULTIPLY', remap(dist, 0.048, 0.026, 0.0, 1.0), where)
+        halo = math_('MULTIPLY', remap(dist, 0.12, 0.04, 0.0, 1.0), where)
+        col = mix(math_('MULTIPLY', halo, value=0.35), col, ORE_LOOK["halo"])
+        col = mix(math_('MULTIPLY', rim, value=0.85), col, ORE_LOOK["rim"])
+        col = mix(core, col, ORE_LOOK["core"])
+        emit_col = col
+        L.new(math_('MULTIPLY', core, value=0.6), p.inputs["Metallic"])
+        # the core burns: far brighter than the stone, so the render's bloom spreads it a little
+        glow_k = math_('ADD', math_('MULTIPLY', glow_k, math_('SUBTRACT', 1.0, rim)), math_('MULTIPLY', core, value=ORE_LOOK["burn"]))
+        glow_k = math_('ADD', glow_k, math_('MULTIPLY', halo, value=0.25))
     L.new(col, p.inputs["Base Color"])
-    L.new(col if ore else emit_col, p.inputs["Emission Color"])
+    L.new(emit_col, p.inputs["Emission Color"])
     L.new(glow_k, p.inputs["Emission Strength"])
     return m
 
-# the ores a mine can hold (docs/progression-redesign.md): metal colour, the crust on it, how much crust
-ORES = {
-    "iron":   ((0.24, 0.24, 0.26), (0.42, 0.11, 0.035), 0.65),   # dark steel with rusty hematite
-    "copper": ((0.95, 0.42, 0.22), (0.04, 0.45, 0.3), 0.5),   # bright copper, green patina in places
-    "silver": ((0.92, 0.92, 0.95), (0.22, 0.2, 0.19), 0.25),    # bright silver, tarnished here and there
-    "gold":   ((1.0, 0.7, 0.28), (0.6, 0.35, 0.1), 0.15),
-}
+# the look of ore in a stone (docs/progression-redesign.md: a stone either holds ore or not; which ore, the mine
+# says by colour). Chosen to read on every colour of stone, not to copy a real metal
+ORE_LOOK = dict(
+    core=(1.0, 0.78, 0.32),     # the hot, bright metal in the veins and the nuggets
+    rim=(0.03, 0.02, 0.012),    # the dark seam round each vein
+    halo=(1.0, 0.65, 0.25),     # light the veins throw onto the stone
+    burn=1.4,                   # how much brighter than the stone the veins glow
+)
 
-def ore_color(nd, L, pos, base, accent, k):
-    """a metal's colour: the bare metal, crusted over in patches"""
-    cn = nd("ShaderNodeTexNoise"); cn.inputs["Scale"].default_value = 18.0; cn.inputs["Detail"].default_value = 4
-    L.new(pos, cn.inputs["Vector"])
-    r = nd("ShaderNodeMapRange"); r.inputs["From Min"].default_value = 0.5; r.inputs["From Max"].default_value = 0.62
-    r.inputs["To Max"].default_value = k
-    L.new(cn.outputs["Fac"], r.inputs["Value"])
-    mx = nd("ShaderNodeMix"); mx.data_type = 'RGBA'
-    L.new(r.outputs[0], mx.inputs["Factor"]); mx.inputs["A"].default_value = (*base, 1); mx.inputs["B"].default_value = (*accent, 1)
-    return mx.outputs[2]
-
-def metal_mat(ore):
-    """a nugget of the mine's metal, sunk into the stone"""
-    base, accent, k = ORES[ore]
+def metal_mat():
+    """a nugget of ore, glowing like the veins"""
     m = bpy.data.materials.new("ore"); m.use_nodes = True
     n = m.node_tree; L = n.links; nd = n.nodes.new
     p = n.nodes["Principled BSDF"]
     tc = nd("ShaderNodeTexCoord")
-    L.new(ore_color(nd, L, tc.outputs["Object"], base, accent, k), p.inputs["Base Color"])
-    p.inputs["Metallic"].default_value = 1.0
+    p.inputs["Base Color"].default_value = (*ORE_LOOK["core"], 1)
+    p.inputs["Metallic"].default_value = 0.8
     rn = nd("ShaderNodeTexNoise"); rn.inputs["Scale"].default_value = 30.0
     L.new(tc.outputs["Object"], rn.inputs["Vector"])
-    rr = nd("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = 0.22; rr.inputs["To Max"].default_value = 0.5
+    rr = nd("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = 0.2; rr.inputs["To Max"].default_value = 0.45
     L.new(rn.outputs["Fac"], rr.inputs["Value"]); L.new(rr.outputs[0], p.inputs["Roughness"])
-    # a little light of its own, so the metal reads on the dark board
-    L.new(ore_color(nd, L, tc.outputs["Object"], base, accent, k), p.inputs["Emission Color"])
-    p.inputs["Emission Strength"].default_value = 0.4
+    # brightest where it faces us, deeper where it turns away: still a lump, not a flat light
+    lw = nd("ShaderNodeLayerWeight"); lw.inputs["Blend"].default_value = 0.5
+    em = nd("ShaderNodeMapRange"); em.inputs["From Min"].default_value = 0.2; em.inputs["From Max"].default_value = 0.9
+    em.inputs["To Min"].default_value = ORE_LOOK["burn"] * 0.45; em.inputs["To Max"].default_value = ORE_LOOK["burn"] * 0.08
+    L.new(lw.outputs["Facing"], em.inputs["Value"])
+    p.inputs["Emission Color"].default_value = (*ORE_LOOK["core"], 1)
+    L.new(em.outputs[0], p.inputs["Emission Strength"])
     return m
 
-def nuggets(o, ore, seed):
-    """three or four lumps of metal grown into the stone's front, low and to the sides"""
-    rnd = random.Random(seed * 7 + len(ore))
-    faces = [f for f in o.data.polygons if f.normal.y < -0.35 and f.center.z < 0.2]
+def nuggets(o, seed):
+    """two or three lumps of ore grown into the stone's front, low and to the sides, each in a dark socket"""
+    rnd = random.Random(seed * 7 + 3)
+    faces = [f for f in o.data.polygons if f.normal.y < -0.35 and f.center.z < 0.15]
     rnd.shuffle(faces)
-    mm = metal_mat(ore)
+    mm = metal_mat()
+    dark = bpy.data.materials.new("socket"); dark.use_nodes = True
+    dp = dark.node_tree.nodes["Principled BSDF"]
+    dp.inputs["Base Color"].default_value = (*ORE_LOOK["rim"], 1); dp.inputs["Roughness"].default_value = 0.8
     made = []
     for f in faces:
-        if len(made) >= 3 + (seed % 2): break
+        if len(made) >= 2 + (seed % 2): break
         c = Vector(f.center)
-        if any((c - q).length < 0.16 for q in made): continue
+        if any((c - q).length < 0.2 for q in made): continue
         made.append(c)
-        r = rnd.uniform(0.055, 0.085)
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=r, location=c - Vector(f.normal) * r * 0.35)
-        nug = bpy.context.object
-        nug.scale = (1.0, rnd.uniform(0.6, 0.8), rnd.uniform(0.75, 1.0))
-        tx = bpy.data.textures.new("nug", 'VORONOI'); tx.noise_scale = 0.04
-        d = nug.modifiers.new("lumps", 'DISPLACE'); d.texture = tx; d.strength = r * 0.35
-        nug.data.materials.append(mm)
-        for poly in nug.data.polygons: poly.use_smooth = True
+        r = rnd.uniform(0.065, 0.085)
+        nrm = Vector(f.normal)
+        for mat, rr, sink in ((dark, r * 1.25, 0.55), (mm, r, 0.3)):
+            bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=rr, location=c - nrm * rr * sink)
+            nug = bpy.context.object
+            nug.scale = (1.0, 0.7, 0.85)
+            tx = bpy.data.textures.new("nug", 'VORONOI'); tx.noise_scale = 0.05
+            d = nug.modifiers.new("lumps", 'DISPLACE'); d.texture = tx; d.strength = rr * 0.3
+            nug.data.materials.append(mat)
+            for poly in nug.data.polygons: poly.use_smooth = True
+
+def bloom(sc):
+    """the glowing ore spreads a soft light round itself"""
+    sc.render.use_compositing = True
+    tree = bpy.data.node_groups.new("bloom", 'CompositorNodeTree')
+    sc.compositing_node_group = tree
+    rl = tree.nodes.new("CompositorNodeRLayers")
+    gl = tree.nodes.new("CompositorNodeGlare")
+    out = tree.nodes.new("NodeGroupOutput")
+    tree.interface.new_socket("Image", in_out='OUTPUT', socket_type='NodeSocketColor')
+    for k, v in (("Type", 'Fog Glow'), ("Quality", 'High'), ("Threshold", 1.2), ("Size", 0.4), ("Strength", 0.6)):
+        if k in gl.inputs: gl.inputs[k].default_value = v
+    tree.links.new(rl.outputs["Image"], gl.inputs["Image"])
+    tree.links.new(gl.outputs["Image"], out.inputs[0])
 
 # width / height on screen, as in the drawings; every stone is then fitted to the same height
 ASPECT = {"natural": {"ruby": 0.84, "citrine": 0.72, "sapphire": 0.78, "emerald": 0.86, "amethyst": 0.72, "diamond": 0.74},
@@ -502,23 +518,24 @@ def fit(o, aspect):
         v.co -= c
 
 def render(style, name, dark, mid, light, ore=None):
-    """<style>/<name>.png, or with ore <style>/<name>_<ore>.png: the same stone with the mine's metal in it"""
+    """<style>/<name>.png, or with ore <style>/<name>_ore.png: the same stone holding ore"""
     sc = setup()
     o = SHAPES[style][name]()
     fit(o, ASPECT[style][name])
     paint_facets(o)
     o.data.materials.append(gem_mat(dark, mid, light, malachite=(style == "natural" and name == "emerald"), ore=ore))
     if ore:
-        nuggets(o, ore, o["seed"])
-    tag = name + ("_" + ore if ore else "")
+        nuggets(o, o["seed"])
+        bloom(sc)
+    tag = name + ("_ore" if ore else "")
     sc.render.filepath = os.path.join(OUT, style, tag + ".png")
     bpy.ops.render.render(write_still=True)
     print("GEM", style, tag)
 
 for style in ("natural", "faceted"):
     for name, dark, mid, light in GEMS:
-        for ore in [None] + list(ORES):
-            tag = style + "/" + name + ("_" + ore if ore else "")
+        for ore in (False, True):
+            tag = style + "/" + name + ("_ore" if ore else "")
             if ONLY and tag not in ONLY and style + "/" + name not in ONLY: continue
             os.makedirs(os.path.join(OUT, style), exist_ok=True)
             render(style, name, dark, mid, light, ore)
