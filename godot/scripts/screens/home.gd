@@ -471,7 +471,9 @@ func _open_tasks() -> void:
 		var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
 		var cost: int = t[2]
 		var here := "%d m" % Data.depth_m(a, i)
-		tv.add_child(UI.label("Done" if done else "%s · %d %s · in the chest: %s" % [here, cost, on, chest_text(ch)], 12, UI.body, UI.MUTED))
+		var sub := UI.label("Done" if done else "%s · %d %s · in the chest: %s" % [here, cost, on, chest_text(ch)], 12, UI.body, UI.MUTED)
+		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # unwrapped, the longest line widened the card past the screen
+		tv.add_child(sub)
 		h.add_child(tv)
 		var reach: bool = i <= open
 		var can: bool = not done and reach and Save.d.ore >= cost
@@ -560,7 +562,9 @@ func _need_row(kind: String, what: String, sub: String, ok: bool, action: Button
 	var nl := UI.label(what, 14, UI.body_bold)
 	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tv.add_child(nl)
-	tv.add_child(UI.label(sub, 12, UI.body, UI.MUTED))
+	var sl := UI.label(sub, 12, UI.body, UI.MUTED)
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tv.add_child(sl)
 	h.add_child(tv)
 	if action:
 		action.custom_minimum_size = Vector2(70, 40)

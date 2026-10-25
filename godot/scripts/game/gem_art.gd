@@ -7,6 +7,22 @@ const NODULE := preload("res://assets/img/nodule.webp")
 
 ## transform the art is drawn under; internal rotations compose with it
 static var base := Transform2D.IDENTITY
+static var _glow: GradientTexture2D
+
+## a soft round glow, white (modulate it): the same falloff as radial_disc(.., 0.85, 0.35, 0)
+static func glow_tex() -> GradientTexture2D:
+	if _glow == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 0.85), Color(1, 1, 1, 0.35), Color(1, 1, 1, 0.0)])
+		_glow = GradientTexture2D.new()
+		_glow.gradient = g
+		_glow.fill = GradientTexture2D.FILL_RADIAL
+		_glow.fill_from = Vector2(0.5, 0.5)
+		_glow.fill_to = Vector2(1.0, 0.5)
+		_glow.width = 64
+		_glow.height = 64
+	return _glow
 
 static func begin(ci: CanvasItem, xf: Transform2D) -> void:
 	base = xf
@@ -270,7 +286,8 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 		"find":
 			if BoardSprites.zone_style != "classic" and BoardSprites.gem_style != "":
 				# the sealed block as it lies on the board, glowing in its rarity's colour
-				radial_disc(ci, Vector2(S / 2, S / 2), S * 0.6, Color(glow, 0.85), Color(glow, 0.35), Color(glow, 0.0))
+				# the glow is a texture too: on iPhone a texture drawn right after polygons in one item came out white
+				ci.draw_texture_rect(glow_tex(), Rect2(Vector2(S, S) * 0.5 - Vector2(S, S) * 0.6, Vector2(S, S) * 1.2), false, Color(glow, 1.0))
 				var t: Texture2D = load("res://assets/board/zones/%s/find_%s_0.png" % [BoardSprites.zone_style, BoardSprites.find_shape])
 				var sz := t.get_size() * (S * 0.95 / maxf(t.get_width(), t.get_height()))
 				ci.draw_texture_rect(t, Rect2(Vector2(S, S) / 2 - sz / 2, sz), false)
