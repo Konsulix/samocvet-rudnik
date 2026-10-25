@@ -6,6 +6,9 @@ extends RefCounted
 const SPAN := 1.15
 const GEMS := ["ruby", "sapphire", "emerald", "citrine", "amethyst", "diamond"]
 static var _tex := {}
+## which set of gems the board shows: "" the cut stones (assets/board/gems), or a style rendered by
+## prototype/tools/blender/gem_kit.py into assets/board/gems_kit/<style>/ ("natural", "faceted")
+static var gem_style := ""
 static var _plain_material: ShaderMaterial
 
 ## Use the board's explicit shader for sprites that must survive iOS shader baking.
@@ -17,10 +20,13 @@ static func plain_material() -> ShaderMaterial:
 	return _plain_material
 
 static func tex(name: String) -> Texture2D:
-	if not _tex.has(name):
-		var path := "res://assets/board/gems/%s.png" % name if name in GEMS else "res://assets/board/pieces/%s.png" % name
-		_tex[name] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
-	return _tex[name]
+	var path := gem_path(name) if name in GEMS else "res://assets/board/pieces/%s.png" % name
+	if not _tex.has(path):
+		_tex[path] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
+	return _tex[path]
+
+static func gem_path(name: String) -> String:
+	return "res://assets/board/gems/%s.png" % name if gem_style == "" else "res://assets/board/gems_kit/%s/%s.png" % [gem_style, name]
 
 ## start loading every board sprite on background threads, so the first level does not read them from disk
 ## mid-frame; tex() then picks up the finished ones
@@ -31,7 +37,7 @@ static func preload_all() -> void:
 static func paths() -> Array:
 	var out := []
 	for name in GEMS:
-		out.append("res://assets/board/gems/%s.png" % name)
+		out.append(gem_path(name))
 	for f in ResourceLoader.list_directory("res://assets/board/pieces/"):
 		if f.ends_with(".png"):
 			out.append("res://assets/board/pieces/" + f)
