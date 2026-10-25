@@ -94,55 +94,6 @@ func burst(pos: Vector2, col: Color, amount: int, speed := 160.0, gravity := 520
 func debris(r: float, c: float, col: Color, amount := 10) -> void:
 	burst(cell(r, c), col, amount, 170.0, 620.0, 4.5)
 
-## Break the actual sprite into textured angular pieces, rather than generic dots.
-func shatter(r: int, c: int, skin: String) -> void:
-	var tex := BoardSprites.tex(skin)
-	var extent := board.TS * BoardSprites.SPAN
-	var lattice := [
-		[Vector2(0, 0), Vector2(0.52, 0), Vector2(1, 0)],
-		[Vector2(0, 0.36), Vector2(0.43, 0.44), Vector2(1, 0.38)],
-		[Vector2(0, 0.72), Vector2(0.58, 0.68), Vector2(1, 0.76)],
-		[Vector2(0, 1), Vector2(0.48, 1), Vector2(1, 1)],
-	]
-	var center := Vector2(0.5, 0.5)
-	for i in 6:
-		var row := i / 2
-		var col := i % 2
-		var uv := PackedVector2Array([lattice[row][col], lattice[row][col + 1], lattice[row + 1][col + 1], lattice[row + 1][col]])
-		var centroid := (uv[0] + uv[1] + uv[2] + uv[3]) / 4.0
-		var vertices := PackedVector2Array()
-		for point in uv: vertices.append((point - centroid) * extent)
-		var piece := Node2D.new()
-		piece.position = cell(r, c) + (centroid - center) * extent
-		piece.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		piece.material = BoardSprites.plain_material()
-		piece.draw.connect(func(): piece.draw_polygon(vertices, PackedColorArray([Color.WHITE]), uv, tex))
-		add_child(piece)
-		var start := piece.position
-		var velocity := (centroid - center).normalized() * board.TS * randf_range(1.1, 1.7) + Vector2(0, -board.TS * 1.3)
-		var turn := randf_range(-1.7, 1.7)
-		var tween := create_tween()
-		tween.tween_method(func(t: float):
-			piece.position = start + velocity * t + Vector2(0, board.TS * 4.0 * t * t)
-			piece.rotation = turn * t
-			piece.scale = Vector2.ONE * (1.0 - 0.35 * t)
-			piece.modulate.a = 1.0 - smoothstep(0.10, 0.46, t), 0.0, 0.46, 0.46)
-		tween.tween_callback(piece.queue_free)
-
-func disperse_gas(r: int, c: int) -> void:
-	var puff := Sprite2D.new()
-	puff.texture = BoardSprites.tex("gas")
-	puff.material = BoardSprites.plain_material()
-	puff.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	puff.position = cell(r, c)
-	puff.scale = Vector2.ONE * board.TS * BoardSprites.SPAN / puff.texture.get_width()
-	add_child(puff)
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(puff, "scale", puff.scale * 1.45, 0.4)
-	tween.tween_property(puff, "position:y", puff.position.y - board.TS * 0.25, 0.4)
-	tween.tween_property(puff, "modulate:a", 0.0, 0.4)
-	tween.chain().tween_callback(puff.queue_free)
-
 func sparkle(r: float, c: float, col: Color, amount := 24) -> void:
 	burst(cell(r, c), col, amount, 230.0, 60.0, 3.0, true)
 

@@ -36,9 +36,13 @@ jobs:
           mkdir -p build/ios
           "$GODOT" --headless --import || true
           set -o pipefail
-          # Runtime UI on iOS is affected by Godot #124088 with shader baking enabled.
-          # Export without baked Metal shaders; compile the correct variants on-device.
-          "$GODOT" --headless --export-release "iOS" build/ios/rudnik.ipa 2>&1 | tee export.log
+          # the shader baker (export_presets: shader_baker/enabled) compiles Metal shaders at export,
+          # but only with a real rendering device: export with Metal, fall back to headless if that fails
+          if ! "$GODOT" --rendering-driver metal --export-release "iOS" build/ios/rudnik.ipa 2>&1 | tee export.log; then
+            echo "export with Metal failed, retrying headless (no baked shaders)"
+            "$GODOT" --headless --export-release "iOS" build/ios/rudnik.ipa
+          fi
+          grep -i "bak" export.log | tail -20 || true
           ls -la build/ios
 
       - name: Build the app without signing

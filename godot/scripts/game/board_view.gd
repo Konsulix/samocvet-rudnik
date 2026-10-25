@@ -1,6 +1,6 @@
 class_name BoardView
 extends Control
-## The tray: a beveled stone frame, slate pockets, blockers and the stones themselves.
+## The tray: timber rim, slate tiles, blockers and the stones themselves.
 ## Knows nothing about rules — it mirrors BoardModel and plays the animations Level asks for.
 
 signal swiped(r1: int, c1: int, r2: int, c2: int)
@@ -18,11 +18,9 @@ var live: Node2D             # gas, geodes, the find: they breathe, pulse and sh
 var gems: Node2D
 var over: Node2D             # timber locks sit on top of their stones
 var board3d: Board3D         # the stones themselves, faceted 3D gems seen from straight above
+var find_tex: Texture2D       # the sealed specimen, rendered in 3D when available
 var find_hit_at := -10.0
 var geo_hit_at := {}
-const DEPOSIT_TRANSITION := 0.28
-var deposit_transitions := {}
-var rock_transitions := {}
 var _down := {}
 
 func _init() -> void:
@@ -40,8 +38,6 @@ func _ready() -> void:
 	gems.light_mask = 0
 	add_child(gems)
 	over = _layer(_draw_over)
-	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
-	over.material = BoardSprites.plain_material()
 
 func _layer(fn: Callable) -> Node2D:
 	var n := Node2D.new()
@@ -52,9 +48,8 @@ func _layer(fn: Callable) -> Node2D:
 
 ## fit the board into `avail` (pixels) and centre it there
 func layout(avail: Vector2) -> void:
-	# Include the rim when fitting the board, so it stays inside the viewport.
-	TS = maxf(1.0, floorf(minf(minf(avail.x / (C + 0.7), avail.y / (R + 0.7)), 62.0)))
-	PAD = roundf(TS * 0.35)
+	TS = floorf(minf(minf((avail.x - 8) / C, (avail.y - 8) / R), 62.0))
+	PAD = roundf(TS * 0.26)
 	custom_minimum_size = Vector2(C * TS + PAD * 2, R * TS + PAD * 2)
 	size = custom_minimum_size
 
@@ -68,7 +63,6 @@ func cell_at(p: Vector2) -> Vector2i:
 
 func rebuild(m: BoardModel) -> void:
 	model = m
-	rock_transitions.clear()
 	for n in gems.get_children(): n.queue_free()
 	nodes.clear()
 	for r in R:
@@ -198,86 +192,46 @@ func hint(mv: Array) -> void:
 
 # ---------------------------------------------------------------- drawing
 
-const FIELD_FRAME := preload("res://assets/board/stone_field/frame.png")
-const FIELD_TILE := preload("res://assets/board/stone_field/tile.png")
-const FIELD_CONTOUR := preload("res://scripts/game/board_contour.gd")
+const SLAB := preload("res://assets/board/pieces/slab.png")
 
-## Only playable cells have a bed. The background remains visible in cutouts.
+## the tray: a slab of pale marble with a raised marble tile in every cell
 func _draw() -> void:
 	if model == null: return
-	var mask := []
-	for r in R:
-		var row := []
-		for c in C:
-			var playable := model.playable(r, c)
-			row.append(playable)
-		mask.append(row)
-	for contour in FIELD_CONTOUR.trace(mask):
-		_draw_frame(contour)
-	# At diagonal contacts, the neighboring island's rim must not cover a cell.
+	var e := PAD * 0.92
+	# outer edge of the slab: a soft drop shadow, then the slab itself
 	for r in R:
 		for c in C:
-			if mask[r][c]:
+			if model.playable(r, c):
 				var p := Vector2(PAD + c * TS, PAD + r * TS)
-				draw_rect(Rect2(p, Vector2.ONE * TS), Color("#141716"))
-				_pocket(p)
-
-func _draw_frame(contour: PackedVector2Array) -> void:
-	var width := PAD * 0.82
-	var bevel := width * 0.32
-	var points := PackedVector2Array()
-	var incoming := PackedVector2Array()
-	var outgoing := PackedVector2Array()
-	var convex := []
-	var count := contour.size()
-	for p in contour: points.append(Vector2.ONE * PAD + p * TS)
-	for i in count:
-		var before := (points[i] - points[(i + count - 1) % count]).normalized()
-		var after := (points[(i + 1) % count] - points[i]).normalized()
-		var n0 := Vector2(before.y, -before.x)
-		var n1 := Vector2(after.y, -after.x)
-		var outer := points[i] + (n0 + n1) * width
-		var is_convex := before.cross(after) > 0.0
-		convex.append(is_convex)
-		incoming.append(outer - before * bevel if is_convex else outer)
-		outgoing.append(outer + after * bevel if is_convex else outer)
-	# A narrow shadow follows the contour too; it never fills an absent cell.
-	var outline := PackedVector2Array()
-	for i in count:
-		outline.append(incoming[i] + Vector2(0.7, 1.8))
-		outline.append(outgoing[i] + Vector2(0.7, 1.8))
-	outline.append(outline[0])
-	draw_polyline(outline, Color(0, 0, 0, 0.46), 3.5, true)
-	for i in count:
-		var j := (i + 1) % count
-		var quad := PackedVector2Array([points[i], points[j], incoming[j], outgoing[i]])
-		_frame_stone(quad, PackedVector2Array([Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]))
-		if convex[i]:
-			_frame_stone(PackedVector2Array([points[i], incoming[i], outgoing[i]]), PackedVector2Array([Vector2(0.5, 1), Vector2(0.35, 0), Vector2(0.65, 0)]))
-	# Fine bevel lines distinguish the stone face from the pocket and the ground.
-	for i in count:
-		var j := (i + 1) % count
-		var direction := (points[j] - points[i]).normalized()
-		var normal := Vector2(direction.y, -direction.x)
-		var light := 0.17 + maxf(0.0, normal.dot(Vector2(-0.6, -0.8))) * 0.32
-		draw_line(outgoing[i], incoming[j], Color(0.78, 0.74, 0.65, light), 1.2, true)
-		draw_line(points[i], points[j], Color(0, 0, 0, 0.75), 2.0, true)
-		if convex[i]:
-			draw_line(incoming[i], outgoing[i], Color(0.78, 0.74, 0.65, 0.32), 1.2, true)
-
-func _frame_stone(points: PackedVector2Array, local_uv: PackedVector2Array) -> void:
-	# Reuse the supplied frame's stone face, including its natural cracks.
-	var uv := PackedVector2Array()
-	var texture_size := FIELD_FRAME.get_size()
-	for p in local_uv:
-		uv.append(Vector2(96.0 + p.x * 600.0, 12.0 + p.y * 28.0) / texture_size)
-	draw_polygon(points, PackedColorArray([Color.WHITE]), uv, FIELD_FRAME)
+				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e) + Vector2(2, 6), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color(0, 0, 0, 0.35))
+	# the frame's darker outer lip, rounded
+	for r in R:
+		for c in C:
+			if model.playable(r, c):
+				var p := Vector2(PAD + c * TS, PAD + r * TS)
+				draw_colored_polygon(GemArt.rrect(p - Vector2(e, e), Vector2(TS, TS) + Vector2(e, e) * 2.0, TS * 0.25), Color("#b9ae9c"))
+	for r in R:
+		for c in C:
+			if model.playable(r, c):
+				var p := Vector2(PAD + c * TS, PAD + r * TS)
+				var rr := Rect2(p - Vector2(e, e) * 0.72, Vector2(TS, TS) + Vector2(e, e) * 1.44)
+				draw_texture_rect_region(SLAB, rr, Rect2(rr.position * 1.6, rr.size * 1.6), Color(0.9, 0.88, 0.85))
+	# a thin warm catch-light on the slab's upper edges
+	for r in R:
+		for c in C:
+			if model.playable(r, c) and not model.playable(r - 1, c):
+				var p := Vector2(PAD + c * TS, PAD + r * TS)
+				draw_line(p + Vector2(-e * 0.6, -e + 1), p + Vector2(TS + e * 0.6, -e + 1), Color(1, 1, 1, 0.5), 1.5)
+	# the pockets: darker, with an inner shadow at the top and a faint rim of light at the bottom
+	for r in R:
+		for c in C:
+			if model.playable(r, c):
+				_pocket(Vector2(PAD + c * TS, PAD + r * TS))
 
 func _pocket(p: Vector2) -> void:
-	# A narrow dark seam and a restrained bevel keep the cell boundaries readable.
-	var inset := maxf(0.75, TS * 0.018)
-	var target := Rect2(p + Vector2.ONE * inset, Vector2.ONE * (TS - inset * 2.0))
-	draw_texture_rect(FIELD_TILE, target, false)
+	# a marble tile per cell, the seams between them read as the grid
+	var tile := BoardSprites.tex("tile")
+	draw_texture_rect_region(tile, Rect2(p, Vector2(TS, TS)), Rect2(Vector2(0, 0), Vector2(tile.get_width(), tile.get_height())), Color(1, 1, 1))
 
 ## the layers under the stones changed (a rock cracked, mud cleared, a geode or the find was hit)
 func redraw_under() -> void:
@@ -293,13 +247,10 @@ func _draw_under(ci: Node2D) -> void:
 			ci.draw_set_transform(p, 0, Vector2.ONE)
 			var cc := Vector2(TS, TS) * 0.5
 			if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
-			if model.ROCK[r][c] and not rock_transitions.has(r * C + c):
-				BoardSprites.draw(ci, BoardSprites.tex(BoardSprites.rock_name(model.ROCK[r][c], model.ROCK_MAX[r][c] >= 2)), cc, TS)
+			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex(ROCKS[mini(2, model.ROCK[r][c])]), cc, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
-func animate_rock(r: int, c: int, before: String, after: String) -> void:
-	rock_transitions[r * C + c] = {r = r, c = c, before = before, after = after, elapsed = 0.0}
-	redraw_under()
+const ROCKS := ["rock0", "rock1", "rock2"]
 
 func _draw_live(ci: Node2D) -> void:
 	if model == null: return
@@ -313,17 +264,10 @@ func _draw_live(ci: Node2D) -> void:
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
 				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-	for transition: Dictionary in rock_transitions.values():
-		var p := clampf(float(transition.elapsed) / 0.24, 0.0, 1.0)
-		var center := cell_center(transition.r, transition.c) + Vector2(sin(p * TAU * 2.0) * (1.0 - p) * 2.0, 0)
-		var scale_px := TS * (1.0 + 0.05 * sin(p * PI))
-		BoardSprites.draw(ci, BoardSprites.tex(transition.after), center, scale_px)
-		BoardSprites.draw(ci, BoardSprites.tex(transition.before), center, scale_px, Color(1, 1, 1, 1.0 - smoothstep(0.0, 1.0, p)))
 	for gi in model.geos.size():
 		var geo: Dictionary = model.geos[gi]
-		if geo.hp > 0 or deposit_transitions.has("geode:%d" % gi):
-			_draw_geode(ci, geo, gi, now)
-	if not model.find.is_empty() and (not model.find.done or model.find.get("ruined", false) or deposit_transitions.has("mineral:0")):
+		if geo.hp > 0: _draw_geode(ci, geo, gi, now)
+	if not model.find.is_empty() and not model.find.done:
 		_draw_find(ci, now)
 
 func _draw_over(ci: Node2D) -> void:
@@ -349,59 +293,58 @@ static func crack_paths(seed_v: int, count: int) -> Array:
 	return out
 
 func _draw_geode(ci: Node2D, geo: Dictionary, gi: int, now: float) -> void:
+	var shake := 0.0
 	var since: float = now - geo_hit_at.get(gi, -10.0)
-	var shake := sin(since * 55.0) * 3.0 if since < 0.22 else 0.0
+	if since < 0.22: shake = sin(since * 55.0) * 3.0
 	var ctr := Vector2(PAD + (geo.c + 1) * TS + shake, PAD + (geo.r + 1) * TS)
-	var stage := -1 if geo.hp <= 0 else clampi(4 - int(geo.hp), 0, 3)
-	_draw_deposit(ci, "geode", stage, ctr, "geode:%d" % gi)
+	GemArt.radial_disc(ci, ctr, TS * 1.1, Color(0.78, 0.59, 1, 0.15 + (4 - geo.hp) * 0.08), Color(0.78, 0.59, 1, 0.08), Color(0.78, 0.59, 1, 0))
+	BoardSprites.draw(ci, BoardSprites.tex("geode"), ctr, TS * 2.0)
+	if geo.hp < 4:
+		for line in crack_paths(geo.r * 31 + geo.c, (4 - geo.hp) * 2):
+			var pts := PackedVector2Array()
+			for q in line: pts.append(ctr - Vector2(TS, TS) * 0.84 + q * TS * 1.68 / 100.0)
+			ci.draw_polyline(pts, Color(1, 0.9, 0.66, 0.9), 2.2, true)
 
 func _draw_find(ci: Node2D, now: float) -> void:
 	var F: Dictionary = model.find
-	var since: float = now - find_hit_at
-	var shake := sin(since * 55.0) * 3.0 if since < 0.22 else 0.0
-	var ctr := Vector2(PAD + (F.c + 1) * TS + shake, PAD + (F.r + 1) * TS)
-	var stage := 4 if F.get("ruined", false) else clampi(4 - int(F.hp), 0, 3)
-	if F.done and not F.get("ruined", false): stage = -1
-	_draw_deposit(ci, "mineral", stage, ctr, "mineral:0")
+	var shake := 0.0
+	if now - find_hit_at < 0.22: shake = sin((now - find_hit_at) * 55.0) * 3.0
+	var p := Vector2(PAD + F.c * TS + shake, PAD + F.r * TS)
+	var k: float = float(F.hp) / F.hp_max
+	var col := Data.rarity_color(F.stone.tier)
+	var box := GemArt.rrect(p + Vector2(2, 2), Vector2(TS * 2 - 4, TS * 2 - 4), TS * 0.3)
+	# a dark slate niche with a gold rim, like the goals panel
+	ci.draw_colored_polygon(box, Color("#202326"))
+	ci.draw_polyline(GemArt.closed(box), Color("#c9a35a"), 2.0, true)
+	var pulse := 0.25 + 0.15 * sin(now * 2.0)
+	GemArt.radial_disc(ci, p + Vector2(TS, TS), TS * 1.05, Color(col, pulse * (1.2 - k)), Color(col, pulse * 0.4), Color(col, 0))
+	var a := 0.55 + (1.0 - k) * 0.45
+	if find_tex:
+		ci.draw_texture_rect(find_tex, Rect2(p + Vector2(TS, TS) * 0.05, Vector2(TS, TS) * 1.9), false, Color(1, 1, 1, a))
+	else:
+		ci.draw_set_transform(p + Vector2(TS * 0.2, TS * 0.15), 0, Vector2(1.6, 1.6) * TS / 46.0)
+		GemArt.find_icon(ci, 46.0, col)
+		ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	# rock matrix that thins with every layer peeled
+	ci.draw_set_transform(p, 0, Vector2(2, 2))
+	var rock_a := 0.15 + k * 0.55
+	var body := GemArt.rrect(Vector2(1, 1), Vector2(TS - 2, TS - 2), TS * 0.15)
+	GemArt.grad_poly(ci, body, Vector2(0, 0), Vector2(0, TS), Color(0.66, 0.69, 0.73, rock_a), Color(0.52, 0.55, 0.59, rock_a), Color(0.35, 0.38, 0.42, rock_a))
+	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	if F.integ < 100:
+		for line in crack_paths(F.r * 13 + F.c, int(ceil((100 - F.integ) / 12.0))):
+			var pts := PackedVector2Array()
+			for q in line: pts.append(p + q * TS * 2.0 / 100.0)
+			ci.draw_polyline(pts, Color(1, 0.69, 0.56), 1.8, true)
+	ci.draw_polyline(GemArt.closed(box), Color(col, 0.5 + 0.3 * sin(now * 2.5)), 2.0, true)
+	# layers left as dots
+	var dots_w := TS * 0.9
+	ci.draw_rect(Rect2(p + Vector2(TS - dots_w / 2, TS * 1.62), Vector2(dots_w, TS * 0.26)), Color(0, 0, 0, 0.6))
+	for i in F.hp:
+		var x: float = p.x + TS - dots_w / 2 + dots_w * (i + 0.5) / F.hp_max
+		ci.draw_circle(Vector2(x, p.y + TS * 1.75), TS * 0.045, Color.WHITE)
 
-func animate_deposit(kind: String, id: int, before: int, after: int) -> void:
-	deposit_transitions["%s:%d" % [kind, id]] = {before = before, after = after, elapsed = 0.0}
-	live.queue_redraw()
-
-func _draw_deposit(ci: Node2D, kind: String, stage: int, ctr: Vector2, key: String) -> void:
-	if not deposit_transitions.has(key):
-		_deposit_image(ci, kind, stage, ctr, 1.0, 1.0)
-		return
-	var transition: Dictionary = deposit_transitions[key]
-	var p := clampf(float(transition.elapsed) / DEPOSIT_TRANSITION, 0.0, 1.0)
-	var blend := smoothstep(0.0, 1.0, p)
-	var pulse := 1.0 + sin(p * PI) * 0.018
-	_deposit_image(ci, kind, int(transition.before), ctr, 1.0 - blend, pulse)
-	_deposit_image(ci, kind, int(transition.after), ctr, blend, pulse)
-
-func _deposit_image(ci: Node2D, kind: String, stage: int, ctr: Vector2, alpha: float, pulse: float) -> void:
-	if stage < 0 or alpha <= 0.0: return
-	var tex := BoardSprites.tex("deposit_%s_%d" % [kind, stage])
-	# Align the masonry with the cells; transparent padding and rubble are outside it.
-	var core := BoardSprites.DEPOSIT_CORE
-	var body_size := Vector2.ONE * (TS * 2.0 - 2.0) * pulse
-	var image_scale := body_size / core.size
-	var image_rect := Rect2(ctr - body_size * 0.5 - core.position * image_scale, tex.get_size() * image_scale)
-	ci.draw_texture_rect(tex, image_rect, false, Color(1, 1, 1, alpha))
-
-func _process(dt: float) -> void:
-	if not rock_transitions.is_empty():
-		for key in rock_transitions.keys():
-			rock_transitions[key].elapsed += dt
-			if float(rock_transitions[key].elapsed) >= 0.24:
-				rock_transitions.erase(key)
-		redraw_under()
-	if not deposit_transitions.is_empty():
-		for key in deposit_transitions.keys():
-			deposit_transitions[key].elapsed += dt
-			if float(deposit_transitions[key].elapsed) >= DEPOSIT_TRANSITION:
-				deposit_transitions.erase(key)
-		live.queue_redraw()
+func _process(_dt: float) -> void:
 	# gas breathes, specimens pulse, shaken blocks settle
 	if model and (not model.find.is_empty() and not model.find.done or _has_gas() or not geo_hit_at.is_empty()):
 		live.queue_redraw()

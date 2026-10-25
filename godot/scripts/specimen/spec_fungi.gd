@@ -85,77 +85,11 @@ void fragment() {
 static var _shader: Shader
 static var _meshes := {}
 static var _mats := {}
-static var _rock_probes := {}
-static var _rock_edges := {}
-
-## Real rock triangles in specimen space, used without a physics world or scene tree.
-static func rock_surface(host: MeshInstance3D, top: Node3D) -> Dictionary:
-	var geo: Geo = host.get_meta("geo")
-	var transform := SpecUtil.rel_xform(host, top)
-	# Mesh.get_faces() welds/quantizes vertices locally. Match that ordering of
-	# operations before transforming a scaled matrix, as the final mesh does.
-	var faces := geo.to_mesh().get_faces()
-	for k in faces.size(): faces[k] = transform * faces[k]
-	var surface := TriangleMesh.new()
-	surface.create_from_faces(faces)
-	var bounds := transform * geo.aabb()
-	return {mesh = surface, bounds = bounds}
-
-## The cap and visible stem must stay outside the actual rock, including pit walls.
-## Only the foot (below profile height 0.12) may enter the rock to stay attached.
-static func clears_rock(placement: Transform3D, kind: int, surface: Dictionary) -> bool:
-	if surface.is_empty(): return true
-	if not _rock_probes.has(kind):
-		var probes := PackedVector3Array()
-		var arrays := mesh(kind).surface_get_arrays(0)
-		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		for vertex in vertices:
-			if vertex.y >= 0.12: probes.append(vertex)
-		_rock_probes[kind] = probes
-		var edges := PackedVector3Array()
-		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-		for k in range(0, indices.size(), 3):
-			for j in 3:
-				var a := vertices[indices[k + j]]
-				var b := vertices[indices[k + (j + 1) % 3]]
-				if a.y >= 0.12 and b.y >= 0.12:
-					edges.append(a)
-					edges.append(b)
-		_rock_edges[kind] = edges
-	var rock: TriangleMesh = surface.mesh
-	var bounds: AABB = surface.bounds
-	var skin := [Vector3.ZERO, Vector3(0.0025, 0, 0), Vector3(-0.0025, 0, 0), Vector3(0, 0.0025, 0), Vector3(0, -0.0025, 0), Vector3(0, 0, 0.0025), Vector3(0, 0, -0.0025)]
-	for local_point: Vector3 in _rock_probes[kind]:
-		var p := placement * local_point
-		if not bounds.grow(0.0025).has_point(p): continue
-		# Keep a small clearance so packed render/instance coordinates cannot
-		# turn a tangent cap into a penetrating cap after matrix scaling.
-		for offset: Vector3 in skin:
-			if bounds.has_point(p + offset) and _inside_rock(p + offset, rock): return false
-	var edges: PackedVector3Array = _rock_edges[kind]
-	for k in range(0, edges.size(), 2):
-		var a := placement * edges[k]
-		var b := placement * edges[k + 1]
-		if bounds.intersects_segment(a, b) and not rock.intersect_segment(a, b).is_empty(): return false
-	return true
-
-static func _inside_rock(point: Vector3, rock: TriangleMesh) -> bool:
-	# Scan relief can fold individual faces; use parity instead of their normals.
-	for direction in [Vector3(0.371, 0.829, 0.413).normalized(), Vector3(0.623, 0.227, 0.749).normalized()]:
-		var origin := point
-		var crossings := 0
-		for guard in 128:
-			var hit := rock.intersect_ray(origin, direction)
-			if hit.is_empty(): break
-			crossings += 1
-			origin = (hit.position as Vector3) + direction * 0.00001
-		if crossings % 2 == 1: return true
-	return false
 
 ## does this stone grow mushrooms, and which kind (-1: none). Its own random stream, not the genome's.
-static func roll(seed_v: int, chance := 0.14) -> int:
+static func roll(seed_v: int) -> int:
 	var r := Rng32.new((seed_v * 2654435 + 4093) % 4294967296)
-	if r.next() > chance:
+	if r.next() > 0.14:
 		return -1
 	return int(Stones.pick_w([[0, 3.0], [1, 2.5], [2, 2.0], [3, 1.4]], r))
 
@@ -225,7 +159,7 @@ static func material(kind: int) -> ShaderMaterial:
 	return m
 
 ## one cluster of `kind` round a spot of `spots` ([pos, normal]); size: the height of a grown one
-static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array[Dictionary] = [], rock: Dictionary = {}) -> void:
+static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float) -> void:
 	if spots.is_empty():
 		return
 	var c0: Array = spots[int(rng.next() * spots.size())]
@@ -234,47 +168,25 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	for s in spots:
 		if (s[0] as Vector3).distance_to(c0[0]) < reach: near.append(s)
 	if near.is_empty(): near = [c0]
-	var transforms: Array[Transform3D] = []
-	var colors: Array[Color] = []
-	var mushroom_mesh := mesh(kind)
-	var bounds := mushroom_mesh.get_aabb()
+	var buf := SpecUtil.mm_buf(count)
 	for k in count:
-		# Retry on real rock surfaces; never fall back to an intersecting placement.
-		for attempt in 48:
-			var pool: Array = near if attempt < 16 else spots
-			var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
-			var p: Vector3 = at[0]
-			var nrm: Vector3 = at[1]
-			# mostly upright, leaning a little off the rock face
-			var up := (nrm.lerp(Vector3.UP, 0.7) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.35).normalized()
-			# a grown one or two, then young ones of every size, down to buttons
-			var grow := 1.0 if k == 0 else 0.25 + 0.75 * pow(rng.next(), 1.4)
-			var s := size * grow
-			var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
-			b = b * Basis.from_scale(Vector3(s * (0.9 + rng.next() * 0.25), s * (0.85 + rng.next() * 0.3), s * (0.9 + rng.next() * 0.25)))
-			var placement := Transform3D(b, p - nrm * s * 0.04)
-			var blocked := false
-			for crystal in blockers:
-				var occupied: AABB = (crystal.inverse as Transform3D) * placement * bounds
-				if occupied.grow(0.015).intersects(crystal.bounds):
-					blocked = true
-					break
-			if blocked or not clears_rock(placement, kind, rock):
-				continue
-			var v := 0.85 + rng.next() * 0.25
-			transforms.append(placement)
-			colors.append(Color(v, v * (0.96 + rng.next() * 0.06), v))
-			break
-	if transforms.is_empty():
-		return
-	var buf := SpecUtil.mm_buf(transforms.size())
-	for k in transforms.size():
-		SpecUtil.put(buf, k, transforms[k], colors[k])
+		var at: Array = near[int(rng.next() * near.size())] if k > 0 else c0
+		var p: Vector3 = at[0]
+		var nrm: Vector3 = at[1]
+		# mostly upright, leaning a little off the rock face
+		var up := (nrm.lerp(Vector3.UP, 0.7) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.35).normalized()
+		# a grown one or two, then young ones of every size, down to buttons
+		var grow := 1.0 if k == 0 else 0.25 + 0.75 * pow(rng.next(), 1.4)
+		var s := size * grow
+		var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
+		b = b * Basis.from_scale(Vector3(s * (0.9 + rng.next() * 0.25), s * (0.85 + rng.next() * 0.3), s * (0.9 + rng.next() * 0.25)))
+		var v := 0.85 + rng.next() * 0.25
+		SpecUtil.put(buf, k, Transform3D(b, p - nrm * s * 0.04), Color(v, v * (0.96 + rng.next() * 0.06), v))
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
-	mm.mesh = mushroom_mesh
-	mm.instance_count = transforms.size()
+	mm.mesh = mesh(kind)
+	mm.instance_count = count
 	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm

@@ -1,8 +1,7 @@
 class_name Stones
 extends RefCounted
 ## Rolling a mineral find: species from the mine's pool, kind, quality, rare traits, weight and price.
-## New finds use the richer version-2 gene profile; saved finds retain their stored traits.
-const LEGEND_CHANCE := 1.0 / 3.0
+## Same formulas and seeds as the prototype.
 
 static func pick_w(entries: Array, rng: Rng32) -> Variant:
 	var total := 0.0
@@ -21,7 +20,7 @@ static func roll_traits(id: int, legend: bool, gi: int) -> Array:
 	var luck: float = 1.0 + gi * 0.15 + Save.d.lab * 0.1 + (1.2 if legend else 0.0)
 	var out := []
 	for t in Data.TRAITS:
-		if rng.next() < minf(0.85, t.p * luck * 1.75):
+		if rng.next() < t.p * luck:
 			out.append(t.id)
 	return out.slice(0, 4)
 
@@ -37,7 +36,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	for k in Data.GR.size():
 		ge.append([k, Data.GR[k].w * pow(1.0 + luck * 0.5, k * 0.6)])
 	var gi: int = pick_w(ge, rng)
-	var legend := rng.next() < LEGEND_CHANCE
+	var legend := rng.next() < 0.02 * (1.0 + luck)
 	var traits := roll_traits(seed_id, legend, gi)
 	var tm := 1.0
 	for t in traits:
@@ -46,7 +45,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	var g := roundi(base_g * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * 0.35))
 	var kind_m := 1.4 if kind == "druse" else 1.6 if kind == "geode" else 1.0
 	var value := roundi(Data.SP[sid].v * Data.GR[gi].m * tm * (3.0 if legend else 1.0) * kind_m * 1.3 * (1.0 + dl * 0.25))
-	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, gene_version = 2, g = g, value = value, tier = tier_of(sid, gi, legend)}
+	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = value, tier = tier_of(sid, gi, legend)}
 
 static func tier_of(sid: String, gi: int, legend: bool) -> int:
 	return mini(4, int(Data.SP[sid].r) + (1 if gi >= 3 else 0) + (1 if legend else 0))

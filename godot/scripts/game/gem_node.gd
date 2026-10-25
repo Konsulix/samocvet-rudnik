@@ -18,9 +18,9 @@ static func materials() -> void:
 	if _mat_special: return
 	# both through the gem shader with its glint switched off: plain stones drawn with the engine's own
 	# canvas shader went missing on the iPhone once shaders were baked at export (specials never did)
-	_mat_plain = BoardSprites.plain_material().duplicate() as ShaderMaterial
-	# Keep mipmap antialiasing, but retain more facet detail at phone sizes.
-	_mat_plain.set_shader_parameter("mip_bias", -0.55)
+	_mat_plain = ShaderMaterial.new()
+	_mat_plain.shader = GLINT
+	_mat_plain.set_shader_parameter("strength", 0.0)
 	_mat_special = ShaderMaterial.new()
 	_mat_special.shader = GLINT
 	_mat_special.set_shader_parameter("boost", 1.25)
@@ -76,4 +76,4 @@ func _draw() -> void:
 	elif sp != "":
 		BoardSprites.draw(self, BoardSprites.tex(sp), Vector2.ZERO, S)
 	elif t >= 0 and not stone:
-		BoardSprites.draw(self, BoardSprites.gem(t), Vector2.ZERO, S * 0.9)
+		BoardSprites.draw(self, BoardSprites.gem(t), Vector2.ZERO, S)

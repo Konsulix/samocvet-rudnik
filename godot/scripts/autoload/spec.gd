@@ -78,15 +78,14 @@ func _warm() -> void:
 
 static func key_of(o: Dictionary) -> String:
 	var j: Dictionary = o.get("jewel", {})
-	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
-		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("gene_version", 1)]
+	return "%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
+		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", "")]
 
 ## the description of a stone from the save, as the builder wants it
 static func of_stone(s: Dictionary) -> Dictionary:
 	var o := {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
 	if s.has("fx"): o.fx = s.fx
 	if s.has("shroom"): o.shroom = s.shroom
-	o.gene_version = int(s.get("gene_version", 1))
 	return o
 
 static func of_jewel(j: Dictionary) -> Dictionary:

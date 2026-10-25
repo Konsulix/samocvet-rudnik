@@ -30,7 +30,6 @@ var rng := RandomNumberGenerator.new()
 var uid := 1
 var G := []
 var ROCK := []
-var ROCK_MAX := [] # Original hardness preserves granite's cracked appearance at 1 HP.
 var MUD := []
 var GAS := []
 var LOCK := []
@@ -142,9 +141,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		spots.sort_custom(func(a, b): return a[2] < b[2])
 		if spots.size():
 			var s: Array = spots[rng.randi_range(0, mini(5, spots.size() - 1))]
-			var hp := 4
+			var hp := mini(7, 3 + level_n / 10 + dl)
 			var stone := Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
-			find = {r = s[0], c = s[1], hp = hp, hp_max = hp, integ = 100, stone = stone, done = false, ruined = false}
+			find = {r = s[0], c = s[1], hp = hp, hp_max = hp, integ = 100, stone = stone, done = false}
 			for d in QUAD:
 				FIND[s[0] + d.x][s[1] + d.y] = true
 	# the deeper you dig, the harder the board
@@ -165,7 +164,6 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			if f.is_empty(): break
 			var p: Vector2i = f.pop_at(rng.randi_range(0, f.size() - 1))
 			LOCK[p.x][p.y] = 1
-	ROCK_MAX = ROCK.duplicate(true)
 	rocks = 0; gas = 0; locks = 0
 	for r in R:
 		for c in C:
@@ -403,7 +401,7 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_rock_hit[k] = true
 		ROCK[r][c] -= 1
 		_goal_hit("rock", -1, r, c, t)
-		_fx(t, "rock", {r = r, c = c, left = ROCK[r][c], strong = ROCK_MAX[r][c] >= 2})
+		_fx(t, "rock", {r = r, c = c, left = ROCK[r][c]})
 		return
 	if GAS[r][c]:    # gas pops with one hit
 		if kind == "adj" and _rock_hit.has(k): return
@@ -421,7 +419,6 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		geo.hp -= 1
 		_fx(t, "geo_hit", {gi = gi, hp = geo.hp})
 		if geo.hp <= 0:
-			# Collected geodes release all four cells; ruined minerals still keep their shell.
 			for d in QUAD: GEOC[geo.r + d.x][geo.c + d.y] = -1
 			_goal_hit("geo", -1, geo.r + 0.5, geo.c + 0.5, t)
 			bonus.append(Stones.roll(Save.next_uid(), Save.area(), 0.5 + depth * 0.35, depth))
@@ -431,19 +428,17 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		if find.is_empty() or find.done or _find_hit: return
 		_find_hit = true
 		find.hp -= 1
-		var rough := kind != "adj"
+		var rough := kind != "adj" and kind != "pick"
 		var chip := 0
 		if rough:
-			chip = mini(25, int(find.integ))
-			find.integ = maxi(0, find.integ - chip)
+			chip = roundi(12.0 * (1.0 - lift * 0.25))
+			find.integ = maxi(10, find.integ - chip)
 		_fx(t, "find_hit", {rough = rough, chip = chip, hp = find.hp, integ = find.integ})
 		if find.hp <= 0:
 			find.done = true
-			find.ruined = find.integ <= 0
-			if not find.ruined:
-				for d in QUAD: FIND[find.r + d.x][find.c + d.y] = false
+			for d in QUAD: FIND[find.r + d.x][find.c + d.y] = false
 			_goal_hit("find", -1, find.r + 0.5, find.c + 0.5, t)
-			_fx(t, "find_done", {r = find.r, c = find.c, ruined = find.ruined})
+			_fx(t, "find_done", {r = find.r, c = find.c})
 		return
 	if LOCK[r][c]:   # the timber breaks, the stone under it stays
 		if kind == "adj": return
@@ -571,9 +566,9 @@ func drill_target(r: int, c: int) -> Vector2i:
 		for cc in C:
 			if not playable(rr, cc) or absi(rr - r) + absi(cc - c) <= 1 or _cleared.has(rr * C + cc): continue
 			var w := 0
-			if FIND[rr][cc] and not find.done and need.has("find"): w = 7
+			if FIND[rr][cc] and need.has("find"): w = 7
 			elif GAS[rr][cc] and need.has("gas"): w = 6
-			elif GEOC[rr][cc] >= 0 and geos[GEOC[rr][cc]].hp > 0 and need.has("geo"): w = 6
+			elif GEOC[rr][cc] >= 0 and need.has("geo"): w = 6
 			elif LOCK[rr][cc] and need.has("lock"): w = 5
 			elif ROCK[rr][cc] and need.has("rock"): w = 6
 			elif MUD[rr][cc] and need.has("mud"): w = 5
@@ -836,8 +831,6 @@ func booster_events(id: String, r: int, c: int) -> Array:
 
 ## the find as it comes out of the rock: quality drops a step for every 20% chipped off
 func extracted_stone(diadem := false) -> Dictionary:
-	if find.is_empty() or not find.done or find.get("ruined", false):
-		return {}
 	var s: Dictionary = find.stone.duplicate(true)
 	var loss: int = (100 - find.integ) / 20
 	var gi := maxi(0, int(s.gi) - loss)

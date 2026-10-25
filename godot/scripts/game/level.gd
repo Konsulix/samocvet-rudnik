@@ -18,7 +18,6 @@ var goal_boxes := []      # {root, label, shown}
 var moves_label: Label
 var moves_token: PanelContainer
 var title_label: Label
-var style_icon: Control
 var hint_label: Label
 var booster_bar: HBoxContainer
 var overlay: Control
@@ -27,15 +26,17 @@ var booster := ""
 var idle := 0.0
 var _hinted := false
 var _flights := 0
+var find_studio: SpecStudio     # the sealed specimen, turning slowly inside its block
+var find_spec: Node3D
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg_layer = CanvasLayer.new()
 	bg_layer.layer = -1
 	add_child(bg_layer)
-	# Dark rock ground with mineral outcrops, matching the authored slate field.
+	# a pale marble table in window light (rendered in Blender: prototype/tools/blender/level_bg.py)
 	bg = TextureRect.new()
-	bg.texture = load("res://assets/ui/level_bg_stone.png")
+	bg.texture = load("res://assets/ui/level_bg.png")
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -56,7 +57,6 @@ func _ready() -> void:
 	hud.layer = 2
 	add_child(hud)
 	_build_hud()
-	Save.gem_style_changed.connect(_refresh_gem_style)
 
 # ---------------------------------------------------------------- start
 
@@ -70,6 +70,7 @@ func start(n: int, pre: Array = [], dl: int = 0) -> void:
 	bg.size = vp
 	_layout()
 	board.rebuild(model)
+	_mount_find()
 	_render_hud()
 	busy = true
 	booster = ""
@@ -78,12 +79,47 @@ func start(n: int, pre: Array = [], dl: int = 0) -> void:
 	busy = false
 	idle = 0.0
 
+## one studio for the sealed find, kept for the whole session and moved from level to level: a fresh
+## viewport, world and render targets every level were part of the hitch on entering one. Same
+## anti-aliasing as the start-up shader warm-up, so its shaders are already compiled for it.
+static var _find_pool: SpecStudio
+
+func _exit_tree() -> void:
+	# hand the pooled studio back alive: it outlives this level
+	if find_studio and find_studio.vp.get_parent() == self:
+		find_studio.clear()
+		remove_child(find_studio.vp)
+
+func _mount_find() -> void:
+	if find_studio:
+		find_studio.clear()
+		find_spec = null
+	board.find_tex = null
+	if model.find.is_empty():
+		return
+	if not _find_pool:
+		_find_pool = SpecStudio.make(200, Viewport.MSAA_4X).lite()
+	find_studio = _find_pool
+	find_studio.clear()
+	# the sealed find turns slowly: 30 renders a second are plenty (see _process)
+	find_studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if find_studio.vp.get_parent():
+		find_studio.vp.get_parent().remove_child(find_studio.vp)
+	add_child(find_studio.vp)
+	board.find_tex = find_studio.vp.get_texture()
+	var st := find_studio
+	var p: Node3D = await st.show_async(Spec.of_stone(model.find.stone))
+	if st != find_studio or p == null:
+		return
+	find_spec = p
+	find_spec.rotation = Vector3(0.12, 0.6, 0)
+
 func _layout() -> void:
 	var vp := get_viewport_rect().size
 	var top := 150.0 + UI.safe_top()
 	var bottom := 118.0 + UI.safe_bottom()
 	board.layout(Vector2(vp.x - 12, vp.y - top - bottom))
-	holder.position = Vector2((vp.x - board.size.x) / 2, top + (vp.y - top - bottom - board.size.y) / 2).round()
+	holder.position = Vector2((vp.x - board.size.x) / 2, top + (vp.y - top - bottom - board.size.y) / 2)
 	holder.size = board.size
 
 # ---------------------------------------------------------------- HUD
@@ -122,18 +158,9 @@ func _build_hud() -> void:
 	title_label.custom_minimum_size = Vector2(60, 0)
 	title_pill.add_child(title_label)
 	top.add_child(title_pill)
-	var styles := UI.marble_button("", 18)
-	styles.name = "GemStyleButton"
-	styles.tooltip_text = "Gem style"
-	styles.custom_minimum_size = Vector2(44, 44)
-	style_icon = UI.icon(44, func(ci):
-		BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(16, 19), 23)
-		BoardSprites.draw(ci, BoardSprites.gem(4), Vector2(28, 27), 22))
-	style_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	style_icon.material = BoardSprites.plain_material()
-	styles.add_child(style_icon)
-	styles.pressed.connect(_show_gem_styles)
-	top.add_child(styles)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(44, 44)
+	top.add_child(spacer)
 	root.add_child(top)
 	# goals and the moves token
 	var line := HBoxContainer.new()
@@ -175,7 +202,7 @@ func _build_hud() -> void:
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fill)
-	hint_label = UI.label("", 13, UI.body_bold, Color("#e1d6bf"))
+	hint_label = UI.label("", 13, UI.body_bold, UI.STONE_INK)
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(hint_label)
 	# booster bar at the bottom, like the game's tab bar
@@ -201,37 +228,26 @@ func _build_hud() -> void:
 func _render_hud() -> void:
 	title_label.text = "Level %d · %d m%s" % [model.n, int(Data.DEPTHS[model.depth].m), " · ★" if model.hard else ""]
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
-	for ch in row.get_children():
-		row.remove_child(ch)
-		ch.queue_free()
+	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
 	for i in model.goals.size():
 		var g: Dictionary = model.goals[i]
-		var slot := CenterContainer.new()
-		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 0)
+		var box := HBoxContainer.new()
+		box.add_theme_constant_override("separation", 4)
 		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var glow := Data.rarity_color(model.find.stone.tier) if g.k == "find" else Color("#c8b0ff")
 		var k: String = g.k
 		var colour: int = g.t
-		var isz := 32 if model.goals.size() <= 3 else 28
-		var icon := UI.icon(isz, func(ci):
+		var isz := 34 if model.goals.size() <= 3 else 28
+		box.add_child(UI.icon(isz, func(ci):
 			GemArt.begin(ci, Transform2D.IDENTITY)
-			GemArt.goal_icon(ci, k, colour, isz, glow))
-		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		icon.material = BoardSprites.plain_material()
-		box.add_child(icon)
+			GemArt.goal_icon(ci, k, colour, isz, glow)))
 		var l := UI.label("", 16 if model.goals.size() <= 3 else 14, UI.display)
-		l.custom_minimum_size.x = 60 if model.goals.size() <= 3 else 50
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		box.add_child(l)
-		slot.add_child(box)
-		row.add_child(slot)
-		goal_boxes.append({root = box, icon = icon, label = l, shown = g.left})
+		row.add_child(box)
+		goal_boxes.append({root = box, label = l, shown = g.left})
 		_render_goal(i)
 	_render_moves()
 	_render_boosters()
@@ -240,8 +256,8 @@ func _render_goal(i: int) -> void:
 	var gb: Dictionary = goal_boxes[i]
 	var g: Dictionary = model.goals[i]
 	if g.k == "find":
-		gb.label.text = "Lost" if model.find.get("ruined", false) else (("✓ %d%%" if model.find.done else "%d%%") % model.find.integ)
-		gb.label.add_theme_color_override("font_color", UI.INK if model.find.get("ruined", false) else (UI.GOOD if model.find.done else UI.INK))
+		gb.label.text = ("✓ %d%%" if model.find.done else "%d%%") % model.find.integ
+		gb.label.add_theme_color_override("font_color", UI.GOOD if model.find.done else UI.INK)
 	else:
 		gb.label.text = str(gb.shown) if gb.shown > 0 else "✓"
 		gb.label.add_theme_color_override("font_color", UI.GOOD if gb.shown <= 0 else UI.INK)
@@ -290,15 +306,22 @@ func _render_boosters() -> void:
 
 ## where a goal's counter sits, in the effects layer's coordinates
 func _goal_target(gi: int) -> Vector2:
-	var icon: Control = goal_boxes[gi].icon
-	var gpos := icon.get_global_rect().get_center()
+	var box: Control = goal_boxes[gi].root
+	var gpos := box.get_global_rect().position + Vector2(17, box.size.y / 2)
 	return fx.get_global_transform().affine_inverse() * gpos
 
 # ---------------------------------------------------------------- input
 
+var _find_frame := 0
 
 func _process(dt: float) -> void:
-	if busy or model.over or overlay.visible: return
+	if find_spec:
+		find_spec.rotation.y += dt * 0.5
+	if find_studio:
+		_find_frame += 1
+		if _find_frame % 2 == 0 or not find_spec:
+			find_studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	if busy or model.over: return
 	idle += dt
 	if idle > 5.0 and not _hinted:
 		_hinted = true
@@ -306,7 +329,7 @@ func _process(dt: float) -> void:
 		if not mv.is_empty(): board.hint(mv)
 
 func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
-	if busy or model.over or overlay.visible: return
+	if busy or model.over: return
 	_touched()
 	if booster != "":
 		return
@@ -333,7 +356,7 @@ func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
 	await _after_turn()
 
 func _on_tap(r: int, c: int) -> void:
-	if busy or model.over or overlay.visible: return
+	if busy or model.over: return
 	_touched()
 	if booster != "":
 		await _use_booster(r, c)
@@ -420,32 +443,23 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			if e.color >= 0 and not merges.has(e.id):
 				fx.debris(e.r, e.c, Color.html(Data.GEMS[e.color].c), 6)
 		"rock":
-			var before := BoardSprites.rock_name(int(e.left) + 1, bool(e.get("strong", false)))
-			if e.left > 0:
-				board.animate_rock(e.r, e.c, before, BoardSprites.rock_name(e.left, bool(e.get("strong", false))))
-			else:
-				board.rock_transitions.erase(int(e.r) * BoardModel.C + int(e.c))
-				fx.shatter(e.r, e.c, before)
 			board.redraw_under()
-			fx.debris(e.r, e.c, Color("#b4a18a") if e.get("strong", false) else Color("#c89a62"), 5)
+			fx.debris(e.r, e.c, Color("#c89a62") if e.left == 0 else Color("#8a919c"), 10)
 			Sfx.play("rock")
 			Sfx.buzz(10)
 		"gas":
 			board.redraw_under()
-			fx.disperse_gas(e.r, e.c)
+			fx.debris(e.r, e.c, Color("#a2dc3c"), 12)
 			Sfx.play("rock")
 		"mud":
 			board.redraw_under()
-			fx.shatter(e.r, e.c, "mud")
 			fx.debris(e.r, e.c, Color("#7a5a3a"), 8)
 		"lock":
 			board.over.queue_redraw()
-			fx.shatter(e.r, e.c, "lock")
 			fx.debris(e.r, e.c, Color("#b07a3e"), 10)
 			Sfx.play("rock")
 		"geo_hit":
 			board.geo_hit_at[e.gi] = Time.get_ticks_msec() / 1000.0
-			board.animate_deposit("geode", e.gi, 3 - int(e.hp), -1 if e.hp <= 0 else 4 - int(e.hp))
 			Sfx.play("crack", 4 - e.hp)
 			var geo: Dictionary = model.geos[e.gi]
 			fx.debris(geo.r + 0.5, geo.c + 0.5, Color("#9a8a78"), 12)
@@ -456,8 +470,6 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			_toast("Geode cracked: a stone awaits you at the end of the level")
 		"find_hit":
 			board.find_hit_at = Time.get_ticks_msec() / 1000.0
-			var next_stage: int = 4 - int(e.hp) if int(e.hp) > 0 or int(e.integ) <= 0 else -1
-			board.animate_deposit("mineral", 0, 3 - int(e.hp), next_stage)
 			var F: Dictionary = model.find
 			if e.rough:
 				Sfx.play("crack", 3)
@@ -471,10 +483,6 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			if gi >= 0: _render_goal(gi)
 		"find_done":
 			board.redraw_under()
-			if e.get("ruined", false):
-				Sfx.play("crack", 3)
-				_toast("Specimen destroyed")
-				return
 			var col := Data.rarity_color(model.find.stone.tier)
 			fx.sparkle(e.r + 0.5, e.c + 0.5, Color(col.r * 1.5, col.g * 1.5, col.b * 1.5), 44)
 			fx.flash(e.r + 0.5, e.c + 0.5, Color(col.r * 2, col.g * 2, col.b * 2), 2.0)
@@ -683,57 +691,7 @@ func _on_quit() -> void:
 # ---------------------------------------------------------------- small UI helpers
 
 ## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]
-func _show_gem_styles() -> void:
-	if busy or model.over or overlay.visible: return
-	_touched()
-	var content := _panel("Gem style", "Choose how the gems look.", [["Close", "glass", _close_panel, true]])
-	for style: String in BoardSprites.GEM_STYLES:
-		var selected := BoardSprites.gem_style == style
-		var option := UI.button("", "glass", 17)
-		option.name = "Style_" + style
-		option.custom_minimum_size = Vector2(0, 90)
-		if selected:
-			var border := UI.glass(16, 0.9)
-			border.border_color = UI.GOLD
-			border.set_border_width_all(2)
-			option.add_theme_stylebox_override("normal", border)
-		var column := VBoxContainer.new()
-		column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		column.offset_top = 7
-		column.offset_bottom = -7
-		column.alignment = BoxContainer.ALIGNMENT_CENTER
-		column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var label := UI.label(BoardSprites.GEM_STYLES[style] + ("  ✓" if selected else ""), 16, UI.display)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		column.add_child(label)
-		var preview := HBoxContainer.new()
-		preview.alignment = BoxContainer.ALIGNMENT_CENTER
-		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		preview.add_theme_constant_override("separation", 6)
-		for colour in 6:
-			var icon := UI.icon(36, func(ci):
-				BoardSprites.draw(ci, BoardSprites.gem_in_style(colour, style), Vector2(18, 18), 36 * 0.9))
-			icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-			icon.material = BoardSprites.plain_material()
-			preview.add_child(icon)
-		column.add_child(preview)
-		option.add_child(column)
-		option.pressed.connect(_choose_gem_style.bind(style))
-		content.add_child(option)
-		content.move_child(option, content.get_child_count() - 2)
-
-func _choose_gem_style(style: String) -> void:
-	Save.set_gem_style(style)
-	_close_panel()
-
-func _refresh_gem_style() -> void:
-	# Repaint existing nodes: never rebuild the board or reset counters/animations.
-	for node: GemNode in board.nodes.values(): node.queue_redraw()
-	for goal: Dictionary in goal_boxes: goal.icon.queue_redraw()
-	style_icon.queue_redraw()
-
-func _panel(title_text: String, body_text: String, buttons: Array) -> VBoxContainer:
+func _panel(title_text: String, body_text: String, buttons: Array) -> void:
 	for ch in overlay.get_children(): ch.queue_free()
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
@@ -766,7 +724,6 @@ func _panel(title_text: String, body_text: String, buttons: Array) -> VBoxContai
 	card.scale = Vector2(0.85, 0.85)
 	card.pivot_offset = Vector2(165, 120)
 	create_tween().tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	return v
 
 func _close_panel() -> void:
 	overlay.visible = false
