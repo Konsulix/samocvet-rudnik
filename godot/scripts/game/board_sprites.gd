@@ -32,6 +32,9 @@ static var ore_demo := {}
 static func gem_ore(t: int) -> Texture2D:
 	return tex(GEMS[t % GEMS.size()] + "_ore")
 
+static func gem_ore_glow(t: int) -> Texture2D:
+	return tex(GEMS[t % GEMS.size()] + "_ore_glow")
+
 static func gem_path(name: String) -> String:
 	return "res://assets/board/gems/%s.png" % name if gem_style == "" else "res://assets/board/gems_kit/%s/%s.png" % [gem_style, name]
 

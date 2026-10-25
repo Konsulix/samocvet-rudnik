@@ -3,8 +3,10 @@ extends Node2D
 ## One stone, special or nugget on the board, drawn from its pre-rendered sprite; moves and pops are tweened by BoardView.
 
 const GLINT := preload("res://shaders/gem_glint.gdshader")
+const ORE_GLINT := preload("res://shaders/ore_glint.gdshader")
 static var _mat_plain: ShaderMaterial
 static var _mat_special: ShaderMaterial
+static var _mat_ore: ShaderMaterial
 
 var id := 0
 var t := 0
@@ -13,6 +15,7 @@ var item := ""
 var S := 46.0
 var b3: Board3D               # when set, plain stones are drawn as 3D gems that follow this node
 var stone: MeshInstance3D
+var ore_glow: Sprite2D        # an ore-bearing stone's veins, shimmering on top of it
 
 static func materials() -> void:
 	if _mat_special: return
@@ -23,6 +26,8 @@ static func materials() -> void:
 	_mat_special.shader = GLINT
 	_mat_special.set_shader_parameter("boost", 1.25)
 	_mat_special.set_shader_parameter("strength", 0.0)
+	_mat_ore = ShaderMaterial.new()
+	_mat_ore.shader = ORE_GLINT
 
 func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	materials()
@@ -37,8 +42,25 @@ func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 		stone = b3.make_stone(t)
 		_sync()
 	set_process(stone != null)
+	_ore_glow(is_ore())
 	queue_redraw()
 	return self
+
+func is_ore() -> bool:
+	return sp == "" and item == "" and t >= 0 and BoardSprites.ore_demo.has(t) and id % 3 == 0
+
+func _ore_glow(on: bool) -> void:
+	if not on:
+		if ore_glow: ore_glow.queue_free()
+		ore_glow = null
+		return
+	if ore_glow == null:
+		ore_glow = Sprite2D.new()
+		ore_glow.material = _mat_ore
+		ore_glow.light_mask = 0
+		add_child(ore_glow)
+	ore_glow.texture = BoardSprites.gem_ore_glow(t)
+	ore_glow.scale = Vector2.ONE * S * BoardSprites.SPAN / float(ore_glow.texture.get_width())
 
 func _process(_dt: float) -> void:
 	if stone: _sync()
@@ -61,6 +83,7 @@ func _exit_tree() -> void:
 
 func become(new_sp: String) -> void:
 	sp = new_sp
+	_ore_glow(false)
 	material = _mat_special
 	if stone:
 		stone.queue_free()
@@ -74,5 +97,4 @@ func _draw() -> void:
 	elif sp != "":
 		BoardSprites.draw(self, BoardSprites.tex(sp), Vector2.ZERO, S)
 	elif t >= 0 and not stone:
-		var ore: bool = BoardSprites.ore_demo.has(t) and id % 3 == 0
-		BoardSprites.draw(self, BoardSprites.gem_ore(t) if ore else BoardSprites.gem(t), Vector2.ZERO, S)
+		BoardSprites.draw(self, BoardSprites.gem_ore(t) if is_ore() else BoardSprites.gem(t), Vector2.ZERO, S)

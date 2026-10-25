@@ -220,17 +220,18 @@ def nat_diamond():
 # ---------------------------------------------------------------- the faceted crystals
 
 def fac_ruby():
-    # a cube on its corner, every corner and edge cut a little: a hexagon with a facet in its middle
+    # a cube on its corner, every corner and edge cut a little: a hexagon with a six-sided plateau in its middle
+    # (the corner facing us cut deeper, and the three edges meeting there chamfered wider, so the plateau has six sides)
     pl = []
     for x in (-1, 1):
         for y in (-1, 1):
             for z in (-1, 1):
-                pl.append(plane((x, y, z), 0.27 * 1.732 * (0.82 if (x, y, z) == (1, 1, 1) else 0.93)))
+                pl.append(plane((x, y, z), 0.27 * 1.732 * (0.773 if (x, y, z) == (1, 1, 1) else 0.93)))
     for a in range(3):
         for s1 in (-1, 1):
             for s2 in (-1, 1):
                 v = [0, 0, 0]; v[(a + 1) % 3] = s1; v[(a + 2) % 3] = s2
-                pl.append(plane(v, 0.27 * 1.414 * 0.96))
+                pl.append(plane(v, 0.27 * 1.414 * (0.9 if s1 > 0 and s2 > 0 else 0.96)))
     pl += [plane(n, 0.27) for n in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]]
     # the cut corner faces us from a little above, spun until a corner of the outline points straight up
     diag = Vector((1, 1, 1)).normalized()
@@ -250,7 +251,8 @@ def fac_citrine():
         for s in (-1, 1):
             n = Vector((math.cos(a), math.sin(a) * 1.3, s * 0.62)).normalized()
             pl.append((n * 0.2, n))
-    pl += ring_planes(8, 0.3, 0, 0.0, math.pi / 8)
+    # small facets round the waist, never reaching its four points
+    pl += ring_planes(4, 0.3, 0, 0.0, math.pi / 4)
     return cut(turned(pl, Quaternion((0, 0, 1), math.radians(22))), 37, (0.5, 1.1))
 
 def fac_sapphire():
@@ -290,7 +292,7 @@ SHAPES = {
 
 # ---------------------------------------------------------------- the paint
 
-def gem_mat(dark, mid, light, malachite=False, ore=None):
+def gem_mat(dark, mid, light, malachite=False, ore=None, mask=False):
     m = bpy.data.materials.new("gem"); m.use_nodes = True
     n = m.node_tree; L = n.links; nd = n.nodes.new
     p = n.nodes["Principled BSDF"]
@@ -420,6 +422,14 @@ def gem_mat(dark, mid, light, malachite=False, ore=None):
         # the core burns: far brighter than the stone, so the render's bloom spreads it a little
         glow_k = math_('ADD', math_('MULTIPLY', glow_k, math_('SUBTRACT', 1.0, rim)), math_('MULTIPLY', core, value=ORE_LOOK["burn"]))
         glow_k = math_('ADD', glow_k, math_('MULTIPLY', halo, value=0.25))
+        if mask:
+            # the glow mask the game shimmers: only the veins' light, white on black
+            mk = nd("ShaderNodeMath"); mk.operation = 'MULTIPLY_ADD'; mk.inputs[1].default_value = 0.3
+            L.new(halo, mk.inputs[0]); L.new(core, mk.inputs[2])
+            ems = nd("ShaderNodeEmission"); ems.inputs["Color"].default_value = (1, 1, 1, 1)
+            L.new(mk.outputs[0], ems.inputs["Strength"])
+            L.new(ems.outputs[0], n.nodes["Material Output"].inputs["Surface"])
+            return m
     L.new(col, p.inputs["Base Color"])
     L.new(emit_col, p.inputs["Emission Color"])
     L.new(glow_k, p.inputs["Emission Strength"])
@@ -434,8 +444,17 @@ ORE_LOOK = dict(
     burn=1.4,                   # how much brighter than the stone the veins glow
 )
 
-def metal_mat():
+def flat_emit(name, strength):
+    """a plain light (or, at 0, plain black) for the glow mask"""
+    m = bpy.data.materials.new(name); m.use_nodes = True
+    n = m.node_tree
+    e = n.nodes.new("ShaderNodeEmission"); e.inputs["Strength"].default_value = strength
+    n.links.new(e.outputs[0], n.nodes["Material Output"].inputs["Surface"])
+    return m
+
+def metal_mat(mask=False):
     """a nugget of ore, glowing like the veins"""
+    if mask: return flat_emit("ore_mask", 0.8)
     m = bpy.data.materials.new("ore"); m.use_nodes = True
     n = m.node_tree; L = n.links; nd = n.nodes.new
     p = n.nodes["Principled BSDF"]
@@ -455,15 +474,18 @@ def metal_mat():
     L.new(em.outputs[0], p.inputs["Emission Strength"])
     return m
 
-def nuggets(o, seed):
+def nuggets(o, seed, mask=False):
     """two or three lumps of ore grown into the stone's front, low and to the sides, each in a dark socket"""
     rnd = random.Random(seed * 7 + 3)
     faces = [f for f in o.data.polygons if f.normal.y < -0.35 and f.center.z < 0.15]
     rnd.shuffle(faces)
-    mm = metal_mat()
-    dark = bpy.data.materials.new("socket"); dark.use_nodes = True
-    dp = dark.node_tree.nodes["Principled BSDF"]
-    dp.inputs["Base Color"].default_value = (*ORE_LOOK["rim"], 1); dp.inputs["Roughness"].default_value = 0.8
+    mm = metal_mat(mask)
+    if mask:
+        dark = flat_emit("socket_mask", 0.0)
+    else:
+        dark = bpy.data.materials.new("socket"); dark.use_nodes = True
+        dp = dark.node_tree.nodes["Principled BSDF"]
+        dp.inputs["Base Color"].default_value = (*ORE_LOOK["rim"], 1); dp.inputs["Roughness"].default_value = 0.8
     made = []
     for f in faces:
         if len(made) >= 2 + (seed % 2): break
@@ -517,17 +539,18 @@ def fit(o, aspect):
     for v in o.data.vertices:
         v.co -= c
 
-def render(style, name, dark, mid, light, ore=None):
-    """<style>/<name>.png, or with ore <style>/<name>_ore.png: the same stone holding ore"""
+def render(style, name, dark, mid, light, ore=None, mask=False):
+    """<style>/<name>.png, or with ore <style>/<name>_ore.png: the same stone holding ore, and
+    <name>_ore_glow.png: the light of its veins and nuggets alone, white on black, for the game to shimmer"""
     sc = setup()
     o = SHAPES[style][name]()
     fit(o, ASPECT[style][name])
     paint_facets(o)
-    o.data.materials.append(gem_mat(dark, mid, light, malachite=(style == "natural" and name == "emerald"), ore=ore))
+    o.data.materials.append(gem_mat(dark, mid, light, malachite=(style == "natural" and name == "emerald"), ore=ore, mask=mask))
     if ore:
-        nuggets(o, o["seed"])
-        bloom(sc)
-    tag = name + ("_ore" if ore else "")
+        nuggets(o, o["seed"], mask)
+        if not mask: bloom(sc)
+    tag = name + ("_ore" if ore else "") + ("_glow" if mask else "")
     sc.render.filepath = os.path.join(OUT, style, tag + ".png")
     bpy.ops.render.render(write_still=True)
     print("GEM", style, tag)
@@ -539,3 +562,4 @@ for style in ("natural", "faceted"):
             if ONLY and tag not in ONLY and style + "/" + name not in ONLY: continue
             os.makedirs(os.path.join(OUT, style), exist_ok=True)
             render(style, name, dark, mid, light, ore)
+            if ore: render(style, name, dark, mid, light, ore, mask=True)
