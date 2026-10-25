@@ -20,10 +20,17 @@ static func plain_material() -> ShaderMaterial:
 	return _plain_material
 
 static func tex(name: String) -> Texture2D:
-	var path := gem_path(name) if name in GEMS else "res://assets/board/pieces/%s.png" % name
+	var path := gem_path(name) if name.get_slice("_", 0) in GEMS else "res://assets/board/pieces/%s.png" % name
 	if not _tex.has(path):
 		_tex[path] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
 	return _tex[path]
+
+## ore-bearing stones are not in the rules yet: for a look, `-- ore=0:iron,2:copper` shows every third stone of
+## those colours with the mine's metal in it (gem_kit.py renders <name>_<ore>.png)
+static var ore_demo := {}
+
+static func gem_ore(t: int, ore: String) -> Texture2D:
+	return tex(GEMS[t % GEMS.size()] + "_" + ore)
 
 static func gem_path(name: String) -> String:
 	return "res://assets/board/gems/%s.png" % name if gem_style == "" else "res://assets/board/gems_kit/%s/%s.png" % [gem_style, name]

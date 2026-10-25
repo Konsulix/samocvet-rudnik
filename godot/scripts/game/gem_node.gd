@@ -74,4 +74,5 @@ func _draw() -> void:
 	elif sp != "":
 		BoardSprites.draw(self, BoardSprites.tex(sp), Vector2.ZERO, S)
 	elif t >= 0 and not stone:
-		BoardSprites.draw(self, BoardSprites.gem(t), Vector2.ZERO, S)
+		var ore: String = BoardSprites.ore_demo.get(t, "")
+		BoardSprites.draw(self, BoardSprites.gem_ore(t, ore) if ore != "" and id % 3 == 0 else BoardSprites.gem(t), Vector2.ZERO, S)
