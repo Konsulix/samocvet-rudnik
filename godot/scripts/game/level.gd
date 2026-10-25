@@ -522,7 +522,12 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			fx.zap(e.r, e.c, e.tr, e.tc)
 		"orb":
 			Sfx.play("zap")
-			fx.flash(e.r, e.c, Color(1.8, 1.2, 2.6), 1.4)
+			if BoardSprites.gem_style != "":
+				# the radar pings: a cyan wave rolls out over the board before the zaps find their stones
+				fx.flash(e.r, e.c, Color(0.6, 2.0, 2.6), 1.4)
+				fx.ring(e.r, e.c, 3.0, Color(0.5, 1.8, 2.4))
+			else:
+				fx.flash(e.r, e.c, Color(1.8, 1.2, 2.6), 1.4)
 		"convert":
 			board.convert_gem(e.id, e.sp)
 		"combo":

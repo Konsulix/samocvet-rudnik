@@ -47,6 +47,14 @@ static func blocker(name: String) -> Texture2D:
 	if not _tex.has(path): _tex[path] = load(path)
 	return _tex[path]
 
+## where on a special's sprite the game draws its live touches (special_kit.py's anchors.json): fuse sparks, the radar
+static var _anchors := {}
+static func anchors(name: String) -> Dictionary:
+	if _anchors.is_empty():
+		var f := FileAccess.open("res://assets/board/special_kit/anchors.json", FileAccess.READ)
+		if f: _anchors = JSON.parse_string(f.get_as_text())
+	return _anchors.get(name, {})
+
 static func gem_path(name: String) -> String:
 	return "res://assets/board/gems/%s.png" % name if gem_style == "" else "res://assets/board/gems_kit/%s/%s.png" % [gem_style, name]
 

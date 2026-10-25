@@ -57,7 +57,7 @@ func _draw() -> void:
 			if s > 0 and s < segs:
 				p += Vector2(randf() - 0.5, randf() - 0.5) * board.TS * 0.35
 			pts.append(p)
-		draw_polyline(pts, Color(2.2, 1.6, 3.0, 1.0 - k), 3.0, true)
+		draw_polyline(pts, (Color(0.6, 2.2, 3.0, 1.0 - k) if BoardSprites.gem_style != "" else Color(2.2, 1.6, 3.0, 1.0 - k)), 3.0, true)
 		draw_polyline(pts, Color(1, 1, 1, 1.0 - k), 1.2, true)
 
 # ---------------------------------------------------------------- particles
@@ -141,10 +141,20 @@ func rocket(sp: String, r: int, c: int) -> void:
 	for d in dirs:
 		var n := Node2D.new()
 		n.position = cell(r, c)
-		n.rotation = 0.0 if d.x == 0 else PI / 2
-		n.draw.connect(func():
-			n.draw_colored_polygon(GemArt.rrect(Vector2(-board.TS * 0.3, -board.TS * 0.1), Vector2(board.TS * 0.6, board.TS * 0.2), board.TS * 0.08), Color("#e0302a"))
-			n.draw_circle(Vector2(board.TS * 0.32 * (1 if d.y + d.x > 0 else -1), 0), board.TS * 0.09, Color(3.0, 2.2, 0.8)))
+		if BoardSprites.gem_style != "":
+			# the stick itself flies, spinning end over end along its line
+			var spr := Sprite2D.new()
+			spr.texture = BoardSprites.tex(sp)
+			spr.scale = Vector2.ONE * board.TS * BoardSprites.SPAN * 0.85 / float(spr.texture.get_width())
+			spr.material = BoardSprites.plain_material()
+			n.add_child(spr)
+			var spin := create_tween()
+			spin.tween_property(spr, "rotation", TAU * 1.5 * (1 if d.y + d.x > 0 else -1), 0.3)
+		else:
+			n.rotation = 0.0 if d.x == 0 else PI / 2
+			n.draw.connect(func():
+				n.draw_colored_polygon(GemArt.rrect(Vector2(-board.TS * 0.3, -board.TS * 0.1), Vector2(board.TS * 0.6, board.TS * 0.2), board.TS * 0.08), Color("#e0302a"))
+				n.draw_circle(Vector2(board.TS * 0.32 * (1 if d.y + d.x > 0 else -1), 0), board.TS * 0.09, Color(3.0, 2.2, 0.8)))
 		add_child(n)
 		var trail := CPUParticles2D.new()
 		trail.amount = 40
@@ -170,6 +180,25 @@ func rocket(sp: String, r: int, c: int) -> void:
 func drill(r: int, c: int, tr: int, tc: int) -> void:
 	var n := Node2D.new()
 	n.position = cell(r, c)
+	if BoardSprites.gem_style != "":
+		# the auger flies point first towards its target, shuddering as it bores, throwing chips behind it
+		var spr := Sprite2D.new()
+		spr.texture = BoardSprites.tex("drill")
+		spr.scale = Vector2.ONE * board.TS * BoardSprites.SPAN * 0.9 / float(spr.texture.get_width())
+		spr.material = BoardSprites.plain_material()
+		n.add_child(spr)
+		n.rotation = (cell(tr, tc) - cell(r, c)).angle() - PI / 2     # the sprite points down: turn it to the target
+		add_child(n)
+		var shake := create_tween().set_loops(8)
+		shake.tween_property(spr, "position:x", board.TS * 0.04, 0.025)
+		shake.tween_property(spr, "position:x", -board.TS * 0.04, 0.025)
+		var tw2 := create_tween()
+		tw2.tween_property(n, "position", cell(tr, tc), 0.42).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		tw2.tween_callback(func():
+			shake.kill()
+			burst(cell(tr, tc), Color("#8a8f99"), 10, 200.0, 600.0, 4.0)
+			n.queue_free())
+		return
 	n.draw.connect(func():
 		GemArt.begin(n, Transform2D(0.0, Vector2(0.8, 0.8), 0.0, Vector2.ZERO))
 		GemArt.special(n, "drill", board.TS)
@@ -182,7 +211,7 @@ func drill(r: int, c: int, tr: int, tc: int) -> void:
 
 func zap(r: int, c: int, tr: int, tc: int) -> void:
 	_zaps.append({a = cell(r, c), b = cell(tr, tc), t0 = Time.get_ticks_msec() / 1000.0})
-	sparkle(tr, tc, Color(0.85, 0.65, 1.0), 6)
+	sparkle(tr, tc, Color(0.45, 0.95, 1.0) if BoardSprites.gem_style != "" else Color(0.85, 0.65, 1.0), 6)
 
 func pop_text(r: float, c: float, txt: String, col := Color("#ffb090")) -> void:
 	var l := Label.new()

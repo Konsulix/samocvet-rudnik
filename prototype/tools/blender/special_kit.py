@@ -20,6 +20,7 @@ _spec = importlib.util.spec_from_file_location("gem_kit", os.path.join(os.path.d
 gk = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(gk)
 sys.argv = _real
 WOOD = "art/textures/dark_wooden_planks/dark_wooden_planks"
+ANCHORS = {}   # model points the game animates on top of a sprite (a fuse's spark, the radar's screen)
 
 def scene():
     sc = gk.setup()
@@ -209,6 +210,7 @@ def fuse(start, direction, length, rnd):
     sp.use_endpoint_u = True; sp.order_u = 3
     o = bpy.data.objects.new("fuse", cu); bpy.context.scene.collection.objects.link(o); o.data.materials.append(fm)
     tip = pts[-1]
+    ANCHORS.setdefault("sparks", []).append(tip.copy())
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.035, location=tip)
     bpy.context.object.data.materials.append(sm)
     for k in range(7):
@@ -338,15 +340,145 @@ def fit_all(height):
         if o.type in ('MESH', 'CURVE') and o.parent is None:
             o.parent = root
     root.location = -c * k; root.scale = (k, k, k)
+    return c, k
 
-JOBS = {"lock": (lock, 1.08), "rh": (lambda: dynamite(False), 1.04), "rv": (lambda: dynamite(True), 1.0),
-        "bomb": (bomb, 0.96), "drill": (drill, 1.0), "orb": (opal, 0.86)}
+def to_uv(p, c, k):
+    """a model point as the sprite's UV (the camera sees SPAN cells across, centred on the origin)"""
+    tilt = math.radians(12)
+    up = Vector((0, math.sin(tilt), math.cos(tilt)))
+    q = (Vector(p) - c) * k
+    return [round(0.5 + q.x / gk.SPAN, 4), round(0.5 - q.dot(up) / gk.SPAN, 4)]
+
+# ---------------------------------------------------------------- the resonator: a radar set into the rock
+
+def rock_mat():
+    N = Nodes("rock")
+    t = N.new("ShaderNodeTexImage")
+    t.image = bpy.data.images.load(os.path.join(gk.PROJ, "godot/assets/textures/rock_face_03/rock_face_03_diff_1k.jpg"))
+    t.projection = 'BOX'; t.projection_blend = 0.3
+    mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (1.6, 1.6, 1.6)
+    N.link(N.pos, mp.inputs["Vector"]); N.link(mp.outputs[0], t.inputs["Vector"])
+    bw = N.new("ShaderNodeRGBToBW"); N.link(t.outputs["Color"], bw.inputs[0])
+    col = N.ramp(N.remap(bw.outputs[0], 0.05, 0.4, 0.0, 1.0), [(0.0, (0.015, 0.016, 0.018)), (0.5, (0.06, 0.062, 0.068)), (1.0, (0.17, 0.175, 0.185))])
+    fa = N.new("ShaderNodeVertexColor"); fa.layer_name = "facet"
+    ft = N.new("ShaderNodeMix"); ft.data_type = 'RGBA'; ft.blend_type = 'MULTIPLY'; ft.inputs["Factor"].default_value = 0.6
+    N.link(col, ft.inputs["A"]); N.link(fa.outputs["Color"], ft.inputs["B"])
+    N.link(ft.outputs[2], N.p.inputs["Base Color"]); N.p.inputs["Roughness"].default_value = 0.85
+    return N.m
+
+def screen_mat():
+    """the radar's glass: deep teal, range rings and a cross glowing cyan (the sweep and the blips are drawn live
+    in the game: shaders/special_fx.gdshader)"""
+    N = Nodes("screen")
+    sep = N.new("ShaderNodeSeparateXYZ"); N.link(N.pos, sep.inputs[0])
+    xy = N.new("ShaderNodeCombineXYZ"); N.link(sep.outputs["X"], xy.inputs["X"]); N.link(sep.outputs["Y"], xy.inputs["Y"])
+    rl = N.new("ShaderNodeVectorMath"); rl.operation = 'LENGTH'; N.link(xy.outputs[0], rl.inputs[0])
+    r = rl.outputs["Value"]
+    def line(v, width):
+        k = N.new("ShaderNodeMath"); k.operation = 'ABSOLUTE'; N.link(v, k.inputs[0])
+        return N.remap(k.outputs[0], width, 0.0, 0.0, 1.0)
+    pp = N.new("ShaderNodeMath"); pp.operation = 'PINGPONG'; pp.inputs[1].default_value = 0.045
+    N.link(r, pp.inputs[0])
+    rings = N.remap(pp.outputs[0], 0.006, 0.0, 0.0, 1.0)
+    cross = N.new("ShaderNodeMath"); cross.operation = 'MAXIMUM'
+    N.link(line(sep.outputs["X"], 0.005), cross.inputs[0]); N.link(line(sep.outputs["Y"], 0.005), cross.inputs[1])
+    lines = N.new("ShaderNodeMath"); lines.operation = 'MAXIMUM'
+    N.link(rings, lines.inputs[0]); N.link(cross.outputs[0], lines.inputs[1])
+    base = N.ramp(N.remap(r, 0.0, 0.28, 1.0, 0.0), [(0.0, (0.0, 0.03, 0.045)), (1.0, (0.0, 0.16, 0.22))])
+    col = N.mix(N.remap(lines.outputs[0], 0.0, 1.0, 0.0, 0.85), base, (0.3, 0.95, 1.0))
+    N.link(col, N.p.inputs["Base Color"]); N.link(col, N.p.inputs["Emission Color"])
+    N.p.inputs["Emission Strength"].default_value = 0.6
+    N.p.inputs["Roughness"].default_value = 0.08; N.p.inputs["Coat Weight"].default_value = 1.0
+    return N.m
+
+def radar():
+    rnd = random.Random(23)
+    face = Quaternion((0, 1, 0), math.radians(-18)) @ Quaternion((1, 0, 0), math.pi / 2)   # its disc facing us, tipped
+    br, rk = brass_mat(), rock_mat()
+    def put(o, local):
+        o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = face @ o.rotation_quaternion
+        o.location = face @ Vector(local)
+    # the rock it is set in: chunks round the rim, a dark core behind
+    for k in range(14):
+        a = k / 14 * math.tau + rnd.uniform(-0.12, 0.12)
+        sz = rnd.uniform(0.11, 0.15)
+        o = gk.cut(gk.block_planes(16, 300 + k, sz, sz * 0.8, sz * 0.9, 2.4, (0.0, 0.02)), 300 + k, (0.55, 1.1))
+        gk.paint_facets(o); o.data.materials.append(rk)
+        o.rotation_euler = (rnd.uniform(0, 6), rnd.uniform(0, 6), rnd.uniform(0, 6))
+        o.location = face @ Vector((math.cos(a) * 0.37, math.sin(a) * 0.41, rnd.uniform(-0.09, -0.04)))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.36, depth=0.08)
+    o = bpy.context.object; o.data.materials.append(rk); put(o, (0, 0, -0.03))
+    # the brass frame: an octagon with a rivet at four corners, a rim round the glass
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.37, depth=0.07, rotation=(0, 0, math.pi / 8))
+    o = bpy.context.object; o.data.materials.append(br)
+    bv = o.modifiers.new("b", 'BEVEL'); bv.width = 0.012; bv.segments = 2
+    put(o, (0, 0, 0.02))
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.29, minor_radius=0.018)
+    o = bpy.context.object; o.data.materials.append(br); bpy.ops.object.shade_smooth(); put(o, (0, 0, 0.058))
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.022)
+        o = bpy.context.object; o.data.materials.append(br); bpy.ops.object.shade_smooth()
+        put(o, (math.cos(a) * 0.33, math.sin(a) * 0.33, 0.055))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.28, depth=0.02)
+    o = bpy.context.object; o.data.materials.append(screen_mat()); put(o, (0, 0, 0.056))
+    ANCHORS["screen"] = face @ Vector((0, 0, 0.067))
+    ANCHORS["radius"] = 0.275
+    # the antenna: a brass pipe out of the top right corner
+    d = (face @ Vector((0.55, 0.85, 0.15))).normalized()
+    q = Vector((0, 0, 1)).rotation_difference(d)
+    base = face @ Vector((0.24, 0.36, 0.0))
+    cyl(0.04, 0.2, base + d * 0.1, q.to_euler(), br, 20)
+    cyl(0.05, 0.04, base + d * 0.2, q.to_euler(), br, 20)
+
+# ---------------------------------------------------------------- a painted finish over everything
+
+def paint_pass():
+    """the gems are painted more than lit: every surface here gets the same light edges and a share of its own
+    colour as light, so the specials sit with them instead of looking like photographs"""
+    for m in bpy.data.materials:
+        if not m.use_nodes or "Principled BSDF" not in m.node_tree.nodes: continue
+        n = m.node_tree; p = n.nodes["Principled BSDF"]
+        if p.inputs["Emission Strength"].is_linked or p.inputs["Emission Strength"].default_value > 0.0: continue
+        src = p.inputs["Base Color"].links[0].from_socket if p.inputs["Base Color"].is_linked else None
+        geo = n.nodes.new("ShaderNodeNewGeometry")
+        bv = n.nodes.new("ShaderNodeBevel"); bv.inputs["Radius"].default_value = 0.012; bv.samples = 8
+        dt = n.nodes.new("ShaderNodeVectorMath"); dt.operation = 'DOT_PRODUCT'
+        n.links.new(bv.outputs[0], dt.inputs[0]); n.links.new(geo.outputs["Normal"], dt.inputs[1])
+        e = n.nodes.new("ShaderNodeMapRange"); e.inputs["From Min"].default_value = 0.9995; e.inputs["From Max"].default_value = 0.985
+        # rough rock has too many small facets for light edges: only a hint there
+        e.inputs["To Max"].default_value = 0.06 if m.name.startswith("rock") else 0.55
+        n.links.new(dt.outputs["Value"], e.inputs["Value"])
+        mx = n.nodes.new("ShaderNodeMix"); mx.data_type = 'RGBA'; mx.blend_type = 'SCREEN'
+        n.links.new(e.outputs[0], mx.inputs["Factor"])
+        if src: n.links.new(src, mx.inputs["A"])
+        else: mx.inputs["A"].default_value = p.inputs["Base Color"].default_value
+        mx.inputs["B"].default_value = (1.0, 0.92, 0.8, 1)
+        n.links.new(mx.outputs[2], p.inputs["Base Color"])
+        n.links.new(mx.outputs[2], p.inputs["Emission Color"])
+        p.inputs["Emission Strength"].default_value = 0.22
+        # satin, not glossy: soft highlights like the gems'
+        if not p.inputs["Roughness"].is_linked:
+            p.inputs["Roughness"].default_value = max(p.inputs["Roughness"].default_value, 0.38)
+
+JOBS = {"lock": (lock, 0.9), "rh": (lambda: dynamite(False), 1.04), "rv": (lambda: dynamite(True), 1.0),
+        "bomb": (bomb, 0.96), "drill": (drill, 1.0), "orb": (radar, 0.98)}
 os.makedirs(OUT, exist_ok=True)
+import json
+_af = os.path.join(OUT, "anchors.json")
+OUTA = json.load(open(_af)) if os.path.exists(_af) else {}
 for name, (fn, size) in JOBS.items():
     if ONLY and name not in ONLY: continue
     sc = scene()
+    ANCHORS.clear()
     fn()
-    fit_all(size)
+    paint_pass()
+    c, k = fit_all(size)
+    if "sparks" in ANCHORS:
+        OUTA[name] = {"spark": [to_uv(t, c, k) for t in ANCHORS["sparks"]]}
+    if "screen" in ANCHORS:
+        OUTA[name] = {"screen": to_uv(ANCHORS["screen"], c, k), "radius": round(ANCHORS["radius"] * k / gk.SPAN, 4)}
     sc.render.filepath = os.path.join(OUT, name + ".png")
     bpy.ops.render.render(write_still=True)
     print("SPECIAL", name)
+json.dump(OUTA, open(_af, "w"), indent=1)
