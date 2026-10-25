@@ -23,6 +23,7 @@ var find_tex: Texture2D       # the sealed specimen, rendered in 3D when availab
 var find_hit_at := -10.0
 var find_done_at := -10.0
 var _zone_tex := {}
+const ZONE_SCALE := 0.9
 var geo_hit_at := {}
 var _down := {}
 
@@ -305,7 +306,8 @@ func _draw_zone(ci: Node2D, kind: String, b: Dictionary, since_hit: float, now: 
 	var shake := sin(since_hit * 55.0) * TS * 0.06 if since_hit < 0.22 else 0.0
 	var a := 1.0
 	if kind == "find" and b.get("done", false): a = clampf(1.0 - (now - find_done_at) / 0.6, 0.0, 1.0)
-	var size := Vector2(w + 0.24, h + 0.24) * TS
+	# a little smaller than its cells, so the board's grid shows round it, as round the gems
+	var size := Vector2(w + 0.24, h + 0.24) * TS * ZONE_SCALE
 	var ctr := Vector2(PAD + (b.c + w * 0.5) * TS + shake, PAD + (b.r + h * 0.5) * TS)
 	ci.draw_texture_rect(_zone_tex[path], Rect2(ctr - size * 0.5, size), false, Color(1, 1, 1, a))
 
