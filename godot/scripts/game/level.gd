@@ -122,7 +122,7 @@ func _mount_find() -> void:
 
 func _layout() -> void:
 	var vp := get_viewport_rect().size
-	var top := 182.0 + UI.safe_top()
+	var top := 162.0 + UI.safe_top()
 	var bottom := 118.0 + UI.safe_bottom()
 	board.layout(Vector2(vp.x - 12, vp.y - top - bottom))
 	holder.position = Vector2((vp.x - board.size.x) / 2, top + (vp.y - top - bottom - board.size.y) / 2)
@@ -183,64 +183,72 @@ func _build_hud() -> void:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var goals_panel := PanelContainer.new()
 	goals_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	goals_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	goals_panel.custom_minimum_size = Vector2(60, 70)
+	goals_panel.custom_minimum_size = Vector2(60, 78)
 	var gp := UI.slate(22)
 	gp.content_margin_top = 6
-	gp.content_margin_bottom = 6
+	gp.content_margin_bottom = 5
 	goals_panel.add_theme_stylebox_override("panel", gp)
+	var plate := VBoxContainer.new()
+	plate.add_theme_constant_override("separation", 4)
+	goals_panel.add_child(plate)
 	# the goals share the plate in even cells, each centred in its own
 	var goals_row := HBoxContainer.new()
 	goals_row.name = "Goals"
 	goals_row.add_theme_constant_override("separation", 0)
-	goals_panel.add_child(goals_row)
+	plate.add_child(goals_row)
+	var rule := ColorRect.new()
+	rule.color = Color(1, 1, 1, 0.1)
+	rule.custom_minimum_size = Vector2(0, 1)
+	var rule_wrap := MarginContainer.new()
+	for side in ["left", "right"]: rule_wrap.add_theme_constant_override("margin_" + side, 10)
+	rule_wrap.add_child(rule)
+	plate.add_child(rule_wrap)
+	# under them, the ore mined so far, each with what is left in the depth's vein in small grey
+	var ores := HBoxContainer.new()
+	ores.add_theme_constant_override("separation", 0)
+	for kind in ["iron", "ore"]:
+		var cell := CenterContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 5)
+		var k: String = kind
+		var ic := UI.icon(20, func(ci: Control): Chrome.coin_icon(ci, k, Vector2(10, 10), 9))
+		h.add_child(ic)
+		var count := UI.label("0", 15, UI.display)
+		count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		h.add_child(count)
+		var vein := UI.label("", 11, UI.body_bold, UI.MUTED)
+		vein.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		h.add_child(vein)
+		cell.add_child(h)
+		ores.add_child(cell)
+		ore_chips[kind] = {root = h, icon = ic, count = count, vein = vein}
+	plate.add_child(ores)
 	line.add_child(goals_panel)
 	moves_token = PanelContainer.new()
-	moves_token.custom_minimum_size = Vector2(78, 78)
-	var token := UI.marble(39)
-	token.border_color = Color("#c9a35a")
-	token.set_border_width_all(3)
-	moves_token.add_theme_stylebox_override("panel", token)
+	moves_token.custom_minimum_size = Vector2(80, 80)
+	moves_token.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	# a marble disc drawn round: a soft shadow, a gold rim and a fine inner ring, the text in its exact middle
+	moves_token.draw.connect(func():
+		var c := moves_token.size / 2
+		var rad := minf(c.x, c.y)
+		moves_token.draw_circle(c + Vector2(2, 4), rad, Color(0.25, 0.18, 0.1, 0.18), true, -1.0, true)
+		moves_token.draw_circle(c, rad, Color("#c9a35a"), true, -1.0, true)
+		moves_token.draw_circle(c, rad - 2.5, Color("#ece6dc"), true, -1.0, true)
+		moves_token.draw_arc(c, rad - 6.5, 0, TAU, 64, Color(0.79, 0.64, 0.35, 0.45), 1.0, true))
 	var mv := VBoxContainer.new()
 	mv.alignment = BoxContainer.ALIGNMENT_CENTER
-	mv.add_theme_constant_override("separation", -4)
-	var small := UI.label("MOVES", 10, UI.body_bold, UI.STONE_MUTED)
+	mv.add_theme_constant_override("separation", -8)
+	var small := UI.label("MOVES", 9, UI.body_bold, UI.STONE_MUTED)
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(small)
 	moves_label = UI.label("0", 28, UI.display, UI.STONE_INK)
 	moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(moves_label)
 	moves_token.add_child(mv)
+	moves_token.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(moves_token)
 	root.add_child(line)
-	# ore mined so far, each beside what is left in the depth's vein
-	var ores := HBoxContainer.new()
-	ores.add_theme_constant_override("separation", 10)
-	ores.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for kind in ["iron", "ore"]:
-		var chip := PanelContainer.new()
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var cs := UI.slate(14)
-		cs.content_margin_top = 2
-		cs.content_margin_bottom = 2
-		cs.content_margin_left = 6
-		cs.content_margin_right = 10
-		chip.add_theme_stylebox_override("panel", cs)
-		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 6)
-		var k: String = kind
-		h.add_child(UI.icon(24, func(ci: Control): Chrome.coin_icon(ci, k, Vector2(12, 12), 11)))
-		var count := UI.label("0", 16, UI.display)
-		h.add_child(count)
-		var vein := UI.label("", 11, UI.body_bold, UI.MUTED)
-		vein.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vein.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		vein.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		h.add_child(vein)
-		chip.add_child(h)
-		ores.add_child(chip)
-		ore_chips[kind] = {root = chip, count = count, vein = vein}
-	root.add_child(ores)
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -273,29 +281,32 @@ func _render_hud() -> void:
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
+	if not model.find.is_empty(): BoardSprites.find_shape = "%dx%d" % [int(model.find.get("w", 2)), int(model.find.get("h", 2))]
 	for i in model.goals.size():
 		var g: Dictionary = model.goals[i]
-		var box := HBoxContainer.new()
-		box.add_theme_constant_override("separation", 4)
+		# a cell of the plate: the icon over its count
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", -2)
 		box.alignment = BoxContainer.ALIGNMENT_CENTER
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var glow := Data.rarity_color(model.find.stone.tier) if g.k == "find" else Color("#c8b0ff")
 		var k: String = g.k
-		var colour: int = g.t
-		var isz := 34 if model.goals.size() <= 3 else 28
-		var gic := UI.icon(isz, func(ci):
+		var colour: int = rock_mix() if k == "rock" else g.t
+		var isz := 32 if model.goals.size() <= 3 else 28
+		var gic := gas_icon(isz) if k == "gas" and BoardSprites.gem_style != "" else UI.icon(isz, func(ci):
 			GemArt.begin(ci, Transform2D.IDENTITY)
 			GemArt.goal_icon(ci, k, colour, isz, glow)
 			GemArt.end(ci))
 		# textures in the interface go through the stones' own shader: on iPhone the stock one draws nothing after the
 		# shader bake, and takes the plates and text drawn next to it down with it
-		gic.material = BoardSprites.plain_material()
+		if gic.material == null: gic.material = BoardSprites.plain_material()
+		gic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		box.add_child(gic)
-		var l := UI.label("", 16 if model.goals.size() <= 3 else 14, UI.display)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var l := UI.label("", 15, UI.display)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(l)
 		row.add_child(box)
-		goal_boxes.append({root = box, label = l, shown = g.left})
+		goal_boxes.append({root = box, icon = gic, label = l, shown = g.left})
 		_render_goal(i)
 	_render_moves()
 	_render_boosters()
@@ -311,7 +322,7 @@ func _render_ore() -> void:
 		var stock := vein_stock(model.depth, i)
 		var poor := left <= BoardModel.vein_floor(stock)
 		ch.count.text = str(ore_shown[kind])
-		ch.vein.text = "vein %d/%d" % [left, stock] if not poor else "vein worked out"
+		ch.vein.text = str(left) if not poor else "out"
 		ch.vein.add_theme_color_override("font_color", Color("#e0904a") if poor else UI.MUTED)
 
 ## "Veins: iron 48/51 · gold 51/51" for a depth of the current mine
@@ -394,9 +405,31 @@ func _render_boosters() -> void:
 
 ## where a goal's counter sits, in the effects layer's coordinates
 func _goal_target(gi: int) -> Vector2:
-	var box: Control = goal_boxes[gi].root
-	var gpos := box.get_global_rect().position + Vector2(17, box.size.y / 2)
-	return fx.get_global_transform().affine_inverse() * gpos
+	var ic: Control = goal_boxes[gi].icon
+	return fx.get_global_transform().affine_inverse() * ic.get_global_rect().get_center()
+
+## the gas goal: a single pocket of the board's own gas (shaders/gas.gdshader), drifting as on the board
+static func gas_icon(S: float) -> Control:
+	var r := ColorRect.new()
+	r.custom_minimum_size = Vector2(S, S)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.color = Color(0, 0, 0, 1)   # no gas neighbours
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/gas.gdshader")
+	m.set_shader_parameter("overhang", 0.95)
+	m.set_shader_parameter("cell_px", S / 0.95)
+	r.material = m
+	return r
+
+## which rock the rock goal shows: 0 sandstone, 1 granite, 2 both
+func rock_mix() -> int:
+	var sand := false
+	var granite := false
+	for r in model.R:
+		for c in model.C:
+			if model.ROCK_MAX[r][c] >= 2: granite = true
+			elif model.ROCK_MAX[r][c] == 1: sand = true
+	return 2 if sand and granite else 1 if granite else 0
 
 # ---------------------------------------------------------------- input
 
@@ -603,7 +636,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			_flights += 1
 			var kind: String = e.kind
 			var box: Control = ore_chips[kind].root
-			var to: Vector2 = fx.get_global_transform().affine_inverse() * (box.get_global_rect().position + Vector2(18, box.size.y / 2))
+			var to: Vector2 = fx.get_global_transform().affine_inverse() * (ore_chips[kind].icon as Control).get_global_rect().get_center()
 			fx.fly_badge(e.r, e.c, to, kind, func():
 				_flights -= 1
 				ore_shown[kind] += 1

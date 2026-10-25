@@ -21,6 +21,8 @@ const LOCK_STYLES := {rendered = "Rendered", drawn = "Drawn", classic = "Classic
 ## the big blocks (geodes, the sealed find): rendered by zone_kit.py in two looks, or the first board's drawing
 const ZONE_STYLES := {hewn = "Hewn", pillow = "Pillow", classic = "Classic"}
 static var zone_style := "hewn"
+## the level's sealed find as "<w>x<h>": its goal icon is that very block (Level sets it)
+static var find_shape := "2x2"
 static var gem_style := "natural"
 static var ore_look := "rendered"
 static var lock_style := "rendered"

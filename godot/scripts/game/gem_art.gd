@@ -267,13 +267,42 @@ static func geode_icon(ci: CanvasItem, S: float) -> void:
 ## any goal's icon, top-left at 0,0
 static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := Color("#c8b0ff")) -> void:
 	match k:
-		"find": find_icon(ci, S, glow)
+		"find":
+			if BoardSprites.zone_style != "classic" and BoardSprites.gem_style != "":
+				# the sealed block as it lies on the board, glowing in its rarity's colour
+				radial_disc(ci, Vector2(S / 2, S / 2), S * 0.6, Color(glow, 0.85), Color(glow, 0.35), Color(glow, 0.0))
+				var t: Texture2D = load("res://assets/board/zones/%s/find_%s_0.png" % [BoardSprites.zone_style, BoardSprites.find_shape])
+				var sz := t.get_size() * (S * 0.95 / maxf(t.get_width(), t.get_height()))
+				ci.draw_texture_rect(t, Rect2(Vector2(S, S) / 2 - sz / 2, sz), false)
+			else:
+				find_icon(ci, S, glow)
 		"c": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
-		"rock": BoardSprites.draw(ci, BoardSprites.tex("rock1"), Vector2(S / 2, S / 2), S * 0.9)
-		"mud": BoardSprites.draw(ci, BoardSprites.tex("mud"), Vector2(S / 2, S / 2), S * 0.9)
-		"gas": BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(S / 2, S / 2), S * 0.9)
+		"rock":
+			# colour: 0 sandstone, 1 granite, 2 both (granite in front)
+			if BoardSprites.gem_style == "":
+				BoardSprites.draw(ci, BoardSprites.tex("rock1"), Vector2(S / 2, S / 2), S * 0.9)
+			elif colour == 2:
+				BoardSprites.draw(ci, BoardSprites.blocker("sand"), Vector2(S * 0.38, S * 0.4), S * 0.78)
+				BoardSprites.draw(ci, BoardSprites.blocker("granite"), Vector2(S * 0.62, S * 0.6), S * 0.78)
+			else:
+				BoardSprites.draw(ci, BoardSprites.blocker("granite" if colour == 1 else "sand"), Vector2(S / 2, S / 2), S)
+		"mud": BoardSprites.draw(ci, BoardSprites.blocker("mud"), Vector2(S / 2, S / 2), S if BoardSprites.gem_style != "" else S * 0.9)
+		"gas":
+			if BoardSprites.gem_style == "":
+				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(S / 2, S / 2), S * 0.9)
+			else:
+				# a still puff in the board gas's colours (the HUD shows the live one, Level.gas_icon)
+				for p: Vector3 in [Vector3(0.38, 0.58, 0.26), Vector3(0.62, 0.56, 0.27), Vector3(0.5, 0.38, 0.28)]:
+					ci.draw_circle(Vector2(p.x, p.y) * S, p.z * S, Color(0.36, 0.45, 0.1, 0.85), true, -1.0, true)
+				for p: Vector3 in [Vector3(0.44, 0.32, 0.14), Vector3(0.3, 0.5, 0.1)]:
+					ci.draw_circle(Vector2(p.x, p.y) * S, p.z * S, Color(0.72, 0.8, 0.32, 0.8), true, -1.0, true)
 		"lock":
 			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
-		"geo": BoardSprites.draw(ci, BoardSprites.tex("geode"), Vector2(S / 2, S / 2), S * 0.5)
-		_: BoardSprites.draw(ci, BoardSprites.tex("nug"), Vector2(S / 2, S / 2), S * 0.9)
+		"geo":
+			if BoardSprites.zone_style != "classic" and BoardSprites.gem_style != "":
+				var t: Texture2D = load("res://assets/board/zones/%s/geode_2x2_0.png" % BoardSprites.zone_style)
+				BoardSprites.draw(ci, t, Vector2(S / 2, S / 2), S * 0.95)
+			else:
+				BoardSprites.draw(ci, BoardSprites.tex("geode"), Vector2(S / 2, S / 2), S * 0.5)
+		_: BoardSprites.draw(ci, BoardSprites.tex("nug"), Vector2(S / 2, S / 2), S)
