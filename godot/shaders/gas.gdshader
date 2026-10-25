@@ -62,8 +62,8 @@ void fragment() {
 	// a shared edge both cells draw the same band (|other axis| < W), so the tunnel continues without a step; the quad
 	// stops exactly at that edge, and the neighbour draws the rest
 	if ((L && p.x < -1.0) || (R && p.x > 1.0) || (U && p.y < -1.0) || (D && p.y > 1.0)) discard;
-	float W = 0.86;
-	float d = box(p, vec2(W), 0.35);
+	float W = 0.77;      // the cloud's half width, in half cells
+	float d = box(p, vec2(W), 0.32);
 	if (L) d = smin(d, box(p - vec2(-0.9, 0.0), vec2(0.9, W), 0.2), 0.3);
 	if (R) d = smin(d, box(p - vec2(0.9, 0.0), vec2(0.9, W), 0.2), 0.3);
 	if (U) d = smin(d, box(p - vec2(0.0, -0.9), vec2(W, 0.9), 0.2), 0.3);
