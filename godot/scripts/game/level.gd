@@ -280,9 +280,14 @@ func _render_hud() -> void:
 		var k: String = g.k
 		var colour: int = g.t
 		var isz := 34 if model.goals.size() <= 3 else 28
-		box.add_child(UI.icon(isz, func(ci):
+		var gic := UI.icon(isz, func(ci):
 			GemArt.begin(ci, Transform2D.IDENTITY)
-			GemArt.goal_icon(ci, k, colour, isz, glow)))
+			GemArt.goal_icon(ci, k, colour, isz, glow)
+			GemArt.end(ci))
+		# textures in the interface go through the stones' own shader: on iPhone the stock one draws nothing after the
+		# shader bake, and takes the plates and text drawn next to it down with it
+		gic.material = BoardSprites.plain_material()
+		box.add_child(gic)
 		var l := UI.label("", 16 if model.goals.size() <= 3 else 14, UI.display)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		box.add_child(l)
@@ -356,6 +361,7 @@ func _render_boosters() -> void:
 				ci.draw_rect(Rect2(-2, -2, 4, 21), Color("#8a5a2c"))
 				ci.draw_polyline(PackedVector2Array([Vector2(-16, -1), Vector2(-8, -9), Vector2(0, -11), Vector2(8, -9), Vector2(16, -1)]), Color("#9aa6b4"), 5, true)
 			GemArt.end(ci))
+		ic.material = BoardSprites.plain_material()
 		ic.position = Vector2(10, 10)
 		b.add_child(ic)
 		var n: int = Save.d.boost[id]
@@ -836,6 +842,7 @@ func _show_looks() -> void:
 			var zt: Texture2D = load("res://assets/board/zones/%s/geode_2x2_0.png" % style)
 			var zi := UI.icon(40, func(ci): ci.draw_texture_rect(zt, Rect2(0, 0, 40, 40), false))
 			zi.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			zi.material = BoardSprites.plain_material()
 			var zc := CenterContainer.new()
 			zc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			zc.add_child(zi)

@@ -405,6 +405,7 @@ func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 		GemArt.begin(ci, Transform2D.IDENTITY)
 		GemArt.goal_icon(ci, k, colour, 34, glow)
 		GemArt.end(ci))
+	ic.material = BoardSprites.plain_material()   # the stock shader draws no textures on iPhone (see Level)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
 	var l := UI.label(text, 12, UI.body_bold)

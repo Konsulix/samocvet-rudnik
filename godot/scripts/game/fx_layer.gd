@@ -280,6 +280,7 @@ func fly_icon(r: float, c: float, target: Vector2, k: String, colour: int, glow:
 	n.draw.connect(func():
 		GemArt.begin(n, Transform2D.IDENTITY)
 		GemArt.goal_icon(n, k, colour, S, glow))
+	n.material = BoardSprites.plain_material()   # the stock shader draws no textures on iPhone (see Level)
 	n.position -= Vector2(S, S) * 0.5
 	add_child(n)
 	var mid := n.position.lerp(target, 0.5) + Vector2(randf_range(-60, 60), -80)

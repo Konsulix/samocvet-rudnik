@@ -14,6 +14,7 @@ func crack(s: Dictionary, title := "Crack the stone") -> void:
 	nod.custom_minimum_size = Vector2(240, 240)
 	nod.mouse_filter = Control.MOUSE_FILTER_STOP
 	nod.pivot_offset = Vector2(120, 120)
+	nod.material = BoardSprites.plain_material()   # the stock shader draws no textures on iPhone (see Level)
 	nod.draw.connect(func():
 		GemArt.radial_disc(nod, Vector2(120, 120), 120, Color(0.78, 0.59, 1, 0.28), Color(0.78, 0.59, 1, 0.1), Color(0.78, 0.59, 1, 0))
 		nod.draw_texture_rect(GemArt.NODULE, Rect2(20, 20, 200, 200), false)
