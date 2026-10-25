@@ -256,6 +256,23 @@ func pop_text(r: float, c: float, txt: String, col := Color("#ffb090")) -> void:
 	tw.chain().tween_callback(l.queue_free)
 
 ## an icon of what was collected flies into the goal panel (target in this layer's space)
+## a round ore badge flying from a cell to the HUD
+func fly_badge(r: float, c: float, target: Vector2, kind: String, on_land: Callable) -> void:
+	var n := Node2D.new()
+	var rad: float = board.TS * 0.26
+	n.draw.connect(func(): Chrome.coin_icon(n, kind, Vector2.ZERO, rad))
+	n.position = cell(r, c)
+	add_child(n)
+	var p0 := n.position
+	var mid := p0.lerp(target, 0.5) + Vector2(randf_range(-40, 40), -60)
+	var tw := create_tween()
+	tw.tween_method(func(t: float):
+		n.position = p0.lerp(mid, t).lerp(mid.lerp(target, t), t)
+		n.scale = Vector2.ONE * lerpf(1.2, 0.8, t), 0.0, 1.0, 0.5 + randf() * 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.finished.connect(func():
+		n.queue_free()
+		on_land.call())
+
 func fly_icon(r: float, c: float, target: Vector2, k: String, colour: int, glow: Color, on_land: Callable) -> void:
 	var n := Node2D.new()
 	var S := board.TS * 0.8

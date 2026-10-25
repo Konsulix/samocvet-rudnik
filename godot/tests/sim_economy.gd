@@ -41,7 +41,7 @@ static func play(n: int, dl: int, seed_v: int) -> Dictionary:
 		m.gas_spread()
 		if m.moves <= 0:
 			break
-	return {won = won, used = used, broken = broken, colors = m.colors}
+	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate()}
 
 static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 	var specials := []
@@ -89,12 +89,13 @@ static func _resolve(m: BoardModel, first: Array, sw: Array, broken: Array) -> v
 
 ## many levels at every depth: averages per level and per win
 static func report(per_depth: int) -> String:
-	var lines := PackedStringArray(["depth | levels | win% | moves used | stones/level by colour (0..4) | all | per win: colour 0"])
-	for dl in 4:
+	var lines := PackedStringArray(["depth | levels | win% | moves used | stones/level by colour (0..4) | all | per win: colour 0 | per win: iron, own ore"])
+	for dl in Data.depths(0).size():
 		var wins := 0
 		var used := 0
 		var tot := [0, 0, 0, 0, 0, 0]
 		var c0_win := 0
+		var ore_win := [0, 0]
 		for i in per_depth:
 			var n := 1 + (i % 40)
 			var r := play(n, dl, 1000 + dl * 100000 + i)
@@ -103,13 +104,15 @@ static func report(per_depth: int) -> String:
 			if r.won:
 				wins += 1
 				c0_win += int(r.broken[0])
+				ore_win[0] += int(r.mined.iron)
+				ore_win[1] += int(r.mined.ore)
 		var per := []
 		var all := 0
 		for k in 5:
 			per.append("%.0f" % (tot[k] / float(per_depth)))
 			all += tot[k]
-		lines.append("%d | %d | %.0f | %.1f | %s | %.0f | %.1f" % [dl, per_depth, 100.0 * wins / per_depth, used / float(per_depth),
-			" ".join(per), all / float(per_depth), c0_win / maxf(1.0, wins)])
+		lines.append("%d | %d | %.0f | %.1f | %s | %.0f | %.1f | %.1f, %.1f" % [dl, per_depth, 100.0 * wins / per_depth, used / float(per_depth),
+			" ".join(per), all / float(per_depth), c0_win / maxf(1.0, wins), ore_win[0] / maxf(1.0, wins), ore_win[1] / maxf(1.0, wins)])
 	return "\n".join(lines)
 
 ## what minerals bring in: how often a level has a sealed find and geodes, and what those stones sell for.

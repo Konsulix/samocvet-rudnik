@@ -19,6 +19,7 @@ var id := 0
 var t := 0
 var sp := ""
 var item := ""
+var ore := ""                 # the model stone's ore: "", iron, ore
 var S := 46.0
 var b3: Board3D               # when set, plain stones are drawn as 3D gems that follow this node
 var stone: MeshInstance3D
@@ -54,6 +55,7 @@ func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	t = gem.t
 	sp = gem.sp
 	item = gem.item
+	ore = gem.ore
 	S = size
 	material = _mat_special if sp != "" else _mat_plain
 	if b3 and Board3D.STYLE >= 99 and sp == "" and item != "nug" and t >= 0:
@@ -97,8 +99,8 @@ func _special_fx() -> void:
 
 ## "ore" (the mine's own), "iron" (the common ore), or "" for a plain stone
 func ore_kind() -> String:
-	if sp != "" or item != "" or t < 0 or id % 3 != 0: return ""
-	return BoardSprites.ore_demo.get(t, "")
+	if sp != "" or item != "" or t < 0: return ""
+	return ore
 
 ## the live part of the ore: the rendered sets' glow mask shimmering over the stone, or the stone redrawn with veins
 ## or cubes painted over it (ore_overlay.gdshader); the badge look is drawn in _draw

@@ -46,10 +46,8 @@ static func tex(name: String) -> Texture2D:
 		_tex[path] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
 	return _tex[path]
 
-## ore-bearing stones are not in the rules yet: for a look, `-- ore=0,3 iron=1` shows every third stone of those
-## colours holding the mine's own ore ("ore": glowing veins) or iron ("iron": steel cubes); colour -> kind.
+## ore-bearing stones (BoardModel.Gem.ore) hold the mine's own ore ("ore": glowing veins) or iron ("iron": steel cubes);
 ## gem_kit.py renders <name>_<kind>.png and <name>_<kind>_glow.png
-static var ore_demo := {}
 
 static func gem_ore(t: int, kind: String) -> Texture2D:
 	return tex(GEMS[t % GEMS.size()] + "_" + kind)

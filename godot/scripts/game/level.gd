@@ -27,6 +27,8 @@ var booster := ""
 var idle := 0.0
 var _hinted := false
 var _flights := 0
+var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
+var ore_shown := {iron = 0, ore = 0}
 var find_studio: SpecStudio     # the sealed specimen, turning slowly inside its block
 var find_spec: Node3D
 
@@ -117,7 +119,7 @@ func _mount_find() -> void:
 
 func _layout() -> void:
 	var vp := get_viewport_rect().size
-	var top := 150.0 + UI.safe_top()
+	var top := 182.0 + UI.safe_top()
 	var bottom := 118.0 + UI.safe_bottom()
 	board.layout(Vector2(vp.x - 12, vp.y - top - bottom))
 	holder.position = Vector2((vp.x - board.size.x) / 2, top + (vp.y - top - bottom - board.size.y) / 2)
@@ -208,6 +210,34 @@ func _build_hud() -> void:
 	moves_token.add_child(mv)
 	line.add_child(moves_token)
 	root.add_child(line)
+	# ore mined so far, each beside what is left in the depth's vein
+	var ores := HBoxContainer.new()
+	ores.add_theme_constant_override("separation", 10)
+	ores.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for kind in ["iron", "ore"]:
+		var chip := PanelContainer.new()
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cs := UI.slate(14)
+		cs.content_margin_top = 2
+		cs.content_margin_bottom = 2
+		cs.content_margin_left = 6
+		cs.content_margin_right = 10
+		chip.add_theme_stylebox_override("panel", cs)
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		var k: String = kind
+		h.add_child(UI.icon(24, func(ci: Control): Chrome.coin_icon(ci, k, Vector2(12, 12), 11)))
+		var count := UI.label("0", 16, UI.display)
+		h.add_child(count)
+		var vein := UI.label("", 11, UI.body_bold, UI.MUTED)
+		vein.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vein.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		vein.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		h.add_child(vein)
+		chip.add_child(h)
+		ores.add_child(chip)
+		ore_chips[kind] = {root = chip, count = count, vein = vein}
+	root.add_child(ores)
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -261,6 +291,32 @@ func _render_hud() -> void:
 		_render_goal(i)
 	_render_moves()
 	_render_boosters()
+	ore_shown = {iron = 0, ore = 0}
+	_render_ore()
+
+## the ore chips: mined so far, and the vein as it will stand if the level is won
+func _render_ore() -> void:
+	for i in 2:
+		var kind: String = ["iron", "ore"][i]
+		var ch: Dictionary = ore_chips[kind]
+		var left := vein_after(model.depth, i, int(ore_shown[kind]))
+		var stock := vein_stock(model.depth, i)
+		var poor := left <= BoardModel.vein_floor(stock)
+		ch.count.text = str(ore_shown[kind])
+		ch.vein.text = "vein %d/%d" % [left, stock] if not poor else "vein worked out"
+		ch.vein.add_theme_color_override("font_color", Color("#e0904a") if poor else UI.MUTED)
+
+## the depth's stock of one ore: 0 iron, 1 the mine's own
+static func vein_stock(dl: int, i: int) -> int:
+	var D: Dictionary = Data.depth(Save.area(), dl)
+	return int(D.fe) if i == 0 else int(D.au)
+
+## what is left in a vein once `taken` more is mined from it; its last tenth never goes
+static func vein_after(dl: int, i: int, taken: int) -> int:
+	var stock := vein_stock(dl, i)
+	var left: int = int(Save.d.vein[dl][i]) if dl < Save.d.vein.size() else stock
+	var fl := BoardModel.vein_floor(stock)
+	return left if left <= fl else maxi(fl, left - taken)
 
 func _render_goal(i: int) -> void:
 	var gb: Dictionary = goal_boxes[i]
@@ -524,6 +580,20 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				tw.tween_property(box, "scale", Vector2(1.25, 1.25), 0.08)
 				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("pop", 2))
+		"ore":
+			_flights += 1
+			var kind: String = e.kind
+			var box: Control = ore_chips[kind].root
+			var to: Vector2 = fx.get_global_transform().affine_inverse() * (box.get_global_rect().position + Vector2(18, box.size.y / 2))
+			fx.fly_badge(e.r, e.c, to, kind, func():
+				_flights -= 1
+				ore_shown[kind] += 1
+				_render_ore()
+				box.pivot_offset = box.size / 2
+				var tw := create_tween()
+				tw.tween_property(box, "scale", Vector2(1.08, 1.08), 0.07)
+				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
+				Sfx.play("coin"))
 		"rocket":
 			fx.rocket(e.sp, e.r, e.c)
 			Sfx.play("rocket")
@@ -665,6 +735,12 @@ func _win() -> void:
 	Sfx.buzz(80)
 	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul())
 	Save.d.coins += coins
+	# the ore counts only now, and comes out of the depth's veins
+	Save.d.fe += int(model.mined.iron)
+	Save.d.ore += int(model.mined.ore)
+	if model.depth < Save.d.vein.size():
+		for i in 2:
+			Save.d.vein[model.depth][i] = vein_after(model.depth, i, int(model.mined[["iron", "ore"][i]]))
 	Save.d.level = maxi(Save.d.level, model.n + 1)
 	Save.d.streak += 1
 	Save.persist()
@@ -673,7 +749,7 @@ func _win() -> void:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
 	_confetti()
 	await _wait(0.6)
-	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus})
+	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate()})
 
 func _out_of_moves() -> void:
 	Sfx.play("lose")
@@ -750,9 +826,6 @@ func _show_looks() -> void:
 		b.pressed.connect(_set_look.bind("ore_look", look))
 		ores.add_child(b)
 	add.call(ores)
-	var show := _looks_option("Ore on the board: " + ("on (red: iron, green: the mine's)" if Save.d.ore_preview else "off"), Save.d.ore_preview, 40)
-	show.pressed.connect(_set_look.bind("ore_preview", not Save.d.ore_preview))
-	add.call(show)
 	add.call(_looks_head("Blocks"))
 	var zones := HBoxContainer.new()
 	zones.add_theme_constant_override("separation", 6)

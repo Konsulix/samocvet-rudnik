@@ -20,7 +20,7 @@ func blank() -> Dictionary:
 		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
-		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", ore_preview = false, zone_style = "hewn",
+		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 	}
 	b.vein = fresh_veins(0)
 	return b
@@ -58,8 +58,6 @@ func looks_to_board() -> void:
 	BoardSprites.ore_look = d.ore_look if BoardSprites.ORE_LOOKS.has(d.ore_look) else "rendered"
 	BoardSprites.lock_style = d.lock_style if BoardSprites.LOCK_STYLES.has(d.lock_style) else "rendered"
 	BoardSprites.zone_style = d.zone_style if BoardSprites.ZONE_STYLES.has(d.zone_style) else "hewn"
-	# ore is not in the rules yet: shown on red (iron) and green (the mine's own) for a look
-	BoardSprites.ore_demo = {0: "iron", 2: "ore"} if d.ore_preview else {}
 
 func persist() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)

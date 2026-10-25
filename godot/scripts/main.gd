@@ -21,12 +21,6 @@ func _ready() -> void:
 	if args.has("ore_look"): BoardSprites.ore_look = args.ore_look
 	if args.has("locks"): BoardSprites.lock_style = args.locks
 	if args.has("zones"): BoardSprites.zone_style = args.zones
-	if args.has("ore"):
-		for c in String(args.ore).split(","):
-			BoardSprites.ore_demo[int(c)] = "ore"
-	if args.has("iron"):
-		for c in String(args.iron).split(","):
-			BoardSprites.ore_demo[int(c)] = "iron"
 	if args.has("fe"): Save.d.fe = int(args.fe)
 	if args.has("au"): Save.d.ore = int(args.au)
 	if args.has("built"):
@@ -241,6 +235,9 @@ func _win_card(res: Dictionary) -> void:
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 10)
 	line.add_child(Reveal.chip("$ +%s" % UI.fmt(res.coins), true))
+	var mined: Dictionary = res.get("mined", {})
+	if int(mined.get("iron", 0)): line.add_child(Reveal.chip("+%d iron" % int(mined.iron), true))
+	if int(mined.get("ore", 0)): line.add_child(Reveal.chip("+%d %s" % [int(mined.ore), String(Data.ore(Save.area()).n).to_lower()], true))
 	v.add_child(line)
 	if Save.d.streak >= 2:
 		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)]))

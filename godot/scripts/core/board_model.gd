@@ -14,6 +14,7 @@ class Gem:
 	var t: int = -1            # colour, -1 for specials and items
 	var sp: String = ""        # "", rh, rv, bomb, drill, orb
 	var item: String = ""      # "", nug
+	var ore: String = ""       # "", iron (the common ore), ore (the mine's own): one unit when it breaks
 	var die_t: float = -1.0    # blast time it was destroyed at, -1 while alive
 	var merge := Vector2i(-1, -1)   # cell it slides into when it melts into a new special
 	var carry: String = ""     # a drill carrying another special to its target
@@ -50,6 +51,13 @@ var bonus := []      # stones freed from geodes, opened after the level
 var geos := []       # {r, c, w, h, hp, hp_max, done}: a done geode stays on the board, an empty shell of rock
 var gas_hit := false
 var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, stone, done}
+## ore: which colour holds which kind, how often a stone of that colour holds it, what this level has broken
+var ore_col := {}    # colour -> "iron" | "ore"
+var ore_p := {}      # kind -> chance a new stone of its colour is ore-bearing
+var mined := {iron = 0, ore = 0}
+## a stone of an ore colour holds ore about one time in 2.5; a vein worked down to its last tenth, a third as often
+const ORE_P := 0.4
+const ORE_POOR := 1.0 / 3.0
 ## the shapes a find comes sealed in, [w, h, weight]
 const FIND_SHAPES := [[2, 2, 4.0], [2, 1, 2.0], [1, 2, 2.0], [3, 1, 1.0], [1, 3, 1.0]]
 
@@ -90,13 +98,36 @@ func new_gem(colour: int = -2) -> Gem:
 		colour = rng.randi_range(0, colors - 1)
 	var g := Gem.new(uid, colour)
 	uid += 1
+	var kind: String = ore_col.get(colour, "")
+	if kind != "" and rng.randf() < float(ore_p.get(kind, 0.0)):
+		g.ore = kind
 	return g
+
+## how rich this level's ore is: the mine picks the colours, the depth's veins the density
+## (vein = [iron left, own ore left] or [] for none; poor once it is down to its unminable last tenth)
+func set_ore(area: int, dl: int, vein: Array, rich := false) -> void:
+	var O: Dictionary = Data.ore(area)
+	var D: Dictionary = Data.depth(area, dl)
+	ore_col = {int(O.iron): "iron", int(O.local): "ore"}
+	ore_p = {}
+	for i in 2:
+		var kind: String = ["iron", "ore"][i]
+		var stock: int = int(D.fe) if i == 0 else int(D.au)
+		var left: int = int(vein[i]) if vein.size() > i else stock
+		var p := ORE_P * (ORE_POOR if left <= vein_floor(stock) else 2.0 if rich else 1.0)
+		ore_p[kind] = p
+
+## the part of a vein that never runs out
+static func vein_floor(stock: int) -> int:
+	return int(ceil(stock * 0.1))
 
 ## level n at depth dl; pre: specials bought before the level; eq: {lift, vent, food}
 func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area: int = 0, roll_find := true) -> void:
 	var def: Dictionary = Data.level_def(level_n)
 	n = level_n
 	depth = dl
+	var vein: Array = Save.d.vein[dl] if area == Save.area() and dl < Save.d.vein.size() else []
+	set_ore(area, dl, vein)
 	lift = int(eq.get("lift", 0))
 	vent = int(eq.get("vent", 0))
 	moves = int(def.moves) - dl / 2 + int(eq.get("food", 0))
@@ -105,6 +136,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	goals = []
 	over = false
 	coins_won = 0
+	mined = {iron = 0, ore = 0}
 	bonus = []
 	geos = []
 	find = {}
@@ -225,6 +257,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		var g: Gem = cand.pop_at(rng.randi_range(0, cand.size() - 1))
 		g.sp = sp
 		g.t = -1
+		g.ore = ""
 
 func _free_cells() -> Array:
 	var a := []
@@ -472,6 +505,9 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 	_cleared[k] = true
 	g.die_t = t
 	_fx(t, "clear", {id = g.id, r = r, c = c, sp = g.sp, color = g.t})
+	if g.ore != "" and g.sp == "":
+		mined[g.ore] += 1
+		_fx(t, "ore", {kind = g.ore, r = r, c = c})
 	if MUD[r][c]:
 		MUD[r][c] = 0
 		_goal_hit("mud", -1, r, c, t)

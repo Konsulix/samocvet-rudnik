@@ -82,6 +82,11 @@ func render() -> void:
 	chip.add_theme_stylebox_override("normal", cs)
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(chip)
+	var vl := UI.label(vein_text(ai(), dl_sel()), 12, UI.body_bold, Color("#d8e0ee"))
+	vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	vl.add_theme_constant_override("shadow_outline_size", 6)
+	col.add_child(vl)
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -520,6 +525,16 @@ func _build(tid: String, i: int) -> void:
 				render(), Save.d.fe >= int(cost[0]) and Save.d.coins >= int(cost[1])])
 		btns.append(["Later", "glass", func(): Ov.close()])
 		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and dynamite." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
+
+## "Veins: iron 48/51 · gold 51/51" for a depth of the current mine
+static func vein_text(a: int, dl: int) -> String:
+	var parts := []
+	for i in 2:
+		var stock := Level.vein_stock(dl, i)
+		var left := Level.vein_after(dl, i, 0)
+		var nm: String = "iron" if i == 0 else String(Data.ore(a).n).to_lower()
+		parts.append("%s %s" % [nm, "worked out" if left <= BoardModel.vein_floor(stock) else "%d/%d" % [left, stock]])
+	return "Veins: " + " · ".join(parts)
 
 ## a price in ore: the round badge and the number
 static func ore_tag(kind: String, n: int, fs: int) -> HBoxContainer:
