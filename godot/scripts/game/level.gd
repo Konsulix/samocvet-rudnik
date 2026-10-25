@@ -311,6 +311,16 @@ func _render_ore() -> void:
 		ch.vein.text = "vein %d/%d" % [left, stock] if not poor else "vein worked out"
 		ch.vein.add_theme_color_override("font_color", Color("#e0904a") if poor else UI.MUTED)
 
+## "Veins: iron 48/51 · gold 51/51" for a depth of the current mine
+static func vein_text_for(a: int, dl: int) -> String:
+	var parts := []
+	for i in 2:
+		var stock := vein_stock(dl, i)
+		var left := vein_after(dl, i, 0)
+		var nm: String = "iron" if i == 0 else String(Data.ore(a).n).to_lower()
+		parts.append("%s %s" % [nm, "worked out" if left <= BoardModel.vein_floor(stock) else "%d/%d" % [left, stock]])
+	return "Veins at %d m: " % Data.depth_m(a, dl) + " · ".join(parts)
+
 ## the depth's stock of one ore: 0 iron, 1 the mine's own
 static func vein_stock(dl: int, i: int) -> int:
 	var D: Dictionary = Data.depth(Save.area(), dl)

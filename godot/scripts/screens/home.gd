@@ -82,7 +82,7 @@ func render() -> void:
 	chip.add_theme_stylebox_override("normal", cs)
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(chip)
-	var vl := UI.label(vein_text(ai(), dl_sel()), 12, UI.body_bold, Color("#d8e0ee"))
+	var vl := UI.label(Level.vein_text_for(ai(), dl_sel()), 12, UI.body_bold, Color("#d8e0ee"))
 	vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	vl.add_theme_constant_override("shadow_outline_size", 6)
@@ -108,62 +108,68 @@ func render() -> void:
 	col.add_child(gap2)
 	ui_root.add_child(Chrome.nav_bar("home", func(id: String): go.emit(id)))
 
+## what stands between the shaft and its next depth: the job of the deepest open depth (paid in the mine's own ore),
+## then the drill (iron + coins). At the last depth only its job is left, then the next mine.
+## Returns {k (deepest open), job [id, text, cost] or [], job_done, last, tool, fe, coins}
+func next_step() -> Dictionary:
+	var a := ai()
+	var A: Dictionary = Data.AREAS[a]
+	var k: int = Save.d.depth[a]
+	var last: bool = k >= Data.depths(a).size() - 1
+	var job: Array = A.tasks[k] if k < A.tasks.size() else []
+	var out := {k = k, job = job, job_done = job.is_empty() or job[0] in Save.d.built[a], last = last, tool = "", fe = 0, coins = 0}
+	if not last:
+		var D: Dictionary = Data.depth(a, k + 1)
+		out.tool = String(D.tool)
+		out.fe = int(D.drill[0])
+		out.coins = int(D.drill[1])
+	return out
+
 func _tasks_button() -> Button:
-	var A: Dictionary = Data.AREAS[ai()]
-	var built: Array = Save.d.built[ai()]
-	var next: Array = []
-	var ni := -1
-	for i in A.tasks.size():
-		if not A.tasks[i][0] in built:
-			next = A.tasks[i]
-			ni = i
-			break
-	# a depth's task waits until the shaft reaches it
-	var deeper: bool = ni > int(Save.d.depth[ai()])
+	var a := ai()
+	var st := next_step()
+	var all_done: bool = st.last and st.job_done
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, 64)
 	for s in ["normal", "hover", "pressed", "focus"]:
-		var st := UI.glass(18, 0.82)
-		st.border_color = Color("#e3a51e", 0.45)
-		b.add_theme_stylebox_override(s, st)
-	var h := HBoxContainer.new()
-	h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 12
-	h.offset_right = -10
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := UI.glass(18, 0.82)
+		sb.border_color = Color("#e3a51e", 0.45)
+		b.add_theme_stylebox_override(s, sb)
 	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 12
+	v.offset_right = -10
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(UI.label("Mine · %d/%d" % [built.size(), A.tasks.size()], 11, UI.body_bold, UI.MUTED))
-	var tl := UI.label(("Dig down to %d m" % Data.depth_m(ai(), ni) if deeper else String(next[1])) if next.size() else "Fitted out!", 13, UI.body_bold)
-	tl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	tl.clip_text = true
-	v.add_child(tl)
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 7)
-	bar.max_value = A.tasks.size()
-	bar.value = built.size()
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(1, 1, 1, 0.1)
-	bg.set_corner_radius_all(4)
-	var fg := StyleBoxFlat.new()
-	fg.bg_color = UI.GOLD
-	fg.set_corner_radius_all(4)
-	bar.add_theme_stylebox_override("background", bg)
-	bar.add_theme_stylebox_override("fill", fg)
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(bar)
-	h.add_child(v)
-	if next.size() and not deeper:
-		h.add_child(ore_tag("ore", int(next[2]), 14))
+	var head := "Mine fitted out" if all_done else "Last depth" if st.last else "Next: %d m" % Data.depth_m(a, int(st.k) + 1)
+	v.add_child(UI.label(head, 11, UI.body_bold, UI.MUTED))
+	# the ticks in one line: job · iron · coins
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if all_done:
+		h.add_child(UI.label("Next mine ›" if a < Data.AREAS.size() - 1 else "✓", 14, UI.body_bold, UI.GOLD))
 	else:
-		h.add_child(UI.label("⛏" if next.size() else "✓", 14, UI.display, UI.GOLD))
-	b.add_child(h)
-	b.pressed.connect(func(): go.emit("depot") if deeper else _open_tasks())
+		h.add_child(_tick("ore", "✓" if st.job_done else "%d/%d" % [mini(Save.d.ore, int(st.job[2])), int(st.job[2])], st.job_done))
+		if not st.last:
+			h.add_child(_tick("iron", "%d/%d" % [mini(Save.d.fe, int(st.fe)), int(st.fe)], Save.d.fe >= int(st.fe)))
+			h.add_child(_tick("coin", "✓" if Save.d.coins >= int(st.coins) else UI.fmt(int(st.coins)), Save.d.coins >= int(st.coins)))
+	v.add_child(h)
+	b.add_child(v)
+	b.pressed.connect(_open_next)
 	return b
+
+## one requirement: its badge and how far along it is, green once met
+func _tick(kind: String, text: String, ok: bool) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 3)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := UI.icon(20, func(ci: Control): Chrome.coin_icon(ci, kind, Vector2(10, 10), 9))
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	h.add_child(UI.label(text, 13, UI.body_bold, UI.GOOD if ok else UI.INK))
+	return h
 
 func _play_button() -> Button:
 	var n: int = Save.d.level
@@ -229,7 +235,7 @@ func _gui_input(e: InputEvent) -> void:
 			render()
 			Ov.toast("Digging at %d m" % Data.depth_m(ai(), k))
 	else:
-		go.emit("depot")
+		_open_next()
 
 func _dust() -> void:
 	# motes drifting in the lamplight over the galleries
@@ -465,6 +471,90 @@ func _open_tasks() -> void:
 		v.add_child(_next_mine_btn(a))
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
+## the checklist for the next depth: this depth's job, the drill's iron and coins, each ticked off; Dig down
+## once all three are met. At the last depth: its job, then the next mine.
+func _open_next() -> void:
+	var a := ai()
+	var st := next_step()
+	var on := String(Data.ore(a).n).to_lower()
+	var v := Ov.card(350)
+	var here := Data.depth_m(a, int(st.k))
+	v.add_child(UI.title("Last depth · %d m" % here if st.last else "Down to %d m" % Data.depth_m(a, int(st.k) + 1), 22))
+	v.add_child(Ov.text(Level.vein_text_for(a, int(st.k)), 13))
+	# 1: the job of this depth
+	if not st.job.is_empty():
+		var cost: int = st.job[2]
+		var can: bool = not st.job_done and Save.d.ore >= cost
+		var bt := UI.button("✓" if st.job_done else "Build", "gold" if can else "glass", 14)
+		bt.disabled = not can
+		var i: int = st.k
+		var tid: String = st.job[0]
+		bt.pressed.connect(func(): _build(tid, i))
+		v.add_child(_need_row("ore", String(st.job[1]), "Done" if st.job_done else "%d %s · you have %d" % [cost, on, Save.d.ore], st.job_done, bt))
+	if not st.last:
+		var fe: int = st.fe
+		var cn: int = st.coins
+		v.add_child(_need_row("iron", "%s: iron" % st.tool, "%d iron · you have %d" % [fe, Save.d.fe], Save.d.fe >= fe, null))
+		v.add_child(_need_row("coin", "%s: coins" % st.tool, "%s · you have %s" % [UI.coins(cn), UI.fmt(Save.d.coins)], Save.d.coins >= cn, null))
+		var ok: bool = st.job_done and Save.d.fe >= fe and Save.d.coins >= cn
+		var dig := Ov.btn("Dig down · %s" % st.tool, "green" if ok else "glass", func(): _dig(), ok)
+		v.add_child(dig)
+		if not ok:
+			v.add_child(Ov.text("Iron and %s come from the levels you win: every ore stone you break." % on, 12))
+	elif st.job_done and a < Data.AREAS.size() - 1:
+		v.add_child(_next_mine_btn(a))
+	v.add_child(Ov.btn("All jobs", "glass", func():
+		Ov.close()
+		_open_tasks()))
+	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
+
+## one line of the checklist: badge, what, how far along, a tick (or a button doing it)
+func _need_row(kind: String, what: String, sub: String, ok: bool, action: Button) -> PanelContainer:
+	var row := PanelContainer.new()
+	var st := UI.glass(14, 0.5)
+	if ok: st.bg_color = Color(0.1, 0.25, 0.14, 0.6)
+	row.add_theme_stylebox_override("panel", st)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var ic := UI.icon(30, func(ci: Control): Chrome.coin_icon(ci, kind, Vector2(15, 15), 14))
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var tv := VBoxContainer.new()
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv.add_theme_constant_override("separation", 0)
+	var nl := UI.label(what, 14, UI.body_bold)
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tv.add_child(nl)
+	tv.add_child(UI.label(sub, 12, UI.body, UI.MUTED))
+	h.add_child(tv)
+	if action:
+		action.custom_minimum_size = Vector2(70, 40)
+		h.add_child(action)
+	else:
+		var tick := UI.label("✓" if ok else "✗", 18, UI.display, UI.GOOD if ok else Color("#e0904a"))
+		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(tick)
+	row.add_child(h)
+	return row
+
+## through to the next depth: the drill takes its iron and coins, the new depth is where the next levels are dug
+func _dig() -> void:
+	var a := ai()
+	var st := next_step()
+	if st.last or not st.job_done or Save.d.fe < int(st.fe) or Save.d.coins < int(st.coins): return
+	Save.d.fe -= int(st.fe)
+	Save.d.coins -= int(st.coins)
+	var k: int = int(st.k) + 1
+	Save.d.depth[a] = k
+	Save.d.depth_sel[a] = k
+	Save.persist()
+	Sfx.play("build")
+	Sfx.buzz(50)
+	Ov.close()
+	render()
+	_build_pop()
+	Ov.toast("%s broke through: %d m" % [st.tool, Data.depth_m(a, k)])
+
 ## the way on to the next mine: iron and coins; the ore of this one left over is sold
 func _next_mine_btn(a: int) -> Button:
 	var cost: Array = Data.AREAS[a].next
@@ -503,6 +593,8 @@ func _build(tid: String, i: int) -> void:
 	render()
 	_build_pop()
 	get_tree().create_timer(0.5).timeout.connect(func(): Ov.toast("Mine chest: " + chest_text(ch)))
+	if i < Data.depths(a).size() - 1:
+		get_tree().create_timer(0.9).timeout.connect(_open_next)
 	var all := true
 	for x in A.tasks:
 		if not x[0] in Save.d.built[a]: all = false
@@ -526,16 +618,6 @@ func _build(tid: String, i: int) -> void:
 				render(), Save.d.fe >= int(cost[0]) and Save.d.coins >= int(cost[1])])
 		btns.append(["Later", "glass", func(): Ov.close()])
 		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and dynamite." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
-
-## "Veins: iron 48/51 · gold 51/51" for a depth of the current mine
-static func vein_text(a: int, dl: int) -> String:
-	var parts := []
-	for i in 2:
-		var stock := Level.vein_stock(dl, i)
-		var left := Level.vein_after(dl, i, 0)
-		var nm: String = "iron" if i == 0 else String(Data.ore(a).n).to_lower()
-		parts.append("%s %s" % [nm, "worked out" if left <= BoardModel.vein_floor(stock) else "%d/%d" % [left, stock]])
-	return "Veins: " + " · ".join(parts)
 
 ## a price in ore: the round badge and the number
 static func ore_tag(kind: String, n: int, fs: int) -> HBoxContainer:
