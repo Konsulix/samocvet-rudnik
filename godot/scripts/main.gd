@@ -17,7 +17,9 @@ func _ready() -> void:
 		UI.fake_insets = Vector2(float(ins[0]), float(ins[1]) if ins.size() > 1 else 0.0)
 	if args.has("style"): Board3D.STYLE = int(args.style)
 	if args.has("rock"): BoardKit.force_rock = args.rock
-	if args.has("gems"): BoardSprites.gem_style = args.gems
+	if args.has("gems"): BoardSprites.gem_style = "" if args.gems == "classic" else args.gems
+	if args.has("ore_look"): BoardSprites.ore_look = args.ore_look
+	if args.has("locks"): BoardSprites.lock_style = args.locks
 	if args.has("ore"):
 		for c in String(args.ore).split(","):
 			BoardSprites.ore_demo[int(c)] = "ore"
@@ -46,7 +48,7 @@ func _ready() -> void:
 	else:
 		_boot()
 	if args.has("ui"):
-		await get_tree().process_frame
+		await get_tree().create_timer(float(args.get("ui_after", "0"))).timeout
 		if screen.has_method("_" + args.ui): screen.call("_" + args.ui)
 	if args.has("reveal"):
 		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)

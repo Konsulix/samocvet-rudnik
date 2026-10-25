@@ -5,6 +5,9 @@ extends Node2D
 const GLINT := preload("res://shaders/gem_glint.gdshader")
 const ORE_GLINT := preload("res://shaders/ore_glint.gdshader")
 const SPECIAL_FX := preload("res://shaders/special_fx.gdshader")
+const ORE_OVERLAY := preload("res://shaders/ore_overlay.gdshader")
+static var _mat_veins: ShaderMaterial
+static var _mat_cubes: ShaderMaterial
 static var _fx_mats := {}
 static var _white: Texture2D
 static var _mat_plain: ShaderMaterial
@@ -38,6 +41,11 @@ static func materials() -> void:
 	_mat_iron.shader = ORE_GLINT
 	_mat_iron.set_shader_parameter("tint", Vector3(0.7, 0.88, 1.0))
 	_mat_iron.set_shader_parameter("sparkle", 1.0)
+	_mat_veins = ShaderMaterial.new()
+	_mat_veins.shader = ORE_OVERLAY
+	_mat_cubes = ShaderMaterial.new()
+	_mat_cubes.shader = ORE_OVERLAY
+	_mat_cubes.set_shader_parameter("mode", 1)
 
 func setup(gem: BoardModel.Gem, size: float) -> GemNode:
 	materials()
@@ -92,18 +100,32 @@ func ore_kind() -> String:
 	if sp != "" or item != "" or t < 0 or id % 3 != 0: return ""
 	return BoardSprites.ore_demo.get(t, "")
 
+## the live part of the ore: the rendered sets' glow mask shimmering over the stone, or the stone redrawn with veins
+## or cubes painted over it (ore_overlay.gdshader); the badge look is drawn in _draw
 func _ore_glow(kind: String) -> void:
-	if kind == "":
+	var look := BoardSprites.ore_look_now()
+	if kind == "" or look == "badge":
 		if ore_glow: ore_glow.queue_free()
 		ore_glow = null
 		return
 	if ore_glow == null:
 		ore_glow = Sprite2D.new()
-		ore_glow.material = _mat_iron if kind == "iron" else _mat_ore
 		ore_glow.light_mask = 0
 		add_child(ore_glow)
-	ore_glow.texture = BoardSprites.gem_ore_glow(t, kind)
-	ore_glow.scale = Vector2.ONE * S * BoardSprites.SPAN / float(ore_glow.texture.get_width())
+	var k := 1.0
+	if look == "rendered":
+		ore_glow.material = _mat_iron if kind == "iron" else _mat_ore
+		ore_glow.texture = BoardSprites.gem_ore_glow(t, kind)
+	else:
+		ore_glow.material = _mat_cubes if kind == "iron" else _mat_veins
+		ore_glow.texture = BoardSprites.gem(t)
+		k = BoardSprites.gem_scale()
+	ore_glow.scale = Vector2.ONE * S * BoardSprites.SPAN * k / float(ore_glow.texture.get_width())
+
+## re-read the board's looks: gem set, ore look, timber
+func restyle() -> void:
+	_ore_glow(ore_kind())
+	queue_redraw()
 
 func _process(_dt: float) -> void:
 	if stone: _sync()
@@ -142,4 +164,13 @@ func _draw() -> void:
 		BoardSprites.draw(self, BoardSprites.tex(sp), Vector2.ZERO, S)
 	elif t >= 0 and not stone:
 		var kind := ore_kind()
-		BoardSprites.draw(self, BoardSprites.gem_ore(t, kind) if kind != "" else BoardSprites.gem(t), Vector2.ZERO, S)
+		var look := BoardSprites.ore_look_now()
+		var tx := BoardSprites.gem_ore(t, kind) if kind != "" and look == "rendered" else BoardSprites.gem(t)
+		BoardSprites.draw(self, tx, Vector2.ZERO, S * BoardSprites.gem_scale())
+		if kind != "" and look == "badge":
+			# a coin at the stone's lower right: a gold nugget for the mine's ore, the same in steel for iron
+			var at := Vector2(S * 0.27, S * 0.26)
+			var ring := Color(1.0, 0.75, 0.3) if kind == "ore" else Color(0.65, 0.85, 1.0)
+			draw_circle(at, S * 0.17, Color(0.06, 0.05, 0.04, 0.92))
+			draw_arc(at, S * 0.17, 0, TAU, 24, ring, maxf(1.5, S * 0.035), true)
+			BoardSprites.draw(self, BoardSprites.tex("nug"), at, S * 0.27, Color.WHITE if kind == "ore" else Color(0.55, 0.62, 0.72))

@@ -82,7 +82,7 @@ def mat_plain(col, rough=0.5, metal=0.0):
 
 def wood_mat():
     N = Nodes("timber")
-    mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (1.2, 4.0, 4.0)
+    mp = N.new("ShaderNodeMapping"); mp.inputs["Scale"].default_value = (0.8, 1.6, 1.6)
     N.link(N.pos, mp.inputs["Vector"])
     def scan(suffix, data=True):
         t = N.new("ShaderNodeTexImage"); t.image = bpy.data.images.load(os.path.join(gk.PROJ, WOOD + "_%s_1k.jpg" % suffix))
@@ -91,12 +91,12 @@ def wood_mat():
         N.link(mp.outputs[0], t.inputs["Vector"]); return t.outputs["Color"]
     bw = N.new("ShaderNodeRGBToBW"); N.link(scan("diff", False), bw.inputs[0])
     # a mine prop's old pine: warm brown, darker in its grain, greyed where it is worn
-    col = N.ramp(N.remap(bw.outputs[0], 0.04, 0.3, 0.0, 1.0),
-                 [(0.0, (0.06, 0.03, 0.012)), (0.45, (0.26, 0.14, 0.06)), (1.0, (0.55, 0.36, 0.18))])
+    col = N.ramp(N.remap(bw.outputs[0], 0.03, 0.22, 0.0, 1.0),
+                 [(0.0, (0.03, 0.014, 0.005)), (0.45, (0.13, 0.065, 0.025)), (1.0, (0.36, 0.2, 0.08))])
     fa = N.new("ShaderNodeVertexColor"); fa.layer_name = "facet"
     ft = N.new("ShaderNodeMix"); ft.data_type = 'RGBA'; ft.blend_type = 'MULTIPLY'; ft.inputs["Factor"].default_value = 0.5
     N.link(col, ft.inputs["A"]); N.link(fa.outputs["Color"], ft.inputs["B"]); col = ft.outputs[2]
-    col = N.mix(N.edges(0.02, 0.35), col, (0.72, 0.55, 0.36))
+    col = N.mix(N.edges(0.005, 0.3), col, (0.62, 0.42, 0.22))   # only the very edges catch light: the strips are thin
     N.link(col, N.p.inputs["Base Color"])
     N.p.inputs["Roughness"].default_value = 0.85
     nm = N.new("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = 1.5
@@ -107,48 +107,58 @@ def wood_mat():
 def iron_mat():
     N = Nodes("iron")
     nz = N.noise(30.0, 6)
-    col = N.ramp(nz.outputs["Fac"], [(0.35, (0.05, 0.05, 0.055)), (0.55, (0.16, 0.16, 0.17)), (0.75, (0.3, 0.12, 0.05))])
+    # dark wrought iron, rust blooming over it
+    col = N.ramp(nz.outputs["Fac"], [(0.35, (0.04, 0.04, 0.045)), (0.55, (0.11, 0.11, 0.12)), (0.72, (0.28, 0.1, 0.035))])
     N.link(col, N.p.inputs["Base Color"])
     N.p.inputs["Metallic"].default_value = 0.85
     N.link(N.remap(nz.outputs["Fac"], 0.3, 0.7, 0.3, 0.7), N.p.inputs["Roughness"])
     return N.m
 
 def beam(length, w, t, seed):
-    """a hewn beam along x: a long block with uneven adze cuts along its edges"""
+    """an old beam along x, split lengthwise into strips of wood: each strip ends in its own slanted break, so the
+    beam's ends are splintered, and the strips stand a hair proud of one another, so the splits read as cracks"""
     rnd = random.Random(seed)
-    pl = gk.box_planes(length / 2, t / 2, w / 2)
-    # its edges hewn off by the adze: a narrow chamfer of uneven width along each, tipped a hair along the beam
-    for sy, sz in ((-1, 1), (-1, -1), (1, 1), (1, -1)):
-        for k in range(2):
-            n = Vector((rnd.uniform(-0.02, 0.02), sy * rnd.uniform(0.7, 1.3), sz)).normalized()
-            pl.append((Vector((0, sy * t / 2, sz * w / 2)) - n * rnd.uniform(0.012, 0.022), n))
-    for sx in (-1, 1):
-        n = Vector((sx, rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3))).normalized()
-        pl.append((Vector((sx * length / 2, 0, 0)), n))
-    o = gk.cut(pl, seed, (0.75, 1.1))
-    gk.paint_facets(o)
-    return o
+    strips = 3
+    out = []
+    for k in range(strips):
+        z0 = -w / 2 + k * w / strips
+        z1 = z0 + w / strips
+        pl = [(Vector((0, t / 2 + rnd.uniform(-0.004, 0.006), 0)), Vector((0, 1, 0))), (Vector((0, -t / 2 - rnd.uniform(0.0, 0.008), 0)), Vector((0, -1, 0))),
+              (Vector((0, 0, z1 - 0.0008)), Vector((0, 0, 1))), (Vector((0, 0, z0 + 0.0008)), Vector((0, 0, -1)))]
+        # the edges of the outer strips worn round
+        if k == 0: pl.append((Vector((0, -t / 2, z0)) + Vector((0, 0.7, 0.7)).normalized() * -0.012, Vector((0, -0.7, -0.7)).normalized()))
+        if k == strips - 1: pl.append((Vector((0, -t / 2, z1)) + Vector((0, 0.7, -0.7)).normalized() * -0.012, Vector((0, -0.7, 0.7)).normalized()))
+        for sx in (-1, 1):
+            # a ragged break: the strip's end cut by two or three planes at odd angles
+            end = length / 2 - rnd.uniform(0.0, 0.07)
+            for j in range(2 + (k % 2)):
+                n = Vector((sx, rnd.uniform(-0.8, 0.8), rnd.uniform(-0.6, 0.6))).normalized()
+                pl.append((Vector((sx * (end - j * 0.02), 0, (z0 + z1) / 2)), n))
+        o = gk.cut(pl, seed * 10 + k, (0.7, 1.1))
+        gk.paint_facets(o)
+        out.append(o)
+    return out
 
 def lock():
     wm = wood_mat(); im = iron_mat()
     objs = []
-    for k, (ang, y) in enumerate(((math.radians(45), 0.0), (math.radians(-45), -0.09))):
-        b = beam(1.18, 0.2, 0.085, 70 + k)
-        b.data.materials.append(wm)
-        b.rotation_euler = (0, -ang, 0); b.location = (0, y, 0)
-        objs.append(b)
-        # bolts near both ends
-        for e in (-0.44, 0.44):
-            p = Vector((e * math.cos(ang), y - 0.05, e * math.sin(ang)))
-            bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=0.03, depth=0.03, location=p, rotation=(math.pi / 2, 0, 0.3))
-            o = bpy.context.object; o.data.materials.append(im)
-            bv = o.modifiers.new("b", 'BEVEL'); bv.width = 0.006
-            objs.append(o)
-    # an iron band round the crossing
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, -0.14, 0), rotation=(0, math.radians(45), 0))
-    o = bpy.context.object; o.scale = (0.05, 0.02, 0.26); o.data.materials.append(im)
-    bv = o.modifiers.new("b", 'BEVEL'); bv.width = 0.006
-    objs.append(o)
+    for k, (ang, y) in enumerate(((math.radians(45), 0.0), (math.radians(-45), -0.1))):
+        for b in beam(1.2, 0.21, 0.09, 70 + k):
+            b.data.materials.append(wm)
+            b.rotation_euler = (0, -ang, 0); b.location = (0, y, 0)
+            objs.append(b)
+    # an iron cross of two riveted straps over the crossing, a big rivet at its middle
+    for k, ang in enumerate((math.radians(45), math.radians(-45))):
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, -0.16 - k * 0.012, 0), rotation=(0, -ang, 0))
+        o = bpy.context.object; o.scale = (0.44, 0.016, 0.1); o.data.materials.append(im)
+        bv = o.modifiers.new("b", 'BEVEL'); bv.width = 0.006
+        objs.append(o)
+        for e in (-0.17, 0.17):
+            p = Vector((e * math.cos(ang), -0.185, e * math.sin(ang)))
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.026, location=p)
+            r = bpy.context.object; r.scale = (1, 0.6, 1); r.data.materials.append(im); bpy.ops.object.shade_smooth()
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.036, location=(0, -0.19, 0))
+    r = bpy.context.object; r.scale = (1, 0.6, 1); r.data.materials.append(im); bpy.ops.object.shade_smooth()
     return objs
 
 # ---------------------------------------------------------------- dynamite
@@ -447,7 +457,7 @@ def paint_pass():
         n.links.new(bv.outputs[0], dt.inputs[0]); n.links.new(geo.outputs["Normal"], dt.inputs[1])
         e = n.nodes.new("ShaderNodeMapRange"); e.inputs["From Min"].default_value = 0.9995; e.inputs["From Max"].default_value = 0.985
         # rough rock has too many small facets for light edges: only a hint there
-        e.inputs["To Max"].default_value = 0.06 if m.name.startswith("rock") else 0.55
+        e.inputs["To Max"].default_value = 0.06 if m.name.startswith(("rock", "timber")) else 0.55
         n.links.new(dt.outputs["Value"], e.inputs["Value"])
         mx = n.nodes.new("ShaderNodeMix"); mx.data_type = 'RGBA'; mx.blend_type = 'SCREEN'
         n.links.new(e.outputs[0], mx.inputs["Factor"])

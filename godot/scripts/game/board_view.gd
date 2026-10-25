@@ -207,6 +207,13 @@ func _draw() -> void:
 	BoardKit.for_area(Save.area()).draw(self, Vector2(PAD, PAD), TS, R, C, model.playable)
 
 ## the layers under the stones changed (a rock cracked, mud cleared, a geode or the find was hit)
+## the player picked other looks: repaint every stone and the layers, keeping the board as it is
+func restyle() -> void:
+	for n: GemNode in nodes.values(): n.restyle()
+	queue_redraw()
+	redraw_under()
+	over.queue_redraw()
+
 func redraw_under() -> void:
 	under.queue_redraw()
 	gas_layer.queue_redraw()

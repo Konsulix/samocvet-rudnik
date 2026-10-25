@@ -21,6 +21,7 @@ var title_label: Label
 var hint_label: Label
 var booster_bar: HBoxContainer
 var overlay: Control
+var looks_icon: Control
 var busy := true
 var booster := ""
 var idle := 0.0
@@ -158,9 +159,18 @@ func _build_hud() -> void:
 	title_label.custom_minimum_size = Vector2(60, 0)
 	title_pill.add_child(title_label)
 	top.add_child(title_pill)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(44, 44)
-	top.add_child(spacer)
+	# the looks: which gems, how ore shows, which timber (to try them out on the board)
+	var looks := UI.marble_button("", 18)
+	looks.custom_minimum_size = Vector2(44, 44)
+	looks_icon = UI.icon(44, func(ci):
+		BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(16, 19), 23 * BoardSprites.gem_scale())
+		BoardSprites.draw(ci, BoardSprites.gem(4), Vector2(28, 27), 22 * BoardSprites.gem_scale()))
+	looks_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	looks_icon.material = BoardSprites.plain_material()
+	looks_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	looks.add_child(looks_icon)
+	looks.pressed.connect(_show_looks)
+	top.add_child(looks)
 	root.add_child(top)
 	# goals and the moves token
 	var line := HBoxContainer.new()
@@ -699,8 +709,99 @@ func _on_quit() -> void:
 
 # ---------------------------------------------------------------- small UI helpers
 
-## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]
-func _panel(title_text: String, body_text: String, buttons: Array) -> void:
+# ---------------------------------------------------------------- the looks panel
+
+func _show_looks() -> void:
+	if busy or model.over or overlay.visible: return
+	var v := _panel("Look", "Try the board's looks. Kept for every level.", [["Close", "glass", _close_panel, true]])
+	var close_btn := v.get_child(v.get_child_count() - 1)
+	var add := func(n: Control) -> void:
+		v.add_child(n)
+		v.move_child(close_btn, -1)
+	add.call(_looks_head("Gems"))
+	for style: String in BoardSprites.GEM_STYLES:
+		var b := _looks_option(BoardSprites.GEM_STYLES[style], BoardSprites.gem_style == style, 54)
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for colour in 6:
+			var ic := UI.icon(30, func(ci):
+				BoardSprites.draw(ci, BoardSprites.gem_in_style(colour, style), Vector2(15, 15), 30 * 0.95 * BoardSprites.gem_scale(style)))
+			ic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			ic.material = BoardSprites.plain_material()
+			row.add_child(ic)
+		b.get_child(0).add_child(row)
+		b.pressed.connect(_set_look.bind("gem_style", style))
+		add.call(b)
+	add.call(_looks_head("Ore"))
+	var ores := HBoxContainer.new()
+	ores.add_theme_constant_override("separation", 6)
+	for look: String in BoardSprites.ORE_LOOKS:
+		var b := _looks_option(BoardSprites.ORE_LOOKS[look], BoardSprites.ore_look == look, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(_set_look.bind("ore_look", look))
+		ores.add_child(b)
+	add.call(ores)
+	var show := _looks_option("Ore on the board: " + ("on (red: iron, green: the mine's)" if Save.d.ore_preview else "off"), Save.d.ore_preview, 40)
+	show.pressed.connect(_set_look.bind("ore_preview", not Save.d.ore_preview))
+	add.call(show)
+	add.call(_looks_head("Timber"))
+	var locks := HBoxContainer.new()
+	locks.add_theme_constant_override("separation", 6)
+	for style: String in BoardSprites.LOCK_STYLES:
+		var b := _looks_option(BoardSprites.LOCK_STYLES[style], BoardSprites.lock_style == style, 70)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var path: String = {rendered = "res://assets/board/special_kit/lock.png", drawn = "res://assets/board/blockers_natural/lock.png"}.get(style, "res://assets/board/pieces/lock.png")
+		var lock_tex: Texture2D = load(path)
+		var ic := UI.icon(40, func(ci): BoardSprites.draw(ci, lock_tex, Vector2(20, 20), 36))
+		ic.material = BoardSprites.plain_material()
+		ic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		var c := CenterContainer.new()
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(ic)
+		b.get_child(0).add_child(c)
+		b.pressed.connect(_set_look.bind("lock_style", style))
+		locks.add_child(b)
+	add.call(locks)
+
+func _looks_head(text: String) -> Label:
+	var l := UI.label(text, 14, UI.body_bold, UI.MUTED)
+	return l
+
+## an option card: its label on top, room below (its first child's column) for previews; gold-edged when chosen
+func _looks_option(text: String, chosen: bool, height: float) -> Button:
+	var b := UI.button("", "glass", 15)
+	b.custom_minimum_size = Vector2(0, height)
+	if chosen:
+		var border := UI.glass(14, 0.9)
+		border.border_color = UI.GOLD
+		border.set_border_width_all(2)
+		b.add_theme_stylebox_override("normal", border)
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 2)
+	var l := UI.label(text + ("  ✓" if chosen else ""), 14, UI.display)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(l)
+	b.add_child(col)
+	return b
+
+## store a look and repaint the board in place: no new board, no lost moves
+func _set_look(key: String, value: Variant) -> void:
+	Save.d[key] = value
+	Save.persist()
+	Save.looks_to_board()
+	board.restyle()
+	for gb: Dictionary in goal_boxes: (gb.root as Control).queue_redraw()
+	looks_icon.queue_redraw()
+	_close_panel()
+	_show_looks()
+
+## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]; returns its column
+func _panel(title_text: String, body_text: String, buttons: Array) -> VBoxContainer:
 	for ch in overlay.get_children(): ch.queue_free()
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
@@ -733,6 +834,7 @@ func _panel(title_text: String, body_text: String, buttons: Array) -> void:
 	card.scale = Vector2(0.85, 0.85)
 	card.pivot_offset = Vector2(165, 120)
 	create_tween().tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return v
 
 func _close_panel() -> void:
 	overlay.visible = false
