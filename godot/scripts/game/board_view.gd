@@ -23,7 +23,7 @@ var find_tex: Texture2D       # the sealed specimen, rendered in 3D when availab
 var find_hit_at := -10.0
 var find_done_at := -10.0
 var _zone_tex := {}
-const ZONE_SCALE := 0.9
+const ZONE_SCALE := 0.95
 var geo_hit_at := {}
 var _down := {}
 
