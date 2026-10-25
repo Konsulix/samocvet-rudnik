@@ -164,12 +164,13 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 	return g
 
 ## random points on a mesh's surface in its parent's space, with outward normals
-static func surf_pts(node: Node3D, n: int, rng: Rng32, keep := Callable()) -> Array:
+## (or in `top`'s space, for a mesh nested deeper, like the crystals inside a geode's shell)
+static func surf_pts(node: Node3D, n: int, rng: Rng32, keep := Callable(), top: Node3D = null) -> Array:
 	var g: Geo = node.get_meta("geo")
 	var tris := g.tri_count()
 	var out := []
 	var guard := 0
-	var xf := node.transform
+	var xf := SpecUtil.rel_xform(node, top) if top else node.transform
 	while out.size() < n and guard < n * 30:
 		guard += 1
 		var t := g.tri(int(floor(rng.next() * tris)))
@@ -411,7 +412,8 @@ static func crumble(rng: Rng32, r: float, sc := Vector3.ONE) -> Geo:
 	g.col.resize(g.v.size())
 	for i in g.v.size():
 		var k := clampf(1.0 - cav[i] * 0.85, 0.12, 1.0)
-		g.col[i] = Color(k, 0.0, k)
+		# Metal uses RGB as a tint, unlike the host rock's encoded ridge data.
+		g.col[i] = Color(k, k, k)
 	return g
 
 static func rock_nrm(sc: Vector3, w: Vector3) -> Vector3:

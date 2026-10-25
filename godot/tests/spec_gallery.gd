@@ -64,6 +64,25 @@ const SETS := [
 	[{seed = 121, sid = "quartz", kind = "druse", gi = 4, traits = [], legend = true, fx = "lava", lustre = "glass"},
 	{seed = 131, sid = "amethyst", kind = "crystal", gi = 4, traits = [], legend = true, fx = "lava", lustre = "dark", form = "columnar"}],
 	[{machine = "rig"}, {machine = "deep"}, {machine = "lift"}, {machine = "food"}, {machine = "vent"}, {machine = "crush"}],
+	# set 15: the generator's known troubles: sunbursts and columns without rock, accents on geodes, the geode lip,
+	# mushrooms under big crystals, columns standing apart from the block
+	[{seed = 201, sid = "quartz", kind = "druse", gi = 3, traits = ["irid"], form = "radial"},
+	{seed = 202, sid = "calcite", kind = "crystal", gi = 2, traits = [], form = "radial"},
+	{seed = 350, sid = "calcite", kind = "druse", gi = 2, traits = [], form = "columnar"},
+	{seed = 386, sid = "calcite", kind = "druse", gi = 2, traits = [], form = "columnar"},
+	{seed = 305, sid = "calcite", kind = "druse", gi = 2, traits = [], form = "columnar"},
+	{seed = 206, sid = "emerald", kind = "geode", gi = 2, traits = [], accents = ["pompom", "lichen"]},
+	{seed = 207, sid = "amethyst", kind = "geode", gi = 3, traits = [], accents = ["straw", "pompom"]},
+	{seed = 208, sid = "fluorite", kind = "geode", gi = 2, traits = []},
+	{seed = 209, sid = "fluorite", kind = "druse", gi = 2, traits = [], form = "pile", shroom = 0},
+	{seed = 210, sid = "fluorite", kind = "druse", gi = 2, traits = [], form = "hopper", shroom = 1},
+	{seed = 211, sid = "quartz", kind = "druse", gi = 3, traits = [], form = "cluster", shroom = 2},
+	{seed = 212, sid = "garnet", kind = "crystal", gi = 2, traits = [], form = "single", shroom = 3}],
+	# set 16: plates and columns whose foot misses the rock lie broken off at the foot of the block
+	[{seed = 1, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "slabs"}, {seed = 2, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "slabs"},
+	{seed = 4, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "slabs"}, {seed = 8, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "slabs"},
+	{seed = 2, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"}, {seed = 5, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"},
+	{seed = 11, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"}, {seed = 13, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"}],
 ]
 
 func _ready() -> void:

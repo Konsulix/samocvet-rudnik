@@ -159,7 +159,8 @@ static func material(kind: int) -> ShaderMaterial:
 	return m
 
 ## one cluster of `kind` round a spot of `spots` ([pos, normal]); size: the height of a grown one
-static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float) -> void:
+## blockers: the crystals ({bounds, inverse}: their box in their own axes, and the way into them) no cap may grow into
+static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array = []) -> void:
 	if spots.is_empty():
 		return
 	var c0: Array = spots[int(rng.next() * spots.size())]
@@ -168,25 +169,45 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	for s in spots:
 		if (s[0] as Vector3).distance_to(c0[0]) < reach: near.append(s)
 	if near.is_empty(): near = [c0]
-	var buf := SpecUtil.mm_buf(count)
+	var box := mesh(kind).get_aabb()
+	var placed: Array[Transform3D] = []
+	var tints: Array[Color] = []
 	for k in count:
-		var at: Array = near[int(rng.next() * near.size())] if k > 0 else c0
-		var p: Vector3 = at[0]
-		var nrm: Vector3 = at[1]
-		# mostly upright, leaning a little off the rock face
-		var up := (nrm.lerp(Vector3.UP, 0.7) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.35).normalized()
-		# a grown one or two, then young ones of every size, down to buttons
-		var grow := 1.0 if k == 0 else 0.25 + 0.75 * pow(rng.next(), 1.4)
-		var s := size * grow
-		var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
-		b = b * Basis.from_scale(Vector3(s * (0.9 + rng.next() * 0.25), s * (0.85 + rng.next() * 0.3), s * (0.9 + rng.next() * 0.25)))
-		var v := 0.85 + rng.next() * 0.25
-		SpecUtil.put(buf, k, Transform3D(b, p - nrm * s * 0.04), Color(v, v * (0.96 + rng.next() * 0.06), v))
+		# a few tries for a spot clear of the crystals; none clear, and this one never comes up
+		for attempt in 12:
+			var pool: Array = near if attempt < 6 else spots
+			var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
+			var p: Vector3 = at[0]
+			var nrm: Vector3 = at[1]
+			# mostly upright, leaning a little off the rock face
+			var up := (nrm.lerp(Vector3.UP, 0.7) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.35).normalized()
+			# a grown one or two, then young ones of every size, down to buttons
+			var grow := 1.0 if k == 0 else 0.25 + 0.75 * pow(rng.next(), 1.4)
+			var s := size * grow
+			var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
+			b = b * Basis.from_scale(Vector3(s * (0.9 + rng.next() * 0.25), s * (0.85 + rng.next() * 0.3), s * (0.9 + rng.next() * 0.25)))
+			var xf := Transform3D(b, p - nrm * s * 0.04)
+			var hit := false
+			for bl: Dictionary in blockers:
+				if ((bl.inverse as Transform3D) * xf * box).intersects(bl.bounds):
+					hit = true
+					break
+			if hit:
+				continue
+			var v := 0.85 + rng.next() * 0.25
+			placed.append(xf)
+			tints.append(Color(v, v * (0.96 + rng.next() * 0.06), v))
+			break
+	if placed.is_empty():
+		return
+	var buf := SpecUtil.mm_buf(placed.size())
+	for k in placed.size():
+		SpecUtil.put(buf, k, placed[k], tints[k])
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
 	mm.mesh = mesh(kind)
-	mm.instance_count = count
+	mm.instance_count = placed.size()
 	mm.buffer = buf
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm

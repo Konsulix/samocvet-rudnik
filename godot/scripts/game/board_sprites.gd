@@ -6,6 +6,15 @@ extends RefCounted
 const SPAN := 1.15
 const GEMS := ["ruby", "sapphire", "emerald", "citrine", "amethyst", "diamond"]
 static var _tex := {}
+static var _plain_material: ShaderMaterial
+
+## Use the board's explicit shader for sprites that must survive iOS shader baking.
+static func plain_material() -> ShaderMaterial:
+	if _plain_material == null:
+		_plain_material = ShaderMaterial.new()
+		_plain_material.shader = preload("res://shaders/gem_glint.gdshader")
+		_plain_material.set_shader_parameter("strength", 0.0)
+	return _plain_material
 
 static func tex(name: String) -> Texture2D:
 	if not _tex.has(name):
