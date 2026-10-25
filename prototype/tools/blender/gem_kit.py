@@ -492,6 +492,65 @@ def nuggets(o, seed, mask=False):
             nug.data.materials.append(mat)
             for poly in nug.data.polygons: poly.use_smooth = True
 
+# the common ore (iron, the same in every mine): not veins but little cubes of dark steel grown into the stone,
+# their faces catching a cold light. A different shape from the local ore's veins, so the two read apart
+IRON_LOOK = dict(steel=(0.05, 0.055, 0.065), shine=(0.55, 0.78, 1.0), burn=1.6)
+
+def iron_mat(mask=False):
+    if mask: return flat_emit("iron_mask", 0.9)
+    m = bpy.data.materials.new("iron"); m.use_nodes = True
+    n = m.node_tree; L = n.links; nd = n.nodes.new
+    p = n.nodes["Principled BSDF"]
+    p.inputs["Base Color"].default_value = (*IRON_LOOK["steel"], 1)
+    p.inputs["Metallic"].default_value = 1.0
+    p.inputs["Roughness"].default_value = 0.22
+    # every face lit by its own cold light, brightest where it faces up and to the left, as the key light
+    geo = nd("ShaderNodeNewGeometry")
+    dt = nd("ShaderNodeVectorMath"); dt.operation = 'DOT_PRODUCT'
+    dt.inputs[1].default_value = Vector((-0.5, -0.45, 0.75)).normalized()
+    L.new(geo.outputs["Normal"], dt.inputs[0])
+    em = nd("ShaderNodeMapRange"); em.inputs["From Min"].default_value = 0.2; em.inputs["From Max"].default_value = 0.95
+    em.inputs["To Min"].default_value = 0.0; em.inputs["To Max"].default_value = IRON_LOOK["burn"]
+    L.new(dt.outputs["Value"], em.inputs["Value"])
+    p.inputs["Emission Color"].default_value = (*IRON_LOOK["shine"], 1)
+    L.new(em.outputs[0], p.inputs["Emission Strength"])
+    return m
+
+def iron_crystals(o, seed, mask=False):
+    """four or five dark steel cubes, tipped every way, half sunk into the stone's front, each in a dark socket"""
+    rnd = random.Random(seed * 13 + 5)
+    faces = [f for f in o.data.polygons if f.normal.y < -0.3]
+    rnd.shuffle(faces)
+    im = iron_mat(mask)
+    if mask:
+        dark = flat_emit("iron_socket_mask", 0.0)
+    else:
+        dark = bpy.data.materials.new("iron_socket"); dark.use_nodes = True
+        dp = dark.node_tree.nodes["Principled BSDF"]
+        dp.inputs["Base Color"].default_value = (0.02, 0.02, 0.025, 1); dp.inputs["Roughness"].default_value = 0.8
+    made = []
+    for f in faces:
+        if len(made) >= 3 + (seed % 2): break
+        c = Vector(f.center)
+        if any((c - q).length < 0.22 for q in made): continue
+        made.append(c)
+        a = rnd.uniform(0.085, 0.11) * (1.2 if len(made) == 1 else 1.0)
+        nrm = Vector(f.normal)
+        rot = (rnd.uniform(0, math.tau), rnd.uniform(0, math.tau), rnd.uniform(0, math.tau))
+        for mat, k, sink in ((dark, 1.25, 0.5), (im, 1.0, 0.12)):
+            bpy.ops.mesh.primitive_cube_add(size=a * k, location=c - nrm * a * sink, rotation=rot)
+            cb = bpy.context.object
+            bv = cb.modifiers.new("b", 'BEVEL'); bv.width = a * 0.06; bv.segments = 1
+            cb.data.materials.append(mat)
+        # a smaller twin grown onto the big one now and then
+        if rnd.random() < 0.5:
+            off = Vector((rnd.uniform(-1, 1), 0, rnd.uniform(-1, 1))).normalized() * a * 0.75
+            bpy.ops.mesh.primitive_cube_add(size=a * 0.6, location=c + off - nrm * a * 0.2,
+                                            rotation=(rnd.uniform(0, math.tau), rnd.uniform(0, math.tau), rnd.uniform(0, math.tau)))
+            cb = bpy.context.object
+            bv = cb.modifiers.new("b", 'BEVEL'); bv.width = a * 0.04; bv.segments = 1
+            cb.data.materials.append(im)
+
 def bloom(sc):
     """the glowing ore spreads a soft light round itself"""
     sc.render.use_compositing = True
@@ -529,25 +588,31 @@ def fit(o, aspect):
         v.co -= c
 
 def render(style, name, dark, mid, light, ore=None, mask=False):
-    """<style>/<name>.png, or with ore <style>/<name>_ore.png: the same stone holding ore, and
-    <name>_ore_glow.png: the light of its veins and nuggets alone, white on black, for the game to shimmer"""
+    """<style>/<name>.png; <name>_ore.png: holding the mine's own ore (veins), <name>_iron.png: holding iron (cubes);
+    and <name>_<ore>_glow.png: the light of the ore alone, white on black, for the game to shimmer"""
     sc = setup()
     o = SHAPES[style][name]()
     fit(o, ASPECT[style][name])
     paint_facets(o)
-    o.data.materials.append(gem_mat(dark, mid, light, malachite=(style == "natural" and name == "emerald"), ore=ore, mask=mask))
-    if ore:
+    if ore == "iron" and mask:
+        o.data.materials.append(flat_emit("stone_mask", 0.0))
+    else:
+        o.data.materials.append(gem_mat(dark, mid, light, malachite=(style == "natural" and name == "emerald"),
+                                        ore=ore == "ore", mask=mask))
+    if ore == "ore":
         nuggets(o, o["seed"], mask)
-        if not mask: bloom(sc)
-    tag = name + ("_ore" if ore else "") + ("_glow" if mask else "")
+    elif ore == "iron":
+        iron_crystals(o, o["seed"], mask)
+    if ore and not mask: bloom(sc)
+    tag = name + ("_" + ore if ore else "") + ("_glow" if mask else "")
     sc.render.filepath = os.path.join(OUT, style, tag + ".png")
     bpy.ops.render.render(write_still=True)
     print("GEM", style, tag)
 
 for style in ("natural", "faceted"):
     for name, dark, mid, light in GEMS:
-        for ore in (False, True):
-            tag = style + "/" + name + ("_ore" if ore else "")
+        for ore in (None, "ore", "iron"):
+            tag = style + "/" + name + ("_" + ore if ore else "")
             if ONLY and tag not in ONLY and style + "/" + name not in ONLY: continue
             os.makedirs(os.path.join(OUT, style), exist_ok=True)
             render(style, name, dark, mid, light, ore)

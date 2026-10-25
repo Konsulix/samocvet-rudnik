@@ -20,7 +20,10 @@ func _ready() -> void:
 	if args.has("gems"): BoardSprites.gem_style = args.gems
 	if args.has("ore"):
 		for c in String(args.ore).split(","):
-			BoardSprites.ore_demo[int(c)] = true
+			BoardSprites.ore_demo[int(c)] = "ore"
+	if args.has("iron"):
+		for c in String(args.iron).split(","):
+			BoardSprites.ore_demo[int(c)] = "iron"
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))
