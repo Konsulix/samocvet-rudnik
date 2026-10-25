@@ -609,6 +609,67 @@ def render(style, name, dark, mid, light, ore=None, mask=False):
     bpy.ops.render.render(write_still=True)
     print("GEM", style, tag)
 
+# ---------------------------------------------------------------- items on the board
+
+GOLD = ((0.05, 0.03, 0.008), (0.3, 0.18, 0.045), (0.7, 0.48, 0.16))   # dark / mid / light of the gold's paint
+
+def gold_cluster():
+    """the gold nugget brought down the board: a ball of chunky gold crystals, each a short rounded prism standing
+    out of the ball, big ones in front, small ones packed between, dark crevices round every one"""
+    rnd = random.Random(61)
+    parts = []
+    for k, u in enumerate(fib(32, rnd, 0.45)):
+        front = max(0.0, -u.y)                             # facing the camera
+        w = rnd.uniform(0.1, 0.125) * (1.0 + 0.3 * front)
+        # a short hexagonal prism, its top flat and its top edges chamfered: a crystal of the reference's shape
+        h = w * rnd.uniform(0.9, 1.25)
+        spin = rnd.uniform(0, math.tau)
+        pl = ring_planes(6, w, 0, 0.0, spin, rnd, 0.08)
+        pl += ring_planes(6, w * 0.78, h * 0.78, math.radians(45), spin, rnd, 0.1)
+        pl.append((Vector((0, 0, h)), Vector((0, 0, 1))))
+        pl.append((Vector((0, 0, -h)), Vector((0, 0, -1))))
+        o = cut(pl, 100 + k, (0.4, 1.15))
+        # its long axis pointing out of the ball, spun at random
+        q = Vector((0, 0, 1)).rotation_difference(u) @ Quaternion(Vector((0, 0, 1)), rnd.uniform(0, math.tau))
+        o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = q
+        o.location = u * rnd.uniform(0.23, 0.26)
+        parts.append(o)
+    # a dark core fills the gaps, so they read as deep crevices
+    core = cut(block_planes(24, 99, 0.25, 0.25, 0.25, 2.0), 99, (0.05, 0.12))
+    parts.append(core)
+    for o in parts:
+        paint_facets(o)
+    return parts
+
+def render_item(name):
+    sc = setup()
+    parts = gold_cluster()
+    m = gem_mat(*GOLD)
+    p = m.node_tree.nodes["Principled BSDF"]
+    # metal, not glass: it reflects the studio, the paint still decides the colour
+    p.inputs["Metallic"].default_value = 0.5
+    p.inputs["Roughness"].default_value = 0.38
+    # lit by the lamp rather than by itself: the crevices between the crystals must go dark
+    for ln in list(m.node_tree.links):
+        if ln.to_socket == p.inputs["Emission Strength"]: m.node_tree.links.remove(ln)
+    p.inputs["Emission Strength"].default_value = 0.04
+    bpy.data.lights["sun"].energy = 3.2
+    bpy.data.worlds["w"].node_tree.nodes["Background"].inputs[1].default_value = 0.3
+    for o in parts:
+        o.data.materials.append(m)
+    # the same height on the board as a gem
+    bpy.context.view_layer.update()
+    k = HEIGHT / 0.66
+    for o in parts:
+        o.location *= k; o.scale = (k, k, k)
+    sc.render.filepath = os.path.join(OUT, "items", name + ".png")
+    bpy.ops.render.render(write_still=True)
+    print("ITEM", name)
+
+if not ONLY or "items/gold" in ONLY:
+    os.makedirs(os.path.join(OUT, "items"), exist_ok=True)
+    render_item("gold")
+
 for style in ("natural", "faceted"):
     for name, dark, mid, light in GEMS:
         for ore in (None, "ore", "iron"):

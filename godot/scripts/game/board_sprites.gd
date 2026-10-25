@@ -21,6 +21,8 @@ static func plain_material() -> ShaderMaterial:
 
 static func tex(name: String) -> Texture2D:
 	var path := gem_path(name) if name.get_slice("_", 0) in GEMS else "res://assets/board/pieces/%s.png" % name
+	# the gem sets come with their own gold nugget (gem_kit.py, items/gold.png)
+	if name == "nug" and gem_style != "": path = "res://assets/board/gems_kit/items/gold.png"
 	if not _tex.has(path):
 		_tex[path] = ResourceLoader.load_threaded_get(path) if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE else load(path)
 	return _tex[path]
