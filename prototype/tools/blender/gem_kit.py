@@ -21,9 +21,9 @@ SPAN = 1.15   # a sprite covers this many cells (BoardSprites.SPAN)
 
 # board colour order (BoardSprites.GEMS): name, dark / mid / light of its paint (linear)
 GEMS = [
-    ("ruby",     (0.16, 0.006, 0.004), (0.62, 0.04, 0.02), (1.0, 0.36, 0.2)),
-    ("sapphire", (0.004, 0.03, 0.2),  (0.02, 0.2, 0.85), (0.35, 0.65, 1.0)),
-    ("emerald",  (0.004, 0.06, 0.02), (0.02, 0.32, 0.11), (0.25, 0.75, 0.4)),
+    ("ruby",     (0.07, 0.002, 0.001), (0.33, 0.01, 0.005), (0.95, 0.08, 0.035)),
+    ("sapphire", (0.002, 0.012, 0.13), (0.01, 0.11, 0.65), (0.25, 0.5, 1.0)),
+    ("emerald",  (0.001, 0.02, 0.008), (0.005, 0.13, 0.05), (0.08, 0.45, 0.2)),
     ("citrine",  (0.3, 0.12, 0.01),   (0.85, 0.45, 0.06), (1.0, 0.82, 0.4)),
     ("amethyst", (0.07, 0.015, 0.2),  (0.33, 0.1, 0.7),   (0.72, 0.55, 1.0)),
     ("diamond",  (0.05, 0.035, 0.02), (0.27, 0.21, 0.15), (0.86, 0.8, 0.72)),
@@ -51,9 +51,9 @@ def setup():
     env = w.node_tree.nodes.new("ShaderNodeTexEnvironment")
     env.image = bpy.data.images.load(os.path.join(PROJ, "godot/assets/hdri/studio_small_09_1k.hdr"))
     w.node_tree.links.new(env.outputs[0], w.node_tree.nodes["Background"].inputs[0])
-    w.node_tree.nodes["Background"].inputs[1].default_value = 0.2
+    w.node_tree.nodes["Background"].inputs[1].default_value = 0.1
     # the key light from the upper left and a little in front, as in the drawings
-    d = bpy.data.lights.new("sun", 'SUN'); d.energy = 3.4; d.angle = math.radians(20); d.color = (1.0, 0.97, 0.92)
+    d = bpy.data.lights.new("sun", 'SUN'); d.energy = 1.5; d.angle = math.radians(20); d.color = (1.0, 0.97, 0.92)
     s = bpy.data.objects.new("sun", d)
     s.rotation_euler = Vector((0.75, 0.45, -0.55)).to_track_quat('-Z', 'Y').to_euler()
     sc.collection.objects.link(s)
@@ -85,16 +85,32 @@ def cut(planes, seed, tone=(0.32, 1.15)):
     bmesh.ops.convex_hull(bm, input=bm.verts)
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.004)
     bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(2.0), verts=bm.verts, edges=bm.edges)
-    # every facet its own depth of colour, as light bends differently through each
-    rnd = random.Random(seed)
-    lay = bm.loops.layers.color.new("facet")
-    for f in bm.faces:
-        v = rnd.uniform(*tone)
-        for lp in f.loops: lp[lay] = (v, v, v, 1.0)
     me = bpy.data.meshes.new("gem"); bm.to_mesh(me); bm.free()
     o = bpy.data.objects.new("gem", me); bpy.context.scene.collection.objects.link(o)
     for poly in me.polygons: poly.use_smooth = False
+    o["seed"] = seed; o["tone"] = tone
     return o
+
+def paint_facets(o):
+    """what the paint needs to know of every facet (once the stone has its final size): its own depth of colour,
+    its centre, and the way light runs across it, bright at one side and deep at the other, as through a cut stone"""
+    rnd = random.Random(o["seed"])
+    tone = tuple(o["tone"])
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    deep = bm.loops.layers.float_color.new("facet")
+    cen = bm.loops.layers.float_color.new("fcen")
+    run = bm.loops.layers.float_color.new("frun")
+    for f in bm.faces:
+        v = rnd.uniform(*tone)
+        c = f.calc_center_median()
+        # a direction lying in the facet, mostly from the upper left down to the lower right
+        d = Vector((rnd.uniform(-1, 0.3), rnd.uniform(-1, 1), rnd.uniform(-0.3, 1)))
+        d = (d - f.normal * d.dot(f.normal)).normalized()
+        for lp in f.loops:
+            lp[deep] = (v, v, v, 1.0)
+            lp[cen] = ((c.x + 1) / 2, (c.y + 1) / 2, (c.z + 1) / 2, 1.0)
+            lp[run] = ((d.x + 1) / 2, (d.y + 1) / 2, (d.z + 1) / 2, 1.0)
+    bm.to_mesh(o.data); bm.free()
 
 def fib(n, rnd, jitter=0.35):
     """n directions spread evenly over the sphere, shaken a little so the facets differ in size"""
@@ -279,95 +295,107 @@ def gem_mat(dark, mid, light, malachite=False):
     n = m.node_tree; L = n.links; nd = n.nodes.new
     p = n.nodes["Principled BSDF"]
     tc = nd("ShaderNodeTexCoord")
-    # how deep the colour is here: the facet's own depth, a soft cloud, lighter towards the top left
-    fa = nd("ShaderNodeVertexColor"); fa.layer_name = "facet"
-    fbw = nd("ShaderNodeRGBToBW"); L.new(fa.outputs["Color"], fbw.inputs[0])
-    cl = nd("ShaderNodeTexNoise"); cl.inputs["Scale"].default_value = 4.0; cl.inputs["Detail"].default_value = 4
-    L.new(tc.outputs["Object"], cl.inputs["Vector"])
-    sep = nd("ShaderNodeSeparateXYZ"); L.new(tc.outputs["Object"], sep.inputs[0])
-    tl = nd("ShaderNodeMath"); tl.operation = 'SUBTRACT'
-    L.new(sep.outputs["Z"], tl.inputs[0]); L.new(sep.outputs["X"], tl.inputs[1])
-    tlr = nd("ShaderNodeMapRange"); tlr.inputs["From Min"].default_value = -0.7; tlr.inputs["From Max"].default_value = 0.7
-    tlr.inputs["To Min"].default_value = -0.26; tlr.inputs["To Max"].default_value = 0.22
-    L.new(tl.outputs[0], tlr.inputs["Value"])
-    a1 = nd("ShaderNodeMath"); a1.operation = 'MULTIPLY'; a1.inputs[1].default_value = 0.72
-    L.new(fbw.outputs[0], a1.inputs[0])
-    a2 = nd("ShaderNodeMath"); a2.operation = 'MULTIPLY_ADD'; a2.inputs[1].default_value = 0.14
-    L.new(cl.outputs["Fac"], a2.inputs[0]); L.new(a1.outputs[0], a2.inputs[2])
-    a3 = nd("ShaderNodeMath"); a3.operation = 'ADD'
-    L.new(a2.outputs[0], a3.inputs[0]); L.new(tlr.outputs[0], a3.inputs[1])
-    # a crumpled grain, as paint on rough paper: small cells each a touch lighter or darker
-    vc = nd("ShaderNodeTexNoise"); vc.inputs["Scale"].default_value = 28.0; vc.inputs["Detail"].default_value = 3
-    L.new(tc.outputs["Object"], vc.inputs["Vector"])
-    gr = nd("ShaderNodeMapRange"); gr.inputs["To Min"].default_value = -0.14; gr.inputs["To Max"].default_value = 0.1
-    L.new(vc.outputs["Fac"], gr.inputs["Value"]); gr.inputs["From Min"].default_value = 0.3; gr.inputs["From Max"].default_value = 0.7
-    a4 = nd("ShaderNodeMath"); a4.operation = 'ADD'
-    L.new(a3.outputs[0], a4.inputs[0]); L.new(gr.outputs[0], a4.inputs[1])
-    ramp = nd("ShaderNodeValToRGB"); e = ramp.color_ramp.elements
-    e[0].position = 0.12; e[0].color = (*dark, 1); e[1].position = 1.0; e[1].color = (*light, 1)
-    em = ramp.color_ramp.elements.new(0.56); em.color = (*mid, 1)
-    L.new(a4.outputs[0], ramp.inputs["Fac"])
+    pos = tc.outputs["Object"]
+    glow = tuple(min(1.0, c * 0.75 + 0.3) for c in light)    # the brightest light inside the stone
+    def attr(name):
+        a = nd("ShaderNodeVertexColor"); a.layer_name = name
+        return a.outputs["Color"]
+    def math_(op, a, b=None, value=None):
+        k = nd("ShaderNodeMath"); k.operation = op
+        L.new(a, k.inputs[0]) if not isinstance(a, float) else k.inputs[0].__setattr__("default_value", a)
+        if b is not None: L.new(b, k.inputs[1])
+        if value is not None: k.inputs[1].default_value = value
+        return k.outputs[0]
+    def remap(v, f0, f1, t0, t1):
+        k = nd("ShaderNodeMapRange")
+        k.inputs["From Min"].default_value = f0; k.inputs["From Max"].default_value = f1
+        k.inputs["To Min"].default_value = t0; k.inputs["To Max"].default_value = t1
+        L.new(v, k.inputs["Value"])
+        return k.outputs[0]
+    def unpack(c):
+        # a direction or a point packed into 0..1 colour channels, back to -1..1
+        k = nd("ShaderNodeVectorMath"); k.operation = 'MULTIPLY_ADD'
+        L.new(c, k.inputs[0]); k.inputs[1].default_value = (2, 2, 2); k.inputs[2].default_value = (-1, -1, -1)
+        return k.outputs[0]
+    def mix(fac, a, b_col):
+        k = nd("ShaderNodeMix"); k.data_type = 'RGBA'
+        L.new(fac, k.inputs["Factor"]); L.new(a, k.inputs["A"]); k.inputs["B"].default_value = (*b_col, 1)
+        return k.outputs[2]
+    # how deep the colour is here:
+    # the facet's own depth
+    bw = nd("ShaderNodeRGBToBW"); L.new(attr("facet"), bw.inputs[0])
+    v = math_('MULTIPLY', bw.outputs[0], value=0.55)
+    # light running across the facet: bright towards one side, deep towards the other
+    rel = nd("ShaderNodeVectorMath"); rel.operation = 'SUBTRACT'
+    L.new(pos, rel.inputs[0]); L.new(unpack(attr("fcen")), rel.inputs[1])
+    run = nd("ShaderNodeVectorMath"); run.operation = 'DOT_PRODUCT'
+    L.new(rel.outputs[0], run.inputs[0]); L.new(unpack(attr("frun")), run.inputs[1])
+    v = math_('ADD', v, remap(run.outputs["Value"], -0.15, 0.15, -0.28, 0.28))
+    # the whole stone lighter towards the top left, deeper at the bottom right
+    sep = nd("ShaderNodeSeparateXYZ"); L.new(pos, sep.inputs[0])
+    v = math_('ADD', v, remap(math_('SUBTRACT', sep.outputs["Z"], sep.outputs["X"]), -0.7, 0.7, -0.22, 0.2))
+    # a soft cloud, then a fine, sharp mottle, as pigment settling in the grain of the paper
+    cl = nd("ShaderNodeTexNoise"); cl.inputs["Scale"].default_value = 4.0; cl.inputs["Detail"].default_value = 3
+    L.new(pos, cl.inputs["Vector"])
+    v = math_('ADD', v, remap(cl.outputs["Fac"], 0.3, 0.7, -0.06, 0.06))
+    mt = nd("ShaderNodeTexNoise"); mt.inputs["Scale"].default_value = 55.0; mt.inputs["Detail"].default_value = 6
+    mt.inputs["Roughness"].default_value = 0.75
+    L.new(pos, mt.inputs["Vector"])
+    v = math_('ADD', v, remap(mt.outputs["Fac"], 0.38, 0.62, -0.13, 0.11))
+    v = math_('ADD', v, value=0.02)
+    ramp = nd("ShaderNodeValToRGB"); cr = ramp.color_ramp
+    cr.elements[0].position = 0.08; cr.elements[0].color = (*dark, 1)
+    cr.elements[1].position = 1.0; cr.elements[1].color = (*glow, 1)
+    for pos_k, c in ((0.45, mid), (0.78, light)):
+        e = cr.elements.new(pos_k); e.color = (*c, 1)
+    L.new(v, ramp.inputs["Fac"])
     col = ramp.outputs[0]
     if malachite:
-        # malachite's bands: wavy stripes, and a bull's-eye of rings on its face
-        wv = nd("ShaderNodeTexWave"); wv.wave_type = 'BANDS'; wv.inputs["Scale"].default_value = 3.0
-        wv.inputs["Distortion"].default_value = 24.0; wv.inputs["Detail"].default_value = 4
-        L.new(tc.outputs["Object"], wv.inputs["Vector"])
-        rg = nd("ShaderNodeTexWave"); rg.wave_type = 'RINGS'; rg.rings_direction = 'SPHERICAL'; rg.inputs["Scale"].default_value = 8.0
-        mp = nd("ShaderNodeMapping"); mp.inputs["Location"].default_value = (-0.02, 0.25, -0.1)
-        L.new(tc.outputs["Object"], mp.inputs["Vector"]); L.new(mp.outputs[0], rg.inputs["Vector"])
+        # malachite's bands: thin dark lines flowing over a lighter green, and a bull's-eye of rings on its face
+        wv = nd("ShaderNodeTexWave"); wv.wave_type = 'BANDS'; wv.inputs["Scale"].default_value = 4.5
+        wv.inputs["Distortion"].default_value = 16.0; wv.inputs["Detail"].default_value = 3
+        L.new(pos, wv.inputs["Vector"])
+        rg = nd("ShaderNodeTexWave"); rg.wave_type = 'RINGS'; rg.rings_direction = 'SPHERICAL'; rg.inputs["Scale"].default_value = 11.0
+        mp = nd("ShaderNodeMapping"); mp.inputs["Location"].default_value = (-0.02, 0.25, -0.08)
+        L.new(pos, mp.inputs["Vector"]); L.new(mp.outputs[0], rg.inputs["Vector"])
         dist = nd("ShaderNodeVectorMath"); dist.operation = 'LENGTH'; L.new(mp.outputs[0], dist.inputs[0])
-        eye = nd("ShaderNodeMapRange"); eye.inputs["From Min"].default_value = 0.13; eye.inputs["From Max"].default_value = 0.11
-        L.new(dist.outputs["Value"], eye.inputs["Value"])
+        eye = remap(dist.outputs["Value"], 0.15, 0.12, 0.0, 1.0)
         mx = nd("ShaderNodeMix"); mx.data_type = 'FLOAT'
-        L.new(eye.outputs[0], mx.inputs["Factor"]); L.new(wv.outputs["Fac"], mx.inputs["A"]); L.new(rg.outputs["Fac"], mx.inputs["B"])
-        bnd = nd("ShaderNodeMapRange"); bnd.inputs["From Min"].default_value = 0.62; bnd.inputs["From Max"].default_value = 0.85
-        bnd.inputs["To Max"].default_value = 0.55
-        L.new(mx.outputs[0], bnd.inputs["Value"])
-        bm = nd("ShaderNodeMix"); bm.data_type = 'RGBA'
-        L.new(bnd.outputs[0], bm.inputs["Factor"]); L.new(col, bm.inputs["A"]); bm.inputs["B"].default_value = (*dark, 1)
-        col = bm.outputs[2]
+        L.new(eye, mx.inputs["Factor"]); L.new(wv.outputs["Fac"], mx.inputs["A"]); L.new(rg.outputs["Fac"], mx.inputs["B"])
+        col = mix(remap(mx.outputs[0], 0.25, 0.08, 0.0, 0.45), col, dark)
+        col = mix(remap(mx.outputs[0], 0.8, 0.97, 0.0, 0.6), col, glow)
     else:
         # a fine web of light cracks inside the stone, warped so no cell is a straight polygon
         wn = nd("ShaderNodeTexNoise"); wn.inputs["Scale"].default_value = 3.0; wn.inputs["Detail"].default_value = 2
-        L.new(tc.outputs["Object"], wn.inputs["Vector"])
-        wo = nd("ShaderNodeMix"); wo.data_type = 'VECTOR'; wo.inputs["Factor"].default_value = 0.12
-        L.new(tc.outputs["Object"], wo.inputs[4]); L.new(wn.outputs["Color"], wo.inputs[5])
-        vn = nd("ShaderNodeTexVoronoi"); vn.feature = 'DISTANCE_TO_EDGE'; vn.inputs["Scale"].default_value = 6.0
+        L.new(pos, wn.inputs["Vector"])
+        wo = nd("ShaderNodeMix"); wo.data_type = 'VECTOR'; wo.inputs["Factor"].default_value = 0.15
+        L.new(pos, wo.inputs[4]); L.new(wn.outputs["Color"], wo.inputs[5])
+        vn = nd("ShaderNodeTexVoronoi"); vn.feature = 'DISTANCE_TO_EDGE'; vn.inputs["Scale"].default_value = 7.0
         L.new(wo.outputs[1], vn.inputs["Vector"])
-        vr = nd("ShaderNodeMapRange"); vr.inputs["From Min"].default_value = 0.025; vr.inputs["From Max"].default_value = 0.0
-        vr.inputs["To Max"].default_value = 0.18
-        L.new(vn.outputs["Distance"], vr.inputs["Value"])
-        vm = nd("ShaderNodeMix"); vm.data_type = 'RGBA'
-        L.new(vr.outputs[0], vm.inputs["Factor"]); L.new(col, vm.inputs["A"]); vm.inputs["B"].default_value = (*light, 1)
-        col = vm.outputs[2]
-    # thin light lines along every edge, where a rounded normal parts from the flat one
-    bv = nd("ShaderNodeBevel"); bv.inputs["Radius"].default_value = 0.012; bv.samples = 8
+        # only here and there, not a net over everything
+        vp = nd("ShaderNodeTexNoise"); vp.inputs["Scale"].default_value = 5.0
+        L.new(pos, vp.inputs["Vector"])
+        crack = math_('MULTIPLY', remap(vn.outputs["Distance"], 0.018, 0.0, 0.0, 0.55), remap(vp.outputs["Fac"], 0.45, 0.6, 0.0, 1.0))
+        col = mix(crack, col, glow)
     geo = nd("ShaderNodeNewGeometry")
-    dt = nd("ShaderNodeVectorMath"); dt.operation = 'DOT_PRODUCT'
-    L.new(bv.outputs[0], dt.inputs[0]); L.new(geo.outputs["Normal"], dt.inputs[1])
-    edge = nd("ShaderNodeMapRange"); edge.inputs["From Min"].default_value = 0.9995; edge.inputs["From Max"].default_value = 0.985
-    edge.inputs["To Max"].default_value = 0.75
-    L.new(dt.outputs["Value"], edge.inputs["Value"])
-    # and a broader, softer light along the inside of each facet's rim, its middle stays deep
-    bw2 = nd("ShaderNodeBevel"); bw2.inputs["Radius"].default_value = 0.05; bw2.samples = 8
-    dt2 = nd("ShaderNodeVectorMath"); dt2.operation = 'DOT_PRODUCT'
-    L.new(bw2.outputs[0], dt2.inputs[0]); L.new(geo.outputs["Normal"], dt2.inputs[1])
-    rim = nd("ShaderNodeMapRange"); rim.inputs["From Min"].default_value = 0.999; rim.inputs["From Max"].default_value = 0.96
-    rim.inputs["To Max"].default_value = 0.3
-    L.new(dt2.outputs["Value"], rim.inputs["Value"])
-    mr = nd("ShaderNodeMix"); mr.data_type = 'RGBA'
-    L.new(rim.outputs[0], mr.inputs["Factor"]); L.new(col, mr.inputs["A"]); mr.inputs["B"].default_value = (*light, 1)
-    col = mr.outputs[2]
-    me = nd("ShaderNodeMix"); me.data_type = 'RGBA'
-    L.new(edge.outputs[0], me.inputs["Factor"]); L.new(col, me.inputs["A"])
-    me.inputs["B"].default_value = (*tuple(min(1.0, c * 0.6 + 0.45) for c in light), 1)
-    L.new(me.outputs[2], p.inputs["Base Color"])
-    # painted, not mirrored: soft satin light, a gentle glow of its own colour so it never goes dull
-    p.inputs["Roughness"].default_value = 0.32
-    p.inputs["Specular IOR Level"].default_value = 0.35
-    p.inputs["Emission Color"].default_value = (*mid, 1)
-    p.inputs["Emission Strength"].default_value = 0.05
+    def edge_mask(radius, f0, f1, amount):
+        bv = nd("ShaderNodeBevel"); bv.inputs["Radius"].default_value = radius; bv.samples = 8
+        dt = nd("ShaderNodeVectorMath"); dt.operation = 'DOT_PRODUCT'
+        L.new(bv.outputs[0], dt.inputs[0]); L.new(geo.outputs["Normal"], dt.inputs[1])
+        return remap(dt.outputs["Value"], f0, f1, 0.0, amount)
+    # light gathers along every edge: a soft glow spreading onto both facets...
+    col = mix(edge_mask(0.045, 0.999, 0.95, 0.35), col, light)
+    # ...and a thin bright line on the edge itself, lit from within so it shines even on the shaded side
+    # strong where the stone is lit, fading on its deep side
+    line = math_('MULTIPLY', edge_mask(0.012, 0.9995, 0.985, 1.0), remap(v, 0.25, 0.85, 0.2, 1.0))
+    col = mix(math_('MULTIPLY', line, value=0.95), col, glow)
+    L.new(col, p.inputs["Base Color"])
+    # painted more than lit: the colour carries its own light (the drawings barely shade), the key light only models it
+    p.inputs["Roughness"].default_value = 0.45
+    p.inputs["Specular IOR Level"].default_value = 0.25
+    L.new(col, p.inputs["Emission Color"])
+    es = nd("ShaderNodeMath"); es.operation = 'MULTIPLY_ADD'; es.inputs[1].default_value = 0.9; es.inputs[2].default_value = 0.26
+    L.new(line, es.inputs[0]); L.new(es.outputs[0], p.inputs["Emission Strength"])
     return m
 
 # width / height on screen, as in the drawings; every stone is then fitted to the same height
@@ -396,6 +424,7 @@ def render(style, name, dark, mid, light):
     sc = setup()
     o = SHAPES[style][name]()
     fit(o, ASPECT[style][name])
+    paint_facets(o)
     o.data.materials.append(gem_mat(dark, mid, light, malachite=(style == "natural" and name == "emerald")))
     sc.render.filepath = os.path.join(OUT, style, name + ".png")
     bpy.ops.render.render(write_still=True)
