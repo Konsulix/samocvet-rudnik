@@ -53,8 +53,8 @@ def stone_mat(kind):
     lv = nd("ShaderNodeMapRange"); lv.inputs["From Min"].default_value = 0.05; lv.inputs["From Max"].default_value = 0.4
     L.new(bw.outputs[0], lv.inputs["Value"])
     ramp = nd("ShaderNodeValToRGB"); cr = ramp.color_ramp
-    cr.elements[0].color = (0.02, 0.019, 0.018, 1); cr.elements[1].color = (0.24, 0.22, 0.2, 1)
-    e = cr.elements.new(0.5); e.color = (0.085, 0.08, 0.075, 1)
+    cr.elements[0].color = (0.025, 0.024, 0.023, 1); cr.elements[1].color = (0.36, 0.34, 0.32, 1)
+    e = cr.elements.new(0.5); e.color = (0.12, 0.115, 0.11, 1)
     L.new(lv.outputs[0], ramp.inputs["Fac"])
     col = ramp.outputs[0]
     fa = nd("ShaderNodeVertexColor"); fa.layer_name = "facet"
@@ -89,11 +89,11 @@ def amethyst_mat():
     n = m.node_tree; p = n.nodes["Principled BSDF"]
     fa = n.nodes.new("ShaderNodeVertexColor"); fa.layer_name = "facet"
     ramp = n.nodes.new("ShaderNodeValToRGB"); cr = ramp.color_ramp
-    cr.elements[0].color = (0.06, 0.015, 0.12, 1); cr.elements[1].color = (0.62, 0.42, 0.95, 1)
+    cr.elements[0].color = (0.02, 0.006, 0.04, 1); cr.elements[1].color = (0.42, 0.26, 0.62, 1)   # deep, as in the drawing
     bw = n.nodes.new("ShaderNodeRGBToBW"); n.links.new(fa.outputs["Color"], bw.inputs[0])
     n.links.new(bw.outputs[0], ramp.inputs["Fac"])
     n.links.new(ramp.outputs[0], p.inputs["Base Color"]); n.links.new(ramp.outputs[0], p.inputs["Emission Color"])
-    p.inputs["Emission Strength"].default_value = 0.35; p.inputs["Roughness"].default_value = 0.2
+    p.inputs["Emission Strength"].default_value = 0.12; p.inputs["Roughness"].default_value = 0.25
     p.inputs["Coat Weight"].default_value = 0.6
     return m
 
@@ -101,7 +101,8 @@ def cell_pieces(cx, cz, inward, seed):
     """a cell's block cut in three by two planes through a point near its inner corner: the piece facing the
     zone's middle, and two behind it. Returns (object, how far towards the middle it faces)"""
     rnd = random.Random(seed)
-    base = gk.block_planes(46, seed, BLOCK, 0.26, BLOCK, 3.2, (0.0, 0.03))
+    # a pillow of rock: a rounded block cut into many small, uneven facets, as in the drawing
+    base = gk.block_planes(150, seed, BLOCK, 0.27, BLOCK, 2.7, (0.0, 0.022))
     hub = Vector((inward.x * 0.12 + rnd.uniform(-0.05, 0.05), 0, inward.z * 0.12 + rnd.uniform(-0.05, 0.05)))
     a0 = math.atan2(inward.z, inward.x)
     # first cut: across the inward direction; second: splitting the back half in two
@@ -121,16 +122,29 @@ def cell_pieces(cx, cz, inward, seed):
     return out
 
 def gold_mat():
+    """a faceted gold nugget: metal, each facet catching the lamp its own way, warm and bright"""
     m = bpy.data.materials.new("gold"); m.use_nodes = True
     n = m.node_tree; p = n.nodes["Principled BSDF"]
     fa = n.nodes.new("ShaderNodeVertexColor"); fa.layer_name = "facet"
     bw = n.nodes.new("ShaderNodeRGBToBW"); n.links.new(fa.outputs["Color"], bw.inputs[0])
     ramp = n.nodes.new("ShaderNodeValToRGB"); cr = ramp.color_ramp
-    cr.elements[0].color = (0.12, 0.06, 0.015, 1); cr.elements[1].color = (0.95, 0.68, 0.28, 1)
+    cr.elements[0].color = (0.12, 0.055, 0.015, 1); cr.elements[1].color = (0.75, 0.45, 0.16, 1)   # old bronzy gold
     n.links.new(bw.outputs[0], ramp.inputs["Fac"])
     n.links.new(ramp.outputs[0], p.inputs["Base Color"])
-    p.inputs["Metallic"].default_value = 0.6; p.inputs["Roughness"].default_value = 0.35
+    n.links.new(ramp.outputs[0], p.inputs["Emission Color"])
+    p.inputs["Emission Strength"].default_value = 0.06
+    p.inputs["Metallic"].default_value = 1.0; p.inputs["Roughness"].default_value = 0.42
     return m
+
+def rubble_floor(centre, rx, rz, mat, rnd, n):
+    """the floor of an emptied hollow: loose broken stone"""
+    for k in range(n):
+        a = rnd.uniform(0, math.tau); rr = math.sqrt(rnd.random())
+        s = rnd.uniform(0.035, 0.07)
+        o = gk.cut(gk.block_planes(12, 1500 + k, s, s * 0.7, s, 2.4, (0.0, 0.01)), 1500 + k, (0.3, 0.9))
+        gk.paint_facets(o); o.data.materials.append(mat)
+        o.rotation_euler = (rnd.uniform(0, 6), rnd.uniform(0, 6), rnd.uniform(0, 6))
+        o.location = centre + Vector((math.cos(a) * rx * rr, 0.14, math.sin(a) * rz * rr))
 
 def cave_mat():
     m = bpy.data.materials.new("cave"); m.use_nodes = True
@@ -149,14 +163,17 @@ def zone(kind, w, h, stage, open_=False):
     bv = bed.modifiers.new("b", 'BEVEL'); bv.width = 0.1; bv.segments = 3
     bed.data.materials.append(cave_mat())
     pieces = []
+    order = list(range(w * h)); rnd.shuffle(order)       # which cell cracks first, second...
     for r in range(h):
         for c in range(w):
+            rank = order.index(r * w + c)
             p = Vector((c, 0, -r))
             inward = (centre - p)
             inward = inward.normalized() if inward.length > 1e-3 else Vector((rnd.uniform(-1, 1), 0, rnd.uniform(-1, 1))).normalized()
             # the same cut for both kinds: until it opens, a geode and a find look alike
             for o, close in cell_pieces(p.x, p.z, inward, 400 + r * 17 + c * 5):
                 gk.paint_facets(o); o.data.materials.append(sm)
+                o["rank"] = rank
                 pieces.append((o, close + rnd.uniform(-0.1, 0.1)))
     # the order they fall: the pieces facing the middle first
     pieces.sort(key=lambda t: -t[1])
@@ -169,7 +186,9 @@ def zone(kind, w, h, stage, open_=False):
         if i < gone:
             bpy.data.objects.remove(o)
             continue
-        o.location += Vector(o["out"]) * spread
+        # a cell's block splits only once the cracks have reached it: one at the first hit, all by the third
+        cracked = open_ or o["rank"] < max(0.0, stage) * (w * h) / 3.0
+        o.location += Vector(o["out"]) * (spread if cracked else 0.0)
         if (stage >= 2 or open_) and i < gone + 2:
             o.rotation_euler = (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.15, 0.15), rnd.uniform(-0.12, 0.12))
     # rubble at the foot once it breaks open
@@ -214,14 +233,15 @@ def zone(kind, w, h, stage, open_=False):
         # a golden nugget sealed in the rock; once taken, it lies spilled at the corner
         gm = gold_mat()
         s = min(rx, rz) * 0.75
-        o = gk.cut(gk.egg_planes(70, 77, w=s, d=s * 0.55, h=s * 1.05, point=0.25, low=0.05, depth=(0.0, 0.02)), 77, (0.4, 1.2))
+        o = gk.cut(gk.egg_planes(110, 77, w=s, d=s * 0.75, h=s * 1.05, point=0.2, low=0.05, depth=(0.0, 0.015)), 77, (0.4, 1.2))
         gk.paint_facets(o); o.data.materials.append(gm)
         o.rotation_euler = (math.pi / 2, 0, 0.3)
         if open_:
+            rubble_floor(centre, rx * 0.9, rz * 0.9, sm, rnd, int(40 * rx * rz))
             o.scale = (0.75, 0.75, 0.75)
             o.location = Vector((w - 0.55, -0.15, -(h - 0.62)))
         else:
-            o.location = centre + Vector((0, 0.12, 0))     # set back in its nest, behind the blocks' faces
+            o.location = centre + Vector((0, 0.06, 0))     # set back in its nest, behind the blocks' faces
     root = bpy.data.objects.new("root", None); bpy.context.scene.collection.objects.link(root)
     for o in list(bpy.context.scene.objects):
         if o.type == 'MESH' and o.parent is None:
