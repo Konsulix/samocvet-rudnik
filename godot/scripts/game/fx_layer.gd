@@ -113,6 +113,32 @@ func shards(r: float, c: float, kind: String, col: Color) -> void:
 		tw.chain().tween_callback(s.queue_free)
 	debris(r, c, col, 6)
 
+## the pickaxe booster: it swings in over the cell from up right, strikes, and drops away
+func pickaxe(r: int, c: int) -> void:
+	var at := cell(r, c)
+	var ts := board.TS
+	var pivot := Node2D.new()       # turns about the handle's foot, as a swing does
+	pivot.position = at + Vector2(ts * 0.75, ts * 0.55)
+	add_child(pivot)
+	var s := Sprite2D.new()
+	s.texture = BoardSprites.tex("pick")
+	s.scale = Vector2.ONE * ts * BoardSprites.SPAN * 1.5 / float(s.texture.get_width())
+	s.position = Vector2(-ts * 0.45, -ts * 0.7)
+	s.material = BoardSprites.plain_material()
+	pivot.add_child(s)
+	pivot.rotation = 1.1
+	pivot.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(pivot, "modulate:a", 1.0, 0.06)
+	tw.tween_property(pivot, "rotation", -0.25, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		shake = maxf(shake, 6.0)
+		flash(r, c, Color(2.0, 1.7, 1.2), 0.9)
+		burst(at, Color("#b8a890"), 12, 220.0, 650.0, 4.5))
+	tw.tween_property(pivot, "rotation", 0.15, 0.1)
+	tw.tween_property(pivot, "modulate:a", 0.0, 0.18)
+	tw.tween_callback(pivot.queue_free)
+
 func debris(r: float, c: float, col: Color, amount := 10) -> void:
 	burst(cell(r, c), col, amount, 170.0, 620.0, 4.5)
 

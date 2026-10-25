@@ -34,7 +34,7 @@ static func plain_material() -> ShaderMaterial:
 static func tex(name: String) -> Texture2D:
 	var path := gem_path(name) if name.get_slice("_", 0) in GEMS else "res://assets/board/pieces/%s.png" % name
 	# the gem sets come with their own specials and timber (special_kit.py) and gold nugget (gem_kit.py, items/gold.png)
-	if gem_style != "" and name in ["rh", "rv", "bomb", "drill", "orb"]: path = "res://assets/board/special_kit/%s.png" % name
+	if gem_style != "" and name in ["rh", "rv", "bomb", "drill", "orb", "pick"]: path = "res://assets/board/special_kit/%s.png" % name
 	if name == "lock" and gem_style != "":
 		path = {rendered = "res://assets/board/special_kit/lock.png", drawn = "res://assets/board/blockers_natural/lock.png"}.get(lock_style, path)
 	# the gem sets come with their own gold nugget (gem_kit.py, items/gold.png)

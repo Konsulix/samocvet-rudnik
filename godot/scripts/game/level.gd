@@ -292,6 +292,9 @@ func _render_boosters() -> void:
 			if id == "dyn":
 				BoardSprites.draw(ci, BoardSprites.tex("rh"), Vector2(22, 22), 44)
 				return
+			if BoardSprites.gem_style != "":
+				BoardSprites.draw(ci, BoardSprites.tex("pick"), Vector2(22, 22), 44)
+				return
 			else:
 				GemArt.begin(ci, Transform2D(-0.7, Vector2(22, 22)))
 				ci.draw_rect(Rect2(-2, -2, 4, 21), Color("#8a5a2c"))
@@ -610,6 +613,9 @@ func _use_booster(r: int, c: int) -> void:
 	Save.persist()
 	_render_boosters()
 	busy = true
+	if id == "pick" and BoardSprites.gem_style != "":
+		fx.pickaxe(r, c)
+		await _wait(0.24)
 	await _resolve(model.booster_events(id, r, c), [])
 	await _flights_done()
 	if model.goals_done():

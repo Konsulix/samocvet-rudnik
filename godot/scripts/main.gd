@@ -195,6 +195,13 @@ func show_level(n: int, pre: Array, dl: int) -> void:
 				g.sp = ["rh", "rv", "bomb", "drill", "orb"][k]
 				g.t = -1
 		lv.board.rebuild(lv.model)
+	if args.has("strike"):
+		# for a look: the pickaxe hits cell r,c a moment after the board has settled
+		await get_tree().create_timer(1.5).timeout
+		var rc := String(args.strike).split(",")
+		lv.booster = "pick"
+		lv.busy = false
+		lv._use_booster(int(rc[0]), int(rc[1]))
 	if args.has("autoplay"):
 		_autoplay(lv, int(args.autoplay))
 	if args.has("win"):

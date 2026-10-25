@@ -359,6 +359,37 @@ def to_uv(p, c, k):
     q = (Vector(p) - c) * k
     return [round(0.5 + q.x / gk.SPAN, 4), round(0.5 - q.dot(up) / gk.SPAN, 4)]
 
+# ---------------------------------------------------------------- the pickaxe (a booster)
+
+def pickaxe():
+    """a miner's pick: a long curved steel head, both ends pointed, on a worn ash handle, leaning to the right"""
+    wm = wood_mat(); st = steel_mat(); im = iron_mat()
+    tilt = math.radians(-35)
+    q = Quaternion((0, 1, 0), tilt)
+    # the handle, slightly thicker towards its foot
+    bpy.ops.mesh.primitive_cone_add(vertices=16, radius1=0.05, radius2=0.04, depth=0.86, location=(0, 0, -0.08))
+    h = bpy.context.object; bpy.ops.object.shade_smooth(); h.data.materials.append(wm)
+    h.rotation_mode = 'QUATERNION'; h.rotation_quaternion = q; h.location = q @ Vector((0, 0, -0.08))
+    # the head: a long four-sided spike each way, bent down at its tips
+    # built along its own z, then turned across the handle: its local x ends up pointing down
+    bpy.ops.mesh.primitive_cylinder_add(vertices=4, radius=0.055, depth=0.86, rotation=(0, 0, math.pi / 4))
+    hd = bpy.context.object
+    bpy.ops.object.transform_apply(rotation=True)
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.subdivide(number_cuts=24); bpy.ops.object.mode_set(mode='OBJECT')
+    for v in hd.data.vertices:
+        t = abs(v.co.z) / 0.43
+        v.co.x *= 1.0 - t * 0.92; v.co.y *= 1.0 - t * 0.92          # tapering to the points
+        v.co.x += (v.co.z ** 2) * 0.55                                # curving down at both ends
+    bv = hd.modifiers.new("b", 'BEVEL'); bv.width = 0.006
+    hd.data.materials.append(st)
+    hd.rotation_mode = 'QUATERNION'; hd.rotation_quaternion = q @ Quaternion((0, 1, 0), math.pi / 2)
+    hd.location = q @ Vector((0, 0, 0.35))
+    # the eye it sits in
+    bpy.ops.mesh.primitive_cube_add(size=1)
+    e = bpy.context.object; e.scale = (0.14, 0.1, 0.12); e.data.materials.append(im)
+    bv = e.modifiers.new("b", 'BEVEL'); bv.width = 0.015; bv.segments = 2
+    e.rotation_mode = 'QUATERNION'; e.rotation_quaternion = q; e.location = q @ Vector((0, 0, 0.35))
+
 # ---------------------------------------------------------------- the resonator: a radar set into the rock
 
 def rock_mat():
@@ -472,7 +503,7 @@ def paint_pass():
             p.inputs["Roughness"].default_value = max(p.inputs["Roughness"].default_value, 0.38)
 
 JOBS = {"lock": (lock, 0.9), "rh": (lambda: dynamite(False), 1.04), "rv": (lambda: dynamite(True), 1.0),
-        "bomb": (bomb, 0.96), "drill": (drill, 1.0), "orb": (radar, 0.98)}
+        "bomb": (bomb, 0.96), "drill": (drill, 1.0), "orb": (radar, 0.98), "pick": (pickaxe, 1.0)}
 os.makedirs(OUT, exist_ok=True)
 import json
 _af = os.path.join(OUT, "anchors.json")
