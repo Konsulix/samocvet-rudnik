@@ -184,6 +184,15 @@ func show_level(n: int, pre: Array, dl: int) -> void:
 	_swap(lv)
 	lv.finished.connect(_on_level_finished)
 	lv.start(n, pre, dl)
+	if args.has("specials"):
+		# for a look: one of each special on the second row
+		var row := 1
+		for k in ["rh", "rv", "bomb", "drill", "orb"].size():
+			var g: BoardModel.Gem = lv.model.G[row][k + 1]
+			if g:
+				g.sp = ["rh", "rv", "bomb", "drill", "orb"][k]
+				g.t = -1
+		lv.board.rebuild(lv.model)
 	if args.has("autoplay"):
 		_autoplay(lv, int(args.autoplay))
 	if args.has("win"):
