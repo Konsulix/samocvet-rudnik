@@ -97,3 +97,5 @@ func show_card() -> void:
 	v.add_child(Reveal.action_row(copy, func():
 		DisplayServer.clipboard_set(text())
 		Ov.toast("Copied"), close, func(): Ov.close()))
+	# the tester's panel: any depth, the boss, resources (screens/admin.gd)
+	v.add_child(Ov.btn("Admin", "glass", func(): Admin.open()))
