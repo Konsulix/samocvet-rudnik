@@ -25,7 +25,7 @@ SIZES = [(2, 2), (2, 1), (1, 2), (3, 1), (1, 3)]
 STAGES = 8
 MARGIN = 0.12          # room round the zone in the sprite, in cells: chips and the shadow side
 BLOCK = 0.47           # a cell's stone block, half width (0.5 = touching its neighbour)
-VEIN = {"find": (0.62, 0.42, 0.18), "geode": (0.45, 0.32, 0.62)}   # faint: the two must look alike until they open
+VEIN = {"find": (1.0, 0.68, 0.22), "geode": (0.55, 0.3, 0.95)}   # glowing veins: gold for a find, violet for a geode
 
 def scene(w, h):
     sc = gk.setup()
@@ -53,8 +53,8 @@ def stone_mat(kind):
     lv = nd("ShaderNodeMapRange"); lv.inputs["From Min"].default_value = 0.05; lv.inputs["From Max"].default_value = 0.4
     L.new(bw.outputs[0], lv.inputs["Value"])
     ramp = nd("ShaderNodeValToRGB"); cr = ramp.color_ramp
-    cr.elements[0].color = (0.025, 0.024, 0.023, 1); cr.elements[1].color = (0.36, 0.34, 0.32, 1)
-    e = cr.elements.new(0.5); e.color = (0.12, 0.115, 0.11, 1)
+    cr.elements[0].color = (0.02, 0.019, 0.018, 1); cr.elements[1].color = (0.24, 0.22, 0.2, 1)
+    e = cr.elements.new(0.5); e.color = (0.085, 0.08, 0.075, 1)
     L.new(lv.outputs[0], ramp.inputs["Fac"])
     col = ramp.outputs[0]
     fa = nd("ShaderNodeVertexColor"); fa.layer_name = "facet"
@@ -65,7 +65,7 @@ def stone_mat(kind):
     wv.inputs["Scale"].default_value = 2.2; wv.inputs["Distortion"].default_value = 6.0; wv.inputs["Detail"].default_value = 4
     L.new(pos, wv.inputs["Vector"])
     vr = nd("ShaderNodeMapRange"); vr.inputs["From Min"].default_value = 0.93; vr.inputs["From Max"].default_value = 1.0
-    vr.inputs["To Max"].default_value = 0.45
+    vr.inputs["To Max"].default_value = 0.8
     L.new(wv.outputs["Fac"], vr.inputs["Value"])
     vn = nd("ShaderNodeTexNoise"); vn.inputs["Scale"].default_value = 3.0
     L.new(pos, vn.inputs["Vector"])
@@ -77,7 +77,7 @@ def stone_mat(kind):
     L.new(vk.outputs[0], mv.inputs["Factor"]); L.new(col, mv.inputs["A"]); mv.inputs["B"].default_value = (*VEIN[kind], 1)
     L.new(mv.outputs[2], p.inputs["Base Color"])
     L.new(mv.outputs[2], p.inputs["Emission Color"])
-    em = nd("ShaderNodeMath"); em.operation = 'MULTIPLY_ADD'; em.inputs[1].default_value = 0.15; em.inputs[2].default_value = 0.08
+    em = nd("ShaderNodeMath"); em.operation = 'MULTIPLY_ADD'; em.inputs[1].default_value = 0.6; em.inputs[2].default_value = 0.12
     L.new(vk.outputs[0], em.inputs[0]); L.new(em.outputs[0], p.inputs["Emission Strength"])
     p.inputs["Roughness"].default_value = 0.8
     nm = nd("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = 1.3
@@ -101,8 +101,8 @@ def cell_pieces(cx, cz, inward, seed):
     """a cell's block cut in three by two planes through a point near its inner corner: the piece facing the
     zone's middle, and two behind it. Returns (object, how far towards the middle it faces)"""
     rnd = random.Random(seed)
-    # a pillow of rock: a rounded block cut into many small, uneven facets, as in the drawing
-    base = gk.block_planes(150, seed, BLOCK, 0.27, BLOCK, 2.7, (0.0, 0.022))
+    # a hewn block: a few big uneven facets, so it breaks into sharp, angular pieces
+    base = gk.block_planes(46, seed, BLOCK, 0.26, BLOCK, 3.2, (0.0, 0.03))
     hub = Vector((inward.x * 0.12 + rnd.uniform(-0.05, 0.05), 0, inward.z * 0.12 + rnd.uniform(-0.05, 0.05)))
     a0 = math.atan2(inward.z, inward.x)
     # first cut: across the inward direction; second: splitting the back half in two
@@ -187,7 +187,7 @@ def zone(kind, w, h, stage, open_=False):
             bpy.data.objects.remove(o)
             continue
         # a cell's block splits only once the cracks have reached it: one at the first hit, all by the third
-        cracked = open_ or o["rank"] < max(0.0, stage) * (w * h) / 3.0
+        cracked = True     # every block splits at the first hit: the breaks read across the whole zone
         o.location += Vector(o["out"]) * (spread if cracked else 0.0)
         if (stage >= 2 or open_) and i < gone + 2:
             o.rotation_euler = (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.15, 0.15), rnd.uniform(-0.12, 0.12))
