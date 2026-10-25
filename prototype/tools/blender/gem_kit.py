@@ -244,16 +244,17 @@ def fac_ruby():
     return cut(turned(pl, best[1]), 31, (0.5, 1.1))
 
 def fac_citrine():
-    # an elongated bipyramid turned a little, small facets round its waist
-    pl = []
-    for k in range(4):
-        a = k * math.pi / 2 + math.pi / 4
-        for s in (-1, 1):
-            n = Vector((math.cos(a), math.sin(a) * 1.3, s * 0.62)).normalized()
-            pl.append((n * 0.2, n))
-    # small facets round the waist, never reaching its four points
-    pl += ring_planes(4, 0.3, 0, 0.0, math.pi / 4)
-    return cut(turned(pl, Quaternion((0, 0, 1), math.radians(22))), 37, (0.5, 1.1))
+    # a low hexagonal pyramid looking at us: six faces running in from the outline (pointed left and right)
+    # to a small plateau in the middle
+    rnd = random.Random(37)
+    pl = [(Vector((0, 0.12, 0)), Vector((0, 1, 0)))]                       # its flat back
+    tilt = math.radians(38)                                                  # how steeply the faces rise to the middle
+    for k in range(6):
+        a = math.radians(30 + 60 * k) + rnd.uniform(-0.06, 0.06)
+        n = Vector((math.cos(a) * math.cos(tilt), -math.sin(tilt), math.sin(a) * math.cos(tilt)))
+        pl.append((n * (0.3 * math.cos(tilt) + rnd.uniform(-0.01, 0.01)), n))
+    pl.append((Vector((0, -0.31, 0)), Vector((0, -1, 0))))                  # a small plateau at the tip
+    return cut(pl, 37, (0.5, 1.1))
 
 def fac_sapphire():
     rnd = random.Random(41)
@@ -519,7 +520,7 @@ def bloom(sc):
 
 # width / height on screen, as in the drawings; every stone is then fitted to the same height
 ASPECT = {"natural": {"ruby": 0.84, "citrine": 0.72, "sapphire": 0.78, "emerald": 0.86, "amethyst": 0.72, "diamond": 0.74},
-          "faceted": {"ruby": 0.86, "citrine": 0.7, "sapphire": 1.0, "emerald": 0.7, "amethyst": 1.05, "diamond": 0.66}}
+          "faceted": {"ruby": 0.86, "citrine": 1.12, "sapphire": 1.0, "emerald": 0.7, "amethyst": 1.05, "diamond": 0.66}}
 HEIGHT = 0.78   # of a cell
 
 def fit(o, aspect):
