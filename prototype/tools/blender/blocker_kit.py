@@ -1,9 +1,10 @@
 # The board's blockers in the look of the gem sets (gem_kit.py): hewn, rounded blocks of rock that fill their cell,
 # lit by the same lamp. One block, three rocks: mud (red-brown clay), sandstone (ochre, layered), granite (speckled).
+# (The gas is not rendered: shaders/gas.gdshader draws it live, joining neighbouring pockets into tunnels.)
 # Granite takes two hits: after the first it is really split, into three pieces with gaps between and crumbs at its
 # foot; the same cut gives the shards the game throws about when a blocker breaks.
 #   blender -b -P blocker_kit.py -- <out_dir> [px] [samples] [only: name,...]
-# writes <out_dir>/{mud,sand,granite,granite_cracked,gas}.png and <out_dir>/shards/<rock>_<k>.png
+# writes <out_dir>/{mud,sand,granite,granite_cracked}.png and <out_dir>/shards/<rock>_<k>.png
 import bpy, sys, math, os, random, importlib.util
 from mathutils import Vector, Quaternion
 argv = sys.argv[sys.argv.index("--") + 1:]
@@ -204,55 +205,3 @@ if not ONLY or "granite_cracked" in ONLY:
     lit_scene(); MATS = {"granite": rock_mat("granite")}
     pieces = cracked("granite", 11)
     render("granite_cracked", pieces + crumbs("granite", 13), "granite", ref=pieces)
-
-# ---------------------------------------------------------------- gas
-GAS = dict(core=(0.4, 0.85, 0.08), edge=(0.02, 0.12, 0.01))   # a toxic yellow-green, glowing at its heart
-
-def gas_mat():
-    """soft, glowing puffs: bright in the middle of each, thinning out to nothing at its rim"""
-    m = bpy.data.materials.new("gas"); m.use_nodes = True
-    n = m.node_tree; L = n.links; nd = n.nodes.new
-    out = n.nodes["Material Output"]; n.nodes.remove(n.nodes["Principled BSDF"])
-    lw = nd("ShaderNodeLayerWeight"); lw.inputs["Blend"].default_value = 0.55
-    face = nd("ShaderNodeMath"); face.operation = 'SUBTRACT'; face.inputs[0].default_value = 1.0
-    L.new(lw.outputs["Facing"], face.inputs[1])
-    nz = nd("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 4.0; nz.inputs["Detail"].default_value = 8; nz.inputs["Distortion"].default_value = 2.5
-    wisp = nd("ShaderNodeMath"); wisp.operation = 'MULTIPLY'
-    L.new(face.outputs[0], wisp.inputs[0]); L.new(nz.outputs["Fac"], wisp.inputs[1])
-    ramp = nd("ShaderNodeValToRGB"); cr = ramp.color_ramp
-    cr.elements[0].position = 0.08; cr.elements[0].color = (*GAS["edge"], 1)
-    cr.elements[1].position = 0.7; cr.elements[1].color = (*GAS["core"], 1)
-    L.new(wisp.outputs[0], ramp.inputs["Fac"])
-    em = nd("ShaderNodeEmission"); em.inputs["Strength"].default_value = 0.9
-    L.new(ramp.outputs[0], em.inputs["Color"])
-    tr = nd("ShaderNodeBsdfTransparent")
-    a = nd("ShaderNodeMapRange"); a.inputs["From Min"].default_value = 0.08; a.inputs["From Max"].default_value = 0.5; a.inputs["To Max"].default_value = 0.8
-    L.new(wisp.outputs[0], a.inputs["Value"])
-    mx = nd("ShaderNodeMixShader")
-    L.new(a.outputs[0], mx.inputs[0]); L.new(tr.outputs[0], mx.inputs[1]); L.new(em.outputs[0], mx.inputs[2])
-    L.new(mx.outputs[0], out.inputs["Surface"])
-    return m
-
-def gas():
-    rnd = random.Random(17)
-    gm = gas_mat()
-    objs = []
-    for k in range(9):
-        a = k / 9 * math.tau + rnd.uniform(-0.3, 0.3)
-        rr = 0.0 if k == 0 else rnd.uniform(0.15, 0.27)
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=rnd.uniform(0.16, 0.24) * (1.25 if k == 0 else 1.0),
-                                             location=(math.cos(a) * rr, rnd.uniform(-0.1, 0.1), math.sin(a) * rr * 0.85))
-        o = bpy.context.object; bpy.ops.object.shade_smooth()
-        o.data.materials.append(gm)
-        objs.append(o)
-    return objs
-
-if not ONLY or "gas" in ONLY:
-    lit_scene()
-    bpy.context.scene.cycles.transparent_max_bounces = 64
-    objs = gas()
-    bpy.context.view_layer.update()
-    size_up(objs)
-    bpy.context.scene.render.filepath = os.path.join(OUT, "gas.png")
-    bpy.ops.render.render(write_still=True)
-    print("BLOCK gas")

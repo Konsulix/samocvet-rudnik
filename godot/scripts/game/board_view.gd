@@ -14,6 +14,7 @@ var TS := 46.0
 var PAD := 6.0
 var nodes := {}               # gem id -> GemNode
 var under: Node2D            # mud and rocks: redrawn only when the board changes
+var gas_layer: Node2D        # the gas, one shader over all its cells (shaders/gas.gdshader)
 var live: Node2D             # gas, geodes, the find: they breathe, pulse and shake, so redrawn every frame while present
 var gems: Node2D
 var over: Node2D             # timber locks sit on top of their stones
@@ -33,6 +34,10 @@ func _init() -> void:
 
 func _ready() -> void:
 	under = _layer(_draw_under)
+	gas_layer = _layer(_draw_gas)
+	var gm := ShaderMaterial.new()
+	gm.shader = preload("res://shaders/gas.gdshader")
+	gas_layer.material = gm
 	live = _layer(_draw_live)
 	gems = Node2D.new()
 	gems.light_mask = 0
@@ -204,6 +209,7 @@ func _draw() -> void:
 ## the layers under the stones changed (a rock cracked, mud cleared, a geode or the find was hit)
 func redraw_under() -> void:
 	under.queue_redraw()
+	gas_layer.queue_redraw()
 	live.queue_redraw()
 
 func _draw_under(ci: Node2D) -> void:
@@ -224,6 +230,28 @@ func _draw_under(ci: Node2D) -> void:
 
 const ROCKS := ["rock0", "rock1", "rock2"]
 
+static var _white: Texture2D
+
+## every gas cell as a quad a little larger than the cell, its colour telling the shader which neighbours are gas
+## too, so neighbouring pockets join into tunnels (only with the new gem sets; the old ones keep their sprite)
+func _draw_gas(ci: Node2D) -> void:
+	if model == null or BoardSprites.gem_style == "": return
+	if _white == null:
+		var im := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		im.fill(Color.WHITE)
+		_white = ImageTexture.create_from_image(im)
+	var over := 1.3
+	(ci.material as ShaderMaterial).set_shader_parameter("cell_px", TS)
+	(ci.material as ShaderMaterial).set_shader_parameter("overhang", over)
+	var gas := func(r: int, c: int) -> bool: return model.playable(r, c) and model.GAS[r][c] > 0
+	for r in R:
+		for c in C:
+			if not gas.call(r, c): continue
+			var m := (1 if gas.call(r, c - 1) else 0) + (2 if gas.call(r, c + 1) else 0) + (4 if gas.call(r - 1, c) else 0) + (8 if gas.call(r + 1, c) else 0)
+			var ctr := cell_center(r, c)
+			var half := TS * 0.5 * over
+			ci.draw_texture_rect(_white, Rect2(ctr - Vector2(half, half), Vector2(half, half) * 2.0), false, Color(m / 15.0, 0, 0, 1))
+
 ## granite (two hits), granite split by the first hit, or sandstone (one hit)
 func _rock_look(r: int, c: int) -> String:
 	if model.ROCK_MAX[r][c] >= 2:
@@ -237,16 +265,7 @@ func _draw_live(ci: Node2D) -> void:
 		for c in C:
 			if not model.playable(r, c): continue
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
-			if model.GAS[r][c] and BoardSprites.gem_style != "":
-				# the cloud churns: two layers of it turning against each other, breathing in and out
-				var gt := BoardSprites.blocker("gas")
-				var ctr := p + Vector2(TS, TS) * 0.5
-				for k in 2:
-					var sgn := 1.0 if k == 0 else -1.0
-					var w2 := 1.0 + sin(now * (1.7 + k * 0.6) + r * 1.3 + c) * 0.05
-					ci.draw_set_transform(ctr, sgn * now * (0.35 + k * 0.2) + r + c * 2.0, Vector2(w2, w2))
-					BoardSprites.draw(ci, gt, Vector2.ZERO, TS, Color(1, 1, 1, 0.85 if k == 0 else 0.55))
-			elif model.GAS[r][c]:
+			if model.GAS[r][c] and BoardSprites.gem_style == "":
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
 				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)
