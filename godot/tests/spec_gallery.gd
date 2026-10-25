@@ -91,6 +91,7 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var list: Array = SETS[int(args.get("set", "0"))]
+	if args.has("only"): list = [list[int(args.only)]]  # one specimen, e.g. for the app icon: -- set=11 only=1 clean
 	var cols := int(args.get("cols", "4"))
 	var px := int(args.get("px", "280"))
 	var t0 := Time.get_ticks_msec()
@@ -100,7 +101,7 @@ func _ready() -> void:
 		v.size = Vector2(px, px)
 		v.still = args.has("still")
 		add_child(v)
-		if list[i].has("fx"):
+		if list[i].has("fx") and not args.has("clean"):
 			var l := Label.new()
 			l.text = SpecLegend.FX_N.get(list[i].fx, list[i].fx)
 			l.position = v.position + Vector2(10, 8)

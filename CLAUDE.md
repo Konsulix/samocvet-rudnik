@@ -172,6 +172,8 @@
   грязь из blockers_kit, жеода и находка — блоки из zones, находка своей формы `BoardSprites.find_shape`); газ — живой
   шейдер поля (`Level.gas_icon`), в полёте — статичный клуб. Жетон ходов рисуется кругом сам, по центру строки.
   Не проверено на iPhone (газ-иконка — свой шейдер, не plain_material).
+- 25.10, иконка приложения (`godot/icon.png`, она же для iOS): рубин в скале с золотыми жилами, нарисована GPT
+  (Codex `$imagegen`) по листу наших фишек. Витрина умеет один образец крупно: `spec_gallery -- set=11 only=1 clean`.
 - Перевести в мраморный стиль: окна (победа/поражение/раскрытие находки — `autoload/overlay.gd`, `screens/reveal.gd`),
   главный экран (`screens/home.gd`, `mine_scene.gd`), депо, музей; эффекты взрывов (`game/fx_layer.gd`).
 - Старое (можно удалять со временем): `board3d.gd`, `gem_cut.gd`, `piece_form.gd`, `board_gem/board_piece.gdshader`,
