@@ -153,9 +153,9 @@ static func _inside_rock(point: Vector3, rock: TriangleMesh) -> bool:
 	return false
 
 ## does this stone grow mushrooms, and which kind (-1: none). Its own random stream, not the genome's.
-static func roll(seed_v: int) -> int:
+static func roll(seed_v: int, chance := 0.14) -> int:
 	var r := Rng32.new((seed_v * 2654435 + 4093) % 4294967296)
-	if r.next() > 0.14:
+	if r.next() > chance:
 		return -1
 	return int(Stones.pick_w([[0, 3.0], [1, 2.5], [2, 2.0], [3, 1.4]], r))
 

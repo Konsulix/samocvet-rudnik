@@ -421,7 +421,8 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		geo.hp -= 1
 		_fx(t, "geo_hit", {gi = gi, hp = geo.hp})
 		if geo.hp <= 0:
-			# The empty shell remains an occupied 2x2 obstacle after collection.
+			# Collected geodes release all four cells; ruined minerals still keep their shell.
+			for d in QUAD: GEOC[geo.r + d.x][geo.c + d.y] = -1
 			_goal_hit("geo", -1, geo.r + 0.5, geo.c + 0.5, t)
 			bonus.append(Stones.roll(Save.next_uid(), Save.area(), 0.5 + depth * 0.35, depth))
 			_fx(t, "geo_open", {gi = gi, r = geo.r, c = geo.c})

@@ -68,7 +68,7 @@ func _ready() -> void:
 	check(m.bonus.size() == 1, "Geodes must award exactly one undamaged reward")
 	m.collapse()
 	for d in BoardModel.QUAD:
-		check(not m.open(3 + d.x, 3 + d.y) and m.G[3 + d.x][3 + d.y] == null, "The collected geode must remain an occupied shell")
+		check(m.open(3 + d.x, 3 + d.y) and m.G[3 + d.x][3 + d.y] != null, "Collected geodes must release all four cells for falling gems")
 	m.run_blast(ev)
 	check(m.geos[0].hp == 0 and m.bonus.size() == 1, "Repeated hits must not collect a shell again")
 	# With another geode outstanding, drills must ignore the completed shell.
@@ -79,6 +79,7 @@ func _ready() -> void:
 	var view := BoardView.new()
 	add_child(view)
 	view.animate_deposit("mineral", 0, 3, -1)
+	view.animate_deposit("geode", 0, 3, -1)
 	check(view.deposit_transitions.has("mineral:0"), "Successful extraction must keep its outgoing sprite during the transition")
 	await get_tree().create_timer(BoardView.DEPOSIT_TRANSITION + 0.1).timeout
 	check(view.deposit_transitions.is_empty(), "Completed transitions must remove their outgoing sprite")

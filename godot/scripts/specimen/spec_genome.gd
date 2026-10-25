@@ -76,6 +76,16 @@ static func of(o: Dictionary) -> Dictionary:
 	for k in int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 3.0], [3, 1.2]], rng)):
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
+	# Enrich new rewards on an independent stream; legacy recipes keep every RNG draw.
+	var rich := int(o.get("gene_version", 1)) >= 2
+	if rich:
+		var extra_rng := Rng32.new(seed_v * 48611 + 271)
+		var target := 2 if extra_rng.next() < 0.5 else 3
+		var remaining := apool.filter(func(entry): return entry[0] not in acc)
+		while acc.size() < target and not remaining.is_empty():
+			var accent: String = Stones.pick_w(remaining, extra_rng)
+			acc.append(accent)
+			remaining = remaining.filter(func(entry): return entry[0] != accent)
 	var palette := {
 		pompom = int(rng.next() * SpecAccents.POMPOM.size()),
 		straw = int(rng.next() * SpecAccents.STRAW.size()),
@@ -99,7 +109,7 @@ static func of(o: Dictionary) -> Dictionary:
 	fx = o.get("fx", fx)
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
-	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
+	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v, 0.45 if rich else 0.14))
 	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid"]) and not "mushrooms" in acc:
 		acc.append("mushrooms")
 	else:

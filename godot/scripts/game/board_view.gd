@@ -321,7 +321,8 @@ func _draw_live(ci: Node2D) -> void:
 		BoardSprites.draw(ci, BoardSprites.tex(transition.before), center, scale_px, Color(1, 1, 1, 1.0 - smoothstep(0.0, 1.0, p)))
 	for gi in model.geos.size():
 		var geo: Dictionary = model.geos[gi]
-		_draw_geode(ci, geo, gi, now)
+		if geo.hp > 0 or deposit_transitions.has("geode:%d" % gi):
+			_draw_geode(ci, geo, gi, now)
 	if not model.find.is_empty() and (not model.find.done or model.find.get("ruined", false) or deposit_transitions.has("mineral:0")):
 		_draw_find(ci, now)
 
@@ -351,7 +352,7 @@ func _draw_geode(ci: Node2D, geo: Dictionary, gi: int, now: float) -> void:
 	var since: float = now - geo_hit_at.get(gi, -10.0)
 	var shake := sin(since * 55.0) * 3.0 if since < 0.22 else 0.0
 	var ctr := Vector2(PAD + (geo.c + 1) * TS + shake, PAD + (geo.r + 1) * TS)
-	var stage := clampi(4 - int(geo.hp), 0, 4)
+	var stage := -1 if geo.hp <= 0 else clampi(4 - int(geo.hp), 0, 3)
 	_draw_deposit(ci, "geode", stage, ctr, "geode:%d" % gi)
 
 func _draw_find(ci: Node2D, now: float) -> void:

@@ -445,7 +445,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			Sfx.play("rock")
 		"geo_hit":
 			board.geo_hit_at[e.gi] = Time.get_ticks_msec() / 1000.0
-			board.animate_deposit("geode", e.gi, 3 - int(e.hp), 4 - int(e.hp))
+			board.animate_deposit("geode", e.gi, 3 - int(e.hp), -1 if e.hp <= 0 else 4 - int(e.hp))
 			Sfx.play("crack", 4 - e.hp)
 			var geo: Dictionary = model.geos[e.gi]
 			fx.debris(geo.r + 0.5, geo.c + 0.5, Color("#9a8a78"), 12)
