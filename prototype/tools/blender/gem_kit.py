@@ -221,7 +221,7 @@ def nat_diamond():
 
 def fac_ruby():
     # an octahedron's hexagonal outline (pointed left and right), seen as a low pyramid looking at us:
-    # six faces running in from the outline to a small plateau in the middle
+    # six faces running in from the outline to a broad flat plateau in the middle
     rnd = random.Random(31)
     pl = [(Vector((0, 0.12, 0)), Vector((0, 1, 0)))]                       # its flat back
     tilt = math.radians(38)                                                  # how steeply the faces rise to the middle
@@ -229,7 +229,7 @@ def fac_ruby():
         a = math.radians(30 + 60 * k) + rnd.uniform(-0.06, 0.06)
         n = Vector((math.cos(a) * math.cos(tilt), -math.sin(tilt), math.sin(a) * math.cos(tilt)))
         pl.append((n * (0.3 * math.cos(tilt) + rnd.uniform(-0.01, 0.01)), n))
-    pl.append((Vector((0, -0.31, 0)), Vector((0, -1, 0))))                  # a small plateau at the tip
+    pl.append((Vector((0, -0.18, 0)), Vector((0, -1, 0))))                  # a broad flat plateau in the middle
     return cut(pl, 31, (0.5, 1.1))
 
 def fac_citrine():
