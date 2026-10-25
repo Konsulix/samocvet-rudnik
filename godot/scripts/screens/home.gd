@@ -173,7 +173,7 @@ func _tick(kind: String, text: String, ok: bool) -> HBoxContainer:
 
 func _play_button() -> Button:
 	var n: int = Save.d.level
-	var def := Data.level_def(n)
+	var def := LevelGen.current(dl_sel())
 	var b := UI.button("", "green", 20)
 	b.custom_minimum_size = Vector2(0, 64)
 	var v := VBoxContainer.new()
@@ -184,7 +184,7 @@ func _play_button() -> Button:
 	var t := UI.label("Level %d" % n, 22, UI.display, Color("#06260f"))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var sub := UI.moves_text(int(def.moves)) + (" · hard" if def.get("hard", false) else "") + (" · streak %d" % Save.d.streak if Save.d.streak >= 2 else "")
+	var sub := UI.moves_text(BoardModel.start_moves(def, dl_sel(), Save.d.eq)) + (" · rich vein!" if def.get("rich", false) else "") + (" · streak %d" % Save.d.streak if Save.d.streak >= 2 else "")
 	var s := UI.label(sub, 12, UI.body_bold, Color(0.02, 0.15, 0.06, 0.8))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(s)
@@ -281,13 +281,28 @@ func _on_play() -> void:
 
 func _level_panel(dl: int, sel: Array) -> void:
 	var n: int = Save.d.level
-	var def := Data.level_def(n)
+	var def := LevelGen.current(dl)
 	var free := Data.streak_free(Save.d.streak)
 	for f in free:
 		if not f in sel: sel.append(f)
 	var v := Ov.card(350)
 	v.add_child(UI.title("Level %d" % n, 24))
-	v.add_child(Ov.text("%s%s · a specimen waits in the rock" % [UI.moves_text(int(def.moves) - dl / 2 + int(Save.d.eq.food)), " · hard" if def.get("hard", false) else ""], 14))
+	if def.get("rich", false):
+		# the rich vein: said before the start, and plain to see on the board
+		var rc := UI.label("Rich vein! Twice the ore stones this time", 14, UI.body_bold, Color("#ffd27a"))
+		rc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var rs := StyleBoxFlat.new()
+		rs.bg_color = Color(0.25, 0.16, 0.02, 0.85)
+		rs.border_color = Color("#e3a51e")
+		rs.set_border_width_all(1)
+		rs.set_corner_radius_all(12)
+		rs.content_margin_top = 6
+		rs.content_margin_bottom = 6
+		rc.add_theme_stylebox_override("normal", rs)
+		v.add_child(rc)
+	if def.get("intro", false):
+		v.add_child(Ov.text("New at this depth: %s" % Data.DMODS[mini(dl, Data.DMODS.size() - 1)], 13, UI.GOLD))
+	v.add_child(Ov.text("%s · a specimen waits in the rock" % UI.moves_text(BoardModel.start_moves(def, dl, Save.d.eq)), 14))
 	# what the level asks for, read from its map
 	var goals := HBoxContainer.new()
 	goals.alignment = BoxContainer.ALIGNMENT_CENTER

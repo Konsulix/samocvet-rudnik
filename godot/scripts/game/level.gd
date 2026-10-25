@@ -29,6 +29,7 @@ var _hinted := false
 var _flights := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
+var rich := false        # a rich vein this time: twice the ore stones
 var find_studio: SpecStudio     # the sealed specimen, turning slowly inside its block
 var find_spec: Node3D
 
@@ -63,11 +64,13 @@ func _ready() -> void:
 
 # ---------------------------------------------------------------- start
 
-func start(n: int, pre: Array = [], dl: int = 0) -> void:
+## level: a generated def (LevelGen), or empty for the hand-made level n
+func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void:
 	var eq: Dictionary = Save.d.eq
 	model = BoardModel.new()
 	model.rng.randomize()
-	model.setup(n, pre, dl, eq, Save.area())
+	model.setup(n, pre, dl, eq, Save.area(), true, level)
+	rich = bool(level.get("rich", false))
 	Save.persist()
 	var vp := get_viewport_rect().size
 	bg.size = vp
@@ -266,7 +269,7 @@ func _build_hud() -> void:
 	hud.add_child(overlay)
 
 func _render_hud() -> void:
-	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · hard" if model.hard else ""]
+	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · hard" if model.hard else ""]
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -791,7 +794,7 @@ func _out_of_moves() -> void:
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()
 			_close_panel()
-			finished.emit({won = false, n = model.n}), true]])
+			finished.emit({won = false, n = model.n, depth = model.depth}), true]])
 
 func _on_quit() -> void:
 	if model.over or busy:
@@ -804,7 +807,7 @@ func _on_quit() -> void:
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()
 			_close_panel()
-			finished.emit({won = false, n = model.n}), true],
+			finished.emit({won = false, n = model.n, depth = model.depth}), true],
 		["Keep playing", "glass", _close_panel, true]])
 
 # ---------------------------------------------------------------- small UI helpers

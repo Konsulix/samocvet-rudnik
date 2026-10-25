@@ -16,13 +16,14 @@ var d: Dictionary
 func blank() -> Dictionary:
 	var b := {
 		ver = VER, level = 1, coins = 400, lives = 5, life_at = 0, area = 0,
-		fe = 0, ore = 0, vein = [], rich = 0,
+		fe = 0, ore = 0, vein = [], rich = 0, lseed = 1 + randi() % 999999, lrich = false, dwins = [],
 		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 	}
 	b.vein = fresh_veins(0)
+	b.dwins = fresh_wins(0)
 	return b
 
 func _init() -> void:
@@ -37,7 +38,7 @@ func _init() -> void:
 				else:
 					d[k] = parsed[k]
 	# JSON brings numbers back as floats; the game counts in whole numbers
-	for k in ["ver", "level", "coins", "lives", "life_at", "area", "fe", "ore", "rich", "streak", "uid", "lab"]:
+	for k in ["ver", "level", "coins", "lives", "life_at", "area", "fe", "ore", "rich", "lseed", "streak", "uid", "lab"]:
 		d[k] = int(d[k])
 	for k in ["boost", "pre", "eq"]:
 		for kk in d[k]:
@@ -45,6 +46,8 @@ func _init() -> void:
 	for k in ["depth", "depth_sel"]:
 		for i in d[k].size():
 			d[k][i] = int(d[k][i])
+	for i in d.dwins.size():
+		d.dwins[i] = int(d.dwins[i])
 	for v in d.vein:
 		for i in v.size():
 			v[i] = int(v[i])
@@ -112,8 +115,24 @@ func open_mine(a: int) -> int:
 	d.ore = 0
 	d.area = a
 	d.vein = fresh_veins(a)
+	d.dwins = fresh_wins(a)
 	d.rich = 0
+	d.lrich = false
 	return sold
+
+func fresh_wins(a: int) -> Array:
+	var out := []
+	for D in Data.depths(a): out.append(0)
+	return out
+
+## a level played to its end, won or not: the next one is a new one; now and then it is rich — about one in five or
+## six, the chance growing with every plain level (none for the first three, certain by the eighth)
+func level_played(won: bool, dl: int) -> void:
+	if won and dl < d.dwins.size():
+		d.dwins[dl] += 1
+	d.rich = 0 if d.lrich else d.rich + 1
+	d.lrich = randf() < clampf((d.rich - 3) / 4.0, 0.0, 1.0)
+	d.lseed = 1 + randi() % 999999
 
 func has_jewel(rid: String) -> bool:
 	for j in d.jewels:

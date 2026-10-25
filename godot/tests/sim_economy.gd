@@ -6,10 +6,10 @@ extends RefCounted
 ## The player: fires a special when it has one (70%), otherwise a random legal swap — an average player,
 ## not a perfect one.
 
-static func play(n: int, dl: int, seed_v: int) -> Dictionary:
+static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}) -> Dictionary:
 	var m := BoardModel.new()
 	m.rng.seed = seed_v
-	m.setup(n, [], dl, Save.d.eq, 0)
+	m.setup(n, [], dl, Save.d.eq, 0, true, level)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 7 + 1
 	var broken := [0, 0, 0, 0, 0, 0]
@@ -41,7 +41,7 @@ static func play(n: int, dl: int, seed_v: int) -> Dictionary:
 		m.gas_spread()
 		if m.moves <= 0:
 			break
-	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate()}
+	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves)}
 
 static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 	var specials := []
@@ -113,6 +113,35 @@ static func report(per_depth: int) -> String:
 			all += tot[k]
 		lines.append("%d | %d | %.0f | %.1f | %s | %.0f | %.1f | %.1f, %.1f" % [dl, per_depth, 100.0 * wins / per_depth, used / float(per_depth),
 			" ".join(per), all / float(per_depth), c0_win / maxf(1.0, wins), ore_win[0] / maxf(1.0, wins), ore_win[1] / maxf(1.0, wins)])
+	return "\n".join(lines)
+
+## generated levels (LevelGen) at every depth of the first mine: how often the autoplayer wins, the moves given and
+## used, ore per win. The moves formula in LevelGen is tuned on this.
+static func gen_report(per_depth: int) -> String:
+	var lines := PackedStringArray(["depth | levels | win% | moves given | moves used | per win: iron, own ore | intro win%"])
+	for dl in Data.depths(0).size():
+		var wins := 0
+		var given := 0
+		var used := 0
+		var ore := [0, 0]
+		var iw := 0
+		var ii := 0
+		for i in per_depth:
+			var def := LevelGen.make(0, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0)
+			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def)
+			given += int(def.moves)
+			if OS.get_cmdline_user_args().has("sim_rows"):
+				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, count = def.count, won = r.won, used = r.used}))
+			used += int(r.used)
+			if def.intro:
+				ii += 1
+				if r.won: iw += 1
+			if r.won:
+				wins += 1
+				ore[0] += int(r.mined.iron)
+				ore[1] += int(r.mined.ore)
+		lines.append("%d | %d | %.0f | %.1f | %.1f | %.1f, %.1f | %s" % [dl, per_depth, 100.0 * wins / per_depth, given / float(per_depth),
+			used / float(per_depth), ore[0] / maxf(1.0, wins), ore[1] / maxf(1.0, wins), ("%d/%d" % [iw, ii]) if ii else "-"])
 	return "\n".join(lines)
 
 ## what minerals bring in: how often a level has a sealed find and geodes, and what those stones sell for.

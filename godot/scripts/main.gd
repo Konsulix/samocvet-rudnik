@@ -21,6 +21,8 @@ func _ready() -> void:
 	if args.has("ore_look"): BoardSprites.ore_look = args.ore_look
 	if args.has("locks"): BoardSprites.lock_style = args.locks
 	if args.has("zones"): BoardSprites.zone_style = args.zones
+	if args.has("rich"): Save.d.lrich = true
+	if args.has("lseed"): Save.d.lseed = int(args.lseed)
 	if args.has("fe"): Save.d.fe = int(args.fe)
 	if args.has("au"): Save.d.ore = int(args.au)
 	if args.has("built"):
@@ -41,7 +43,8 @@ func _ready() -> void:
 	if args.has("screen"):
 		go(args.screen)
 	elif args.has("level"):
-		show_level(int(args.level), [], int(args.get("depth", "0")))
+		var dl := int(args.get("depth", "0"))
+		show_level(int(args.level), [], dl, LevelGen.current(dl) if args.has("gen") else {})
 	else:
 		_boot()
 	if args.has("ui"):
@@ -66,11 +69,15 @@ func _ready() -> void:
 		# enter=SECONDS: open the current level from the home screen after a while, as a tap on Play would
 		await get_tree().create_timer(float(args.enter)).timeout
 		print("enter level")
-		show_level(Save.d.level, [], 0)
+		show_level(Save.d.level, [], 0, LevelGen.current(0))
 	if args.has("sim_min"):
 		print(SimEconomy.minerals(int(args.sim_min)))
 		get_tree().quit()
 		return
+	if args.has("sim_gen"):
+		# sim_gen=N: N generated levels per depth played inside the board model: wins, moves, ore (tests/sim_economy.gd)
+		print(SimEconomy.gen_report(int(args.sim_gen)))
+		get_tree().quit()
 	if args.has("sim"):
 		# sim=N: N levels per depth played inside the board model, stones broken per colour (tests/sim_economy.gd)
 		print(SimEconomy.report(int(args.sim)))
@@ -163,7 +170,7 @@ func _boot() -> void:
 func show_home() -> void:
 	var h := Home.new()
 	_swap(h)
-	h.play.connect(func(n: int, pre: Array, dl: int): show_level(n, pre, dl))
+	h.play.connect(func(n: int, pre: Array, dl: int): show_level(n, pre, dl, LevelGen.current(dl)))
 	h.go.connect(go)
 
 func go(id: String) -> void:
@@ -178,11 +185,11 @@ func go(id: String) -> void:
 			_swap(m)
 			m.go.connect(go)
 
-func show_level(n: int, pre: Array, dl: int) -> void:
+func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 	var lv := Level.new()
 	_swap(lv)
 	lv.finished.connect(_on_level_finished)
-	lv.start(n, pre, dl)
+	lv.start(n, pre, dl, level)
 	if args.has("specials"):
 		# for a look: one of each special on the second row
 		var row := 1
@@ -212,6 +219,8 @@ func show_level(n: int, pre: Array, dl: int) -> void:
 		lv._win()
 
 func _on_level_finished(res: Dictionary) -> void:
+	Save.level_played(res.won, int(res.get("depth", 0)))
+	Save.persist()
 	if res.won:
 		if not res.stone.is_empty():
 			var rv := Reveal.new()

@@ -1036,20 +1036,20 @@
   }
  ],
  "DMODS": [
-  "ordinary board",
-  "sandstone hardens into granite",
-  "gas on the board, fewer moves",
-  "timber supports on the stones",
-  "a sixth stone colour",
-  "more gas and timber, fewer moves"
+  "sand and mud",
+  "granite: hard rock, two hits each",
+  "more granite",
+  "gas: it spreads if left alone",
+  "more gas, fewer moves",
+  "timber supports pinning the stones"
  ],
  "DSHORT": [
   "",
   "granite",
+  "more granite",
   "gas",
-  "supports",
-  "6 colours",
-  "tighter"
+  "more gas",
+  "timber"
  ],
  "EQUIP": [
   {

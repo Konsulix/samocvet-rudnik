@@ -55,8 +55,8 @@ var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, ston
 var ore_col := {}    # colour -> "iron" | "ore"
 var ore_p := {}      # kind -> chance a new stone of its colour is ore-bearing
 var mined := {iron = 0, ore = 0}
-## a stone of an ore colour holds ore about one time in 2.5; a vein worked down to its last tenth, a third as often
-const ORE_P := 0.4
+## a stone of an ore colour holds ore about one time in 3 (~12 of each ore a win); a vein worked down to its last tenth, a third as often
+const ORE_P := 0.33
 const ORE_POOR := 1.0 / 3.0
 ## the shapes a find comes sealed in, [w, h, weight]
 const FIND_SHAPES := [[2, 2, 4.0], [2, 1, 2.0], [1, 2, 2.0], [3, 1, 1.0], [1, 3, 1.0]]
@@ -117,22 +117,28 @@ func set_ore(area: int, dl: int, vein: Array, rich := false) -> void:
 		var p := ORE_P * (ORE_POOR if left <= vein_floor(stock) else 2.0 if rich else 1.0)
 		ore_p[kind] = p
 
+## the moves a level starts with: a generated level has them counted for its depth already
+static func start_moves(def: Dictionary, dl: int, eq: Dictionary) -> int:
+	return int(def.moves) - (0 if def.get("gen", false) else dl / 2) + int(eq.get("food", 0))
+
 ## the part of a vein that never runs out
 static func vein_floor(stock: int) -> int:
 	return int(ceil(stock * 0.1))
 
-## level n at depth dl; pre: specials bought before the level; eq: {lift, vent, food}
-func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area: int = 0, roll_find := true) -> void:
-	var def: Dictionary = Data.level_def(level_n)
+## level n at depth dl; pre: specials bought before the level; eq: {lift, vent, food};
+## level: a def made by LevelGen (empty: the hand-made level n, hardened by depth the old way)
+func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area: int = 0, roll_find := true, level: Dictionary = {}) -> void:
+	var def: Dictionary = level if not level.is_empty() else Data.level_def(level_n)
+	var gen := bool(def.get("gen", false))
 	n = level_n
 	depth = dl
 	var vein: Array = Save.d.vein[dl] if area == Save.area() and dl < Save.d.vein.size() else []
-	set_ore(area, dl, vein)
+	set_ore(area, dl, vein, bool(def.get("rich", false)))
 	lift = int(eq.get("lift", 0))
 	vent = int(eq.get("vent", 0))
-	moves = int(def.moves) - dl / 2 + int(eq.get("food", 0))
+	moves = start_moves(def, dl, eq)
 	hard = bool(def.get("hard", false))
-	colors = 6 if dl >= 4 else 5
+	colors = int(def.colors) if gen else 6 if dl >= 4 else 5
 	goals = []
 	over = false
 	coins_won = 0
@@ -196,19 +202,19 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			find = {r = s[0], c = s[1], w = fw, h = fh, hp = hp, hp_max = hp, integ = 100, stone = stone, done = false}
 			for p in cells_of(find):
 				FIND[p.x][p.y] = true
-	# the deeper you dig, the harder the board
-	if dl >= 1:
+	# the deeper you dig, the harder the board (a generated level is already made for its depth)
+	if dl >= 1 and not gen:
 		for r in R:
 			for c in C:
 				if ROCK[r][c] == 1:
 					ROCK[r][c] = 2
-	if dl >= 2:
+	if dl >= 2 and not gen:
 		var f := _free_cells()
 		for k in dl + 1:
 			if f.is_empty(): break
 			var p: Vector2i = f.pop_at(rng.randi_range(0, f.size() - 1))
 			GAS[p.x][p.y] = 1
-	if dl >= 3:
+	if dl >= 3 and not gen:
 		var f := _free_cells()
 		for k in dl * 2:
 			if f.is_empty(): break
