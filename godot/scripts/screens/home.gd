@@ -129,6 +129,7 @@ func _tasks_button() -> Button:
 	var a := ai()
 	var st := next_step()
 	var all_done: bool = st.last and st.job_done
+	var boss := _boss_waits()
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, 64)
 	for s in ["normal", "hover", "pressed", "focus"]:
@@ -142,14 +143,14 @@ func _tasks_button() -> Button:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var head := "Mine fitted out" if all_done else "Last depth" if st.last else "Next: %d m" % Data.depth_m(a, int(st.k) + 1)
+	var head := ("Below %d m" % Data.depth_m(a, int(st.k)) if boss else "Mine fitted out") if all_done else "Last depth" if st.last else "Next: %d m" % Data.depth_m(a, int(st.k) + 1)
 	v.add_child(UI.label(head, 11, UI.body_bold, UI.MUTED))
 	# the ticks in one line: job · iron · coins
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if all_done:
-		h.add_child(UI.label("Next mine ›" if a < Data.AREAS.size() - 1 else "✓", 14, UI.body_bold, UI.GOLD))
+		h.add_child(UI.label(("%s ›" % Data.AREAS[a].boss.n) if boss else "Next mine ›" if a < Data.AREAS.size() - 1 else "✓", 14, UI.body_bold, Color("#ff8a70") if boss else UI.GOLD))
 	else:
 		h.add_child(_tick("ore", "✓" if st.job_done else "%d/%d" % [mini(Save.d.ore, int(st.job[2])), int(st.job[2])], st.job_done))
 		if not st.last:
@@ -516,12 +517,31 @@ func _open_next() -> void:
 		v.add_child(dig)
 		if not ok:
 			v.add_child(Ov.text("Iron and %s come from the levels you win: every ore stone you break." % on, 12))
+	elif st.job_done and _boss_waits():
+		var B: Dictionary = Data.AREAS[a].boss
+		v.add_child(Ov.text("Below, at %d m, %s guards the mine. Beat it to go on to the next one." % [int(B.m), B.n], 13, Color("#ffb0a0")))
+		v.add_child(Ov.btn("Fight · %s" % B.n, "red", func(): _fight_boss()))
 	elif st.job_done and a < Data.AREAS.size() - 1:
 		v.add_child(_next_mine_btn(a))
 	v.add_child(Ov.btn("All jobs", "glass", func():
 		Ov.close()
 		_open_tasks()))
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
+
+## the mine has a boss and it is not beaten yet
+func _boss_waits() -> bool:
+	var a := ai()
+	return Data.AREAS[a].has("boss") and not bool(Save.d.boss_won[a])
+
+## into the fight: a life like any level; the fight sits one below the mine's last depth
+func _fight_boss() -> void:
+	Save.tick_lives()
+	if Save.d.lives <= 0:
+		Ov.close()
+		_on_play()
+		return
+	Ov.close()
+	play.emit(Save.d.level, [], Data.depths(ai()).size())
 
 ## one line of the checklist: badge, what, how far along, a tick (or a button doing it)
 func _need_row(kind: String, what: String, sub: String, ok: bool, action: Button) -> PanelContainer:
@@ -621,7 +641,9 @@ func _build(tid: String, i: int) -> void:
 		Save.persist()
 		render()
 		var btns := []
-		if a < Data.AREAS.size() - 1:
+		if _boss_waits():
+			btns.append(["Fight · %s" % A.boss.n, "red", func(): _fight_boss()])
+		elif a < Data.AREAS.size() - 1:
 			var cost: Array = A.next
 			btns.append(["Open: %s · %d iron + %s" % [Data.AREAS[a + 1].n, int(cost[0]), UI.coins(int(cost[1]))], "green", func():
 				if Save.d.fe < int(cost[0]) or Save.d.coins < int(cost[1]): return

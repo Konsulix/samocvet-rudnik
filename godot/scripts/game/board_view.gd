@@ -18,6 +18,7 @@ var gas_layer: Node2D        # the gas, one shader over all its cells (shaders/g
 var live: Node2D             # gas, geodes, the find: they breathe, pulse and shake, so redrawn every frame while present
 var gems: Node2D
 var over: Node2D             # timber locks sit on top of their stones
+var marks: Array = []        # cells the boss is about to hit (LevelBoss)
 var board3d: Board3D         # the stones themselves, faceted 3D gems seen from straight above
 var find_tex: Texture2D       # the sealed specimen, rendered in 3D when available
 var find_hit_at := -10.0
@@ -318,6 +319,10 @@ func _draw_over(ci: Node2D) -> void:
 			if model.playable(r, c) and model.LOCK[r][c]:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	for p: Vector2i in marks:
+		var at := cell_center(p.x, p.y) - Vector2(TS, TS) * 0.46
+		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(1.0, 0.25, 0.15, 0.22))
+		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(1.0, 0.35, 0.2, 0.95), false, maxf(2.0, TS * 0.06))
 
 static func crack_paths(seed_v: int, count: int) -> Array:
 	var rand := Rng32.new(seed_v)

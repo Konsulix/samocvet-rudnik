@@ -82,6 +82,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	booster = ""
 	hint_label.text = ""
 	await board.drop_in()
+	if model.boss_on(): LevelBoss.start(self)
 	busy = false
 	idle = 0.0
 
@@ -202,9 +203,11 @@ func _build_hud() -> void:
 	var rule_wrap := MarginContainer.new()
 	for side in ["left", "right"]: rule_wrap.add_theme_constant_override("margin_" + side, 10)
 	rule_wrap.add_child(rule)
+	rule_wrap.name = "OreRule"
 	plate.add_child(rule_wrap)
 	# under them, the ore mined so far, each with what is left in the depth's vein in small grey
 	var ores := HBoxContainer.new()
+	ores.name = "Ores"
 	ores.add_theme_constant_override("separation", 0)
 	for kind in ["iron", "ore"]:
 		var cell := CenterContainer.new()
@@ -278,6 +281,11 @@ func _build_hud() -> void:
 
 func _render_hud() -> void:
 	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · hard" if model.hard else ""]
+	if model.boss_on():
+		title_label.text = "%s · %d m · board %d/3" % [model.boss.B.n, int(model.boss.B.m), int(model.boss.stage) + 1]
+	# no ore is mined at the boss
+	for nm in ["Ores", "OreRule"]:
+		(hud.find_child(nm, true, false) as Control).visible = not model.boss_on()
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -350,7 +358,10 @@ static func vein_after(dl: int, i: int, taken: int) -> int:
 func _render_goal(i: int) -> void:
 	var gb: Dictionary = goal_boxes[i]
 	var g: Dictionary = model.goals[i]
-	if g.k == "find":
+	if g.k == "boss":
+		gb.label.text = "%d" % int(g.left)
+		gb.label.add_theme_color_override("font_color", Color("#b0242c"))
+	elif g.k == "find":
 		gb.label.text = ("✓ %d%%" if model.find.done else "%d%%") % model.find.integ
 		gb.label.add_theme_color_override("font_color", UI.GOOD if model.find.done else UI.INK)
 	else:
@@ -646,6 +657,9 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				tw.tween_property(box, "scale", Vector2(1.08, 1.08), 0.07)
 				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("coin"))
+		"boss_hit":
+			LevelBoss.refresh_hp(self)
+			if int(e.dmg) >= 25: fx.pop_text(e.r, e.c, "−%d" % int(e.dmg), Color("#ffd27a"))
 		"rocket":
 			fx.rocket(e.sp, e.r, e.c)
 			Sfx.play("rocket")
@@ -685,6 +699,12 @@ func _after_turn() -> void:
 		await _finale()
 		_win()
 		return
+	if model.boss_on():
+		var stage_was: int = int(model.boss.stage)
+		await LevelBoss.after_turn(self)
+		if int(model.boss.stage) != stage_was:
+			busy = false
+			return
 	var p := model.gas_spread()
 	if p.x >= 0:
 		board.remove_node(_gem_id_at_removed(p))
@@ -748,6 +768,8 @@ func _use_booster(r: int, c: int) -> void:
 		await _finale()
 		_win()
 		return
+	if model.boss_stage_clear():
+		await LevelBoss.next_board(self)
 	busy = false
 
 func _buy_booster(bo: Dictionary) -> void:
@@ -787,7 +809,13 @@ func _win() -> void:
 	Sfx.buzz(80)
 	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul())
 	Save.d.coins += coins
-	# the ore counts only now, and comes out of the depth's veins
+	# the ore counts only now, and comes out of the depth's veins (none is mined at the boss)
+	if model.boss_on():
+		model.mined = {iron = 0, ore = 0}
+		Save.d.boss_won[Save.area()] = true
+		LevelBoss.line(self, "win")
+		# the reward: a fine stone (9 geodes to choose one from come with the fight's look)
+		model.bonus.append(Stones.roll(Save.next_uid(), Save.area(), 2.5, 4))
 	Save.d.fe += int(model.mined.iron)
 	Save.d.ore += int(model.mined.ore)
 	if model.depth < Save.d.vein.size():
@@ -801,7 +829,7 @@ func _win() -> void:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
 	_confetti()
 	await _wait(0.6)
-	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate()})
+	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate(), boss = model.boss_on()})
 
 func _out_of_moves() -> void:
 	Sfx.play("lose")
@@ -827,7 +855,7 @@ func _out_of_moves() -> void:
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()
 			_close_panel()
-			finished.emit({won = false, n = model.n, depth = model.depth}), true]])
+			finished.emit({won = false, n = model.n, depth = model.depth, boss = model.boss_on()}), true]])
 
 func _on_quit() -> void:
 	if model.over or busy:
@@ -840,7 +868,7 @@ func _on_quit() -> void:
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()
 			_close_panel()
-			finished.emit({won = false, n = model.n, depth = model.depth}), true],
+			finished.emit({won = false, n = model.n, depth = model.depth, boss = model.boss_on()}), true],
 		["Keep playing", "glass", _close_panel, true]])
 
 # ---------------------------------------------------------------- small UI helpers

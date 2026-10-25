@@ -276,7 +276,7 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 				ci.draw_texture_rect(t, Rect2(Vector2(S, S) / 2 - sz / 2, sz), false)
 			else:
 				find_icon(ci, S, glow)
-		"c": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
+		"c", "boss": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
 		"rock":
 			# colour: 0 sandstone, 1 granite, 2 both (granite in front)
 			if BoardSprites.gem_style == "":

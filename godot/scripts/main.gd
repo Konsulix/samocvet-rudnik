@@ -224,6 +224,8 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 
 func _on_level_finished(res: Dictionary) -> void:
 	Save.level_played(res.won, int(res.get("depth", 0)))
+	if res.get("boss", false) and not res.won:
+		Save.d.boss_tries[Save.area()] += 1
 	Save.persist()
 	if res.won:
 		if not res.stone.is_empty():
@@ -242,7 +244,9 @@ func _win_card(res: Dictionary) -> void:
 	badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(badge)
 	v.add_child(UI.title("Level %d complete!" % res.n, 22))
-	if res.depth:
+	if res.get("boss", false):
+		v.add_child(Ov.text("%s is beaten. The way to the next mine is open." % Data.AREAS[Save.area()].boss.n))
+	elif res.depth:
 		v.add_child(Ov.text("Depth %d m: coins ×%s" % [Data.depth_m(Save.area(), res.depth), str(Data.depth_pay(res.depth))]))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
