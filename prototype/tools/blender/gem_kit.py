@@ -611,31 +611,35 @@ def render(style, name, dark, mid, light, ore=None, mask=False):
 
 # ---------------------------------------------------------------- items on the board
 
-GOLD = ((0.05, 0.03, 0.008), (0.3, 0.18, 0.045), (0.7, 0.48, 0.16))   # dark / mid / light of the gold's paint
+GOLD = ((0.035, 0.02, 0.005), (0.24, 0.14, 0.035), (0.62, 0.42, 0.13))   # dark / mid / light of the gold's paint
 
 def gold_cluster():
     """the gold nugget brought down the board: a ball of chunky gold crystals, each a short rounded prism standing
     out of the ball, big ones in front, small ones packed between, dark crevices round every one"""
     rnd = random.Random(61)
     parts = []
-    for k, u in enumerate(fib(32, rnd, 0.45)):
+    for k, u in enumerate(fib(28, rnd, 0.5)):
         front = max(0.0, -u.y)                             # facing the camera
-        w = rnd.uniform(0.1, 0.125) * (1.0 + 0.3 * front)
+        w = rnd.uniform(0.095, 0.12) * (1.0 + 0.3 * front)
         # a short hexagonal prism, its top flat and its top edges chamfered: a crystal of the reference's shape
-        h = w * rnd.uniform(0.9, 1.25)
+        h = w * rnd.uniform(1.0, 1.35)
         spin = rnd.uniform(0, math.tau)
         pl = ring_planes(6, w, 0, 0.0, spin, rnd, 0.08)
-        pl += ring_planes(6, w * 0.78, h * 0.78, math.radians(45), spin, rnd, 0.1)
+        # a broad flat top, its edge cut by one narrow ring of chamfers
+        pl += ring_planes(6, w * 0.86, h * 0.86, math.radians(45), spin, rnd, 0.06)
         pl.append((Vector((0, 0, h)), Vector((0, 0, 1))))
         pl.append((Vector((0, 0, -h)), Vector((0, 0, -1))))
-        o = cut(pl, 100 + k, (0.4, 1.15))
+        o = cut(pl, 100 + k, (0.85, 1.05))   # one even gold: the lamp, not the paint, sets top against sides
         # its long axis pointing out of the ball, spun at random
-        q = Vector((0, 0, 1)).rotation_difference(u) @ Quaternion(Vector((0, 0, 1)), rnd.uniform(0, math.tau))
+        # leaning well off the outward line, so from the front we see each one's top and sides, not a mosaic of tops
+        axis = (u + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))) * 0.8).normalized()
+        q = Vector((0, 0, 1)).rotation_difference(axis) @ Quaternion(Vector((0, 0, 1)), rnd.uniform(0, math.tau))
         o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = q
-        o.location = u * rnd.uniform(0.23, 0.26)
+        # set in at uneven depths: a lumpy outline, not a smooth ball
+        o.location = u * rnd.uniform(0.22, 0.27)
         parts.append(o)
     # a dark core fills the gaps, so they read as deep crevices
-    core = cut(block_planes(24, 99, 0.25, 0.25, 0.25, 2.0), 99, (0.05, 0.12))
+    core = cut(block_planes(24, 99, 0.22, 0.22, 0.22, 2.0), 99, (0.03, 0.06))
     parts.append(core)
     for o in parts:
         paint_facets(o)
@@ -647,19 +651,21 @@ def render_item(name):
     m = gem_mat(*GOLD)
     p = m.node_tree.nodes["Principled BSDF"]
     # metal, not glass: it reflects the studio, the paint still decides the colour
-    p.inputs["Metallic"].default_value = 0.5
-    p.inputs["Roughness"].default_value = 0.38
+    p.inputs["Metallic"].default_value = 0.25
+    p.inputs["Roughness"].default_value = 0.42
     # lit by the lamp rather than by itself: the crevices between the crystals must go dark
     for ln in list(m.node_tree.links):
         if ln.to_socket == p.inputs["Emission Strength"]: m.node_tree.links.remove(ln)
     p.inputs["Emission Strength"].default_value = 0.04
-    bpy.data.lights["sun"].energy = 3.2
-    bpy.data.worlds["w"].node_tree.nodes["Background"].inputs[1].default_value = 0.3
+    # a high lamp: the crystals' tops catch it, their sides fall into shade
+    sun = bpy.data.objects["sun"]; sun.data.energy = 8.0
+    sun.rotation_euler = Vector((0.55, 0.45, -0.7)).to_track_quat('-Z', 'Y').to_euler()
+    bpy.data.worlds["w"].node_tree.nodes["Background"].inputs[1].default_value = 0.04
     for o in parts:
         o.data.materials.append(m)
     # the same height on the board as a gem
     bpy.context.view_layer.update()
-    k = HEIGHT / 0.66
+    k = HEIGHT / 0.8   # a little smaller than a gem
     for o in parts:
         o.location *= k; o.scale = (k, k, k)
     sc.render.filepath = os.path.join(OUT, "items", name + ".png")
