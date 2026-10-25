@@ -1,28 +1,34 @@
 class_name Hoard
-extends SubViewportContainer
-## The boss's reward: its hoard. A boulder of serpentine with gold veins, the golden serpent coiled round it, nine
-## geodes and a few pyrite cubes grown into the rock. Turn it with a finger, tap a geode to draw it out, crack the
-## one you keep; the other eight stay with the serpent. The Geologist's lens (gear, `lens`) lights the rarity of one
-## geode per level. Hoard.pick(area) opens it on a card and returns the stone chosen.
+extends Control
+## The boss's reward: its hoard. The serpent coiled round a boulder of the mine's rock with gold in its cracks,
+## nine geodes, druses of white quartz and pyrite grown into it — a pixel turntable rendered in Blender
+## (prototype/tools/blender/hoard_kit.py, then art/boss/hoard_px.py onto the bosses' 1 pt grid). Drag to turn it,
+## tap a geode (found through the mask, so one hidden behind the serpent can't be picked), crack the one you keep;
+## the other eight stay with the serpent. The Geologist's lens (gear, `lens`) lights the rarity of one geode per level.
+## Hoard.pick(area) opens it on a card and returns the stone chosen.
 
 signal selected(i: int)
 signal picked(stone: Dictionary)
 
 ## how lucky each of the nine is (Stones.roll): one fine stone, a few good ones, the rest ordinary
 const LUCK := [3.5, 2.6, 2.0, 1.6, 1.3, 1.1, 1.0, 0.9, 0.8]
-const R_GEO := 0.22
+const DIR := "res://assets/boss/%s/"
+## pt of drag per frame; frames a second while it turns by itself
+const DRAG := 7.0
+const IDLE_FPS := 5.0
 
 var stones := []
-var geodes: Array[MeshInstance3D] = []
-var dirs: Array[Vector3] = []
-var lit := {}           # geode index -> its rarity tier, for the ones the lens shows
+var lit := {}           # geode index (0..8) -> its rarity tier, for the ones the lens shows
 var sel := -1
-var pivot := Node3D.new()
-var cam := Camera3D.new()
+var meta := {}
+var tex: Texture2D
+var mask: Image
+var mat := ShaderMaterial.new()
+var frame := 0.0
 var _touched := false
 var _down := false
 var _moved := 0.0
-var _vel := Vector2.ZERO
+var _vel := 0.0
 var _busy := false
 
 ## the card: the hoard turning, a line on the lens, the button; awaits the choice and returns the stone
@@ -32,13 +38,12 @@ static func pick(area: int) -> Dictionary:
 	v.add_child(UI.title("The hoard of %s" % String(B.get("n", "the boss")), 21))
 	v.add_child(Ov.text("Turn it, pick one geode. The rest stay with the serpent.", 13))
 	var h := Hoard.new()
-	h.setup(area)
+	h.setup(area, String(B.get("id", "poloz")))
 	var wrap := CenterContainer.new()
 	wrap.add_child(h)
 	v.add_child(wrap)
 	var lv: int = int(Save.d.eq.get("lens", 0))
-	var info := Ov.text("The Geologist's lens shows %d of them." % lv if lv else "A Geologist's lens (Machines → Gear) would show what lies inside.", 12, UI.GOLD if lv else UI.MUTED)
-	v.add_child(info)
+	v.add_child(Ov.text("The Geologist's lens shows %d of them." % lv if lv else "A Geologist's lens (Machines → Gear) would show what lies inside.", 12, UI.GOLD if lv else UI.MUTED))
 	var btn := Ov.btn("Pick a geode", "gold", func(): h.crack(), false)
 	v.add_child(btn)
 	h.selected.connect(func(i: int):
@@ -47,10 +52,18 @@ static func pick(area: int) -> Dictionary:
 	var st: Dictionary = await h.picked
 	return st
 
-func setup(area: int) -> void:
-	custom_minimum_size = Vector2(320, 320)
-	stretch = true
+func setup(area: int, id: String) -> void:
+	meta = JSON.parse_string(FileAccess.get_file_as_string((DIR % id) + "hoard.json"))
+	tex = load((DIR % id) + "hoard_color.png")
+	var mt: Texture2D = load((DIR % id) + "hoard_mask.png")
+	mask = mt.get_image()
+	var S: int = int(meta.size)
+	custom_minimum_size = Vector2(S, S)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	mat.shader = preload("res://shaders/hoard_pick.gdshader")
+	mat.set_shader_parameter("mask_tex", mt)
+	material = mat
 	for i in LUCK.size():
 		stones.append(Stones.roll(Save.next_uid(), area, LUCK[i], Data.depths(area).size()))
 	stones.shuffle()
@@ -62,119 +75,34 @@ func setup(area: int) -> void:
 		var tmp = order[i]; order[i] = order[j]; order[j] = tmp
 	for k in mini(int(Save.d.eq.get("lens", 0)), stones.size()):
 		lit[order[k]] = int(stones[order[k]].tier)
-	_build(rng)
+	var cols := PackedVector4Array()
+	cols.resize(10)
+	for i in lit:
+		var c := Data.rarity_color(int(lit[i]))
+		cols[i + 1] = Vector4(c.r, c.g, c.b, 1.0)
+	mat.set_shader_parameter("lit", cols)
+	# a soft shadow under it, drawn by a child with the stones' shader (the stock one draws nothing on iPhone)
+	var shadow := Control.new()
+	shadow.show_behind_parent = true
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.material = BoardSprites.plain_material()
+	shadow.draw.connect(func():
+		for k in 6:
+			var w := S * (0.42 - k * 0.04)
+			shadow.draw_colored_polygon(GemArt.ellipse_pts(Vector2(S * 0.5, S * 0.86), w, w * 0.16, 0, 32), Color(0, 0, 0, 0.12)))
+	add_child(shadow)
 
-func _build(rng: RandomNumberGenerator) -> void:
-	var vp := SubViewport.new()
-	vp.own_world_3d = true
-	vp.transparent_bg = true
-	vp.msaa_3d = Viewport.MSAA_4X
-	add_child(vp)
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55, 0.5, 0.45)
-	env.ambient_light_energy = 0.65
-	var we := WorldEnvironment.new()
-	we.environment = env
-	vp.add_child(we)
-	cam.position = Vector3(0, 0, 4.3)
-	cam.fov = 36
-	vp.add_child(cam)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-38, -32, 0)
-	sun.light_energy = 1.35
-	vp.add_child(sun)
-	var fill := OmniLight3D.new()
-	fill.position = Vector3(2.2, -1.2, 2.6)
-	fill.light_color = Color(1.0, 0.75, 0.45)
-	fill.light_energy = 0.7
-	fill.omni_range = 8.0
-	vp.add_child(fill)
-	pivot.rotation = Vector3(0.35, 0.4, 0)
-	vp.add_child(pivot)
-	# the boulder: a hewn, lumpy ball of serpentine
-	var rock := ShaderMaterial.new()
-	rock.shader = preload("res://shaders/hoard_rock.gdshader")
-	SpecUtil.mesh(Geo.icosa(1.0, 3).jitter(0.09, 1.6, int(stones[0].id) % 997), rock, pivot)
-	# the serpent coiled round it, head up: a body of overlapping golden scales, thin at the tail, thick at the neck
-	var coil := []
-	var turns := 1.6
-	var segs := 110
-	for k in segs + 1:
-		var t := k / float(segs)
-		var a := t * TAU * turns
-		var y := lerpf(-0.86, 0.62, t)
-		var rr := sqrt(maxf(0.0, 1.0 - y * y)) * 0.98 + 0.04
-		coil.append(Vector3(cos(a) * rr, y, sin(a) * rr))
-	var gold := SpecMat.make({col = SpecMat.lin(0xd9a032), rough = 0.32, metal = 1.0})
-	var belly := SpecMat.make({col = SpecMat.lin(0x8a5a18), rough = 0.45, metal = 0.8})
-	var scale_geo := Geo.sphere(1.0, 10, 8)
-	for k in coil.size():
-		var t := k / float(segs)
-		var r := lerpf(0.03, 0.105, smoothstep(0.0, 0.85, t))
-		SpecUtil.mesh(scale_geo, belly if k % 7 == 3 else gold, pivot, coil[k]).scale = Vector3.ONE * r
-	# the head lifts off the rock, looking out
-	var tip: Vector3 = coil[-1]
-	var tg: Vector3 = (coil[-1] - coil[-4]).normalized()
-	var up: Vector3 = tip.normalized()
-	var fwd := (tg + up * 0.6).normalized()
-	var neck := tip + up * 0.06
-	var head := SpecUtil.mesh(Geo.sphere(0.15, 18, 12), gold, pivot, neck + fwd * 0.12)
-	head.basis = Basis(SpecUtil.quat_to(Vector3.FORWARD, fwd)).scaled(Vector3(0.95, 0.7, 1.5))
-	var jaw := SpecUtil.mesh(Geo.sphere(0.1, 14, 10), belly, pivot, neck + fwd * 0.2 - up * 0.04)
-	jaw.basis = Basis(SpecUtil.quat_to(Vector3.FORWARD, fwd)).scaled(Vector3(0.9, 0.5, 1.6))
-	var eye := SpecMat.make({col = SpecMat.lin(0x400000), rough = 0.2, emis = SpecMat.lin(0xff3020) * 1.8})
-	var side := fwd.cross(up).normalized()
-	for s in [-1.0, 1.0]:
-		SpecUtil.mesh(Geo.sphere(0.03, 8, 6), eye, pivot, neck + fwd * 0.17 + side * s * 0.085 + up * 0.06)
-	# nine geodes where the coil is not, apart from one another
-	var cand := []
-	var n := 80
-	for i in n:
-		var y := 1.0 - (i + 0.5) / n * 2.0
-		var r := sqrt(1.0 - y * y)
-		var a := i * 2.399963
-		cand.append(Vector3(cos(a) * r, y, sin(a) * r))
-	var near_coil := func(d: Vector3, lim: float) -> bool:
-		for p: Vector3 in coil:
-			if (p - d).length() < lim: return true
-		return false
-	for lim in [0.34, 0.26, 0.18]:
-		for d: Vector3 in cand:
-			if dirs.size() >= stones.size(): break
-			var ok: bool = not near_coil.call(d, lim)
-			for q in dirs:
-				if (q - d).length() < 0.55: ok = false
-			if ok: dirs.append(d)
-	var shell := SpecMat.make({col = SpecMat.lin(0x7d6b58), rough = 0.95})
-	for i in stones.size():
-		var mat: Material = shell
-		if lit.has(i):
-			var rc := Data.rarity_color(int(lit[i]))
-			mat = SpecMat.make({col = SpecMat.lin(0x7d6b58), rough = 0.9, emis = rc.srgb_to_linear() * 0.55})
-			var glow := OmniLight3D.new()
-			glow.light_color = rc
-			glow.light_energy = 1.2
-			glow.omni_range = 0.7
-			glow.position = dirs[i] * 1.3
-			pivot.add_child(glow)
-		var g := SpecUtil.mesh(Geo.icosa(R_GEO, 1).jitter(0.035, 5.0, i * 31 + 7), mat, pivot, dirs[i] * 0.97)
-		g.rotation = Vector3(rng.randf() * TAU, rng.randf() * TAU, 0)
-		geodes.append(g)
-	# a few pyrite cubes grown into the rock
-	var pyrite := SpecMat.make({col = SpecMat.lin(0xb8a060), rough = 0.25, metal = 0.9})
-	var put := 0
-	for d: Vector3 in cand:
-		if put >= 7: break
-		if near_coil.call(d, 0.2) or d in dirs: continue
-		var far := true
-		for q in dirs:
-			if (q - d).length() < 0.4: far = false
-		if not far or rng.randf() < 0.6: continue
-		var c := SpecUtil.mesh(Geo.box(0.11, 0.11, 0.11), pyrite, pivot, d * 1.0)
-		c.rotation = Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)
-		put += 1
+func _n() -> int:
+	return int(meta.frames)
+
+func _cell(f: int) -> Rect2:
+	var S: int = int(meta.size)
+	var cols: int = int(meta.cols)
+	return Rect2((f % cols) * S, (f / cols) * S, S, S)
+
+func _draw() -> void:
+	var S: float = float(meta.size)
+	draw_texture_rect_region(tex, Rect2(0, 0, S, S), _cell(posmod(int(floor(frame)), _n())))
 
 func _gui_input(e: InputEvent) -> void:
 	if _busy: return
@@ -183,72 +111,97 @@ func _gui_input(e: InputEvent) -> void:
 			_down = true
 			_touched = true
 			_moved = 0.0
-			_vel = Vector2.ZERO
+			_vel = 0.0
 		else:
 			_down = false
-			if _moved < 10.0: _pick(e.position)
+			if _moved < 8.0: _pick(e.position)
 		accept_event()
 	elif e is InputEventMouseMotion and _down:
-		var rel: Vector2 = e.relative
-		_moved += rel.length()
-		_vel = rel
-		_turn(rel)
+		var dx: float = e.relative.x
+		_moved += absf(dx) + absf(e.relative.y)
+		_vel = dx
+		frame -= dx / DRAG
+		queue_redraw()
 		accept_event()
 
-func _turn(rel: Vector2) -> void:
-	pivot.rotate(Vector3.UP, rel.x * 0.011)
-	pivot.rotate(Vector3.RIGHT, rel.y * 0.011)
-
 func _process(dt: float) -> void:
+	var was := int(floor(frame))
 	if not _touched:
-		pivot.rotate(Vector3.UP, 0.3 * dt)
-	elif not _down and _vel.length() > 0.05:
+		frame += IDLE_FPS * dt
+	elif not _down and absf(_vel) > 0.2:
 		_vel *= 0.9
-		_turn(_vel)
-	for i in geodes.size():
-		var out := 1.2 if i == sel else 0.97
-		var g := geodes[i]
-		g.position = g.position.lerp(dirs[i] * out, minf(1.0, dt * 10.0))
-		var s := lerpf(g.scale.x, 1.25 if i == sel else 1.0, minf(1.0, dt * 10.0))
-		if not _busy: g.scale = Vector3.ONE * s
+		frame -= _vel / DRAG
+	if int(floor(frame)) != was: queue_redraw()
 
-## the geode under the finger: the nearest one the ray meets on the near side of the boulder
+## the geode under the finger: its number in the mask of the frame on show
 func _pick(at: Vector2) -> void:
-	var o := cam.project_ray_origin(at)
-	var dir := cam.project_ray_normal(at)
-	var best := -1
-	var best_t := INF
-	for i in geodes.size():
-		var c := geodes[i].global_position
-		if (c - pivot.global_position).normalized().dot((cam.global_position - c).normalized()) < 0.05: continue
-		var t := (c - o).dot(dir)
-		if t < 0.0 or t > best_t: continue
-		if (o + dir * t - c).length() < R_GEO * 1.35:
-			best = i
-			best_t = t
-	if best < 0 or best == sel: return
-	sel = best
+	var S: int = int(meta.size)
+	var x := clampi(int(at.x), 0, S - 1)
+	var y := clampi(int(at.y), 0, S - 1)
+	var r := _cell(posmod(int(floor(frame)), _n()))
+	var id := roundi(mask.get_pixel(int(r.position.x) + x, int(r.position.y) + y).r8 / 20.0)
+	if id <= 0 or id > stones.size() or id - 1 == sel: return
+	sel = id - 1
+	mat.set_shader_parameter("sel", id)
 	Sfx.play("click")
 	Sfx.buzz(10)
 	selected.emit(sel)
 
-## the chosen one cracks: it shakes three times and bursts; the stone inside is the reward
+## where the chosen geode is on the frame on show (the middle of its pixels), for the burst
+func _centre() -> Vector2:
+	var S: int = int(meta.size)
+	var r := _cell(posmod(int(floor(frame)), _n()))
+	var sum := Vector2.ZERO
+	var n := 0
+	for y in range(0, S, 2):
+		for x in range(0, S, 2):
+			if roundi(mask.get_pixel(int(r.position.x) + x, int(r.position.y) + y).r8 / 20.0) == sel + 1:
+				sum += Vector2(x, y)
+				n += 1
+	return sum / n if n else Vector2(S, S) * 0.5
+
+## the chosen one cracks: the hoard shakes three times, the geode flares white and bursts in rock chips
 func crack() -> void:
 	if sel < 0 or _busy: return
 	_busy = true
-	var g := geodes[sel]
-	var base := g.position
+	var base := position
 	for k in 3:
 		Sfx.play("crack", k + 1)
 		Sfx.buzz(20)
 		var tw := create_tween()
 		for q in 3:
-			tw.tween_property(g, "position", base + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.03, 0.035)
-		tw.tween_property(g, "position", base, 0.04)
+			tw.tween_property(self, "position", base + Vector2(randf_range(-3, 3), randf_range(-2, 2)), 0.035)
+		tw.tween_property(self, "position", base, 0.04)
+		tw.parallel().tween_method(func(f: float): mat.set_shader_parameter("flash", f), 0.0, 0.25 * (k + 1), 0.15)
 		await tw.finished
-		await get_tree().create_timer(0.18).timeout
+		await get_tree().create_timer(0.16).timeout
 	var tw2 := create_tween()
-	tw2.tween_property(g, "scale", Vector3.ONE * 1.6, 0.12)
-	tw2.tween_property(g, "scale", Vector3.ONE * 0.01, 0.1)
+	tw2.tween_method(func(f: float): mat.set_shader_parameter("flash", f), 0.75, 1.0, 0.1)
 	await tw2.finished
+	_burst(_centre())
+	await get_tree().create_timer(0.45).timeout
 	picked.emit(stones[sel])
+
+func _burst(at: Vector2) -> void:
+	var p := CPUParticles2D.new()
+	p.position = at
+	p.one_shot = true
+	p.explosiveness = 0.95
+	p.amount = 40
+	p.lifetime = 0.7
+	p.direction = Vector2(0, -1)
+	p.spread = 180
+	p.initial_velocity_min = 80
+	p.initial_velocity_max = 220
+	p.gravity = Vector2(0, 600)
+	p.scale_amount_min = 2
+	p.scale_amount_max = 4
+	var g := Gradient.new()
+	g.set_color(0, Color("#fff2c0"))
+	g.add_point(0.4, Color("#c89a5a"))
+	g.set_color(g.get_point_count() - 1, Color("#5a4030"))
+	p.color_initial_ramp = g
+	p.material = BoardSprites.plain_material()
+	add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
