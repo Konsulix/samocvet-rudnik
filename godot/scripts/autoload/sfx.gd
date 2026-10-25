@@ -35,6 +35,7 @@ var _streams := {}
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
 var _music: Array[AudioStreamPlayer] = []
+var _fade: Tween
 var _cur := 0
 var _track := ""
 var _level_i := 0
@@ -100,7 +101,10 @@ func music(track: String) -> void:
 	nw.stream = st
 	nw.volume_db = -40.0
 	nw.play()
+	# a cross-fade still running would stop the player this one starts
+	if _fade and _fade.is_valid(): _fade.kill()
 	var tw := create_tween().set_parallel(true)
+	_fade = tw
 	tw.tween_property(nw, "volume_db", _music_db(), 1.2)
 	tw.tween_property(old, "volume_db", -60.0, 0.9)
 	tw.chain().tween_callback(old.stop)

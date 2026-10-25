@@ -27,6 +27,16 @@ func _ready() -> void:
 	theme.set_stylebox("disabled", "Button", glass(14, 0.4))
 	theme.set_stylebox("panel", "PanelContainer", glass(16))
 	get_tree().root.theme = theme
+	# On iPhone (Metal, baked shaders) whatever the stock canvas shader draws after the first item with a custom
+	# shader in a layer is lost: plates, text, buttons. So nothing is drawn with the stock shader at all: every
+	# canvas item without a material of its own gets the stones' plain one (it draws exactly what the stock one does).
+	get_tree().node_added.connect(_plain)
+
+func _plain(n: Node) -> void:
+	var ci := n as CanvasItem
+	if ci == null or ci.material != null or ci.use_parent_material: return
+	if ci.clip_children != CanvasItem.CLIP_CHILDREN_DISABLED: return
+	ci.material = BoardSprites.plain_material()
 
 ## the screen's unsafe edges in layout units: the Dynamic Island / notch on top, the home indicator below.
 ## Only phones report them; screenshots on a desktop can fake one with the notch=TOP,BOTTOM key.

@@ -168,6 +168,8 @@ func _swap(n: Node) -> void:
 	if screen: screen.queue_free()
 	screen = n
 	add_child(n)
+	# a boss fight has started its own theme while mounting
+	if n is Level and (n as Level).model.boss_on(): return
 	Sfx.music("level" if n is Level else "home")
 
 ## the loading screen over everything; the home screen appears under it as it fades
