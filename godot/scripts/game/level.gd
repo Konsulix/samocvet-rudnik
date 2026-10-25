@@ -444,7 +444,10 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				fx.debris(e.r, e.c, Color.html(Data.GEMS[e.color].c), 6)
 		"rock":
 			board.redraw_under()
-			fx.debris(e.r, e.c, Color("#c89a62") if e.left == 0 else Color("#8a919c"), 10)
+			if BoardSprites.gem_style != "" and e.left == 0:
+				fx.shards(e.r, e.c, "granite" if e.get("granite", false) else "sand", Color("#c89a62"))
+			else:
+				fx.debris(e.r, e.c, Color("#c89a62") if e.left == 0 else Color("#8a919c"), 10)
 			Sfx.play("rock")
 			Sfx.buzz(10)
 		"gas":
@@ -453,7 +456,8 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			Sfx.play("rock")
 		"mud":
 			board.redraw_under()
-			fx.debris(e.r, e.c, Color("#7a5a3a"), 8)
+			if BoardSprites.gem_style != "": fx.shards(e.r, e.c, "mud", Color("#7a4a2a"))
+			else: fx.debris(e.r, e.c, Color("#7a5a3a"), 8)
 		"lock":
 			board.over.queue_redraw()
 			fx.debris(e.r, e.c, Color("#b07a3e"), 10)

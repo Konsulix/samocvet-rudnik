@@ -30,6 +30,7 @@ var rng := RandomNumberGenerator.new()
 var uid := 1
 var G := []
 var ROCK := []
+var ROCK_MAX := []   # how hard each rock started: a granite (2) stays granite, cracked, once hit
 var MUD := []
 var GAS := []
 var LOCK := []
@@ -164,6 +165,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			if f.is_empty(): break
 			var p: Vector2i = f.pop_at(rng.randi_range(0, f.size() - 1))
 			LOCK[p.x][p.y] = 1
+	ROCK_MAX = ROCK.duplicate(true)
 	rocks = 0; gas = 0; locks = 0
 	for r in R:
 		for c in C:
@@ -401,7 +403,7 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_rock_hit[k] = true
 		ROCK[r][c] -= 1
 		_goal_hit("rock", -1, r, c, t)
-		_fx(t, "rock", {r = r, c = c, left = ROCK[r][c]})
+		_fx(t, "rock", {r = r, c = c, left = ROCK[r][c], granite = ROCK_MAX[r][c] >= 2})
 		return
 	if GAS[r][c]:    # gas pops with one hit
 		if kind == "adj" and _rock_hit.has(k): return

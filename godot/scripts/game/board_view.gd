@@ -214,11 +214,21 @@ func _draw_under(ci: Node2D) -> void:
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
 			ci.draw_set_transform(p, 0, Vector2.ONE)
 			var cc := Vector2(TS, TS) * 0.5
+			if BoardSprites.gem_style != "":
+				if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.blocker("mud"), cc, TS)
+				if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.blocker(_rock_look(r, c)), cc, TS)
+				continue
 			if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
 			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex(ROCKS[mini(2, model.ROCK[r][c])]), cc, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 const ROCKS := ["rock0", "rock1", "rock2"]
+
+## granite (two hits), granite split by the first hit, or sandstone (one hit)
+func _rock_look(r: int, c: int) -> String:
+	if model.ROCK_MAX[r][c] >= 2:
+		return "granite" if model.ROCK[r][c] >= 2 else "granite_cracked"
+	return "sand"
 
 func _draw_live(ci: Node2D) -> void:
 	if model == null: return
@@ -227,7 +237,16 @@ func _draw_live(ci: Node2D) -> void:
 		for c in C:
 			if not model.playable(r, c): continue
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
-			if model.GAS[r][c]:
+			if model.GAS[r][c] and BoardSprites.gem_style != "":
+				# the cloud churns: two layers of it turning against each other, breathing in and out
+				var gt := BoardSprites.blocker("gas")
+				var ctr := p + Vector2(TS, TS) * 0.5
+				for k in 2:
+					var sgn := 1.0 if k == 0 else -1.0
+					var w2 := 1.0 + sin(now * (1.7 + k * 0.6) + r * 1.3 + c) * 0.05
+					ci.draw_set_transform(ctr, sgn * now * (0.35 + k * 0.2) + r + c * 2.0, Vector2(w2, w2))
+					BoardSprites.draw(ci, gt, Vector2.ZERO, TS, Color(1, 1, 1, 0.85 if k == 0 else 0.55))
+			elif model.GAS[r][c]:
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
 				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)

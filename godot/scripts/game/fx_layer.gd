@@ -91,6 +91,28 @@ func burst(pos: Vector2, col: Color, amount: int, speed := 160.0, gravity := 520
 	p.emitting = true
 	get_tree().create_timer(p.lifetime + 0.2).timeout.connect(p.queue_free)
 
+## a blocker breaking: its own pieces (blocker_kit.py's shards) burst out, spin and fall away, then the dust
+func shards(r: float, c: float, kind: String, col: Color) -> void:
+	var at := cell(r, c)
+	var ts := board.TS
+	for k in 3:
+		var s := Sprite2D.new()
+		s.texture = BoardSprites.blocker("shards/%s_%d" % [kind, k])
+		s.scale = Vector2.ONE * ts * BoardSprites.SPAN / float(s.texture.get_width())
+		s.position = at
+		s.material = BoardSprites.plain_material()
+		add_child(s)
+		var dir := Vector2.from_angle(-PI / 2 + (k - 1) * 1.1 + randf_range(-0.3, 0.3))
+		var tw := create_tween().set_parallel()
+		var dur := randf_range(0.45, 0.6)
+		tw.tween_property(s, "position:x", at.x + dir.x * ts * 0.9, dur)
+		tw.tween_property(s, "position:y", at.y + dir.y * ts * 0.45 + ts * 0.9, dur).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.tween_property(s, "rotation", randf_range(-2.5, 2.5), dur)
+		tw.tween_property(s, "scale", s.scale * 0.6, dur)
+		tw.tween_property(s, "modulate:a", 0.0, dur * 0.5).set_delay(dur * 0.5)
+		tw.chain().tween_callback(s.queue_free)
+	debris(r, c, col, 6)
+
 func debris(r: float, c: float, col: Color, amount := 10) -> void:
 	burst(cell(r, c), col, amount, 170.0, 620.0, 4.5)
 

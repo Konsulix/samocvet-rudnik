@@ -38,6 +38,13 @@ static func gem_ore(t: int, kind: String) -> Texture2D:
 static func gem_ore_glow(t: int, kind: String) -> Texture2D:
 	return tex(GEMS[t % GEMS.size()] + "_" + kind + "_glow")
 
+## the blockers that go with the gem sets (blocker_kit.py): "" when the cut-stone set is shown
+static func blocker(name: String) -> Texture2D:
+	if gem_style == "": return tex(name)
+	var path := "res://assets/board/blockers_kit/%s.png" % name
+	if not _tex.has(path): _tex[path] = load(path)
+	return _tex[path]
+
 static func gem_path(name: String) -> String:
 	return "res://assets/board/gems/%s.png" % name if gem_style == "" else "res://assets/board/gems_kit/%s/%s.png" % [gem_style, name]
 
