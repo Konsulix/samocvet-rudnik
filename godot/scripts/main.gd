@@ -74,6 +74,10 @@ func _ready() -> void:
 		print(SimEconomy.minerals(int(args.sim_min)))
 		get_tree().quit()
 		return
+	if args.has("sim_boss"):
+		# sim_boss=N: the first mine's boss fought N times by the autoplayer (tests/sim_economy.gd)
+		print(SimEconomy.boss_report(0, int(args.sim_boss)))
+		get_tree().quit()
 	if args.has("sim_gen"):
 		# sim_gen=N: N generated levels per depth played inside the board model: wins, moves, ore (tests/sim_economy.gd)
 		print(SimEconomy.gen_report(int(args.sim_gen)))

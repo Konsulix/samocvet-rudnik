@@ -43,11 +43,21 @@ static func new_kind(dl: int) -> String:
 		if not k in above: return k
 	return ""
 
-## the level waiting at a depth of the current mine
+## the level waiting at a depth of the current mine; one below the last depth: the boss's fight
 static func current(dl: int) -> Dictionary:
+	if dl >= Data.depths(Save.area()).size():
+		return boss_fight(Save.area())
 	var dw: Array = Save.d.dwins
 	var wins: int = int(dw[dl]) if dl < dw.size() else 0
 	return make(Save.area(), dl, int(Save.d.lseed) + dl * 7919, bool(Save.d.lrich) and not _veins_poor(dl), wins)
+
+## the mine's boss fight from its first board, with its health lowered 5% for every fight lost (to 70% at most)
+static func boss_fight(area: int) -> Dictionary:
+	var B: Dictionary = Data.AREAS[area].get("boss", {})
+	if B.is_empty(): return {}
+	var tries: int = int(Save.d.boss_tries[area]) if area < Save.d.boss_tries.size() else 0
+	var hp := roundi(int(B.hp) * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3
+	return BoardModel.boss_level(B, 0, hp)
 
 ## a rich level doubles the ore stones, so it is not handed out on veins worked down to their last tenth
 static func _veins_poor(dl: int) -> bool:

@@ -38,10 +38,17 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}) -> Dictio
 		if m.goals_done():
 			won = true
 			break
+		if m.boss_stage_clear():
+			m.next_stage()
+			continue
 		m.gas_spread()
+		if m.boss_on():
+			m.boss_turn()
+			if not m.has_moves(): m.shuffle()
 		if m.moves <= 0:
 			break
-	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves)}
+	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves),
+		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0}
 
 static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 	var specials := []
@@ -113,6 +120,29 @@ static func report(per_depth: int) -> String:
 			all += tot[k]
 		lines.append("%d | %d | %.0f | %.1f | %s | %.0f | %.1f | %.1f, %.1f" % [dl, per_depth, 100.0 * wins / per_depth, used / float(per_depth),
 			" ".join(per), all / float(per_depth), c0_win / maxf(1.0, wins), ore_win[0] / maxf(1.0, wins), ore_win[1] / maxf(1.0, wins)])
+	return "\n".join(lines)
+
+## the boss fight of mine `area` played N times by the autoplayer, at full health and at each 5% step lower
+## (one more lost fight each): wins, the board it got to, the health left
+static func boss_report(area: int, n: int) -> String:
+	var B: Dictionary = Data.AREAS[area].boss
+	var lines := PackedStringArray(["%s: hp %d, moves %d (+%d a board) | lost before | win%% | board reached 1/2/3 | hp left when lost | moves used when won" % [B.n, int(B.hp), int(B.moves), int(B.stage_moves)]])
+	for tries in [0, 2, 4, 6]:
+		var hp := roundi(int(B.hp) * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3
+		var wins := 0
+		var reach := [0, 0, 0]
+		var hp_left := 0
+		var used := 0
+		for i in n:
+			var r := play(1, 6, 900 + i * 13 + tries, BoardModel.boss_level(B, 0, hp))
+			reach[int(r.stage)] += 1
+			if r.won:
+				wins += 1
+				used += int(r.used)
+			else:
+				hp_left += int(r.hp)
+		lines.append("hp %d | %d | %.0f | %d/%d/%d | %.0f | %.1f" % [hp, tries, 100.0 * wins / n, reach[0], reach[1], reach[2],
+			hp_left / maxf(1.0, n - wins), used / maxf(1.0, wins)])
 	return "\n".join(lines)
 
 ## generated levels (LevelGen) at every depth of the first mine: how often the autoplayer wins, the moves given and

@@ -51,6 +51,10 @@ var bonus := []      # stones freed from geodes, opened after the level
 var geos := []       # {r, c, w, h, hp, hp_max, done}: a done geode stays on the board, an empty shell of rock
 var gas_hit := false
 var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, stone, done}
+## the boss fight (empty in an ordinary level): {B (the boss's data), stage, k (actions so far), timer,
+## intent {act, cells}, clear (this board's share of health is gone)}. Its health is the "boss" goal.
+var boss := {}
+var area_i := 0
 ## ore: which colour holds which kind, how often a stone of that colour holds it, what this level has broken
 var ore_col := {}    # colour -> "iron" | "ore"
 var ore_p := {}      # kind -> chance a new stone of its colour is ore-bearing
@@ -105,7 +109,7 @@ func new_gem(colour: int = -2) -> Gem:
 
 ## how rich this level's ore is: the mine picks the colours, the depth's veins the density
 ## (vein = [iron left, own ore left] or [] for none; poor once it is down to its unminable last tenth)
-func set_ore(area: int, dl: int, vein: Array, rich := false) -> void:
+func set_ore(area: int, dl: int, vein: Array, rich := false, iron := true) -> void:
 	var O: Dictionary = Data.ore(area)
 	var D: Dictionary = Data.depth(area, dl)
 	ore_col = {int(O.iron): "iron", int(O.local): "ore"}
@@ -115,7 +119,117 @@ func set_ore(area: int, dl: int, vein: Array, rich := false) -> void:
 		var stock: int = int(D.fe) if i == 0 else int(D.au)
 		var left: int = int(vein[i]) if vein.size() > i else stock
 		var p := ORE_P * (ORE_POOR if left <= vein_floor(stock) else 2.0 if rich else 1.0)
-		ore_p[kind] = p
+		ore_p[kind] = p if iron or kind == "ore" else 0.0
+
+# ------------------------------------------------------------------ the boss
+
+func boss_on() -> bool:
+	return not boss.is_empty()
+
+## the health this board starts from and the line it can't be pushed past: each board is a third of it
+func boss_top() -> int:
+	return roundi(_boss_hp_max() * (3 - int(boss.stage)) / 3.0)
+
+func boss_floor() -> int:
+	return roundi(_boss_hp_max() * (2 - int(boss.stage)) / 3.0)
+
+func _boss_hp_max() -> int:
+	return int(boss.get("hp_max", int(boss.B.hp)))
+
+func boss_hp() -> int:
+	var gi := goal_index("boss")
+	return int(goals[gi].left) if gi >= 0 else 0
+
+func _boss_damage(dmg: int, r: int, c: int, t: float) -> void:
+	if boss.clear: return
+	var gi := goal_index("boss")
+	var g: Dictionary = goals[gi]
+	var fl := boss_floor()
+	g.left = maxi(fl, int(g.left) - dmg)
+	if g.left <= fl and fl > 0: boss.clear = true
+	_fx(t, "boss_hit", {dmg = dmg, r = r, c = c, left = g.left})
+
+## this board's share of health is gone: the next board comes in
+func boss_stage_clear() -> bool:
+	return boss_on() and bool(boss.clear)
+
+## the next board of the fight: a new shape, the health and moves carried over, a few moves more
+func next_stage() -> void:
+	var keep := boss.duplicate()
+	var hp := boss_hp()
+	var mv := moves + int(keep.B.stage_moves)
+	var st: int = int(keep.stage) + 1
+	setup(n, [], depth, {lift = lift, vent = vent}, area_i, false, boss_level(keep.B, st, keep.get("hp_max", int(keep.B.hp))))
+	boss = keep
+	boss.stage = st
+	boss.clear = false
+	goals[goal_index("boss")].left = hp
+	moves = mv
+	boss_plan()
+
+## a board of the fight as a level def
+static func boss_level(B: Dictionary, stage: int, hp_max: int) -> Dictionary:
+	return {boss = B, stage = stage, hp = hp_max, map = B.stages[stage].map, goals = [["boss"]], moves = int(B.moves),
+		gen = true, colors = 5, m = int(B.m)}
+
+## what the boss does next and where, shown ahead: the board's actions in turn
+func boss_plan() -> void:
+	var S: Dictionary = boss.B.stages[boss.stage]
+	var acts: Array = S.acts
+	var act: String = acts[int(boss.k) % acts.size()]
+	boss.k = int(boss.k) + 1
+	boss.timer = int(S.every)
+	var cells := []
+	var A: Dictionary = boss.B.act.get(act, {})
+	if act in ["coils", "rockfall", "breath"]:
+		var cand := []
+		for r in range(1, R - 1):
+			for c in C:
+				var g: Gem = G[r][c]
+				if playable(r, c) and g and g.sp == "" and g.item == "" and not LOCK[r][c] and not MUD[r][c]:
+					cand.append(Vector2i(r, c))
+		for k in mini(int(A.get("n", 4)), cand.size()):
+			cells.append(cand.pop_at(rng.randi_range(0, cand.size() - 1)))
+	boss.intent = {act = act, cells = cells}
+
+## the boss's turn after the player's: counts down; at zero it acts and plans the next.
+## Returns {} while it waits, else {act, cells (where it landed), removed (stone ids gone), heal}
+func boss_turn() -> Dictionary:
+	if not boss_on() or over or boss.clear: return {}
+	boss.timer = int(boss.timer) - 1
+	if boss.timer > 0: return {}
+	var it: Dictionary = boss.intent
+	var out := {act = it.act, cells = [], removed = [], heal = 0}
+	var A: Dictionary = boss.B.act.get(it.act, {})
+	for p: Vector2i in it.cells:
+		var g: Gem = G[p.x][p.y]
+		if g == null or g.sp != "" or g.item != "" or LOCK[p.x][p.y]: continue
+		match String(it.act):
+			"coils":
+				LOCK[p.x][p.y] = 1
+			"rockfall":
+				out.removed.append(g.id)
+				G[p.x][p.y] = null
+				ROCK[p.x][p.y] = 2 if int(boss.stage) >= 2 else 1
+				ROCK_MAX[p.x][p.y] = ROCK[p.x][p.y]
+			"breath":
+				out.removed.append(g.id)
+				G[p.x][p.y] = null
+				GAS[p.x][p.y] = 1
+		out.cells.append(p)
+	if it.act == "hoard":
+		# every gold-bearing stone of its colour left on the board feeds it, never past this board's share
+		var cnt := 0
+		for r in R:
+			for c in C:
+				var g: Gem = G[r][c]
+				if g and g.t == int(boss.B.weak) and g.ore == "ore": cnt += 1
+		var gi := goal_index("boss")
+		var before := int(goals[gi].left)
+		goals[gi].left = mini(boss_top(), before + mini(int(A.cap), cnt * int(A.per)))
+		out.heal = int(goals[gi].left) - before
+	boss_plan()
+	return out
 
 ## the moves a level starts with: a generated level has them counted for its depth already
 static func start_moves(def: Dictionary, dl: int, eq: Dictionary) -> int:
@@ -130,10 +244,16 @@ static func vein_floor(stock: int) -> int:
 func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area: int = 0, roll_find := true, level: Dictionary = {}) -> void:
 	var def: Dictionary = level if not level.is_empty() else Data.level_def(level_n)
 	var gen := bool(def.get("gen", false))
+	area_i = area
+	boss = {}
+	if def.has("boss"):
+		boss = {B = def.boss, stage = int(def.get("stage", 0)), hp_max = int(def.hp), k = 0, timer = 0, intent = {}, clear = false}
+		roll_find = false
 	n = level_n
 	depth = dl
 	var vein: Array = Save.d.vein[dl] if area == Save.area() and dl < Save.d.vein.size() else []
-	set_ore(area, dl, vein, bool(def.get("rich", false)))
+	# no ore is mined at the boss: only the stones of its weak colour carry gold, and hurt it more
+	set_ore(area, dl, vein, bool(def.get("rich", false)), not def.has("boss"))
 	lift = int(eq.get("lift", 0))
 	vent = int(eq.get("vent", 0))
 	moves = start_moves(def, dl, eq)
@@ -238,6 +358,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"gas": goals.append({k = "gas", t = -1, left = gas})
 			"lock": goals.append({k = "lock", t = -1, left = locks})
 			"geo": goals.append({k = "geo", t = -1, left = geos.size()})
+			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
 	# fill without ready-made matches, and make sure a move exists
 	for tries in 40:
 		for r in R:
@@ -264,6 +385,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		g.sp = sp
 		g.t = -1
 		g.ore = ""
+	if boss_on(): boss_plan()
 
 func _free_cells() -> Array:
 	var a := []
@@ -513,7 +635,11 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 	_fx(t, "clear", {id = g.id, r = r, c = c, sp = g.sp, color = g.t})
 	if g.ore != "" and g.sp == "":
 		mined[g.ore] += 1
-		_fx(t, "ore", {kind = g.ore, r = r, c = c})
+		if boss.is_empty(): _fx(t, "ore", {kind = g.ore, r = r, c = c})
+	if not boss.is_empty():
+		var D: Dictionary = boss.B.dmg
+		var dmg := int(D.special) if g.sp != "" else (int(D.ore) if g.ore == "ore" else int(D.weak)) if g.t == int(boss.B.weak) else 0
+		if dmg: _boss_damage(dmg, r, c, t)
 	if MUD[r][c]:
 		MUD[r][c] = 0
 		_goal_hit("mud", -1, r, c, t)

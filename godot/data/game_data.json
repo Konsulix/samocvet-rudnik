@@ -675,7 +675,79 @@
    "next": [
     70,
     2500
-   ]
+   ],
+   "boss": {
+    "id": "poloz",
+    "n": "Great Poloz",
+    "sub": "Keeper of Gold",
+    "m": 350,
+    "hp": 1050,
+    "weak": 3,
+    "dmg": {
+     "weak": 10,
+     "ore": 25,
+     "special": 15
+    },
+    "moves": 30,
+    "stage_moves": 5,
+    "act": {
+     "coils": {
+      "n": 5
+     },
+     "rockfall": {
+      "n": 4
+     },
+     "breath": {
+      "n": 3
+     },
+     "hoard": {
+      "per": 15,
+      "cap": 60
+     }
+    },
+    "stages": [
+     {
+      "name": "The lair",
+      "every": 3,
+      "acts": [
+       "coils",
+       "hoard"
+      ],
+      "map": "#......#|........|........|.mm..mm.|.mm..mm.|........|........|........|#......#"
+     },
+     {
+      "name": "The coils",
+      "every": 3,
+      "acts": [
+       "coils",
+       "rockfall",
+       "hoard"
+      ],
+      "map": "........|........|##......|........|......##|........|##......|..R..R..|........"
+     },
+     {
+      "name": "The hoard",
+      "every": 2,
+      "acts": [
+       "rockfall",
+       "breath",
+       "hoard",
+       "coils"
+      ],
+      "map": "##....##|#......#|........|..R..R..|...gg...|........|........|#......#|##....##"
+     }
+    ],
+    "lines": {
+     "start": "Small stones are still stones. Come, take my gold.",
+     "stage": [
+      "You bite. Now feel the coils.",
+      "Enough! My hoard will bury you."
+     ],
+     "combo": "Hss... that one stung.",
+     "win": "The gold is yours, digger. For now.",
+     "lose": "Back to the surface with you."
+    }
+   }
   },
   {
    "n": "Copper Mountain",

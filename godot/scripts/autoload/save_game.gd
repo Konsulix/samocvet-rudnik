@@ -17,6 +17,7 @@ func blank() -> Dictionary:
 	var b := {
 		ver = VER, level = 1, coins = 400, lives = 5, life_at = 0, area = 0,
 		fe = 0, ore = 0, vein = [], rich = 0, lseed = 1 + randi() % 999999, lrich = false, dwins = [],
+		boss_tries = [0, 0, 0], boss_won = [false, false, false],
 		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
@@ -48,6 +49,8 @@ func _init() -> void:
 			d[k][i] = int(d[k][i])
 	for i in d.dwins.size():
 		d.dwins[i] = int(d.dwins[i])
+	for i in d.boss_tries.size():
+		d.boss_tries[i] = int(d.boss_tries[i])
 	for v in d.vein:
 		for i in v.size():
 			v[i] = int(v[i])
