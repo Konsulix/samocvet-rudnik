@@ -18,7 +18,7 @@ func blank() -> Dictionary:
 		ver = VER, level = 1, coins = 400, lives = 5, life_at = 0, area = 0,
 		fe = 0, ore = 0, vein = [], rich = 0, lseed = 1 + randi() % 999999, lrich = false, dwins = [],
 		boss_tries = [0, 0, 0], boss_won = [false, false, false],
-		built = [[], [], []], boost = {pick = 2, dyn = 2}, pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
+		built = [[], [], []], jstep = {}, boost = {pick = 2, bore_h = 2, bore_v = 2, pan = 2}, btold = ["pick"], pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
@@ -41,6 +41,10 @@ func _init() -> void:
 	# JSON brings numbers back as floats; the game counts in whole numbers
 	for k in ["ver", "level", "coins", "lives", "life_at", "area", "fe", "ore", "rich", "lseed", "streak", "uid", "lab"]:
 		d[k] = int(d[k])
+	# the dynamite booster became the rock drill
+	if d.boost.has("dyn"):
+		d.boost.bore_h = int(d.boost.bore_h) + int(d.boost.dyn)
+		d.boost.erase("dyn")
 	for k in ["boost", "pre", "eq"]:
 		for kk in d[k]:
 			d[k][kk] = int(d[k][kk])

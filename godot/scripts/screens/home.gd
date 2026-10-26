@@ -10,6 +10,14 @@ signal go(screen: String)
 var scene: MineScene
 var scene_holder: Node2D
 var ui_root: VBoxContainer
+var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
+var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
+static var start_scroll := -1.0   # a test key puts the first view here (-- scroll=N)
+var _press := Vector2.ZERO
+var _press_scroll := 0.0
+var _dragging := false
+var _down := false
+var _top_shade: TextureRect
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -22,6 +30,24 @@ func _ready() -> void:
 	add_child(scene_holder)
 	scene = MineScene.new()
 	scene_holder.add_child(scene)
+	if MineView.available():
+		view = MineView.new()
+		add_child(view)
+		# the name and the plaques stay readable over the mine as it scrolls under them
+		_top_shade = TextureRect.new()
+		var gt := GradientTexture2D.new()
+		var gr := Gradient.new()
+		gr.set_color(0, Color(0.03, 0.04, 0.07, 0.92))
+		gr.set_color(1, Color(0.03, 0.04, 0.07, 0.0))
+		gr.add_point(0.55, Color(0.03, 0.04, 0.07, 0.7))
+		gt.gradient = gr
+		gt.fill_from = Vector2(0, 0)
+		gt.fill_to = Vector2(0, 1)
+		_top_shade.texture = gt
+		_top_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_top_shade.size = Vector2(get_viewport_rect().size.x, 190 + UI.safe_top())
+		_top_shade.stretch_mode = TextureRect.STRETCH_SCALE
+		add_child(_top_shade)
 	_dust()
 	render()
 
@@ -39,7 +65,21 @@ func render() -> void:
 	var s := minf(vp.x / 360.0, vp.y / hv)
 	scene_holder.scale = Vector2(s, s)
 	scene_holder.position = Vector2((vp.x - 360.0 * s) / 2, (vp.y - hv * s) / 2)
-	scene.setup(ai(), Save.d.built[ai()], int(Save.d.depth[ai()]), dl_sel(), hv)
+	var drawn := uses_view()
+	scene_holder.visible = not drawn
+	if view:
+		view.visible = drawn
+		_top_shade.visible = drawn
+	if drawn:
+		view.scale = Vector2.ONE * (vp.x / 1536.0)
+		view.setup(ai())
+		if scroll < 0:
+			# the depth being dug a little below the middle of the screen
+			scroll = view.band_y(dl_sel()) * view.scale.y - vp.y * 0.45
+			if start_scroll >= 0: scroll = start_scroll
+		_scroll_to(scroll)
+	else:
+		scene.setup(ai(), Save.d.built[ai()], int(Save.d.depth[ai()]), dl_sel(), hv)
 	if ui_root:
 		ui_root.queue_free()
 	ui_root = VBoxContainer.new()
@@ -219,7 +259,20 @@ func _play_button() -> Button:
 
 # ---------------------------------------------------------------- input on the picture
 
+## the drawn mine is used where its pictures exist (Old Adit, for now)
+func uses_view() -> bool:
+	return view != null and ai() == 0
+
+func _scroll_to(v: float) -> void:
+	var vp := get_viewport_rect().size
+	# the last depth can come up above the Play row and the tab bar
+	scroll = clampf(v, 0.0, maxf(0.0, view.content_height() + 150.0 - vp.y))
+	view.position = Vector2(0, -scroll)
+
 func _gui_input(e: InputEvent) -> void:
+	if uses_view():
+		_view_input(e)
+		return
 	var tap: bool = (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed)
 	if not tap:
 		return
@@ -228,6 +281,75 @@ func _gui_input(e: InputEvent) -> void:
 	if k < 0:
 		return
 	accept_event()
+	if k <= int(Save.d.depth[ai()]):
+		if int(Save.d.depth_sel[ai()]) != k:
+			Save.d.depth_sel[ai()] = k
+			Save.persist()
+			Sfx.play("swap")
+			render()
+			Ov.toast("Digging at %d m" % Data.depth_m(ai(), k))
+	else:
+		_open_next()
+
+## test key (-- ui=demo_build): the next step of the mine, paid for - a job's step, or the drill down
+func _demo_build() -> void:
+	Save.d.ore += 100
+	Save.d.fe += 100
+	Save.d.coins += 5000
+	var st := next_step()
+	if not st.job_done:
+		_build(String(st.job[0]), int(st.k))
+	else:
+		_dig()
+
+## after a build: the drawn mine glides to the place that changed, dust bursts over it
+func _show_job(tid: String) -> void:
+	if not uses_view(): return
+	var at := view.job_pos(tid)
+	var vp := get_viewport_rect().size
+	var tw := create_tween()
+	tw.tween_method(_scroll_to, scroll, at.y * view.scale.y - vp.y * 0.45, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	view.burst(at)
+
+## the drawn mine: a finger drags it up and down; a short touch picks a depth
+func _view_input(e: InputEvent) -> void:
+	var pressed := false
+	var released := false
+	var moved := false
+	var pos := Vector2.ZERO
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		pressed = e.pressed
+		released = not e.pressed
+		pos = e.position
+	elif e is InputEventScreenTouch:
+		pressed = e.pressed
+		released = not e.pressed
+		pos = e.position
+	elif (e is InputEventMouseMotion and _down) or e is InputEventScreenDrag:
+		moved = true
+		pos = e.position
+	elif e is InputEventMouseButton and e.pressed and e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_scroll_to(scroll + (-60.0 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 60.0))
+		accept_event()
+		return
+	if pressed:
+		_down = true
+		_dragging = false
+		_press = pos
+		_press_scroll = scroll
+	elif moved and _down:
+		if _dragging or absf(pos.y - _press.y) > 10:
+			_dragging = true
+			_scroll_to(_press_scroll - (pos.y - _press.y))
+	elif released and _down:
+		_down = false
+		if not _dragging:
+			var k := view.band_at(view.get_global_transform().affine_inverse() * pos)
+			if k >= 0:
+				_pick_depth(k)
+	accept_event()
+
+func _pick_depth(k: int) -> void:
 	if k <= int(Save.d.depth[ai()]):
 		if int(Save.d.depth_sel[ai()]) != k:
 			Save.d.depth_sel[ai()] = k
@@ -440,7 +562,7 @@ func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 static func chest_text(c: Dictionary) -> String:
 	if c.get("coins", 0): return "%d coins" % int(c.coins)
 	if c.get("pick", 0): return "pickaxe"
-	if c.get("dyn", 0): return "dynamite"
+	if c.get("bore_h", 0): return "rock drill"
 	return "a charge before the level"
 
 func _open_tasks() -> void:
@@ -469,9 +591,10 @@ func _open_tasks() -> void:
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tv.add_child(nl)
 		var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
-		var cost: int = t[2]
+		var cost: int = MineView.step_cost(a, String(t[0]), int(t[2]))
 		var here := "%d m" % Data.depth_m(a, i)
-		var sub := UI.label("Done" if done else "%s · %d %s · in the chest: %s" % [here, cost, on, chest_text(ch)], 12, UI.body, UI.MUTED)
+		var stp := _step_label(a, String(t[0]))
+		var sub := UI.label("Done" if done else "%s%s · %d %s · in the chest: %s" % [here, stp, cost, on, chest_text(ch)], 12, UI.body, UI.MUTED)
 		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # unwrapped, the longest line widened the card past the screen
 		tv.add_child(sub)
 		h.add_child(tv)
@@ -501,14 +624,15 @@ func _open_next() -> void:
 	v.add_child(Ov.text(Level.vein_text_for(a, int(st.k)), 13))
 	# 1: the job of this depth
 	if not st.job.is_empty():
-		var cost: int = st.job[2]
+		var cost: int = MineView.step_cost(a, String(st.job[0]), int(st.job[2]))
 		var can: bool = not st.job_done and Save.d.ore >= cost
 		var bt := UI.button("✓" if st.job_done else "Build", "gold" if can else "glass", 14)
+		var stp := _step_label(a, String(st.job[0]))
 		bt.disabled = not can
 		var i: int = st.k
 		var tid: String = st.job[0]
 		bt.pressed.connect(func(): _build(tid, i))
-		v.add_child(_need_row("ore", String(st.job[1]), "Done" if st.job_done else "%d %s · you have %d" % [cost, on, Save.d.ore], st.job_done, bt))
+		v.add_child(_need_row("ore", String(st.job[1]) + stp, "Done" if st.job_done else "%d %s · you have %d" % [cost, on, Save.d.ore], st.job_done, bt))
 	if not st.last:
 		var fe: int = st.fe
 		var cn: int = st.coins
@@ -591,6 +715,9 @@ func _dig() -> void:
 	Sfx.buzz(50)
 	Ov.close()
 	render()
+	if uses_view():
+		var vp := get_viewport_rect().size
+		create_tween().tween_method(_scroll_to, scroll, view.band_y(k) * view.scale.y - vp.y * 0.35, 0.45).set_trans(Tween.TRANS_SINE)
 	_build_pop()
 	Ov.toast("%s broke through: %d m" % [st.tool, Data.depth_m(a, k)])
 
@@ -613,35 +740,59 @@ func _next_mine_btn(a: int) -> Button:
 	b.disabled = not ok
 	return b
 
+## " · step 2/3" for a job paid in steps, "" otherwise
+func _step_label(a: int, tid: String) -> String:
+	var n := MineView.job_steps(a)
+	if n <= 1 or tid in Save.d.built[a]: return ""
+	return " · step %d/%d" % [MineView.job_step(a, tid) + 1, n]
+
+## one step of a job (all of it where jobs are not split): the ore is paid, the picture moves on a step; the last step
+## finishes the job (the mine's chest, the way down)
 func _build(tid: String, i: int) -> void:
 	var a := ai()
 	var A: Dictionary = Data.AREAS[a]
 	var t: Array = A.tasks[i]
-	if Save.d.ore < int(t[2]) or i > int(Save.d.depth[a]): return
-	Save.d.ore -= int(t[2])
+	var price := MineView.step_cost(a, tid, int(t[2]))
+	if tid in Save.d.built[a] or Save.d.ore < price or i > int(Save.d.depth[a]): return
+	Save.d.ore -= price
+	var done := MineView.job_step(a, tid) + 1
+	if not Save.d.has("jstep"): Save.d.jstep = {}
+	if done < MineView.job_steps(a):
+		Save.d.jstep["%d:%s" % [a, tid]] = done
+		Save.persist()
+		Sfx.play("build")
+		Sfx.buzz(30)
+		Ov.close()
+		render()
+		_show_job(tid)
+		_build_pop()
+		Ov.toast("%s · step %d of %d" % [String(t[1]), done, MineView.job_steps(a)])
+		return
+	Save.d.jstep.erase("%d:%s" % [a, tid])
 	Save.d.built[a].append(tid)
 	var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
 	if ch.get("coins", 0): Save.d.coins += int(ch.coins)
 	if ch.get("pick", 0): Save.d.boost.pick += int(ch.pick)
-	if ch.get("dyn", 0): Save.d.boost.dyn += int(ch.dyn)
+	if ch.get("bore_h", 0): Save.d.boost.bore_h += int(ch.bore_h)
 	if ch.has("pre"): Save.d.pre[ch.pre] += 1
 	Save.persist()
 	Sfx.play("build")
 	Sfx.buzz(40)
 	Ov.close()
 	render()
+	_show_job(tid)
 	_build_pop()
 	get_tree().create_timer(0.5).timeout.connect(func(): Ov.toast("Mine chest: " + chest_text(ch)))
 	if i < Data.depths(a).size() - 1:
-		get_tree().create_timer(0.9).timeout.connect(_open_next)
+		get_tree().create_timer(3.2 if uses_view() else 0.9).timeout.connect(_open_next)   # the drawn mine plays the change first
 	var all := true
 	for x in A.tasks:
 		if not x[0] in Save.d.built[a]: all = false
 	if all:
-		await get_tree().create_timer(0.9).timeout
+		await get_tree().create_timer(3.2 if uses_view() else 0.9).timeout
 		Save.d.coins += 500
 		Save.d.boost.pick += 1
-		Save.d.boost.dyn += 1
+		Save.d.boost.bore_h += 1
 		Save.persist()
 		render()
 		var btns := []
@@ -658,7 +809,7 @@ func _build(tid: String, i: int) -> void:
 				Ov.close()
 				render(), Save.d.fe >= int(cost[0]) and Save.d.coins >= int(cost[1])])
 		btns.append(["Later", "glass", func(): Ov.close()])
-		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and dynamite." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
+		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and a rock drill." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
 
 ## a price in ore: the round badge and the number
 static func ore_tag(kind: String, n: int, fs: int) -> HBoxContainer:
@@ -680,6 +831,8 @@ func _build_pop() -> void:
 	tw.tween_property(scene_holder, "scale", base, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var p := CPUParticles2D.new()
 	p.position = scene_holder.position + Vector2(160, 170 + scene.OFF) * scene_holder.scale.x
+	if uses_view():
+		p.position = get_viewport_rect().size * Vector2(0.5, 0.45)
 	p.one_shot = true
 	p.explosiveness = 0.9
 	p.amount = 60

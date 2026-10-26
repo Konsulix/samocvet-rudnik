@@ -5,6 +5,10 @@ extends Node
 var screen: Node
 var args := {}
 
+## the game is closing (the level, a child, has already left the tree): free what outlives levels (Level.release_pool)
+func _exit_tree() -> void:
+	Level.release_pool()
+
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
@@ -29,6 +33,14 @@ func _ready() -> void:
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))
+	if args.has("wins"):   # wins per depth, e.g. wins=3,2,0 (the drawn mine fills a depth with people after two)
+		var ws: PackedStringArray = String(args.wins).split(",")
+		for i in ws.size(): Save.d.dwins[i] = int(ws[i])
+	if args.has("steps"):  # job steps paid, e.g. steps=camp:2,chamber:1
+		for kv in String(args.steps).split(","):
+			var p: PackedStringArray = kv.split(":")
+			Save.d.jstep["%d:%s" % [Save.area(), p[0]]] = int(p[1])
+	if args.has("scroll"): Home.start_scroll = float(args.scroll)
 	if args.has("fill"):
 		# test data: a museum full of stones, a few of them cut, and one jewel
 		Save.d.coll = []
@@ -220,12 +232,13 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 				g.t = -1
 		lv.board.rebuild(lv.model)
 	if args.has("strike"):
-		# for a look: the pickaxe hits cell r,c a moment after the board has settled
+		# for a look: a booster (`booster=pick|bore_h|bore_v|pan`, the pickaxe if none) on cell r,c a moment after the board has settled
 		await get_tree().create_timer(1.5).timeout
 		var rc := String(args.strike).split(",")
-		lv.booster = "pick"
+		lv.booster = String(args.get("booster", "pick"))
 		lv.busy = false
-		lv._use_booster(int(rc[0]), int(rc[1]))
+		if lv.booster == "pan": lv._use_pan()
+		else: lv._use_booster(int(rc[0]), int(rc[1]))
 	if args.has("autoplay"):
 		_autoplay(lv, int(args.autoplay))
 	if args.has("win"):
@@ -348,10 +361,15 @@ func _perf(n: int) -> void:
 	print("perf worst frame: %.1f ms" % worst)
 	get_tree().quit()
 
+## `shot=user://x.png after=S`; with `frames=N every=S` a strip of N shots (x_0.png, x_1.png...) to see a motion
 func _take_shot() -> void:
 	await get_tree().create_timer(float(args.get("after", "3"))).timeout
-	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
-	img.save_png(args.shot)
-	print("shot saved: ", ProjectSettings.globalize_path(args.shot))
+	var n := int(args.get("frames", "1"))
+	for i in n:
+		if i > 0: await get_tree().create_timer(float(args.get("every", "0.1"))).timeout
+		await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image()
+		var path: String = args.shot if n == 1 else String(args.shot).get_basename() + "_%d.png" % i
+		img.save_png(path)
+		print("shot saved: ", ProjectSettings.globalize_path(path))
 	get_tree().quit()

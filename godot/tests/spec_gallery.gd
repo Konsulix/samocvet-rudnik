@@ -105,7 +105,7 @@ func _ready() -> void:
 	var px := int(args.get("px", "280"))
 	var t0 := Time.get_ticks_msec()
 	for i in list.size():
-		var v := SpecView.new(px)
+		var v := SpecView.new(px, args.has("alpha"))   # alpha: no backdrop, the shot is the first stone alone
 		v.position = Vector2((i % cols) * px, (i / cols) * px)
 		v.size = Vector2(px, px)
 		v.still = args.has("still")
@@ -127,6 +127,7 @@ func _ready() -> void:
 	if args.has("shot"):
 		await get_tree().create_timer(float(args.get("after", "3"))).timeout
 		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(args.shot)
+		var vp: Viewport = (get_child(0) as SpecView).studio.vp if args.has("alpha") else get_viewport()
+		vp.get_texture().get_image().save_png(args.shot)
 		print("shot saved")
 		get_tree().quit()
