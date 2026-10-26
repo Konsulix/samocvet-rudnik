@@ -192,6 +192,33 @@ func remove_node(id: int) -> void:
 		nodes.erase(id)
 		n.queue_free()
 
+## once a turn has settled: the stones on screen are exactly the model's, each in its own cell. A stone dropped from
+## the model without its node, or a node left behind by an effect, otherwise stays drawn: two stones in one cell.
+## `expected`: nodes the caller knows are gone from the model (gas took the stone) - not worth a warning
+func sync(expected := false) -> void:
+	var alive := {}
+	for r in R:
+		for c in C:
+			var g: BoardModel.Gem = model.G[r][c]
+			if g == null: continue
+			alive[g.id] = true
+			var n: GemNode = nodes.get(g.id)
+			if n == null:
+				push_warning("board sync: no node for stone %d at %d,%d" % [g.id, r, c])
+				_spawn_node(g, r, c)
+			else: n.position = cell_center(r, c)
+	for id in nodes.keys():
+		if not alive.has(id):
+			if not expected: push_warning("board sync: stray node %d (colour %d) at %s" % [id, (nodes[id] as GemNode).t, cell_at((nodes[id] as GemNode).position)])
+			remove_node(id)
+	# nodes no longer on the books (a pop whose fade never ended): every pop has long finished by the turn's end
+	var kept := {}
+	for n in nodes.values(): kept[n] = true
+	for ch in gems.get_children():
+		if ch is GemNode and not kept.has(ch) and not ch.is_queued_for_deletion():
+			push_warning("board sync: orphan node %d (colour %d) at %s" % [(ch as GemNode).id, (ch as GemNode).t, cell_at((ch as GemNode).position)])
+			ch.queue_free()
+
 func animate_shuffle() -> void:
 	var tw := create_tween().set_parallel(true)
 	for r in R:

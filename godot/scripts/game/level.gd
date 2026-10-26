@@ -731,7 +731,7 @@ func _after_turn() -> void:
 			return
 	var p := model.gas_spread()
 	if p.x >= 0:
-		board.remove_node(_gem_id_at_removed(p))
+		board.sync(true)   # the gassed stone goes (and any other the model no longer has)
 		board.redraw_under()
 		fx.sparkle(p.x, p.y, Color("#c8f070"), 14)
 		Sfx.play("gas")
@@ -749,6 +749,7 @@ func _after_turn() -> void:
 		await _wait(0.3)
 		_out_of_moves()
 		return
+	board.sync()
 	busy = false
 	idle = 0.0
 	_hinted = false
@@ -779,17 +780,6 @@ func _grow_nodules() -> void:
 		await board.animate_shuffle()
 
 const NOD_WAIT := 0.45
-
-## gas swallowed a stone: find which node no longer has a cell
-func _gem_id_at_removed(_p: Vector2i) -> int:
-	var alive := {}
-	for r in model.R:
-		for c in model.C:
-			var g: BoardModel.Gem = model.G[r][c]
-			if g: alive[g.id] = true
-	for id in board.nodes:
-		if not alive.has(id): return id
-	return -1
 
 func _on_booster(bo: Dictionary) -> void:
 	if busy or model.over: return
