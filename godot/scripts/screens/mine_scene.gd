@@ -104,6 +104,7 @@ func setup(area: int, built_list: Array, dopen: int, dsel: int, hv: float) -> vo
 		live = Node2D.new()
 		add_child(live)
 		live.draw.connect(_draw_live)
+		add_child(MineAmb.new(self))
 	queue_redraw()
 
 func has(id: String) -> bool:

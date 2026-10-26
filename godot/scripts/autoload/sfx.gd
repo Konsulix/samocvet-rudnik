@@ -36,10 +36,19 @@ const SAMPLES := {
 	open = {f = ["open_001"], db = -10.0},
 }
 const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"],
+	# a mine's own: "<track>_<area>" wins over "<track>"
+	# for now one theme per mine, at home and in its levels
+	home_0 = ["res://assets/audio/music/home_adit.ogg"], level_0 = ["res://assets/audio/music/home_adit.ogg"],
+	home_1 = ["res://assets/audio/music/home_copper.ogg"], level_1 = ["res://assets/audio/music/home_copper.ogg"],
 	# a boss's own theme: "boss_<id>"
 	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"],
 	boss_mistress = ["res://assets/audio/music/boss_mistress.mp3"]}
+## where a Suno track's loop starts (s): its intro plays once (prototype/tools/music_loop.py finds the cut)
+const LOOP_AT := {"res://assets/audio/music/home_adit.ogg": 11.7, "res://assets/audio/music/home_copper.ogg": 19.3}
 const MUSIC_DB := -14.0
+## the home screen's ambience (MineAmb): far off and behind rock — muffled, a little cave reverb, well under the music
+const AMB_BUS := "Amb"
+const AMB_DB := -15.0
 
 var _cache := {}
 var _streams := {}
@@ -98,14 +107,20 @@ func _sample(f: String) -> AudioStream:
 
 ## background music for "home" or "level": cross-fades to it (levels alternate between their two loops)
 func music(track: String) -> void:
+	var own := "%s_%d" % [track, Save.area()]
+	if MUSIC.has(own): track = own
 	if track == _track and _music[_cur].playing:
 		return
 	_track = track
 	var list: Array = MUSIC[track]
 	var path: String = list[_level_i % list.size()]
-	if track == "level": _level_i += 1
+	if track.begins_with("level"): _level_i += 1
+	# the same theme on both screens plays on without a restart
+	if _music[_cur].playing and _music[_cur].stream and _music[_cur].stream.resource_path == path:
+		return
 	var st: AudioStream = load(path)
 	st.set("loop", true)   # Ogg and MP3 both loop
+	st.set("loop_offset", LOOP_AT.get(path, 0.0))
 	var old := _music[_cur]
 	_cur = 1 - _cur
 	var nw := _music[_cur]
@@ -126,6 +141,33 @@ func _music_db() -> float:
 ## sound switched on or off
 func apply_mute() -> void:
 	_music[_cur].volume_db = _music_db()
+	var b := AudioServer.get_bus_index(AMB_BUS)
+	if b >= 0: AudioServer.set_bus_mute(b, Save.d.get("mute", false))
+
+## the "Amb" bus, made on first use: low-pass + reverb, sent to Master
+func amb_bus() -> void:
+	if AudioServer.get_bus_index(AMB_BUS) >= 0: return
+	AudioServer.add_bus()
+	var b := AudioServer.bus_count - 1
+	AudioServer.set_bus_name(b, AMB_BUS)
+	AudioServer.set_bus_send(b, "Master")
+	AudioServer.set_bus_volume_db(b, AMB_DB)
+	AudioServer.set_bus_mute(b, Save.d.get("mute", false))
+	var lp := AudioEffectLowPassFilter.new()
+	lp.cutoff_hz = 1500.0
+	AudioServer.add_bus_effect(b, lp)
+	var rv := AudioEffectReverb.new()
+	rv.room_size = 0.7
+	rv.damping = 0.6
+	rv.spread = 0.8
+	rv.dry = 0.8
+	rv.wet = 0.3
+	AudioServer.add_bus_effect(b, rv)
+
+## one take of the pick striking rock (shared with the board's "rock")
+func pick_stream() -> AudioStream:
+	var takes: Array = SAMPLES.rock.f
+	return _sample(takes[randi() % takes.size()])
 
 ## light taps for hits, a longer thump for blasts
 func buzz(ms := 20) -> void:

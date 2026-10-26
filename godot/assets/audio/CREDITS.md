@@ -21,6 +21,10 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 
 - `music/boss_poloz.mp3` — «Crystal Mine Serpent», тема боя с Великим Полозом; сделана владельцем проекта.
 - `music/boss_mistress.mp3` — «The Green Stone», тема боя с Хозяйкой Медной горы (женский вокал); сделана владельцем проекта.
+- `music/home_adit.ogg` — «Deep Mine Drones», главный экран рудника 1 (Old Adit); сделана владельцем проекта (Suno).
+  Зациклена `prototype/tools/music_loop.py`: вступление один раз, петля с 11,7 с (`Sfx.LOOP_AT`), концовка срезана.
+- `music/home_copper.ogg` — «Spirit of the Deep», главный экран рудника 2 (Copper Mountain); сделана владельцем проекта (Suno).
+  Петля с 19,3 с, так же.
 
 ## Звуки рудника 2 и Хозяйки (`sfx/`, CC0, OpenGameArt)
 
@@ -29,3 +33,13 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 - `bug_*`, `breath_02`, `weird_*`, `roar_*` — rubberduck, [80 CC0 creature SFX #2](https://opengameart.org/content/80-cc0-creture-sfx-2):
   ящерки, шипение Хозяйки, смена фазы.
 - `magical_*` — JaggedStone, [Magic Spell SFX](https://opengameart.org/content/magic-spell-sfx): цветение каменного цветка.
+
+## Звуки главного экрана (`amb/`, CC0, OpenGameArt)
+
+Нарезаны и переведены в моно `prototype/tools/amb_kit.py`; глушение и эхо — шина `Amb` в игре (`Sfx.amb_bus`).
+
+- `cave.ogg` — JaggedStone, [Loopable Dungeon Ambience](https://opengameart.org/content/loopable-dungeon-ambience) (первые 60 с, шов сведён).
+- `crickets.ogg` — Wolfgang_ (в примечании — Ted Kerr), [Crickets Ambient Noise - loopable](https://opengameart.org/content/crickets-ambient-noise-loopable).
+- `winch_0/1.ogg` — bart, [Chain winch sounds](https://opengameart.org/content/chain-winch-sounds).
+- `cart_0/1.ogg` — синтезированы (гул, стук на стыках рельсов, скрип) тем же скриптом.
+- Кирка — те же Kenney `impactMining_*`, что и на поле.
