@@ -15,6 +15,7 @@ signal band_tapped(k: int)
 
 const DIR := "res://assets/mine/old_adit/"
 const PLACES := ["camp", "power", "yard", "headframe"]
+const PICK_FPS := 8.0     # the pick's swing: 6 drawings, the strike on the third
 
 static var _tex := {}
 static var _last := {}    # area -> what the screen showed last: {places, bands, lived}
@@ -40,6 +41,8 @@ var _drill_in := {}       # depth -> when the drill came through into it
 var _glow: Texture2D
 var _shade: Texture2D
 var _stars: Array = []
+var amb: MineAmb
+var _cue := {}            # the last frame each sound cue was checked at, so it fires once per crossing
 var t := 0.0
 var _rng := RandomNumberGenerator.new()
 var _bands: Array = []    # per depth: {y, state, lived}
@@ -85,6 +88,8 @@ func _ready() -> void:
 	live = Node2D.new()
 	live.draw.connect(_draw_live)
 	add_child(live)
+	amb = MineAmb.new(self)
+	add_child(amb)
 	var g := GradientTexture2D.new()
 	var gr := Gradient.new()
 	gr.set_color(0, Color(1, 1, 1, 1))
@@ -182,10 +187,12 @@ func _changes() -> void:
 		if was == "flooded":
 			# the pump: the water goes down, the picture under it was the closed gallery all along
 			_water[k] = t + wait
+			get_tree().create_timer(wait).timeout.connect(func(): amb.shot("pan", -2.0, 0.55))
 		elif was == "closed":
 			# the drill comes down through the rock, then the gallery shows through the dust
 			_shown_bands[k] = was
 			_drill_in[k] = t + wait
+			get_tree().create_timer(wait).timeout.connect(func(): amb.shot("rockfall", 0.0, 0.7))
 			for j in 3:
 				_bursts.append([Vector2(420 + 330 * j, y + 330), t + wait + 0.8 + 0.12 * j])
 			_reveal("band/d%d_%s.png" % [d, now], Vector2(0, y), wait + 1.1, func(): _shown_bands[k] = now)
@@ -210,6 +217,7 @@ func _reveal(path: String, pos: Vector2, delay: float, done: Callable) -> void:
 	reveals.add_child(sp)
 	var tw := sp.create_tween()
 	tw.tween_interval(delay)
+	tw.tween_callback(func(): amb.shot("rockfall", -6.0, 0.9))
 	tw.tween_method(func(v: float): m.set_shader_parameter("p", v), 0.0, 1.0, 1.6).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(func():
 		done.call()
@@ -316,7 +324,47 @@ func _process(delta: float) -> void:
 		return
 	t += delta
 	_tick_events()
+	_sounds(delta)
 	live.queue_redraw()
+
+## how much quieter a sound is for being far from the middle of the screen (dB, 0 at the middle)
+func _far(y_src: float) -> float:
+	var vp := get_viewport_rect().size
+	var sy := position.y + y_src * scale.y
+	return -clampf(absf(sy - vp.y * 0.5) / vp.y * 14.0, 0.0, 28.0)
+
+## true once each time `v` (a running count) passes a multiple of `every` plus `at`
+func _passed(key: String, v: float, every: float, at := 0.0) -> bool:
+	var n := floorf((v - at) / every)
+	var was: float = _cue.get(key, n)
+	_cue[key] = n
+	return n > was
+
+## the sounds at the moments the picture shows them
+func _sounds(_dt: float) -> void:
+	# the cage sets off down (cycle start) and up (half way)
+	if int(steps.get("headframe", 0)) >= 3 and _passed("cage", t, 6.0):
+		amb.shot("winch_%d" % (randi() % 2), _far(float(J.cage.top)))
+	for b in _bands:
+		if not b.lived or _appear.has(int(b.k)):
+			continue
+		var k := int(b.k)
+		var y := float(b.y) + float(J.floor)
+		var deep := -k * 1.5
+		var mine := k == sel
+		# the pick strikes on frame 2 of its swing (the pick down at the heap); every gallery on its own beat
+		if _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0) and (mine or randf() < 0.18):
+			amb.shot("pick", _far(y) + deep + (0.0 if mine else -4.0), 0.9 - k * 0.03)
+		# the cart: rolling sounds while it moves (each take is 4 s), out to the shaft and back
+		var P: Dictionary = J.push
+		var go := (float(J.portal) + 330.0) / float(P.step)
+		var cyc := 2.0 * go + 16.0
+		var ft := fmod(t * 24.0 + k * 37.0, cyc)
+		var moving := ft < go - 30.0 or (ft > go + 16.0 and ft < cyc - 20.0)
+		# (the other galleries' carts only when on screen, and not every take: five rolling at once was a din)
+		if _passed("cart%d" % k, t * 24.0 + k * 37.0, 96.0) and moving and (mine or (_far(y) > -5.0 and randf() < 0.5)):
+			amb.shot("cart_%d" % (randi() % 2), _far(y) + deep + (0.0 if mine else -6.0), 1.0 - k * 0.03)
+
 
 func _tick_events() -> void:
 	if t < _next_event:
@@ -329,7 +377,11 @@ func _tick_events() -> void:
 	pool.append("bat")
 	_bat_k = _rng.randi_range(0, open)
 	if not pool.is_empty():
-		_events[pool[_rng.randi() % pool.size()]] = t
+		var ev: String = pool[_rng.randi() % pool.size()]
+		_events[ev] = t
+		match ev:
+			"hole": get_tree().create_timer(1.6).timeout.connect(func(): amb.shot("hiss", _far(band_y(0) + 400) - 14.0, 1.4))
+			"coil": amb.shot("hiss", _far(band_y(3) + 300) - 10.0, 0.6)
 
 func _draw_live() -> void:
 	var c := live
@@ -497,12 +549,12 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 	var back := floor_y - 34
 	var hs := _size("heap.png")
 	_put(c, "heap.png", Vector2(812, back - hs.y + 8), false, al)
-	var pf := int(t * 12) % 6
+	var pf := int(t * PICK_FPS + k * 2.3) % 6
 	var pp := "pick/%d.png" % pf
 	var psz := _size(pp)
 	_put(c, pp, Vector2(760 - psz.x / 2, back - psz.y), false, al)
-	var sf := int(t * 12) % 12 - 6
-	if sf >= 0 and sf < 4:
+	var sf := int(fposmod(t * PICK_FPS + k * 2.3 - 2.0, 6.0) * 2.0)
+	if sf < 4:
 		_put(c, "gspark/%d.png" % sf, Vector2(830, back - hs.y - 30), false, al)
 	# the pusher: out from the face (left) with a full cart into the shaft, back with an empty one
 	var P: Dictionary = J.push

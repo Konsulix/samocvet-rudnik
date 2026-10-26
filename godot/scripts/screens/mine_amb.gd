@@ -1,14 +1,18 @@
 class_name MineAmb
 extends Node
-## The home screen's quiet soundscape, in step with what the MineScene draws: the cave breathing under
-## everything, crickets on the surface, the cage winch when the headframe runs, the cart rolling in the
-## chosen gallery and picks knocking in the open ones. All of it goes through Sfx's muffled "Amb" bus.
+## The home screen's quiet soundscape: the cave breathing under everything, crickets on the surface, the cage winch
+## when the headframe runs, the cart rolling in the chosen gallery and picks knocking in the open ones. All of it goes
+## through Sfx's muffled "Amb" bus.
+## Under the old MineScene it keeps its own clock; the drawn MineView instead calls shot() at the moments its
+## animation shows (a pick striking, the cage setting off, a cart rolling out), so sound and picture agree.
+## Only the screen that is shown sounds: the loops pause while their screen is hidden.
 
 const AMB := "res://assets/audio/amb/"
 ## level of each layer on the bus (dB)
 const DB := {cave = -6.0, crickets = -16.0, winch = -12.0, cart = -9.0, pick = -14.0}
 
-var scene: MineScene
+var scene: Node2D          # MineScene (keeps its own clock here) or MineView (calls shot())
+var old: MineScene
 var _cave: AudioStreamPlayer
 var _crickets: AudioStreamPlayer
 var _pool: Array[AudioStreamPlayer] = []
@@ -19,21 +23,23 @@ var _cart_ph := 0.0
 var _pick_at := 2.5
 var _hits: Array = []   # [time, depth] of picks still to strike
 
-func _init(s: MineScene) -> void:
+func _init(s: Node2D) -> void:
 	scene = s
+	old = s as MineScene
 
 func _ready() -> void:
 	Sfx.amb_bus()
 	_cave = _loop("cave")
-	if not scene.fire:
+	if not (old and old.fire):
 		_crickets = _loop("crickets")
 	for i in 6:
 		var p := AudioStreamPlayer.new()
 		p.bus = Sfx.AMB_BUS
 		add_child(p)
 		_pool.append(p)
-	_cage_ph = _phase(9.0)
-	_cart_ph = _phase(10.0)
+	if old:
+		_cage_ph = _phase(9.0)
+		_cart_ph = _phase(10.0)
 
 func _loop(n: String) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
@@ -54,7 +60,21 @@ func _stream(n: String) -> AudioStream:
 	return _streams[n]
 
 func _phase(dur: float) -> float:
-	return fposmod(scene.t, dur) / dur
+	return fposmod(old.t, dur) / dur
+
+## one sound now: a layer of this file (winch_N, cart_N) or a board sample ("pick", or an Sfx sample name);
+## db on top of the layer's own level
+func shot(n: String, db := 0.0, pitch := 1.0) -> void:
+	if not scene.is_visible_in_tree():
+		return
+	if n == "pick":
+		_shot(Sfx.pick_stream(), DB.pick + db, pitch)
+	elif n.begins_with("winch") or n.begins_with("cart"):
+		_shot(_stream(n), float(DB[n.get_slice("_", 0)]) + db, pitch)
+	else:
+		var sm: Dictionary = Sfx.SAMPLES[n]
+		var takes: Array = sm.f
+		_shot(Sfx._sample(takes[randi() % takes.size()]), float(sm.db) + db, pitch * float(sm.get("pitch", 1.0)))
 
 func _shot(st: AudioStream, db: float, pitch := 1.0) -> void:
 	var p := _pool[_next]
@@ -65,9 +85,14 @@ func _shot(st: AudioStream, db: float, pitch := 1.0) -> void:
 	p.play()
 
 func _process(dt: float) -> void:
-	var t := scene.t
+	var on := scene.is_visible_in_tree()
+	for lp in [_cave, _crickets]:
+		if lp: (lp as AudioStreamPlayer).stream_paused = not on
+	if not on or not old:
+		return
+	var t := old.t
 	# the cage goes down on 0 and up on 0.5 of its 9 s cycle (MineScene._draw_live)
-	if scene.has("headframe"):
+	if old.has("headframe"):
 		var ph := _phase(9.0)
 		if _crossed(_cage_ph, ph, 0.0) or _crossed(_cage_ph, ph, 0.5):
 			_shot(_stream("winch_%d" % (randi() % 2)), DB.winch)
@@ -75,12 +100,12 @@ func _process(dt: float) -> void:
 	# the cart sets off on 0 and comes back on 0.5 of its 10 s cycle
 	var cph := _phase(10.0)
 	if _crossed(_cart_ph, cph, 0.0) or _crossed(_cart_ph, cph, 0.5):
-		_shot(_stream("cart_%d" % (randi() % 2)), DB.cart - scene.d_sel * 1.5, 1.0 - scene.d_sel * 0.03)
+		_shot(_stream("cart_%d" % (randi() % 2)), DB.cart - old.d_sel * 1.5, 1.0 - old.d_sel * 0.03)
 	_cart_ph = cph
 	# now and then a miner in an open gallery swings a few times; deeper ones sound farther off
 	if t >= _pick_at:
 		_pick_at = t + randf_range(3.0, 8.0)
-		var k := randi() % (scene.d_open + 1)
+		var k := randi() % (old.d_open + 1)
 		var n := 2 + randi() % 3
 		var gap := randf_range(0.5, 0.75)
 		for i in n:
