@@ -29,6 +29,7 @@ var steps := {}           # job id -> steps done (3 = finished)
 var wins: Array = []
 var H := 0.0              # content height, source px
 var live: Node2D
+var front: Node2D         # the shaft column again, over the live layer
 var surf: Sprite2D
 var still: Node2D
 var reveals: Node2D
@@ -88,6 +89,9 @@ func _ready() -> void:
 	live = Node2D.new()
 	live.draw.connect(_draw_live)
 	add_child(live)
+	front = Node2D.new()
+	front.draw.connect(func(): _draw_shaft(front))
+	add_child(front)
 	amb = MineAmb.new(self)
 	add_child(amb)
 	var g := GradientTexture2D.new()
@@ -150,6 +154,7 @@ func setup(a: int) -> void:
 	sm.set_shader_parameter("amp", 3.0 / 1536.0)
 	_changes()
 	still.queue_redraw()
+	front.queue_redraw()
 
 ## what changed since the screen was last shown in this mine, played as scenes; the first time just shows it all
 func _changes() -> void:
@@ -299,7 +304,10 @@ func _draw_still() -> void:
 		var r := Rect2(24, float(b.y) + 18, w + 40, 74)
 		c.draw_style_box(_chip(k == sel), r)
 		c.draw_string(font, Vector2(r.position.x + 20, r.position.y + 54), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
-	# the shaft down to the floor of the deepest open depth
+	_draw_shaft(c)
+
+## the shaft down to the floor of the deepest open depth
+func _draw_shaft(c: CanvasItem) -> void:
 	var sh: Array = J.shaft
 	var seg := _size("shaft.png")
 	var y := float(J.sky) + float(J.surf) - 30
@@ -586,46 +594,55 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 func _clip_put(c: CanvasItem, path: String, pos: Vector2, flip: bool, portal: float, al := 1.0) -> void:
 	var tx := tex(path)
 	var sz := tx.get_size() / K
-	var w := clampf(portal - pos.x, 0, sz.x)
-	if w <= 0:
-		return
 	if not flip:
-		c.draw_texture_rect_region(tx, Rect2(pos, Vector2(w, sz.y)), Rect2(0, 0, w * K, sz.y * K), Color(1, 1, 1, al))
-	else:
-		# mirrored: the part nearest the portal is the texture's left side
-		c.draw_texture_rect_region(tx, Rect2(pos + Vector2(w, 0), Vector2(-w, sz.y)), Rect2((sz.x - w) * K, 0, w * K, sz.y * K), Color(1, 1, 1, al))
+		var w := clampf(portal - pos.x, 0, sz.x)
+		if w > 0:
+			c.draw_texture_rect_region(tx, Rect2(pos, Vector2(w, sz.y)), Rect2(0, 0, w * K, sz.y * K), Color(1, 1, 1, al))
+		return
+	# mirrored (a transform, not a negative rect: that came out unflipped and shifted): in the mirrored frame u runs
+	# from the sprite's right edge leftwards; only u past the portal's line is outside the shaft
+	var u0 := clampf(pos.x + sz.x - portal, 0, sz.x)
+	if u0 >= sz.x:
+		return
+	c.draw_set_transform(Vector2(pos.x + sz.x, pos.y), 0, Vector2(-1, 1))
+	c.draw_texture_rect_region(tx, Rect2(u0, 0, sz.x - u0, sz.y), Rect2(u0 * K, 0, (sz.x - u0) * K, sz.y * K), Color(1, 1, 1, al))
+	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 ## a cart standing on the rails at `bottom_left` (its sole), rolled `rolled` px: the wheels turn, it dips over the
-## rail joints, a puff of dust at a knock
+## rail joints. Drawn in the cart's own frame (mirrored for the way back), so the wheels stay in their arches; what is
+## past the portal is inside the shaft and not drawn
 func _cart(c: CanvasItem, path: String, cd: Dictionary, bottom_left: Vector2, rolled: float, flip: bool, portal: float, al := 1.0) -> void:
 	var w := float(cd.w)
 	var h := float(cd.h)
 	var r := float(cd.r)
-	var pos := Vector2(bottom_left.x, bottom_left.y - h)
-	if pos.x > portal: return
 	var joint := 150.0
 	var base := absf(float(cd.wheels[1][0]) - float(cd.wheels[0][0]))
 	var dips := []
 	for off in [base, 0.0]:
 		var uu: float = fmod(rolled + float(off), joint) / 14.0
 		dips.append(maxf(0.0, 1.0 - absf(uu - 1.0)) if uu < 2.0 else 0.0)
-	var tilt := deg_to_rad(1.2 * (float(dips[0]) - float(dips[1])) + 0.35 * sin(rolled / 37.0)) * (-1.0 if flip else 1.0)
+	var sx := -1.0 if flip else 1.0
+	var tilt := deg_to_rad(1.2 * (float(dips[0]) - float(dips[1])) + 0.35 * sin(rolled / 37.0)) * sx
 	var sink := 3.0 * maxf(float(dips[0]), float(dips[1]))
-	var ang := rolled / r * (-1.0 if flip else 1.0)
-	var piv := pos + Vector2(w / 2, h + sink)
-	c.draw_set_transform(piv, tilt, Vector2.ONE)
+	var piv := Vector2(bottom_left.x + w / 2, bottom_left.y + sink)
+	# the part of the cart (its own x, -w/2..w/2) still out of the shaft
+	var u0 := -w / 2
+	var u1 := w / 2
+	if flip: u0 = maxf(u0, piv.x - portal)
+	else: u1 = minf(u1, portal - piv.x)
+	if u1 <= u0:
+		return
+	var T := Transform2D(tilt, Vector2(sx, 1), 0.0, piv)
 	var ws := _size("cart_wheel.png")
 	for wh in cd.wheels:
-		var wx := float(wh[0])
-		if flip: wx = w - wx
-		var ctr := Vector2(wx - w / 2, float(wh[1]) - h)
-		c.draw_set_transform(piv + ctr.rotated(tilt), tilt + ang, Vector2.ONE)
+		var ctr := Vector2(float(wh[0]) - w / 2, float(wh[1]) - h)
+		if ctr.x + r > u1 or ctr.x - r < u0:
+			continue
+		c.draw_set_transform_matrix(T * Transform2D(rolled / r, ctr))
 		c.draw_texture_rect(tex("cart_wheel.png"), Rect2(-ws / 2, ws), false, Color(1, 1, 1, al))
-	c.draw_set_transform(piv, tilt, Vector2.ONE)
+	c.draw_set_transform_matrix(T)
 	var tx := tex(path + ".png")
-	var rr := Rect2(Vector2(-w / 2, -h), Vector2(w, h))
-	if flip: rr = Rect2(Vector2(w / 2, -h), Vector2(-w, h))
-	c.draw_texture_rect(tx, rr, false, Color(1, 1, 1, al))
+	c.draw_texture_rect_region(tx, Rect2(u0, -h, u1 - u0, h), Rect2((u0 + w / 2) * K, 0, (u1 - u0) * K, h * K), Color(1, 1, 1, al))
 	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 func _snake_live(c: CanvasItem) -> void:
