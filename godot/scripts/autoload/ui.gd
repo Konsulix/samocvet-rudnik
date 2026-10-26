@@ -230,6 +230,9 @@ func icon(size_px: float, fn: Callable) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(size_px, size_px)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# icons are big sprites drawn small; and on iPhone a sprite with mipmaps whose sides are not a power of two
+	# (the find's block, 287 px) came out plain white under the plain linear filter
+	c.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	c.draw.connect(func(): fn.call(c))
 	return c
 
