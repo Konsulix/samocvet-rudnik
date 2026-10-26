@@ -15,6 +15,9 @@ const BOSS_X := -8.0
 ## a hit this strong, or this much in one move, makes it flinch
 const BIG_HIT := 25
 const BIG_TURN := 80
+## where no bar hides the boss' flat-cut bottom it sinks into the dark over this much, pt; the ramp beside a bar
+const SINK_BAND := 22.0
+const SINK_RAMP := 10
 
 static var _turn_dmg := 0
 
@@ -103,6 +106,7 @@ static func place(lv: Level) -> void:
 	var top_line := lv.holder.position.y + f.top_line()
 	var v := view(lv)
 	v.position = Vector2(float(v.meta.get("x", BOSS_X)), roundf(top_line + float(v.meta.get("sink", SINK)) - v.size.y))
+	_expose(lv, v, f)
 	var h := hud(lv)
 	var gx := lv.holder.position.x + b.PAD
 	# inset by a cell and a bit: the quartz on the frame's top corners stays in sight
@@ -117,6 +121,34 @@ static func place(lv: Level) -> void:
 	h.hp_rect = Rect2(roundf(x0), roundf(top_line + r0 * b.TS - 10), roundf(x1 - x0), 20)
 	h.bubble_target = v.head_global()
 	h.queue_redraw()
+
+## which columns of the boss' picture have no bar of the frame under their bottom: beyond the board's sides and
+## over a cut-away corner of its top. The frame's bar reaches a little past its cells; the edge is ramped softly
+static func _expose(lv: Level, v: BossView, f: BossFrame) -> void:
+	var b := lv.board
+	var m := lv.model
+	var w := int(v.size.x)
+	var bottom := v.position.y + v.size.y
+	var reach := b.TS * (float(f.meta.offset) + 0.3)         # the bar's outer edge, out from the cells
+	var raw := PackedFloat32Array()
+	raw.resize(w)
+	for x in w:
+		var gx := v.position.x + x - lv.holder.position.x - b.PAD   # in the grid, px
+		var top := INF
+		for c in BoardModel.C:
+			if gx < c * b.TS - reach or gx > (c + 1) * b.TS + reach: continue
+			for r in BoardModel.R:
+				if m.playable(r, c):
+					top = minf(top, lv.holder.position.y + b.PAD + r * b.TS - reach)
+					break
+		raw[x] = 1.0 if top > bottom - 2.0 else 0.0
+	var out := PackedFloat32Array()
+	out.resize(w)
+	for x in w:
+		var s := 0.0
+		for d in range(-SINK_RAMP, SINK_RAMP + 1): s += raw[clampi(x + d, 0, w - 1)]
+		out[x] = s / float(SINK_RAMP * 2 + 1)
+	v.set_exposed(out, SINK_BAND)
 
 static func title(lv: Level) -> void:
 	var B: Dictionary = lv.model.boss.B

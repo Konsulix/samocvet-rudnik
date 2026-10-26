@@ -75,6 +75,15 @@ func _ready() -> void:
 	dust.visible = false
 	add_child(dust)
 
+## where no bar of the frame hides its flat-cut bottom: per column of the picture, 1 exposed .. 0 hidden.
+## There its bottom `band` px sink into the dark and dither away (shaders/boss_sprite.gdshader)
+func set_exposed(cols: PackedFloat32Array, band: float) -> void:
+	var img := Image.create(cols.size(), 1, false, Image.FORMAT_L8)
+	for x in cols.size(): img.set_pixel(x, 0, Color(cols[x], cols[x], cols[x]))
+	var sm: ShaderMaterial = spr.material
+	sm.set_shader_parameter("exposed", ImageTexture.create_from_image(img))
+	sm.set_shader_parameter("sink_band", band)
+
 ## the point on screen the speech bubble points at
 func head_global() -> Vector2:
 	return global_position + Vector2(meta.head_at[0], meta.head_at[1])
