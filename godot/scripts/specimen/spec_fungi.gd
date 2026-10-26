@@ -159,10 +159,11 @@ static func material(kind: int) -> ShaderMaterial:
 	return m
 
 ## one cluster of `kind` round a spot of `spots` ([pos, normal]); size: the height of a grown one
-## blockers: the crystals ({bounds, inverse}: their box in their own axes, and the way into them) no cap may grow into
-static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array = []) -> void:
+## blockers: the crystals ({bounds, inverse}: their box in their own axes, and the way into them) no cap may grow into.
+## Gives the spot of the biggest cap, or an empty array when none found room
+static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array = []) -> Array:
 	if spots.is_empty():
-		return
+		return []
 	var c0: Array = spots[int(rng.next() * spots.size())]
 	var reach := size * (0.9 if kind == 3 else 1.4)
 	var near := []
@@ -199,7 +200,7 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 			tints.append(Color(v, v * (0.96 + rng.next() * 0.06), v))
 			break
 	if placed.is_empty():
-		return
+		return []
 	var buf := SpecUtil.mm_buf(placed.size())
 	for k in placed.size():
 		SpecUtil.put(buf, k, placed[k], tints[k])
@@ -213,3 +214,4 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	mi.multimesh = mm
 	mi.material_override = material(kind)
 	parent.add_child(mi)
+	return [placed[0].origin, placed[0].basis.y.normalized()]

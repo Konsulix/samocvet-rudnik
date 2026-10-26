@@ -83,6 +83,15 @@ const SETS := [
 	{seed = 4, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "slabs"}, {seed = 8, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "slabs"},
 	{seed = 2, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"}, {seed = 5, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"},
 	{seed = 11, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"}, {seed = 13, sid = "sapphire", kind = "druse", gi = 3, traits = [], form = "columnar"}],
+	# set 17: the druzy coat on different forms, and finds carrying many traits at once
+	[{seed = 301, sid = "quartz", kind = "crystal", gi = 2, traits = ["moss", "druzy", "anomaly"], form = "columnar", accents = ["flowers", "lichen", "pompom"]},
+	{seed = 302, sid = "calcite", kind = "druse", gi = 2, traits = ["moss", "zoned", "druzy"], accents = ["lichen"]},
+	{seed = 303, sid = "gold", kind = "nugget", gi = 3, traits = ["coral", "zoned", "phantom", "bubbles"], accents = ["pompom"]},
+	{seed = 304, sid = "amethyst", kind = "crystal", gi = 3, traits = ["druzy"], form = "single"},
+	{seed = 305, sid = "fluorite", kind = "druse", gi = 2, traits = ["druzy"], form = "cluster"},
+	{seed = 306, sid = "quartz", kind = "druse", gi = 2, traits = ["druzy"], form = "slabs"},
+	{seed = 307, sid = "emerald", kind = "crystal", gi = 2, traits = ["druzy", "moss"], accents = ["flowers", "pompom"]},
+	{seed = 308, sid = "calcite", kind = "crystal", gi = 2, traits = ["druzy"]}],
 ]
 
 func _ready() -> void:
@@ -112,6 +121,8 @@ func _ready() -> void:
 		var t1 := Time.get_ticks_msec()
 		await v.show_spec(list[i])
 		print("built ", list[i].get("sid", list[i].get("machine", "jewel")), " in ", Time.get_ticks_msec() - t1, " ms")
+		if v.live and list[i].has("sid"):
+			print("  grown: ", ", ".join((v.live.get_meta("grown", {}) as Dictionary).keys()))
 	print("total ", Time.get_ticks_msec() - t0, " ms")
 	if args.has("shot"):
 		await get_tree().create_timer(float(args.get("after", "3"))).timeout

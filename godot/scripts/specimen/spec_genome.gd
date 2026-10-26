@@ -17,7 +17,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
 	{id = "silver", n = "silver rim", p = 0.1, m = 1.35},
-	{id = "eroded", n = "etched", p = 0.1, m = 1.3},
+	{id = "eroded", n = "etched", p = 0.06, m = 1.3},
 	{id = "goldfleck", n = "gold flecks", p = 0.07, m = 1.7},
 	{id = "anomaly", n = "anomalous", p = 0.03, m = 2.5},
 ]

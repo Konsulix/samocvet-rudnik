@@ -160,7 +160,7 @@ static func seat(g: Node3D) -> Node3D:
 	pivot.set_meta("glow", g.get_meta("glow", Color(0.2, 0.27, 0.33)))
 	if g.has_meta("anim"):
 		pivot.set_meta("anim", g.get_meta("anim"))
-	for k in ["fluor", "heart_light"]:
+	for k in ["fluor", "heart_light", "grown"]:
 		if g.has_meta(k):
 			pivot.set_meta(k, g.get_meta(k))
 	return pivot

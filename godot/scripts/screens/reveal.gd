@@ -152,17 +152,69 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	flow.alignment = FlowContainer.ALIGNMENT_CENTER
 	flow.add_theme_constant_override("h_separation", 6)
 	flow.add_theme_constant_override("v_separation", 6)
+	# every gene the find rolled, keyed as the builder marks them: [name, rare]; hidden until the stone is built
+	var genes := {}
 	if String(gene.fx) != "":
-		flow.add_child(chip(SpecLegend.FX_N.get(gene.fx, gene.fx), true))
+		genes.fx = [SpecLegend.FX_N.get(gene.fx, gene.fx), true]
 	for id in s.get("traits", []):
 		var t: Dictionary = Data.TR[id]
-		flow.add_child(chip(t.n, float(t.p) < 0.06))
+		genes[id] = [t.n, float(t.p) < 0.06]
 	for a in gene.accents:
-		var an: String = SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a)
-		flow.add_child(chip(an, false, true))
+		genes[a] = [SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
+	var chips := {}
+	for id: String in genes:
+		var c := chip(genes[id][0], genes[id][1], not (id in s.get("traits", [])) and id != "fx")
+		c.modulate.a = 0.0
+		chips[id] = c
+		flow.add_child(c)
 	if flow.get_child_count():
 		v.add_child(flow)
+	# then only what really grew on it stays (a gene the stone's form had no room for is not named),
+	# and a tap on a badge draws threads from name plates to where each grew
+	view.built.connect(func(p: Node3D) -> void:
+		var grown: Dictionary = p.get_meta("grown", {})
+		var list := []
+		for id: String in chips:
+			var c: Label = chips[id]
+			if not grown.has(id):
+				c.queue_free()
+				continue
+			c.create_tween().tween_property(c, "modulate:a", 1.0, 0.3)
+			list.append({id = id, name = genes[id][0], rare = genes[id][1], pts = grown[id]})
+		if list.is_empty():
+			flow.queue_free()
+			return
+		var co := SpecCallouts.attach(view)
+		co.setup(list)
+		var close := func() -> void:
+			co.hide_all()
+		co.plate_tapped.connect(func(_id: String) -> void: close.call())
+		view.tapped.connect(close)
+		for it: Dictionary in list:
+			var id: String = it.id
+			var c: Label = chips[id]
+			c.mouse_filter = Control.MOUSE_FILTER_STOP
+			c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			c.gui_input.connect(func(e: InputEvent) -> void:
+				if not (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT):
+					return
+				c.accept_event()
+				var tw := c.create_tween()
+				c.pivot_offset = c.size * 0.5
+				tw.tween_property(c, "scale", Vector2(0.92, 0.92), 0.05)
+				tw.tween_property(c, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				if not co.open:
+					co.show_all(id)
+				elif co.sel == id:
+					co.hide_all()
+				else:
+					co.select(id))
+		if auto_callouts != "":
+			co.show_all.call_deferred("" if auto_callouts == "1" else auto_callouts)
+	, CONNECT_ONE_SHOT)
 	return view
+
+static var auto_callouts := ""   # for screenshots: open the callouts once built ("1": none picked)
 
 ## two quiet buttons side by side: [left] [right]
 static func action_row(left: Button, on_left: Callable, right: Button, on_right: Callable) -> HBoxContainer:

@@ -17,6 +17,10 @@ var dt_mats := []
 var crust_ok := true
 var gene_m := {}
 var green_spots := []
+## what really grew on the stone, so the card names nothing it doesn't show: gene id (a trait, an accent, or "fx")
+## -> [[point, normal], ...] in the specimen's own space, where a callout can point at it
+var grown := {}
+var arng := Rng32.new(7)   # picks callout spots without touching the stone's own random stream
 
 static func build(o: Dictionary) -> Node3D:
 	var b := SpecimenBuilder.new()
@@ -52,6 +56,32 @@ func _lay(c: MeshInstance3D, rb: AABB, out: Vector3, thick: float, back: float) 
 	var foot := Vector3(ctr.x + out.x * rb.size.x * 0.38, rb.position.y + rb.size.y * 0.15 + thick * 0.5, ctr.z + out.z * rb.size.z * 0.38)
 	c.transform = Transform3D(Basis(y.cross(z), y, z), foot + y * back)
 
+func _mark(id: String, p: Vector3, n := Vector3.ZERO) -> void:
+	if not grown.has(id):
+		grown[id] = []
+	(grown[id] as Array).append([p, n])
+
+## a point inside a mesh, `f` of the way up its box, in the specimen's space (for what fills a crystal)
+func _mid(m: Node3D, f := 0.5) -> Vector3:
+	if not (m and m.has_meta("geo")):
+		return Vector3.ZERO
+	var bb := (m.get_meta("geo") as Geo).aabb()
+	return U.rel_xform(m, root) * (bb.position + bb.size * Vector3(0.5, f, 0.5))
+
+## a spot on a mesh's upper half, with its normal (for what colours or etches a whole surface)
+func _mark_on(id: String, m: Node3D) -> void:
+	if not (m and m.has_meta("geo")):
+		_mark(id, Vector3.ZERO)
+		return
+	var bb := (m.get_meta("geo") as Geo).aabb()
+	var y0 := bb.position.y + bb.size.y * 0.35
+	var back := U.rel_xform(m, root).affine_inverse()
+	var pts := RockKit.surf_pts(m, 1, arng, func(p: Vector3, _n: Vector3) -> bool: return (back * p).y > y0, root)
+	if pts.is_empty():
+		_mark(id, _mid(m, 0.6))
+	else:
+		_mark(id, pts[0][0], pts[0][1])
+
 func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 	return Transform3D(U.eul(e.x, e.y, e.z) * Basis.from_scale(sc), p)
 
@@ -73,6 +103,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var gene := SpecGenome.of(o)
 	gene_m = gene
 	root.set_meta("genome", gene)
+	root.set_meta("grown", grown)
 	if gene.anomaly:
 		# an anomaly: the stone grew in a colour its species never has, and glows faintly from inside
 		col = SpecMat.offset_hsl(col, gene.hue, 0.3, 0.04)
@@ -107,7 +138,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var scan: int = RockKit.SCAN_OF[rtype]
 	dt.scan = scan
 
-	var st := {pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
+	var st := {rocky = false, pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
 		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = []}
 	var stria := 1.0 if elongated else 0.0
 	var cmat_spec := func() -> Dictionary:
@@ -131,6 +162,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		if gene.fx == "lava": rd.lava = 1.0
 		var rm := SpecMat.make(rd)
 		rm.set_meta("rock", true)   # ultraviolet lights the crystals, never the rock
+		st.rocky = true
 		return rm
 	var use_rock := func(shape: String) -> MeshInstance3D:
 		var loose: float = gene.loose
@@ -194,6 +226,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			if "twin" in tr:
 				var t: MeshInstance3D = crystal.call(1.0 + rng.next() * 0.4, 1.05, at, lean.call(Vector3(0.8, 1, 0.3), 0.3))
 				t.rotate_object_local(Vector3.BACK, 0.6)
+				_mark("twin", _mid(t, 0.7))
 		"cluster":
 			# a druse: a crumbling plate bristling with crystals of every size, their feet frosted and crusted over
 			use_rock.call("slab" if rng.next() < 0.6 else "long")
@@ -408,6 +441,18 @@ func _specimen(o: Dictionary) -> Node3D:
 				crystal.call(0.35 + rng.next() * 0.3, 0.45, Vector3((rng.next() - 0.5) * 0.3, 0.3 + rng.next() * 0.5, (rng.next() - 0.5) * 0.2), d, {dt = true})
 		"geode":
 			main = _geode(sp, col, rtype, habit, elongated, metal, cmat_spec, make_cmat, crystal, st)
+
+	# genes that shape or colour the crystals themselves: there only if crystals grew
+	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid"])
+	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))
+	if "floater" in tr and layout == "floater": _mark("floater", _mid(main, 0.15))
+	if "zoned" in tr and crystals: _mark_on("zoned", main)
+	if "eroded" in tr and crystals and layout != "geode": _mark_on("eroded", main)
+	for ti in ["irid", "aurora"]:
+		if ti in tr and ((mat and gene.lustre != "dark") or layout == "botryoid"): _mark_on(ti, main)
+	if "silver" in tr and st.rocky: _mark_on("silver", st.rock if st.rock else main)
+	if "anomaly" in tr: _mark_on("anomaly", main)
+	if String(gene.fx) != "": _mark("fx", _mid(main, 0.65))
 
 	match gene.fx:
 		"heart":
@@ -688,6 +733,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		var pc := SpecMat.offset_hsl(col, 0.05, 0.2, -0.15)
 		var ph := U.mesh(RockKit.crystal(habit, rng, {h = h * 0.7}), SpecMat.make({col = pc * 0.8, rough = 0.6, flat = true}), main)
 		ph.transform = Transform3D(Basis.from_scale(Vector3.ONE * 0.62), Vector3(0, 0.05, 0))
+		_mark("phantom", _mid(ph))
 	if ok and "rutile" in tr:
 		var gm := SpecMat.make({col = U.raw(0xd8a23a), metal = 1.0, rough = 0.25, emis = U.raw(0x3a2208)})
 		var w := minf(bb.size.x, bb.size.z)
@@ -696,6 +742,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 			var len := minf(hh * 0.7, w * 1.6) * (0.4 + rng.next() * 0.6)
 			var at := Vector3(bb.get_center().x + (rng.next() - 0.5) * w * 0.4, maxf(0.0, bb.position.y) + hh * (0.25 + rng.next() * 0.45), bb.get_center().z + (rng.next() - 0.5) * w * 0.4)
 			U.mesh(Geo.cylinder(0.004, 0.004, len, 4), gm, main, at, U.eul((rng.next() - 0.5) * 0.8, rng.next() * 3, (rng.next() - 0.5) * 0.8))
+		_mark("rutile", _mid(main, 0.55))
 	if ok and gi < 2:
 		# a milky core: the glass clouds over inside
 		mat.set_shader_parameter("frost_k", 1.1 - gi * 0.35)
@@ -746,6 +793,7 @@ func _gold(main: MeshInstance3D, st: Dictionary) -> void:
 			var s := 0.006 + pow(rng.next(), 2.5) * 0.03
 			return [_rot_inst(p, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3(s, s * 0.25, s * (0.6 + rng.next() * 0.6))), Color(1, 1, 1)]
 		U.inst(flake, gm, 70 + int(rng.next() * 80), place, main)
+		_mark("goldfleck", _mid(main, 0.65))
 	if st.rock:
 		var pick: Callable = st.pick
 		var place2 := func(k: int) -> Array:
@@ -753,6 +801,7 @@ func _gold(main: MeshInstance3D, st: Dictionary) -> void:
 			var s := 0.008 + pow(rng.next(), 2.0) * 0.035
 			return [_rot_inst(p, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3(s, s * 0.45, s)), Color(1, 1, 1)]
 		U.inst(flake, gm, 40 + int(rng.next() * 60), place2, root)
+		if not main: _mark_on("goldfleck", st.rock)
 
 # a crumbling rock sheds bits: chips lying on it, a few about to fall, sand in the hollows
 func _crumbs(rm: ShaderMaterial, top: Array, sc: Vector3, loose: float) -> void:
@@ -803,6 +852,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			var a: Array = spot.call(0.6)
 			if a.is_empty(): continue
 			SpecAccents.tuft(root, rng, a[0], a[1], 450 + int(rng.next() * 350), (0.16 + rng.next() * 0.14) * gs, 0.012, 0.8, 0.2, pc)
+			_mark("pompom", a[0], a[1])
 	if "straw" in acc:
 		var sc: Array = SpecAccents.STRAW[int(pal.straw)]
 		for k in 2 + int(rng.next() * 3):
@@ -811,6 +861,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			# tangled hair: roots spread over a patch, long, strongly bent, every which way
 			# all swept one way, like hair combed by water
 			var sweep: Vector3 = ((a[1] as Vector3) + Vector3(rng.next() - 0.5, rng.next() * 0.3, rng.next() - 0.5) * 2.2).normalized()
+			_mark("straw", a[0], a[1])
 			for bend in [1.4, 2.4]:
 				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.45, bend, sc, 0.09 * gs)
 	var hollows: Array = st.get("hollows", [])
@@ -826,6 +877,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		for k in (5 + int(rng.next() * 5)) if in_pits else (2 + int(rng.next() * 4)):
 			var c0: Vector3 = nest_spots[int(rng.next() * nest_spots.size())][0]
 			SpecPlants.cushion(root, rng, nest_spots, c0, (0.06 + rng.next() * 0.07) if in_pits else (0.1 + rng.next() * 0.14), 0.012, lt)
+			_mark("lichen", c0)
 	# little plants root where there is moss, or in the pits, or anywhere on the rock
 	var green: Array = green_spots if green_spots.size() else nest_spots
 	if green.size():
@@ -834,6 +886,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			for k in 1 + int(rng.next() * 3):
 				var at: Array = green[int(rng.next() * green.size())]
 				SpecAccents.fronds(root, rng, [at], 8 + int(rng.next() * 9), (0.3 + rng.next() * 0.22) * gs, fp)
+				_mark("fronds", at[0], at[1])
 		if "flowers" in acc:
 			var fc: Color = SpecAccents.FLOWER[int(pal.flower)]
 			for k in 1 + int(rng.next() * 3):
@@ -842,6 +895,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 				for g2 in green:
 					if (g2[0] as Vector3).distance_to(c0[0]) < 0.12: near.append(g2)
 				SpecAccents.flowers(root, rng, near if near.size() else [c0], 4 + int(rng.next() * 7), (0.12 + rng.next() * 0.08) * gs, fc)
+				_mark("flowers", c0[0], c0[1])
 	if "mushrooms" in acc and nest_spots.size():
 		# their own random stream too: the rest of the stone stays as it was
 		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)
@@ -858,14 +912,17 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		var tiny := kind == 3
 		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
 			var n := (4 + int(fr.next() * 6)) if tiny else (2 + int(fr.next() * 4))
-			SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), blockers)
+			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), blockers)
+			if cap.size(): _mark("mushrooms", cap[0], cap[1])
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
 			SpecAccents.inkspots(main, rng, 3 + int(rng.next() * 9))
+			_mark("inkspots", _mid(main, 0.6))
 		if "clouds" in acc:
 			var cc: Color = SpecAccents.CLOUDS[int(pal.clouds)]
 			mat.set_shader_parameter("smoke_k", 0.75 + rng.next() * 0.25)
 			mat.set_shader_parameter("smoke_col", Vector3(cc.r, cc.g, cc.b) * 0.6)
+			_mark("clouds", _mid(main, 0.8))
 
 # crusts, tufts, sprays, moss and bubbles on the rock and the crystals
 func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, layout: String, sid: String, st: Dictionary, legend: bool) -> void:
@@ -902,6 +959,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		for m in cols:
 			at.append_array(RockKit.surf_pts(m, 3, rng, func(p: Vector3, n: Vector3) -> bool: return dloc or dh < -50.0 or p.y > dh - 0.05))
 		at = at.slice(0, 1 + int(floor(rng.next() * 2)))
+		if "coral" in tr and at.size(): _mark("coral", at[0][0], at[0][1])
 		var rc := [SpecMat.lin(0x9a3a12), SpecMat.lin(0xc8601e), SpecMat.lin(0x5a200a), SpecMat.lin(0xe08a3a)]
 		for pn in at:
 			var p: Vector3 = pn[0]
@@ -916,14 +974,19 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			U.inst(Geo.cone(1, 1, 4).translate(0, 0.5, 0), SpecMat.make({rough = 0.55, metal = 0.3}), 260, place, root)
 	# a sparkling crust of tiny crystals over the big one
 	if main and "druzy" in tr:
-		var gv: Geo = main.get_meta("geo")
-		var mt := main.transform
+		# spread over the faces, not stacked on the mesh's corners (those stood in rings round the prism);
+		# light sparkling grains half sunk into the face rather than dark glass beads
+		var pts := RockKit.surf_pts(main, 420, rng)
 		var dc := col.lerp(Color(1, 1, 1), 0.6)
 		var place := func(k: int) -> Array:
-			var v: Vector3 = mt * gv.v[int(floor(rng.next() * gv.v.size()))]
-			var s := 0.01 + rng.next() * 0.018
-			return [_rot_inst(v, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3.ONE * s), dc]
-		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), glass = true, thick = 2.0, flat = true, holo = 0.4, seed = 3.0}), 260, place, main.get_parent())
+			var p: Vector3 = pts[k][0]
+			var nn: Vector3 = pts[k][1]
+			var s := 0.008 + pow(rng.next(), 2) * 0.02
+			var c := dc * (0.85 + rng.next() * 0.4)
+			c.a = 1.0
+			return [_rot_inst(p - nn * s * 0.3, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3.ONE * s), c]
+		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), rough = 0.12, flat = true, holo = 0.4, seed = 3.0}), pts.size(), place, main.get_parent())
+		if pts.size(): _mark("druzy", U.rel_xform(main.get_parent(), root) * (pts[0][0] as Vector3))
 	var cyl := Geo.cylinder(1, 1, 1, 6).translate(0, 0.5, 0)
 	var cone := Geo.cone(1, 1, 5).translate(0, 0.5, 0)
 	var pals := [[0xff6a2a, 0xffb040, 0xd8302a], [0x3a6aff, 0x7fb4ff, 0x1a2a8a], [0xf4f0e8, 0xd8d0c0, 0xb8b0a0], [0xff4a8a, 0xffb0d0, 0x8a2a5a], [0xd8e04a, 0xf4f0a0, 0x7a8a2a]]
@@ -965,6 +1028,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var c: Color = (pal[int(floor(rng.next() * 2))] as Color).lerp(Color(0.9, 0.85, 0.78), 0.3)
 			return [Transform3D(Basis.from_scale(Vector3(s, s * 1.2, s)), tips[k]), c]
 		U.inst(Geo.sphere(1, 12, 8), SpecMat.make({rough = 0.5, grain = 0.8}), tips.size(), place, root)
+		if tips.size(): _mark("coral", tips[0])
 	elif style == 1:
 		# radiating needle sprays
 		var list := []
@@ -976,12 +1040,14 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 				if d.dot(base) < 0.15:
 					continue
 				list.append([at, d, 0.08 + rng.next() * 0.22, 0.006 + rng.next() * 0.006, pal[int(floor(rng.next() * 3))]])
+			_mark("coral" if strong else "needles", at, base)
 		segs.call(cone, SpecMat.make({rough = 0.25, coat = 0.6}), list)
 	elif style == 2:
 		# a crust of tiny crystals coating part of the rock
 		var seeds := []
 		for k in (7 if strong else 3):
 			seeds.append(pick.call())
+		_mark("coral" if strong else "crust", seeds[0], nrm.call(seeds[0]))
 		var place := func(k: int) -> Array:
 			var s0: Vector3 = seeds[k % seeds.size()]
 			var r := 0.17
@@ -1005,6 +1071,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var c0: Vector3 = (pool[int(rng.next() * pool.size())][0] as Vector3) if in_pits else (pick.call() as Vector3)
 			var rad := (0.07 + rng.next() * 0.09) if in_pits else (0.18 + rng.next() * 0.2)
 			green_spots.append([c0, nrm.call(c0)])
+			_mark("moss", c0, nrm.call(c0))
 			var tint: Color = (SpecAccents.MOSS[int(gene_m.palette.moss)] as Color).lerp(Color(1.2, 1.1, 0.6), rng.next() * 0.3)
 			# a cushion of moss bed, then sprigs, blades and the odd fern standing in it
 			var top := SpecPlants.cushion(root, rng, pool, c0, rad, 0.035 + rng.next() * 0.03, tint)
@@ -1022,6 +1089,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var s := 0.006 + rng.next() * 0.01
 			return [Transform3D(Basis.from_scale(Vector3.ONE * s), v), SpecMat.hsl(0.01, 0.6, 0.2 + rng.next() * 0.1).srgb_to_linear()]
 		U.inst(Geo.icosa(1, 0), SpecMat.make({rough = 0.9}), 160, place, root)
+		_mark_on("dust", st.rock)
 	if "bubbles" in tr:
 		var place := func(k: int) -> Array:
 			var v: Vector3 = (pick.call() as Vector3) * 1.02
@@ -1029,6 +1097,8 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var s := 0.015 + rng.next() * 0.05
 			return [Transform3D(Basis.from_scale(Vector3.ONE * s), v), Color(1, 1, 1)]
 		U.inst(Geo.sphere(1, 16, 12), SpecMat.make({col = Color(0.95, 0.97, 1.0), glass = true, thick = 2.0, prio = 2}), 40, place, root)
+		# with no rock to sit on they all crowd into the stone's middle, out of sight
+		if st.rock: _mark_on("bubbles", st.rock)
 
 ## rock-line coordinates for every crystal, then the final dirt line on their materials, then the meshes
 func _finish() -> void:

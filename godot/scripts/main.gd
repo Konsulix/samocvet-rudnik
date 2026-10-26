@@ -69,6 +69,9 @@ func _ready() -> void:
 			st.legend = true
 			st.tier = 4
 			if args.legend != "1": st.fx = args.legend
+		# open the callouts as soon as the stone is built: `callouts` (all) or `callouts=<gene id>` (that one picked)
+		if args.has("callouts"): Reveal.auto_callouts = args.callouts
+		if args.has("callouts_at"): SpecCallouts.freeze = float(args.callouts_at)
 		if args.has("crack"): Reveal.new().crack(st)
 		else: Reveal.new().show_stone(st)
 	if args.has("shot"):
