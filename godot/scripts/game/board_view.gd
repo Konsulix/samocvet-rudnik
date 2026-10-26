@@ -6,8 +6,8 @@ extends Control
 signal swiped(r1: int, c1: int, r2: int, c2: int)
 signal tapped(r: int, c: int)
 
-const R := BoardModel.R
-const C := BoardModel.C
+var R := 9                    # the board's size, the model's (set by layout)
+var C := 8
 
 var model: BoardModel
 var TS := 46.0
@@ -63,8 +63,10 @@ func _layer(fn: Callable) -> Node2D:
 	add_child(n)
 	return n
 
-## fit the board into `avail` (pixels) and centre it there
-func layout(avail: Vector2) -> void:
+## fit a rows x cols board into `avail` (pixels) and centre it there
+func layout(avail: Vector2, rows: int, cols: int) -> void:
+	R = rows
+	C = cols
 	# room round the cells for the frame, its corner caps and their shadow
 	var rim := BoardKit.FW * 0.5 + BoardKit.CAP * 0.5 + 0.04
 	TS = floorf(minf(minf((avail.x - 4) / (C + rim * 2.0), (avail.y - 4) / (R + rim * 2.0)), 62.0))

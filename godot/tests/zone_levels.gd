@@ -10,13 +10,13 @@ func _ready() -> void:
 		if m.geos.is_empty(): continue
 		for g in m.geos: g.done = true
 		# empty every open cell, then fill as the game does
-		for r in BoardModel.R:
-			for c in BoardModel.C:
+		for r in m.R:
+			for c in m.C:
 				if m.open(r, c) and m.G[r][c] and m.G[r][c].item == "": m.G[r][c] = null
 		for k in 3: m.collapse()
 		var empty := []
-		for r in BoardModel.R:
-			for c in BoardModel.C:
+		for r in m.R:
+			for c in m.C:
 				if m.open(r, c) and not m.LOCK[r][c] and m.G[r][c] == null: empty.append(Vector2i(r, c))
 		print("LEVEL ", n, " geodes ", m.geos.size(), " empty ", empty)
 		if empty.size(): bad += 1

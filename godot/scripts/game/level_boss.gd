@@ -46,8 +46,8 @@ static func line(lv: Level, key: String, i := -1) -> void:
 static func layout(lv: Level) -> void:
 	var vp := lv.get_viewport_rect().size
 	var top := UI.safe_top() + 2.0 + BossHud.BAR + STAGE
-	var bottom := 96.0 + UI.safe_bottom()
-	lv.board.layout(Vector2(vp.x - 12, vp.y - top - bottom))
+	var bottom := 80.0 + UI.safe_bottom()
+	lv.board.layout(Vector2(vp.x - 12, vp.y - top - bottom), lv.model.R, lv.model.C)
 	lv.holder.position = Vector2(roundf((vp.x - lv.board.size.x) / 2), roundf(top))
 	lv.holder.size = lv.board.size
 
@@ -99,10 +99,15 @@ static func place(lv: Level) -> void:
 	var b := lv.board
 	var grid := Vector2(b.PAD, b.PAD)
 	var f := frame(lv)
+	f.rows = lv.model.R
+	f.cols = lv.model.C
 	f.use_stage(int(lv.model.boss.stage))
 	f.fit(lv.model.playable, grid, b.TS)
 	var lz := lizards(lv)
-	if lz: lz.fit(lv.model.playable, grid, b.TS, float(f.meta.offset))
+	if lz:
+		lz.rows = lv.model.R
+		lz.cols = lv.model.C
+		lz.fit(lv.model.playable, grid, b.TS, float(f.meta.offset))
 	var top_line := lv.holder.position.y + f.top_line()
 	var v := view(lv)
 	v.position = Vector2(float(v.meta.get("x", BOSS_X)), roundf(top_line + float(v.meta.get("sink", SINK)) - v.size.y))
@@ -113,8 +118,8 @@ static func place(lv: Level) -> void:
 	# on the top run of the frame: the board's first row, from its first cell to its last, its corners left in sight
 	var m := lv.model
 	var r0 := 0
-	while r0 < BoardModel.R - 1 and range(BoardModel.C).all(func(c: int) -> bool: return not m.playable(r0, c)): r0 += 1
-	var cs := range(BoardModel.C).filter(func(c: int) -> bool: return m.playable(r0, c))
+	while r0 < m.R - 1 and range(m.C).all(func(c: int) -> bool: return not m.playable(r0, c)): r0 += 1
+	var cs := range(m.C).filter(func(c: int) -> bool: return m.playable(r0, c))
 	var inset := b.TS * (1.25 if cs.size() >= 6 else 0.45)
 	var x0: float = gx + float(cs[0]) * b.TS + inset
 	var x1: float = gx + float(cs[-1] + 1) * b.TS - inset
@@ -135,9 +140,9 @@ static func _expose(lv: Level, v: BossView, f: BossFrame) -> void:
 	for x in w:
 		var gx := v.position.x + x - lv.holder.position.x - b.PAD   # in the grid, px
 		var top := INF
-		for c in BoardModel.C:
+		for c in m.C:
 			if gx < c * b.TS - reach or gx > (c + 1) * b.TS + reach: continue
-			for r in BoardModel.R:
+			for r in m.R:
 				if m.playable(r, c):
 					top = minf(top, lv.holder.position.y + b.PAD + r * b.TS - reach)
 					break
@@ -152,7 +157,7 @@ static func _expose(lv: Level, v: BossView, f: BossFrame) -> void:
 
 static func title(lv: Level) -> void:
 	var B: Dictionary = lv.model.boss.B
-	hud(lv).set_title(String(B.n), "%s · %d m · board %d/3" % [String(B.get("sub", "")), int(B.m), int(lv.model.boss.stage) + 1])
+	hud(lv).set_title(String(B.n), "%s · %d m" % [String(B.get("sub", "")), int(B.m)])
 
 static func moves(lv: Level) -> void:
 	var h := hud(lv)

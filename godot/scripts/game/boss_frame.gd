@@ -12,8 +12,8 @@ var tails: Array[Texture2D] = []
 var meta: Dictionary
 var swaying := true
 var fill: Callable           # (r, c) -> is the cell part of the board
-var rows := BoardModel.R
-var cols := BoardModel.C
+var rows := 9                # the board's size (LevelBoss sets it from the model)
+var cols := 8
 var origin := Vector2.ZERO   # the grid's top-left corner
 var ts := 42.0
 var dir := ""

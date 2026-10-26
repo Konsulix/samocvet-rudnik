@@ -1,13 +1,22 @@
 class_name LevelGen
 extends RefCounted
-## Levels made on the spot for a depth of a mine. The shape of the board comes from a hand-made level (its holes and
-## where its blocks lie) or is drawn here, mirrored left to right; what fills the block cells, how much of it, the
-## goals and the moves come from the depth. A level is new each time one is played (Save.d.lseed); the first level at
-## a depth that brings a new obstacle shows that obstacle alone. The result is a level def like Data.LEVELS' ones,
-## plus {gen, colors, rich, intro}.
+## Levels made on the spot for a depth of a mine. The board is up to 11 rows by 9 (BoardModel.MAX_R/MAX_C); its shape
+## is drawn here as parts with a part each to play (_scheme: an open window to match in, a wall of blocks to break
+## through, a pocket behind it, shafts down the sides, a second tier), mirrored left to right, now and then taken from
+## a hand-made level (9 x 8). What fills the block cells, how much of it, the goals and the moves come from the depth.
+## A level is new each time one is played (Save.d.lseed); the first level at a depth that brings a new obstacle shows
+## that obstacle alone. The result is a level def like Data.LEVELS' ones, plus {gen, colors, rich, intro, scheme}.
 
-const R := BoardModel.R
-const C := BoardModel.C
+## the size of the board being made (make picks it; the helpers below read it)
+static var R := 11
+static var C := 9
+## the boards' sizes, [rows, cols, weight]: mostly the whole 11 x 9
+const SIZES := [[11, 9, 5.0], [10, 9, 3.0], [11, 8, 2.0], [10, 8, 1.0]]
+## the parts a board is drawn as (_scheme), [name, weight]; the old patterns (drawn) and hand-made shapes now and then
+const SCHEMES := [["wall", 3.0], ["tiers", 2.5], ["shafts", 2.0], ["pocket", 2.0], ["frame", 1.5], ["pillars", 1.5],
+	["field", 1.5], ["drawn", 1.0], ["hand", 1.0]]
+## a board's obstacles grow with its cells: TIERS' load is for 9 x 8, a bigger board takes more, LOAD_K more again
+const LOAD_K := 2.0
 ## what each depth puts on the board (Old Adit, and any mine without its own AREA_TIERS): the obstacles it may use and
 ## about how many cells they take. A new obstacle every other depth: 100 m granite, 200 m gas, 300 m timber
 const TIERS := [
@@ -39,15 +48,18 @@ const CAP := {gas = 6, lock = 10, crust = 10}
 const NODULES := {1: Vector2i(2, 4)}
 const NOD_LOAD := 0.7
 ## the moves a level needs: BASE + WORK of each obstacle cell (a nugget, the geode, a stone of a colour goal),
-## fitted to the autoplayer's wins on 180 generated levels (`-- sim_gen=30 sim_rows`, logistic fit 25.10).
-## A level gets MARGIN more than it needs, a little less at every depth (TIGHT); the autoplayer then wins ~60%,
-## a live player more. What a level asks for is kept within NEED_MAX, so no level wants 50 moves.
-const WORK := {sand = 0.65, granite = 1.2, mud = 0.6, gas = 2.2, lock = 1.9, crust = 1.5, nod = 1.5, nug = 4.0, geo = 2.5, colour = 0.11}
-const BASE := 10.4
-const MARGIN := 2.5
+## fitted 26.10 on the smart autoplayer (`-- sim_gen=30 sim_rows sim_free smart`: it looks a move ahead for its goals,
+## as a player who plays the level's goals would) by the moves it needs with no limit, 270 levels of both mines,
+## the shafts left out. A level gets MARGIN more than that: the smart player then wins ~80% and uses most of its moves
+## (the random one of the economy runs loses most). What a level asks for is kept within NEED_MAX
+const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, crust = 0.3, nod = 0.45, nug = 1.2, geo = 3.0, colour = 0.07}
+const BASE := 5.1
+## a shape that is slower to work through than its cells say: shafts dug from the top, a lower tier behind a throat
+const SCHEME_WORK := {shafts = 6.0, tiers = 4.0}
+const MARGIN := 4.5
 const TIGHT := 0.0
-const NEED_MAX := 31.0
-const MOVES := Vector2i(16, 34)
+const NEED_MAX := 28.0
+const MOVES := Vector2i(12, 34)
 
 static func tier(dl: int, area := 0) -> Dictionary:
 	var T: Array = AREA_TIERS.get(area, TIERS)
@@ -90,20 +102,25 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	var T := tier(dl, area)
 	var nk := new_kind(dl, area)
 	var intro := nk != "" and wins == 0
+	var scheme := String(Stones.pick_w(SCHEMES.map(func(e): return [e[0], e[1]]), Rng32.new(rng.randi())))
+	var size: Array = [9, 8] if scheme == "hand" else Stones.pick_w(SIZES.map(func(e): return [e, e[2]]), Rng32.new(rng.randi()))
+	R = int(size[0])
+	C = int(size[1])
 	var grid := []
 	for r in R:
 		var row := []
 		row.resize(C)
 		row.fill(".")
 		grid.append(row)
-	# block cells in two groups, each filled with one obstacle; spots for nuggets and a geode
+	# block cells in two groups, each filled with one obstacle, the ones that matter most first (trimming takes
+	# from the end); spots for nuggets and a geode
 	var groups := {a = [], b = []}
 	var nugs := []
 	var geo_at := []
-	if rng.randf() < 0.6:
-		_from_hand(rng, grid, groups, nugs, geo_at)
-	else:
-		_drawn(rng, grid, groups)
+	match scheme:
+		"hand": _from_hand(rng, grid, groups, nugs, geo_at)
+		"drawn": _drawn(rng, grid, groups)
+		_: _scheme(rng, scheme, grid, groups, nugs, geo_at)
 	# what goes where
 	var kinds: Array = T.kinds
 	var ka: String = nk if intro else _pick(rng, kinds, nk)
@@ -112,12 +129,13 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	if kb == "":
 		groups.a.append_array(groups.b)
 		groups.b = []
-	var load: int = int(T.load) + mini(wins, 4) + rng.randi_range(-2, 2)
-	if intro: load = roundi(T.load * 0.6)
+	var big := float(R * C) / 72.0 * (LOAD_K if scheme != "hand" else 1.0)
+	var load: int = roundi((int(T.load) + mini(wins, 4) + rng.randi_range(-2, 2)) * big)
+	if intro: load = roundi(T.load * 0.6 * big)
 	if NODULES.has(area): load = roundi(load * NOD_LOAD)
 	var want := {a = ka, b = kb}
 	for g in ["a", "b"]:
-		var cap: int = int(CAP.get(want[g], 99))
+		var cap: int = roundi(int(CAP.get(want[g], 99)) * big)
 		_trim(rng, groups[g], cap)
 	var total: int = groups.a.size() + groups.b.size()
 	while total > roundi(load * 1.25):
@@ -125,7 +143,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		total -= _drop_pair(rng, groups[g])
 	if total < roundi(load * 0.7):
 		var g: String = "a" if groups.b.is_empty() or rng.randf() < 0.5 else "b"
-		var cap2: int = int(CAP.get(want[g], 99))
+		var cap2: int = roundi(int(CAP.get(want[g], 99)) * big)
 		while total < roundi(load * 0.8) and groups[g].size() < cap2:
 			var added := _add_pair(rng, grid, groups)
 			if added == 0: break
@@ -135,7 +153,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	if NODULES.has(area):
 		var nn: Vector2i = NODULES[area]
 		nod_want = mini(nn.x + dl / 2, nn.y)
-	var reserve := nod_want * float(WORK.nod)
+	var reserve := nod_want * float(WORK.nod) + float(SCHEME_WORK.get(scheme, 0.0))
 	# no more work than a level may ask for: the heavier group gives up a pair at a time
 	var est := func() -> float:
 		var w := 0.0
@@ -164,10 +182,10 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		if used.has(k): goals.append([k])
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new
 	if not intro and rng.randf() < 0.25 and BASE + work + WORK.nug <= NEED_MAX:
-		if nugs.is_empty(): nugs = [Vector2i(0, 2), Vector2i(0, 5)]
+		if nugs.is_empty(): nugs = [Vector2i(0, 2), Vector2i(0, C - 3)]
 		var put := 0
 		for p: Vector2i in nugs:
-			if put < 2 and grid[p.x][p.y] == "." and BASE + work + WORK.nug * (put + 1) <= NEED_MAX:
+			if put < 2 and grid[p.x][p.y] == "." and _falls_out(grid, p) and BASE + work + WORK.nug * (put + 1) <= NEED_MAX:
 				grid[p.x][p.y] = "n"
 				put += 1
 		if put:
@@ -198,7 +216,119 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		rows.append("".join(grid[r]).replace("+", "."))
 	var moves := clampi(roundi(BASE + work + MARGIN - TIGHT * dl) + (3 if intro else 0), MOVES.x, MOVES.y)
 	return {map = "|".join(rows), goals = goals, moves = moves, hard = false, gen = true, colors = 5,
-		rich = rich, intro = intro, kinds = used.keys(), count = count}
+		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme}
+
+## the shape as parts. Holes and block cells are mirrored left to right; a group's cells go in the order they matter
+## (trimming to the level's load takes from the end, so a wall keeps its core and loses its ends)
+static func _scheme(rng: RandomNumberGenerator, scheme: String, grid: Array, groups: Dictionary, nugs: Array, geo_at: Array) -> void:
+	var half := (C + 1) / 2
+	match scheme:
+		"wall":
+			# an open window over a wall of blocks across the board; under it more of the board, or a second wall
+			var h := rng.randi_range(2, 3)
+			var r0 := rng.randi_range(R / 2 - 1, R - h - 2)
+			for c in range(half - 1, -1, -1):
+				for r in range(r0, r0 + h): _put(grid, groups, "a", r, c)
+			if rng.randf() < 0.5:
+				for c in half: _put(grid, groups, "b", R - 1, c)
+			if rng.randf() < 0.4: _hole(grid, R - 1, 0)
+			geo_at.append(Vector2i(r0 + h, half - 1))
+		"tiers":
+			# two boards, one over the other, joined by a throat in the middle (or not at all: each fills from its
+			# top); the lower one mostly blocks
+			var rt := rng.randi_range(R / 2 - 1, R / 2)
+			var throat := rng.randi_range(0, 2)
+			for c in half - throat: _hole(grid, rt, c)
+			if rng.randf() < 0.5: _hole(grid, rt - 1, 0)
+			for r in range(rt + 1, R):
+				for c in range(half - 1, -1, -1): _put(grid, groups, "a", r, c)
+			if rng.randf() < 0.5:
+				for r in range(1, rt - 1): _put(grid, groups, "b", r, 0)
+			if throat:
+				nugs.append_array([Vector2i(0, half - 1), Vector2i(0, C - half)])
+			else:
+				nugs.append(Vector2i(rt + 1, half - 1))
+			geo_at.append(Vector2i(1, half - 2))
+		"shafts":
+			# shafts two wide down both sides behind a wall of holes, packed with blocks; a band across the middle between
+			# them, in the lower half. The wall has a window every other row: a shaft walled off whole is dug out one
+			# layer at a time from its top only (+24 moves for the smart player)
+			var sw := 2
+			var rs := rng.randi_range(R / 2 - 1, R / 2 + 1)
+			for r in range(rs, R):
+				if (r - rs) % 2 == 0: _hole(grid, r, sw)
+			for r in range(R - 1, rs - 1, -1):
+				for c in sw: _put(grid, groups, "b", r, c)
+			var r0 := rng.randi_range(R / 2, R - 3)
+			for c in range(half - 1, sw, -1):
+				for r in range(r0, r0 + 2): _put(grid, groups, "a", r, c)
+			nugs.append(Vector2i(0, half - 1))
+		"pocket":
+			# a ring of blocks round a pocket low on the board: the geode, or the nuggets' way down, is inside
+			var c0 := rng.randi_range(1, 2)
+			var r0 := rng.randi_range(R / 2 - 1, R - 5)
+			var r1 := mini(R - 1, r0 + rng.randi_range(3, 4))
+			for c in range(half - 1, c0 - 1, -1): _put(grid, groups, "a", r0, c)
+			for r in range(r0 + 1, r1 + 1): _put(grid, groups, "a", r, c0)
+			if r1 < R - 1:
+				for c in range(half - 1, c0, -1): _put(grid, groups, "a", r1, c)
+			for r in range(r0, R):
+				for c in c0: _put(grid, groups, "b", r, c)
+			geo_at.append(Vector2i(r0 + 1, half - 1 if C % 2 == 0 else half - 2))
+			nugs.append_array([Vector2i(0, half - 1), Vector2i(0, C - half)])
+		"frame":
+			# blocks up both sides and along the bottom; the top corners cut away
+			var rs := rng.randi_range(2, R / 2)
+			for r in range(R - 1, rs - 1, -1): _put(grid, groups, "a", r, 0)
+			for c in range(1, half): _put(grid, groups, "a", R - 1, c)
+			_hole(grid, 0, 0)
+			if rng.randf() < 0.5: _hole(grid, 1, 0)
+			if rng.randf() < 0.6:
+				var rm := rng.randi_range(R / 2 - 1, R / 2 + 1)
+				for c in range(half - 1, half - 3, -1):
+					for r in range(rm, rm + 2): _put(grid, groups, "b", r, c)
+			geo_at.append(Vector2i(R - 3, half - 1))
+		"pillars":
+			# columns of blocks every other column, over a band of the other blocks
+			var r0 := rng.randi_range(1, 3)
+			var h := rng.randi_range(3, 5)
+			for c in range(half - 2 if C % 2 else half - 1, -1, -2):
+				for r in range(r0, r0 + h): _put(grid, groups, "a", r, c)
+			if rng.randf() < 0.6:
+				for c in half: _put(grid, groups, "b", R - 2, c)
+			if rng.randf() < 0.4:
+				_hole(grid, R - 1, 0)
+				_hole(grid, R - 1, 1)
+		"field":
+			# most of the lower board under blocks, the upper rows open
+			var r0 := rng.randi_range(R / 2 - 1, R / 2 + 1)
+			for r in range(r0, mini(r0 + 2, R)):
+				for c in range(half - 1, -1, -1): _put(grid, groups, "a", r, c)
+			for r in range(r0 + 2, R):
+				for c in range(half - 1, -1, -1): _put(grid, groups, "b", r, c)
+			if rng.randf() < 0.5:
+				_hole(grid, R - 1, 0)
+				_hole(grid, 0, 0)
+			nugs.append_array([Vector2i(0, half - 1), Vector2i(0, C - half)])
+
+## a hole and its mirror image
+static func _hole(grid: Array, r: int, c: int) -> void:
+	grid[r][c] = "#"
+	grid[r][C - 1 - c] = "#"
+
+## a block cell of group g and its mirror image (on an open cell, once)
+static func _put(grid: Array, groups: Dictionary, g: String, r: int, c: int) -> void:
+	for q in [Vector2i(r, c), Vector2i(r, C - 1 - c)]:
+		if q.x >= 0 and q.x < R and grid[q.x][q.y] == "." and not q in groups.a and not q in groups.b:
+			groups[g].append(q)
+
+## a nugget here reaches the bottom: no hole under it with board below the hole (it would sit over it for ever)
+static func _falls_out(grid: Array, p: Vector2i) -> bool:
+	var gap := false
+	for r in range(p.x + 1, R):
+		if grid[r][p.y] == "#": gap = true
+		elif gap: return false
+	return true
 
 ## malachite nodules on free cells in the middle rows, none touching another, so each has stones round it to be cut
 ## off from; returns how many went down
@@ -309,10 +439,10 @@ static func _trim(rng: RandomNumberGenerator, cells: Array, cap: int) -> void:
 	while cells.size() > cap:
 		if _drop_pair(rng, cells) == 0: break
 
-## drop a cell and its mirror image; returns how many went
+## drop the last cell (the one that matters least) and its mirror image; returns how many went
 static func _drop_pair(rng: RandomNumberGenerator, cells: Array) -> int:
 	if cells.is_empty(): return 0
-	var p: Vector2i = cells[rng.randi_range(0, cells.size() - 1)]
+	var p: Vector2i = cells[-1]
 	var n := 0
 	for q in [p, Vector2i(p.x, C - 1 - p.y)]:
 		if q in cells:

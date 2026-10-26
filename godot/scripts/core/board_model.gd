@@ -4,8 +4,11 @@ extends RefCounted
 ## A move is resolved as one time-ordered blast; everything the view needs to show is appended to `fx`
 ## as {t (ms after the blast starts), type, ...}. The view plays those; the model is already in its final state.
 
-const R := 9
-const C := 8
+## the board's size: from the level's map (rows x the longest row), at most MAX_R x MAX_C; 9 x 8 without a map
+var R := 9
+var C := 8
+const MAX_R := 11
+const MAX_C := 9
 const DIRS4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 const QUAD := [Vector2i(0, 0), Vector2i(0, 1), Vector2i(1, 0), Vector2i(1, 1)]
 
@@ -345,11 +348,21 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	geos = []
 	find = {}
 	flower = {}
-	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
 	var rows: PackedStringArray = String(def.get("map", "")).split("|") if def.get("map", "") != "" else PackedStringArray()
+	R = 9
+	C = 8
+	if rows.size():
+		R = mini(rows.size(), MAX_R)
+		C = 0
+		for row in rows: C = mini(maxi(C, row.length()), MAX_C)
+	# ORE_P is for a 9 x 8 board played in ~26 moves: a bigger board and a longer level break more stones, each of
+	# them less often ore (a generated level; the boss' gold and the hand-made levels stay as they were)
+	if gen and boss.is_empty():
+		for k in ore_p: ore_p[k] = float(ore_p[k]) * minf(1.0, 72.0 / (R * C)) * minf(1.0, 26.0 / maxi(1, moves))
+	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
-		var row: String = rows[r] if r < rows.size() else "........"
+		var row: String = rows[r] if r < rows.size() else ""
 		for c in C:
 			var ch := row[c] if c < row.length() else "."
 			match ch:
@@ -401,7 +414,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or NOD[rr][cc] or FLW[rr][cc] or G[rr][cc] != null:
 						ok = false
 				if ok:
-					spots.append([r, c, absf(r + fh * 0.5 - 6.5) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
+					spots.append([r, c, absf(r + fh * 0.5 - R * 0.72) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
 		spots.sort_custom(func(a, b): return a[2] < b[2])
 		if spots.size():
 			var s: Array = spots[rng.randi_range(0, mini(5, spots.size() - 1))]

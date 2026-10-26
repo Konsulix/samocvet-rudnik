@@ -3,8 +3,8 @@ extends RefCounted
 ## Plays levels to the end inside the board model, no graphics, and counts what was broken:
 ## stones of each colour per level, wins, moves used. The numbers behind the ore economy
 ## (how many red stones a win yields, so how dense ore must be). Run with the main key sim=N.
-## The player: fires a special when it has one (70%), otherwise a random legal swap — an average player,
-## not a perfect one.
+## The player: fires a special when it has one (70%), otherwise a random legal swap — a weak player, the one the
+## ore economy and LevelGen.WORK were tuned on. With `-- smart`: one that looks a move ahead for its goals (_choose_smart).
 
 static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0) -> Dictionary:
 	var m := BoardModel.new()
@@ -16,11 +16,12 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 	var used := 0
 	var won := false
 	var guard := 0
+	var smart := OS.get_cmdline_user_args().has("smart")
 	while not m.over and guard < 400:
 		guard += 1
 		var first := []
 		var sw := []
-		var mv := _choose(m, rng)
+		var mv := _choose_smart(m, rng) if smart else _choose(m, rng)
 		if mv.is_empty():
 			m.shuffle()
 			continue
@@ -73,6 +74,71 @@ static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 	if swaps.is_empty():
 		return []
 	return swaps[rng.randi_range(0, swaps.size() - 1)]
+
+## the smart player (`-- smart`): tries every move on a copy of the board and keeps the one that does the most for the
+## level's goals (_worth), as a player who looks at what the level asks for would. It doesn't see the stones about
+## to fall in: each copy throws its own dice
+static func _choose_smart(m: BoardModel, rng: RandomNumberGenerator) -> Array:
+	var list := Sim.moves_list(m)
+	if list.is_empty(): return []
+	var best: Array = list[0]
+	var best_v := -INF
+	for mv in list:
+		var t := _clone(m, rng.randi())
+		t.fx = []
+		if not Sim.play(t, mv): continue
+		var v := _worth(t) + rng.randf() * 0.3
+		if v > best_v:
+			best_v = v
+			best = mv
+	return best
+
+## how good a board is for the level: what its goals still want (less is better, a hit at a time), specials in hand,
+## nuggets on their way down, gas not spreading
+static func _worth(m: BoardModel) -> float:
+	if m.goals_done(): return 1e6
+	var v := 0.0
+	for g in m.goals:
+		var w := 1.0
+		match String(g.k):
+			"nug": w = 8.0
+			"geo", "find": w = 6.0
+			"boss": w = 0.08
+			"gas": w = 1.5
+		v -= float(g.left) * w
+	# the big blocks: every hit counts, not only the last one
+	for b in m.geos:
+		if not b.done: v -= float(b.hp) * 0.8
+	if not m.find.is_empty() and not m.find.done: v -= float(m.find.hp) * 0.8
+	for r in m.R:
+		for c in m.C:
+			var g: BoardModel.Gem = m.G[r][c]
+			if g == null: continue
+			if g.sp != "": v += 2.5 if g.sp in ["bomb", "orb"] else 1.8
+			if g.item == "nug": v += 3.0 * r / float(m.R)
+			if m.GAS[r][c]: v -= 0.3
+	return v
+
+## the board as it is between moves, to try a move on: every field, the stones copied, its own dice
+static func _clone(m: BoardModel, seed_v: int) -> BoardModel:
+	var t := BoardModel.new()
+	for p in m.get_property_list():
+		if not (int(p.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE): continue
+		var v = m.get(p.name)
+		if v is Array or v is Dictionary: v = v.duplicate(true)
+		t.set(p.name, v)
+	t.rng = RandomNumberGenerator.new()
+	t.rng.seed = seed_v
+	for r in t.R:
+		var row: Array = t.G[r]
+		for c in t.C:
+			var g: BoardModel.Gem = m.G[r][c]
+			if g == null: continue
+			var k := BoardModel.Gem.new(g.id, g.t)
+			for p in g.get_property_list():
+				if int(p.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE: k.set(p.name, g.get(p.name))
+			row[c] = k
+	return t
 
 ## the level's turn, without the show: blasts, removals, specials, falls, nuggets, until the board is still
 static func _resolve(m: BoardModel, first: Array, sw: Array, broken: Array) -> void:
@@ -165,10 +231,12 @@ static func gen_report(per_depth: int, area := 0) -> String:
 		var ii := 0
 		for i in per_depth:
 			var def := LevelGen.make(area, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0)
+			# sim_free: moves without end, so `used` is what the level really needs (for fitting LevelGen.WORK)
+			if OS.get_cmdline_user_args().has("sim_free"): def.moves = 120
 			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def, area)
 			given += int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_rows"):
-				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, count = def.count, won = r.won, used = r.used}))
+				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
 			used += int(r.used)
 			if def.intro:
 				ii += 1

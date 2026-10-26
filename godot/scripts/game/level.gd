@@ -129,7 +129,7 @@ func _layout() -> void:
 	var vp := get_viewport_rect().size
 	var top := 162.0 + UI.safe_top()
 	var bottom := 118.0 + UI.safe_bottom()
-	board.layout(Vector2(vp.x - 12, vp.y - top - bottom))
+	board.layout(Vector2(vp.x - 12, vp.y - top - bottom), model.R, model.C)
 	holder.position = Vector2((vp.x - board.size.x) / 2, top + (vp.y - top - bottom - board.size.y) / 2)
 	holder.size = board.size
 
@@ -286,7 +286,7 @@ func _build_hud() -> void:
 func _render_hud() -> void:
 	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · hard" if model.hard else ""]
 	if model.boss_on():
-		title_label.text = "%s · %d m · board %d/3" % [model.boss.B.n, int(model.boss.B.m), int(model.boss.stage) + 1]
+		title_label.text = "%s · %d m" % [model.boss.B.n, int(model.boss.B.m)]
 	# no ore is mined at the boss
 	for nm in ["Ores", "OreRule"]:
 		(hud.find_child(nm, true, false) as Control).visible = not model.boss_on()
