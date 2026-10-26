@@ -221,13 +221,39 @@ func sync(expected := false) -> void:
 			push_warning("board sync: orphan node %d (colour %d) at %s" % [(ch as GemNode).id, (ch as GemNode).t, cell_at((ch as GemNode).position)])
 			ch.queue_free()
 
-func animate_shuffle() -> void:
+## the stones go to their shuffled places; `swirl` (the gold pan): each one is tossed up and carried round the
+## board's middle on its way, a little turned, landing with a small bounce, not all at once
+func animate_shuffle(swirl := false) -> void:
 	var tw := create_tween().set_parallel(true)
+	var mid := cell_center((R - 1) / 2.0, (C - 1) / 2.0)
+	var dur := 0.0
 	for r in R:
 		for c in C:
 			var g: BoardModel.Gem = model.G[r][c]
-			if g and nodes.has(g.id):
-				tw.tween_property(nodes[g.id], "position", cell_center(r, c), 0.42).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			if not g or not nodes.has(g.id): continue
+			var n: Node2D = nodes[g.id]
+			var to := cell_center(r, c)
+			if not swirl:
+				tw.tween_property(n, "position", to, 0.42).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				dur = 0.42
+				continue
+			var from := n.position
+			var turn := randf_range(0.3, 0.5)
+			var delay := randf() * 0.12 + from.distance_to(mid) / (TS * 40.0)
+			var spin := randf_range(-0.4, 0.4)
+			var path := func(t: float):
+				var e := t * t * (3.0 - 2.0 * t)
+				var p := from.lerp(to, e)
+				# carried round the middle: most turn mid-way, none at the ends
+				p = mid + (p - mid).rotated(sin(PI * e) * turn)
+				n.position = p + Vector2(0, -sin(PI * e) * TS * 0.25)
+				n.rotation = sin(PI * e) * spin
+				n.scale = Vector2.ONE * (1.0 + sin(PI * e) * 0.18)
+			tw.tween_method(path, 0.0, 1.0, 0.62).set_delay(delay)
+			dur = maxf(dur, delay + 0.62)
+	if dur == 0.0:
+		tw.kill()
+		return
 	await tw.finished
 
 func hint(mv: Array) -> void:

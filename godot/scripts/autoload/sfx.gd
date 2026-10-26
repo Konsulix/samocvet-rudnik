@@ -31,6 +31,8 @@ const SAMPLES := {
 	hiss = {f = ["breath_02", "weird_08", "weird_09"], db = -6.0},
 	phase = {f = ["roar_04", "roar_05", "roar_06"], db = -4.0},
 	bloom = {f = ["magical_1", "magical_5", "magical_6"], db = -5.0},
+	# the gold pan: gravel rattling round it
+	pan = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -8.0, pitch = 1.5},
 	click = {f = ["click_002"], db = -10.0},
 	tab = {f = ["switch_002"], db = -8.0},
 	open = {f = ["open_001"], db = -10.0},

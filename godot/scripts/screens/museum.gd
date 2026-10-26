@@ -652,7 +652,7 @@ func _set_row(st: Dictionary, got: Dictionary) -> PanelContainer:
 		chips.add_child(Reveal.chip(Data.SP[x].n, got.has(x)))
 	v.add_child(chips)
 	var rw: Dictionary = st.reward
-	v.add_child(note("Reward: %d coins%s%s" % [int(rw.coins), (", pickaxe ×%d" % int(rw.pick)) if rw.get("pick", 0) else "", (", dynamite ×%d" % int(rw.dyn)) if rw.get("dyn", 0) else ""]))
+	v.add_child(note("Reward: %d coins%s%s" % [int(rw.coins), (", pickaxe ×%d" % int(rw.pick)) if rw.get("pick", 0) else "", (", rock drill ×%d" % int(rw.bore_h)) if rw.get("bore_h", 0) else ""]))
 	if claimed:
 		v.add_child(UI.label("✓ Claimed", 13, UI.body_bold, UI.GOOD))
 	elif full:
@@ -663,7 +663,7 @@ func _set_row(st: Dictionary, got: Dictionary) -> PanelContainer:
 			Save.d.sets.append(st.id)
 			Save.d.coins += int(rw.coins)
 			Save.d.boost.pick += int(rw.get("pick", 0))
-			Save.d.boost.dyn += int(rw.get("dyn", 0))
+			Save.d.boost.bore_h += int(rw.get("bore_h", 0))
 			Save.persist()
 			Sfx.play("coin")
 			render()

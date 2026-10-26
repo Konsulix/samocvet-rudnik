@@ -166,31 +166,257 @@ func petals(r: float, c: float, ring: String) -> void:
 		tw.chain().tween_callback(s.queue_free)
 	sparkle(r + 0.5, c + 0.5, Color("#5fe0a0"), 14)
 
-## the pickaxe booster: it swings in over the cell from up right, strikes, and drops away
+## a booster's sprite (art/boosters) on a holder node, `cells` board cells across, its own material or the plain one
+func _boost_sprite(name: String, cells: float, mat: Material = null) -> Sprite2D:
+	var s := Sprite2D.new()
+	s.texture = BoardSprites.tex(name)
+	s.scale = Vector2.ONE * board.TS * cells / float(s.texture.get_width())
+	s.material = mat if mat else BoardSprites.plain_material()
+	return s
+
+## a sprite UV (anchors.json) as an offset from the sprite's centre, for a sprite `size` px across
+static func _uv_off(uv: Array, size: float) -> Vector2:
+	return (Vector2(float(uv[0]), float(uv[1])) - Vector2(0.5, 0.5)) * size
+
+## when the pickaxe's blade lands, from the start of its swing (s): Level waits this long before the hit
+const PICK_HIT := 0.3
+
+## the pickaxe booster: held by its handle's foot, it is raised behind, swung down hard onto the cell (two fading
+## ghosts behind the blade), strikes with a flash, sparks and rock chips, bounces back a little and drops away
 func pickaxe(r: int, c: int) -> void:
 	var at := cell(r, c)
 	var ts := board.TS
-	var pivot := Node2D.new()       # turns about the handle's foot, as a swing does
-	pivot.position = at + Vector2(ts * 0.75, ts * 0.55)
+	var cells := BoardSprites.SPAN * 2.3
+	var size := ts * cells
+	var an := BoardSprites.booster_anchor("pick")
+	var grip := _uv_off(an.get("grip", [0.18, 0.89]), size)
+	var tip := _uv_off(an.get("tip", [0.82, 0.37]), size) - grip
+	var hit := 0.35                      # the swing's angle as the blade bites (turned this far clockwise)
+	var raised := hit - 1.6
+	var pivot := Node2D.new()            # turns about the handle's foot, as a swing does
+	pivot.position = at - tip.rotated(hit)
+	pivot.z_index = 6
 	add_child(pivot)
-	var s := Sprite2D.new()
-	s.texture = BoardSprites.tex("pick")
-	s.scale = Vector2.ONE * ts * BoardSprites.SPAN * 1.5 / float(s.texture.get_width())
-	s.position = Vector2(-ts * 0.45, -ts * 0.7)
-	s.material = BoardSprites.plain_material()
-	pivot.add_child(s)
-	pivot.rotation = 1.1
+	var ghosts: Array[Sprite2D] = []
+	for k in 3:
+		var s := _boost_sprite("pick", cells)
+		s.position = -grip
+		var g := Node2D.new()
+		g.add_child(s)
+		pivot.add_child(g)
+		if k > 0:
+			s.modulate = Color(1, 1, 1, 0.0)
+			ghosts.append(s)
+	var main: Node2D = pivot.get_child(0)
+	var swing := func(a: float):
+		main.rotation = a
+		# the ghosts trail the blade only while it comes down fast
+		for k in ghosts.size():
+			var g: Node2D = ghosts[k].get_parent()
+			g.rotation = a - (k + 1) * 0.16
 	pivot.modulate.a = 0.0
 	var tw := create_tween()
-	tw.tween_property(pivot, "modulate:a", 1.0, 0.06)
-	tw.tween_property(pivot, "rotation", -0.25, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(pivot, "modulate:a", 1.0, 0.08)
+	tw.parallel().tween_method(swing, raised + 0.35, raised, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(PICK_HIT - 0.16 - 0.1)
 	tw.tween_callback(func():
-		shake = maxf(shake, 6.0)
-		flash(r, c, Color(2.0, 1.7, 1.2), 0.9)
-		burst(at, Color("#b8a890"), 12, 220.0, 650.0, 4.5))
-	tw.tween_property(pivot, "rotation", 0.15, 0.1)
-	tw.tween_property(pivot, "modulate:a", 0.0, 0.18)
+		for k in ghosts.size(): ghosts[k].modulate.a = 0.35 - k * 0.15)
+	tw.tween_method(swing, raised, hit, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		for gs in ghosts: gs.modulate.a = 0.0
+		shake = maxf(shake, 8.0)
+		flash(r, c, Color(2.2, 1.8, 1.2), 1.0)
+		ring(r, c, 0.2, Color(1.6, 1.3, 0.9))
+		burst(at, Color("#b8a890"), 14, 260.0, 700.0, 5.0)
+		burst(at, Color("#6e6050"), 8, 180.0, 800.0, 6.0)
+		burst(at, Color(2.6, 2.0, 0.9), 10, 300.0, 300.0, 2.5, true))
+	# the blade bounces off the rock, hangs a moment, then falls away fading
+	tw.tween_method(swing, hit, hit - 0.3, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_method(swing, hit - 0.3, hit - 0.22, 0.12)
+	tw.tween_property(pivot, "modulate:a", 0.0, 0.2)
+	tw.parallel().tween_property(pivot, "position", pivot.position + Vector2(0, ts * 0.4), 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(pivot.queue_free)
+
+## the drill boosters: the rock drill slides up to the board's edge (left, or the top), revs there shuddering with its
+## auger spinning (shaders/booster_spin.gdshader), then bores through the whole row or column - its tip reaching
+## cell k at `t_in + k * step` seconds, as the model's hits land - throwing sparks and grit back off the auger and
+## leaving a scored groove that fades; out past the far edge it flies off
+func bore(sp: String, r: int, c: int, t_in: float, step: float) -> void:
+	var ts := board.TS
+	var horiz := sp == "bore_h"
+	var dir := Vector2.RIGHT if horiz else Vector2.DOWN
+	var side := dir.orthogonal()
+	var n: int = board.C if horiz else board.R
+	var cells := BoardSprites.SPAN * 2.5
+	var size := ts * cells
+	var an := BoardSprites.booster_anchor(sp)
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/booster_spin.gdshader")
+	mat.set_shader_parameter("axis", dir)
+	mat.set_shader_parameter("split", float(an.get("split", 0.55)))
+	mat.set_shader_parameter("spin", 0.0)
+	var s := _boost_sprite(sp, cells, mat)
+	var tip := _uv_off(an.get("tip", [0.95, 0.53] if horiz else [0.53, 0.93]), size)
+	var first := cell(r, 0) if horiz else cell(0, c)
+	var last := cell(r, n - 1) if horiz else cell(n - 1, c)
+	var edge := first - dir * ts * 0.62          # the board's rim just before the first cell
+	var holder := Node2D.new()
+	holder.z_index = 6
+	holder.position = edge - dir * ts * 1.8 - tip
+	holder.modulate.a = 0.0
+	add_child(holder)
+	holder.add_child(s)
+	# the groove it scores along the line: dark, with a lit lip, growing behind the tip and fading after
+	# (a wide soft scuff, the cut itself darker in it, its upper lip catching the light)
+	var scuff := Line2D.new()
+	scuff.width = ts * 0.5
+	scuff.default_color = Color(0.1, 0.08, 0.06, 0.22)
+	var groove := Line2D.new()
+	groove.width = ts * 0.18
+	groove.default_color = Color(0.05, 0.04, 0.03, 0.55)
+	var lip := Line2D.new()
+	lip.width = ts * 0.04
+	lip.default_color = Color(1.0, 0.85, 0.6, 0.4)
+	lip.position = side * ts * 0.1 if horiz else -side * ts * 0.1     # the lip towards the light, up or left
+	for ln: Line2D in [scuff, groove, lip]:
+		ln.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		ln.end_cap_mode = Line2D.LINE_CAP_ROUND
+		ln.z_index = 5
+		ln.add_point(edge)
+		ln.add_point(edge)
+		add_child(ln)
+	# sparks off the bit (glowing, quick) and grit thrown back off the auger (falls)
+	var sparks := CPUParticles2D.new()
+	sparks.amount = 40
+	sparks.lifetime = 0.28
+	sparks.position = tip
+	sparks.direction = -dir
+	sparks.spread = 70
+	sparks.gravity = Vector2(0, 500)
+	sparks.initial_velocity_min = 160
+	sparks.initial_velocity_max = 380
+	sparks.scale_amount_min = 1.5
+	sparks.scale_amount_max = 3.0
+	sparks.color = Color(2.6, 1.7, 0.6)
+	sparks.emitting = false
+	var grit := CPUParticles2D.new()
+	grit.amount = 60
+	grit.lifetime = 0.55
+	grit.position = tip - dir * ts * 0.3
+	grit.direction = -dir + side * 0.5
+	grit.spread = 50
+	grit.gravity = Vector2(0, 700)
+	grit.initial_velocity_min = 80
+	grit.initial_velocity_max = 260
+	grit.scale_amount_min = 2.5
+	grit.scale_amount_max = 5.5
+	grit.angular_velocity_min = -300
+	grit.angular_velocity_max = 300
+	grit.color = Color("#a89478")
+	grit.emitting = false
+	holder.add_child(grit)
+	holder.add_child(sparks)
+	var shudder := create_tween().set_loops()
+	shudder.tween_property(s, "position", -side * 1.8, 0.025)
+	shudder.tween_property(s, "position", side * 1.8, 0.025)
+	var spin := func(v: float): mat.set_shader_parameter("spin", v)
+	var follow := func(p: Vector2):
+		holder.position = p - tip
+		# the groove runs from the rim to just behind the tip
+		var end := p - dir * ts * 0.2
+		if (end - edge).dot(dir) > 0.0:
+			for ln: Line2D in [scuff, groove, lip]: ln.set_point_position(1, end)
+	var come := t_in * 0.45
+	var rev := t_in * 0.35
+	var tw := create_tween()
+	# slides up to the rim, spinning up
+	tw.tween_property(holder, "modulate:a", 1.0, 0.08)
+	tw.parallel().tween_method(follow, edge - dir * ts * 1.8, edge - dir * ts * 0.1, come).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_method(spin, 0.0, 0.6, come)
+	# revs at the rim: a kick back, sparks, the auger at full speed
+	tw.tween_callback(func():
+		sparks.emitting = true
+		shake = maxf(shake, 3.0))
+	tw.tween_method(follow, edge - dir * ts * 0.1, edge - dir * ts * 0.22, rev * 0.5).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_method(spin, 0.6, 1.0, rev)
+	tw.tween_method(follow, edge - dir * ts * 0.22, edge, rev * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# bores through
+	tw.tween_callback(func():
+		grit.emitting = true
+		shake = maxf(shake, 6.0)
+		burst(edge, Color("#8a7a66"), 12, 200.0, 600.0, 5.0))
+	tw.tween_method(follow, edge, first, t_in - come - rev)
+	tw.tween_method(follow, first, last, step * (n - 1))
+	tw.tween_callback(func():
+		sparks.emitting = false
+		grit.emitting = false
+		burst(last + dir * ts * 0.62, Color("#8a7a66"), 14, 240.0, 600.0, 5.0)
+		shake = maxf(shake, 5.0))
+	# out past the far edge, winding down
+	tw.tween_method(follow, last, last + dir * ts * 3.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(holder, "modulate:a", 0.0, 0.24).set_delay(0.08)
+	tw.parallel().tween_method(spin, 1.0, 0.3, 0.24)
+	tw.tween_callback(func():
+		shudder.kill()
+		holder.queue_free())
+	var fade := create_tween()
+	fade.tween_interval(t_in + step * (n - 1) + 0.15)
+	for ln: Line2D in [scuff, groove, lip]:
+		fade.parallel().tween_property(ln, "modulate:a", 0.0, 0.45)
+	fade.tween_callback(func():
+		for ln: Line2D in [scuff, groove, lip]: ln.queue_free())
+
+## the gold pan booster: the pan drops over the middle of the board with a bounce, then is swirled - the pan wheeling
+## round a small circle and rocking, its load of sand, gold and stones sloshing round inside it a beat behind, sand and
+## gold flecks flung off the rim - and lifts away. Level starts the stones for their new places a moment into the
+## swirl (this returns then); the pan finishes on its own.
+func pan() -> void:
+	var ts := board.TS
+	var mid := (cell(0, 0) + cell(board.R - 1, board.C - 1)) / 2.0
+	var cells := 6.2
+	var size := ts * cells
+	var holder := Node2D.new()
+	holder.z_index = 40     # over the stones tossed round under it
+	add_child(holder)
+	var bowl := _boost_sprite("pan_bowl", cells)
+	var heap := _boost_sprite("pan_load", cells)
+	holder.add_child(bowl)
+	holder.add_child(heap)
+	var load_at := _uv_off(BoardSprites.booster_anchor("pan").get("load", [0.5, 0.58]), size)
+	# the heap turns about its own middle
+	heap.offset = -load_at / heap.scale.x
+	heap.position = load_at
+	holder.position = mid + Vector2(0, -ts * 3.0)
+	holder.scale = Vector2(0.7, 0.7)
+	holder.modulate.a = 0.0
+	var rad := ts * 0.45
+	var swirl := func(a: float):
+		var k := clampf(minf(a, TAU * 2.25 - a) / 1.2, 0.0, 1.0)    # eases in and out of the circling
+		holder.position = mid + Vector2(cos(a - PI / 2), sin(a - PI / 2) * 0.55) * rad * k
+		holder.rotation = sin(a) * 0.12 * k
+		holder.scale = Vector2(1.0 + sin(a * 2.0) * 0.02 * k, 1.0 - sin(a * 2.0) * 0.03 * k)
+		# the heap lags the pan: it slides out towards where the pan was a beat ago and turns round with it
+		var lag := a - 1.1
+		# (only a little: the heap is an oval in an oval floor, and must stay inside the walls)
+		heap.position = load_at + Vector2(cos(lag), sin(lag) * 0.5) * size * 0.022 * k
+		heap.rotation = sin(lag) * 0.1 * k
+	var tw := create_tween()
+	tw.tween_property(holder, "modulate:a", 1.0, 0.1)
+	tw.parallel().tween_property(holder, "position", mid, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(holder, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func(): shake = maxf(shake, 4.0))
+	tw.tween_method(swirl, 0.0, TAU * 2.25, 1.0)
+	tw.tween_property(holder, "position", mid + Vector2(0, -ts * 3.0), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(holder, "modulate:a", 0.0, 0.2).set_delay(0.08)
+	tw.tween_callback(holder.queue_free)
+	# flung off the rim as it goes round: sand, and now and then a glint of gold
+	for k in 6:
+		get_tree().create_timer(0.36 + k * 0.15).timeout.connect(func():
+			var a := randf() * TAU
+			var rim := holder.position + Vector2(cos(a), sin(a) * 0.6) * size * 0.42
+			burst(rim, Color("#b39a70"), 10, 240.0, 700.0, 4.0)
+			if k % 2 == 0: burst(rim, Color(2.4, 1.8, 0.6), 5, 200.0, 400.0, 3.0, true))
+	await get_tree().create_timer(0.5).timeout
 
 func debris(r: float, c: float, col: Color, amount := 10) -> void:
 	burst(cell(r, c), col, amount, 170.0, 620.0, 4.5)

@@ -857,9 +857,6 @@ func _start_orb(t: float, orb: Gem, r: int, c: int, colour: int) -> void:
 func _drill_carry(t: float, sp: String, r: int, c: int) -> void:
 	activate(sp, r, c, t)
 
-func _rocket_at(t: float, r: int, c: int) -> void:
-	activate("rh", r, c, t)
-
 func most_color() -> int:
 	var cnt := [0, 0, 0, 0, 0, 0]
 	for r in R:
@@ -1179,7 +1176,19 @@ func finale_picks() -> Array:
 func booster_events(id: String, r: int, c: int) -> Array:
 	if id == "pick":
 		return [{t = 0.0, r = r, c = c, kind = "pick"}]
-	return [{t = 0.0, fn = _rocket_at.bind(r, c)}, {t = 0.0, r = r, c = c, kind = "fx"}]
+	return [{t = 0.0, fn = _bore_at.bind(id, r, c)}]
+
+## the drill boosters: the drill comes in from the board's edge (left, or the top) and bores through the whole
+## row or column, one cell after another as its tip reaches it
+func _bore_at(t: float, id: String, r: int, c: int) -> void:
+	_fx(t, "bore", {sp = id, r = r, c = c})
+	var n := C if id == "bore_h" else R
+	for k in n:
+		if id == "bore_h": _push(r, k, t + BORE_IN + k * BORE_STEP)
+		else: _push(k, c, t + BORE_IN + k * BORE_STEP)
+
+const BORE_IN := 340.0     # ms until the tip reaches the first cell (the drill comes up to the rim and revs first)
+const BORE_STEP := 55.0    # ms a cell
 
 ## the find as it comes out of the rock: quality drops a step for every 20% chipped off
 func extracted_stone(diadem := false) -> Dictionary:

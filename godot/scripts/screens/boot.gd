@@ -10,7 +10,8 @@ signal done
 
 const MIN_TIME := 1.3
 ## loaded on background threads while the bar fills, and kept in memory for the whole session
-const EXTRA := ["res://assets/ui/level_bg.png", "res://assets/audio/music/home_adit.ogg", "res://assets/audio/music/home_copper.ogg", "res://assets/audio/music/home.ogg", "res://assets/audio/music/level1.ogg",
+const EXTRA := ["res://assets/ui/level_bg_1.png", "res://assets/ui/level_bg_2.png", "res://assets/ui/level_bg_3.png", "res://assets/ui/level_bg_light_1.png", "res://assets/ui/level_bg_light_2.png",
+	"res://assets/ui/level_bg_light_3.png", "res://assets/audio/music/home_adit.ogg", "res://assets/audio/music/home_copper.ogg", "res://assets/audio/music/home.ogg", "res://assets/audio/music/level1.ogg",
 	"res://assets/audio/music/level2.ogg"]
 
 static var cache := []

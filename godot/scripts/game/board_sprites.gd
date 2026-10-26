@@ -40,6 +40,8 @@ static func tex(name: String) -> Texture2D:
 	var path := gem_path(name) if name.get_slice("_", 0) in GEMS else "res://assets/board/pieces/%s.png" % name
 	# the gem sets come with their own specials and timber (special_kit.py) and gold nugget (gem_kit.py, items/gold.png)
 	if gem_style != "" and name in ["rh", "rv", "bomb", "drill", "orb", "pick"]: path = "res://assets/board/special_kit/%s.png" % name
+	# the boosters: painted by GPT in the drawn board's look (art/boosters: gen.sh, cut.py), the same for every set
+	if name in ["pick", "bore_h", "bore_v", "pan", "pan_bowl", "pan_load"]: path = "res://assets/board/boosters/%s.png" % name
 	if name == "lock" and gem_style != "":
 		path = {rendered = "res://assets/board/special_kit/lock.png", drawn = "res://assets/board/blockers_natural/lock.png"}.get(lock_style, path)
 	# the gem sets come with their own gold nugget (gem_kit.py, items/gold.png)
@@ -113,6 +115,15 @@ static func anchors(name: String) -> Dictionary:
 		var f := FileAccess.open("res://assets/board/special_kit/anchors.json", FileAccess.READ)
 		if f: _anchors = JSON.parse_string(f.get_as_text())
 	return _anchors.get(name, {})
+
+## the points the boosters are animated by (art/boosters/cut.py's anchors.json), as sprite UVs: the pick's grip and
+## blade tip, where a drill's auger begins and its tip, the middle of the pan's load
+static var _boost := {}
+static func booster_anchor(name: String) -> Dictionary:
+	if _boost.is_empty():
+		var f := FileAccess.open("res://assets/board/boosters/anchors.json", FileAccess.READ)
+		if f: _boost = JSON.parse_string(f.get_as_text())
+	return _boost.get(name, {})
 
 static func gem_path(name: String, style := "-") -> String:
 	if style == "-": style = gem_style

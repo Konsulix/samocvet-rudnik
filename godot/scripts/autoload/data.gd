@@ -60,6 +60,10 @@ func depth(area: int, k: int) -> Dictionary:
 func depth_m(area: int, k: int) -> int:
 	return int(depth(area, k).m)
 
+## a booster opens once the first mine is dug down to its depth (`at`, a depth index); past the first mine all are open
+func boost_open(bo: Dictionary) -> bool:
+	return Save.d.area > 0 or bool(Save.d.boss_won[0]) or int(Save.d.depth[0]) >= int(bo.get("at", 0))
+
 ## the mine's own ore: {n, c, iron (colour holding iron), local (colour holding it)}
 func ore(area: int) -> Dictionary:
 	return AREAS[mini(area, AREAS.size() - 1)].ore
