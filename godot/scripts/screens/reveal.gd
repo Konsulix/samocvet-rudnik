@@ -170,7 +170,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	if flow.get_child_count():
 		v.add_child(flow)
 	# then only what really grew on it stays (a gene the stone's form had no room for is not named),
-	# and a tap on a badge draws threads from name plates to where each grew
+	# and a tap on a badge (or on the stone) draws threads from name plates to where each grew
 	view.built.connect(func(p: Node3D) -> void:
 		var grown: Dictionary = p.get_meta("grown", {})
 		var list := []
@@ -189,7 +189,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		var close := func() -> void:
 			co.hide_all()
 		co.plate_tapped.connect(func(_id: String) -> void: close.call())
-		view.tapped.connect(close)
+		# a tap on the stone opens them all (none picked) or puts them away
+		view.tapped.connect(func() -> void:
+			if co.open: co.hide_all()
+			else: co.show_all())
 		for it: Dictionary in list:
 			var id: String = it.id
 			var c: Label = chips[id]

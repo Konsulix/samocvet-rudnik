@@ -214,4 +214,5 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	mi.multimesh = mm
 	mi.material_override = material(kind)
 	parent.add_child(mi)
-	return [placed[0].origin, placed[0].basis.y.normalized()]
+	# the middle of the biggest cap
+	return [placed[0] * box.get_center(), placed[0].basis.y.normalized()]

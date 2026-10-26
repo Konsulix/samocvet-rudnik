@@ -851,8 +851,10 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		for k in 1 + int(rng.next() * 4):
 			var a: Array = spot.call(0.6)
 			if a.is_empty(): continue
-			SpecAccents.tuft(root, rng, a[0], a[1], 450 + int(rng.next() * 350), (0.16 + rng.next() * 0.14) * gs, 0.012, 0.8, 0.2, pc)
-			_mark("pompom", a[0], a[1])
+			var ln := (0.16 + rng.next() * 0.14) * gs
+			SpecAccents.tuft(root, rng, a[0], a[1], 450 + int(rng.next() * 350), ln, 0.012, 0.8, 0.2, pc)
+			# the middle of the puff, not its root
+			_mark("pompom", (a[0] as Vector3) + (a[1] as Vector3) * ln * 0.45, a[1])
 	if "straw" in acc:
 		var sc: Array = SpecAccents.STRAW[int(pal.straw)]
 		for k in 2 + int(rng.next() * 3):
@@ -876,8 +878,11 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		var lt: Color = SpecAccents.LICHEN[int(pal.lichen)]
 		for k in (5 + int(rng.next() * 5)) if in_pits else (2 + int(rng.next() * 4)):
 			var c0: Vector3 = nest_spots[int(rng.next() * nest_spots.size())][0]
-			SpecPlants.cushion(root, rng, nest_spots, c0, (0.06 + rng.next() * 0.07) if in_pits else (0.1 + rng.next() * 0.14), 0.012, lt)
-			_mark("lichen", c0)
+			var top := SpecPlants.cushion(root, rng, nest_spots, c0, (0.06 + rng.next() * 0.07) if in_pits else (0.1 + rng.next() * 0.14), 0.012, lt)
+			_mark("lichen", c0, nest_spots[0][1] if top.is_empty() else (top[0][1] as Vector3))
+			for q in mini(4, top.size()):
+				var tp: Array = top[(q * top.size()) / 4]
+				_mark("lichen", tp[0], tp[1])
 	# little plants root where there is moss, or in the pits, or anywhere on the rock
 	var green: Array = green_spots if green_spots.size() else nest_spots
 	if green.size():
@@ -916,8 +921,11 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			if cap.size(): _mark("mushrooms", cap[0], cap[1])
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
+			var had := main.get_child_count()
 			SpecAccents.inkspots(main, rng, 3 + int(rng.next() * 9))
-			_mark("inkspots", _mid(main, 0.6))
+			# each spot where it sits in the glass
+			for k in range(had, main.get_child_count()):
+				_mark("inkspots", U.rel_xform(main.get_child(k) as Node3D, root).origin)
 		if "clouds" in acc:
 			var cc: Color = SpecAccents.CLOUDS[int(pal.clouds)]
 			mat.set_shader_parameter("smoke_k", 0.75 + rng.next() * 0.25)
@@ -986,7 +994,9 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			c.a = 1.0
 			return [_rot_inst(p - nn * s * 0.3, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3.ONE * s), c]
 		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), rough = 0.12, flat = true, holo = 0.4, seed = 3.0}), pts.size(), place, main.get_parent())
-		if pts.size(): _mark("druzy", U.rel_xform(main.get_parent(), root) * (pts[0][0] as Vector3))
+		var to_root := U.rel_xform(main.get_parent(), root) if main.get_parent() != root else Transform3D.IDENTITY
+		for k in mini(8, pts.size()):
+			_mark("druzy", to_root * (pts[k][0] as Vector3), (to_root.basis * (pts[k][1] as Vector3)).normalized())
 	var cyl := Geo.cylinder(1, 1, 1, 6).translate(0, 0.5, 0)
 	var cone := Geo.cone(1, 1, 5).translate(0, 0.5, 0)
 	var pals := [[0xff6a2a, 0xffb040, 0xd8302a], [0x3a6aff, 0x7fb4ff, 0x1a2a8a], [0xf4f0e8, 0xd8d0c0, 0xb8b0a0], [0xff4a8a, 0xffb0d0, 0x8a2a5a], [0xd8e04a, 0xf4f0a0, 0x7a8a2a]]
@@ -1071,10 +1081,13 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var c0: Vector3 = (pool[int(rng.next() * pool.size())][0] as Vector3) if in_pits else (pick.call() as Vector3)
 			var rad := (0.07 + rng.next() * 0.09) if in_pits else (0.18 + rng.next() * 0.2)
 			green_spots.append([c0, nrm.call(c0)])
-			_mark("moss", c0, nrm.call(c0))
 			var tint: Color = (SpecAccents.MOSS[int(gene_m.palette.moss)] as Color).lerp(Color(1.2, 1.1, 0.6), rng.next() * 0.3)
 			# a cushion of moss bed, then sprigs, blades and the odd fern standing in it
 			var top := SpecPlants.cushion(root, rng, pool, c0, rad, 0.035 + rng.next() * 0.03, tint)
+			# a few spots over the whole cushion: its middle may be under a crystal while its edge shows
+			for q in mini(6, top.size()):
+				var tp: Array = top[(q * top.size()) / 6]
+				_mark("moss", tp[0], tp[1])
 			var on: Array = top if top.size() > 8 else pool
 			SpecPlants.scatter(root, rng, on, c0, rad * 0.9, 300 + int(rng.next() * 300), "moss", 3.6 + rng.next() * 1.6, 0.3, tint)
 			SpecPlants.scatter(root, rng, on, c0, rad * 0.7, 6 + int(rng.next() * 16), "grass", 1.4 + rng.next() * 1.0, 0.6, Color(0.9, 1.0, 0.8))
@@ -1086,19 +1099,25 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 	if has_base and "dust" in gene_m.accents:
 		var place := func(k: int) -> Array:
 			var v: Vector3 = (pick.call() as Vector3) * 1.01
+			if k < 8: _mark("dust", v, nrm.call(v))
 			var s := 0.006 + rng.next() * 0.01
 			return [Transform3D(Basis.from_scale(Vector3.ONE * s), v), SpecMat.hsl(0.01, 0.6, 0.2 + rng.next() * 0.1).srgb_to_linear()]
 		U.inst(Geo.icosa(1, 0), SpecMat.make({rough = 0.9}), 160, place, root)
-		_mark_on("dust", st.rock)
 	if "bubbles" in tr:
+		var made := []
 		var place := func(k: int) -> Array:
 			var v: Vector3 = (pick.call() as Vector3) * 1.02
 			v.y += rng.next() * 0.5
 			var s := 0.015 + rng.next() * 0.05
+			made.append([s, v])
 			return [Transform3D(Basis.from_scale(Vector3.ONE * s), v), Color(1, 1, 1)]
 		U.inst(Geo.sphere(1, 16, 12), SpecMat.make({col = Color(0.95, 0.97, 1.0), glass = true, thick = 2.0, prio = 2}), 40, place, root)
-		# with no rock to sit on they all crowd into the stone's middle, out of sight
-		if st.rock: _mark_on("bubbles", st.rock)
+		# the thread points at one of the biggest bubbles (with no rock to sit on they all crowd into the stone's
+		# middle, out of sight: none then)
+		if st.rock:
+			made.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) > float(b[0]))
+			for m: Array in made.slice(0, 6):
+				_mark("bubbles", m[1])
 
 ## rock-line coordinates for every crystal, then the final dirt line on their materials, then the meshes
 func _finish() -> void:

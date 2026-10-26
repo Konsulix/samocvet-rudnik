@@ -14,13 +14,15 @@ signal plate_tapped(id: String)
 
 const M := 18.0         # labels' gap to the frame's edge
 const PAD := 5.0        # the rule runs this far past the name on the thread's side
-const ROW := 30.0       # least height between two labels in a column
+const INSET := 5.0      # and the name keeps this far off the tick at the rule's closed end
+const ROW := 24.0       # least height between two labels in a column
 const CLEAR := 12.0     # a label's gap to the stone's outline
 const IN_T := 0.85      # one label's appear, s
 const OUT_T := 0.32
 const STAGGER := 0.08
+const BEND := 7.0       # radius of the turn where a thread becomes its rule
 const INK := Color(0.95, 0.92, 0.86)
-const FONT_PX := 12
+const FONT_PX := 9
 
 static var freeze := 1.0   # screenshots of the appear: every label stops at this much of it (`callouts_at=`)
 
@@ -32,6 +34,8 @@ var _t := 0.0
 var _font: FontVariation
 var _hull: PackedVector3Array   # a sample of the stone's vertices, for its outline on screen
 var _box := Rect2()             # that outline
+var _repick := false            # as the labels open each gene points at its best spot afresh
+var _occ: Array = []            # the crystals as triangles, in the specimen's space: [{box, tris}], to tell what they hide
 
 static func attach(v: SpecView) -> SpecCallouts:
 	var c := SpecCallouts.new()
@@ -71,6 +75,8 @@ func show_all(id := "") -> void:
 	set_process(true)
 	_t = 0.0
 	_sample()
+	_look()
+	_repick = true
 	_project()
 	_layout()
 	var order := items.duplicate()
@@ -144,6 +150,7 @@ func _project() -> void:
 	var eye := cam.global_position
 	for it in items:
 		var pts: Array = it.pts
+		var seen: Array = it.get("seen", [])
 		var best := 0
 		var best_f := -2.0
 		var faces := []
@@ -153,17 +160,21 @@ func _project() -> void:
 			var f := 1.0
 			if n != Vector3.ZERO:
 				f = (g.global_transform.basis * n).normalized().dot((eye - w).normalized())
+			# a spot behind a crystal counts as turned away
+			if i < seen.size() and not seen[i]:
+				f -= 2.0
 			faces.append(f)
 			if f > best_f:
 				best_f = f
 				best = i
 		var cur: int = it.cur
-		if cur >= pts.size() or (float(faces[cur]) < 0.05 and best_f > 0.25):
+		if cur >= pts.size() or _repick or (float(faces[cur]) < 0.05 and best_f > 0.25):
 			cur = best
 		it.cur = cur
 		var wc: Vector3 = g.global_transform * (pts[cur][0] as Vector3)
 		it.a = cam.unproject_position(wc) * k
 		it.face = smoothstep(-0.15, 0.3, float(faces[cur]))
+	_repick = false
 	# the stone's outline on screen
 	var lo := Vector2(INF, INF)
 	var hi := -lo
@@ -173,7 +184,8 @@ func _project() -> void:
 		hi = hi.max(q)
 	_box = Rect2(lo, hi - lo) if _hull.size() else Rect2(size * 0.3, size * 0.4)
 
-## a few dozen vertices of every crystal and rock (growths aside), in the specimen's own space
+## a few dozen vertices of every crystal and rock (growths aside), in the specimen's own space;
+## and every crystal's triangles, to tell which spots they hide
 func _sample() -> void:
 	if _hull.size() or not view.live:
 		return
@@ -186,6 +198,38 @@ func _sample() -> void:
 		var step := maxi(1, geo.v.size() / 60)
 		for i in range(0, geo.v.size(), step):
 			_hull.append(xf * geo.v[i])
+		# only crystals and metal hide things (their materials carry the rock line, "dirt"): the rock hides only
+		# what is on its far side, which the normals tell, and moss or lichen must not hide the spot under them
+		var m := (n as MeshInstance3D).material_override
+		if not m or m.has_meta("rock") or not m.get_meta("dirt", false):
+			continue
+		var tris := PackedVector3Array()
+		for k in geo.tri_count():
+			for v: Vector3 in geo.tri(k):
+				tris.append(xf * v)
+		_occ.append({box = xf * geo.aabb(), tris = tris})
+
+## which of each gene's spots the camera can see past the crystals (spots inside a crystal count as seen):
+## worked out as the labels open, the stone hardly turns while they are up
+func _look() -> void:
+	var g := view.live.get_child(0) as Node3D if view.live.get_child_count() else view.live
+	var eye := g.global_transform.affine_inverse() * view.studio.cam.global_position
+	for it in items:
+		var seen := []
+		for pn: Array in it.pts:
+			var p: Vector3 = pn[0]
+			seen.append((pn[1] as Vector3) == Vector3.ZERO or not _hidden(p + (eye - p).normalized() * 0.03, eye))
+		it.seen = seen
+
+func _hidden(from: Vector3, to: Vector3) -> bool:
+	for o: Dictionary in _occ:
+		if not (o.box as AABB).intersects_segment(from, to):
+			continue
+		var t: PackedVector3Array = o.tris
+		for k in range(0, t.size(), 3):
+			if Geometry3D.segment_intersects_triangle(from, to, t[k], t[k + 1], t[k + 2]) != null:
+				return true
+	return false
 
 ## the name's width and height as drawn (the rule runs under all of it)
 func _text(it: Dictionary) -> Vector2:
@@ -196,9 +240,9 @@ func _text(it: Dictionary) -> Vector2:
 ## outwards from the stone. Which gene takes which place is the arrangement with the shortest threads and no crossings.
 func _layout() -> void:
 	for it in items:
-		# a long name steps its letters down a size or two rather than reach past the frame's middle
+		# a long name steps its letters down a size rather than reach past the frame's middle
 		var l: Label = it.label
-		while _text(it).x > size.x * 0.5 - M - 10.0 and l.get_theme_font_size("font_size") > FONT_PX - 2:
+		while _text(it).x > size.x * 0.5 - M - 10.0 and l.get_theme_font_size("font_size") > FONT_PX - 1:
 			l.add_theme_font_size_override("font_size", l.get_theme_font_size("font_size") - 1)
 	var th := _text(items[0]).y
 	var lo := M + th + 2.0        # the highest a rule may stand
@@ -317,7 +361,7 @@ func _place() -> void:
 		var l: Label = it.label
 		var ts := _text(it)
 		l.size = ts
-		var x := M if it.side < 0.0 else size.x - M - ts.x
+		var x := M + INSET if it.side < 0.0 else size.x - M - INSET - ts.x
 		l.position = Vector2(x, float(it.y) - ts.y - 1.0)
 		# the name types itself in once its rule is out, and rises a hair as it comes
 		var e := _seg(float(it.p), 0.55, 1.0)
@@ -332,8 +376,8 @@ func _rule(it: Dictionary) -> Array:
 
 func _rule_at(w: float, side: float, y: float) -> Array:
 	if side < 0.0:
-		return [Vector2(M + w + PAD, y), Vector2(M, y)]
-	return [Vector2(size.x - M - w - PAD, y), Vector2(size.x - M, y)]
+		return [Vector2(M + INSET + w + PAD, y), Vector2(M, y)]
+	return [Vector2(size.x - M - INSET - w - PAD, y), Vector2(size.x - M, y)]
 
 # ---------------------------------------------------------------- drawing
 
@@ -347,19 +391,16 @@ func _draw() -> void:
 		var inner: Vector2 = r[0]
 		var outer: Vector2 = r[1]
 		var alpha := lerpf(1.0, 0.6, it.dim)
-		var ink := Color(INK, alpha * lerpf(0.4, 0.9, float(it.face)))
+		var ink := Color(INK, alpha * lerpf(0.5, 0.9, float(it.face)))
 		var shade := Color(0, 0, 0, 0.3 * alpha)
-		# the thread runs out of the dot to the rule's inner end
-		var t1 := _ease(_seg(p, 0.08, 0.4))
+		# one unbroken line: out of the dot's ring, a soft turn into the rule, along under the name; drawn out in one go
+		var t1 := _ease(_seg(p, 0.08, 0.62))
 		if t1 > 0.0:
-			_line(a, a.lerp(inner, t1), ink, shade)
-		# then the rule runs out under the name, and a tick closes it
-		var t2 := _ease(_seg(p, 0.36, 0.62))
-		if t2 > 0.0:
-			_line(inner, inner.lerp(outer, t2), Color(INK, alpha * 0.9), shade)
+			_path(_lead(a, inner, outer), t1, ink, shade)
+		# a tick closes the rule
 		var t3 := _back(_seg(p, 0.58, 0.72))
 		if t3 > 0.0:
-			_line(outer + Vector2(0, -3.5 * t3), outer + Vector2(0, 3.5 * t3), Color(INK, alpha * 0.9), shade)
+			_path(PackedVector2Array([outer + Vector2(0, -3.0 * t3), outer + Vector2(0, 3.0 * t3)]), 1.0, ink, shade)
 		# the dot: a tiny ring round a point, popping in with a ripple; the picked one keeps a slow ripple going
 		var d := _back(_seg(p, 0.0, 0.16))
 		if d > 0.0:
@@ -378,10 +419,38 @@ func _draw() -> void:
 			draw_arc(a, 2.4 * d, 0.0, TAU, 24, ink, 0.8, true)
 			draw_circle(a, 0.9 * d, ink, true, -1.0, true)
 
-## a hairline with a faint dark halo, so it reads over a bright crystal too
-func _line(a: Vector2, b: Vector2, ink: Color, shade: Color) -> void:
-	draw_line(a, b, shade, 1.8, true)
-	draw_line(a, b, ink, 0.7, true)
+## the thread and its rule as one line: from the edge of the dot's ring to the bend, round it, out to the rule's end
+func _lead(a: Vector2, inner: Vector2, outer: Vector2) -> PackedVector2Array:
+	var d := (inner - a).normalized()
+	var u := (outer - inner).normalized()
+	var r := minf(BEND, minf(a.distance_to(inner), inner.distance_to(outer)) * 0.4)
+	var p1 := inner - d * r
+	var p2 := inner + u * r
+	var pts := PackedVector2Array([a + d * 2.6])
+	for i in 9:
+		var t := float(i) / 8.0
+		pts.append(p1.lerp(inner, t).lerp(inner.lerp(p2, t), t))
+	pts.append(outer)
+	return pts
+
+## the first `t` of a line's length, as a hairline with a faint dark halo (so it reads over a bright crystal too)
+func _path(pts: PackedVector2Array, t: float, ink: Color, shade: Color) -> void:
+	var total := 0.0
+	for i in range(1, pts.size()):
+		total += pts[i - 1].distance_to(pts[i])
+	var left := total * t
+	var out := PackedVector2Array([pts[0]])
+	for i in range(1, pts.size()):
+		var seg := pts[i - 1].distance_to(pts[i])
+		if seg >= left:
+			out.append(pts[i - 1].lerp(pts[i], left / maxf(seg, 0.001)))
+			break
+		out.append(pts[i])
+		left -= seg
+	if out.size() < 2:
+		return
+	draw_polyline(out, shade, 1.8, true)
+	draw_polyline(out, ink, 0.7, true)
 
 static func _seg(p: float, a: float, b: float) -> float:
 	return clampf((p - a) / (b - a), 0.0, 1.0)
