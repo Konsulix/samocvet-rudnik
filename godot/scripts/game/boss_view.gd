@@ -4,6 +4,8 @@ extends Control
 ## Every mood comes in a few line-boil variants that take turns, faster and wilder the angrier it is; whole new poses
 ## come in with a pixel dissolve; hits flash it white and shake it; the defeat is a scream, a fall with stones
 ## breaking off and the head hitting the coils in a cloud of dust. Rules know nothing of this: LevelBoss drives it.
+## A boss may change with the boards (the Mistress turns into a lizard): phase 2's moods are p2_<mood>, phase 3's
+## p3_<mood>; a mood a phase lacks comes from the phase before, and a new phase dissolves in like a new pose.
 
 const FPS := 8.0
 const DISSOLVE := 3.0 / FPS            # a new pose takes three frames to come in
@@ -17,6 +19,8 @@ var spr: TextureRect
 var dust: ColorRect
 var stones: Node2D           # the pebbles off the neck, while it sags
 var mood := "idle"
+var phase := 0               # the board of the fight: which phase's pictures
+var _shown := ""             # the pictures on screen: the mood with its phase's prefix
 var rest := "idle"           # what it goes back to: idle, or rage on the last board
 var _t := 0.0
 var _boil_t := 0.0
@@ -48,12 +52,13 @@ func _ready() -> void:
 	size = sz
 	spr = TextureRect.new()
 	spr.size = sz
-	spr.texture = tex.idle[0]
+	_shown = _key("idle")
+	spr.texture = tex[_shown][0]
 	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	spr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var m := ShaderMaterial.new()
 	m.shader = preload("res://shaders/boss_sprite.gdshader")
-	m.set_shader_parameter("from_tex", tex.idle[0])
+	m.set_shader_parameter("from_tex", spr.texture)
 	spr.material = m
 	add_child(spr)
 	stones = Node2D.new()
@@ -76,10 +81,18 @@ func head_global() -> Vector2:
 
 # ---------------------------------------------------------------- moods
 
+## a mood's pictures in this phase: its own, else the nearest phase before that has them
+func _key(m: String) -> String:
+	for ph in range(phase, 0, -1):
+		var k := "p%d_%s" % [ph + 1, m]
+		if tex.has(k): return k
+	return m
+
 func _go(m: String) -> void:
-	if m == mood: return
+	var k := _key(m)
+	if m == mood and k == _shown: return
 	# blink and flinch are drawn over the idle picture: between them no dissolve is needed
-	var whole := not ((m in PATCHES and mood == "idle") or (mood in PATCHES and m == "idle"))
+	var whole := k.trim_suffix(m) != _shown.trim_suffix(mood) 		or not ((m in PATCHES and mood == "idle") or (mood in PATCHES and m == "idle"))
 	var sm: ShaderMaterial = spr.material
 	if whole:
 		sm.set_shader_parameter("from_tex", spr.texture)
@@ -87,7 +100,14 @@ func _go(m: String) -> void:
 		var tw := create_tween()
 		tw.tween_method(func(v: float): sm.set_shader_parameter("fade", snappedf(v, 0.25)), 0.0, 1.0, DISSOLVE)
 	mood = m
+	_shown = k
 	_boil_t = 999.0
+
+## the fight's board `i`: that phase's pictures, dissolving in
+func set_phase(i: int) -> void:
+	if i == phase: return
+	phase = i
+	if not _lock: _go(mood)
 
 ## show a mood for a while, then back to rest
 func show_for(m: String, sec: float) -> void:
@@ -159,12 +179,12 @@ func _process(dt: float) -> void:
 		show_for("blink", 0.25)
 		_blink_at = _t + randf_range(2.5, 5.5)
 	# line boil: the mood's own pace
-	var rate: float = float(meta.moods[mood][1]) / FPS
+	var rate: float = float(meta.moods[_shown][1]) / FPS
 	_boil_t += dt
 	if _boil_t >= rate:
 		_boil_t = 0.0
 		_boil = (_boil + 1) % int(meta.boil)
-		spr.texture = tex[mood][_boil]
+		spr.texture = tex[_shown][_boil]
 	# shake: one offset per frame of 1/8 s
 	if not _shake.is_empty():
 		_shake_t += dt
@@ -195,6 +215,8 @@ func _draw_stones() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
 	var cols := [Color8(96, 80, 60), Color8(130, 110, 84), Color8(168, 146, 114)]
+	if meta.has("pebbles"):
+		cols = (meta.pebbles as Array).map(func(h: String) -> Color: return Color(h))
 	for i in 16:
 		var t0 := rng.randf_range(0.0, 3.0)
 		var dx := rng.randf_range(-30.0, 30.0)

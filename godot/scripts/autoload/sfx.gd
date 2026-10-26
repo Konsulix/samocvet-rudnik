@@ -21,13 +21,24 @@ const SAMPLES := {
 	lose = {f = ["jingles_SAX07"], db = -3.0},
 	reveal = {f = ["jingles_SAX10"], db = -3.0},
 	reveal_rare = {f = ["jingles_SAX16", "impactBell_heavy_000"], db = -3.0, all = true},
+	# Copper Mountain and its Mistress (OpenGameArt, CC0: rubberduck's breaking/falling and creature packs, JaggedStone's
+	# magic spell sfx): a malachite crust and a nodule breaking, rock dropped on the board, her lizards, her hiss,
+	# a new phase, the stone flower in bloom
+	crust = {f = ["bfh1_glass_breaking_02", "bfh1_glass_breaking_05"], db = -8.0},
+	nodule = {f = ["bfh1_rock_breaking_03", "bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -5.0, step = 0.08},
+	rockfall = {f = ["bfh1_rock_falling_04", "bfh1_rock_falling_06", "bfh1_rock_falling_07", "bfh1_rock_falling_08"], db = -4.0},
+	lizards = {f = ["bug_05", "bug_08", "bug_09", "bug_12", "bug_13"], db = -10.0},
+	hiss = {f = ["breath_02", "weird_08", "weird_09"], db = -6.0},
+	phase = {f = ["roar_04", "roar_05", "roar_06"], db = -4.0},
+	bloom = {f = ["magical_1", "magical_5", "magical_6"], db = -5.0},
 	click = {f = ["click_002"], db = -10.0},
 	tab = {f = ["switch_002"], db = -8.0},
 	open = {f = ["open_001"], db = -10.0},
 }
 const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"],
 	# a boss's own theme: "boss_<id>"
-	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"]}
+	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"],
+	boss_mistress = ["res://assets/audio/music/boss_mistress.mp3"]}
 const MUSIC_DB := -14.0
 
 var _cache := {}

@@ -34,7 +34,13 @@ var ROCK := []
 var ROCK_MAX := []   # how hard each rock started: a granite (2) stays granite, cracked, once hit
 var MUD := []
 var GAS := []
-var LOCK := []
+var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too)
+var NOD := []       # a malachite nodule's layers, 0 = none (Copper Mountain): cut off, it gives its layers as ore
+var NOD_T := []     # moves until it grows its next layer
+var FLW := []       # the cells of the Mistress' stone flower (2x2, "F" on her board's map: its top left)
+## her stone flower: {r, c, st (rings out, 1..3)}; a match beside it or a hit tears its outer ring off, her turn grows
+## one back, and in full bloom it heals her and crusts the stones round it
+var flower := {}
 var GEOC := []
 var VOID := []
 var FIND := []
@@ -54,6 +60,8 @@ var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, ston
 ## the boss fight (empty in an ordinary level): {B (the boss's data), stage, k (actions so far), timer,
 ## intent {act, cells}, clear (this board's share of health is gone)}. Its health is the "boss" goal.
 var boss := {}
+## a colour new stones are not made of (-1: any): the Mistress' lizards carry off the greens and none come back
+var skip_colour := -1
 var area_i := 0
 ## ore: which colour holds which kind, how often a stone of that colour holds it, what this level has broken
 var ore_col := {}    # colour -> "iron" | "ore"
@@ -61,6 +69,8 @@ var ore_p := {}      # kind -> chance a new stone of its colour is ore-bearing
 var mined := {iron = 0, ore = 0}
 ## a stone of an ore colour holds ore about one time in 3 (~12 of each ore a win); a vein worked down to its last tenth, a third as often
 const ORE_P := 0.33
+const NOD_EVERY := 3    # a nodule grows a layer every this many moves
+const NOD_SPREAD := 2   # a full nodule that grows on crusts this many stones round it and starts again
 const ORE_POOR := 1.0 / 3.0
 ## the shapes a find comes sealed in, [w, h, weight]
 const FIND_SHAPES := [[2, 2, 4.0], [2, 1, 2.0], [1, 2, 2.0], [3, 1, 1.0], [1, 3, 1.0]]
@@ -100,6 +110,8 @@ func _grid(v) -> Array:
 func new_gem(colour: int = -2) -> Gem:
 	if colour == -2:
 		colour = rng.randi_range(0, colors - 1)
+		if colour == skip_colour and colors > 1:
+			colour = (colour + rng.randi_range(1, colors - 1)) % colors
 	var g := Gem.new(uid, colour)
 	uid += 1
 	var kind: String = ore_col.get(colour, "")
@@ -113,12 +125,13 @@ func set_ore(area: int, dl: int, vein: Array, rich := false, iron := true) -> vo
 	var O: Dictionary = Data.ore(area)
 	var D: Dictionary = Data.depth(area, dl)
 	ore_col = {int(O.iron): "iron", int(O.local): "ore"}
+	var own_k := float(O.get("p", 1.0))   # a mine whose ore also comes from elsewhere (nodules) has fewer ore stones
 	ore_p = {}
 	for i in 2:
 		var kind: String = ["iron", "ore"][i]
 		var stock: int = int(D.fe) if i == 0 else int(D.au)
 		var left: int = int(vein[i]) if vein.size() > i else stock
-		var p := ORE_P * (ORE_POOR if left <= vein_floor(stock) else 2.0 if rich else 1.0)
+		var p := ORE_P * (ORE_POOR if left <= vein_floor(stock) else 2.0 if rich else 1.0) * (own_k if i == 1 else 1.0)
 		ore_p[kind] = p if iron or kind == "ore" else 0.0
 
 # ------------------------------------------------------------------ the boss
@@ -181,7 +194,7 @@ func boss_plan() -> void:
 	boss.timer = int(S.every)
 	var cells := []
 	var A: Dictionary = boss.B.act.get(act, {})
-	if act in ["coils", "rockfall", "breath"]:
+	if act in ["coils", "rockfall", "breath", "crust"]:
 		var cand := []
 		for r in range(1, R - 1):
 			for c in C:
@@ -190,7 +203,30 @@ func boss_plan() -> void:
 					cand.append(Vector2i(r, c))
 		for k in mini(int(A.get("n", 4)), cand.size()):
 			cells.append(cand.pop_at(rng.randi_range(0, cand.size() - 1)))
+	if act == "lizards":
+		cells = lizard_marks()
+	if act == "flower" and not flower.is_empty():
+		cells = cells_of(flower) if int(flower.st) >= 3 else []
 	boss.intent = {act = act, cells = cells}
+
+## the greens the lizards will take: a share of the boss' weak colour on the board, at random
+func lizard_marks(prefer: Array = []) -> Array:
+	var A: Dictionary = boss.B.act.get("lizards", {})
+	var greens := []
+	for r in R:
+		for c in C:
+			var g: Gem = G[r][c]
+			if g and g.t == int(boss.B.weak) and g.sp == "" and g.item == "" and not LOCK[r][c]:
+				greens.append(Vector2i(r, c))
+	var n := roundi(greens.size() * float(A.get("share", 0.5)))
+	var out := []
+	for p in prefer:
+		if p in greens and out.size() < n:
+			out.append(p)
+			greens.erase(p)
+	while out.size() < n and not greens.is_empty():
+		out.append(greens.pop_at(rng.randi_range(0, greens.size() - 1)))
+	return out
 
 ## the boss's turn after the player's: counts down; at zero it acts and plans the next.
 ## Returns {} while it waits, else {act, cells (where it landed), removed (stone ids gone), heal}
@@ -201,16 +237,32 @@ func boss_turn() -> Dictionary:
 	var it: Dictionary = boss.intent
 	var out := {act = it.act, cells = [], removed = [], heal = 0}
 	var A: Dictionary = boss.B.act.get(it.act, {})
+	if it.act == "lizards":
+		# the stones moved since the cells were marked: the share of the greens there are now, the marked ones first.
+		# They are left on the board for the show to carry off; the level removes them, refills without green
+		# (skip_colour, cleared by the level after the refill) - no damage, no defence
+		for p: Vector2i in lizard_marks(it.cells):
+			out.cells.append(p)
+			out.removed.append(G[p.x][p.y].id)
+		skip_colour = int(boss.B.weak)
+		boss_plan()
+		return out
+	if it.act == "flower":
+		_flower_turn(out, A)
+		boss_plan()
+		return out
 	for p: Vector2i in it.cells:
 		var g: Gem = G[p.x][p.y]
 		if g == null or g.sp != "" or g.item != "" or LOCK[p.x][p.y]: continue
 		match String(it.act):
 			"coils":
 				LOCK[p.x][p.y] = 1
+			"crust":
+				LOCK[p.x][p.y] = 2
 			"rockfall":
 				out.removed.append(g.id)
 				G[p.x][p.y] = null
-				ROCK[p.x][p.y] = 2 if int(boss.stage) >= 2 else 1
+				ROCK[p.x][p.y] = int(A.get("hard", 2 if int(boss.stage) >= 2 else 1))
 				ROCK_MAX[p.x][p.y] = ROCK[p.x][p.y]
 			"breath":
 				out.removed.append(g.id)
@@ -230,6 +282,32 @@ func boss_turn() -> Dictionary:
 		out.heal = int(goals[gi].left) - before
 	boss_plan()
 	return out
+
+## her flower grows a ring back; already full, it blooms: heals her (never past this board's share), crusts the stones
+## round it and closes to its buds again. out gets {grow: the new ring count | bloom, heal, cells: the crusted ones}
+func _flower_turn(out: Dictionary, A: Dictionary) -> void:
+	if flower.is_empty(): return
+	if int(flower.st) < 3:
+		flower.st = int(flower.st) + 1
+		out.grow = flower.st
+		return
+	out.bloom = true
+	var gi := goal_index("boss")
+	var before := int(goals[gi].left)
+	goals[gi].left = mini(boss_top(), before + int(A.get("heal", 60)))
+	out.heal = int(goals[gi].left) - before
+	var cand := []
+	for dr in range(-1, 3):
+		for dc in range(-1, 3):
+			var p := Vector2i(int(flower.r) + dr, int(flower.c) + dc)
+			if not playable(p.x, p.y) or FLW[p.x][p.y]: continue
+			var g: Gem = G[p.x][p.y]
+			if g and g.sp == "" and g.item == "" and not LOCK[p.x][p.y]: cand.append(p)
+	for i in mini(int(A.get("crust", 6)), cand.size()):
+		var p: Vector2i = cand.pop_at(rng.randi_range(0, cand.size() - 1))
+		LOCK[p.x][p.y] = 2
+		out.cells.append(p)
+	flower.st = 1
 
 ## the moves a level starts with: a generated level has them counted for its depth already
 static func start_moves(def: Dictionary, dl: int, eq: Dictionary) -> int:
@@ -266,7 +344,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	bonus = []
 	geos = []
 	find = {}
-	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
+	flower = {}
+	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
 	var rows: PackedStringArray = String(def.get("map", "")).split("|") if def.get("map", "") != "" else PackedStringArray()
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
@@ -292,6 +371,15 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 				"l":
 					LOCK[r][c] = 1
 					locks += 1
+				"c":
+					LOCK[r][c] = 2
+				"F":
+					flower = {r = r, c = c, st = 1}
+					for d in QUAD:
+						FLW[r + d.x][c + d.y] = true
+				"k":
+					NOD[r][c] = 1
+					NOD_T[r][c] = NOD_EVERY - (r + c) % 2   # neighbours a move apart, not all in step
 				"G":
 					var gi := geos.size()
 					var ghp := block_hp(level_n, dl)
@@ -310,7 +398,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 				for d in cells_of({r = 0, c = 0, w = fw, h = fh}):
 					var rr: int = r + d.x
 					var cc: int = c + d.y
-					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or G[rr][cc] != null:
+					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or NOD[rr][cc] or FLW[rr][cc] or G[rr][cc] != null:
 						ok = false
 				if ok:
 					spots.append([r, c, absf(r + fh * 0.5 - 6.5) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
@@ -346,7 +434,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		for c in C:
 			if ROCK[r][c]: rocks += 1
 			if GAS[r][c]: gas += 1
-			if LOCK[r][c]: locks += 1
+			if LOCK[r][c] == 1: locks += 1
 	if not find.is_empty():
 		goals.append({k = "find", t = -1, left = 1})
 	for gd in def.goals:
@@ -357,6 +445,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"nug": goals.append({k = "nug", t = -1, left = nugs})
 			"gas": goals.append({k = "gas", t = -1, left = gas})
 			"lock": goals.append({k = "lock", t = -1, left = locks})
+			"crust": goals.append({k = "crust", t = -1, left = _count_lock(2)})
 			"geo": goals.append({k = "geo", t = -1, left = geos.size()})
 			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
 	# fill without ready-made matches, and make sure a move exists
@@ -391,9 +480,16 @@ func _free_cells() -> Array:
 	var a := []
 	for r in range(1, R - 1):
 		for c in C:
-			if playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and G[r][c] == null and not LOCK[r][c] and not MUD[r][c]:
+			if playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and G[r][c] == null and not LOCK[r][c] and not MUD[r][c] and not NOD[r][c] and not FLW[r][c]:
 				a.append(Vector2i(r, c))
 	return a
+
+func _count_lock(v: int) -> int:
+	var k := 0
+	for r in R:
+		for c in C:
+			if LOCK[r][c] == v: k += 1
+	return k
 
 func _count_granite() -> int:
 	var k := 0
@@ -408,7 +504,7 @@ func playable(r: int, c: int) -> bool:
 	return r >= 0 and c >= 0 and r < R and c < C and not VOID[r][c]
 
 func open(r: int, c: int) -> bool:
-	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c]
+	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c]
 
 ## the colour a cell counts as for matching, -1 if it can't match
 func col(r: int, c: int) -> int:
@@ -591,6 +687,23 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_goal_hit("gas", -1, r, c, t)
 		_fx(t, "gas", {r = r, c = c})
 		return
+	if FLW[r][c]:    # the stone flower loses its outer ring, once a blast, and never below its buds
+		if _rock_hit.has(-1): return
+		_rock_hit[-1] = true
+		if int(flower.st) > 1:
+			flower.st = int(flower.st) - 1
+			_fx(t, "flower_tear", {r = flower.r, c = flower.c, st = flower.st})
+		return
+	if NOD[r][c]:    # a nodule is cut off whole by any hit or a match beside it: its layers are ore
+		if _rock_hit.has(k): return
+		_rock_hit[k] = true
+		var layers: int = NOD[r][c]
+		NOD[r][c] = 0
+		_fx(t, "nodule", {r = r, c = c, stage = layers})
+		if boss.is_empty():
+			mined.ore += layers
+			for i in layers: _fx(t + i * 90.0, "ore", {kind = "ore", r = r, c = c})
+		return
 	if GEOC[r][c] >= 0:   # a geode block takes one hit per blast; once open its empty shell stays, taking no more
 		var gi: int = GEOC[r][c]
 		var geo: Dictionary = geos[gi]
@@ -621,11 +734,13 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 			_goal_hit("find", -1, find.r + (find.h - 1) * 0.5, find.c + (find.w - 1) * 0.5, t)
 			_fx(t, "find_done", {r = find.r + (find.h - 2) * 0.5, c = find.c + (find.w - 2) * 0.5})
 		return
-	if LOCK[r][c]:   # the timber breaks, the stone under it stays
-		if kind == "adj": return
+	if LOCK[r][c]:   # the timber breaks, the stone under it stays; a crust also cracks off from a match beside it
+		var crust: bool = LOCK[r][c] == 2
+		if kind == "adj" and (not crust or _rock_hit.has(k)): return
+		_rock_hit[k] = true
 		LOCK[r][c] = 0
-		_goal_hit("lock", -1, r, c, t)
-		_fx(t, "lock", {r = r, c = c})
+		_goal_hit("crust" if crust else "lock", -1, r, c, t)
+		_fx(t, "crust" if crust else "lock", {r = r, c = c})
 		_cleared[k] = true
 		return
 	var g: Gem = G[r][c]
@@ -652,7 +767,7 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		for d in DIRS4:
 			var rr: int = r + d.x
 			var cc: int = c + d.y
-			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc]):
+			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] == 2 or FLW[rr][cc]):
 				hit(rr, cc, t, "adj")
 
 func activate(sp: String, r: int, c: int, t: float, g: Gem = null) -> void:
@@ -757,10 +872,12 @@ func drill_target(r: int, c: int) -> Vector2i:
 			if FIND[rr][cc] and need.has("find"): w = 7
 			elif GAS[rr][cc] and need.has("gas"): w = 6
 			elif GEOC[rr][cc] >= 0 and not geos[GEOC[rr][cc]].done and need.has("geo"): w = 6
-			elif LOCK[rr][cc] and need.has("lock"): w = 5
+			elif LOCK[rr][cc] == 1 and need.has("lock"): w = 5
+			elif LOCK[rr][cc] == 2 and need.has("crust"): w = 5
 			elif ROCK[rr][cc] and need.has("rock"): w = 6
 			elif MUD[rr][cc] and need.has("mud"): w = 5
 			elif col(rr, cc) >= 0 and need.has("c%d" % col(rr, cc)): w = 4
+			elif NOD[rr][cc] >= 3: w = 3
 			elif G[rr][cc] != null and G[rr][cc].item == "": w = 1
 			if w:
 				cand.append([Vector2i(rr, cc), w])
@@ -993,6 +1110,37 @@ func gas_spread() -> Vector2i:
 	var gi := goal_index("gas")
 	if gi >= 0: goals[gi].left += 1
 	return p
+
+## the nodules grow a layer every NOD_EVERY moves; a full one overgrows instead: malachite crusts the stones round it
+## and it starts again from its core. Returns what changed: [{r, c, from, stage, crust: [cells]}]
+func nodule_grow() -> Array:
+	var out := []
+	for r in R:
+		for c in C:
+			if not NOD[r][c]: continue
+			NOD_T[r][c] -= 1
+			if NOD_T[r][c] > 0: continue
+			NOD_T[r][c] = NOD_EVERY
+			var e := {r = r, c = c, from = NOD[r][c], crust = []}
+			if NOD[r][c] < 3:
+				NOD[r][c] += 1
+			else:
+				var cand := []
+				for d in DIRS4:
+					var rr: int = r + d.x
+					var cc: int = c + d.y
+					if not playable(rr, cc): continue
+					var g: Gem = G[rr][cc]
+					if g and g.t >= 0 and g.sp == "" and g.item == "" and not LOCK[rr][cc]:
+						cand.append(Vector2i(rr, cc))
+				for i in mini(NOD_SPREAD, cand.size()):
+					var p: Vector2i = cand.pop_at(rng.randi_range(0, cand.size() - 1))
+					LOCK[p.x][p.y] = 2
+					e.crust.append(p)
+				NOD[r][c] = 1
+			e.stage = NOD[r][c]
+			out.append(e)
+	return out
 
 ## leftover moves turn into dynamite across the board: returns the cells that got it
 func finale_picks() -> Array:

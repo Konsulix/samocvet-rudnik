@@ -97,16 +97,78 @@ cast — *jaws open wide, the eye blazing gold*; phase3 — *gold veins glowing 
 Части: голова, глаз, нижняя челюсть, кольца тела.
 
 ### Хозяйка Медной горы (Copper Mountain)
-> The Mistress of the Copper Mountain from Ural folk tales: a beautiful stern young woman with dark braided hair,
-> pale skin with a faint green tint, a tall crown of emerald crystals, a gown of polished malachite with banded green
-> stripes and copper trim, a malachite necklace; she leans forward with her forearms resting on the bottom edge of
-> the frame, as if leaning on a stone ledge, head turned to the right, looking down. Palette: malachite greens,
-> copper, dark bronze, emerald accents. No red or orange.
+Решено 26.10: **полуящерица** — превращение уже начато (лицо девичье, строгое; чешуя на шее, скулах, руках),
+при поражении **каменеет** (малахитовая статуя, трещины, корона гаснет). Рамка поля — малахитовые плиты в медной
+окантовке, её коса свисает через край по боковой планке, по рамке бегают ящерки (кадры анимации, как хвост Полоза).
+По Бажову: невысокая, коса с лентами «будто медная проволока», платье — шёлковый малахит, свита из ящерок.
+26.10, вторая попытка: первые пробы вышли «милой фэнтези-девушкой» — дух Inscryption терялся. Нужна красота,
+в которой чувствуется «что-то не так»: восковая серо-зелёная кожа с малахитовыми прожилками, глаза чуть больше и
+шире посажены, без зрачков, немигающий взгляд, улыбка не доходит до глаз, слишком длинные пальцы; палитра грязная
+и приглушённая (мутный малахит, ярь-медянка, чернёная бронза), полутьма на пол-лица, яркие только глаза и 2–3
+кристалла. Полный промпт фазы 1 — ниже, правки фаз 2–3 — в `chain.sh` из сессии (идеи: улыбка слишком широкая →
+звериная морда, от женщины остаются прядь и корона). Пробы: `src/mistress/a_p1..3`, `b_p1..3`.
+> Character: The Mistress of the Copper Mountain from Bazhov's Ural tales - a mountain spirit wearing the shape of
+> a beautiful woman, and the shape is not quite right. Beautiful at first glance, deeply unsettling at the second:
+> waxy pale skin with a cold grey-green tint, like polished stone, with thin dark malachite veins under the skin at
+> the temples and the throat; the eyes a little too large and set a little too far apart, flat glowing emerald with
+> no pupils and no whites, an unblinking stare; a faint thin smile that does not reach the eyes; sunken cheeks,
+> a long thin neck; the fingers too long, dark green claw-like nails; patches of lizard scales on the neck and hands.
+> Palette: muted, dirty and desaturated like Inscryption... Style: grim and grimy; heavy black ink outlines, coarse
+> dithered shading... no glossy fantasy-art rendering; not cute, not glamorous, no anime.
+Фаза 3 «ящерица» выходила милой — нужен контраст «красота → уродство»: правка от p2 «hideous monster, not a cute
+reptile»: костлявая голова варана, пасть до ушей, кривые игольчатые зубы, глаза разные и запавшие, чешуя рваная,
+кожа лопнула и в ранах сырой малахит, волосы облезли, корона набекрень, лапы-крючья (`a_p3u`, `b_p3u`). Морда не
+должна заходить под облачко (правее ~55% ширины в верхней половине).
+На сетке тёмная Хозяйка сливается с зелёной пещерой: фон делать темнее и не такой зелёный (или контровой свет).
 
-Варианты: blink — *eyes closed*; hurt — *flinches, eyes shut, head turned away*; cast — *raises one hand, a green
-glow in the palm, eyes glowing green*; phase3 — *cold furious stare, crown crystals glowing, malachite cracks on
-her gown*. Дополнительно (отдельной картинкой, тот же стиль): малахитовая ящерица 1:1, вид сверху — бегает по полю.
-Части: голова, глаза, руки на краю, корона.
+**С каждой фазой (полем боя) она всё больше ящерица** — у каждой фазы своя основа и свои эмоции, основа следующей
+делается правкой предыдущей (кадр сохраняется), при смене поля — вскрик и наплыв на новую основу:
+**Утверждено 26.10** (цепочка a; остальные пробы в той же папке — черновики):
+фаза 1 — живая красивая женщина без чешуи, человеческие глаза и руки; странное только в мелочах: неподвижный
+взгляд, малахитовая жилка у виска, ящерка в волосах (`src/mistress/base.png` = `a_p1h`, правка `a_p1`);
+фаза 2 — восковая серо-зелёная кожа в чешуе, улыбка слишком широкая, глаза без зрачков, когти (`p2_base.png` = `a_p2`);
+фаза 3 — чудовище: облезлая голова варана, пасть настежь со слюной, корона набекрень, лапы-крючья, поза перед
+броском (`p3_base.png` = `a_p3v5`, правка `a_p2`; дорабатывать не надо).
+Эмоции сделаны 26.10 правкой основ (`src/mistress/`, лист — `art/boss/mistress_moods.png`): фаза 1 — `blink`,
+`hurt`, `cast`; фаза 2 — `p2_*`; фаза 3 — `p3_blink/hurt/cast/scream/fall`, `p3_defeated` (правка `p3_fall`).
+cast: ладонь с зелёным огнём — **низко перед грудью** (30–55% ширины, ниже 55% высоты), иначе её закрывает облачко.
+Фон и рамка (26.10, пробы): `bg_a/bg_b` — тёмный малахитовый зал, приглушённый почти до чёрно-бирюзового (на нём
+она читается), свечи в нишах, каменный цветок слева внизу; `frame_a/frame_b` — бруски малахита в чернёной меди
+с заклёпками, коса по левому бруску, ящерки на рамке; `lizard.png` — ящерка сверху (для бега по рамке/полю).
+Решено 26.10: **фон — `bg_a`** (= `src/mistress/bg.png`); сгенерированная рамка отклонена (грубая растянутая сборка),
+**косы на рамке нет** (не подстроить под углы) — только малахит с медью, ящерки бегают по ней спрайтами.
+Рамка — Blender, целиком по контуру каждого поля, как змей Полоза: `prototype/tools/blender/malachite_kit.py --
+<out> boss 168 32 <area>` → `stage<N>.png/.json` (брусок малахита со скосами, полосы кольцами в мировых координатах,
+медь: стяжки вразнобой — шаг, ширина, наклон, иногда парой; на внешних углах наугад медная пластина или неровный
+малахитовый блок; брусок гуляет по ширине/высоте, внешний край в сколах; на бруске полосы идут **вдоль** него
+(UV: длина × поперёк, изгиб шумом по длине — как в сгенерированных рамках), на угловых блоках — кольцами; `tail_frames: 0`). Проба на полях
+Полоза (у Хозяйки своих полей ещё нет) — `art/boss/mistress_frame/`, макет — `art/boss/mistress_screen_mock2.png`.
+26.10, вариант 2 — **рисованный набор деталей**: GPT нарисовал лист `src/mistress/frame_kit.png` (4 бруска с рваным
+внешним краем, 3 скобы, 4 внешних и 4 внутренних угла, пурпурный фон). `art/boss/mistress_frame.py <scratch> <font>
+<out> [area]` режет лист, собирает рамку по контуру каждого поля (бруски кусками, стыки под скобами, скобы вразнобой,
+от угловых деталей берутся только медные накладки — их перемычки с чернильными концами давали шов; бруски сходятся
+под накладкой; брусок 24 pt; лист приглушён (`TONE`: насыщенность ×0,72, яркость ×0,8) под тон сцены) и сразу
+приводит к сетке 1 pt с обводкой → `kit_stage<N>.png/.json`.
+Макет — `art/boss/mistress_screen_mock3.png`.
+Ниже — первый промпт (вышел «милым», не использовать как есть).
+Эмоции: фазы 1–2 — blink, hurt, cast; фаза 3 — blink, hurt, cast, scream, fall (каменеет), defeated (статуя).
+Правки картинок — `art/boss/gen_edit.sh` (общий для всех боссов). На экране руки с ящеркой не должны уходить
+за верхнюю планку рамки: у Хозяйки спрайт ниже утапливать нельзя, как Полоза (нужно смещение по боссу).
+> The Mistress of the Copper Mountain from Bazhov's Ural tales, half-turned into a lizard: a stern, uncanny young
+> woman with a cold beautiful face, pale skin with a green tint, emerald eyes with no pupils; small green lizard
+> scales spread over her neck, cheekbones, the backs of her hands and forearms, her fingers end in dark claws;
+> a long heavy dark braid woven with thin copper ribbons that look like copper wire, the braid hangs over the bottom
+> edge; a tall crown of emerald crystals; a gown of polished malachite with banded green stripes and copper trim.
+> She leans forward with her forearms resting on the bottom edge of the frame as on a stone ledge, head turned to
+> the right, looking down; a small malachite lizard sits on her hand. Palette: malachite greens, copper, dark bronze,
+> emerald accents. No red or orange.
+
+Варианты: blink — *eyes closed*; hurt — *flinches, eyes shut, head turned away*; cast — *raises one clawed hand,
+a green glow in the palm, eyes glowing green*; phase3 — *cold furious stare, scales spread further over her face,
+crown crystals glowing, malachite cracks on her gown*; scream — *hisses with mouth open, forked tongue*;
+fall — *half turned to stone, cracks spread from the hands*; defeated — *whole figure a dull malachite statue,
+crown dark*. Отдельно (тот же стиль): малахитовая ящерица 1:1, вид сверху — бегает по полю и по рамке.
+Части: голова, глаза, руки на краю, корона, коса.
 
 ### Сердце вулкана (Fire Horizon)
 > The Heart of the Volcano: a living mass of black basalt shards and cooled lava crust, piled into a rough dome,

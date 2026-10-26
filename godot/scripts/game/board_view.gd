@@ -26,6 +26,10 @@ var find_done_at := -10.0
 var _zone_tex := {}
 const ZONE_SCALE := 0.95
 var geo_hit_at := {}
+var nod_grow := {}            # cell key -> {from, t0}: a nodule growing its next layer
+var flower_layer: Node2D      # the Mistress' stone flower: pixel art (art/boss/stone_flower.py), drawn sharp
+var flower_at := -10.0        # when it last grew or bloomed: a flash
+const NOD_GROW_S := 0.6
 var _down := {}
 
 func _init() -> void:
@@ -43,6 +47,8 @@ func _ready() -> void:
 	gm.shader = preload("res://shaders/gas.gdshader")
 	gas_layer.material = gm
 	live = _layer(_draw_live)
+	flower_layer = _layer(_draw_flower)
+	flower_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
@@ -95,6 +101,7 @@ func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
 func refresh() -> void:
 	queue_redraw()
 	redraw_under()
+	flower_layer.queue_redraw()
 	over.queue_redraw()
 
 ## stones fall into the board from above at the start
@@ -266,7 +273,7 @@ func _draw_gas(ci: Node2D) -> void:
 ## granite (two hits), granite split by the first hit, or sandstone (one hit)
 func _rock_look(r: int, c: int) -> String:
 	if model.ROCK_MAX[r][c] >= 2:
-		return "granite" if model.ROCK[r][c] >= 2 else "granite_cracked"
+		return BoardSprites.granite() + ("" if model.ROCK[r][c] >= 2 else "_cracked")
 	return "sand"
 
 func _draw_live(ci: Node2D) -> void:
@@ -281,6 +288,9 @@ func _draw_live(ci: Node2D) -> void:
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
 				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	for r in R:
+		for c in C:
+			if model.playable(r, c) and model.NOD[r][c]: _draw_nodule(ci, r, c, now)
 	if BoardSprites.zone_style != "classic":
 		for gi in model.geos.size():
 			var geo: Dictionary = model.geos[gi]
@@ -312,11 +322,65 @@ func _draw_zone(ci: Node2D, kind: String, b: Dictionary, since_hit: float, now: 
 	var ctr := Vector2(PAD + (b.c + w * 0.5) * TS + shake, PAD + (b.r + h * 0.5) * TS)
 	ci.draw_texture_rect(_zone_tex[path], Rect2(ctr - size * 0.5, size), false, Color(1, 1, 1, a))
 
+## a malachite nodule, its stage as drawn; while it grows a layer, the new bubbles blow up behind the old ones and the
+## crevices between them fill in (a full one overgrowing goes back to its core at once)
+func _draw_nodule(ci: Node2D, r: int, c: int, now: float) -> void:
+	var v := BoardSprites.malachite_look(r, c)
+	var st: int = model.NOD[r][c]
+	var ctr := cell_center(r, c)
+	var g: Dictionary = nod_grow.get(r * C + c, {})
+	var t := clampf((now - float(g.t0)) / NOD_GROW_S, 0.0, 1.0) if not g.is_empty() else 1.0
+	var from: int = int(g.get("from", st))
+	if t >= 1.0 or from >= st:
+		BoardSprites.draw(ci, BoardSprites.malachite("nodule_%d_s%d" % [v, st]), ctr, TS)
+		return
+	var info := BoardSprites.malachite_info("nodule")
+	var cen: Array = info.centre[str(v)]
+	var shift: Array = info.shift[str(v)]
+	var upto := [0, int(info.stages[0]), int(info.stages[1]), cen.size()]
+	var w := TS * BoardSprites.SPAN
+	var px := float(BoardSprites.malachite("nodule_%d_s1" % v).get_width())
+	ci.draw_texture_rect(BoardSprites.malachite("nodule_%d_fill_s%d" % [v, st]), Rect2(ctr - Vector2(w, w) * 0.5, Vector2(w, w)), false, Color(1, 1, 1, t))
+	for j in range(upto[st] - 1, upto[from] - 1, -1):
+		var k := clampf(t * 1.6 - (j - upto[from]) * 0.15, 0.0, 1.0)
+		var s := (k * 1.18 / 0.75 if k < 0.75 else 1.18 - 0.18 * (k - 0.75) / 0.25) if k > 0.0 else 0.0
+		if s <= 0.0: continue
+		var piv := ctr + Vector2(float(cen[j][0]), float(cen[j][1])) * TS + Vector2(float(shift[0]), float(shift[1])) / px * w
+		var r0 := Rect2(ctr - Vector2(w, w) * 0.5, Vector2(w, w))
+		ci.draw_texture_rect(BoardSprites.malachite("nodule_%d_%d" % [v, j]), Rect2(piv + (r0.position - piv) * s, r0.size * s), false)
+	if from > 0: BoardSprites.draw(ci, BoardSprites.malachite("nodule_%d_s%d" % [v, from]), ctr, TS)
+
+## the stone flower on its 2x2: its rings as they are; full and about to bloom it glows, pulsing; it flashes as it
+## grows or blooms. Its sprite is drawn at the pixel frame's scale (1 pt = cell / 42)
+func _draw_flower(ci: Node2D) -> void:
+	if model == null or model.flower.is_empty(): return
+	var F: Dictionary = model.flower
+	var ctr := Vector2(PAD + (float(F.c) + 1.0) * TS, PAD + (float(F.r) + 1.0) * TS)
+	var now := Time.get_ticks_msec() / 1000.0
+	var hot := 1.0 - clampf((now - flower_at) / 0.5, 0.0, 1.0)
+	if int(F.st) >= 3:
+		var pulse := 0.5 + 0.5 * sin(now * 4.0)
+		GemArt.radial_disc(ci, ctr, TS * 1.25, Color(0.4, 1.0, 0.6, 0.22 + 0.18 * pulse), Color(0.3, 0.9, 0.5, 0.1), Color(0.3, 0.9, 0.5, 0))
+	if hot > 0.0:
+		GemArt.radial_disc(ci, ctr, TS * 1.4, Color(0.6, 1.0, 0.7, 0.5 * hot), Color(0.4, 1.0, 0.6, 0.2 * hot), Color(0.4, 1.0, 0.6, 0))
+	var tex: Texture2D = BoardSprites.flower("flower_s%d" % clampi(int(F.st), 1, 3))
+	var sz := Vector2(tex.get_size()) * TS / 42.0
+	ci.draw_texture_rect(tex, Rect2((ctr - sz * 0.5).round(), sz.round()), false)
+
+## the nodules that just grew: [{r, c, from, stage}] from BoardModel.nodule_grow
+func grow_nodules(list: Array) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	for e: Dictionary in list:
+		nod_grow[int(e.r) * C + int(e.c)] = {from = int(e.from), t0 = now}
+	live.queue_redraw()
+
 func _draw_over(ci: Node2D) -> void:
 	if model == null: return
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and model.LOCK[r][c]:
+			if model.playable(r, c) and model.LOCK[r][c] == 2:
+				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
+			elif model.playable(r, c) and model.LOCK[r][c]:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	for p: Vector2i in marks:
@@ -392,8 +456,14 @@ func _draw_find(ci: Node2D, now: float) -> void:
 
 func _process(_dt: float) -> void:
 	# gas breathes, specimens pulse, shaken blocks settle
-	if model and (not model.find.is_empty() and (not model.find.done or Time.get_ticks_msec() / 1000.0 - find_done_at < 0.7) or _has_gas() or not geo_hit_at.is_empty()):
+	if model and (not model.find.is_empty() and (not model.find.done or Time.get_ticks_msec() / 1000.0 - find_done_at < 0.7) or _has_gas() or not geo_hit_at.is_empty() or not nod_grow.is_empty()):
 		live.queue_redraw()
+	if model and not model.flower.is_empty():
+		flower_layer.queue_redraw()
+	# a grown nodule stays drawn as its new stage
+	var now := Time.get_ticks_msec() / 1000.0
+	for key in nod_grow.keys():
+		if now - float(nod_grow[key].t0) > NOD_GROW_S + 0.1: nod_grow.erase(key)
 
 func _has_gas() -> bool:
 	for r in R:

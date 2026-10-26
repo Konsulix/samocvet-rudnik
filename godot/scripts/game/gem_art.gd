@@ -300,9 +300,10 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 				BoardSprites.draw(ci, BoardSprites.tex("rock1"), Vector2(S / 2, S / 2), S * 0.9)
 			elif colour == 2:
 				BoardSprites.draw(ci, BoardSprites.blocker("sand"), Vector2(S * 0.38, S * 0.4), S * 0.78)
-				BoardSprites.draw(ci, BoardSprites.blocker("granite"), Vector2(S * 0.62, S * 0.6), S * 0.78)
+				BoardSprites.draw(ci, BoardSprites.blocker(BoardSprites.granite()), Vector2(S * 0.62, S * 0.6), S * 0.78)
 			else:
-				BoardSprites.draw(ci, BoardSprites.blocker("granite" if colour == 1 else "sand"), Vector2(S / 2, S / 2), S)
+				BoardSprites.draw(ci, BoardSprites.blocker(BoardSprites.granite() if colour == 1 else "sand"), Vector2(S / 2, S / 2), S)
+		"crust": BoardSprites.draw(ci, BoardSprites.malachite("crust_0"), Vector2(S / 2, S / 2), S)
 		"mud": BoardSprites.draw(ci, BoardSprites.blocker("mud"), Vector2(S / 2, S / 2), S if BoardSprites.gem_style != "" else S * 0.9)
 		"gas":
 			if BoardSprites.gem_style == "":

@@ -8,7 +8,7 @@ extends RefCounted
 
 const R := BoardModel.R
 const C := BoardModel.C
-## what each depth puts on the board (Old Adit; the other mines use the same for now): the obstacles it may use and
+## what each depth puts on the board (Old Adit, and any mine without its own AREA_TIERS): the obstacles it may use and
 ## about how many cells they take. A new obstacle every other depth: 100 m granite, 200 m gas, 300 m timber
 const TIERS := [
 	{kinds = ["sand", "mud"], load = 10},
@@ -18,28 +18,46 @@ const TIERS := [
 	{kinds = ["sand", "mud", "granite", "gas"], load = 17},
 	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 18},
 ]
-const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l"}
+## Copper Mountain (9 depths): sand and mud, serpentine from 150 m, malachite crust from 250 m, gas from 350 m;
+## no timber - her fight asks for crust and fallen rock, not for timber
+const AREA_TIERS := {1: [
+	{kinds = ["sand", "mud"], load = 9},
+	{kinds = ["sand", "mud"], load = 11},
+	{kinds = ["sand", "mud", "granite"], load = 12},
+	{kinds = ["sand", "mud", "granite"], load = 13},
+	{kinds = ["sand", "mud", "granite", "crust"], load = 14},
+	{kinds = ["sand", "mud", "granite", "crust"], load = 15},
+	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 14},
+	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 15},
+	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 17},
+]}
+const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c"}
 ## gas spreads and timber pins stones: a little of either goes a long way
-const CAP := {gas = 6, lock = 10}
+const CAP := {gas = 6, lock = 10, crust = 10}
+## Copper Mountain's malachite nodules (mine -> how many at the first depth, one more every other depth, at most):
+## the mine's own ore grows in them, so its boards carry less of the other obstacles (NOD_LOAD)
+const NODULES := {1: Vector2i(2, 4)}
+const NOD_LOAD := 0.7
 ## the moves a level needs: BASE + WORK of each obstacle cell (a nugget, the geode, a stone of a colour goal),
 ## fitted to the autoplayer's wins on 180 generated levels (`-- sim_gen=30 sim_rows`, logistic fit 25.10).
 ## A level gets MARGIN more than it needs, a little less at every depth (TIGHT); the autoplayer then wins ~60%,
 ## a live player more. What a level asks for is kept within NEED_MAX, so no level wants 50 moves.
-const WORK := {sand = 0.65, granite = 1.2, mud = 0.6, gas = 2.2, lock = 1.9, nug = 4.0, geo = 2.5, colour = 0.11}
+const WORK := {sand = 0.65, granite = 1.2, mud = 0.6, gas = 2.2, lock = 1.9, crust = 1.5, nod = 1.5, nug = 4.0, geo = 2.5, colour = 0.11}
 const BASE := 10.4
 const MARGIN := 2.5
 const TIGHT := 0.0
 const NEED_MAX := 31.0
 const MOVES := Vector2i(16, 34)
 
-static func tier(dl: int) -> Dictionary:
-	return TIERS[clampi(dl, 0, TIERS.size() - 1)]
+static func tier(dl: int, area := 0) -> Dictionary:
+	var T: Array = AREA_TIERS.get(area, TIERS)
+	return T[clampi(dl, 0, T.size() - 1)]
 
 ## the obstacle a depth brings that the one above did not have, or ""
-static func new_kind(dl: int) -> String:
+static func new_kind(dl: int, area := 0) -> String:
 	if dl <= 0: return ""
-	var above: Array = tier(dl - 1).kinds
-	for k in tier(dl).kinds:
+	var above: Array = tier(dl - 1, area).kinds
+	for k in tier(dl, area).kinds:
 		if not k in above: return k
 	return ""
 
@@ -69,8 +87,8 @@ static func _veins_poor(dl: int) -> bool:
 static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 31 + area
-	var T := tier(dl)
-	var nk := new_kind(dl)
+	var T := tier(dl, area)
+	var nk := new_kind(dl, area)
 	var intro := nk != "" and wins == 0
 	var grid := []
 	for r in R:
@@ -96,6 +114,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		groups.b = []
 	var load: int = int(T.load) + mini(wins, 4) + rng.randi_range(-2, 2)
 	if intro: load = roundi(T.load * 0.6)
+	if NODULES.has(area): load = roundi(load * NOD_LOAD)
 	var want := {a = ka, b = kb}
 	for g in ["a", "b"]:
 		var cap: int = int(CAP.get(want[g], 99))
@@ -111,17 +130,23 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 			var added := _add_pair(rng, grid, groups)
 			if added == 0: break
 			total += added
+	# a mine with nodules keeps room for them in the work a level may ask for
+	var nod_want := 0
+	if NODULES.has(area):
+		var nn: Vector2i = NODULES[area]
+		nod_want = mini(nn.x + dl / 2, nn.y)
+	var reserve := nod_want * float(WORK.nod)
 	# no more work than a level may ask for: the heavier group gives up a pair at a time
 	var est := func() -> float:
 		var w := 0.0
 		for g in ["a", "b"]:
 			if want[g] != "": w += groups[g].size() * float(WORK[want[g]])
 		return w
-	while BASE + float(est.call()) > NEED_MAX:
+	while BASE + reserve + float(est.call()) > NEED_MAX:
 		var ga: float = groups.a.size() * float(WORK.get(want.a, 0.0))
 		var gb: float = groups.b.size() * float(WORK.get(want.b, 0.0))
 		if _drop_pair(rng, groups["a" if ga >= gb else "b"]) == 0: break
-	var work := 0.0
+	var work := reserve
 	var used := {}
 	var count := {}   # cells of each obstacle, nuggets, geode, colour goal: for tuning the moves
 	for g in ["a", "b"]:
@@ -135,7 +160,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 			count[kind] = int(count.get(kind, 0)) + 1
 	var goals := []
 	if used.has("sand") or used.has("granite"): goals.append(["rock"])
-	for k in ["mud", "gas", "lock"]:
+	for k in ["mud", "gas", "lock", "crust"]:
 		if used.has(k): goals.append([k])
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new
 	if not intro and rng.randf() < 0.25 and BASE + work + WORK.nug <= NEED_MAX:
@@ -164,12 +189,37 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		goals.append(["c", rng.randi_range(0, 4), n])
 		work += n * WORK.colour
 		count.colour = n
+	if nod_want:
+		count.nod = _nodules(rng, grid, nod_want)
+		# a nodule takes a cell and overgrows onto the stones round it: some moves go on it (kept in reserve above)
+		work += (int(count.nod) - nod_want) * float(WORK.nod)
 	var rows := PackedStringArray()
 	for r in R:
 		rows.append("".join(grid[r]).replace("+", "."))
 	var moves := clampi(roundi(BASE + work + MARGIN - TIGHT * dl) + (3 if intro else 0), MOVES.x, MOVES.y)
 	return {map = "|".join(rows), goals = goals, moves = moves, hard = false, gen = true, colors = 5,
 		rich = rich, intro = intro, kinds = used.keys(), count = count}
+
+## malachite nodules on free cells in the middle rows, none touching another, so each has stones round it to be cut
+## off from; returns how many went down
+static func _nodules(rng: RandomNumberGenerator, grid: Array, want: int) -> int:
+	var spots := []
+	for r in range(2, R - 2):
+		for c in range(1, C - 1):
+			spots.append(Vector2i(r, c))
+	var put := 0
+	while put < want and not spots.is_empty():
+		var p: Vector2i = spots.pop_at(rng.randi_range(0, spots.size() - 1))
+		if grid[p.x][p.y] != ".": continue
+		var ok := true
+		for dr in [-1, 0, 1]:
+			for dc in [-1, 0, 1]:
+				var q := Vector2i(p.x + dr, p.y + dc)
+				if q.x >= 0 and q.x < R and q.y >= 0 and q.y < C and grid[q.x][q.y] == "k": ok = false
+		if not ok: continue
+		grid[p.x][p.y] = "k"
+		put += 1
+	return put
 
 ## the obstacle for a group: one the depth allows, the newest one more often
 static func _pick(rng: RandomNumberGenerator, kinds: Array, prefer: String) -> String:

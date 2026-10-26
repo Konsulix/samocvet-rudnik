@@ -432,6 +432,10 @@ ORE_LOOK = dict(
     halo=(1.0, 0.65, 0.25),     # light the veins throw onto the stone
     burn=1.4,                   # how much brighter than the stone the veins glow
 )
+# a stone's ore is the ore of the mine whose colour it is: green carries Copper Mountain's copper, the rest gold
+COPPER_LOOK = dict(core=(0.95, 0.27, 0.07), rim=(0.035, 0.012, 0.006), halo=(0.95, 0.25, 0.06), burn=0.9)
+GOLD_LOOK = dict(ORE_LOOK)
+ORE_BY_GEM = {"emerald": COPPER_LOOK}
 
 def flat_emit(name, strength):
     """a plain light (or, at 0, plain black) for the glow mask"""
@@ -590,6 +594,8 @@ def fit(o, aspect):
 def render(style, name, dark, mid, light, ore=None, mask=False):
     """<style>/<name>.png; <name>_ore.png: holding the mine's own ore (veins), <name>_iron.png: holding iron (cubes);
     and <name>_<ore>_glow.png: the light of the ore alone, white on black, for the game to shimmer"""
+    global ORE_LOOK
+    ORE_LOOK = ORE_BY_GEM.get(name, GOLD_LOOK)
     sc = setup()
     o = SHAPES[style][name]()
     fit(o, ASPECT[style][name])

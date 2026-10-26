@@ -28,11 +28,13 @@ static func load_for(id: String) -> BossFrame:
 	var dir := "res://assets/boss/%s/kit/" % id
 	f.dir = dir
 	f.meta = JSON.parse_string(FileAccess.get_file_as_string(dir + "kit.json"))
-	var names := ["straight_h", "straight_v", "outer_tl_x", "outer_bl_x", "outer_tr_x"]
-	for kind in ["outer", "inner"]:
-		for t in TURNS: names.append("%s_%s" % [kind, t])
-	for n: String in names:
-		f.kit[n] = load(dir + n + ".png")
+	# a boss whose boards all have a whole frame each (the Mistress) has no pieces
+	if bool(f.meta.get("pieces", true)):
+		var names := ["straight_h", "straight_v", "outer_tl_x", "outer_bl_x", "outer_tr_x"]
+		for kind in ["outer", "inner"]:
+			for t in TURNS: names.append("%s_%s" % [kind, t])
+		for n: String in names:
+			f.kit[n] = load(dir + n + ".png")
 	for i in int(f.meta.tail_frames):
 		f.tails.append(load(dir + "tail_%d.png" % i))
 	f.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -85,7 +87,7 @@ func _corner(r: int, c: int) -> Array:
 	return []
 
 func _process(dt: float) -> void:
-	if not swaying or fill.is_null(): return
+	if not swaying or fill.is_null() or (tails.is_empty() and whole_tails.is_empty()): return
 	var was := int(_t * 8.0)
 	_t += dt
 	if int(_t * 8.0) != was: queue_redraw()
@@ -97,9 +99,11 @@ func _draw() -> void:
 		var o := (origin - Vector2(whole_meta.cells_top_left[0], whole_meta.cells_top_left[1]) * kw).round()
 		var sz := Vector2(whole.get_size()) * kw
 		draw_texture_rect(whole, Rect2(o, sz), false)
+		if whole_tails.is_empty(): return
 		var tt: Texture2D = whole_tails[int(_t * 8.0) % whole_tails.size()] if swaying else whole_tails[0]
 		draw_texture_rect(tt, Rect2(o, sz), false)
 		return
+	if kit.is_empty(): return
 	var k := ts / float(meta.cell_pt)
 	var off := float(meta.offset) * ts
 	var cpt := float(meta.cell_pt)

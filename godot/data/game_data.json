@@ -766,47 +766,64 @@
    },
    "tasks": [
     [
-     "rubble",
-     "Clear the spoil heaps",
+     "hoist",
+     "Steam hoist",
+     29
+    ],
+    [
+     "wheel",
+     "Water wheel pump",
+     31
+    ],
+    [
+     "draught",
+     "Fire draught furnace",
+     32
+    ],
+    [
+     "arches",
+     "Iron arches",
+     33
+    ],
+    [
+     "smelter",
+     "Copper smelter",
+     34
+    ],
+    [
+     "incline",
+     "Incline railway",
+     35
+    ],
+    [
+     "lapidary",
+     "Lapidary workshop",
      36
     ],
     [
-     "timber",
-     "Shore up the entrance",
+     "block",
+     "Free the great block",
+     38
+    ],
+    [
+     "hall",
+     "Stone Flower hall",
      39
-    ],
-    [
-     "rails",
-     "Cart tracks",
-     41
-    ],
-    [
-     "lamps",
-     "Electric lighting",
-     44
-    ],
-    [
-     "cart",
-     "Ore cart",
-     46
-    ],
-    [
-     "headframe",
-     "Copper Mountain headframe",
-     49
     ]
    ],
    "ore": {
     "n": "Copper",
     "iron": 0,
     "local": 2,
-    "c": "#c4683c"
+    "c": "#c4683c",
+    "hot": "#ff8a4c",
+    "p": 0.5
    },
    "depths": [
     {
      "m": 50,
-     "fe": 64,
-     "au": 64,
+     "fe": 51,
+     "au": 51,
      "tool": "",
      "machine": "",
      "drill": [
@@ -816,64 +833,180 @@
     },
     {
      "m": 100,
-     "fe": 69,
-     "au": 69,
+     "fe": 54,
+     "au": 54,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
-      39,
-      650
+      31,
+      1000
      ]
     },
     {
      "m": 150,
-     "fe": 72,
-     "au": 72,
-     "tool": "Rock drill",
+     "fe": 56,
+     "au": 56,
+     "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
-      41,
-      800
+      32,
+      1100
      ]
     },
     {
      "m": 200,
-     "fe": 78,
-     "au": 78,
-     "tool": "Drilling rig",
-     "machine": "rig",
+     "fe": 58,
+     "au": 58,
+     "tool": "Rock drill",
+     "machine": "hammer",
      "drill": [
-      44,
-      950
+      34,
+      1250
      ]
     },
     {
      "m": 250,
-     "fe": 81,
-     "au": 81,
-     "tool": "Tunnel borer",
-     "machine": "tbm",
+     "fe": 60,
+     "au": 60,
+     "tool": "Drilling rig",
+     "machine": "rig",
      "drill": [
-      46,
-      1200
+      35,
+      1400
      ]
     },
     {
      "m": 300,
-     "fe": 86,
-     "au": 86,
+     "fe": 62,
+     "au": 62,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      36,
+      1550
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 64,
+     "au": 64,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      37,
+      1700
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 66,
+     "au": 66,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
-      49,
-      1450
+      38,
+      1900
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 69,
+     "au": 69,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      40,
+      2100
      ]
     }
    ],
    "next": [
-    88,
+    85,
     4000
-   ]
+   ],
+   "boss": {
+    "id": "mistress",
+    "n": "The Mistress",
+    "sub": "Copper Mountain",
+    "m": 500,
+    "hp": 1140,
+    "weak": 2,
+    "dmg": {
+     "weak": 10,
+     "ore": 25,
+     "special": 15
+    },
+    "moves": 30,
+    "stage_moves": 5,
+    "act": {
+     "crust": {
+      "n": 5
+     },
+     "rockfall": {
+      "n": 3,
+      "hard": 2
+     },
+     "lizards": {
+      "share": 0.5
+     },
+     "flower": {
+      "heal": 60,
+      "crust": 6
+     }
+    },
+    "lines": {
+     "start": "You came for my stone? Look at me first.",
+     "stage": [
+      "Pretty, wasn't I? Look closer.",
+      "Now see what the mountain made of me."
+     ],
+     "combo": "Careful with my emeralds.",
+     "win": "Take your stone, master. The mountain remembers you.",
+     "lose": "The mountain keeps what it takes.",
+     "bloom": "Bloom, my flower. Feed me.",
+     "tear": "Leave my flower be!"
+    },
+    "stages": [
+     {
+      "name": "The malachite hall",
+      "every": 3,
+      "acts": [
+       "crust",
+       "lizards"
+      ],
+      "map": "#......#|........|........|.m....m.|........|........|.m....m.|........|#......#"
+     },
+     {
+      "name": "The vein",
+      "every": 3,
+      "acts": [
+       "crust",
+       "lizards",
+       "rockfall",
+       "lizards"
+      ],
+      "map": "........|........|.......#|......##|........|##......|#.......|........|........"
+     },
+     {
+      "name": "The stone flower",
+      "every": 2,
+      "acts": [
+       "flower",
+       "lizards"
+      ],
+      "map": "##....##|#......#|........|........|...F....|........|........|#......#|##....##"
+     }
+    ],
+    "sfx": {
+     "hurt": "hiss",
+     "phase": "phase",
+     "crust": "crust",
+     "rockfall": "rockfall",
+     "lizards": "lizards",
+     "grow": "nodule",
+     "bloom": "bloom"
+    }
+   }
   },
   {
    "n": "Fire Horizon",

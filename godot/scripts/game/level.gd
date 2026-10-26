@@ -583,7 +583,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"rock":
 			board.redraw_under()
 			if BoardSprites.gem_style != "" and e.left == 0:
-				fx.shards(e.r, e.c, "granite" if e.get("granite", false) else "sand", Color("#c89a62"))
+				fx.shards(e.r, e.c, BoardSprites.granite() if e.get("granite", false) else "sand", Color("#c89a62"))
 			else:
 				fx.debris(e.r, e.c, Color("#c89a62") if e.left == 0 else Color("#8a919c"), 10)
 			Sfx.play("rock")
@@ -600,6 +600,24 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			board.over.queue_redraw()
 			fx.debris(e.r, e.c, Color("#b07a3e"), 10)
 			Sfx.play("rock")
+		"crust":
+			board.over.queue_redraw()
+			fx.plates(e.r, e.c, BoardSprites.malachite_look(e.r, e.c))
+			Sfx.play("crust")
+		"flower_tear":
+			board.flower_layer.queue_redraw()
+			fx.petals(e.r, e.c, ["", "buds", "middle", "outer"][int(e.st) + 1])
+			Sfx.play("crust")
+			if not has_meta("tear_told"):
+				set_meta("tear_told", true)
+				LevelBoss.line(self, "tear")
+		"nodule":
+			board.redraw_under()
+			fx.shards(e.r, e.c, "malachite", Color("#2f8a62"))
+			fx.sparkle(e.r, e.c, Color("#5fe0a0"), 6 + int(e.stage) * 6)
+			if int(e.stage) >= 3: fx.pop_text(e.r, e.c, "+%d" % int(e.stage), Color("#7af0b4"))
+			Sfx.play("nodule", int(e.stage))
+			Sfx.buzz(10 + int(e.stage) * 8)
 		"geo_hit":
 			board.geo_hit_at[e.gi] = Time.get_ticks_msec() / 1000.0
 			Sfx.play("crack", 4 - e.hp)
@@ -725,6 +743,7 @@ func _after_turn() -> void:
 			set_meta("gas_told", true)
 			_toast("Gas is spreading — hit it every move")
 		await _wait(0.26)
+	await _grow_nodules()
 	if model.moves <= 0:
 		model.over = true
 		await _wait(0.3)
@@ -733,6 +752,33 @@ func _after_turn() -> void:
 	busy = false
 	idle = 0.0
 	_hinted = false
+
+## Copper Mountain: the malachite nodules grow; a full one overgrows and crusts the stones round it
+func _grow_nodules() -> void:
+	var grown := model.nodule_grow()
+	if grown.is_empty(): return
+	board.grow_nodules(grown)
+	var crusted := false
+	for e: Dictionary in grown:
+		for p: Vector2i in e.crust:
+			crusted = true
+			fx.sparkle(p.x, p.y, Color("#3fd08a"), 10)
+		if e.crust.size(): fx.debris(e.r, e.c, Color("#2f8a62"), 8)
+	board.over.queue_redraw()
+	Sfx.play("pop", 2)
+	if crusted and not has_meta("crust_told"):
+		set_meta("crust_told", true)
+		_toast("Overgrown! Malachite crusted the stones round it")
+	elif not has_meta("nodule_told"):
+		set_meta("nodule_told", true)
+		_toast("Malachite grows: the bigger it is, the more copper it gives — cut it off from beside")
+	await _wait(NOD_WAIT)
+	if not model.has_moves():
+		_cheer("Shuffling")
+		model.shuffle()
+		await board.animate_shuffle()
+
+const NOD_WAIT := 0.45
 
 ## gas swallowed a stone: find which node no longer has a cell
 func _gem_id_at_removed(_p: Vector2i) -> int:
@@ -884,6 +930,17 @@ func _on_quit() -> void:
 ## `-- level=1 gen depth=6 ui=boss_demo`: the boss' whole show without playing (hits, its turn, a lost board, the end)
 func _boss_demo() -> void:
 	if model.boss_on(): await LevelBoss.demo(self)
+
+## `-- area=1 level=1 gen depth=6 ui=boss_raid`: the Mistress' lizards come for the greens right away
+func _boss_raid() -> void:
+	if not model.boss_on() or not model.boss.B.act.has("lizards"): return
+	model.boss.intent = {act = "lizards", cells = model.lizard_marks()}
+	model.boss.timer = 1
+	LevelBoss.show_intent(self)
+	await _wait(0.8)
+	busy = true
+	await LevelBoss.after_turn(self)
+	busy = false
 
 func _show_looks() -> void:
 	if busy or model.over or overlay.visible: return

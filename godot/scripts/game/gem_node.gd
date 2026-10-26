@@ -117,9 +117,11 @@ func _ore_glow(kind: String) -> void:
 	var k := 1.0
 	if look == "rendered":
 		ore_glow.material = _mat_iron if kind == "iron" else _mat_ore
+		if kind == "ore": _mat_ore.set_shader_parameter("tint", BoardSprites.ore_hot())
 		ore_glow.texture = BoardSprites.gem_ore_glow(t, kind)
 	else:
 		ore_glow.material = _mat_cubes if kind == "iron" else _mat_veins
+		if kind == "ore": _mat_veins.set_shader_parameter("hot", Color(BoardSprites.ore_hot().x, BoardSprites.ore_hot().y, BoardSprites.ore_hot().z))
 		ore_glow.texture = BoardSprites.gem(t)
 		k = BoardSprites.gem_scale()
 	ore_glow.scale = Vector2.ONE * S * BoardSprites.SPAN * k / float(ore_glow.texture.get_width())

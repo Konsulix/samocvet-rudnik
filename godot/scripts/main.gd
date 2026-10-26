@@ -21,6 +21,7 @@ func _ready() -> void:
 	if args.has("ore_look"): BoardSprites.ore_look = args.ore_look
 	if args.has("locks"): BoardSprites.lock_style = args.locks
 	if args.has("zones"): BoardSprites.zone_style = args.zones
+	if args.has("area"): Save.d.area = int(args.area)
 	if args.has("rich"): Save.d.lrich = true
 	if args.has("lseed"): Save.d.lseed = int(args.lseed)
 	if args.has("fe"): Save.d.fe = int(args.fe)
@@ -83,11 +84,11 @@ func _ready() -> void:
 		return
 	if args.has("sim_boss"):
 		# sim_boss=N: the first mine's boss fought N times by the autoplayer (tests/sim_economy.gd)
-		print(SimEconomy.boss_report(0, int(args.sim_boss)))
+		print(SimEconomy.boss_report(int(args.get("area", 0)), int(args.sim_boss)))
 		get_tree().quit()
 	if args.has("sim_gen"):
 		# sim_gen=N: N generated levels per depth played inside the board model: wins, moves, ore (tests/sim_economy.gd)
-		print(SimEconomy.gen_report(int(args.sim_gen)))
+		print(SimEconomy.gen_report(int(args.sim_gen), int(args.get("area", 0))))
 		get_tree().quit()
 	if args.has("sim"):
 		# sim=N: N levels per depth played inside the board model, stones broken per colour (tests/sim_economy.gd)

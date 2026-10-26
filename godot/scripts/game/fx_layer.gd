@@ -113,6 +113,59 @@ func shards(r: float, c: float, kind: String, col: Color) -> void:
 		tw.chain().tween_callback(s.queue_free)
 	debris(r, c, col, 6)
 
+## a malachite crust cracking off its stone: the shell's own plates (art/malachite/parts_cut.py) fly out from the middle,
+## turning, and fall away
+func plates(r: float, c: float, look: int) -> void:
+	var at := cell(r, c)
+	var ts := board.TS
+	var cen: Array = BoardSprites.malachite_info("crust").get(str(look), [])
+	for j in cen.size():
+		var s := Sprite2D.new()
+		s.texture = BoardSprites.malachite("crust_%d_%d" % [look, j])
+		var px := float(s.texture.get_width())
+		var off := Vector2(float(cen[j][0]), float(cen[j][1]))      # the plate's middle from the cell's, in cells
+		s.scale = Vector2.ONE * ts * BoardSprites.SPAN / px
+		s.offset = -off / BoardSprites.SPAN * px                    # turn about the plate itself, not the shell
+		s.position = at + off * ts
+		s.material = BoardSprites.plain_material()
+		add_child(s)
+		var dir := off.normalized() if off.length() > 0.01 else Vector2.UP
+		var tw := create_tween().set_parallel()
+		var dur := randf_range(0.45, 0.6)
+		tw.tween_property(s, "position:x", s.position.x + dir.x * ts * 0.8, dur)
+		tw.tween_property(s, "position:y", s.position.y + dir.y * ts * 0.5 + ts * 0.8, dur).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.tween_property(s, "rotation", (1.0 if dir.x >= 0 else -1.0) * randf_range(0.8, 1.8), dur)
+		tw.tween_property(s, "scale", s.scale * 0.75, dur)
+		tw.tween_property(s, "modulate:a", 0.0, dur * 0.5).set_delay(dur * 0.5)
+		tw.chain().tween_callback(s.queue_free)
+	debris(r, c, Color("#2f8a62"), 6)
+
+## the stone flower losing a ring: its petals (flower_<ring>_<k>, placed as in the flower) fly off outward, turning
+func petals(r: float, c: float, ring: String) -> void:
+	var at := cell(r + 0.5, c + 0.5)
+	var ts := board.TS
+	var k := ts / 42.0
+	var parts: Dictionary = BoardSprites.flower_info().get("parts", {})
+	for name: String in parts:
+		if not name.begins_with(ring + "_"): continue
+		var off := Vector2(float(parts[name][0]), float(parts[name][1])) * k
+		var s := Sprite2D.new()
+		s.texture = BoardSprites.flower("flower_" + name)
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		s.scale = Vector2.ONE * k
+		s.offset = -off / k                     # turn about the petal itself
+		s.position = at + off
+		s.material = BoardSprites.plain_material()
+		add_child(s)
+		var dir := off.normalized() if off.length() > 0.01 else Vector2.UP
+		var tw := create_tween().set_parallel()
+		var dur := randf_range(0.5, 0.7)
+		tw.tween_property(s, "position", s.position + dir * ts * 1.1 + Vector2(0, ts * 0.6), dur).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tw.tween_property(s, "rotation", (1.0 if dir.x >= 0 else -1.0) * randf_range(0.6, 1.6), dur)
+		tw.tween_property(s, "modulate:a", 0.0, dur * 0.5).set_delay(dur * 0.5)
+		tw.chain().tween_callback(s.queue_free)
+	sparkle(r + 0.5, c + 0.5, Color("#5fe0a0"), 14)
+
 ## the pickaxe booster: it swings in over the cell from up right, strikes, and drops away
 func pickaxe(r: int, c: int) -> void:
 	var at := cell(r, c)

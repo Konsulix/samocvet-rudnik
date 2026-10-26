@@ -10,9 +10,9 @@ const MARGIN := 0.06
 const FW := 0.34
 const CAP := 0.46
 # which rock each mine's board is cut from (Data.AREAS order); `-- rock=<name>` overrides it
-const AREA_ROCK := ["basalt", "granite", "basalt"]
+const AREA_ROCK := ["basalt", "serpentine", "basalt"]
 # the bed between the tiles, the rock's darkest tone (kit.json's "bed")
-const BED := {basalt = Color("#101011"), granite = Color("#322924")}
+const BED := {basalt = Color("#101011"), granite = Color("#322924"), serpentine = Color("#353735")}
 
 static var force_rock := ""
 static var _kits := {}

@@ -57,12 +57,54 @@ static func gem_ore(t: int, kind: String) -> Texture2D:
 static func gem_ore_glow(t: int, kind: String) -> Texture2D:
 	return tex(GEMS[t % GEMS.size()] + "_" + kind + "_glow")
 
+## the two-hit rock of a mine, by Data.AREAS order: Copper Mountain's is serpentine with malachite and copper
+## (art/malachite/block_cut.py), the others granite
+const AREA_GRANITE := {1: "serpentine"}
+static func granite() -> String:
+	return AREA_GRANITE.get(Save.area(), "granite")
+
+## the light of this mine's ore, for its shimmer and its painted veins: the data's "hot", or gold's
+static func ore_hot() -> Vector3:
+	var c := Color.html(String(Data.ore(Save.area()).get("hot", "#ffc75c")))
+	return Vector3(c.r, c.g, c.b)
+
 ## the blockers that go with the gem sets (blocker_kit.py): "" when the cut-stone set is shown
 static func blocker(name: String) -> Texture2D:
 	if gem_style == "": return tex(name)
 	var path := "res://assets/board/blockers_kit/%s.png" % name
 	if not _tex.has(path): _tex[path] = load(path)
 	return _tex[path]
+
+## Copper Mountain's malachite (GPT drawings cut up by art/malachite/parts_cut.py and nodule_pack.py): the crust over a
+## stone, whole and plate by plate, and the nodule's three stages, bubble by bubble. Three looks of each; a cell keeps one
+static func malachite(name: String) -> Texture2D:
+	var path := "res://assets/board/malachite/%s.png" % name
+	if not _tex.has(path): _tex[path] = load(path)
+	return _tex[path]
+
+## the Mistress' stone flower and its petals (art/boss/stone_flower.py, pixel art): flower_s1..3, flower_<ring>_<k>
+static func flower(name: String) -> Texture2D:
+	var path := "res://assets/boss/mistress/%s.png" % name
+	if not _tex.has(path): _tex[path] = load(path)
+	return _tex[path]
+
+static var _flower_info := {}
+static func flower_info() -> Dictionary:
+	if _flower_info.is_empty():
+		var f := FileAccess.open("res://assets/boss/mistress/flower.json", FileAccess.READ)
+		if f: _flower_info = JSON.parse_string(f.get_as_text())
+	return _flower_info
+
+## crust.json / nodule.json: where each plate or bubble sits from the sprite's middle (cells), and the nodule's stages
+static var _mal_info := {}
+static func malachite_info(name: String) -> Dictionary:
+	if not _mal_info.has(name):
+		var f := FileAccess.open("res://assets/board/malachite/%s.json" % name, FileAccess.READ)
+		_mal_info[name] = JSON.parse_string(f.get_as_text()) if f else {}
+	return _mal_info[name]
+
+static func malachite_look(r: int, c: int) -> int:
+	return (r * 5 + c * 3) % 3
 
 ## where on a special's sprite the game draws its live touches (special_kit.py's anchors.json): fuse sparks, the radar
 static var _anchors := {}

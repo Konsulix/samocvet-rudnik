@@ -56,6 +56,10 @@ func _init() -> void:
 			v[i] = int(v[i])
 	while d.built.size() < 3:
 		d.built.append([])
+	# a mine that has grown deeper since the save was made: its new depths start with full veins
+	var fv := fresh_veins(area())
+	while d.vein.size() < fv.size(): d.vein.append(fv[d.vein.size()])
+	while d.dwins.size() < fv.size(): d.dwins.append(0)
 	looks_to_board()
 
 ## the board's looks from the save (the level's look panel writes them back)

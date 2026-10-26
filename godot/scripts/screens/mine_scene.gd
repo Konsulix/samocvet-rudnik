@@ -287,7 +287,7 @@ func _draw() -> void:
 	arch.append(Vector2(192, G0))
 	draw_polyline(arch, hx("#2a1a14" if fire else "#3e3832"), 11.0)
 	_dashed(self, arch, 9, 1.8, hx("#5a3a2a" if fire else "#7a7064"), 8.5)
-	if not has("rubble"):
+	if not cu and not has("rubble"):
 		var f := hx("#4a2a1e" if fire else "#5e6a5e" if cu else "#857766")
 		var dk := hx("#1a0c08" if fire else "#2a241e")
 		var lt := hx("#ff8a4a" if fire else "#d8ccb8")
@@ -299,12 +299,13 @@ func _draw() -> void:
 		draw_polyline(PackedVector2Array([Vector2(199, 137), Vector2(212, 137), Vector2(212, 141)]), hx("#2e2822"), 2.0)
 	if has("cart"): cart(self, Vector2(240, G0 - 7), 0.95, sp_cols)
 	if has("headframe"): _headframe()
+	if cu: _copper_works()
 	if cu:
 		var r3 := Rng32.new(77)
 		for st in [[58, 196, 6], [76, 197, 4.5], [330, 196, 5.5]]:
 			_stone(self, _stone_pts(st[0], st[1], st[2], r3), hx("#4a6a5a"), hx("#1a2a22"), hx("#7adfb0"))
 	# deep rock below the horizons
-	var deep_y := B0 + BH * 5 - 2
+	var deep_y := B0 + BH * (Data.depths(ai).size() - 1) - 2
 	draw_rect(Rect2(0, deep_y, W, H - deep_y + 2), hx(pal.rock[1]).lerp(Color.BLACK, 0.45))
 	_bands()
 	_shaft()
@@ -373,6 +374,130 @@ func _headframe() -> void:
 	draw_line(Vector2(336.5, 184), Vector2(336.5, 190), hx("#2a1e14"), 0.7)
 	draw_line(Vector2(333, 187), Vector2(340, 187), hx("#2a1e14"), 0.7)
 
+# ---------------------------------------------------------------- Copper Mountain's works (its tasks, docs/backlog.md)
+
+## on the surface: the steam hoist over the shaft, the water wheel by its pond, the lapidary's workshop, the smelter,
+## the draught furnace, the incline railway down the hill (what turns, smokes and rolls is in _draw_live)
+func _copper_works() -> void:
+	var dk := hx("#1e1610")
+	if has("hoist"):
+		_headframe()
+		draw_rect(Rect2(345, 146, 7, 34), hx("#5a3a2a"))
+		draw_rect(Rect2(343.5, 143, 10, 4), hx("#3a2418"))
+	if has("wheel"):
+		draw_colored_polygon(GemArt.ellipse_pts(Vector2(40, 201), 28, 4.5, 0, 20), hx("#1d4a5a"))
+		draw_colored_polygon(GemArt.ellipse_pts(Vector2(36, 200), 16, 1.6, 0, 16), Color(0.6, 0.85, 1.0, 0.35))
+		for x0 in [56.0, 80.0]:
+			draw_line(Vector2(x0, G0), Vector2(68, 178), dk, 2.4)
+			draw_line(Vector2(x0, G0), Vector2(68, 178), hx("#6a4220"), 1.4)
+	if has("lapidary"):
+		var house := PackedVector2Array([Vector2(86, G0), Vector2(86, 182), Vector2(101, 170), Vector2(116, 182), Vector2(116, G0)])
+		draw_colored_polygon(house, hx("#5a4a3a"))
+		draw_polyline(GemArt.closed(house), dk, 1.0)
+		draw_polyline(PackedVector2Array([Vector2(84, 183), Vector2(101, 168), Vector2(118, 183)]), hx("#2a3a2a"), 2.6, true)
+		draw_rect(Rect2(93, 186, 15, 9), hx("#1a1410"))
+	if has("smelter"):
+		var sm := PackedVector2Array([Vector2(198, G0), Vector2(198, 176), Vector2(236, 176), Vector2(236, G0)])
+		draw_colored_polygon(sm, hx("#6a3a26"))
+		draw_polyline(GemArt.closed(sm), dk, 1.0)
+		for yy in [182.0, 188.0, 194.0]: draw_line(Vector2(198, yy), Vector2(236, yy), Color(dk, 0.5), 0.6)
+		draw_rect(Rect2(225, 146, 8, 30), hx("#5a3426"))
+		draw_rect(Rect2(223.5, 143, 11, 4), hx("#3a2418"))
+		draw_colored_polygon(PackedVector2Array([Vector2(196, 177), Vector2(217, 166), Vector2(238, 177)]), hx("#3a2a20"))
+		for i in 4:
+			var ib := Rect2(240 + (i % 2) * 7 + (3.5 if i >= 2 else 0.0), G0 - 4 - (i / 2) * 4, 7, 4)
+			draw_rect(ib, hx("#d07a3e"))
+			draw_rect(ib, dk, false, 0.6)
+	if has("draught"):
+		var kiln := PackedVector2Array([Vector2(256, G0), Vector2(259, 184), Vector2(275, 184), Vector2(278, G0)])
+		draw_colored_polygon(kiln, hx("#7a4a34"))
+		draw_polyline(GemArt.closed(kiln), dk, 1.0)
+		draw_rect(Rect2(263, 160, 8, 24), hx("#6a3e2c"))
+		draw_rect(Rect2(261.5, 157, 11, 4), hx("#3a2418"))
+	if has("incline"):
+		var a := Vector2(246, 132)
+		var b := Vector2(283, G0 - 2)
+		var n := (b - a).normalized().orthogonal()
+		for q in 12:
+			var p := a.lerp(b, (q + 0.5) / 12.0)
+			draw_line(p - n * 3.5, p + n * 3.5, hx("#4a3018"), 1.6)
+		draw_line(a - n * 2.4, b - n * 2.4, hx("#b8c2cc"), 0.9)
+		draw_line(a + n * 2.4, b + n * 2.4, hx("#b8c2cc"), 0.9)
+		draw_circle(a, 3.5, hx("#3a3e44"))
+
+## in a depth's gallery: the great malachite block at 400 m (split once freed), the stone flower's hall at 450 m
+func _copper_depth(k: int, gx0: float, gx1: float, gy: float) -> void:
+	var n := Data.depths(ai).size()
+	var cx := (gx0 + gx1) / 2
+	if k == n - 2:
+		if not has("block"):
+			var blk := PackedVector2Array([Vector2(cx - 30, gy + 15), Vector2(cx - 34, gy - 6), Vector2(cx - 18, gy - 16), Vector2(cx + 22, gy - 15), Vector2(cx + 34, gy - 2), Vector2(cx + 30, gy + 15)])
+			draw_colored_polygon(blk, hx("#1f7a52"))
+			for q in 4: draw_arc(Vector2(cx - 6, gy + 4), 6.0 + q * 6.0, PI * 1.05, PI * 1.95, 12, hx("#5fe0a0") if q % 2 else hx("#0e4a30"), 1.6, true)
+			draw_polyline(GemArt.closed(blk), hx("#0a2a1a"), 1.2, true)
+		else:
+			for side in [-1.0, 1.0]:
+				var x: float = cx + side * 112
+				var pc := PackedVector2Array([Vector2(x - 9, gy + 14), Vector2(x - 11, gy + 2), Vector2(x - 2, gy - 6), Vector2(x + 9, gy - 2), Vector2(x + 10, gy + 14)])
+				draw_colored_polygon(pc, hx("#1f7a52"))
+				draw_polyline(GemArt.closed(pc), hx("#0a2a1a"), 1.0, true)
+	if k == n - 1 and has("hall"):
+		GemArt.radial_disc(self, Vector2(cx, gy), 40, Color(0.4, 1.4, 0.8, 0.5), Color(0.3, 1.0, 0.6, 0.18), Color(0.3, 1.0, 0.6, 0))
+		for q in 6:
+			var a := q * TAU / 6.0
+			draw_colored_polygon(GemArt.ellipse_pts(Vector2(cx, gy) + Vector2(cos(a), sin(a)) * 6.5, 5.5, 2.8, a, 10), hx("#2fb07a"))
+		draw_circle(Vector2(cx, gy), 3.2, Color(0.8, 2.0, 1.2))
+
+func _iron_arch(x: float, y0: float, y1: float) -> void:
+	var dk := hx("#2a2e34")
+	var st := hx("#5a626c")
+	for xx in [x - 5.0, x + 5.0]:
+		draw_line(Vector2(xx, y1), Vector2(xx, y0 + 4), dk, 2.6)
+		draw_line(Vector2(xx, y1), Vector2(xx, y0 + 4), st, 1.4)
+	draw_arc(Vector2(x, y0 + 4), 5.0, PI, TAU, 10, dk, 2.6, true)
+	draw_arc(Vector2(x, y0 + 4), 5.0, PI, TAU, 10, st, 1.4, true)
+	draw_circle(Vector2(x, y0 - 1), 0.9, hx("#9aa4ae"))
+
+## the copper works alive: the wheel turns, chimneys smoke, the smelter and the workshop glow, a cart rides the incline
+func _copper_live(ci: CanvasItem) -> void:
+	var puff := func(at: Vector2, k: int) -> void:
+		for q in 3:
+			var dur := 5.0 + q * 1.5
+			var ph := fposmod(t - q * 1.7 - k, dur) / dur
+			ci.draw_circle(at + Vector2(ph * 10 + q * 2, -ph * 40), 3.0 + q + ph * 7, Color(0.62, 0.62, 0.6, 0.42 * (1.0 - ph)))
+	if has("hoist"): puff.call(Vector2(348.5, 142), 0)
+	if has("smelter"):
+		puff.call(Vector2(229, 142), 2)
+		var gl := 0.6 + 0.4 * sin(t * 3.0)
+		GemArt.radial_disc(ci, Vector2(210, 194), 16, Color(1.6, 0.7, 0.25, 0.55 * gl), Color(1.2, 0.5, 0.2, 0.2 * gl), Color(1, 0.4, 0.2, 0))
+		ci.draw_rect(Rect2(204, 188, 12, 12), Color(1.6, 0.75, 0.3))
+	if has("draught"):
+		puff.call(Vector2(267, 156), 4)
+		ci.draw_rect(Rect2(263, 192, 8, 8), Color(1.6, 0.6 + 0.2 * sin(t * 5.0), 0.2))
+	if has("lapidary"):
+		ci.draw_rect(Rect2(94, 187, 13, 7), Color(0.6, 1.4, 0.9, 0.85))
+		for i in 3: ci.draw_circle(Vector2(97 + i * 3.6, 191), 1.3, hx("#1f7a52"))
+	if has("wheel"):
+		var c := Vector2(68, 178)
+		ci.draw_arc(c, 13, 0, TAU, 26, hx("#2a1a0e"), 3.0, true)
+		ci.draw_arc(c, 13, 0, TAU, 26, hx("#8a5a2c"), 1.6, true)
+		for q in 8:
+			var a := q * TAU / 8.0 + t * 0.9
+			var d := Vector2(cos(a), sin(a))
+			ci.draw_line(c, c + d * 12, hx("#6a4220"), 1.1)
+			ci.draw_line(c + d * 12, c + d * 16, hx("#8a5a2c"), 2.4)
+		ci.draw_circle(c, 2.2, hx("#2a1a0e"))
+	if has("incline"):
+		var a := Vector2(246, 132)
+		var b := Vector2(283, G0 - 2)
+		var ph := fposmod(t, 12.0) / 12.0
+		var s := _ease(ph / 0.45) if ph < 0.45 else 1.0 if ph < 0.5 else 1.0 - _ease((ph - 0.5) / 0.45) if ph < 0.95 else 0.0
+		var p := a.lerp(b, 0.1 + s * 0.8)
+		ci.draw_set_transform(Vector2(0, OFF) + p, (b - a).angle(), Vector2.ONE)
+		ci.draw_rect(Rect2(-6, -6, 12, 6), hx("#6a7280"))
+		ci.draw_rect(Rect2(-5, -9, 10, 3), hx("#2fb07a"))
+		ci.draw_set_transform(Vector2(0, OFF))
+
 func _band_rock(k: int) -> Color:
 	var tt := k / float(Data.depths(ai).size() - 1)
 	return hx(pal.rock[0]).lerp(hx("#3a0c06" if fire else pal.rock[1]), tt * 0.75)
@@ -403,7 +528,10 @@ func _bands() -> void:
 		var gx1 := 296.0
 		if open:
 			_vgrad(GemArt.rrect(Vector2(gx0, gy - 15), Vector2(gx1 - gx0, 30), 12), gy - 15, gy + 15, hx("#1a120c"), hx("#3a2a1a"))
-			for q in 6: _post(gx0 + 14 + q * 44, gy - 12, gy + 14)
+			for q in 6:
+				if cu and has("arches"): _iron_arch(gx0 + 14 + q * 44, gy - 12, gy + 14)
+				else: _post(gx0 + 14 + q * 44, gy - 12, gy + 14)
+			if cu: _copper_depth(k, gx0, gx1, gy)
 			draw_line(Vector2(gx0 + 6, gy + 13), Vector2(gx1, gy + 13), hx("#8a96a4"), 1.2)
 		else:
 			_dashed(self, GemArt.closed(GemArt.rrect(Vector2(gx0, gy - 15), Vector2(gx1 - gx0, 30), 12)), 4, 5, Color(1, 1, 1, 0.12), 1.0)
@@ -479,6 +607,7 @@ func _draw_live() -> void:
 		var flap := sin(t * 9.0 + c[2])
 		ci.draw_polyline(qbez(p + Vector2(-5, 0), p + Vector2(-2.5, -3 * flap), p, 4), Color("#0a0c10"), 1.4, true)
 		ci.draw_polyline(qbez(p, p + Vector2(2.5, -3 * flap), p + Vector2(5, 0), 4), Color("#0a0c10"), 1.4, true)
+	if cu: _copper_live(ci)
 	if has("lamps"):
 		for i in 2:
 			lantern(ci, Vector2(108 if i == 0 else 212, 140), 0.95, 0.75 + 0.2 * sin(t * 3.1 + i))

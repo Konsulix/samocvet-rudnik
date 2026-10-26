@@ -98,8 +98,11 @@ func _ready() -> void:
 	bubble.material = BoardSprites.plain_material()
 	bubble.draw.connect(_draw_bubble)
 	add_child(bubble)
-	_icons = {coils = BoardSprites.tex("lock"), rockfall = load("res://assets/board/blockers_kit/granite.png"),
-		breath = load("res://assets/board/pieces/gas.png")}
+	_icons = {coils = BoardSprites.tex("lock"), rockfall = BoardSprites.blocker(BoardSprites.granite()),
+		breath = load("res://assets/board/pieces/gas.png"), crust = BoardSprites.malachite("crust_0"),
+		flower = BoardSprites.flower("flower_s3")}
+	if ResourceLoader.exists("res://assets/boss/mistress/lizard_0.png"):
+		_icons.lizards = load("res://assets/boss/mistress/lizard_0.png")
 
 func bar_bottom() -> float:
 	return UI.safe_top() + 2.0 + BAR
@@ -168,7 +171,8 @@ const LINE_H := 16.0
 const SAY_FS := 12
 const PLAN_H := 46.0
 const ACT_NAMES := {coils = ["Coils", "locks stones"], rockfall = ["Rockfall", "drops rock"],
-	breath = ["Breath", "spreads gas"], hoard = ["Hoard", "heals on gold"]}
+	breath = ["Breath", "spreads gas"], hoard = ["Hoard", "heals on gold"], lizards = ["Lizards", "steal greens"],
+	crust = ["Crust", "locks stones"], flower = ["Flower", "blooms: heals"]}
 
 func bubble_rect() -> Rect2:
 	var vp := lv.get_viewport_rect().size

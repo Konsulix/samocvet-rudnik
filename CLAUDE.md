@@ -168,6 +168,27 @@
   Облачко (`BossHud`): одна форма, угол и хвостик на месте, реплика по предложению в строке + строка намерения.
   Проверка полей: `-- level=1 gen depth=6 boss_stage=0..2`.
   Следующее: проверить на iPhone; 9 жеод награды.
+- 26.10, босс 2 — Хозяйка Медной горы (решения в `docs/boss-art.md`): полуящерица, с каждой фазой всё больше ящерица
+  (основы утверждены: `art/boss/src/mistress/base.png` — красавица → `p2_base.png` — «что-то не так» →
+  `p3_base.png` — чудовище; стиль Inscryption, грязная палитра), при поражении
+  каменеет; рамка — малахит с медью (без косы), бегущие ящерки. Правки картинок — `art/boss/gen_edit.sh`.
+  Макет на сетке — `art/boss/mistress_phases_mock.png` (спрайт 300 pt, низ почти у планки, иначе руки за рамкой).
+  Эмоции всех фаз готовы (`blink/hurt/cast`, `p2_*`, `p3_*` + scream/fall/defeated; лист `art/boss/mistress_moods.png`).
+  Фон — `bg.png` (= bg_a). Рамка утверждена — рисованный набор деталей GPT (`src/mistress/frame_kit.png`), сборка по
+  контуру полей `art/boss/mistress_frame.py` → `art/boss/mistress_frame/kit_stage<N>.png` + аватарка `avatar.png`
+  (бруски 14 pt, проём 48 pt); макет — `art/boss/mistress_screen_mock3.png`. (Blender-вариант `malachite_kit.py` отклонён.)
+  Ящерки: `art/boss/lizard.py` — бег из одного рисунка S-волной, 8 кадров `mistress_frame/lizard_<i>.png` (30×32 pt,
+  голова вверх) + превью `art/boss/lizards_preview.gif`. Ящерки не пересекаются: впереди по ходу соседка ближе
+  `GAP` = 44 pt → стоит и ждёт, постояв — может развернуться; стартуют равномерно по контуру (перенести в игру так же).
+  Налёт ящерок (уносят зелёные) — хореография в `docs/boss-fight.md` §9, превью `art/boss/lizard_raid.gif`. Полей у Хозяйки в данных ещё нет — пробы на полях Полоза.
+  26.10, **Хозяйка в игре** (`AREAS[1].boss`, id `mistress`): экспорт `art/boss/export_mistress.py` (3 фазы × настроения,
+  фаза 2/3 — `p2_*`/`p3_*`, фон, ящерки) + рамки полей и аватарка `mistress_frame.py <scr> x <assets/boss/mistress/kit> 1`
+  (переименовать kit_stage* → stage*). `BossView.set_phase` — картинки фазы, нет настроения → из прошлой фазы;
+  `boss.json` задаёт `x`/`sink`/`pebbles`. `BossFrame`: `pieces:false`, без хвоста. `BossLizards` — бег по рамке и налёт.
+  Действие `lizards` (`BoardModel.lizard_marks`, share 0.5): уносят зелёные, досыпка без зелёного (`skip_colour`),
+  без урона. Поля: зал / жила / каменный цветок; действия пока rockfall ↔ lizards (почка, корка, цветок — не сделаны).
+  Проверка: `-- area=1 level=1 gen depth=6 boss_stage=0..2`, налёт сразу — `ui=boss_raid ui_after=1.2`.
+  Не проверено на iPhone; числа боя (здоровье, ходы) — копия Полоза, автоигроком не подбирались.
 - 25.10, шапка уровня: цели и руда на одной сланцевой плите (цели — значок над числом, под чертой — железо/руда
   с остатком жилы мелким серым числом, «out» рыжим), ходы справа. Иконки целей — новые спрайты (песчаник/гранит/оба,
   грязь из blockers_kit, жеода и находка — блоки из zones, находка своей формы `BoardSprites.find_shape`); газ — живой
@@ -175,6 +196,34 @@
   Не проверено на iPhone (газ-иконка — свой шейдер, не plain_material).
 - 25.10, иконка приложения (`godot/icon.png`, она же для iOS): рубин в скале с золотыми жилами, нарисована GPT
   (Codex `$imagegen`) по листу наших фишек. Витрина умеет один образец крупно: `spec_gallery -- set=11 only=1 clean`.
+- 26.10, рудник 2 (Copper Mountain) и Хозяйка — правила в `docs/boss-fight.md` §9 (почка малахита → местная руда,
+  корка, ящерки, каменный цветок). Ассеты: порода `serpentine` в `board_kit.py` (змеевик, бирюзовые жилки во всех трещинах
+  `vein_all`, медь металлом `fleck`, мелкие грани `facets`, бортик плитки `tile_h/tile_bevel`, светлые края только на рёбрах `sharp`, медь прожилками `cu`,
+  рамка из тёсаных блоков `blocks` — `hewn_bar`, щель между клетками `tile`/`bed_k`), стоит в `BoardKit.AREA_ROCK[1]`.
+  Почка и корка нарисованы GPT отдельными кусками (`art/malachite/`, не в git: `gen_edit.sh`, `parts_cut.py` — фон-пурпур → куски
+  по щелям, `nodule_pack.py` — пузыри к ядру, впадины залиты) → `assets/board/malachite/` (crust_<v>[_k], nodule_<v>_s1..3, _k,
+  _fill_s*, json с центрами кусков). Правила (`BoardModel`): почка `NOD` (слои 1..3, растёт раз в `NOD_EVERY`=3 хода, переросшая
+  кладёт корку на 2 соседних камня и снова 1), срезается любым ударом или рядом вплотную → `mined.ore += слои`; корка = `LOCK == 2`
+  (как крепь, но снимается и рядом вплотную), разлёт пластин — `FxLayer.plates`. Рост — `Level._grow_nodules` +
+  `BoardView._draw_nodule`. Генератор: `LevelGen.NODULES` (рудник 2: 2→4 почки, прочих препятствий ×0.7); рудность фишек рудника —
+  `ore.p` в данных (у меди 0.5). Ключ `area=N`; `sim_gen=8 area=1`: 6–13 меди за победу (бот почки не ищет), побед ~50%.
+  Медь на фишках: `gem_kit.py` `ORE_BY_GEM` (изумруд → `COPPER_LOOK`, медно-оранжевые жилы и самородки), свечение рудника —
+  `ore.hot` в данных (`BoardSprites.ore_hot` → мерцание `ore_glint` и жилы-накладка). Рамка уровня рудника 2 — `kit/serpentine`
+  (`BoardKit`), рамка боя Хозяйки — своя (`BossFrame`, другая сессия), друг друга не трогают.
+  26.10, материалы боя: каменный цветок — GPT нарисовал детали в стиле босса (`art/boss/src/mistress/flower_parts.png`, референсы —
+  набор рамки, ящерка, фон), `art/boss/stone_flower.py` собирает розетку (кольца на свой радиус, лепестки через равные углы)
+  и переводит в сетку 1 pt → `assets/boss/mistress/flower_s1..3.png` (сердце+бутоны / +средние / +внешние), каждый лепесток
+  `flower_<ring>_<k>.png` + `flower.json` (смещения, pt). В код ещё не подключён (нет действия «цветок» в бою).
+  Глыба змеевика (гранит рудника 2): GPT по листу фишек и блоков (`art/malachite/ref_blockers.png`), `block_cut.py` →
+  `blockers_kit/serpentine[_cracked].png`, `shards/serpentine_0..2`; `BoardSprites.granite()` по руднику (поле, осколки, иконки целей).
+  Звуки CC0 (OpenGameArt, в `CREDITS.md`): `Sfx` crust, nodule (подключены), rockfall, lizards, hiss, phase, bloom (для боя) —
+  подобраны по названиям, не прослушаны.
+  26.10, бой Хозяйки собран (`AREAS[1].boss`, правила и вид — `docs/boss-fight.md` §9, «Сделано»): корка, обвал змеевиком,
+  налёт ящерок, каменный цветок (`BoardModel.flower`/`FLW`), звуки из `B.sfx`. Не проверено на iPhone; звуки не прослушаны.
+  26.10, рудник 2 доведён до плана: 9 глубин 50–450 м, босс на 500 м, свои задачи (id hoist, wheel, draught, arches, smelter,
+  incline, lapidary, block, hall — рисуются в `MineScene._copper_works/_copper_depth/_copper_live`), техника, экономика —
+  таблица в `docs/progression-redesign.md` §3; препятствия по глубинам `LevelGen.AREA_TIERS[1]` (корка — тоже препятствие
+  генератора, буква `c`, цель `crust`); генератор резервирует работу под почки (`WORK.nod`). Сохранение достраивает жилы новых глубин.
 - Перевести в мраморный стиль: окна (победа/поражение/раскрытие находки — `autoload/overlay.gd`, `screens/reveal.gd`),
   главный экран (`screens/home.gd`, `mine_scene.gd`), депо, музей; эффекты взрывов (`game/fx_layer.gd`).
 - Старое (можно удалять со временем): `board3d.gd`, `gem_cut.gd`, `piece_form.gd`, `board_gem/board_piece.gdshader`,

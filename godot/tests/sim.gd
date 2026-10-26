@@ -62,6 +62,7 @@ static func play(m: BoardModel, mv: Array) -> bool:
 		resolve(m, res.events, res.swap_cells)
 	if not m.goals_done():
 		m.gas_spread()
+		m.nodule_grow()
 	return true
 
 ## plays until the level is won or out of moves; picks moves with `pick(m, moves) -> move`

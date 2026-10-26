@@ -6,10 +6,10 @@ extends RefCounted
 ## The player: fires a special when it has one (70%), otherwise a random legal swap — an average player,
 ## not a perfect one.
 
-static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}) -> Dictionary:
+static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0) -> Dictionary:
 	var m := BoardModel.new()
 	m.rng.seed = seed_v
-	m.setup(n, [], dl, Save.d.eq, 0, true, level)
+	m.setup(n, [], dl, Save.d.eq, area, true, level)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 7 + 1
 	var broken := [0, 0, 0, 0, 0, 0]
@@ -42,8 +42,15 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}) -> Dictio
 			m.next_stage()
 			continue
 		m.gas_spread()
+		m.nodule_grow()
 		if m.boss_on():
-			m.boss_turn()
+			var bt := m.boss_turn()
+			if bt.get("act", "") == "lizards":
+				# the raid: the marked greens go, the holes fill with anything but green, what that matches goes
+				for p: Vector2i in bt.cells: m.G[p.x][p.y] = null
+				m.collapse()
+				m.skip_colour = -1
+				_resolve(m, [], [], broken)
 			if not m.has_moves(): m.shuffle()
 		if m.moves <= 0:
 			break
@@ -134,7 +141,7 @@ static func boss_report(area: int, n: int) -> String:
 		var hp_left := 0
 		var used := 0
 		for i in n:
-			var r := play(1, 6, 900 + i * 13 + tries, BoardModel.boss_level(B, 0, hp))
+			var r := play(1, Data.depths(area).size(), 900 + i * 13 + tries, BoardModel.boss_level(B, 0, hp), area)
 			reach[int(r.stage)] += 1
 			if r.won:
 				wins += 1
@@ -147,9 +154,9 @@ static func boss_report(area: int, n: int) -> String:
 
 ## generated levels (LevelGen) at every depth of the first mine: how often the autoplayer wins, the moves given and
 ## used, ore per win. The moves formula in LevelGen is tuned on this.
-static func gen_report(per_depth: int) -> String:
+static func gen_report(per_depth: int, area := 0) -> String:
 	var lines := PackedStringArray(["depth | levels | win% | moves given | moves used | per win: iron, own ore | intro win%"])
-	for dl in Data.depths(0).size():
+	for dl in Data.depths(area).size():
 		var wins := 0
 		var given := 0
 		var used := 0
@@ -157,8 +164,8 @@ static func gen_report(per_depth: int) -> String:
 		var iw := 0
 		var ii := 0
 		for i in per_depth:
-			var def := LevelGen.make(0, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0)
-			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def)
+			var def := LevelGen.make(area, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0)
+			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def, area)
 			given += int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_rows"):
 				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, count = def.count, won = r.won, used = r.used}))
