@@ -134,6 +134,15 @@ const SETS := [
 	{seed = 502, sid = "amethyst", kind = "druse", gi = 4, traits = [], legend = true, fx = "jellyfish", lustre = "glass"},
 	{seed = 503, sid = "fluorite", kind = "geode", gi = 4, traits = [], legend = true, fx = "jellyfish"},
 	{seed = 504, sid = "ammonite", kind = "fossil", gi = 4, traits = [], legend = true, fx = "jellyfish", show = "loose", hetero = ""}],
+	# set 23: petrified wood — slices (palettes, cracks, a hollow heart), logs, opal
+	[{seed = 601, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 0, opal = 0.0, checks = 2, ck_fill = "quartz", heart = ""},
+	{seed = 602, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 1, opal = 0.0, checks = 3, ck_fill = "empty", heart = ""},
+	{seed = 603, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 4, opal = 0.0, checks = 1, ck_fill = "quartz", heart = "amethyst"},
+	{seed = 604, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 2, opal = 0.2, fire = "green", checks = 3, heart = ""},
+	{seed = 605, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", pal = 0, opal = 0.0, checks = 2, ck_fill = "quartz"},
+	{seed = 606, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", pal = 3, opal = 0.0, checks = 0},
+	{seed = 607, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", opal = 0.85, fire = "blue", checks = 2, heart = ""},
+	{seed = 608, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", opal = 0.7, fire = "green", checks = 2}],
 ]
 
 func _ready() -> void:

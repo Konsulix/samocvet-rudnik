@@ -6,6 +6,12 @@
    "v": 45,
    "r": 1
   },
+  "petrified_wood": {
+   "n": "Petrified Wood",
+   "c": "#a8643c",
+   "v": 35,
+   "r": 1
+  },
   "quartz": {
    "n": "Rock Crystal",
    "c": "#dfe8f2",
@@ -1542,6 +1548,7 @@
  ],
  "HABIT": {
   "ammonite": "fossil",
+  "petrified_wood": "fossil",
   "quartz": "prism",
   "amethyst": "prism",
   "calcite": "scaleno",

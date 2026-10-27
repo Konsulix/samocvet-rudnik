@@ -9,12 +9,14 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", petrified_wood = "petrified wood"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
 	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
-	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill"}
+	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
+	rings = "growth rings", opal = "opal", bark = "bark", checks_quartz = "quartz-healed cracks", checks_opal = "opal-healed cracks",
+	checks_empty = "open cracks", heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -61,12 +63,11 @@ static func of(o: Dictionary) -> Dictionary:
 		form = "cluster" if druse else "single"
 	var rock: String
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
-	elif habit == "fossil": rock = Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
-	if fossil.get("crushed", false): rock = "slate"
+	elif habit == "fossil": rock = "slate" if fossil.get("crushed", false) else Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
 	else: rock = Stones.pick_w([["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]], rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
 	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
-	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < 0.2:
+	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < 0.2 and habit != "fossil":
 		lustre = "dark"
 	var dark_cols := [Color(0.012, 0.045, 0.045), Color(0.015, 0.035, 0.02), Color(0.012, 0.018, 0.045), Color(0.04, 0.026, 0.018), Color(0.02, 0.02, 0.022)]
 	var dark_col: Color = dark_cols[int(rng.next() * dark_cols.size())]

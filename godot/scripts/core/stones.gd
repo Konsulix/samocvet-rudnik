@@ -55,6 +55,9 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		if fg.get("pair", false): kind_m *= 1.6
 		kind_m *= 1.0 + 0.25 * int(fg.get("brood", 0))
 		if String(fg.get("hetero", "")) != "": kind_m *= 3.0
+		# wood: opal in it, a crystal heart
+		kind_m *= 1.0 + 6.0 * pow(float(fg.get("opal", 0.0)), 2.0)
+		if String(fg.get("heart", "")) != "": kind_m *= 1.8
 	var value := roundi(Data.SP[sid].v * Data.GR[gi].m * tm * (3.0 if legend else 1.0) * kind_m * 1.3 * (1.0 + dl * 0.25))
 	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = value, tier = tier_of(sid, gi, legend)}
 
