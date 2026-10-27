@@ -48,6 +48,13 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		# a shell nearly all ammolite is worth many plain ones
 		var fg := SpecFossil.genes(seed_id, sid, traits)
 		kind_m *= 1.0 + 8.0 * pow(float(fg.get("nacre", 0.0)), 3.0)
+		# and blue or violet fire is rarer, so dearer — the more nacre there is to show it
+		var fire_m: float = {red = 1.0, green = 1.3, blue = 2.0, violet = 2.6}.get(fg.get("fire", "red"), 1.0)
+		kind_m *= 1.0 + (fire_m - 1.0) * float(fg.get("nacre", 0.0))
+		# a matched pair, a brood on one slab, a rare uncoiled form
+		if fg.get("pair", false): kind_m *= 1.6
+		kind_m *= 1.0 + 0.25 * int(fg.get("brood", 0))
+		if String(fg.get("hetero", "")) != "": kind_m *= 3.0
 	var value := roundi(Data.SP[sid].v * Data.GR[gi].m * tm * (3.0 if legend else 1.0) * kind_m * 1.3 * (1.0 + dl * 0.25))
 	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = value, tier = tier_of(sid, gi, legend)}
 

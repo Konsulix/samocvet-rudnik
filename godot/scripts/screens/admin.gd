@@ -1,7 +1,16 @@
 class_name Admin
 extends RefCounted
 ## The tester's panel (Settings → Admin, or hold the gear → Diagnostics → Admin): jump into any depth of any mine, the boss fight
-## or its hoard; hand out ore, coins, lives and gear; open the whole mine at once or start over. Not for players.
+## or its hoard; hand out ore, coins, lives and gear; put any kind of find into the collection; open the whole mine at
+## once or start over. Not for players.
+
+## the find to make: species ("" any), kind ("" as it falls), legendary effect ("" none, "?" any), rare traits
+static var f_sid := ""
+static var f_kind := ""
+static var f_fx := ""
+static var f_traits := false
+const FX_LIST := ["", "?", "lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi", "dragonfire", "jellyfish"]
+const KINDS := ["", "crystal", "druse", "geode"]
 
 static func main() -> Node:
 	return Engine.get_main_loop().current_scene
@@ -69,6 +78,31 @@ static func open() -> void:
 		Save.d.eq.lens = (int(Save.d.eq.lens) + 1) % 5
 		_saved()))
 	v.add_child(give)
+	# finds into the collection, to look at them on the phone
+	v.add_child(_head("Finds → collection"))
+	var sp := _row()
+	var sids: Array = [""] + Data.SP.keys()
+	sp.add_child(_btn("Species: %s" % (Data.SP[f_sid].n if f_sid != "" else "any"), f_sid != "", func():
+		f_sid = sids[(sids.find(f_sid) + 1) % sids.size()]
+		_reopen()))
+	sp.add_child(_btn("Kind: %s" % (f_kind if f_kind != "" else "any"), f_kind != "", func():
+		f_kind = KINDS[(KINDS.find(f_kind) + 1) % KINDS.size()]
+		_reopen()))
+	sp.add_child(_btn("Legend: %s" % ("no" if f_fx == "" else "any" if f_fx == "?" else SpecLegend.FX_N.get(f_fx, f_fx)), f_fx != "", func():
+		f_fx = FX_LIST[(FX_LIST.find(f_fx) + 1) % FX_LIST.size()]
+		_reopen()))
+	sp.add_child(_btn("Rare traits: %s" % ("yes" if f_traits else "as they fall"), f_traits, func():
+		f_traits = not f_traits
+		_reopen()))
+	v.add_child(sp)
+	var mk := _row()
+	mk.add_child(_btn("+1 like this", false, func(): _finds(1)))
+	mk.add_child(_btn("+5 like this", false, func(): _finds(5)))
+	mk.add_child(_btn("+8 ammonites, every kind", false, func(): _ammonites()))
+	mk.add_child(_btn("Remove test finds", false, func():
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("test", false))
+		_saved()))
+	v.add_child(mk)
 	# the whole mine at once, or from the very start
 	v.add_child(_head("Progress"))
 	var pr := _row()
@@ -99,6 +133,63 @@ static func _play(dl: int) -> void:
 	Save.persist()
 	Ov.close()
 	main().show_level(Save.d.level, [], dl, LevelGen.current(dl))
+
+## n finds as the panel says, into the collection (marked as test finds, so they can be cleared at once)
+static func _finds(n: int) -> void:
+	var names := []
+	for k in n:
+		var st := _find(1 + randi() % 999999, f_sid, f_fx)
+		Save.d.coll.append(st)
+		names.append(String(Data.SP[st.sid].n) + (" · " + String(SpecLegend.FX_N.get(st.get("fx", ""), "legendary")) if st.legend else ""))
+	Save.persist()
+	Ov.toast("Added: " + ", ".join(names))
+	_reopen()
+
+static func _find(sd: int, sid: String, fx: String) -> Dictionary:
+	var a := Save.area()
+	var st := Stones.roll(sd, a, 1.5, 3)
+	if sid != "":
+		st.sid = sid
+		if sid in Data.NUGGETY: st.kind = "nugget"
+		elif Data.HABIT.get(sid, "") == "fossil": st.kind = "fossil"
+		elif st.kind in ["nugget", "fossil"]: st.kind = "crystal"
+	if f_kind != "" and not (st.kind in ["nugget", "fossil"]):
+		st.kind = f_kind
+	if f_traits:
+		var pool: Array = Data.TRAITS.map(func(t: Dictionary) -> String: return t.id)
+		pool.shuffle()
+		st.traits = pool.slice(0, 1 + randi() % 3)
+	if fx != "":
+		st.legend = true
+		if fx != "?": st.fx = fx
+	st.tier = Stones.tier_of(st.sid, int(st.gi), bool(st.legend))
+	st.area = a
+	st.dl = randi() % Data.depths(a).size()
+	st.test = true
+	if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+	return st
+
+## eight ammonites, one of each look: sawn, a matched pair, crystal-lined chambers, a brood, crushed in shale, a
+## heteromorph, dragon fire, jellyfish — seeds found that grow each
+static func _ammonites() -> void:
+	var want := [
+		func(g: Dictionary) -> bool: return g.show == "split" and not g.pair and float(g.hollow) == 0.0,
+		func(g: Dictionary) -> bool: return g.pair,
+		func(g: Dictionary) -> bool: return float(g.hollow) > 0.0,
+		func(g: Dictionary) -> bool: return int(g.brood) > 0,
+		func(g: Dictionary) -> bool: return g.crushed,
+		func(g: Dictionary) -> bool: return String(g.hetero) != "",
+		func(g: Dictionary) -> bool: return g.show == "split",
+		func(g: Dictionary) -> bool: return g.show != "split" and String(g.hetero) == ""]
+	var fxs := ["", "", "", "", "", "", "dragonfire", "jellyfish"]
+	var sd := 1 + randi() % 900000
+	for k in want.size():
+		while not (want[k] as Callable).call(SpecFossil.genes(sd, "ammonite", [])): sd += 1
+		Save.d.coll.append(_find(sd, "ammonite", fxs[k]))
+		sd += 1
+	Save.persist()
+	Ov.toast("Added 8 ammonites")
+	_reopen()
 
 static func _give(key: String, n: int) -> void:
 	Save.d[key] = int(Save.d[key]) + n

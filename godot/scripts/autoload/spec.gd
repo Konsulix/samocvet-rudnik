@@ -54,6 +54,7 @@ func _warm() -> void:
 	mats.append(SpecFungi.material(0))
 	mats.append(SpecLegend.heart_mat(Color.WHITE, 2.0, 0.5))
 	mats.append(SpecLegend.glow_mat(Color.WHITE))
+	mats.append(SpecJelly.material(Color.WHITE, 0, 0.0, 1.0))
 	var fm := ShaderMaterial.new()
 	fm.shader = SpecFossil.SHADER
 	mats.append(fm)
@@ -81,8 +82,8 @@ func _warm() -> void:
 
 static func key_of(o: Dictionary) -> String:
 	var j: Dictionary = o.get("jewel", {})
-	return "%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
-		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", "")]
+	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
+		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("fx", "")]
 
 ## the description of a stone from the save, as the builder wants it
 static func of_stone(s: Dictionary) -> Dictionary:

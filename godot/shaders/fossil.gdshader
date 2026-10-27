@@ -33,11 +33,19 @@ uniform float nacre_from = 3.7;     // no nacre on the innermost turn
 uniform int fill = 0;               // the face: 0 calcite, 1 white, 2 pyrite, 3 agate, 4 ammolite chips
 uniform vec3 rock_col : source_color = vec3(0.28, 0.26, 0.23);
 uniform float broken = 0.0;
+// hollow chambers of a sawn face (one texel per chamber, chamber c at c + 64): open, crystals inside
+uniform sampler2D hollow_tex : filter_nearest;
+// a chamber wall standing down into a hollow chamber: plain cream calcite
+uniform float as_wall = 0.0;
+// the legendary dragon fire: colours flowing over the nacre, the chambers glowing in turn
+uniform float flow_k = 0.0;
 // a photo scan of stone (Poly Haven) laid over the bare shell from three sides, unlike any host rock
 uniform sampler2D scan_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D scan_rough : filter_linear_mipmap, repeat_enable;
 uniform float scan_k = 0.0;
-uniform float scan_tile = 1.6;         // a sawn shell's end is a fracture: how deep (radians) its ragged edge bites in
+uniform float scan_tile = 1.6;
+// the host rock's own scan, for the mud packed into a whole shell's aperture
+uniform sampler2D mud_diff : source_color, filter_linear_mipmap, repeat_enable;         // a sawn shell's end is a fracture: how deep (radians) its ragged edge bites in
 
 varying vec3 v_op;
 varying vec3 v_cam;
@@ -91,6 +99,20 @@ float cracks(vec2 q) {
 // a texture laid from three sides by the surface's facing (no seams, no stretching on a coiled tube)
 vec4 tri(sampler2D t, vec3 q, vec3 w) {
 	return texture(t, q.yz) * w.x + texture(t, q.xz) * w.y + texture(t, q.xy) * w.z;
+}
+
+// a drusy crust: a carpet of tiny crystals, each a facet tilted its own way, catching the light on its own.
+// Returns the tilted normal; col gets the crystal's shade (light faces, dark gaps between), deep darkens it
+vec3 druse(vec3 p, vec3 n, inout vec3 col, float deep) {
+	vec3 cc = vor2(vec2(p.x * 160.0 + p.z * 90.0, p.y * 160.0 - p.z * 70.0));
+	vec3 big = vor2(vec2(p.x * 55.0 - p.z * 30.0, p.y * 55.0 + p.z * 41.0));
+	float id = cc.z;
+	vec3 tilt = vec3(h3(vec3(id * 91.0, 1.0, 2.0)), h3(vec3(id * 37.0, 5.0, 1.0)), h3(vec3(id * 53.0, 3.0, 7.0))) - 0.5;
+	vec3 nn = normalize(n + tilt * 1.6);
+	float gap = smoothstep(0.0, 0.08, cc.y);
+	float shade = (0.55 + 0.45 * id) * mix(0.35, 1.0, gap) * (0.85 + 0.3 * big.z);
+	col = col * shade * mix(1.0, 0.25, deep);
+	return nn;
 }
 
 // a bump from a height field, by screen derivatives (fine ones: the coarse kind steps in 2x2 blocks up close)
@@ -153,7 +175,9 @@ vec4 plate(vec2 q) {
 	for (int y = -1; y <= 1; y++) {
 		for (int x = -1; x <= 1; x++) {
 			vec2 g = c + vec2(float(x), float(y));
-			vec4 t = texelFetch(cells, ivec2(clamp(g + 1.0, vec2(0.0), cells_n - 1.0)), 0);
+			// round the tube the 5 rows wrap
+			vec2 gi = vec2(clamp(g.x + 1.0, 0.0, cells_n.x - 1.0), mod(g.y, 5.0) + 1.0);
+			vec4 t = texelFetch(cells, ivec2(gi), 0);
 			vec2 p = g + 0.15 + 0.7 * t.ba;
 			float d = distance(p, q);
 			if (t.r > 0.5) dn = min(dn, d); else db = min(db, d);
@@ -242,13 +266,17 @@ void fragment() {
 		// nacre plates
 		// where the nacre kept: the plates (decided on the CPU), their edges ragged where the film flaked off
 		vec2 q = vec2(th * plate_k.x, ph * plate_k.y);
-		vec4 pl = plate(q + (vec2(vn(p * 7.0), vn(p * 7.0 + 3.0)) - 0.5) * 0.55);
+		// warped hard, at two scales, so no edge runs straight
+		vec2 wq = (vec2(fbm(p * 4.0), fbm(p * 4.0 + 3.0)) - 0.5) * 1.6 + (vec2(vn(p * 15.0), vn(p * 15.0 + 7.0)) - 0.5) * 0.45;
+		vec4 pl = plate(q + wq);
 		// the film thins out towards its edge and flakes off in islands, rather than ending on a line
-		float edge = pl.w + (fbm(p * 26.0 + 3.0) - 0.5) * 0.35 + (vn(p * 70.0) - 0.5) * 0.08;
-		float on = step(nacre_from, th) * smoothstep(-0.05, 0.3, edge);
+		float edge = pl.w + (fbm(p * 26.0 + 3.0) - 0.5) * 0.5 + (vn(p * 70.0) - 0.5) * 0.12;
+		float from = nacre_from + (fbm(p * 5.0 + 11.0) - 0.5) * 2.5;
+		float on = smoothstep(from - 0.3, from + 0.3, th) * smoothstep(-0.05, 0.35, edge);
 		// over it a finer network of cracks, smaller on the inner turns
 		float ck = cracks(vec2(th * plate_k.x * 4.0, ph * plate_k.y * 3.0) + (vn(p * 20.0) - 0.5) * 0.3);
-		vec3 fc = film(p, fr, (pl.y - 0.5) * 0.12);
+		float flow = flow_k * (TIME * 0.05 + sin(TIME * 0.4 + p.x * 3.0 + p.y * 2.0) * 0.12 + (fbm(p * 2.0 + vec3(TIME * 0.15, 0.0, 0.0)) - 0.5) * 0.4);
+		vec3 fc = film(p, fr, (pl.y - 0.5) * 0.12 + flow);
 		fc *= 0.8 + 0.3 * vn(p * 55.0 + pl.y * 9.0);
 		vec3 nc = mix(dark_col * 0.5, fc, 0.85);
 		nc = mix(mix(dark_col * 0.35, nc, ck), nc, 1.0 - on);   // the cracks only where the film is whole
@@ -272,11 +300,25 @@ void fragment() {
 		// (a whole shell — it has a body chamber — shows the same mud on the inside of its tube, deep in the aperture)
 		if (inside && ((COLOR.a > 0.1 && COLOR.a < 0.5) || (body > 0.0 && !FRONT_FACING))) {
 			// a whole shell's aperture, packed with the dark mud it lay in: dull, gritty, darker deeper in
-			vec3 gi = vor2(vec2(p.x * 40.0 + p.z * 21.0, p.y * 40.0 - p.z * 19.0));
-			c = rock_col * (0.5 + 0.5 * gi.z) * (0.7 + 0.5 * fbm(p * 18.0));
+			// the scanned host rock, laid from three sides, its lightness pressed in as relief; darker deeper in
+			vec3 mw = pow(abs(n), vec3(4.0));
+			mw /= mw.x + mw.y + mw.z;
+			vec3 mc = tri(mud_diff, p * 2.2, mw).rgb;
+			float ml = dot(mc, vec3(0.3, 0.5, 0.2));
+			c = mc * 0.75 * (0.75 + 0.4 * fbm(p * 9.0));
 			m = 0.0;
-			ro = 0.9;
-			nb = bump(n, VERTEX, (gi.z + fbm(p * 25.0)) * 0.004, 1.0);
+			ro = 0.88;
+			nb = bump(n, VERTEX, (ml * 2.0 + fbm(p * 25.0) * 0.5) * 0.004, 1.0);
+		} else if (inside && COLOR.a > 0.5 && body <= 0.0) {
+			// the inside of a sawn half, seen in a hollow chamber: lined with a sparkling crust of little crystals,
+			// darker deeper down (smooth, not the break's flat facets)
+			vec3 fc = fill == 2 ? lin(vec3(0.78, 0.66, 0.34)) : fill == 3 ? lin(vec3(0.7, 0.74, 0.8))
+				: fill == 1 ? lin(vec3(0.86, 0.82, 0.74)) : lin(vec3(0.86, 0.6, 0.3));
+			float deep = clamp(-p.z / max(0.02, r * tube_k * 1.2), 0.0, 1.0);
+			c = fc;
+			nb = druse(p, n, c, deep * 0.8);
+			m = fill == 2 ? 0.8 : 0.0;
+			ro = 0.12;
 		} else if (inside) {
 			// the break's own flat surface (the fan of triangles closing the tube would show as a star otherwise),
 			// and grains laid out so they never smear, whichever way it faces
@@ -295,6 +337,15 @@ void fragment() {
 		METALLIC = m;
 		ROUGHNESS = clamp(ro, 0.05, 1.0);
 		NORMAL = nb;
+	} else if (as_wall > 0.5) {
+		// a chamber wall going down into a hollow chamber: cream calcite, a little translucent at its edge
+		// a chamber wall going down into a hollow chamber, crystal-coated like the floor, in shadow lower down
+		vec3 wc = fill == 1 ? lin(vec3(0.88, 0.84, 0.76)) : lin(vec3(0.9, 0.72, 0.45));
+		vec3 wn = normalize(NORMAL);
+		if (!FRONT_FACING) wn = -wn;
+		NORMAL = druse(v_op, wn, wc, 1.0 - COLOR.r);
+		ALBEDO = wc * 0.8;
+		ROUGHNESS = 0.14;
 	} else {
 		float th = UV.x;
 		float t = UV.y;
@@ -307,6 +358,10 @@ void fragment() {
 		float dw = (t > 1.0 ? 1.0 : min(t, 1.0 - t)) * band;
 		float wall_w = 0.008 * r + 0.002;
 		float wall = max(1.0 - smoothstep(wall_w * 0.5, wall_w, d), 1.0 - smoothstep(wall_w * 0.4, wall_w * 1.1, dw));
+		// a hollow chamber: open, so the crystals inside show (its walls and the outer wall stay)
+		float chamber = floor((th - w) / sept);
+		float hol = texelFetch(hollow_tex, ivec2(int(clamp(chamber + 64.0, 0.0, 255.0)), 0), 0).r;
+		if (hol > 0.5 && wall < 0.5 && t < 1.0) discard;
 		// across the chamber: 0 at one wall, 1 at the next; how deep into the coil (inner turns pale, outer dark)
 		float across = fract((th - w) / sept + 0.5);
 		float dist = min(d, dw) / max(band, 0.01);
@@ -407,6 +462,11 @@ void fragment() {
 		vec3 wc = lin(vec3(0.9, 0.86, 0.76)) * (0.85 + 0.2 * vn(p * 60.0));
 		c = mix(c * 0.55, wc * 0.7, wall);
 		NORMAL = bump(n, VERTEX, wall * 0.0025 * (0.3 + r), 1.0);
+		if (flow_k > 0.0) {
+			// the chambers light up one after another, a slow wave running out along the coil
+			float pulse = pow(0.5 + 0.5 * sin(TIME * 1.3 - chamber * 0.55), 6.0) * (1.0 - wall);
+			EMISSION = film(p, 0.3, chamber * 0.07 + TIME * 0.03) * pulse * 1.6;
+		}
 		ALBEDO = c;
 		METALLIC = m * (1.0 - wall);
 		ROUGHNESS = ro;

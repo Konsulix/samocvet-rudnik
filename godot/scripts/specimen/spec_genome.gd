@@ -13,8 +13,8 @@ const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "col
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
-	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "calcite chambers", ch_white = "white calcite chambers",
-	ch_pyrite = "pyrite chambers", ch_agate = "agate chambers"}
+	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
+	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -62,6 +62,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var rock: String
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
 	elif habit == "fossil": rock = Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
+	if fossil.get("crushed", false): rock = "slate"
 	else: rock = Stones.pick_w([["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]], rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
 	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
@@ -101,8 +102,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# a legendary find always carries one living effect, one that suits its body
 	var fx := ""
 	if o.get("legend", false):
-		var fpool := ["fluor", "levitate"]
+		var fpool := ["fluor", "levitate", "jellyfish"]
 		if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
+		if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
 		if lustre == "glass" and not (form in ["geode", "botryoid", "vein", "nugget"]):
 			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
 		fx = fpool[int(rng.next() * fpool.size())]

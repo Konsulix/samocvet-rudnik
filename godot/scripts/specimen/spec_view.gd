@@ -87,7 +87,7 @@ func _process(dt: float) -> void:
 		_zoom = lerpf(_zoom, _zoom_to, minf(1.0, dt * 12.0))
 		studio.cam.fov = _fov0 / _zoom
 	# a fluorescent find: the studio goes dark in step with its glow; a star heart dims it a little
-	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.4 if live and live.has_meta("heart_light") else 0.0)
+	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.75 if live and live.has_meta("dark") else 0.4 if live and (live.has_meta("heart_light") or live.has_meta("dim")) else 0.0)
 	if live and live.has_meta("heart_light"):
 		var hl: OmniLight3D = live.get_meta("heart_light")
 		if is_instance_valid(hl): hl.light_energy = 1.2 + 2.2 * Spec.beat

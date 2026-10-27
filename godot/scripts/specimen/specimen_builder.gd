@@ -331,6 +331,12 @@ func _specimen(o: Dictionary) -> Node3D:
 			# a desert rose: tiers of blades fanned around the axis
 			var rk: MeshInstance3D = use_rock.call("small")
 			rk.scale = Vector3(0.7, 0.7, 0.7)
+			# the rock shrank after its spots were taken: they shrink with it, or moss and plants hang in the air
+			var raw_pick: Callable = st.pick
+			var raw_nrm: Callable = st.nrm
+			st.pick = func() -> Vector3: return (raw_pick.call() as Vector3) * 0.7
+			st.nrm = func(w: Vector3) -> Vector3: return raw_nrm.call(w / 0.7)
+			st.hollows = (st.hollows as Array).map(func(h: Array) -> Array: return [(h[0] as Vector3) * 0.7, h[1]])
 			for tier in 3:
 				var n := 6 + int(floor(rng.next() * 4))
 				for k in n:
@@ -496,6 +502,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		st.hollows = (st.hollows as Array).filter(func(h: Array) -> bool: return _free(h[0]))
 
 	match gene.fx:
+		"jellyfish": SpecJelly.swarm(root, rng)
 		"heart":
 			SpecLegend.heart(root, main, rng, col)
 			if main and main.material_override is ShaderMaterial:

@@ -63,11 +63,20 @@ func _ready() -> void:
 		# test data: ammonites in the collection (they are in no mine's pool yet): `-- screen=museum fossils=8`;
 		# the ones a previous run left in the save are replaced, not added to
 		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return c.get("sid", "") != "ammonite")
+		var seed_h := 30000
 		for i in int(args.fossils):
-			var st := Stones.roll(9100 + i, 0, 1.2, 2)
+			var sd := 9100 + i
+			var tr := ["irid"] if i % 3 == 0 else []
+			# every fourth a heteromorph (they are rare: look for a seed that grows one)
+			if i % 4 == 3:
+				while String(SpecFossil.genes(seed_h, "ammonite", tr).hetero) == "": seed_h += 1
+				sd = seed_h
+				seed_h += 1
+			var st := Stones.roll(sd, 0, 1.2, 2)
 			st.sid = "ammonite"
 			st.kind = "fossil"
-			st.traits = ["irid"] if i % 3 == 0 else []
+			st.traits = tr
+			if i == 5: st.legend = true
 			st.tier = Stones.tier_of(st.sid, int(st.gi), bool(st.legend))
 			st.area = 0
 			st.dl = i % 6
