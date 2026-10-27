@@ -199,16 +199,13 @@
    ]
   },
   "4": {
-   "work": [
-    "old24",
-    760,
-    "heap"
-   ],
+   "work": [],
    "push": false,
-   "flip": true,
-   "front": true,
    "cart": [
     470
+   ],
+   "heap": [
+    760
    ],
    "drip": [
     420,

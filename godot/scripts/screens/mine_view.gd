@@ -944,7 +944,11 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var dx := float(cr.drip[0])
 		var di := int(t * 8 + k * 3) % 16
 		if di < 8:
-			_put(c, "drip/%d.png" % di, Vector2(dx, y + 60), false, al * 0.9)
+			# the drop falls from the roof and splashes on this gallery's own floor (the sprite's bottom is the puddle)
+			var dsz := _size("drip/%d.png" % di)
+			var fy := floor_y + 2.0
+			var h := fy - (y + 40.0)
+			c.draw_texture_rect(tex("drip/%d.png" % di), Rect2(Vector2(dx, fy - h), Vector2(dsz.x, h)), false, Color(1, 1, 1, al * 0.9))
 	if cr.has("pump") and int(steps.get("pump", 0)) >= 1:
 		var pi := int(t * 10) % 8
 		var pp := "pump/%d.png" % pi
@@ -964,6 +968,11 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var jp := "jackhammer/%d.png" % (int(t * 12) % 4)
 		var js := _size(jp)
 		_put(c, jp, Vector2(float(cr.jack[0]) - js.x / 2, back + 10 - js.y), false, al)
+	if cr.has("cart") and (cr.get("work", ["x"]) as Array).is_empty():
+		_cart(c, "cart_full", J.cart_full, Vector2(float(cr.cart[0]), floor_y + 4), 0.0, false, 1e9, al)
+	if cr.has("heap"):
+		var hs0 := _size("heap.png")
+		_put(c, "heap.png", Vector2(float(cr.heap[0]) - hs0.x / 2, floor_y + 12 - hs0.y), false, al)
 	var w: Array = cr.get("work", ["pick", 760, "heap"])
 	if w.is_empty():
 		return
