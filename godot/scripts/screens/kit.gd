@@ -17,6 +17,8 @@ const FIT_H := ["capsule"]
 const PIN := {btn_green = 18.0, btn_slate = 18.0, title = 15.0}
 ## big panels drawn as a hollow frame over a tiled slate (art/ui_kit/slate_fill.py): frame -> [frame picture, tile]
 const FILLS := {window = ["window_frame", "slate"]}
+## frames whose middle is seamless (art/ui_kit/seam_mid.py) and repeats along these axes instead of stretching
+const TILE := {btn_green = "x", btn_slate = "x", btn_dark = "xy", title = "x", card = "xy", tab = "xy"}
 const CREAM := Color("#f3e6c8")       # text on slate
 const AMBER := Color("#ffc95a")
 const DIM := Color("#a89c86")
@@ -44,6 +46,9 @@ static func box(name: String, pad := -1.0, tint := Color.WHITE) -> KitBox:
 	b.tile = false     # tiled slate showed its seams as bands; stretched it reads as one stone
 	b.fit_h = name in FIT_H
 	b.pin = float(PIN.get(name, 0.0))
+	var tl: String = TILE.get(name, "")
+	b.tile_x = "x" in tl
+	b.tile_y = "y" in tl
 	var m := Vector4(b.margin.x, b.margin.y, b.margin.z, b.margin.w) / b.s
 	if pad >= 0.0: m = Vector4(pad, pad, pad, pad)
 	b.content_margin_left = m.x

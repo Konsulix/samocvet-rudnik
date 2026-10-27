@@ -9,6 +9,10 @@ var margin := Vector4.ZERO    # left, top, right, bottom: the corners, in the pi
 var s := 3.0                  # picture pixels per point
 var modulate := Color.WHITE
 var tile := true              # the edges and the middle repeat (false: stretch)
+## long plates and big cards: their middle is drawn seamless (art/ui_kit/seam_mid.py) and repeats along these axes
+## instead of stretching (a 310 pt button stretched its face 3x into streaks)
+var tile_x := false
+var tile_y := false
 ## round ends (the capsule): never stretched upright; the whole picture is scaled to the height and only its middle
 ## stretches sideways, so the ends stay as drawn
 var fit_h := false
@@ -41,9 +45,8 @@ func _draw(to_canvas_item: RID, rect: Rect2) -> void:
 		tl.y = 0.0
 		br.y = 0.0
 	rs.canvas_item_add_set_transform(to_canvas_item, Transform2D(0.0, Vector2.ONE / k, 0.0, rect.position))
-	var mode := RenderingServer.NINE_PATCH_TILE_FIT if tile else RenderingServer.NINE_PATCH_STRETCH
 	rs.canvas_item_add_nine_patch(to_canvas_item, Rect2(Vector2.ZERO, rect.size * k), Rect2(Vector2.ZERO, tex.get_size()), tex.get_rid(),
-		tl, br, mode, mode, true, modulate)
+		tl, br, _mode(tile_x), _mode(tile_y), true, modulate)
 	rs.canvas_item_add_set_transform(to_canvas_item, Transform2D.IDENTITY)
 
 ## the plate in two halves, each a nine-patch: the upper ends on the rivet's upper half, the lower starts with its
@@ -55,10 +58,12 @@ func _pinned(ci: RID, rect: Rect2) -> void:
 	var mid := floorf(h / 2.0)
 	var full := rect.size * s
 	var top := floorf(full.y / 2.0)
-	var mode := RenderingServer.NINE_PATCH_TILE_FIT if tile else RenderingServer.NINE_PATCH_STRETCH
 	rs.canvas_item_add_set_transform(ci, Transform2D(0.0, Vector2.ONE / s, 0.0, rect.position))
 	rs.canvas_item_add_nine_patch(ci, Rect2(0, 0, full.x, top), Rect2(0, 0, w, mid), tex.get_rid(),
-		Vector2(margin.x, margin.y), Vector2(margin.z, pin), mode, mode, true, modulate)
+		Vector2(margin.x, margin.y), Vector2(margin.z, pin), _mode(tile_x), RenderingServer.NINE_PATCH_STRETCH, true, modulate)
 	rs.canvas_item_add_nine_patch(ci, Rect2(0, top, full.x, full.y - top), Rect2(0, mid, w, h - mid), tex.get_rid(),
-		Vector2(margin.x, pin), Vector2(margin.z, margin.w), mode, mode, true, modulate)
+		Vector2(margin.x, pin), Vector2(margin.z, margin.w), _mode(tile_x), RenderingServer.NINE_PATCH_STRETCH, true, modulate)
 	rs.canvas_item_add_set_transform(ci, Transform2D.IDENTITY)
+
+func _mode(along: bool) -> RenderingServer.NinePatchAxisMode:
+	return RenderingServer.NINE_PATCH_TILE_FIT if along or tile else RenderingServer.NINE_PATCH_STRETCH

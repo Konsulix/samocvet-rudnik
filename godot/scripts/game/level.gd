@@ -420,16 +420,8 @@ func _render_boosters() -> void:
 		var id: String = bo.id
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(64, 64)
-		# the fight's buttons are dark slate like the rest of its interface
-		# the drawn kit's tiles (the chosen one lit warm); the fight keeps its own dark plates
-		if model.boss_on():
-			var st := BossHud.plate(16)
-			if booster == id:
-				st.border_color = Color("#c9a35a")
-				st.set_border_width_all(3)
-			for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, st)
-		else:
-			for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, Kit.box("tab_on" if booster == id else "card", 0.0))
+		# the drawn kit's tiles (the chosen one lit warm), in the boss fight too
+		for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, Kit.box("tab_on" if booster == id else "card", 0.0))
 		var open := Data.boost_open(bo)
 		var ic := UI.icon(44, func(ci):
 			if id != "pick" or BoardSprites.gem_style != "":

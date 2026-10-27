@@ -46,48 +46,46 @@ func _init(level: Level) -> void:
 func _ready() -> void:
 	var vp := lv.get_viewport_rect().size
 	var y0 := UI.safe_top() + 2.0
-	# close
-	var close := Button.new()
-	close.text = "✕"
-	close.add_theme_font_override("font", UI.body_bold)
-	close.add_theme_font_size_override("font_size", 18)
-	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		close.add_theme_color_override(st, INK)
-	for st in ["normal", "hover", "pressed"]: close.add_theme_stylebox_override(st, plate(24))
-	close.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	# the controls are the drawn kit's, as everywhere else (the frame, the bubble and the health bar stay the boss' own)
+	var close := Kit.icon_button("close", BAR)
 	close.position = Vector2(10, y0)
 	close.size = Vector2(BAR, BAR)
 	close.pressed.connect(lv._on_quit)
 	add_child(close)
-	# the boss' name over its title and depth
+	# the boss' name over its title and depth, on the kit's title plate
 	var title := PanelContainer.new()
-	title.add_theme_stylebox_override("panel", plate(14))
+	title.add_theme_stylebox_override("panel", Kit.box("title", 0.0))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.position = Vector2(66, y0)
 	title.size = Vector2(vp.x - 66 - 84, BAR)
 	var tv := VBoxContainer.new()
 	tv.alignment = BoxContainer.ALIGNMENT_CENTER
 	tv.add_theme_constant_override("separation", -4)
-	name_label = UI.label("", 18, UI.display, INK)
-	sub_label = UI.label("", 11, UI.body_bold, SUB)
+	name_label = Kit.label("", 18, UI.display, Kit.CREAM)
+	sub_label = Kit.label("", 11, UI.body_bold, Kit.AMBER)
 	for l: Label in [name_label, sub_label]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.clip_text = true
 		tv.add_child(l)
 	title.add_child(tv)
 	add_child(title)
-	# moves
-	var mv := PanelContainer.new()
-	mv.add_theme_stylebox_override("panel", plate(14))
+	# moves: the kit's brass-ringed token, as on the level's bar
+	var mv := Control.new()
 	mv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mv.position = Vector2(vp.x - 76, y0)
-	mv.size = Vector2(66, BAR)
+	mv.position = Vector2(vp.x - 74, y0 - 4)
+	mv.size = Vector2(64, 64)
+	var ring := Kit.tex("ring")
+	mv.draw.connect(func():
+		mv.draw_circle(mv.size / 2 + Vector2(2, 3), 32, Color(0, 0, 0, 0.3), true, -1.0, true)
+		mv.draw_texture_rect(ring, Rect2(Vector2.ZERO, mv.size), false))
 	var mvv := VBoxContainer.new()
+	mvv.set_anchors_preset(Control.PRESET_FULL_RECT)
 	mvv.alignment = BoxContainer.ALIGNMENT_CENTER
-	mvv.add_theme_constant_override("separation", -6)
-	moves_label = UI.label("0", 22, UI.display, INK)
-	var ml := UI.label("moves", 10, UI.body_bold, SUB)
-	for l: Label in [moves_label, ml]:
+	mvv.add_theme_constant_override("separation", -7)
+	mvv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ml := Kit.label("MOVES", 8, UI.body_bold, Kit.DIM)
+	moves_label = Kit.label("0", 23, UI.display, Kit.AMBER)
+	for l: Label in [ml, moves_label]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		mvv.add_child(l)
 	mv.add_child(mvv)
@@ -113,7 +111,7 @@ func set_title(n: String, sub: String) -> void:
 
 func set_moves(n: int) -> void:
 	moves_label.text = str(n)
-	moves_label.add_theme_color_override("font_color", Color("#ff6a5a") if n <= 5 else INK)
+	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if n <= 5 else Kit.AMBER)
 
 func set_hp(left: int, mx: int) -> void:
 	hp = [left, mx]

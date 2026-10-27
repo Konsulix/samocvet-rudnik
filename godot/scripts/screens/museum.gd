@@ -243,13 +243,13 @@ func _open_stone(s: Dictionary) -> void:
 		Sfx.play("coin")
 		Ov.close()
 		render()
-	var sell_b := UI.button("Sell · " + UI.coins(price), "ghost_gold", 15)
+	var sell_b := Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0)
 	if cut_done:
-		sell_b.custom_minimum_size = Vector2(0, 46)
+		sell_b.custom_minimum_size = Vector2(0, 48)
 		sell_b.pressed.connect(sell)
 		v.add_child(sell_b)
 	else:
-		v.add_child(Reveal.action_row(UI.button("Cut", "ghost_purple", 15), func(): _cut_panel(s), sell_b, sell))
+		v.add_child(Reveal.action_row(Kit.button("Cut", "btn_dark", 17, 4.0), func(): _cut_panel(s), sell_b, sell))
 
 # ---------------------------------------------------------------- cutting
 

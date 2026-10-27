@@ -98,7 +98,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.close()
 		Ov.toast("Added to the collection")
 		finished.emit()
-	v.add_child(action_row(UI.button("Sell · " + UI.coins(price), "soft_gold", 16), sell, UI.button("Keep", "soft_green", 16), keep))
+	v.add_child(action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep))
 
 ## the stone is the star: name on top, a big live specimen in a rounded frame, then only weight,
 ## grade and soundness; rarity is the colour of the card's glow, the rest are badges. Shared with the museum.
@@ -116,8 +116,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		head.add_child(pad)
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(name_l)
-		var x := UI.button("✕", "glass", 16)
-		x.custom_minimum_size = Vector2(36, 36)
+		var x := Kit.icon_button("close", 36)
 		x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		x.pressed.connect(on_close)
 		head.add_child(x)
@@ -152,7 +151,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	var gene := SpecGenome.of(so)
 	var flow := HFlowContainer.new()
 	flow.alignment = FlowContainer.ALIGNMENT_CENTER
-	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("h_separation", 12)
 	flow.add_theme_constant_override("v_separation", 6)
 	# every gene the find rolled, keyed as the builder marks them: [name, rare]; hidden until the stone is built
 	var genes := {}
@@ -284,18 +283,29 @@ static func _stat(box: HBoxContainer, k: String, val: String, col := UI.INK) -> 
 		c.add_child(l)
 	box.add_child(c)
 
-## rare: a gold badge (a valuable trait); growth: a quiet outlined one (what grew on the stone)
+## a gene's tag: just the word over a thin brass bar whose ends flare into notched tails, no box (chosen from GPT's
+## sheet art/ui_kit/chips/ideas_a.png, no. 2; the bar is a texture, art/ui_kit/chips/underline.py: its ends stay as
+## drawn, its middle stretches). rare (a valuable trait): amber, the brass full; growth (what grew on the stone): dim
 static func chip(t: String, rare := false, growth := false) -> Label:
-	var l := UI.label(t, 12, UI.body_bold, Color("#2a1a00") if rare else UI.MUTED if growth else UI.INK)
-	var st := StyleBoxFlat.new()
-	st.bg_color = UI.GOLD if rare else Color(1, 1, 1, 0.03) if growth else Color(1, 1, 1, 0.1)
-	if growth:
-		st.set_border_width_all(1)
-		st.border_color = Color(1, 1, 1, 0.18)
-	st.set_corner_radius_all(10)
-	st.content_margin_left = 9
-	st.content_margin_right = 9
-	st.content_margin_top = 3
-	st.content_margin_bottom = 3
+	var l := Kit.label(t, 13, UI.body_bold, Kit.AMBER if rare else Kit.DIM if growth else Kit.CREAM)
+	l.add_theme_constant_override("outline_size", 3)
+	var st := StyleBoxEmpty.new()
+	st.content_margin_left = 8
+	st.content_margin_right = 8
+	st.content_margin_top = 1
+	st.content_margin_bottom = 7
 	l.add_theme_stylebox_override("normal", st)
+	l.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tex := Kit.tex("underline")
+	var tint := Color.WHITE if rare else Color(0.4, 0.37, 0.33, 0.55) if growth else Color(0.85, 0.8, 0.74, 0.85)
+	l.draw.connect(func():
+		const H := 6.0           # points; the texture is 8 pt tall, its ends 4 of its 64 pt long
+		var ts := tex.get_size()
+		var e := ts.y * 4.0 / 8.0          # one end, in texture px
+		var ep := H * 4.0 / 8.0            # one end, in points
+		var y := l.size.y - H + 0.5
+		var w := l.size.x
+		l.draw_texture_rect_region(tex, Rect2(0, y, ep, H), Rect2(0, 0, e, ts.y), tint)
+		l.draw_texture_rect_region(tex, Rect2(ep, y, w - ep * 2, H), Rect2(e, 0, ts.x - e * 2, ts.y), tint)
+		l.draw_texture_rect_region(tex, Rect2(w - ep, y, ep, H), Rect2(ts.x - e, 0, e, ts.y), tint))
 	return l
