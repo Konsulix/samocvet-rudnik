@@ -1,6 +1,6 @@
 class_name Admin
 extends RefCounted
-## The tester's panel (hold ♪ for a second → Diagnostics → Admin): jump into any depth of any mine, the boss fight
+## The tester's panel (Settings → Admin, or hold the gear → Diagnostics → Admin): jump into any depth of any mine, the boss fight
 ## or its hoard; hand out ore, coins, lives and gear; open the whole mine at once or start over. Not for players.
 
 static func main() -> Node:

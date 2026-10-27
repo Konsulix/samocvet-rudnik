@@ -21,6 +21,7 @@ var _press_scroll := 0.0
 var _dragging := false
 var _down := false
 var _top_shade: TextureRect
+var _row: Control           # the Play / next-depth row: the level window keeps clear of it
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -103,47 +104,20 @@ func render() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 4)
 	pad.add_child(col)
-	col.add_child(Chrome.top_bar())
-	var A: Dictionary = Data.AREAS[ai()]
-	var title := UI.title(A.n, 22)
-	title.add_theme_constant_override("outline_size", 8)
-	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.35))
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(title)
-	var sub := UI.label(A.sub, 13, UI.body, Color("#d8e0ee"))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-	sub.add_theme_constant_override("shadow_outline_size", 6)
-	col.add_child(sub)
-	var chip := UI.label("⛏ digging at %d m · open to %d m" % [Data.depth_m(ai(), dl_sel()), Data.depth_m(ai(), int(Save.d.depth[ai()]))], 12, UI.body_bold, Color("#ffd27a"))
-	var cs := StyleBoxFlat.new()
-	cs.bg_color = Color(0.1, 0.07, 0.02, 0.75)
-	cs.border_color = Color("#e3a51e", 0.5)
-	cs.set_border_width_all(1)
-	cs.set_corner_radius_all(12)
-	cs.content_margin_left = 10
-	cs.content_margin_right = 10
-	cs.content_margin_top = 2
-	cs.content_margin_bottom = 3
-	chip.add_theme_stylebox_override("normal", cs)
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	if not uses_view():   # the drawn mine marks the depth being dug on itself (⛏ on its plaque)
-		col.add_child(chip)
-	var vl := UI.label(Level.vein_text_for(ai(), dl_sel()), 12, UI.body_bold, Color("#d8e0ee"))
-	vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
-	vl.add_theme_constant_override("shadow_outline_size", 6)
-	col.add_child(vl)
+	var bar := Chrome.top_bar()
+	col.add_child(bar)
+	col.add_child(_hanging(_name_plate(String(Data.AREAS[ai()].n)), bar))
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(fill)
 	# one row at the bottom, as in a mobile match-three: the big Play, the mine's progress beside it
 	var row := HBoxContainer.new()
+	_row = row
 	row.add_theme_constant_override("separation", 10)
 	var play := _play_button()
 	play.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	play.size_flags_stretch_ratio = 1.25
+	play.size_flags_stretch_ratio = 0.9
 	row.add_child(play)
 	var task := _tasks_button()
 	task.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -154,6 +128,83 @@ func render() -> void:
 	gap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(gap2)
 	ui_root.add_child(Chrome.nav_bar("home", func(id: String): go.emit(id)))
+
+## the mine's name on a slate plate in its brass frame, in the titles' font (Nunito Sans Black) set in spaced capitals
+func _name_plate(n: String) -> Control:
+	var p := PanelContainer.new()
+	var st := Kit.box("title", 0.0)
+	st.content_margin_left = 20
+	st.content_margin_right = 20
+	st.content_margin_top = 4
+	st.content_margin_bottom = 5
+	p.add_theme_stylebox_override("panel", st)
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var font := FontVariation.new()
+	font.base_font = UI.display.base_font       # (a variation of a variation loses its weight: copy it over)
+	font.variation_opentype = UI.display.variation_opentype
+	font.spacing_glyph = 1
+	var l := Kit.label(n.to_upper(), 19, font, Kit.AMBER)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
+	l.add_theme_constant_override("shadow_offset_y", 2)
+	p.add_child(l)
+	return p
+
+## a plate hung under the top bar on two brass chains from the middles of its coins' and ore capsules (the bar's
+## "hooks"), as wide as the chains are apart; it sways a touch about the chains' tops
+func _hanging(p: Control, bar: Control) -> Control:
+	var hooks: Array = bar.get_meta("hooks", [])
+	var slot := Control.new()
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var sw := Control.new()     # the swinging part: the chains and the plate (a plain Control, so nothing resets it)
+	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(sw)
+	sw.add_child(p)
+	const INSET := 24.0         # from the plate's ends to its chains
+	var ends := func() -> Array:
+		# the hooks in the swinging part's own space: [left x, right x, top y]
+		var a: Control = hooks[0]
+		var b: Control = hooks[1]
+		var ga := a.get_global_rect()
+		var gb := b.get_global_rect()
+		var o := slot.get_global_rect().position
+		# under the middle of the capsule's slate, where its number is centred (Chrome.capsule)
+		return [ga.position.x + Chrome.capsule_mid(ga.size.x) - o.x, gb.position.x + Chrome.capsule_mid(gb.size.x) - o.x, ga.end.y - 5.0 - o.y]
+	var fit := func():
+		var m := p.get_combined_minimum_size()
+		if hooks.size() == 2:
+			var apart: float = (hooks[1] as Control).get_global_rect().get_center().x - (hooks[0] as Control).get_global_rect().get_center().x
+			m.x = maxf(m.x, apart + INSET * 2)
+		p.custom_minimum_size.x = m.x
+		slot.custom_minimum_size = m
+		sw.size = m
+		p.size = m
+	bar.resized.connect(func(): fit.call_deferred())
+	# the plate's middle under the middle between the chains (the slot itself is centred on the screen)
+	var place := func():
+		if hooks.size() == 2 and slot.is_inside_tree():
+			var e: Array = ends.call()
+			sw.position.x = (float(e[0]) + float(e[1])) / 2 - sw.size.x / 2
+		sw.queue_redraw()
+	slot.item_rect_changed.connect(func(): place.call_deferred())
+	fit.call()
+	sw.draw.connect(func():
+		var xs: Array = [INSET, sw.size.x - INSET]
+		var top := -30.0
+		if hooks.size() == 2 and slot.is_inside_tree():
+			var e: Array = ends.call()
+			xs = [float(e[0]) - sw.position.x, float(e[1]) - sw.position.x]
+			top = e[2]
+		sw.pivot_offset = Vector2((float(xs[0]) + float(xs[1])) / 2, top)
+		for x: float in xs:
+			Kit.chain(sw, Vector2(x, top), Vector2(x, 5)))
+	var tw := sw.create_tween().set_loops()
+	tw.tween_property(sw, "rotation", 0.012, 2.2).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(sw, "rotation", -0.012, 2.2).set_trans(Tween.TRANS_SINE)
+	return slot
 
 ## what stands between the shaft and its next depth: the job of the deepest open depth (paid in the mine's own ore),
 ## then the drill (iron + coins). At the last depth only its job is left, then the next mine.
@@ -177,24 +228,25 @@ func _tasks_button() -> Button:
 	var st := next_step()
 	var all_done: bool = st.last and st.job_done
 	var boss := _boss_waits()
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 64)
-	for s in ["normal", "hover", "pressed", "focus"]:
-		var sb := UI.glass(18, 0.82)
-		sb.border_color = Color("#e3a51e", 0.45)
-		b.add_theme_stylebox_override(s, sb)
+	# the green button's slate twin (the same brass rim and end rivets): the building icon, what is needed beside it
+	var b := Kit.button("", "btn_slate", 14, 0.0)
+	b.custom_minimum_size = Vector2(0, 70)
+	var bi := Kit.icon("build", 26)
+	bi.size = Vector2(26, 26)
+	bi.position = Vector2(19, 22)
+	b.add_child(bi)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 12
-	v.offset_right = -10
+	v.offset_left = 49
+	v.offset_right = -18
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 3)
+	v.add_theme_constant_override("separation", 2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var head := ("Below %d m" % Data.depth_m(a, int(st.k)) if boss else "Mine fitted out") if all_done else "Last depth" if st.last else "Next: %d m" % Data.depth_m(a, int(st.k) + 1)
-	v.add_child(UI.label(head, 11, UI.body_bold, UI.MUTED))
+	v.add_child(Kit.label(head, 12, UI.display, Kit.AMBER))
 	# the ticks in one line: job · iron · coins
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
+	h.add_theme_constant_override("separation", 3)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if all_done:
 		h.add_child(UI.label(("%s ›" % Data.AREAS[a].boss.n) if boss else "Next mine ›" if a < Data.AREAS.size() - 1 else "✓", 14, UI.body_bold, Color("#ff8a70") if boss else UI.GOLD))
@@ -211,56 +263,45 @@ func _tasks_button() -> Button:
 ## one requirement: its badge and how far along it is, green once met
 func _tick(kind: String, text: String, ok: bool) -> HBoxContainer:
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 3)
+	h.add_theme_constant_override("separation", 1)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := UI.icon(20, func(ci: Control): Chrome.coin_icon(ci, kind, Vector2(10, 10), 9))
+	var ic := Kit.res_icon(kind, 15)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
-	h.add_child(UI.label(text, 13, UI.body_bold, UI.GOOD if ok else UI.INK))
+	if text == "✓":
+		var ck := Kit.icon("check", 13)
+		ck.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ck)
+	else:
+		h.add_child(Kit.label(text, 11, UI.body_bold, UI.GOOD if ok else Kit.CREAM))
 	return h
 
 func _play_button() -> Button:
 	var n: int = Save.d.level
 	var def := LevelGen.current(dl_sel())
-	var b := UI.button("", "green", 20)
-	b.custom_minimum_size = Vector2(0, 64)
+	# the drawn kit's green plate: the brass play mark on the left, the level and its moves beside it
+	var b := Kit.button("", "btn_green", 20, 0.0)
+	b.custom_minimum_size = Vector2(0, 70)
+	var pi := Kit.icon("play", 28)
+	pi.size = Vector2(28, 28)
+	pi.position = Vector2(21, 21)
+	b.add_child(pi)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 44
+	v.offset_right = -16
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", -2)
+	v.add_theme_constant_override("separation", -3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var t := UI.label("Level %d" % n, 22, UI.display, Color("#06260f"))
+	var t := Kit.label("Level %d" % n, 23, UI.display, Kit.ON_GREEN)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var sub := UI.moves_text(BoardModel.start_moves(def, dl_sel(), Save.d.eq)) + (" · rich vein!" if def.get("rich", false) else "") + (" · streak %d" % Save.d.streak if Save.d.streak >= 2 else "")
-	var s := UI.label(sub, 12, UI.body_bold, Color(0.02, 0.15, 0.06, 0.8))
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(s)
+	var bits := (["rich vein!"] if def.get("rich", false) else []) + (["streak %d" % Save.d.streak] if Save.d.streak >= 2 else [])
+	if bits:
+		var s := Kit.label(" · ".join(bits), 12, UI.body_bold, Color("#d8f0c8"))
+		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(s)
 	b.add_child(v)
-	# a glint sweeping across, like the prototype's shine
-	# clipped by a rounded mask the shape of the button's face (clip_contents would square off its
-	# corners and cut its glow into a hard-edged slab)
-	var mask := Panel.new()
-	var ms := StyleBoxFlat.new()
-	ms.bg_color = Color.WHITE
-	ms.set_corner_radius_all(18)
-	ms.anti_aliasing = true
-	mask.add_theme_stylebox_override("panel", ms)
-	mask.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
-	mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mask.set_anchors_preset(Control.PRESET_FULL_RECT)
-	mask.offset_bottom = -6
-	b.add_child(mask)
-	var shine := ColorRect.new()
-	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shine.color = Color(1, 1, 1, 0.0)
-	shine.set_anchors_preset(Control.PRESET_FULL_RECT)
-	mask.add_child(shine)
-	var mat := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = "shader_type canvas_item;\nvoid fragment(){ float x = fract(TIME / 3.2) * 2.4 - 0.7; float d = abs(UV.x - x - (UV.y - 0.5) * 0.25); COLOR = vec4(1.0, 1.0, 1.0, 0.45 * (1.0 - smoothstep(0.0, 0.12, d))); }"
-	mat.shader = sh
-	shine.material = mat
 	b.pressed.connect(_on_play)
 	return b
 
@@ -463,6 +504,11 @@ func _on_play() -> void:
 		return
 	_level_panel(dl_sel(), Data.streak_free(Save.d.streak))
 
+## the open window stays between the top bar and the Play row, never covering them
+func _keep_clear() -> void:
+	var vp := get_viewport_rect().size
+	Ov.keep_clear(UI.safe_top() + 118.0, vp.y - _row.get_global_rect().position.y + 8.0 if _row else 0.0)
+
 func _level_panel(dl: int, sel: Array) -> void:
 	var n: int = Save.d.level
 	var def := LevelGen.current(dl)
@@ -470,7 +516,10 @@ func _level_panel(dl: int, sel: Array) -> void:
 	for f in free:
 		if not f in sel: sel.append(f)
 	var v := Ov.card(350)
-	v.add_child(UI.title("Level %d" % n, 24))
+	Kit.lantern(Ov.holder())
+	_keep_clear()
+	v.add_child(UI.title("Level %d" % n, 26))
+	v.add_child(Kit.rule(220))
 	if def.get("rich", false):
 		# the rich vein: said before the start, and plain to see on the board
 		var rc := UI.label("Rich vein! Twice the ore stones this time", 14, UI.body_bold, Color("#ffd27a"))
@@ -486,7 +535,6 @@ func _level_panel(dl: int, sel: Array) -> void:
 		v.add_child(rc)
 	if def.get("intro", false):
 		v.add_child(Ov.text("New at this depth: %s" % Data.DMODS[mini(dl, Data.DMODS.size() - 1)], 13, UI.GOLD))
-	v.add_child(Ov.text("%s · a specimen waits in the rock" % UI.moves_text(BoardModel.start_moves(def, dl, Save.d.eq)), 14))
 	# what the level asks for, read from its map
 	var goals := HBoxContainer.new()
 	goals.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -508,38 +556,35 @@ func _level_panel(dl: int, sel: Array) -> void:
 	# depth: deeper is harder and pays more
 	var open: int = Save.d.depth[ai()]
 	var drow := HBoxContainer.new()
-	drow.add_theme_constant_override("separation", 8)
-	var minus := UI.button("−", "glass", 22)
-	minus.custom_minimum_size = Vector2(46, 46)
+	drow.add_theme_constant_override("separation", 10)
+	drow.alignment = BoxContainer.ALIGNMENT_CENTER
+	var minus := Kit.icon_button("minus", 46, "sq_dark")
 	minus.disabled = dl <= 0
+	minus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	minus.pressed.connect(func():
 		Save.d.depth_sel[ai()] = dl - 1
 		Save.persist()
 		_level_panel(dl - 1, sel))
 	drow.add_child(minus)
 	var mid := VBoxContainer.new()
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.custom_minimum_size = Vector2(190, 0)
 	mid.add_theme_constant_override("separation", 0)
 	var dt := UI.label("Depth %d m" % Data.depth_m(ai(), dl), 16, UI.display, UI.GOLD)
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(dt)
-	var mods := ", ".join(Data.DSHORT.slice(1, dl + 1)) + " · coins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary board and ordinary rewards"
+	var mods := ", ".join(Data.DSHORT.slice(1, dl + 1)) + "\ncoins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary board\nordinary rewards"
 	var ds := Ov.text(mods, 12)
 	mid.add_child(ds)
 	drow.add_child(mid)
-	var plus := UI.button("+", "glass", 22)
-	plus.custom_minimum_size = Vector2(46, 46)
+	var plus := Kit.icon_button("plus", 46, "sq_dark")
 	plus.disabled = dl >= open
+	plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	plus.pressed.connect(func():
 		Save.d.depth_sel[ai()] = dl + 1
 		Save.persist()
 		_level_panel(dl + 1, sel))
 	drow.add_child(plus)
 	v.add_child(drow)
-	if open < Data.depths(ai()).size() - 1:
-		v.add_child(Ov.text("Below %d m only machines get through: %s." % [Data.depth_m(ai(), open), String(Data.depth(ai(), open + 1).tool).to_lower()], 12))
-	if Save.d.streak >= 2:
-		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)], 13, UI.GOLD))
 	# pre-boosters to start with
 	var pre := HBoxContainer.new()
 	pre.add_theme_constant_override("separation", 8)
@@ -551,10 +596,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 		var b := Button.new()
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 92)
-		var st := UI.glass(14, 0.6)
-		st.bg_color = Color("#2c3c5a") if on else Color(0.06, 0.09, 0.14, 0.7)
-		st.border_color = UI.GOLD if on else Color(1, 1, 1, 0.12)
-		st.set_border_width_all(2 if on else 1)
+		var st := Kit.box("tab_on" if on else "card", 0.0)
 		for s in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(s, st)
 		var bv := VBoxContainer.new()
 		bv.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -572,10 +614,10 @@ func _level_panel(dl: int, sel: Array) -> void:
 			GemArt.end(ci))
 		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		bv.add_child(ic)
-		var nl := UI.label(p.n, 13, UI.body_bold)
+		var nl := Kit.label(p.n, 13, UI.body_bold)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(nl)
-		var sl := UI.label("free" if fr else ("have %d" % have) if have else "%d coins" % int(p.price), 11, UI.body, UI.GOOD if fr else UI.MUTED)
+		var sl := Kit.label("free" if fr else ("have %d" % have) if have else "%d coins" % int(p.price), 11, UI.body, UI.GOOD if fr else UI.MUTED)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(sl)
 		b.add_child(bv)
@@ -684,19 +726,23 @@ func _open_next() -> void:
 	var st := next_step()
 	var on := String(Data.ore(a).n).to_lower()
 	var v := Ov.card(350)
+	_keep_clear()
 	var here := Data.depth_m(a, int(st.k))
 	v.add_child(UI.title("Last depth · %d m" % here if st.last else "Down to %d m" % Data.depth_m(a, int(st.k) + 1), 22))
+	v.add_child(Kit.rule(220))
 	v.add_child(Ov.text(Level.vein_text_for(a, int(st.k)), 13))
 	# 1: the job of this depth
 	if not st.job.is_empty():
 		var cost: int = MineView.step_cost(a, String(st.job[0]), int(st.job[2]))
 		var can: bool = not st.job_done and Save.d.ore >= cost
-		var bt := UI.button("✓" if st.job_done else "Build", "gold" if can else "glass", 14)
+		var bt: Button = null
+		if not st.job_done:
+			bt = Kit.button("Build", "btn_gold" if can else "btn_dark", 15, 0.0)
+			bt.disabled = not can
 		var stp := _step_label(a, String(st.job[0]))
-		bt.disabled = not can
 		var i: int = st.k
 		var tid: String = st.job[0]
-		bt.pressed.connect(func(): _build(tid, i))
+		if bt: bt.pressed.connect(func(): _build(tid, i))
 		v.add_child(_need_row("ore", String(st.job[1]) + stp, "Done" if st.job_done else "%d %s · you have %d" % [cost, on, Save.d.ore], st.job_done, bt))
 	if not st.last:
 		var fe: int = st.fe
@@ -736,30 +782,36 @@ func _fight_boss() -> void:
 
 ## one line of the checklist: badge, what, how far along, a tick (or a button doing it)
 func _need_row(kind: String, what: String, sub: String, ok: bool, action: Button) -> PanelContainer:
+	# a kit card: the resource's icon, what is needed and how much there is, then a check (met), a warning (not yet)
+	# or the button that does it
 	var row := PanelContainer.new()
-	var st := UI.glass(14, 0.5)
-	if ok: st.bg_color = Color(0.1, 0.25, 0.14, 0.6)
+	var st := Kit.box("card", 0.0)
+	st.content_margin_left = 12
+	st.content_margin_right = 12
+	st.content_margin_top = 9
+	st.content_margin_bottom = 9
 	row.add_theme_stylebox_override("panel", st)
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	var ic := UI.icon(30, func(ci: Control): Chrome.coin_icon(ci, kind, Vector2(15, 15), 14))
+	h.add_theme_constant_override("separation", 10)
+	var ic := Kit.res_icon(kind, 32)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
 	var tv := VBoxContainer.new()
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.add_theme_constant_override("separation", 0)
-	var nl := UI.label(what, 14, UI.body_bold)
+	var nl := Kit.label(what, 15, UI.body_bold)
 	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tv.add_child(nl)
-	var sl := UI.label(sub, 12, UI.body, UI.MUTED)
+	var sl := Kit.label(sub, 12, UI.body, UI.GOOD if ok else Kit.DIM)
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tv.add_child(sl)
 	h.add_child(tv)
 	if action:
-		action.custom_minimum_size = Vector2(70, 40)
+		action.custom_minimum_size = Vector2(78, 40)
+		action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(action)
 	else:
-		var tick := UI.label("✓" if ok else "✗", 18, UI.display, UI.GOOD if ok else Color("#e0904a"))
+		var tick := Kit.icon("check" if ok else "alert", 24)
 		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(tick)
 	row.add_child(h)

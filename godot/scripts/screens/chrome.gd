@@ -2,39 +2,148 @@ class_name Chrome
 extends RefCounted
 ## Pieces every screen shares: the lives / coins / ore pills and the bottom tab bar.
 
-## the bar on top of every screen, the same everywhere: lives, coins, iron and the mine's own ore sharing the width
-## in even plates, a round sound button on the right
+## the bar on top of every screen, the same everywhere (the drawn kit): the miner's portrait with the player's
+## level and the lives under it, then coins, iron and the mine's own ore in brass-rimmed capsules, the gear on the right
 static func top_bar() -> HBoxContainer:
 	Save.tick_lives()
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
+	h.add_theme_constant_override("separation", 6)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mins := Save.minutes_to_life()
-	h.add_child(plate("heart", str(Save.d.lives) if not mins else "%d · %dm" % [Save.d.lives, mins]))
-	h.add_child(plate("coin", UI.fmt(Save.d.coins)))
-	h.add_child(plate("iron", str(Save.d.fe)))
-	h.add_child(plate("ore", str(Save.d.ore)))
-	var snd := UI.button("♪" if not Save.d.mute else "×", "glass", 17)
-	snd.custom_minimum_size = Vector2(38, 38)
-	for k in ["normal", "hover", "pressed", "disabled"]:
-		var st := UI.glass(19, 0.78)
-		st.set_content_margin_all(0)
-		snd.add_theme_stylebox_override(k, st)
+	h.add_child(_portrait())
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(capsule("coin", UI.fmt(Save.d.coins)))
+	row.add_child(capsule("iron", UI.fmt(Save.d.fe)))
+	row.add_child(capsule("ore", UI.fmt(Save.d.ore)))
+	# where the mine's name plate hangs from (Home._hanging): the coins' and the ore's capsules
+	h.set_meta("hooks", [row.get_child(0), row.get_child(2)])
+	var gear := Kit.icon_button("gear", 36)
+	gear.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	# hold it for a second: the diagnostics card (Diag)
 	var held := [0]
-	snd.button_down.connect(func(): held[0] = Time.get_ticks_msec())
-	snd.button_up.connect(func():
+	gear.button_down.connect(func(): held[0] = Time.get_ticks_msec())
+	gear.button_up.connect(func():
 		if Time.get_ticks_msec() - held[0] >= 900:
 			held[0] = -1
 			Diag.show_card())
-	snd.pressed.connect(func():
+	gear.pressed.connect(func():
 		if held[0] == -1: return
+		settings())
+	row.add_child(gear)
+	right.add_child(row)
+	h.add_child(right)
+	return h
+
+## the miner in his round iron frame, the player's level on a brass badge, the lives on a small plate under him
+## the portrait frames' windows: [offset, size] as shares of the frame (from the bosses' avatar .json)
+const PORTRAIT_INNER := {poloz = [0.25, 0.5], mistress = [0.2778, 0.4444]}
+
+static func _portrait() -> Control:
+	const F := 72.0
+	var w := Control.new()
+	w.custom_minimum_size = Vector2(F, F)
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# a square frame from the mine's boss board (the serpent at Old Adit, malachite and copper at Copper Mountain),
+	# its window a dark slate with the miner in it (for now the helmet and pick; a portrait is to be drawn)
+	var id := "mistress" if Save.area() == 1 else "poloz"
+	var inner: Array = PORTRAIT_INNER[id]
+	var o := F * float(inner[0])
+	var n := F * float(inner[1])
+	var back := ColorRect.new()
+	back.color = Color("#17130f")
+	back.position = Vector2(o - 1, o - 1)
+	back.size = Vector2(n + 2, n + 2)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	w.add_child(back)
+	var face := Kit.icon("equipment", n * 0.86)
+	face.size = Vector2(n, n) * 0.86
+	face.position = Vector2(o, o) + Vector2(n, n) * 0.07
+	w.add_child(face)
+	var frame := TextureRect.new()
+	frame.texture = Kit.tex("portrait/" + id)
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.size = Vector2(F, F)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the Mistress's 1-pt pixel frame is stored ×3 so it scales down evenly (unscaled, its cells came out uneven)
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	w.add_child(frame)
+	var mins := Save.minutes_to_life()
+	# the lives: a heart on the frame's lower right corner with their number on it; while one is coming back,
+	# the minutes left in small print under the portrait
+	var heart := Kit.icon("heart", 32)
+	heart.size = Vector2(32, 32)
+	heart.position = Vector2(F - 20, F - 22)
+	w.add_child(heart)
+	var hn := Kit.label(str(Save.d.lives), 15, UI.display)
+	hn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hn.size = Vector2(32, 28)
+	hn.position = heart.position
+	w.add_child(hn)
+	if mins:
+		var tl := Kit.label("+1 in %dm" % mins, 11, UI.body_bold, Kit.DIM)
+		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tl.size = Vector2(F + 20, 14)
+		tl.position = Vector2(-10, F + 4)
+		w.add_child(tl)
+	return w
+
+## a capsule's number sits between these insets (points): clear of the icon on the left, of the rivet on the right
+const CAP_L := 24.0
+const CAP_R := 12.0
+
+## where along a capsule `w` points wide the middle of its slate is (the name plate's chains hang from there)
+static func capsule_mid(w: float) -> float:
+	return (CAP_L + w - CAP_R) / 2
+
+## one resource (or the lives): a long brass-rimmed capsule, its icon sitting over the left end, the number
+static func capsule(kind: String, text: String) -> Control:
+	var w := Control.new()
+	w.custom_minimum_size = Vector2(0, 36)
+	w.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := Panel.new()
+	bg.add_theme_stylebox_override("panel", Kit.box("capsule", 0.0))
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.offset_left = 12
+	bg.offset_top = 3
+	bg.offset_bottom = -3
+	w.add_child(bg)
+	var l := Kit.label(text, 13)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# centred on the capsule's slate (its rims are as wide at both ends), clear of the icon over the left one
+	l.offset_left = CAP_L
+	l.offset_right = -CAP_R
+	l.clip_text = true
+	w.add_child(l)
+	var ic := Kit.res_icon(kind, 30)
+	ic.size = Vector2(30, 30)
+	ic.position = Vector2(0, 3)
+	w.add_child(ic)
+	return w
+
+## the gear: sound on or off (hold the gear for the diagnostics)
+static func settings() -> void:
+	var v := Ov.card(300)
+	v.add_child(UI.title("Settings", 22))
+	var snd := Ov.btn("Sound: on" if not Save.d.mute else "Sound: off", "glass", func(): pass)
+	snd.pressed.connect(func():
 		Save.d.mute = not Save.d.mute
 		Save.persist()
 		Sfx.apply_mute()
-		snd.text = "♪" if not Save.d.mute else "×")
-	h.add_child(snd)
-	return h
+		snd.text = "Sound: on" if not Save.d.mute else "Sound: off")
+	v.add_child(snd)
+	# for testing: the diagnostics log (errors, slow frames, FPS; Copy) and the tester's panel (any depth, the boss…)
+	v.add_child(Ov.btn("Logs", "glass", func(): Diag.show_card()))
+	v.add_child(Ov.btn("Admin", "glass", func(): Admin.open()))
+	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
 ## one resource plate: a dark rounded bar with its round badge sitting over the left end
 static func plate(kind: String, text: String) -> Control:
@@ -129,58 +238,45 @@ static func coin_icon(ci: CanvasItem, kind: String, c: Vector2, r: float) -> voi
 
 ## the bottom tab bar: mine, depot, museum, three even segments edge to edge; the open one is lit,
 ## with a gold top edge, a bigger icon and its label, the others show just their icon
+## the bottom bar (the drawn kit): the map of mines, the mine itself, the collection, the equipment — four slate
+## tiles in iron frames on a dark ledge; the open one lit warm, with its icon a little bigger
 static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	var bar := PanelContainer.new()
 	var st := StyleBoxFlat.new()
-	st.bg_color = Color("#151d2c")
-	st.border_color = Color(1, 1, 1, 0.1)
-	st.border_width_top = 1
-	st.content_margin_left = 0
-	st.content_margin_right = 0
-	st.content_margin_top = 0
-	st.content_margin_bottom = UI.safe_bottom()
-	st.shadow_color = Color(0, 0, 0, 0.45)
-	st.shadow_size = 18
+	st.bg_color = Color("#0d0c0b", 0.94)
+	st.border_color = Color("#6b5530")
+	st.border_width_top = 2
+	st.content_margin_left = 6
+	st.content_margin_right = 6
+	st.content_margin_top = 6
+	st.content_margin_bottom = 4 + UI.safe_bottom()
+	st.shadow_color = Color(0, 0, 0, 0.5)
+	st.shadow_size = 14
 	bar.add_theme_stylebox_override("panel", st)
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 0)
-	var tabs := [["home", "Mine"], ["depot", "Machines"], ["museum", "Collection"]]
-	for ti in tabs.size():
-		var tab: Array = tabs[ti]
+	h.add_theme_constant_override("separation", 5)
+	var tabs := [["map", "Mines", "map"], ["home", "Mine", "mine"], ["museum", "Collection", "collection"], ["depot", "Equipment", "equipment"]]
+	for tab: Array in tabs:
 		var id: String = tab[0]
 		var on := id == active
-		if ti > 0:
-			var sep := ColorRect.new()
-			sep.color = Color(1, 1, 1, 0.07)
-			sep.custom_minimum_size = Vector2(1, 0)
-			sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			h.add_child(sep)
 		var b := Button.new()
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 58)
-		var bs := StyleBoxFlat.new()
-		bs.bg_color = Color("#24324b") if on else Color(0, 0, 0, 0)
-		if on:
-			bs.border_color = Color("#f2b630")
-			bs.border_width_top = 3
-		for s in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(s, bs)
-		var col := Color("#ffd77a") if on else Color("#7d8ba3")
+		b.custom_minimum_size = Vector2(0, 66)
+		for s in ["normal", "hover", "focus"]:
+			b.add_theme_stylebox_override(s, Kit.box("tab_on" if on else "tab", 0.0))
+		b.add_theme_stylebox_override("pressed", Kit.box("tab_on" if on else "tab", 0.0, Color(0.8, 0.76, 0.7)))
 		var v := VBoxContainer.new()
 		v.set_anchors_preset(Control.PRESET_FULL_RECT)
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		v.add_theme_constant_override("separation", 2)
+		v.add_theme_constant_override("separation", 0)
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var isz := 30.0 if on else 26.0
-		var ic := UI.icon(isz, func(ci: Control):
-			ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE * isz / 26.0)
-			tab_icon(ci, id, col))
+		var ic := Kit.icon(String(tab[2]), 36.0 if on else 32.0)
 		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if not on: ic.modulate = Color(0.8, 0.78, 0.74)
 		v.add_child(ic)
-		if on:
-			var l := UI.label(tab[1], 12, UI.body_bold, col)
-			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			v.add_child(l)
+		var l := Kit.label(tab[1], 11, UI.body_bold, Kit.AMBER if on else Kit.DIM)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(l)
 		b.add_child(v)
 		b.pressed.connect(func():
 			Sfx.buzz(8)
@@ -190,6 +286,27 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 		h.add_child(b)
 	bar.add_child(h)
 	return bar
+
+## the map of mines (for now a card): the mines in order, the one being worked marked, the next ones shut
+static func mines_card() -> void:
+	var v := Ov.card(330)
+	v.add_child(UI.title("Mines", 22))
+	var cur := Save.area()
+	for a in Data.AREAS.size():
+		var A: Dictionary = Data.AREAS[a]
+		var row := PanelContainer.new()
+		row.add_theme_stylebox_override("panel", Kit.box("tab_on" if a == cur else "card", 12.0))
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.add_child(Kit.icon("mine" if a <= cur else "lock", 34))
+		var t := VBoxContainer.new()
+		t.add_theme_constant_override("separation", 0)
+		t.add_child(Kit.label(String(A.n), 16, UI.display, Kit.AMBER if a == cur else Kit.CREAM if a < cur else Kit.DIM))
+		t.add_child(Kit.label("worked now" if a == cur else "worked out" if a < cur else "not yet reached", 12, UI.body, Kit.DIM))
+		h.add_child(t)
+		row.add_child(h)
+		v.add_child(row)
+	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
 static func tab_icon(ci: CanvasItem, id: String, col: Color) -> void:
 	var w := 2.0

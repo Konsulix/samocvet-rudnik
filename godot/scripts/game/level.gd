@@ -175,19 +175,20 @@ func _build_hud() -> void:
 	# top line: close and the level title
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var close := UI.marble_button("✕", 18)
-	close.add_theme_stylebox_override("normal", UI.marble(22))
-	close.custom_minimum_size = Vector2(44, 44)
+	var close := Kit.icon_button("close", 44)
 	close.pressed.connect(_on_quit)
 	top.add_child(close)
 	top.add_theme_constant_override("separation", 10)
 	var title_pill := PanelContainer.new()
 	title_pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var tp := UI.marble(20)
-	tp.content_margin_top = 6
-	tp.content_margin_bottom = 8
+	# the drawn kit's title plate: dark iron with a brass rim and a rivet at each end
+	var tp := Kit.box("title", 0.0)
+	tp.content_margin_left = 22
+	tp.content_margin_right = 22
+	tp.content_margin_top = 8
+	tp.content_margin_bottom = 9
 	title_pill.add_theme_stylebox_override("panel", tp)
-	title_label = UI.label("Level", 15, UI.display, UI.STONE_INK)
+	title_label = Kit.label("Level", 15, UI.display, Kit.CREAM)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.clip_text = true
 	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -195,7 +196,7 @@ func _build_hud() -> void:
 	title_pill.add_child(title_label)
 	top.add_child(title_pill)
 	# the looks: which gems, how ore shows, which timber (to try them out on the board)
-	var looks := UI.marble_button("", 18)
+	var looks := Kit.button("", "sq_dark", 18, 0.0)
 	looks.custom_minimum_size = Vector2(44, 44)
 	looks_icon = UI.icon(44, func(ci):
 		BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(16, 19), 23 * BoardSprites.gem_scale())
@@ -214,9 +215,11 @@ func _build_hud() -> void:
 	var goals_panel := PanelContainer.new()
 	goals_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	goals_panel.custom_minimum_size = Vector2(60, 78)
-	var gp := UI.slate(22)
-	gp.content_margin_top = 6
-	gp.content_margin_bottom = 5
+	var gp := Kit.box("card", 0.0)
+	gp.content_margin_left = 12
+	gp.content_margin_right = 12
+	gp.content_margin_top = 9
+	gp.content_margin_bottom = 9
 	goals_panel.add_theme_stylebox_override("panel", gp)
 	var plate := VBoxContainer.new()
 	plate.add_theme_constant_override("separation", 4)
@@ -244,7 +247,7 @@ func _build_hud() -> void:
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 5)
 		var k: String = kind
-		var ic := UI.icon(20, func(ci: Control): Chrome.coin_icon(ci, k, Vector2(10, 10), 9))
+		var ic := Kit.res_icon(k, 20)
 		h.add_child(ic)
 		var count := UI.label("0", 15, UI.display)
 		count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -260,21 +263,20 @@ func _build_hud() -> void:
 	moves_token = PanelContainer.new()
 	moves_token.custom_minimum_size = Vector2(80, 80)
 	moves_token.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	# a marble disc drawn round: a soft shadow, a gold rim and a fine inner ring, the text in its exact middle
+	# the drawn kit's token: a slate disc in a riveted brass ring, the count in its exact middle
+	var ring := Kit.tex("ring")
 	moves_token.draw.connect(func():
+		var d := minf(moves_token.size.x, moves_token.size.y)
 		var c := moves_token.size / 2
-		var rad := minf(c.x, c.y)
-		moves_token.draw_circle(c + Vector2(2, 4), rad, Color(0.25, 0.18, 0.1, 0.18), true, -1.0, true)
-		moves_token.draw_circle(c, rad, Color("#c9a35a"), true, -1.0, true)
-		moves_token.draw_circle(c, rad - 2.5, Color("#ece6dc"), true, -1.0, true)
-		moves_token.draw_arc(c, rad - 6.5, 0, TAU, 64, Color(0.79, 0.64, 0.35, 0.45), 1.0, true))
+		moves_token.draw_circle(c + Vector2(2, 4), d / 2, Color(0, 0, 0, 0.3), true, -1.0, true)
+		moves_token.draw_texture_rect(ring, Rect2(c - Vector2(d, d) / 2, Vector2(d, d)), false))
 	var mv := VBoxContainer.new()
 	mv.alignment = BoxContainer.ALIGNMENT_CENTER
 	mv.add_theme_constant_override("separation", -8)
-	var small := UI.label("MOVES", 9, UI.body_bold, UI.STONE_MUTED)
+	var small := Kit.label("MOVES", 9, UI.body_bold, Kit.DIM)
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(small)
-	moves_label = UI.label("0", 28, UI.display, UI.STONE_INK)
+	moves_label = Kit.label("0", 28, UI.display, Kit.AMBER)
 	moves_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(moves_label)
 	moves_token.add_child(mv)
@@ -400,7 +402,7 @@ func _render_goal(i: int) -> void:
 func _render_moves() -> void:
 	moves_label.text = str(model.moves)
 	var low := model.moves <= 5 and not model.over
-	moves_label.add_theme_color_override("font_color", Color("#b0242c") if low else UI.STONE_INK)
+	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if low else Kit.AMBER)
 	if model.boss_on(): LevelBoss.moves(self)
 
 func _render_boosters() -> void:
@@ -419,11 +421,15 @@ func _render_boosters() -> void:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(64, 64)
 		# the fight's buttons are dark slate like the rest of its interface
-		var st := BossHud.plate(16) if model.boss_on() else UI.marble(16)
-		if booster == id:
-			st.border_color = Color("#c9a35a")
-			st.set_border_width_all(3)
-		for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, st)
+		# the drawn kit's tiles (the chosen one lit warm); the fight keeps its own dark plates
+		if model.boss_on():
+			var st := BossHud.plate(16)
+			if booster == id:
+				st.border_color = Color("#c9a35a")
+				st.set_border_width_all(3)
+			for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, st)
+		else:
+			for s in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(s, Kit.box("tab_on" if booster == id else "card", 0.0))
 		var open := Data.boost_open(bo)
 		var ic := UI.icon(44, func(ci):
 			if id != "pick" or BoardSprites.gem_style != "":
@@ -439,9 +445,9 @@ func _render_boosters() -> void:
 		if not open:
 			# not yet: the tool in shadow, the depth it opens at under it
 			ic.modulate = Color(0.25, 0.24, 0.23, 0.45)
-			var at := UI.label("%d m" % Data.depth_m(0, int(bo.at)), 13, UI.body_bold, Color("#ece6dc") if model.boss_on() else UI.STONE_INK)
+			var at := UI.label("%d m" % Data.depth_m(0, int(bo.at)), 13, UI.body_bold, Color("#ece6dc"))
 			at.add_theme_constant_override("outline_size", 6)
-			at.add_theme_color_override("font_outline_color", Color("#2a2622") if model.boss_on() else Color("#ece6dc"))
+			at.add_theme_color_override("font_outline_color", Color("#2a2622"))
 			at.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			at.custom_minimum_size = Vector2(64, 0)
 			at.position = Vector2(0, 22)

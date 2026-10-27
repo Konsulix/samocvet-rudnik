@@ -549,7 +549,8 @@ func pop_text(r: float, c: float, txt: String, col := Color("#ffb090")) -> void:
 func fly_badge(r: float, c: float, target: Vector2, kind: String, on_land: Callable) -> void:
 	var n := Node2D.new()
 	var rad: float = board.TS * 0.26
-	n.draw.connect(func(): Chrome.coin_icon(n, kind, Vector2.ZERO, rad))
+	var it: Texture2D = Kit.res_icon(kind, 1).texture   # the kit's own ore, as in the HUD it flies to
+	n.draw.connect(func(): n.draw_texture_rect(it, Rect2(-Vector2(rad, rad) * 1.2, Vector2(rad, rad) * 2.4), false))
 	n.position = cell(r, c)
 	add_child(n)
 	var p0 := n.position

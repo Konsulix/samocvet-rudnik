@@ -215,6 +215,7 @@ func show_home() -> void:
 
 func go(id: String) -> void:
 	match id:
+		"map": Chrome.mines_card()
 		"home": show_home()
 		"depot":
 			var d := Depot.new()

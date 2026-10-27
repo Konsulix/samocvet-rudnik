@@ -334,6 +334,29 @@
   (`Level.BGS/_pick_bg`, ключ `bg=0..5`).
   Бой ставит свою пещеру поверх (`LevelBoss.mount`). Исходники GPT — `art/level_bg/src/`, в сетку 1 pt — `art/level_bg/pixelize.py`.
   Иконка — рука Хозяйки с ящеркой и рубином (`art/icon_v2/ic3.png` → `godot/icon.png`), другие варианты там же. Старый `level_bg.png` не используется.
+- 27.10, **новый интерфейс — рисованный набор** (тёмный сланец, железо, старая латунь; макеты GPT — `art/ui_redesign/`,
+  выбран стиль «L2 + окно с фонарём»). Детали нарисовал GPT на пурпуре (`art/ui_kit/gen_kit.sh frames|icons`), нарезка —
+  `art/ui_kit/kit_cut.py frames|icons <лист> godot/assets/ui/kit[/icons]` (13 рамок + 20 иконок). В игре: `Kit` (`screens/kit.gd`:
+  `box(рамка)`, `button`, `icon_button`, `icon`, `res_icon`, `label`, `lantern`) и `KitBox` — рамка-nine-patch, рисуется с ~3 px
+  картинки на pt (чёткая на телефоне), углы — `Kit.FRAMES`. Середина растягивается (плиткой были видны швы).
+  Переведены: верхний бар (`Chrome.top_bar`: портрет с уровнем и жизнями, капсулы монет/железа/руды, шестерёнка → настройки;
+  удержание — диагностика), нижний (`Chrome.nav_bar`: Mines · Mine · Collection · Equipment; Mines — пока карточка `mines_card`),
+  кнопки уровня и развития на главном, все окна `Ov.card/btn` (окно уровня — с фонарём `Kit.lantern(Ov.holder())`),
+  шапка поля (табличка, цели, жетон ходов, ✕, бустеры). Портрет квадратный, в рамке босса рудника (`assets/ui/kit/portrait/`: poloz — рендер
+  `art/boss/serpent/avatar.png`, mistress — `boss/mistress/kit/avatar.png`; окно — `Chrome.PORTRAIT_INNER` из их .json);
+  внутри пока иконка каски (нарисовать шахтёра). Рамки полей из пород боссов: `board/kit/poloz`, `board/kit/serpentine`
+  (бруски/колпаки `board_kit.py`), рамки боя `boss/poloz/kit`, `boss/mistress/kit`.
+  Шапка главного — только имя рудника на табличке (`Home._name_plate`, Nunito Black; у FontVariation поверх `UI.display`
+  копировать `variation_opentype`, иначе вес теряется). Верхний бар: без значка уровня и без плюсов; жизни — сердце с числом на углу портрета
+  (таймер «+1 in Nm» мелко под портретом), табличка рудника висит на двух латунных цепях под капсулами и чуть качается (`Home._hanging`, `Kit.chain`).
+  Карточка Next — «сланцевый двойник» зелёной кнопки (`btn_slate`, тот же обод: `art/ui_kit/slate_button.py`).
+  Заклёпки на торцах не тянутся: у зелёной/сланцевой кнопки и таблички растёт гладкий бортик над и под заклёпкой
+  (`Kit.PIN` → `KitBox.pin`, две половины nine-patch); капсула масштабируется под высоту целиком (`Kit.FIT_H`). Окно уровня: углы рамки скруглены
+  (`art/ui_kit/round_window.py`, исходник `window_square.png`), уголки-пластины сохранены (обрезаны дугой, большая заклёпка сдвинута внутрь), фонарь висит на цепочке внутри угла, качается и мерцает
+  (`KitLantern`: маятник, ореол у стекла и пятно света на сланце дышат вместе с пламенем), ± квадратные у середины, под заголовком латунная полоска `Kit.rule`,
+  окно держится между верхним баром и рядом Play (`Ov.keep_clear`); на кнопке Play нет ходов (только rich/streak).
+  Монета — шестигранная с рубином (`art/ui_kit/coins_a.png` вариант 4, `gen_kit.sh coins`; прежняя с орлом — `coin_eagle_old.png`). Внутренности
+  депо/музея/наград ещё старые. Не проверено на iPhone.
 - Перевести в мраморный стиль: окна (победа/поражение/раскрытие находки — `autoload/overlay.gd`, `screens/reveal.gd`),
   главный экран (`screens/home.gd`, `mine_scene.gd`), депо, музей; эффекты взрывов (`game/fx_layer.gd`).
 - Старое (можно удалять со временем): `board3d.gd`, `gem_cut.gd`, `piece_form.gd`, `board_gem/board_piece.gdshader`,

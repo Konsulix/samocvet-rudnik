@@ -19,7 +19,11 @@ func _ready() -> void:
 func is_open() -> bool:
 	return _card != null
 
-## glow: a coloured rim and halo round the card (the find's rarity); transparent = the plain gold hairline
+## the open card's holder (the card sits at its origin): Kit.lantern(Ov.holder()) hangs a lantern on its corner
+func holder() -> Control:
+	return _card.get_parent() as Control if _card else null
+
+## glow: a coloured halo round the card (the find's rarity)
 func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	close(false)
 	Sfx.play("open")
@@ -34,20 +38,29 @@ func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center)
 	_card = PanelContainer.new()
-	var st := UI.glass(26, 0.94)
-	st.set_content_margin_all(18)
-	st.border_color = Color(1, 0.85, 0.5, 0.22)
-	if glow.a > 0.0:
-		st.set_border_width_all(2)
-		st.border_color = Color(glow, 0.85)
-		st.shadow_color = Color(glow, 0.45)
-		st.shadow_size = 22
-	_card.add_theme_stylebox_override("panel", st)
+	# the drawn kit's window: slate in a brass-and-iron frame (Kit); a rarity glow shows as a halo behind it
+	_card.add_theme_stylebox_override("panel", Kit.box("window", 20.0))
 	_card.custom_minimum_size = Vector2(width, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
 	_card.add_child(v)
-	center.add_child(_card)
+	# a plain holder, so the card can wear a lantern on its corner (a container would lay it out)
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card.resized.connect(func(): holder.custom_minimum_size = _card.size)
+	if glow.a > 0.0:
+		var halo := Panel.new()
+		var hs := StyleBoxFlat.new()
+		hs.bg_color = Color(0, 0, 0, 0)
+		hs.set_corner_radius_all(24)
+		hs.shadow_color = Color(glow, 0.5)
+		hs.shadow_size = 26
+		halo.add_theme_stylebox_override("panel", hs)
+		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_card.resized.connect(func(): halo.size = _card.size)
+		holder.add_child(halo)
+	holder.add_child(_card)
+	center.add_child(holder)
 	_card.scale = Vector2(0.86, 0.86)
 	_card.modulate.a = 0.0
 	_card.resized.connect(func(): _card.pivot_offset = _card.size / 2)
@@ -66,18 +79,26 @@ func panel(title_text: String, body_text: String, buttons: Array) -> VBoxContain
 		v.add_child(btn(b[0], b[1], b[2], b[3] if b.size() > 3 else true))
 	return v
 
-func text(s: String, size := 15, col := UI.MUTED) -> Label:
+func text(s: String, size := 15, col := Color("#cbbfa6")) -> Label:
 	var l := UI.label(s, size, UI.body, col)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
+## a card's button in the drawn kit: green -> the green plate, gold -> brass, anything else -> dark slate
 func btn(label: String, kind: String, fn: Callable, enabled := true) -> Button:
-	var b := UI.button(label, kind, 17)
-	b.custom_minimum_size = Vector2(0, 50)
+	var frame: String = {green = "btn_green", gold = "btn_gold"}.get(kind, "btn_dark")
+	var b := Kit.button(label, frame, 20 if frame == "btn_green" else 18, 6.0)
+	b.custom_minimum_size = Vector2(0, 60 if frame == "btn_green" else 50)
 	b.disabled = not enabled
 	b.pressed.connect(fn)
 	return b
+
+## the open card stays between these margins (points from the screen's top and bottom), centred in what is left
+func keep_clear(top: float, bottom: float) -> void:
+	if _center:
+		_center.offset_top = top
+		_center.offset_bottom = -bottom
 
 func close(emit := true) -> void:
 	for n in [_dim, _center]:
