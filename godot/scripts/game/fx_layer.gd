@@ -63,7 +63,7 @@ func _draw() -> void:
 # ---------------------------------------------------------------- particles
 
 ## a one-shot burst of chips or sparks
-func burst(pos: Vector2, col: Color, amount: int, speed := 160.0, gravity := 520.0, size_px := 4.0, sparkle := false) -> void:
+func burst(pos: Vector2, col: Color, amount: int, speed := 160.0, gravity := 520.0, size_px := 4.0, sparkle := false, spin := 360.0) -> void:
 	var p := CPUParticles2D.new()
 	p.position = pos
 	p.one_shot = true
@@ -77,8 +77,8 @@ func burst(pos: Vector2, col: Color, amount: int, speed := 160.0, gravity := 520
 	p.gravity = Vector2(0, gravity)
 	p.scale_amount_min = size_px * 0.5
 	p.scale_amount_max = size_px
-	p.angular_velocity_min = -360
-	p.angular_velocity_max = 360
+	p.angular_velocity_min = -spin
+	p.angular_velocity_max = spin
 	var ramp := Gradient.new()
 	if sparkle:
 		ramp.set_color(0, Color(col.r * 2.4, col.g * 2.4, col.b * 2.4, 1))
@@ -423,6 +423,13 @@ func pan() -> void:
 
 func debris(r: float, c: float, col: Color, amount := 10) -> void:
 	burst(cell(r, c), col, amount, 170.0, 620.0, 4.5)
+
+## a gem broken: grey-brown rock grit with only a hint of the stone's colour, barely turning, and a couple of
+## glints of its colour (pure-coloured spinning squares read as confetti when a blast breaks many colours at once)
+func gem_chips(r: float, c: float, col: Color) -> void:
+	var rock := Color("#6e6050").lerp(col.darkened(0.35), 0.3)
+	burst(cell(r, c), rock, 5, 170.0, 700.0, 3.5, false, 90.0)
+	burst(cell(r, c), Color(col.lightened(0.3), 1.0), 3, 120.0, 200.0, 2.0, true, 0.0)
 
 func sparkle(r: float, c: float, col: Color, amount := 24) -> void:
 	burst(cell(r, c), col, amount, 230.0, 60.0, 3.0, true)

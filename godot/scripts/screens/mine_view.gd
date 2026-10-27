@@ -704,6 +704,8 @@ func _tick_events() -> void:
 	if _bands.size() > 3 and String(_bands[3].state) == "flooded": pool.append("coil")
 	pool.append("eyes")
 	pool.append("bat")
+	if area == 0 and _crew_ok("lizard"):
+		pool.append("lizard")         # the herald of the next mine's Mistress: nobody here knows who she is
 	_bat_k = _rng.randi_range(0, open)
 	if not pool.is_empty():
 		var ev: String = pool[_rng.randi() % pool.size()]
@@ -1192,6 +1194,25 @@ func _snake_live(c: CanvasItem) -> void:
 				if s > 5.0: done = true
 				else:
 					_eyes(c, Vector2(968, float(J.sky) + 1606), s, 0.38)
+			"lizard":
+				# along the back wall of an open gallery from the face: a dash, a stop at the niche (she looks at the stone),
+				# a dash into the shaft
+				if s > 6.0: done = true
+				else:
+					var y := band_y(_bat_k) + 230
+					var stop := 300.0 + _bat_k * 97 % 400
+					var x := 0.0
+					if s < 1.6: x = -60 + (stop + 60) * (s / 1.6)
+					elif s < 3.2: x = stop
+					else: x = stop + (float(J.portal) - stop) * minf(1.0, (s - 3.2) / 2.2)
+					var moving := s < 1.6 or s > 3.2
+					var fr := "lizard/%d.png" % ((int(t * 16) % 8) if moving else 0)
+					var ls := _size(fr)
+					if x < float(J.portal):
+						# head to the right: the drawing points up, so it is turned a quarter round
+						c.draw_set_transform(Vector2(x, y + sin(x * 0.03) * 10), PI / 2, Vector2.ONE)
+						c.draw_texture_rect(tex(fr), Rect2(-ls / 2, ls), false)
+						c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 			"bat":
 				var u := s / 3.2
 				if u >= 1.0: done = true

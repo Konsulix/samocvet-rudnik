@@ -623,7 +623,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"clear":
 			board.pop_gem(e.id, merges.get(e.id, Vector2i(-1, -1)))
 			if e.color >= 0 and not merges.has(e.id):
-				fx.debris(e.r, e.c, Color.html(Data.GEMS[e.color].c), 6)
+				fx.gem_chips(e.r, e.c, Color.html(Data.GEMS[e.color].c))
 		"rock":
 			board.redraw_under()
 			if BoardSprites.gem_style != "" and e.left == 0:
@@ -944,7 +944,7 @@ func _win() -> void:
 	var stone := {}
 	if not model.find.is_empty() and model.find.done:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
-	_confetti()
+	_victory_fx()
 	await _wait(0.6)
 	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate(), boss = model.boss_on()})
 
@@ -1187,32 +1187,73 @@ func _cheer(text: String) -> void:
 	tw.tween_property(l, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(l.queue_free)
 
-func _confetti() -> void:
-	var p := CPUParticles2D.new()
+## the win: the mine answers — gold sparks fly up off the board and drift down, while dust and grit sift from the
+## roof (the old coloured confetti did not belong underground)
+func _victory_fx() -> void:
 	var vp := get_viewport_rect().size
-	p.position = Vector2(vp.x / 2, -20)
+	var soft := GradientTexture2D.new()
+	var sg := Gradient.new()
+	sg.set_color(0, Color(1, 1, 1, 1))
+	sg.set_color(1, Color(1, 1, 1, 0))
+	soft.gradient = sg
+	soft.fill = GradientTexture2D.FILL_RADIAL
+	soft.fill_from = Vector2(0.5, 0.5)
+	soft.fill_to = Vector2(1.0, 0.5)
+	soft.width = 32
+	soft.height = 32
+	# soft dust from the roof
+	var dust := _victory_emitter(Vector2(vp.x / 2, -10), Vector2(vp.x / 2, 6), 70, 2.8, 0.5)
+	dust.texture = soft
+	dust.gravity = Vector2(0, 40)
+	dust.initial_velocity_min = 10
+	dust.initial_velocity_max = 50
+	dust.direction = Vector2(0, 1)
+	dust.spread = 25
+	dust.scale_amount_min = 0.4
+	dust.scale_amount_max = 1.6
+	dust.color_ramp = _ramp([Color(0.62, 0.52, 0.4, 0.0), Color(0.62, 0.52, 0.4, 0.6), Color(0.5, 0.42, 0.33, 0.0)])
+	# grit falling with it, faster, not spinning like paper
+	var grit := _victory_emitter(Vector2(vp.x / 2, -10), Vector2(vp.x / 2, 6), 40, 1.8, 0.6)
+	grit.gravity = Vector2(0, 700)
+	grit.initial_velocity_min = 20
+	grit.initial_velocity_max = 90
+	grit.direction = Vector2(0, 1)
+	grit.spread = 10
+	grit.scale_amount_min = 1.5
+	grit.scale_amount_max = 3.5
+	grit.color_ramp = _ramp([Color("#8a7660"), Color("#5e4e3e"), Color(0.37, 0.31, 0.24, 0.0)])
+	# gold sparks thrown up off the board, then sinking and going out
+	var sparks := _victory_emitter(Vector2(vp.x / 2, vp.y * 0.52), Vector2(vp.x * 0.38, vp.y * 0.18), 90, 1.6, 0.8)
+	sparks.texture = soft
+	sparks.gravity = Vector2(0, 180)
+	sparks.initial_velocity_min = 80
+	sparks.initial_velocity_max = 260
+	sparks.direction = Vector2(0, -1)
+	sparks.spread = 40
+	sparks.damping_min = 40
+	sparks.damping_max = 90
+	sparks.scale_amount_min = 0.25
+	sparks.scale_amount_max = 0.6
+	sparks.color_ramp = _ramp([Color(1.0, 0.93, 0.6, 1.0), Color(1.0, 0.72, 0.25, 0.9), Color(0.85, 0.4, 0.1, 0.0)])
+
+func _victory_emitter(at: Vector2, ext: Vector2, amount: int, life: float, burst: float) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.position = at
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	p.emission_rect_extents = Vector2(vp.x / 2, 10)
-	p.amount = 160
+	p.emission_rect_extents = ext
+	p.amount = amount
 	p.one_shot = true
-	p.explosiveness = 0.85
-	p.lifetime = 2.6
-	p.gravity = Vector2(0, 260)
-	p.initial_velocity_min = 40
-	p.initial_velocity_max = 160
-	p.direction = Vector2(0, 1)
-	p.spread = 60
-	p.angular_velocity_min = -300
-	p.angular_velocity_max = 300
-	p.scale_amount_min = 4
-	p.scale_amount_max = 8
-	var cols := Gradient.new()
-	cols.set_color(0, Color("#ee3a55"))
-	cols.add_point(0.25, Color("#3484ff"))
-	cols.add_point(0.5, Color("#25c071"))
-	cols.add_point(0.75, Color("#ffbd2e"))
-	cols.set_color(cols.get_point_count() - 1, Color("#a05ef7"))
-	p.color_initial_ramp = cols
+	p.explosiveness = burst
+	p.lifetime = life
 	hud.add_child(p)
 	p.emitting = true
-	get_tree().create_timer(3.0).timeout.connect(p.queue_free)
+	get_tree().create_timer(life + 0.5).timeout.connect(p.queue_free)
+	return p
+
+func _ramp(cols: Array[Color]) -> Gradient:
+	var g := Gradient.new()
+	g.set_color(0, cols[0])
+	g.set_color(1, cols[cols.size() - 1])
+	for i in range(1, cols.size() - 1):
+		g.add_point(i / float(cols.size() - 1), cols[i])
+	return g
