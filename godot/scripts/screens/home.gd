@@ -13,6 +13,9 @@ var ui_root: VBoxContainer
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
 static var start_scroll := -1.0   # a test key puts the first view here (-- scroll=N)
+var _vel := 0.0             # the drawn mine's fling after the finger lets go, screen units a second
+var _track: Array = []      # the last few [time, y] of the finger, for the fling speed
+var _glide: Tween
 var _press := Vector2.ZERO
 var _press_scroll := 0.0
 var _dragging := false
@@ -78,6 +81,8 @@ func render() -> void:
 			scroll = view.band_y(dl_sel()) * view.scale.y - vp.y * 0.45
 			if start_scroll >= 0: scroll = start_scroll
 		_scroll_to(scroll)
+		if view.focus_y >= 0.0:
+			_glide_to(view.focus_y * view.scale.y - vp.y * 0.45)
 	else:
 		scene.setup(ai(), Save.d.built[ai()], int(Save.d.depth[ai()]), dl_sel(), hv)
 	if ui_root:
@@ -121,7 +126,8 @@ func render() -> void:
 	cs.content_margin_bottom = 3
 	chip.add_theme_stylebox_override("normal", cs)
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(chip)
+	if not uses_view():   # the drawn mine marks the depth being dug on itself (⛏ on its plaque)
+		col.add_child(chip)
 	var vl := UI.label(Level.vein_text_for(ai(), dl_sel()), 12, UI.body_bold, Color("#d8e0ee"))
 	vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
@@ -263,6 +269,22 @@ func _play_button() -> Button:
 func uses_view() -> bool:
 	return view != null and ai() == 0
 
+## a smooth ride of the drawn mine to a scroll position (the finger stops it)
+func _glide_to(v: float) -> void:
+	if _glide: _glide.kill()
+	_vel = 0.0
+	_glide = create_tween()
+	_glide.tween_method(_scroll_to, scroll, v, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _process(dt: float) -> void:
+	if view == null or not uses_view() or _down or absf(_vel) < 1.0:
+		return
+	var was := scroll
+	_scroll_to(scroll - _vel * dt)
+	_vel *= exp(-3.2 * dt)
+	if absf(_vel) < 25.0 or scroll == was:
+		_vel = 0.0
+
 func _scroll_to(v: float) -> void:
 	var vp := get_viewport_rect().size
 	# the last depth can come up above the Play row and the tab bar
@@ -307,9 +329,7 @@ func _show_job(tid: String) -> void:
 	if not uses_view(): return
 	var at := view.job_pos(tid)
 	var vp := get_viewport_rect().size
-	var tw := create_tween()
-	tw.tween_method(_scroll_to, scroll, at.y * view.scale.y - vp.y * 0.45, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	view.burst(at)
+	view.burst(at)          # the screen itself glides there from render() (MineView.focus_y)
 
 ## the drawn mine: a finger drags it up and down; a short touch picks a depth
 func _view_input(e: InputEvent) -> void:
@@ -332,17 +352,29 @@ func _view_input(e: InputEvent) -> void:
 		_scroll_to(scroll + (-60.0 if e.button_index == MOUSE_BUTTON_WHEEL_UP else 60.0))
 		accept_event()
 		return
+	var now := Time.get_ticks_msec() / 1000.0
 	if pressed:
 		_down = true
 		_dragging = false
 		_press = pos
 		_press_scroll = scroll
+		_vel = 0.0
+		if _glide: _glide.kill()
+		_track = [[now, pos.y]]
 	elif moved and _down:
+		_track.append([now, pos.y])
+		while _track.size() > 2 and now - float(_track[0][0]) > 0.12: _track.pop_front()
 		if _dragging or absf(pos.y - _press.y) > 10:
 			_dragging = true
 			_scroll_to(_press_scroll - (pos.y - _press.y))
 	elif released and _down:
 		_down = false
+		# the fling: the finger's speed over its last ~0.1 s carries on and slows down
+		if _dragging and _track.size() >= 2:
+			var a: Array = _track[0]
+			var dtt := now - float(a[0])
+			if dtt > 0.01 and now - float(_track[-1][0]) < 0.08:
+				_vel = clampf((pos.y - float(a[1])) / dtt, -4000.0, 4000.0)
 		if not _dragging:
 			var k := view.band_at(view.get_global_transform().affine_inverse() * pos)
 			if k >= 0:
@@ -721,7 +753,7 @@ func _dig() -> void:
 	render()
 	if uses_view():
 		var vp := get_viewport_rect().size
-		create_tween().tween_method(_scroll_to, scroll, view.band_y(k) * view.scale.y - vp.y * 0.35, 0.45).set_trans(Tween.TRANS_SINE)
+		pass   # render() glides to the new depth (MineView.focus_y)
 	_build_pop()
 	Ov.toast("%s broke through: %d m" % [st.tool, Data.depth_m(a, k)])
 

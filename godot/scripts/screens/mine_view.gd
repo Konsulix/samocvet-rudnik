@@ -18,6 +18,7 @@ const PLACES := ["camp", "power", "yard", "headframe"]
 const PICK_FPS := 8.0     # the pick's swing: 6 drawings, the strike on the third
 
 static var _tex := {}
+static var force_event := ""   # test key (-- mine_event=hole|coil|eyes|bat): play it at once
 static var _last := {}    # area -> what the screen showed last: {places, bands, lived}
 
 var J: Dictionary
@@ -51,6 +52,9 @@ var _bat_k := 0
 var _events := {}         # name -> start time of the running rare event, or -1
 var _next_event := 0.0
 var _bursts: Array = []   # dust bursts where something was just built: [centre, start time]
+var focus_y := -1.0       # where the last setup found a change to show (source px), -1: nothing new
+var _set_area := -1
+var top: Node2D           # over the shaft: the cage riding it, its rope, the wheel
 
 ## how many steps of a job are done (a finished job is in Save.d.built instead)
 static func job_step(a: int, id: String) -> int:
@@ -92,6 +96,9 @@ func _ready() -> void:
 	front = Node2D.new()
 	front.draw.connect(func(): _draw_shaft(front))
 	add_child(front)
+	top = Node2D.new()
+	top.draw.connect(func(): _draw_cage(top))
+	add_child(top)
 	amb = MineAmb.new(self)
 	add_child(amb)
 	var g := GradientTexture2D.new()
@@ -144,8 +151,10 @@ func setup(a: int) -> void:
 		var lived: bool = k <= open and d <= 5 and k < wins.size() and int(wins[k]) >= 2
 		_bands.append({y = y0 + k * float(J.band), state = st, d = d, lived = lived, k = k})
 	H = y0 + _bands.size() * float(J.band)
-	_events = {}
-	_next_event = 4.0
+	if _set_area != a:
+		_events = {}
+		_next_event = 4.0
+		_set_area = a
 	surf.texture = tex("surface.png")
 	surf.scale = Vector2.ONE / K
 	var sm := surf.material as ShaderMaterial
@@ -170,12 +179,14 @@ func _changes() -> void:
 	_shown_bands = bands.duplicate()
 	var last: Dictionary = _last.get(area, {})
 	_last[area] = {places = places, bands = bands, lived = lived}
+	focus_y = -1.0
 	if last.is_empty():
 		return
 	var wait := 0.5      # the screen glides to the place first
 	for p in PLACES:
 		var was := int(last.places.get(p, 0))
 		if int(places[p]) > was:
+			if focus_y < 0: focus_y = job_pos(p).y
 			_shown_places[p] = was
 			var at: Array = J.places[p]
 			var now := int(places[p])
@@ -188,6 +199,7 @@ func _changes() -> void:
 		if was == now:
 			continue
 		var y := band_y(int(k))
+		if focus_y < 0: focus_y = y + float(J.band) * 0.5
 		var d := int(k) + 1
 		if was == "flooded":
 			# the pump: the water goes down, the picture under it was the closed gallery all along
@@ -207,6 +219,7 @@ func _changes() -> void:
 	for k in lived:
 		if lived[k] and not bool(last.lived.get(k, false)):
 			_appear[k] = t + wait
+			if focus_y < 0: focus_y = band_y(int(k)) + float(J.band) * 0.5
 
 ## a stage coming in over the old one: ink lines first, then the colour; at the end the still layer takes it over
 func _reveal(path: String, pos: Vector2, delay: float, done: Callable) -> void:
@@ -306,6 +319,37 @@ func _draw_still() -> void:
 		c.draw_string(font, Vector2(r.position.x + 20, r.position.y + 54), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 	_draw_shaft(c)
 
+const CAGE_CYCLE := 16.0   # s: down 6, wait 2 at the bottom, up 6, wait 2 at the top
+
+## how far down the cage is (source px from its top stop): eased down, a wait at the bottom, up, a wait at the top
+func cage_depth() -> float:
+	var cg: Dictionary = J.cage
+	var bottom := band_y(open) + float(J.floor) - _size("cage.png").y
+	var run := maxf(0.0, bottom - float(cg.top))
+	var u := fmod(t, CAGE_CYCLE)
+	var q := 0.0
+	if u < 6.0: q = 0.5 - 0.5 * cos(PI * u / 6.0)
+	elif u < 8.0: q = 1.0
+	elif u < 14.0: q = 0.5 + 0.5 * cos(PI * (u - 8.0) / 6.0)
+	return run * q
+
+## the restored headframe: the cage rides the shaft down to the deepest open depth and back, the wheel turns with
+## the rope; drawn over the shaft column (the cage is in front of its ladder)
+func _draw_cage(c: CanvasItem) -> void:
+	if J.is_empty() or int(steps.get("headframe", 0)) < 3:
+		return
+	var cg: Dictionary = J.cage
+	var depth := cage_depth()
+	var rx := float(cg.rope_x)
+	var y := float(cg.top) + depth
+	var cs := _size("cage.png")
+	c.draw_line(Vector2(rx, float(cg.rope_y)), Vector2(rx, y + 6), Color(0.59, 0.47, 0.31), 3)
+	_put(c, "cage.png", Vector2(rx - cs.x / 2, y))
+	var hub: Array = cg.hub
+	_put_rot(c, "wheel.png", Vector2(float(hub[0]), float(hub[1])), depth / float(cg.r), _size("wheel.png"))
+	var bm: Array = cg.beams
+	_put(c, "beams.png", Vector2(float(bm[0]), float(bm[1])))
+
 ## the shaft down to the floor of the deepest open depth
 func _draw_shaft(c: CanvasItem) -> void:
 	var sh: Array = J.shaft
@@ -334,6 +378,7 @@ func _process(delta: float) -> void:
 	_tick_events()
 	_sounds(delta)
 	live.queue_redraw()
+	top.queue_redraw()
 
 ## how much quieter a sound is for being far from the middle of the screen (dB, 0 at the middle)
 func _far(y_src: float) -> float:
@@ -351,8 +396,8 @@ func _passed(key: String, v: float, every: float, at := 0.0) -> bool:
 ## the sounds at the moments the picture shows them
 func _sounds(_dt: float) -> void:
 	# the cage sets off down (cycle start) and up (half way)
-	if int(steps.get("headframe", 0)) >= 3 and _passed("cage", t, 6.0):
-		amb.shot("winch_%d" % (randi() % 2), _far(float(J.cage.top)))
+	if int(steps.get("headframe", 0)) >= 3 and (_passed("cage_dn", t, CAGE_CYCLE) or _passed("cage_up", t, CAGE_CYCLE, 8.0)):
+		amb.shot("winch_%d" % (randi() % 2), _far(float(J.cage.top) + cage_depth()))
 	for b in _bands:
 		if not b.lived or _appear.has(int(b.k)):
 			continue
@@ -375,6 +420,10 @@ func _sounds(_dt: float) -> void:
 
 
 func _tick_events() -> void:
+	if force_event != "" and t > 0.5:
+		_bat_k = open
+		_events[force_event] = t
+		force_event = ""
 	if t < _next_event:
 		return
 	_next_event = t + _rng.randf_range(9.0, 16.0)
@@ -395,9 +444,9 @@ func _draw_live() -> void:
 	var c := live
 	_lights(c)
 	_surface_live(c)
+	_snake_live(c)
 	for b in _bands:
 		_band_live(c, b)
-	_snake_live(c)
 	for bu in _bursts.duplicate():
 		var i := int((t - float(bu[1])) * 12)
 		if t < float(bu[1]):
@@ -460,13 +509,13 @@ func _surface_live(c: CanvasItem) -> void:
 	# the white crow, and later a flock of three the other way, each with its own wing beat
 	var u := fmod(t, 24.0)
 	if u < 5.0:
-		_put(c, "crow/%d.png" % (int(t * 12) % 6), Vector2(1600 - u * 360, 120 + 25 * sin(t * 1.9)))
+		_put(c, "crow/%d.png" % (int(t * 12) % 6), Vector2(1600 - u * 360, sky + 150 + 25 * sin(t * 1.9)))
 	elif u > 12.0 and u < 17.0:
 		var v := u - 12.0
 		for i in 3:
 			var off: Array = [[0, 0, 0], [-70, 34, 3], [-120, -22, 7]][i]
 			var x := -100 + v * 360 + float(off[0])
-			_put(c, "crow/%d.png" % ((int(t * 12) + int(off[2])) % 6), Vector2(x, 80 + float(off[1]) + 12 * sin(t * 2.2 + i)), true)
+			_put(c, "crow/%d.png" % ((int(t * 12) + int(off[2])) % 6), Vector2(x, sky + 110 + float(off[1]) + 12 * sin(t * 2.2 + i)), true)
 	# the camp: chimney smoke once it has a roof and a fire, the old guide on his bench when it is done
 	var camp := int(steps.get("camp", 0))
 	if camp >= 2:
@@ -494,23 +543,6 @@ func _surface_live(c: CanvasItem) -> void:
 			var ss := _size(sp)
 			var at: Array = J.sparks.at
 			_put(c, sp, Vector2(float(at[0]), float(at[1])) - ss / 2)
-	# the restored headframe: the cage goes down the shaft and comes back, the wheel turns with the rope
-	if int(steps.get("headframe", 0)) >= 3:
-		var cg: Dictionary = J.cage
-		var depth := float(cg.travel) * (0.5 - 0.5 * cos(TAU * t / 12.0))
-		var rx := float(cg.rope_x)
-		var top := float(cg.top) + depth
-		var gr := float(cg.ground)
-		var cs := _size("cage.png")
-		c.draw_line(Vector2(rx, float(cg.rope_y)), Vector2(rx, minf(top + 6, gr)), Color(0.59, 0.47, 0.31), 3)
-		var vis := minf(cs.y, gr - top)
-		if vis > 0:
-			c.draw_texture_rect_region(tex("cage.png"), Rect2(rx - cs.x / 2, top, cs.x, vis), Rect2(0, 0, cs.x * K, vis * K))
-		var hub: Array = cg.hub
-		var ws := _size("wheel.png")
-		_put_rot(c, "wheel.png", Vector2(float(hub[0]), float(hub[1])), depth / float(cg.r), ws)
-		var bm: Array = cg.beams
-		_put(c, "beams.png", Vector2(float(bm[0]), float(bm[1])))
 
 func _band_live(c: CanvasItem, b: Dictionary) -> void:
 	var y := float(b.y)
@@ -645,19 +677,42 @@ func _cart(c: CanvasItem, path: String, cd: Dictionary, bottom_left: Vector2, ro
 	c.draw_texture_rect_region(tx, Rect2(u0, -h, u1 - u0, h), Rect2((u0 + w / 2) * K, 0, (u1 - u0) * K, h * K), Color(1, 1, 1, al))
 	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
+## two reptile eyes opening in the dark: a slow open, a look left and right, a blink, closing (s: seconds in)
+func _eyes(c: CanvasItem, at: Vector2, s: float) -> void:
+	var o := clampf(s / 0.8, 0.0, 1.0) * clampf((5.0 - s) / 0.8, 0.0, 1.0)
+	if s > 2.9 and s < 3.1: o *= 0.1
+	if o <= 0.02:
+		return
+	var look := 0.0
+	if s > 1.0 and s < 2.0: look = -1.0
+	elif s > 2.0 and s < 2.8: look = 1.0
+	_light(c, at, 70, Color(1.0, 0.75, 0.25, 0.35 * o))
+	for side in [-1.0, 1.0]:
+		var e := at + Vector2(side * 26, 0)
+		var h := 11.0 * o
+		var pts := PackedVector2Array()
+		for j in 20:
+			var a := TAU * j / 20.0
+			pts.append(e + Vector2(cos(a) * 16, sin(a) * h))
+		c.draw_colored_polygon(pts, Color(1.0, 0.78, 0.25))
+		var pu := e + Vector2(look * 5, 0)
+		c.draw_rect(Rect2(pu.x - 1.6, e.y - h * 0.9, 3.2, h * 1.8), Color(0.08, 0.04, 0.0))
+
 func _snake_live(c: CanvasItem) -> void:
 	for ev in _events.keys():
 		var s := t - float(_events[ev])
 		var done := false
 		match ev:
 			"hole":
-				var seq := [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 4, 4, 6, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6, 3, 2, 1, 0, 0]
+				# frames are the snake alone, placed by the burrow drawn in the 50 m wall (mine.json "hole")
+				var seq := [1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 4, 4, 6, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6, 3, 2, 1, 1]
 				var i := int(s * 6)
-				if i >= seq.size(): done = true
+				if i >= seq.size() or String(_shown_bands.get(0, "")) == "closed": done = true
 				else:
-					var p := "snake/hole_%02d.png" % int(seq[i])
-					var sz := _size(p)
-					_put(c, p, Vector2(900 - sz.x / 2, band_y(0) + float(J.floor) - 29 - sz.y))
+					var hp: Dictionary = J.hole
+					var fi := int(seq[i])
+					var off: Array = hp.frames[fi]
+					_put(c, "snake/hole_%02d.png" % fi, Vector2(float(hp.x) + float(off[0]), band_y(0) + float(hp.y) + float(off[1])))
 			"coil":
 				var i := int(s * 8)
 				if i >= 16 + 4: done = true
@@ -666,13 +721,12 @@ func _snake_live(c: CanvasItem) -> void:
 					var sz := _size(p)
 					_put(c, p, Vector2(640 - sz.x / 2, band_y(3) + 512 - 190 + 14 - sz.y))
 			"eyes":
-				var seq := [0, 0, 1, 2, 3, 3, 4, 4, 5, 5, 3, 3, 6, 7, 0]
-				var i := int(s * 3)
-				if i >= seq.size(): done = true
+				var k := open + 1
+				var gaps: Dictionary = J.eye_gaps
+				if s > 5.0 or k >= _bands.size() or String(_shown_bands.get(k, "")) != "closed" or not gaps.has(str(k + 1)): done = true
 				else:
-					var p := "snake/eyes_%d.png" % int(seq[i])
-					var sz := _size(p)
-					_put(c, p, Vector2(560 - sz.x / 2, band_y(open) + float(J.band) - 8 - sz.y / 2))
+					var g: Array = gaps[str(k + 1)]
+					_eyes(c, Vector2(float(g[0]), band_y(k) + float(g[1])), s)
 			"bat":
 				var u := s / 3.2
 				if u >= 1.0: done = true

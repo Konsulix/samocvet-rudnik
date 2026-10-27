@@ -41,6 +41,7 @@ func _ready() -> void:
 			var p: PackedStringArray = kv.split(":")
 			Save.d.jstep["%d:%s" % [Save.area(), p[0]]] = int(p[1])
 	if args.has("scroll"): Home.start_scroll = float(args.scroll)
+	if args.has("mine_event"): MineView.force_event = args.mine_event
 	if args.has("fill"):
 		# test data: a museum full of stones, a few of them cut, and one jewel
 		Save.d.coll = []
