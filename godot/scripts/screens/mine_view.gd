@@ -393,17 +393,18 @@ func _make_motes() -> void:
 		p.amount = 14
 		p.lifetime = 9.0
 		p.preprocess = 9.0
-		p.local_coords = false
+		p.local_coords = true          # the motes live in the picture: a swipe carries them with the rock
+		p.texture = _glow
 		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 		p.position = Vector2(640, float(b.y) + 270)
-		p.emission_rect_extents = Vector2(620, 170)
-		p.gravity = Vector2(0, -12)
+		p.emission_rect_extents = Vector2(620, 140)
+		p.gravity = Vector2(0, -6)
 		p.direction = Vector2(1, 0)
 		p.spread = 180
 		p.initial_velocity_min = 8
 		p.initial_velocity_max = 30
-		p.scale_amount_min = 4.0
-		p.scale_amount_max = 9.0
+		p.scale_amount_min = 0.03       # the 128-px soft dot -> 4..8 source px (1..2 pt on the phone)
+		p.scale_amount_max = 0.06
 		var g := Gradient.new()
 		g.set_color(0, Color(1, 0.85, 0.55, 0))
 		g.add_point(0.5, Color(1.3, 1.1, 0.7, 0.55))
@@ -599,7 +600,8 @@ func _sounds(_dt: float) -> void:
 		var mine := k == sel
 		# the pick strikes on frame 2 of its swing (the pick down at the heap); every gallery on its own beat
 		var cr: Dictionary = J.crews.get(str(int(b.d)), {}) if J.has("crews") else {}
-		var who := String((cr.get("work", ["pick"]) as Array)[0])
+		var wk: Array = cr.get("work", ["pick"])
+		var who := String(wk[0]) if wk.size() else ""
 		var hit := false
 		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 10.0)
 		elif who == "pick" or not _crew_ok(who): hit = _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0)
@@ -851,6 +853,8 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var js := _size(jp)
 		_put(c, jp, Vector2(float(cr.jack[0]) - js.x / 2, back + 10 - js.y), false, al)
 	var w: Array = cr.get("work", ["pick", 760, "heap"])
+	if w.is_empty():
+		return
 	var who := String(w[0])
 	var x := float(w[1])
 	var heap := String(w[2])
@@ -906,7 +910,7 @@ func _ore_flight(c: CanvasItem) -> void:
 	var k := int(_react.k)
 	var cr: Dictionary = J.crews.get(str(k + 1), {}) if J.has("crews") else {}
 	var w: Array = cr.get("work", ["pick", 760, ""])
-	var to := Vector2(float(w[1]), band_y(k) + floor_of(k + 1) - 70)
+	var to := Vector2(float(w[1]) if w.size() > 1 else 700.0, band_y(k) + floor_of(k + 1) - 70)
 	var vp := get_viewport_rect().size
 	var from := Vector2(768, -position.y / scale.y + 40)   # the top of the screen, where the header's ore counters are
 	var n_gold := mini(int(_react.ore), 10)

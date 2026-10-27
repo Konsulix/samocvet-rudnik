@@ -124,15 +124,11 @@
     780,
     ""
    ],
-   "push": true
+   "push": false
   },
   "2": {
-   "work": [
-    "shovel24",
-    700,
-    ""
-   ],
-   "push": false
+   "work": [],
+   "push": true
   },
   "3": {
    "work": [
