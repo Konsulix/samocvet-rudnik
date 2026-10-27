@@ -318,10 +318,13 @@ func band_y(k: int) -> float:
 func _put(ci: CanvasItem, path: String, pos: Vector2, flip := false, alpha := 1.0) -> void:
 	var tx := tex(path)
 	var sz := tx.get_size() / K
-	var r := Rect2(pos, sz)
-	if flip:
-		r = Rect2(pos + Vector2(sz.x, 0), Vector2(-sz.x, sz.y))
-	ci.draw_texture_rect(tx, r, false, Color(1, 1, 1, alpha))
+	if not flip:
+		ci.draw_texture_rect(tx, Rect2(pos, sz), false, Color(1, 1, 1, alpha))
+		return
+	# mirrored by a transform (a rect of negative width is not mirrored, only shifted)
+	ci.draw_set_transform(pos + Vector2(sz.x, 0), 0, Vector2(-1, 1))
+	ci.draw_texture_rect(tx, Rect2(Vector2.ZERO, sz), false, Color(1, 1, 1, alpha))
+	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 func _put_rot(ci: CanvasItem, path: String, centre: Vector2, ang: float, size_px := Vector2.ZERO) -> void:
 	var tx := tex(path)
@@ -673,8 +676,8 @@ func _sounds(_dt: float) -> void:
 		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 10.0)
 		elif who == "pick" or not _crew_ok(who): hit = _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0)
 		elif who == "shovel24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 20.0)
-		elif who == "jack24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 11.0)
-		elif who == "load24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 19.0)
+		elif who == "jack24" or who == "lad24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 11.0)
+		elif who == "load24" or who == "old24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 19.0)
 		if hit and (mine or randf() < 0.18):
 			amb.shot("pick", _far(y) + deep + (0.0 if mine else -4.0), 0.9 - k * 0.03)
 		# the cart: rolling sounds while it moves (each take is 4 s), out to the shaft and back
@@ -970,6 +973,8 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 	if not _crew_ok(who):
 		who = "pick"
 	var hs := _size("heap.png")
+	if bool(cr.get("front", false)):
+		back = floor_y + 6            # he stands by the rails, not at the back wall
 	if heap == "heap":
 		_put(c, "heap.png", Vector2(x + 52, back - hs.y + 8), false, al)
 	elif heap == "heap_l":
@@ -996,9 +1001,9 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var cx := float(cr.cart[0])
 		_cart(c, "cart_full", cd, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
 	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), flip, al)
-	if who == "jack24" and f >= 11 and f <= 13:
-		# the sledge on the drill head: sparks at the rock face (the sheet's right edge; mirrored when flipped)
-		var fx := x + (sz.x * 0.38) * (-1.0 if flip else 1.0)
+	if (who == "jack24" or who == "lad24") and f >= 11 and f <= 13:
+		# the hammer on the chisel: sparks at its point, against the rock (the sheet's right edge; mirrored when flipped)
+		var fx := x + (sz.x * 0.42) * (-1.0 if flip else 1.0)
 		_put(c, "gspark/%d.png" % mini(f - 11, 3), Vector2(fx - 30, back - sz.y * 0.55), flip, al)
 	if who == "pick24":
 		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)

@@ -10,15 +10,20 @@ const SFX := "res://assets/audio/sfx/"
 const SAMPLES := {
 	swap = {f = ["impactGlass_light_000", "impactGlass_light_001", "impactGlass_light_002"], db = -8.0},
 	pop = {f = ["impactGlass_medium_000", "impactGlass_medium_001", "impactGlass_medium_002"], db = -6.0, step = 0.06},
-	bad = {f = ["error_006"], db = -6.0},
+	# a swap that does not match: the two stones clack back into place, low and dull, over a soft thud of rock
+	# (the old digital error beep was out of place, like the old clicks)
+	bad = {f = ["impactGlass_light_000", "impactGlass_light_001", "impactGlass_light_002"], db = -12.0, pitch = 0.6, synth = true},
 	rock = {f = ["impactMining_000", "impactMining_001", "impactMining_002", "impactMining_003"], db = -3.0},
 	crack = {f = ["impactMining_001", "impactMining_003"], db = -2.0, step = 0.12},
 	boom = {f = ["impactPunch_heavy_000", "impactPunch_heavy_001"], db = -2.0, pitch = 0.7, synth = true},
 	special = {f = ["glass_002"], db = -4.0},
 	coin = {f = ["chips-stack-1", "chips-stack-2", "chips-collide-1"], db = -6.0},
 	build = {f = ["impactPlank_medium_000", "confirmation_002"], db = -4.0, all = true},
-	win = {f = ["jingles_SAX02"], db = -2.0},
-	lose = {f = ["jingles_SAX07"], db = -3.0},
+	# the end of a level: a plucked lute in D dorian over a singing bowl (won) or a low bell (lost), baked by
+	# prototype/tools/sfx_cut.py (synthesising it here stalled the game half a second as the level ended);
+	# the old saxophone jingles did not belong in the dark mythic mine
+	win = {f = ["win_lute"], db = 0.0},
+	lose = {f = ["lose_lute"], db = 0.0},
 	reveal = {f = ["jingles_SAX10"], db = -3.0},
 	reveal_rare = {f = ["jingles_SAX16", "impactBell_heavy_000"], db = -3.0, all = true},
 	# Copper Mountain and its Mistress (OpenGameArt, CC0: rubberduck's breaking/falling and creature packs, JaggedStone's
@@ -200,8 +205,8 @@ func _make(n: String, k: int) -> AudioStreamWAV:
 	match n:
 		"swap": _noise(buf, 0.08, 1800, 0.08, "band")
 		"bad":
-			_tone(buf, 180, 0, 0.12, 0.06, "square")
-			_tone(buf, 140, 0.08, 0.12, 0.05, "square")
+			_tone(buf, 140, 0, 0.14, 0.05, "sine", 0.6)
+			_noise(buf, 0.07, 450, 0.08, "low")
 		"pop":
 			var f := 520.0 * pow(1.12, mini(10, k))
 			_tone(buf, f, 0, 0.12, 0.07, "triangle", 1.6)
@@ -218,10 +223,6 @@ func _make(n: String, k: int) -> AudioStreamWAV:
 		"coin":
 			_tone(buf, 1568, 0, 0.08, 0.06, "square")
 			_tone(buf, 2093, 0.06, 0.12, 0.05, "square")
-		"win":
-			for i in 5: _tone(buf, [523, 659, 784, 1047, 1319][i], i * 0.1, 0.45, 0.08, "triangle")
-		"lose":
-			for i in 3: _tone(buf, [392, 330, 262][i], i * 0.16, 0.4, 0.07, "triangle")
 		"crack":
 			_noise(buf, 0.18, 2600 + k * 500, 0.4, "high")
 			_tone(buf, 300 - k * 40, 0, 0.08, 0.06, "square")

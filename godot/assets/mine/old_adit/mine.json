@@ -108,8 +108,8 @@
   "shovel_scratch": 12,
   "rest_cheer": 12,
   "rest_scratch": 12,
-  "load24": 24,
-  "jack24": 24,
+  "old24": 24,
+  "lad24": 24,
   "hen12": 12,
   "rooster12": 12,
   "dog12": 12
@@ -200,12 +200,16 @@
   },
   "4": {
    "work": [
-    "load24",
-    280,
-    ""
+    "old24",
+    760,
+    "heap"
    ],
    "push": false,
    "flip": true,
+   "front": true,
+   "cart": [
+    470
+   ],
    "drip": [
     420,
     0
@@ -213,8 +217,8 @@
   },
   "5": {
    "work": [
-    "jack24",
-    560,
+    "lad24",
+    150,
     ""
    ],
    "push": false,
