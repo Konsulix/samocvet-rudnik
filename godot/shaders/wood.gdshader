@@ -22,6 +22,8 @@ uniform vec3 heart_col : source_color = vec3(0.6, 0.4, 0.8);
 uniform float heart_r = 0.0;       // the hollow heart round the pith (0: none); its rim's lobes, as SpecWood._heart_r
 uniform float heart_s = 0.0;
 uniform float flow_k = 0.0;         // the legendary dragon fire: the opal's colours flow
+uniform sampler2D bark_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float bark_k = 0.0;
 
 uniform int opal_body = 0;          // 0 dark, 1 crystal, 2 honey
 uniform float opal_spread = 0.3;    // how far its colours stray from fire_h
@@ -63,7 +65,7 @@ void fragment() {
 	late = mix(late, 0.28, aa);
 	float yv = h3(vec3(yr, seed, 5.0));
 	vec3 early = lin(c_early) * (0.8 + 0.4 * yv);
-	vec3 c = mix(early, lin(c_late) * 0.75, late * 0.85);
+	vec3 c = mix(early, lin(c_late) * 0.6, late * 0.95);
 	// the minerals that stained it: big blotches across the rings, partly following them
 	float st = fbm(p * 1.3 + seed) * 0.65 + vn(vec3(x * 0.11, cs * 0.6 + seed + 9.0)) * 0.35;
 	float st2 = fbm(p * 2.4 + seed + 11.0) * 0.7 + vn(vec3(x * 0.2, p.z, seed + 2.0)) * 0.3;
@@ -97,25 +99,53 @@ void fragment() {
 	float om = 0.0;
 	vec3 opal_c = vec3(0.0);
 	float opal_g = 0.0;
+	float relief = 0.0;
 	if (opal_k > 0.0) {
-		vec2 wq = p.xy * 1.45 + p.z * vec2(0.3, 0.15) + (vec2(fbm(p * 1.2 + seed), fbm(p * 1.2 + seed + 5.0)) - 0.5) * 1.1 + seed;
-		vec3 ch = vor2(wq);
-		float wd = mix(0.01, 0.3, opal_k) * (0.2 + 1.4 * fbm(vec3(wq * 0.9, p.z + seed + 3.0)));
-		float whole = step(ch.z, (opal_k - 0.3) * 0.75);
-		float ed = ch.y - wd;
-		float aa2 = fwidth(ch.y) * 1.5 + 0.004;
-		om = max(1.0 - smoothstep(-aa2, aa2, ed), whole) * (1.0 - bk);
-		float rim = (1.0 - smoothstep(0.0, 0.05, ed)) * (1.0 - om) * (1.0 - whole) * (1.0 - bk);
-		c = mix(c, lin(c_late) * 0.35, rim * 0.8);
-		hgt += rim;
+		// where opal took the wood: (a) shakes — the wood split along a few of its growth rings, opal in long arcs;
+		// (b) splits running in from the rim and out from the heart; (c) pools where the wood rotted away, mostly
+		// in the outer wood. Each is measured twice, the second time wider: the band between is the wood's edge,
+		// browned and worn, standing a little proud of the polished opal
+		float o1 = 0.0, o2 = 0.0;
+		for (int k = 0; k < 3; k++) {
+			float fk = float(k);
+			float rk = 0.32 + 0.2 * fk + (h3(vec3(fk, seed, 8.0)) - 0.5) * 0.12;
+			float wob2 = (fbm(vec3(cs * 2.0, p.z * 0.5 + seed + fk * 5.0)) - 0.5) * 0.14;
+			float dist = abs(u + wob2 - rk);
+			float arc = smoothstep(0.4, 0.55, vn(vec3(cs * 1.6 + fk * 3.0, p.z * 0.5 + seed)));
+			float w = opal_k * 0.1 * (0.25 + 1.3 * fbm(vec3(cs * 4.0, fk + seed))) * arc;
+			o1 = max(o1, 1.0 - smoothstep(w * 0.6, w + 0.003, dist));
+			o2 = max(o2, (1.0 - smoothstep(w + 0.01, w + 0.035, dist)) * step(0.001, arc));
+		}
+		for (int k = 0; k < 5; k++) {
+			float fk = float(k);
+			float ak = h3(vec3(fk, seed, 11.0)) * 6.2832 + (vn(vec3(u * 4.0, fk, seed)) - 0.5) * 0.5;
+			float fromrim = step(0.5, h3(vec3(fk, seed, 12.0)));
+			float reach = 0.3 + 0.5 * h3(vec3(fk, seed, 13.0));
+			float along = fromrim > 0.5 ? smoothstep(1.0 - reach, 1.0 - reach + 0.15, u) : 1.0 - smoothstep(reach - 0.15, reach, u);
+			float da = abs(mod(phi - ak + 3.14159, 6.28318) - 3.14159) * max(u, 0.05);
+			float w = opal_k * 0.05 * (fromrim > 0.5 ? u : 1.0 - u * 0.7) * along;
+			o1 = max(o1, 1.0 - smoothstep(w * 0.6, w + 0.003, da));
+			o2 = max(o2, (1.0 - smoothstep(w + 0.01, w + 0.035, da)) * step(0.001, along));
+		}
+		// pools gather on one side, where the log lay in the wet
+		vec2 side = vec2(cos(seed * 3.7), sin(seed * 3.7));
+		float pn = fbm(vec3(cs * 1.3, u * 2.5 + p.z * 0.3) + seed + 40.0) + u * 0.12 + dot(cs, side) * u * 0.16;
+		float th = 0.8 - opal_k * 0.28;
+		o1 = max(o1, smoothstep(th, th + 0.012, pn));
+		o2 = max(o2, smoothstep(th - 0.03, th - 0.01, pn));
+		om = o1 * (1.0 - bk);
+		float rim = clamp(o2 - o1, 0.0, 1.0) * (1.0 - bk);
+		// the edge: browned, the rings showing darker in it
+		c = mix(c, mix(lin(c_late) * 0.45, lin(c_st2) * 0.5, 0.4) * (0.7 + 0.5 * late), rim * 0.85);
+		relief = (1.0 - om) * 0.8 + rim * 0.4;
 		if (om > 0.0) {
 			opal_c = opal_play(p, vm, nm, fire_h, opal_spread, seed, flow_k * TIME, 2.4, 1.0, 1.0, opal_g);
 			vec3 body = opal_body_col(opal_body, p, seed);
 			// on a light body the fire shows less (it is washed out by the milk), on a dark one it glows
-			float on_dark = opal_body == 0 ? 1.0 : 0.55;
+			float on_dark = opal_body == 0 ? 1.0 : 0.4;
 			c = mix(c, body + opal_c * 0.5 * on_dark, om);
-			em += opal_c * om * (0.4 * on_dark + flow_k * 0.4);
-			ro = mix(ro, 0.08, om);
+			em += opal_c * om * (0.45 * on_dark + flow_k * 0.4);
+			ro = mix(ro, 0.06, om);
 		}
 	}
 
@@ -150,6 +180,13 @@ void fragment() {
 		float flake = vn(vec3(cs * R * 26.0, p.z * 14.0 + rel * 60.0));
 		vec3 top = mix(lin(c_bark) * 1.5, lin(vec3(0.5, 0.48, 0.44)), 0.3);
 		vec3 bc = mix(lin(c_bark) * 0.3, top, ridge) * (0.75 + 0.45 * grit) * (0.9 + 0.2 * flake);
+		// on the outside (not a cut face), a real bark's scan over it
+		if (COLOR.g < 0.5 && bark_k > 0.0) {
+			vec3 scan = texture(bark_tex, vec2(phi / 6.2832 * 4.0, p.z * 1.6 + seed)).rgb;
+			float sl = dot(scan, vec3(0.3, 0.5, 0.2));
+			bc = mix(bc, lin(c_bark) * (0.9 + 3.2 * sl) * mix(vec3(1.0), scan / max(sl, 0.01), 0.35), bark_k);
+			ridge = mix(ridge, sl * 1.6, bark_k);
+		}
 		bc = mix(bc, lin(c_st1) * 0.45, smoothstep(0.62, 0.8, fbm(p * 3.0 + seed + 4.0)) * 0.35);
 		c = bc;
 		ro = 0.92;
@@ -211,9 +248,9 @@ void fragment() {
 	if (!FRONT_FACING) n = -n;
 	if (pol > 0.9 && ht >= 0.86) {
 		// polished: glassy, a faint relief only where the bark is
-		ro = mix(ro, 0.12, 1.0 - bk);
-		coat = 1.0 - bk;
-		NORMAL = bump(n, VERTEX, hgt * 0.0015 * bk, 1.0);
+		ro = mix(ro, mix(0.3, 0.06, om), 1.0 - bk);
+		coat = (1.0 - bk) * mix(0.4, 1.0, om);
+		NORMAL = bump(n, VERTEX, hgt * 0.0015 * bk + relief * 0.0018, 1.0);
 	} else if (ht < 0.86) {
 		// the heart's crystals: each little face catching the light its own way
 		NORMAL = bump(n, VERTEX, hgt * 0.004, 1.0);

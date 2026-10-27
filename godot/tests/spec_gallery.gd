@@ -179,8 +179,8 @@ const SETS := [
 	{seed = 664, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "mosquito", host = "amber"},
 	{seed = 665, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber"},
 	{seed = 666, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "flower", bloom = "blossom", look = 3, host = "amber"},
-	{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "fly", host = "amber", bare = true},
-	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber", bare = true}],
+	{seed = 667, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "fern", host = "amber"},
+	{seed = 668, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "feather", host = "copal"}],
 
 ]
 

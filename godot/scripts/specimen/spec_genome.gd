@@ -18,7 +18,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	rings = "growth rings", opal = "opal", bark = "bark", checks_quartz = "quartz-healed cracks", checks_opal = "opal-healed cracks",
 	checks_empty = "open cracks", heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
-	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves"}
+	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [

@@ -43,7 +43,7 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	var g := {kind = sid}
 	if sid == "amber":
 		g.host = Stones.pick_w([["amber", 4.0], ["copal", 1.5]], rng)
-		g.content = Stones.pick_w([["insect", 7.0], ["flower", 2.0]], rng)
+		g.content = Stones.pick_w([["insect", 7.0], ["flower", 2.0], ["fern", 1.2], ["feather", 1.0]], rng)
 	else:
 		g.host = Stones.pick_w([["quartz", 5.0], ["smoky", 2.0], ["amber", 1.0]], rng)
 		g.content = "flower"
@@ -60,7 +60,7 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	return g
 
 static func accents(g: Dictionary) -> Array:
-	var out := ["flower" if g.content == "flower" else "insect", "stone"]
+	var out := [{flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(g.content, "insect"), "stone"]
 	if g.content == "flower" and int(g.leaves) > 0: out.append("leaves")
 	if g.gold: out.append("gold_dust")
 	return out
@@ -72,6 +72,8 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"insect": return {ant = "ant", beetle = "beetle", fly = "fly", mosquito = "mosquito", spider = "spider"}.get(g.insect, "insect")
 		"stone": return String(HOSTS[g.host][0])
 		"leaves": return "leaves"
+		"fern": return "fern frond"
+		"feather": return "feather"
 		"gold_dust": return "gold dust"
 	return ""
 
@@ -315,6 +317,61 @@ static func _insect(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
 					_leg(parent, leg_m, rng, Vector3(0.14 - i * 0.03, 0.04, s * 0.06), Vector3(fw, 0, s).normalized(), [0.24, 0.28, 0.22], 0.014, 0.9)
 	return [Vector3(0.0, 0.12, 0)]
 
+# ---------------------------------------------------------------- fern, feather
+
+## a fern frond: a curving stalk, leaflets in pairs along it, smaller towards the tip
+static func _fern(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
+	var lm := ShaderMaterial.new()
+	lm.shader = PETAL
+	lm.set_shader_parameter("c_base", Color.hex(0x3a4a1aff if rng.next() < 0.6 else 0x5a4a1aff))
+	lm.set_shader_parameter("c_rim", Color.hex(0x8a9a4aff))
+	lm.set_shader_parameter("leaf", 1.0)
+	lm.set_shader_parameter("seed", float(int(f.seed) % 89))
+	var stalk := SpecMat.make({col = SpecMat.lin(0x4a4020), rough = 0.6})
+	var n := 13
+	var p := Vector3(-0.55, -0.1, 0)
+	var d := Vector3(1, 0.25, 0).normalized()
+	var curl := 0.08 + rng.next() * 0.06
+	for k in n:
+		var t := float(k) / n
+		var step := 0.085
+		var q := p + d * step
+		_seg(parent, stalk, p, q, 0.012 * (1.0 - t * 0.6))
+		var side := Vector3(-d.y, d.x, 0)
+		var ln := 0.3 * (1.0 - t * 0.75) * (0.9 + rng.next() * 0.2)
+		for s in [-1.0, 1.0]:
+			var pg := _petal(rng, ln, ln * 0.22, {tip = "point", cup = 0.25, bend = -0.1, wave = 0.05})
+			var dir: Vector3 = (side * float(s) + d * 0.45).normalized()
+			var bs := Basis(U.quat_to(Vector3.UP, dir)) * Basis(Vector3.UP, (rng.next() - 0.5) * 0.4)
+			var mi := U.mesh(pg, lm, parent, q, bs)
+			mi.set_meta("col", true)
+		p = q
+		d = d.rotated(Vector3.BACK, curl * (0.5 + t))
+	return [Vector3(0.0, 0.15, 0.02)]
+
+## a feather: a shaft, its vane of barbs either side, banded; the down at its foot
+static func _feather(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
+	var cols := [[0x5a3a20, 0xe8dcc8], [0x2a2a2a, 0xd8d8d8], [0x8a5a30, 0x3a2410], [0x3a4a6a, 0xa8c0d8]]
+	var cc: Array = cols[int(rng.next() * cols.size())]
+	var fm := ShaderMaterial.new()
+	fm.shader = PETAL
+	fm.set_shader_parameter("c_base", Color.hex(int(cc[0]) << 8 | 0xff))
+	fm.set_shader_parameter("c_rim", Color.hex(int(cc[1]) << 8 | 0xff))
+	fm.set_shader_parameter("c_eye", Color.hex(int(cc[1]) << 8 | 0xff))
+	fm.set_shader_parameter("eye_k", 0.25)
+	fm.set_shader_parameter("stripes", 0.8)
+	fm.set_shader_parameter("sheen", 0.3)
+	fm.set_shader_parameter("seed", float(int(f.seed) % 89))
+	var ln := 1.05
+	# the vane: a long narrow blade, waved and split in places (barbs pulled apart)
+	var pg := _petal(rng, ln, 0.17, {tip = "point", cup = 0.15, bend = -0.08, wave = 0.12, crinkle = 1.5})
+	var bs := Basis(Vector3.BACK, -PI / 2 + 0.3)
+	var mi := U.mesh(pg, fm, parent, Vector3(-0.5, -0.15, 0), bs)
+	mi.set_meta("col", true)
+	var shaft := SpecMat.make({col = SpecMat.lin(0xe8e0d0), rough = 0.4})
+	_seg(parent, shaft, Vector3(-0.62, -0.19, 0.01), bs * Vector3(0, ln * 0.95, 0) + Vector3(-0.5, -0.15, 0.01), 0.008)
+	return [Vector3(0.0, 0.0, 0.02)]
+
 # ---------------------------------------------------------------- the stone
 
 ## the stone: a lump worn round, chipped flat here and there (quartz), or a rounded drop of resin (amber)
@@ -395,7 +452,10 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var inner := Node3D.new()
 	holder.add_child(inner)
 	var marks := []
-	if f.content == "insect":
+	if f.content in ["fern", "feather"]:
+		inner.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 0.6) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * (1.4 if f.content == "feather" else 1.1)), Vector3.ZERO)
+		marks = _fern(inner, rng, f) if f.content == "fern" else _feather(inner, rng, f)
+	elif f.content == "insect":
 		# caught as it fell: turned any way, legs splayed
 		inner.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.9) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.6) * Basis.from_scale(Vector3.ONE * (1.15 if f.insect in ["mosquito", "spider"] else 1.45)), Vector3.ZERO)
 		marks = _insect(inner, rng, f)
@@ -420,7 +480,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	holder.transform = Transform3D(Basis.from_scale(Vector3.ONE * gs * 0.75), Vector3.ZERO)
 	var ix := U.rel_xform(inner, root)
 	for p in marks:
-		b._mark("flower" if f.content == "flower" else "insect", ix * (p as Vector3), Vector3.BACK)
+		b._mark({flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(f.content, "insect"), ix * (p as Vector3), Vector3.BACK)
 	if f.content == "flower" and int(f.leaves) > 0:
 		b._mark("leaves", ix * Vector3(0.35, -0.3, -0.06), Vector3.BACK)
 	b._mark("stone", U.rel_xform(holder, root) * Vector3(0.5, 0.6, 0.4), Vector3(0.5, 0.6, 0.6).normalized())

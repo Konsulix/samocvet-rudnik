@@ -53,7 +53,7 @@ vec3 bump(vec3 n, vec3 pos, float h, float k) {
 vec3 opal_body_col(int body, vec3 p, float s) {
 	float m = fbm(p * 3.0 + s + 70.0);
 	if (body == 1) return mix(lin(vec3(0.24, 0.28, 0.33)), lin(vec3(0.5, 0.54, 0.58)), m);
-	if (body == 2) return mix(lin(vec3(0.4, 0.18, 0.05)), lin(vec3(0.72, 0.42, 0.14)), m);
+	if (body == 2) return mix(lin(vec3(0.34, 0.2, 0.08)), lin(vec3(0.62, 0.42, 0.2)), m);
 	return mix(lin(vec3(0.05, 0.08, 0.16)), lin(vec3(0.16, 0.24, 0.42)), m);
 }
 

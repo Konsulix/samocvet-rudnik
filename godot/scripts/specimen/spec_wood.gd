@@ -81,6 +81,10 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 		if o.has(k): g[k] = o[k]
 	# opal took the place of wood that rotted first: a pale, plain wood around it, not the bright jaspers
 	if float(g.opal) >= 0.5 and not o.has("pal"): g.pal = [1, 3, 2][int(g.seed) % 3]
+	# a slice kept for its opal is cut thick: a slab, its bark all round, more growth rings
+	if float(g.opal) >= 0.4 and g.show == "slice":
+		g.thick = 0.32 + float(g.seed % 100) / 100.0 * 0.14
+		g.rings = maxf(float(g.rings), 38.0)
 	return g
 
 static func accents(g: Dictionary) -> Array:
@@ -259,6 +263,8 @@ static func material(f: Dictionary) -> ShaderMaterial:
 	m.set_shader_parameter("fire_h", FIRE.get(f.fire, 0.3))
 	m.set_shader_parameter("opal_body", {dark = 0, crystal = 1, honey = 2}.get(f.get("body", "dark"), 0))
 	m.set_shader_parameter("opal_spread", f.get("spread", 0.3))
+	m.set_shader_parameter("bark_tex", load("res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg"))
+	m.set_shader_parameter("bark_k", 0.8)
 	if String(f.heart) != "":
 		m.set_shader_parameter("heart_col", Color.hex(int(HEART[f.heart]) << 8 | 0xff))
 		m.set_shader_parameter("heart_r", f.heart_r)
@@ -325,7 +331,11 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var len_z: float = f.thick if f.show == "slice" else f.len
 	if f.show == "slice":
 		# stands on its edge, the polished face to the viewer, leaning back a little
-		holder.transform = Transform3D(Basis(Vector3.UP, -0.35 + (rng.next() - 0.5) * 0.4) * Basis(Vector3.RIGHT, -0.22) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
+		# a thick opal slab is tipped further and turned, so its bark-clad side shows as well as its face
+		var thick_slab := float(f.opal) >= 0.4
+		var tip := -0.65 if thick_slab else -0.22
+		var turn := (0.25 if thick_slab else -0.35) + (rng.next() - 0.5) * 0.4
+		holder.transform = Transform3D(Basis(Vector3.UP, turn) * Basis(Vector3.RIGHT, tip) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
 	else:
 		# lies on its side, the polished end turned towards the viewer
 		# (the viewer turns every specimen 0.6 about y: the end then faces it at about 35 degrees, left or right)
