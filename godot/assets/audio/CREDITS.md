@@ -53,6 +53,7 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 - `gas_0..2` — бульканье (rubberduck, [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx);
   BMacZero, [Bubble Sound Effects](https://opengameart.org/content/bubble-sound-effects)) поверх приглушённого шипения
   (bart, [Steam release sounds](https://opengameart.org/content/steam-release-sounds)).
-- `win_lute`, `lose_lute` — конец уровня вместо саксофонных джинглов Kenney: «лютня» синтезирована (Karplus–Strong,
-  ре-дорийский лад) и сведена с `bowl_ping` / замедленным `impactBell_heavy_000` в `sfx_cut.py`. Неудачный ход `bad` — те же
-  камни, что при перестановке, ниже и тише, плюс мягкий синтезированный удар (вместо `error_006`).
+- `win_geode`, `lose_rockfall` — конец уровня вместо саксофонных джинглов Kenney, собраны в `sfx_cut.py` из звуков игры:
+  победа — раскалывается жеода (`bfh1_rock_breaking_03`, `impactGlass_light_*` по нарастающей, `magical_5`, `bowl_ping` выше),
+  поражение — обвал (`bfh1_rock_falling_07/04`, `bowl_ping` на октаву ниже и глуше, `impactBell_heavy_000` вдвое медленнее).
+  Неудачный ход `bad` — те же камни, что при перестановке, ниже и тише, плюс мягкий синтезированный удар (вместо `error_006`).

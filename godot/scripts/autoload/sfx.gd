@@ -19,11 +19,11 @@ const SAMPLES := {
 	special = {f = ["glass_002"], db = -4.0},
 	coin = {f = ["chips-stack-1", "chips-stack-2", "chips-collide-1"], db = -6.0},
 	build = {f = ["impactPlank_medium_000", "confirmation_002"], db = -4.0, all = true},
-	# the end of a level: a plucked lute in D dorian over a singing bowl (won) or a low bell (lost), baked by
-	# prototype/tools/sfx_cut.py (synthesising it here stalled the game half a second as the level ended);
-	# the old saxophone jingles did not belong in the dark mythic mine
-	win = {f = ["win_lute"], db = 0.0},
-	lose = {f = ["lose_lute"], db = 0.0},
+	# the end of a level, put together from the game's own stones and crystals (prototype/tools/sfx_cut.py):
+	# won — a geode splits and its crystals ring out over the singing bowl; lost — rock comes down over a low hum
+	# and a slow heavy bell
+	win = {f = ["win_geode"], db = 0.0},
+	lose = {f = ["lose_rockfall"], db = 0.0},
 	reveal = {f = ["jingles_SAX10"], db = -3.0},
 	reveal_rare = {f = ["jingles_SAX16", "impactBell_heavy_000"], db = -3.0, all = true},
 	# Copper Mountain and its Mistress (OpenGameArt, CC0: rubberduck's breaking/falling and creature packs, JaggedStone's

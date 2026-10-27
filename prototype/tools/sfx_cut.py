@@ -7,9 +7,9 @@
 water-splash-slime-sfx/ (rubberduck), bubbles-single1..2.wav (BMacZero), RPGsounds_Kenney/OGG/.
 Makes: bowl_ping (the resonator: the bowl's settled ring, soft attack, ~3 s decay),
 gas_0..2 (a gurgle with a muffled hiss of gas under it), and copies Kenney's bookPlace/bookFlip.
-Then the level's end, baked here so the game does not synthesise it at the moment it ends (half a second of
-GDScript): win (a plucked lute up D dorian, the open fifth left ringing, over the singing bowl) and lose (a slow
-fall to the low D over the heavy bell slowed to 0.55; godot/assets/audio/sfx/impactBell_heavy_000.ogg).
+Then the level's end (`-` as the download dir: only these), built from sounds already in the game:
+win_geode (a geode splits: the stone cracks, crystals ring up one after another, the singing bowl a fifth up hums
+under them) and lose_rockfall (rock comes down, the bowl an octave down and muffled, the heavy bell at half speed).
 Loudness as the old saxophone jingles had in the game (win -21 dB, lose -23 dB RMS).
 """
 import os
@@ -57,36 +57,25 @@ def trim(d, thr=0.01):
     return d[idx[0]:idx[-1] + 1]
 
 
-SYN = 22050   # the lute keeps the timbre it had at the game's synth rate (its decay depends on it)
+def pitch(d, k):
+    """resampled: k > 1 higher and shorter, k < 1 lower and longer"""
+    return np.interp(np.arange(0, len(d) - 1, k), np.arange(len(d)), d)
 
 
-def pluck(buf, f, at, dur, vol, bright=0.5, rng=np.random.default_rng(3)):
-    """Karplus-Strong: a burst of noise in a delay line that loses its highs each pass"""
-    n = max(2, int(SYN / f))
-    line = np.zeros(n)
-    lp = 0.0
-    for j in range(n):
-        lp += bright * ((rng.random() * 2 - 1) - lp)
-        line[j] = lp
-    i0, ns = int(at * SYN), int(dur * SYN)
-    p = 0
-    for i in range(ns):
-        if i0 + i >= len(buf): break
-        s = line[p]
-        line[p] = (s + line[(p + 1) % n]) * 0.4985
-        p = (p + 1) % n
-        buf[i0 + i] += s * vol * 3.0 * min(1.0, max(0.0, (ns - i) / (0.15 * SYN)))
+def lay(parts):
+    """sounds laid over each other: [(sound, start s, gain dB)]"""
+    out = np.zeros(max(int(t * SR) + len(x) for x, t, g in parts))
+    for x, t, g in parts:
+        i = int(t * SR)
+        out[i:i + len(x)] += x * 10 ** (g / 20)
+    return out
 
 
-def sine(buf, f, at, dur, vol):
-    i0, ns = int(at * SYN), int(dur * SYN)
-    t = np.arange(min(ns, len(buf) - i0)) / SYN
-    env = np.where(t < 0.008, t / 0.008, 0.0001 ** ((t - 0.008) / (dur - 0.008)))
-    buf[i0:i0 + len(t)] += np.sin(2 * np.pi * f * t) * vol * env
-
-
-def up(x, k=SR / SYN):
-    return np.interp(np.arange(int(len(x) * k)) / k, np.arange(len(x)), x)
+def tail(d, sec):
+    d = d.copy()
+    n = int(sec * SR)
+    d[-n:] *= np.linspace(1, 0, n) ** 1.5
+    return d
 
 
 def rms_to(d, db):
@@ -98,30 +87,16 @@ def rms_to(d, db):
 
 
 def endings(dst):
-    win = np.zeros(int(SYN * 2.8))
-    for i, f in enumerate([146.8, 220.0, 293.7, 349.2, 440.0]):
-        pluck(win, f, i * 0.11, 1.4, 0.11)
-    for f in [146.8, 220.0, 293.7, 440.0]:
-        pluck(win, f, 0.68, 2.0, 0.08)
-    sine(win, 73.4, 0.68, 1.6, 0.04)
-    bowl = load(os.path.join(dst, "bowl_ping.ogg"))
-    w = up(win * 2.2)
-    n = max(len(w), len(bowl))
-    mix = np.zeros(n)
-    mix[:len(w)] += w
-    mix[:len(bowl)] += bowl * 10 ** (-9 / 20)
-    write(os.path.join(dst, "win_lute.ogg"), rms_to(mix, -21.0))
-    lose = np.zeros(int(SYN * 2.8))
-    for i, f in enumerate([220.0, 174.6, 164.8, 146.8]):
-        pluck(lose, f, i * 0.26, 1.2 if i < 3 else 2.0, 0.1, 0.35 if i == 3 else 0.5)
-    sine(lose, 73.4, 0.78, 1.8, 0.05)
-    bell = load(os.path.join(dst, "impactBell_heavy_000.ogg"))
-    bell = np.interp(np.arange(0, len(bell) - 1, 0.55), np.arange(len(bell)), bell)   # pitch 0.55: slower, lower
-    l = up(lose * 2.2)
-    mix = np.zeros(max(len(l), len(bell)))
-    mix[:len(l)] += l
-    mix[:len(bell)] += bell * 10 ** (-14 / 20)
-    write(os.path.join(dst, "lose_lute.ogg"), rms_to(mix, -23.0))
+    snd = lambda f: load(os.path.join(dst, f + ".ogg"))
+    glass = [snd("impactGlass_light_00%d" % i) for i in range(3)]
+    bowl = snd("bowl_ping")
+    win = lay([(snd("bfh1_rock_breaking_03"), 0.0, -2), (glass[0], 0.22, -6), (pitch(glass[1], 1.19), 0.34, -7),
+               (pitch(glass[2], 1.5), 0.46, -8), (pitch(glass[0], 2.0), 0.58, -9), (snd("magical_5"), 0.25, -4),
+               (pitch(bowl, 1.5), 0.25, -8)])
+    write(os.path.join(dst, "win_geode.ogg"), rms_to(tail(win, 0.8), -21.0))
+    lose = lay([(snd("bfh1_rock_falling_07"), 0.0, 0), (pitch(snd("bfh1_rock_falling_04"), 0.8), 0.18, -3),
+                (lowpass(pitch(bowl, 0.5), 900), 0.3, -4), (pitch(snd("impactBell_heavy_000"), 0.5), 0.35, -12)])
+    write(os.path.join(dst, "lose_rockfall.ogg"), rms_to(tail(lose, 1.2), -23.0))
 
 
 def main():
