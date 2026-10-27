@@ -18,14 +18,19 @@ const SAMPLES := {
 	boom = {f = ["impactPunch_heavy_000", "impactPunch_heavy_001"], db = -2.0, pitch = 0.7, synth = true},
 	special = {f = ["glass_002"], db = -4.0},
 	coin = {f = ["chips-stack-1", "chips-stack-2", "chips-collide-1"], db = -6.0},
-	build = {f = ["impactPlank_medium_000", "confirmation_002"], db = -4.0, all = true},
+	# a step of building: a plank set down, two hammer knocks, a brass latch (sfx_cut.py; was a digital ding)
+	build = {f = ["build_knock"], db = 0.0},
 	# the end of a level, put together from the game's own stones and crystals (prototype/tools/sfx_cut.py):
 	# won — a geode splits and its crystals ring out over the singing bowl; lost — rock comes down over a low hum
 	# and a slow heavy bell
 	win = {f = ["win_geode"], db = 0.0},
 	lose = {f = ["lose_rockfall"], db = 0.0},
-	reveal = {f = ["jingles_SAX10"], db = -3.0},
-	reveal_rare = {f = ["jingles_SAX16", "impactBell_heavy_000"], db = -3.0, all = true},
+	# a find comes out: crystals ring up, more of them the rarer it is (reveal_<tier>, 0..4; sfx_cut.py)
+	reveal_0 = {f = ["reveal_0"], db = 0.0},
+	reveal_1 = {f = ["reveal_1"], db = 0.0},
+	reveal_2 = {f = ["reveal_2"], db = 0.0},
+	reveal_3 = {f = ["reveal_3"], db = 0.0},
+	reveal_4 = {f = ["reveal_4"], db = 0.0},
 	# Copper Mountain and its Mistress (OpenGameArt, CC0: rubberduck's breaking/falling and creature packs, JaggedStone's
 	# magic spell sfx): a malachite crust and a nodule breaking, rock dropped on the board, her lizards, her hiss,
 	# a new phase, the stone flower in bloom
@@ -85,7 +90,7 @@ func _ready() -> void:
 
 func play(sfx_name: String, arg := 0) -> void:
 	if Save.d.get("mute", false): return
-	if sfx_name == "reveal" and arg >= 3: sfx_name = "reveal_rare"
+	if sfx_name == "reveal": sfx_name = "reveal_%d" % clampi(arg, 0, 4)
 	# a press sounds as the book set down, even when it opens a window: the window's page turn is only for
 	# windows that come up by themselves (a win, a loss, a find)
 	var now := Time.get_ticks_msec() / 1000.0
@@ -232,12 +237,6 @@ func _make(n: String, k: int) -> AudioStreamWAV:
 		"crack":
 			_noise(buf, 0.18, 2600 + k * 500, 0.4, "high")
 			_tone(buf, 300 - k * 40, 0, 0.08, 0.06, "square")
-		"reveal":
-			var st := [0, 4, 7, 12, 16, 19]
-			for i in 3 + k: _tone(buf, 392.0 * pow(2.0, st[mini(5, i)] / 12.0), i * 0.08, 0.6, 0.08, "triangle")
-		"build":
-			for i in 4: _tone(buf, [392, 523, 659, 784][i], i * 0.08, 0.4, 0.07, "triangle")
-			_noise(buf, 0.4, 400, 0.15, "low")
 	# trim the silent tail and convert to 16-bit PCM
 	var last := buf.size() - 1
 	while last > 0 and absf(buf[last]) < 0.0005: last -= 1

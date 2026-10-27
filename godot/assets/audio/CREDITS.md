@@ -57,3 +57,7 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
   победа — раскалывается жеода (`bfh1_rock_breaking_03`, `impactGlass_light_*` по нарастающей, `magical_5`, `bowl_ping` выше),
   поражение — обвал (`bfh1_rock_falling_07/04`, `bowl_ping` на октаву ниже и глуше, `impactBell_heavy_000` вдвое медленнее).
   Неудачный ход `bad` — те же камни, что при перестановке, ниже и тише, плюс мягкий синтезированный удар (вместо `error_006`).
+- `reveal_0..4` — открытие находки вместо саксофонных `jingles_SAX10/16`: звоны `impactGlass_light_*` вверх по пентатонике
+  (чем реже, тем больше), `magical_5`, высокий `bowl_ping`, у легендарной — медленный `impactBell_heavy_000`. `build_knock` —
+  стройка вместо цифрового `confirmation_002`: доска и два удара молотка (`impactPlank_medium_000`) + латунная защёлка
+  `metalLatch` (Kenney RPG Audio). Всё собрано в `sfx_cut.py`.

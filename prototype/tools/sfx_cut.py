@@ -11,6 +11,8 @@ Then the level's end (`-` as the download dir: only these), built from sounds al
 win_geode (a geode splits: the stone cracks, crystals ring up one after another, the singing bowl a fifth up hums
 under them) and lose_rockfall (rock comes down, the bowl an octave down and muffled, the heavy bell at half speed).
 Loudness as the old saxophone jingles had in the game (win -21 dB, lose -23 dB RMS).
+Also reveal_0..4 (a find comes out: crystals ring up a pentatonic, more of them the rarer it is, then a shimmer,
+the bowl, at legendary a low bell) and build (a plank set down, two hammer knocks, a brass latch closing).
 """
 import os
 import shutil
@@ -97,6 +99,22 @@ def endings(dst):
     lose = lay([(snd("bfh1_rock_falling_07"), 0.0, 0), (pitch(snd("bfh1_rock_falling_04"), 0.8), 0.18, -3),
                 (lowpass(pitch(bowl, 0.5), 900), 0.3, -4), (pitch(snd("impactBell_heavy_000"), 0.5), 0.35, -12)])
     write(os.path.join(dst, "lose_rockfall.ogg"), rms_to(tail(lose, 1.2), -23.0))
+    # a find: a chime per step up the pentatonic, one more for each tier of rarity
+    steps = [1.0, 1.125, 1.26, 1.5, 1.68, 2.0, 2.25]
+    for tier in range(5):
+        parts = []
+        for i in range(2 + tier):
+            parts.append((pitch(glass[i % 3], steps[i] * 1.2), 0.09 * i, -6 - i * 0.5))
+        if tier >= 2: parts.append((snd("magical_5"), 0.05, -10 + tier * 1.5))
+        # the bowl rings under every find (a ring-out, not a click): high and faint for common ones, fuller for rare
+        parts.append((pitch(bowl, 2.0 if tier < 3 else 1.5), 0.05, -16 + tier * 2))
+        if tier >= 4: parts.append((pitch(snd("impactBell_heavy_000"), 0.5), 0.0, -14))
+        d = lay(parts)
+        write(os.path.join(dst, "reveal_%d.ogg" % tier), rms_to(tail(d, min(0.6, len(d) / SR * 0.4)), -21.5 + tier * 0.6))
+    # a step of building done: a plank set down, two hammer knocks, a brass latch
+    plank = snd("impactPlank_medium_000")
+    build = lay([(plank, 0.0, 0), (pitch(plank, 1.35), 0.2, -5), (pitch(plank, 1.25), 0.36, -4), (snd("metalLatch"), 0.55, -7)])
+    write(os.path.join(dst, "build_knock.ogg"), rms_to(tail(build, 0.3), -18.0))
 
 
 def main():
@@ -124,7 +142,7 @@ def main():
         out[:len(hh)] += hh
         out[int(0.05 * SR):int(0.05 * SR) + len(bb)] += bb
         write(os.path.join(dst, "gas_%d.ogg" % i), norm(out, 0.8))
-    for f in ["bookPlace1", "bookPlace2", "bookPlace3", "bookFlip1"]:
+    for f in ["bookPlace1", "bookPlace2", "bookPlace3", "bookFlip1", "metalLatch"]:
         shutil.copy(os.path.join(src, "RPGsounds_Kenney", "OGG", f + ".ogg"), os.path.join(dst, f + ".ogg"))
 
 
