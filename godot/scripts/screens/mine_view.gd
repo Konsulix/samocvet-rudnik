@@ -462,6 +462,27 @@ func _render_niche(o: Dictionary, key: String) -> void:
 	if is_inside_tree():
 		still.queue_redraw()
 
+## a stone's size on its pedestal (source px)
+func _niche_size(tx: Texture2D) -> Vector2:
+	var sz := tx.get_size() * (105.0 / maxf(1.0, tx.get_size().y))
+	if sz.x > 120:
+		sz *= 120.0 / sz.x
+	return sz
+
+## the stone standing on a pedestal under a point (this node's space), or {}
+func niche_at(p: Vector2) -> Dictionary:
+	for k in _niche_want:
+		var key := Spec.key_of(Spec.of_stone(_niche_want[k]))
+		if not _niche_tex.has(key):
+			continue
+		var nc: Array = NICHES[k + 1]
+		var sz := _niche_size(_niche_tex[key])
+		var top := band_y(k) + float(nc[1])
+		var r := Rect2(float(nc[0]) - sz.x / 2 - 30, top - sz.y - 30, sz.x + 60, sz.y + 50)
+		if r.has_point(p):
+			return _niche_want[k]
+	return {}
+
 ## the stones on their pedestals: a soft shadow, an ink outline (the picture eight times in dark, a pixel round),
 ## the stone warmed by the lantern light
 func _draw_niches(c: CanvasItem) -> void:
@@ -471,10 +492,7 @@ func _draw_niches(c: CanvasItem) -> void:
 			continue
 		var tx: Texture2D = _niche_tex[key]
 		var nc: Array = NICHES[k + 1]
-		var h := 150.0
-		var sz := tx.get_size() * (h / maxf(1.0, tx.get_size().y))
-		if sz.x > 170:
-			sz *= 170.0 / sz.x
+		var sz := _niche_size(tx)
 		var top := band_y(k) + float(nc[1])
 		var pos := Vector2(float(nc[0]) - sz.x / 2, top - sz.y + 8)
 		c.draw_texture_rect(_glow, Rect2(Vector2(float(nc[0]) - sz.x * 0.6, top - 10), Vector2(sz.x * 1.2, 22)), false, Color(0.1, 0.06, 0.02, 0.6))
@@ -595,7 +613,7 @@ func _sounds(_dt: float) -> void:
 		var ft := fmod(t * 24.0 + k * 37.0, cyc)
 		var moving := ft < go - 30.0 or (ft > go + 16.0 and ft < cyc - 20.0)
 		# (the other galleries' carts only when on screen, and not every take: five rolling at once was a din)
-		if _passed("cart%d" % k, t * 24.0 + k * 37.0, 96.0) and moving and (mine or (_far(y) > -5.0 and randf() < 0.5)):
+		if _passed("cart%d" % k, t * 24.0 + k * 37.0, 96.0) and moving and bool(cr.get("push", true)) and (mine or (_far(y) > -5.0 and randf() < 0.5)):
 			amb.shot("cart_%d" % (randi() % 2), _far(y) + deep + (0.0 if mine else -6.0), 1.0 - k * 0.03)
 
 
@@ -715,24 +733,6 @@ func _surface_live(c: CanvasItem) -> void:
 		var gp := "guide/%02d.png" % (int(t * 8) % 24)
 		var gs := _size(gp)
 		_put(c, gp, Vector2(float(g[0]) - gs.x / 2, float(g[1]) - gs.y))
-	# the ore yard: a cart comes out of the adit full, rolls to the sorting shed, stands, rolls back in empty
-	if int(steps.get("yard", 0)) >= 3 and J.has("yard_cart"):
-		var yc: Dictionary = J.yard_cart
-		var run := float(yc.adit) - float(yc.shed)
-		var yu := fmod(t, 16.0)
-		var full: Dictionary = J.cart_full
-		var empty: Dictionary = J.cart_empty
-		var rail := float(yc.rail)
-		if yu < 5.0:
-			var r := run * (0.5 - 0.5 * cos(PI * yu / 5.0))
-			var x := float(yc.adit) + 40 - r
-			_cart(c, "cart_full", full, Vector2(x, rail), r, true, float(yc.adit) + 30)
-		elif yu < 8.0:
-			_cart(c, "cart_full" if yu < 6.5 else "cart_empty", full if yu < 6.5 else empty, Vector2(float(yc.shed) + 40, rail), run, true, 1e9)
-		elif yu < 13.0:
-			var r := run * (0.5 - 0.5 * cos(PI * (yu - 8.0) / 5.0))
-			var x := float(yc.shed) + 40 + r
-			_cart(c, "cart_empty", empty, Vector2(x - float(empty.w), rail), run + r, false, float(yc.adit) + 30)
 	# the generator hums once the power is on: it trembles and sparks jump at the brushes
 	if int(steps.get("power", 0)) >= 3:
 		var m: Array = J.machine

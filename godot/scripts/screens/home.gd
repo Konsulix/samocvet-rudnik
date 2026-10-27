@@ -325,6 +325,21 @@ func _demo_build() -> void:
 	else:
 		_dig()
 
+## test key (-- ui=demo_niche): a tap on the first stone standing in a niche
+func _demo_niche() -> void:
+	for k in 6:
+		var p := Vector2(float(MineView.NICHES.get(k + 1, [0, 0])[0]), view.band_y(k) + float(MineView.NICHES.get(k + 1, [0, 0])[1]) - 40)
+		if not view.niche_at(p).is_empty():
+			var e := InputEventMouseButton.new()
+			e.button_index = MOUSE_BUTTON_LEFT
+			e.position = view.get_global_transform() * p
+			e.pressed = true
+			_view_input(e)
+			e = e.duplicate()
+			e.pressed = false
+			_view_input(e)
+			return
+
 ## after a build: the drawn mine glides to the place that changed, dust bursts over it
 func _show_job(tid: String) -> void:
 	if not uses_view(): return
@@ -377,7 +392,17 @@ func _view_input(e: InputEvent) -> void:
 			if dtt > 0.01 and now - float(_track[-1][0]) < 0.08:
 				_vel = clampf((pos.y - float(a[1])) / dtt, -4000.0, 4000.0)
 		if not _dragging:
-			var k := view.band_at(view.get_global_transform().affine_inverse() * pos)
+			var lp := view.get_global_transform().affine_inverse() * pos
+			var stone := view.niche_at(lp)
+			if not stone.is_empty():
+				# the find on its pedestal: its card, as in the museum
+				Sfx.play("open")
+				var v := Ov.card(350, Data.rarity_color(int(stone.tier)))
+				Reveal.stone_card(v, stone, 400, func(): Ov.close())
+				v.add_child(Ov.text("Found at %d m" % Data.depth_m(ai(), int(stone.get("dl", 0))), 13))
+				accept_event()
+				return
+			var k := view.band_at(lp)
 			if k >= 0:
 				_pick_depth(k)
 	accept_event()
@@ -829,7 +854,7 @@ func _build(tid: String, i: int) -> void:
 	for x in A.tasks:
 		if not x[0] in Save.d.built[a]: all = false
 	if all:
-		await get_tree().create_timer(3.2 if uses_view() else 0.9).timeout
+		await get_tree().create_timer(6.0 if uses_view() else 0.9).timeout   # the drawn mine plays the change (and the chamber its tremor) first
 		Save.d.coins += 500
 		Save.d.boost.pick += 1
 		Save.d.boost.bore_h += 1

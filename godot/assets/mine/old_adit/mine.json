@@ -132,7 +132,7 @@
     700,
     ""
    ],
-   "push": true
+   "push": false
   },
   "3": {
    "work": [
@@ -140,7 +140,7 @@
     300,
     ""
    ],
-   "push": true,
+   "push": false,
    "pump": [
     1030,
     385
@@ -168,7 +168,7 @@
     900,
     ""
    ],
-   "push": true,
+   "push": false,
    "jack": [
     260
    ]
