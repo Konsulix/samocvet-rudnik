@@ -429,7 +429,7 @@ func _tick_events() -> void:
 	var pool := []
 	if open >= 0: pool.append("hole")
 	if _bands.size() > 3 and String(_bands[3].state) == "flooded": pool.append("coil")
-	if open < _bands.size() - 1: pool.append("eyes")
+	pool.append("eyes")
 	pool.append("bat")
 	_bat_k = _rng.randi_range(0, open)
 	if not pool.is_empty():
@@ -677,7 +677,7 @@ func _cart(c: CanvasItem, path: String, cd: Dictionary, bottom_left: Vector2, ro
 	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 ## two reptile eyes opening in the dark: a slow open, a look left and right, a blink, closing (s: seconds in)
-func _eyes(c: CanvasItem, at: Vector2, s: float) -> void:
+func _eyes(c: CanvasItem, at: Vector2, s: float, k := 1.0) -> void:
 	var o := clampf(s / 0.8, 0.0, 1.0) * clampf((5.0 - s) / 0.8, 0.0, 1.0)
 	if s > 2.9 and s < 3.1: o *= 0.1
 	if o <= 0.02:
@@ -685,17 +685,17 @@ func _eyes(c: CanvasItem, at: Vector2, s: float) -> void:
 	var look := 0.0
 	if s > 1.0 and s < 2.0: look = -1.0
 	elif s > 2.0 and s < 2.8: look = 1.0
-	_light(c, at, 70, Color(1.0, 0.75, 0.25, 0.35 * o))
+	_light(c, at, 70 * k, Color(1.0, 0.75, 0.25, 0.35 * o))
 	for side in [-1.0, 1.0]:
-		var e := at + Vector2(side * 26, 0)
-		var h := 11.0 * o
+		var e := at + Vector2(side * 26 * k, 0)
+		var h := 11.0 * o * k
 		var pts := PackedVector2Array()
 		for j in 20:
 			var a := TAU * j / 20.0
-			pts.append(e + Vector2(cos(a) * 16, sin(a) * h))
+			pts.append(e + Vector2(cos(a) * 16 * k, sin(a) * h))
 		c.draw_colored_polygon(pts, Color(1.0, 0.78, 0.25))
-		var pu := e + Vector2(look * 5, 0)
-		c.draw_rect(Rect2(pu.x - 1.6, e.y - h * 0.9, 3.2, h * 1.8), Color(0.08, 0.04, 0.0))
+		var pu := e + Vector2(look * 5 * k, 0)
+		c.draw_rect(Rect2(pu.x - 1.6 * k, e.y - h * 0.9, 3.2 * k, h * 1.8), Color(0.08, 0.04, 0.0))
 
 func _snake_live(c: CanvasItem) -> void:
 	for ev in _events.keys():
@@ -720,12 +720,10 @@ func _snake_live(c: CanvasItem) -> void:
 					var sz := _size(p)
 					_put(c, p, Vector2(640 - sz.x / 2, band_y(3) + 512 - 190 + 14 - sz.y))
 			"eyes":
-				var k := open + 1
-				var gaps: Dictionary = J.eye_gaps
-				if s > 5.0 or k >= _bands.size() or String(_shown_bands.get(k, "")) != "closed" or not gaps.has(str(k + 1)): done = true
+				# in the dark of the adit on the surface, under its lantern
+				if s > 5.0: done = true
 				else:
-					var g: Array = gaps[str(k + 1)]
-					_eyes(c, Vector2(float(g[0]), band_y(k) + float(g[1])), s)
+					_eyes(c, Vector2(968, float(J.sky) + 1606), s, 0.38)
 			"bat":
 				var u := s / 3.2
 				if u >= 1.0: done = true
