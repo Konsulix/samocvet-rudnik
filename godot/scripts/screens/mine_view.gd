@@ -15,7 +15,8 @@ signal band_tapped(k: int)
 
 const DIR := "res://assets/mine/old_adit/"
 const PLACES := ["camp", "power", "yard", "headframe"]
-const PICK_FPS := 8.0     # the pick's swing: 6 drawings, the strike on the third
+const PICK_FPS := 8.0     # the old 6-drawing pick swing, the strike on the third
+const CREW_FPS := 14.0    # the 24-drawing crews: a pick swing ~1.7 s, its strike on drawing 10
 
 static var _tex := {}
 static var force_event := ""   # test key (-- mine_event=hole|coil|eyes|bat): play it at once
@@ -323,7 +324,7 @@ const CAGE_CYCLE := 16.0   # s: down 6, wait 2 at the bottom, up 6, wait 2 at th
 ## how far down the cage is (source px from its top stop): eased down, a wait at the bottom, up, a wait at the top
 func cage_depth() -> float:
 	var cg: Dictionary = J.cage
-	var bottom := band_y(open) + float(J.floor) - _size("cage.png").y
+	var bottom := band_y(open) + floor_of(open + 1) - _size("cage.png").y
 	var run := maxf(0.0, bottom - float(cg.top))
 	var u := fmod(t, CAGE_CYCLE)
 	var q := 0.0
@@ -401,11 +402,17 @@ func _sounds(_dt: float) -> void:
 		if not b.lived or _appear.has(int(b.k)):
 			continue
 		var k := int(b.k)
-		var y := float(b.y) + float(J.floor)
+		var y := float(b.y) + floor_of(int(b.d))
 		var deep := -k * 1.5
 		var mine := k == sel
 		# the pick strikes on frame 2 of its swing (the pick down at the heap); every gallery on its own beat
-		if _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0) and (mine or randf() < 0.18):
+		var cr: Dictionary = J.crews.get(str(int(b.d)), {}) if J.has("crews") else {}
+		var who := String((cr.get("work", ["pick"]) as Array)[0])
+		var hit := false
+		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 10.0)
+		elif who == "pick" or not _crew_ok(who): hit = _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0)
+		elif who == "shovel24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 20.0)
+		if hit and (mine or randf() < 0.18):
 			amb.shot("pick", _far(y) + deep + (0.0 if mine else -4.0), 0.9 - k * 0.03)
 		# the cart: rolling sounds while it moves (each take is 4 s), out to the shaft and back
 		var P: Dictionary = J.push
@@ -543,9 +550,18 @@ func _surface_live(c: CanvasItem) -> void:
 			var at: Array = J.sparks.at
 			_put(c, sp, Vector2(float(at[0]), float(at[1])) - ss / 2)
 
+## the rails' top of a depth (band rows): each gallery was drawn with its own floor line
+func floor_of(d: int) -> float:
+	if J.has("floors") and J.floors.has(str(d)): return float(J.floors[str(d)])
+	return float(J.floor)
+
+## a 24-drawing crew sheet, or "" where it was not exported
+func _crew_ok(name: String) -> bool:
+	return J.has("crew_n") and int(J.crew_n.get(name, 0)) > 0
+
 func _band_live(c: CanvasItem, b: Dictionary) -> void:
 	var y := float(b.y)
-	var floor_y := y + float(J.floor)
+	var floor_y := y + floor_of(int(b.d))
 	var k := int(b.k)
 	if _water.has(k):
 		# the flooded picture is uncovered from the top: its water line sinks to the floor and is gone
@@ -562,15 +578,15 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 		if s > 1.6:
 			_drill_in.erase(k)
 		elif s > 0:
-			var dp := "drill/%d.png" % clampi(k - 1, 0, 4)
+			var dp := _drill_frame(k - 1)
 			var ds := _size(dp)
 			var sh: Array = J.shaft
 			var cx := (float(sh[0]) + float(sh[1])) / 2
-			var yy := y - ds.y * 0.35 + minf(s / 1.1, 1.0) * (float(J.floor) - ds.y * 0.4)
+			var yy := y - ds.y * 0.35 + minf(s / 1.1, 1.0) * (floor_of(int(b.d)) - ds.y * 0.4)
 			_put(c, dp, Vector2(cx - ds.x / 2 + _rng.randf_range(-3, 3), yy + _rng.randf_range(-2, 2)))
 	# the drill working at the face under the deepest open depth
 	if k == open + 1 and k <= 5:
-		var dp := "drill/%d.png" % mini(open, 4)
+		var dp := _drill_frame(open)
 		var ds := _size(dp)
 		var sh: Array = J.shaft
 		var cx := (float(sh[0]) + float(sh[1])) / 2
@@ -584,17 +600,11 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 		al = clampf((t - float(_appear[k])) / 1.2, 0.0, 1.0)
 		if al >= 1.0: _appear.erase(k)
 		if al <= 0.0: return
-	# the miner at the back breaking a heap of ore, sparks off the heap on each strike
 	var back := floor_y - 34
-	var hs := _size("heap.png")
-	_put(c, "heap.png", Vector2(812, back - hs.y + 8), false, al)
-	var pf := int(t * PICK_FPS + k * 2.3) % 6
-	var pp := "pick/%d.png" % pf
-	var psz := _size(pp)
-	_put(c, pp, Vector2(760 - psz.x / 2, back - psz.y), false, al)
-	var sf := int(fposmod(t * PICK_FPS + k * 2.3 - 2.0, 6.0) * 2.0)
-	if sf < 4:
-		_put(c, "gspark/%d.png" % sf, Vector2(830, back - hs.y - 30), false, al)
+	var cr: Dictionary = J.crews.get(str(int(b.d)), {}) if J.has("crews") else {}
+	_crew_live(c, cr, y, floor_y, back, k, al)
+	if not bool(cr.get("push", true)):
+		return
 	# the pusher: out from the face (left) with a full cart into the shaft, back with an empty one
 	var P: Dictionary = J.push
 	var n := int(P.n)
@@ -620,6 +630,60 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 		var es := Vector2(float(empty.w), float(empty.h))
 		_cart(c, "cart_empty", empty, Vector2(x + ps.x - hx - es.x + 34, floor_y + 4), r, true, portal, al)
 		_clip_put(c, "push/%02d.png" % fi, Vector2(x, floor_y - ps.y), true, portal, al)
+
+## the drill of the deepest open depth: the jackhammer, the rig and the borer work (their sheets), the others shake
+func _drill_frame(i: int) -> String:
+	match clampi(i, 0, 4):
+		0: return "jackhammer/%d.png" % (int(t * 12) % 4)
+		2: return "rig/%d.png" % (int(t * 10) % 6)
+		3: return "borer/%d.png" % (int(t * 12) % 6)
+	return "drill/%d.png" % clampi(i, 0, 4)
+
+## who works at the back of a depth (mine.json "crews"): a pick man at a heap, a shovel man, a man resting on a crate;
+## the pump on its plinth at 150 m once the pump is built, water dripping, the jackhammer at the face of 250 m
+func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: float, k: int, al: float) -> void:
+	if cr.has("drip"):
+		var dx := float(cr.drip[0])
+		var di := int(t * 8 + k * 3) % 16
+		if di < 8:
+			_put(c, "drip/%d.png" % di, Vector2(dx, y + 60), false, al * 0.9)
+	if cr.has("pump") and int(steps.get("pump", 0)) >= 1:
+		var pi := int(t * 10) % 8
+		var pp := "pump/%d.png" % pi
+		var ps_ := _size(pp)
+		_put(c, pp, Vector2(float(cr.pump[0]) - ps_.x / 2, y + float(cr.pump[1]) - ps_.y + 6))
+	if cr.has("jack"):
+		var jp := "jackhammer/%d.png" % (int(t * 12) % 4)
+		var js := _size(jp)
+		_put(c, jp, Vector2(float(cr.jack[0]) - js.x / 2, back + 10 - js.y), false, al)
+	var w: Array = cr.get("work", ["pick", 760, "heap"])
+	var who := String(w[0])
+	var x := float(w[1])
+	var heap := String(w[2])
+	if not _crew_ok(who):
+		who = "pick"
+	var hs := _size("heap.png")
+	if heap == "heap":
+		_put(c, "heap.png", Vector2(x + 52, back - hs.y + 8), false, al)
+	elif heap == "heap_l":
+		_put(c, "heap.png", Vector2(x - 40 - hs.x, back - hs.y + 8), false, al)
+	if who == "pick":
+		var pf := int(t * PICK_FPS + k * 2.3) % 6
+		var pp := "pick/%d.png" % pf
+		var psz := _size(pp)
+		_put(c, pp, Vector2(x - psz.x / 2, back - psz.y), false, al)
+		var sf := int(fposmod(t * PICK_FPS + k * 2.3 - 2.0, 6.0) * 2.0)
+		if sf < 4:
+			_put(c, "gspark/%d.png" % sf, Vector2(x + 70, back - hs.y - 30), false, al)
+		return
+	var f := int(t * CREW_FPS + k * 7.0) % 24
+	var p := "%s/%02d.png" % [who, f]
+	var sz := _size(p)
+	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), false, al)
+	if who == "pick24":
+		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)
+		if sf < 4:
+			_put(c, "gspark/%d.png" % sf, Vector2(x + 70, back - hs.y - 30), false, al)
 
 ## a sprite cut off at the shaft: what is past the portal is inside the shaft
 func _clip_put(c: CanvasItem, path: String, pos: Vector2, flip: bool, portal: float, al := 1.0) -> void:
