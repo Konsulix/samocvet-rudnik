@@ -35,6 +35,8 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 		return SpecWood.genes(seed_v, tr, o)
 	if sid == "fulgurite":
 		return SpecFulgurite.genes(seed_v, tr, o)
+	if sid == "flower_quartz":
+		return SpecFlower.genes(seed_v, tr, o)
 	var rng := Rng32.new((seed_v * 2891336453 + 11) % 4294967296)
 	var g := {kind = sid}
 	match sid:
@@ -89,6 +91,8 @@ static func accents(g: Dictionary) -> Array:
 		return SpecWood.accents(g)
 	if g.get("kind", "") == "fulgurite":
 		return SpecFulgurite.accents(g)
+	if g.get("kind", "") == "flower_quartz":
+		return SpecFlower.accents(g)
 	var out := []
 	if g.get("kind", "") == "ammonite":
 		if float(g.nacre) >= 0.03: out.append("nacre")
@@ -107,6 +111,8 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		return SpecWood.gene_name(id, g)
 	if g.get("kind", "") == "fulgurite":
 		return SpecFulgurite.gene_name(id, g)
+	if g.get("kind", "") == "flower_quartz":
+		return SpecFlower.gene_name(id, g)
 	match id:
 		"nacre": return "%sammolite %d%%" % [FIRE_N.get(g.get("fire", "red"), ""), roundi(float(g.nacre) * 100.0)]
 		"druse_ch": return "crystal-lined chambers"

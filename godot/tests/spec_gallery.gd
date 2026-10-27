@@ -163,6 +163,12 @@ const SETS := [
 	{seed = 642, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.35, glass = 1},
 	{seed = 643, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.6, glass = 2, sand = 2},
 	{seed = 644, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.4, glass = 0, sand = 1}],
+	# set 28: a flower in clear stone — bronze, copper, red, indigo, white; smoky and amber stone
+	[{seed = 651, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 0, stone = 0, gold = true},
+	{seed = 652, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 1, stone = 1, gold = false},
+	{seed = 653, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 2, stone = 0, gold = false},
+	{seed = 654, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 4, stone = 2, gold = true},
+	{seed = 651, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 0, stone = 0, gold = false, bare = true}],
 ]
 
 func _ready() -> void:

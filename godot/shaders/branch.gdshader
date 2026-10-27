@@ -22,6 +22,8 @@ uniform int opal_body = 0;
 uniform float opal_scale = 6.0;     // the fire's scale for this piece's size
 uniform float twist = 0.25;         // the grain's twist round a branch (driftwood)
 uniform float flow_k = 0.0;
+uniform sampler2D bark_tex : source_color, filter_linear_mipmap, repeat_enable;   // a bark scan for the twig's plates
+uniform float bark_k = 0.0;
 uniform float hollow_opal = 0.0;    // driftwood: its hollow packed with broken opal (1) or just rotten wood (0)
 
 varying vec3 v_op;
@@ -73,12 +75,15 @@ void fragment() {
 		float grit = vn(vec3(p * 260.0)) * 0.5 + vn(vec3(p * 90.0)) * 0.5;
 		float scale = fbm(vec3(q * 3.0, rid + 11.0));
 		vec3 bark = lin(c_bark) * (0.6 + 0.6 * scale) * (0.8 + 0.4 * grit);
+		vec3 scan = texture(bark_tex, vec2(a * 2.0, u * 0.12 + rid)).rgb;
+		float sl = dot(scan, vec3(0.3, 0.5, 0.2));
+		bark = mix(bark, bark * (0.4 + 1.6 * sl) , bark_k);
 		bark = mix(bark, lin(c_light) * 0.8, smoothstep(0.62, 0.8, fbm(vec3(q * 1.3, rid + 5.0))) * 0.5);
 		// the ridges: fibrous bark, streaked along the branch
 		float fib = vn(vec3(u * 3.0, cs * 14.0 + rid)) * 0.6 + vn(vec3(u * 9.0, cs * 40.0 + rid)) * 0.4;
 		vec3 rc = mix(lin(c_bark) * 0.6, lin(c_light) * 0.85, fib) * (0.75 + 0.4 * grit);
 		c = mix(bark, rc, ridge);
-		hgt = ridge * (1.2 + fib * 0.8) + grit * 0.4 + scale * 0.5 - is_opal * 0.6;
+		hgt = ridge * (1.2 + fib * 0.8) + grit * 0.4 + scale * 0.5 - is_opal * 0.6 + sl * bark_k * 1.2;
 		if (is_opal > 0.0) {
 			float g;
 			vec3 fire = opal_play(p, vm, nm, fire_h, opal_spread, rid, flow_k * TIME, opal_scale, 1.0, 1.0, g);

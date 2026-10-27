@@ -431,6 +431,8 @@ static func _twig(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	m.set_shader_parameter("c_bark", Color.hex(0x6a584aff))
 	m.set_shader_parameter("c_light", Color.hex(0x9e8e7cff))
 	m.set_shader_parameter("c_end", Color.hex(0x9c8266ff))
+	m.set_shader_parameter("bark_tex", load("res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg"))
+	m.set_shader_parameter("bark_k", 1.0)
 	if gene.fx == "dragonfire":
 		b.root.set_meta("dim", true)
 		m.set_shader_parameter("flow_k", 1.0)
