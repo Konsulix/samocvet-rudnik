@@ -1019,7 +1019,7 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 	if who == "pick24":
 		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)
 		if sf < 4:
-			_put(c, "gspark/%d.png" % sf, Vector2(x + (-70 if flip else 70), back - hs.y - 30), false, al)
+			_put(c, "gspark/%d.png" % sf, Vector2(x + (-5 if flip else 5), back - hs.y - 5), false, al)
 
 ## which of a crew's 24 drawings now: a steady loop, or - with "pause" - the action once, then he just sits, breathing
 ## (drawings 17..24 back and forth) for that many seconds before the next time
@@ -1195,22 +1195,27 @@ func _snake_live(c: CanvasItem) -> void:
 				else:
 					_eyes(c, Vector2(968, float(J.sky) + 1606), s, 0.38)
 			"lizard":
-				# along the back wall of an open gallery from the face: a dash, a stop at the niche (she looks at the stone),
-				# a dash into the shaft
-				if s > 6.0: done = true
+				# the way a real lizard moves: it freezes, then darts - three quick dashes along the back wall (too fast to see
+				# its legs), a long stop by the niche with only its head turning, a dash into the shaft
+				if s > 6.5: done = true
 				else:
 					var y := band_y(_bat_k) + 230
 					var stop := 300.0 + _bat_k * 97 % 400
-					var x := 0.0
-					if s < 1.6: x = -60 + (stop + 60) * (s / 1.6)
-					elif s < 3.2: x = stop
-					else: x = stop + (float(J.portal) - stop) * minf(1.0, (s - 3.2) / 2.2)
-					var moving := s < 1.6 or s > 3.2
-					var fr := "lizard/%d.png" % ((int(t * 16) % 8) if moving else 0)
+					var marks := [[0.0, -60.0], [0.25, 60.0], [0.9, 60.0], [1.1, 170.0], [1.6, 170.0], [1.8, stop], [3.9, stop], [4.3, float(J.portal) + 40.0]]
+					var x := float(marks[-1][1])
+					var moving := false
+					for mi in marks.size() - 1:
+						var m0: Array = marks[mi]
+						var m1: Array = marks[mi + 1]
+						if s >= float(m0[0]) and s < float(m1[0]):
+							var q := (s - float(m0[0])) / (float(m1[0]) - float(m0[0]))
+							x = lerpf(float(m0[1]), float(m1[1]), q * q * (3.0 - 2.0 * q))
+							moving = float(m1[1]) != float(m0[1])
+					var fr := "lizard/%d.png" % ((int(t * 30) % 8) if moving else 0)
 					var ls := _size(fr)
+					var turn := 0.0 if moving else 0.25 * sin(s * 5.0) * float(s > 1.8 and s < 3.9)
 					if x < float(J.portal):
-						# head to the right: the drawing points up, so it is turned a quarter round
-						c.draw_set_transform(Vector2(x, y + sin(x * 0.03) * 10), PI / 2, Vector2.ONE)
+						c.draw_set_transform(Vector2(x, y), PI / 2 + turn, Vector2.ONE)
 						c.draw_texture_rect(tex(fr), Rect2(-ls / 2, ls), false)
 						c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 			"bat":
