@@ -20,7 +20,8 @@ var green_spots := []
 ## what really grew on the stone, so the card names nothing it doesn't show: gene id (a trait, an accent, or "fx")
 ## -> [[point, normal], ...] in the specimen's own space, where a callout can point at it
 var grown := {}
-var arng := Rng32.new(7)   # picks callout spots without touching the stone's own random stream
+var arng := Rng32.new(7)
+var boxes := []            # every crystal's box in its own axes: {bounds, inverse}; no growth on the rock goes in one   # picks callout spots without touching the stone's own random stream
 
 static func build(o: Dictionary) -> Node3D:
 	var b := SpecimenBuilder.new()
@@ -81,6 +82,25 @@ func _mark_on(id: String, m: Node3D) -> void:
 		_mark(id, _mid(m, 0.6))
 	else:
 		_mark(id, pts[0][0], pts[0][1])
+
+## each crystal's box in its own axes (a leaning column's world box would cover the empty rock round its foot),
+## a little bigger for the crust its foot still gets
+func _crystal_boxes(main: MeshInstance3D, mat: ShaderMaterial) -> Array:
+	var out := []
+	for c: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		var cm := c.material_override
+		if not c.has_meta("geo") or not (c.get_meta("col", false) or c == main or (cm and (cm == mat or cm in dt_mats))):
+			continue
+		var xf := U.rel_xform(c, root)
+		out.append({bounds = (c.get_meta("geo") as Geo).aabb().grow(0.03 / maxf(0.2, xf.basis.get_scale().x)), inverse = xf.affine_inverse()})
+	return out
+
+## a spot on the rock with no crystal over it
+func _free(p: Vector3) -> bool:
+	for b: Dictionary in boxes:
+		if (b.bounds as AABB).has_point((b.inverse as Transform3D) * p):
+			return false
+	return true
 
 func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 	return Transform3D(U.eul(e.x, e.y, e.z) * Basis.from_scale(sc), p)
@@ -453,6 +473,23 @@ func _specimen(o: Dictionary) -> Node3D:
 	if "silver" in tr and st.rocky: _mark_on("silver", st.rock if st.rock else main)
 	if "anomaly" in tr: _mark_on("anomaly", main)
 	if String(gene.fx) != "": _mark("fx", _mid(main, 0.65))
+
+	# from here on whatever settles on the rock (plants, puffs, sprays, crusts, flakes, bubbles) keeps out of
+	# the crystals: a spot under one is picked again, a few times, and the pits under them are dropped.
+	# Moss and coral are the exception (`pick_any`, `hollows_all`): grown thick, the crystals look pushed up through them
+	boxes = _crystal_boxes(main, mat)
+	st.pick_any = st.pick
+	st.hollows_all = st.hollows
+	if boxes.size():
+		var raw: Callable = st.pick
+		st.pick = func() -> Vector3:
+			var q: Vector3 = raw.call()
+			for k in 12:
+				if _free(q):
+					break
+				q = raw.call()
+			return q
+		st.hollows = (st.hollows as Array).filter(func(h: Array) -> bool: return _free(h[0]))
 
 	match gene.fx:
 		"heart":
@@ -884,7 +921,9 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 				var tp: Array = top[(q * top.size()) / 4]
 				_mark("lichen", tp[0], tp[1])
 	# little plants root where there is moss, or in the pits, or anywhere on the rock
-	var green: Array = green_spots if green_spots.size() else nest_spots
+	# where moss grew under a crystal, nothing roots in it there
+	var open_green := green_spots.filter(func(g: Array) -> bool: return _free(g[0]))
+	var green: Array = open_green if open_green.size() else nest_spots
 	if green.size():
 		if "fronds" in acc:
 			var fp: Array = SpecAccents.FROND[int(pal.frond)]
@@ -904,20 +943,11 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 	if "mushrooms" in acc and nest_spots.size():
 		# their own random stream too: the rest of the stone stays as it was
 		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)
-		# no cap grows into a crystal: each crystal's box in its own axes (a leaning column's world box
-		# would cover the empty rock round its foot), a little bigger for the crust its foot still gets
-		var blockers := []
-		for c: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
-			var cm := c.material_override
-			if not c.has_meta("geo") or not (c.get_meta("col", false) or c == main or (cm and (cm == mat or cm in dt_mats))):
-				continue
-			var xf := U.rel_xform(c, root)
-			blockers.append({bounds = (c.get_meta("geo") as Geo).aabb().grow(0.03 / maxf(0.2, xf.basis.get_scale().x)), inverse = xf.affine_inverse()})
 		var kind: int = gene.shroom
 		var tiny := kind == 3
 		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
 			var n := (4 + int(fr.next() * 6)) if tiny else (2 + int(fr.next() * 4))
-			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), blockers)
+			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), boxes)
 			if cap.size(): _mark("mushrooms", cap[0], cap[1])
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
@@ -940,6 +970,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			cols.append(c)
 	var inc_p: Array = get_meta("inc_p") if has_meta("inc_p") else [Color(0.8, 0.5, 0.2)]
 	var pick: Callable = st.pick
+	var pick_any: Callable = st.get("pick_any", st.pick)
 	var nrm: Callable = st.nrm
 	var dloc: bool = dt.local
 	var dh: float = dt.h
@@ -1026,7 +1057,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			for k in 2 + (1 if rng.next() < 0.35 else 0):
 				fn.call(fn, e, (d + Vector3(rng.next() - 0.5, rng.next() * 0.5, rng.next() - 0.5) * 1.3).normalized(), l * (0.62 + rng.next() * 0.2), r * 0.72, depth - 1)
 		for k in 6:
-			var at: Vector3 = pick.call()
+			var at: Vector3 = pick_any.call()
 			grow.call(grow, at, (nrm.call(at) as Vector3).lerp(UP, 0.5).normalized(), 0.1 + rng.next() * 0.06, 0.016, 4)
 		# tapering limy stems, soft and porous, with rounded knobs at the ends
 		for L in list:
@@ -1071,14 +1102,14 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		# cushions of moss and a few young ferns where the rock faces the sky
 		var pool := []
 		for k in 900:
-			var q: Vector3 = pick.call()
+			var q: Vector3 = pick_any.call()
 			pool.append([q, nrm.call(q)])
-		var hollows: Array = st.get("hollows", [])
+		var hollows: Array = st.get("hollows_all", [])
 		var in_pits: bool = gene_m.nest == "hollows" and hollows.size() > 30
 		if in_pits:
 			pool = hollows
 		for k in (7 + int(rng.next() * 5)) if in_pits else (4 + int(rng.next() * 3)):
-			var c0: Vector3 = (pool[int(rng.next() * pool.size())][0] as Vector3) if in_pits else (pick.call() as Vector3)
+			var c0: Vector3 = (pool[int(rng.next() * pool.size())][0] as Vector3) if in_pits else (pick_any.call() as Vector3)
 			var rad := (0.07 + rng.next() * 0.09) if in_pits else (0.18 + rng.next() * 0.2)
 			green_spots.append([c0, nrm.call(c0)])
 			var tint: Color = (SpecAccents.MOSS[int(gene_m.palette.moss)] as Color).lerp(Color(1.2, 1.1, 0.6), rng.next() * 0.3)
