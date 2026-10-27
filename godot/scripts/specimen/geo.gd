@@ -10,6 +10,7 @@ var idx := PackedInt32Array()
 var col := PackedColorArray()
 var rp := PackedVector3Array()   # rock-line coordinates for the DIRT shader
 var bary := PackedVector3Array() # distance to the real edges of each face (for the silver rims)
+var own_n := PackedVector3Array()  # own normals, when given (a tube's seam would otherwise show)
 var _mesh: ArrayMesh
 
 func indexed() -> bool:
@@ -120,7 +121,7 @@ func to_mesh() -> ArrayMesh:
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = v
-	arr[Mesh.ARRAY_NORMAL] = normals()
+	arr[Mesh.ARRAY_NORMAL] = own_n if own_n.size() == v.size() else normals()
 	if col.size() == v.size():
 		arr[Mesh.ARRAY_COLOR] = col
 	if rp.size() == v.size():

@@ -234,6 +234,8 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = SpecFossil.ammonite(self, gene, use_rock)
 		"petrified_wood":
 			main = SpecWood.build(self, gene)
+		"fulgurite":
+			main = SpecFulgurite.build(self, gene)
 		"nugget":
 			main = _nugget(sid, col)
 		"vein":

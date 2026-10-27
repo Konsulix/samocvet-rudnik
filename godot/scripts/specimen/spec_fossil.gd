@@ -33,6 +33,8 @@ const PLATE := Vector2(10.0 / TAU, 5.0 / TAU)   # nacre plates per radian: along
 static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Dictionary:
 	if sid == "petrified_wood":
 		return SpecWood.genes(seed_v, tr, o)
+	if sid == "fulgurite":
+		return SpecFulgurite.genes(seed_v, tr, o)
 	var rng := Rng32.new((seed_v * 2891336453 + 11) % 4294967296)
 	var g := {kind = sid}
 	match sid:
@@ -85,6 +87,8 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 static func accents(g: Dictionary) -> Array:
 	if g.get("kind", "") == "petrified_wood":
 		return SpecWood.accents(g)
+	if g.get("kind", "") == "fulgurite":
+		return SpecFulgurite.accents(g)
 	var out := []
 	if g.get("kind", "") == "ammonite":
 		if float(g.nacre) >= 0.03: out.append("nacre")
@@ -101,6 +105,8 @@ static func accents(g: Dictionary) -> Array:
 static func gene_name(id: String, g: Dictionary) -> String:
 	if g.get("kind", "") == "petrified_wood":
 		return SpecWood.gene_name(id, g)
+	if g.get("kind", "") == "fulgurite":
+		return SpecFulgurite.gene_name(id, g)
 	match id:
 		"nacre": return "%sammolite %d%%" % [FIRE_N.get(g.get("fire", "red"), ""), roundi(float(g.nacre) * 100.0)]
 		"druse_ch": return "crystal-lined chambers"

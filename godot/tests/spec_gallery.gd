@@ -143,6 +143,26 @@ const SETS := [
 	{seed = 606, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", pal = 3, opal = 0.0, checks = 0},
 	{seed = 607, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", opal = 0.85, fire = "blue", checks = 2, heart = ""},
 	{seed = 608, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", opal = 0.7, fire = "green", checks = 2}],
+	# set 24: opalized wood — slices with opal pools between the chunks (dark, crystal, honey body), a log
+	[{seed = 611, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", opal = 0.75, fire = "blue", body = "dark", spread = 0.5, pal = 1, bark = 1.0, checks = 0, heart = ""},
+	{seed = 612, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", opal = 0.5, fire = "green", body = "crystal", spread = 0.4, pal = 3, bark = 0.8, checks = 0, heart = ""},
+	{seed = 613, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", opal = 0.9, fire = "red", body = "honey", spread = 0.3, pal = 1, bark = 1.0, checks = 0, heart = ""},
+	{seed = 614, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", opal = 0.6, fire = "violet", body = "dark", spread = 0.5, pal = 2, bark = 0.8, checks = 0}],
+	# set 25: opal twigs
+	[{seed = 621, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "twig", opal = 0.7, fire = "red", body = "dark", spread = 0.45},
+	{seed = 622, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "twig", opal = 0.5, fire = "green", body = "dark", spread = 0.35},
+	{seed = 623, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "twig", opal = 0.8, fire = "blue", body = "crystal", spread = 0.4},
+	{seed = 624, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "twig", opal = 0.6, fire = "violet", body = "dark", spread = 0.5}],
+	# set 26: driftwood — opal chunks in a hollow (honey, crystal), a crystal glowing from inside with jelly fungi
+	[{seed = 631, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "opal", fungi = false, body = "honey", fire = "red", spread = 0.35},
+	{seed = 632, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "opal", fungi = false, body = "crystal", fire = "blue", spread = 0.4},
+	{seed = 633, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = true},
+	{seed = 634, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = true}],
+	# set 27: fulgurites — sand-crusted branches broken open to the glass
+	[{seed = 641, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, glass = 0},
+	{seed = 642, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.35, glass = 1},
+	{seed = 643, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.6, glass = 2, sand = 2},
+	{seed = 644, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.4, glass = 0, sand = 1}],
 ]
 
 func _ready() -> void:
