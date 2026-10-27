@@ -704,7 +704,7 @@ func _tick_events() -> void:
 	if _bands.size() > 3 and String(_bands[3].state) == "flooded": pool.append("coil")
 	pool.append("eyes")
 	pool.append("bat")
-	if area == 0 and J.has("lizard2") and String(_shown_bands.get(0, "")) != "closed":
+	if area == 0 and J.has("lizard2") and String(_shown_bands.get(int(J.lizard2.get("k", 0)), "")) == "clear":
 		pool.append("lizard")         # the herald of the next mine's Mistress: nobody here knows who she is
 	_bat_k = _rng.randi_range(0, open)
 	if not pool.is_empty():
@@ -1195,7 +1195,7 @@ func _snake_live(c: CanvasItem) -> void:
 				else:
 					_eyes(c, Vector2(968, float(J.sky) + 1606), s, 0.38)
 			"lizard":
-				# she lives in the crack of the malachite vein by the 50 m niche: comes out (24 drawings), sits on the vein
+				# she lives in the crack of the malachite vein on the 200 m back wall: comes out (24 drawings), sits on the vein
 				# almost unseen, blinking now and then (12 drawings), and goes back in (the coming out reversed)
 				var L2: Dictionary = J.lizard2
 				var out_s := 24.0 / 12.0
@@ -1209,7 +1209,7 @@ func _snake_live(c: CanvasItem) -> void:
 				elif s < out_s * 2.0 + sit: fr = "lizard2/out_%02d.png" % (23 - int((s - out_s - sit) * 12.0))
 				else: done = true
 				if fr != "":
-					_put(c, fr, Vector2(float(L2.x), band_y(0) + float(L2.y)))
+					_put(c, fr, Vector2(float(L2.x), band_y(int(L2.get("k", 0))) + float(L2.y)))
 			"bat":
 				var u := s / 3.2
 				if u >= 1.0: done = true
