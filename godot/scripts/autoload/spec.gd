@@ -61,7 +61,7 @@ func _warm() -> void:
 	var wm := ShaderMaterial.new()
 	wm.shader = SpecWood.SHADER
 	mats.append(wm)
-	for sh: Shader in [SpecBranch.SHADER, SpecWood.STONE, SpecFlower.PETAL]:
+	for sh: Shader in [SpecBranch.SHADER, SpecWood.STONE, SpecFlower.PETAL, SpecFlower.WING, SpecFlower.HOST]:
 		var xm := ShaderMaterial.new()
 		xm.shader = sh
 		mats.append(xm)

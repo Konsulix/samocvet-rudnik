@@ -163,12 +163,25 @@ const SETS := [
 	{seed = 642, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.35, glass = 1},
 	{seed = 643, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.6, glass = 2, sand = 2},
 	{seed = 644, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.4, glass = 0, sand = 1}],
-	# set 28: a flower in clear stone — bronze, copper, red, indigo, white; smoky and amber stone
-	[{seed = 651, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 0, stone = 0, gold = true},
-	{seed = 652, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 1, stone = 1, gold = false},
-	{seed = 653, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 2, stone = 0, gold = false},
-	{seed = 654, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 4, stone = 2, gold = true},
-	{seed = 651, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], look = 0, stone = 0, gold = false, bare = true}],
+	# set 28: flowers in stone — every form, colours, leaves; quartz, smoky, amber
+	[{seed = 651, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "star", look = 0, host = "quartz", leaves = 0, gold = true},
+	{seed = 652, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "rose", look = 2, host = "quartz", leaves = 2, gold = false},
+	{seed = 653, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "daisy", look = 3, host = "smoky", leaves = 1, gold = false},
+	{seed = 654, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "bell", look = 7, host = "quartz", leaves = 2, gold = false},
+	{seed = 655, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "blossom", look = 4, host = "quartz", leaves = 2, gold = false},
+	{seed = 656, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "poppy", look = 8, host = "amber", leaves = 0, gold = false},
+	{seed = 657, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "star", look = 9, host = "quartz", leaves = 3, gold = true},
+	{seed = 658, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "daisy", look = 6, host = "quartz", leaves = 2, gold = false}],
+	# set 29: amber — every insect; copal; a flower in amber
+	[{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "ant", host = "amber"},
+	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "beetle", host = "amber"},
+	{seed = 663, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "fly", host = "copal"},
+	{seed = 664, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "mosquito", host = "amber"},
+	{seed = 665, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber"},
+	{seed = 666, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "flower", bloom = "blossom", look = 3, host = "amber"},
+	{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "fly", host = "amber", bare = true},
+	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber", bare = true}],
+
 ]
 
 func _ready() -> void:

@@ -236,7 +236,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = SpecWood.build(self, gene)
 		"fulgurite":
 			main = SpecFulgurite.build(self, gene)
-		"flower_quartz":
+		"flower_quartz", "amber":
 			main = SpecFlower.build(self, gene)
 		"nugget":
 			main = _nugget(sid, col)

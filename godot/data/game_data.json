@@ -6,6 +6,12 @@
    "v": 45,
    "r": 1
   },
+  "amber": {
+   "n": "Amber",
+   "c": "#e09a2a",
+   "v": 50,
+   "r": 2
+  },
   "flower_quartz": {
    "n": "Flower in Quartz",
    "c": "#e6e2da",
@@ -1563,6 +1569,7 @@
   "petrified_wood": "fossil",
   "fulgurite": "fossil",
   "flower_quartz": "fossil",
+  "amber": "fossil",
   "quartz": "prism",
   "amethyst": "prism",
   "calcite": "scaleno",
