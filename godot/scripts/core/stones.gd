@@ -31,7 +31,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	for s in pool:
 		entries.append([s, pool[s] * pow(1.0 + luck * 0.8, Data.SP[s].r)])
 	var sid: String = pick_w(entries, rng)
-	var kind: String = "nugget" if sid in Data.NUGGETY else pick_w([["crystal", 5.0], ["druse", 4.0], ["geode", 1.4]], rng)
+	var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else pick_w([["crystal", 5.0], ["druse", 4.0], ["geode", 1.4]], rng)
 	var ge := []
 	for k in Data.GR.size():
 		ge.append([k, Data.GR[k].w * pow(1.0 + luck * 0.5, k * 0.6)])
@@ -41,9 +41,13 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	var tm := 1.0
 	for t in traits:
 		tm *= Data.TR[t].m
-	var base_g := 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 60.0
+	var base_g := 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 250.0 if kind == "fossil" else 60.0
 	var g := roundi(base_g * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * 0.35))
 	var kind_m := 1.4 if kind == "druse" else 1.6 if kind == "geode" else 1.0
+	if kind == "fossil":
+		# a shell nearly all ammolite is worth many plain ones
+		var fg := SpecFossil.genes(seed_id, sid, traits)
+		kind_m *= 1.0 + 8.0 * pow(float(fg.get("nacre", 0.0)), 3.0)
 	var value := roundi(Data.SP[sid].v * Data.GR[gi].m * tm * (3.0 if legend else 1.0) * kind_m * 1.3 * (1.0 + dl * 0.25))
 	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = value, tier = tier_of(sid, gi, legend)}
 

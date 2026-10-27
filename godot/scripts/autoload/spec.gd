@@ -54,6 +54,9 @@ func _warm() -> void:
 	mats.append(SpecFungi.material(0))
 	mats.append(SpecLegend.heart_mat(Color.WHITE, 2.0, 0.5))
 	mats.append(SpecLegend.glow_mat(Color.WHITE))
+	var fm := ShaderMaterial.new()
+	fm.shader = SpecFossil.SHADER
+	mats.append(fm)
 	var done := 0
 	for m in mats:
 		var mi := MeshInstance3D.new()

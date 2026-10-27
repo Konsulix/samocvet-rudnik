@@ -162,7 +162,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		var t: Dictionary = Data.TR[id]
 		genes[id] = [t.n, float(t.p) < 0.06]
 	for a in gene.accents:
-		genes[a] = [SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
+		var fn := SpecFossil.gene_name(a, gene.get("fossil", {}))
+		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
 	var chips := {}
 	for id: String in genes:
 		var c := chip(genes[id][0], genes[id][1], not (id in s.get("traits", [])) and id != "fx")

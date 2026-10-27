@@ -1,5 +1,11 @@
 {
  "SP": {
+  "ammonite": {
+   "n": "Ammonite",
+   "c": "#c49a6c",
+   "v": 45,
+   "r": 1
+  },
   "quartz": {
    "n": "Rock Crystal",
    "c": "#dfe8f2",
@@ -1535,6 +1541,7 @@
   "#f0b43a"
  ],
  "HABIT": {
+  "ammonite": "fossil",
   "quartz": "prism",
   "amethyst": "prism",
   "calcite": "scaleno",

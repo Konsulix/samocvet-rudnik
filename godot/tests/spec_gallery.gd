@@ -92,6 +92,33 @@ const SETS := [
 	{seed = 306, sid = "quartz", kind = "druse", gi = 2, traits = ["druzy"], form = "slabs"},
 	{seed = 307, sid = "emerald", kind = "crystal", gi = 2, traits = ["druzy", "moss"], accents = ["flowers", "pompom"]},
 	{seed = 308, sid = "calcite", kind = "crystal", gi = 2, traits = ["druzy"]}],
+	# set 18: ammonites — on a slab, loose, sawn in half; with nacre (rainbow film makes ammolite)
+	[{seed = 401, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix"},
+	{seed = 402, sid = "ammonite", kind = "fossil", gi = 2, traits = ["irid"], show = "matrix"},
+	{seed = 403, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose"},
+	{seed = 404, sid = "ammonite", kind = "fossil", gi = 3, traits = ["irid"], show = "loose"},
+	{seed = 405, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split"},
+	{seed = 406, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split"},
+	{seed = 407, sid = "ammonite", kind = "fossil", gi = 3, traits = [], show = "split"},
+	{seed = 408, sid = "ammonite", kind = "fossil", gi = 2, traits = ["moss"], show = "matrix"}],
+	# set 19: ammolite — the nacre's share and its fire
+	[{seed = 411, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", nacre = 0.1, fire = "red"},
+	{seed = 412, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", nacre = 0.35, fire = "red"},
+	{seed = 413, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", nacre = 0.65, fire = "green"},
+	{seed = 414, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", nacre = 0.95, fire = "red"},
+	{seed = 415, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", nacre = 0.5, fire = "green"},
+	{seed = 416, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", nacre = 0.9, fire = "blue"},
+	{seed = 417, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", nacre = 0.8, fire = "violet"},
+	{seed = 418, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", nacre = 0.6, fire = "red"}],
+	# set 20: sawn ammonites, every filling of the chambers
+	[{seed = 421, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", fill = "calcite"},
+	{seed = 422, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", fill = "white"},
+	{seed = 423, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", fill = "pyrite"},
+	{seed = 424, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", fill = "agate"},
+	{seed = 425, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", fill = "ammolite", fire = "green"},
+	{seed = 426, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "split", fill = "calcite"},
+	{seed = 427, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", pal = 3, nacre = 0.0},
+	{seed = 428, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "loose", pal = 3, nacre = 0.3, fire = "green"}],
 ]
 
 func _ready() -> void:

@@ -12,7 +12,9 @@ const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "col
 	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
-	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms"}
+	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
+	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "calcite chambers", ch_white = "white calcite chambers",
+	ch_pyrite = "pyrite chambers", ch_agate = "agate chambers"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -33,7 +35,9 @@ static func of(o: Dictionary) -> Dictionary:
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
-	if kind == "geode": form = "geode"
+	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else {}
+	if habit == "fossil": form = sid
+	elif kind == "geode": form = "geode"
 	elif habit == "nugget": form = "nugget"
 	elif habit == "botryoid": form = "botryoid"
 	elif "floater" in tr and elongated: form = "floater"
@@ -57,9 +61,10 @@ static func of(o: Dictionary) -> Dictionary:
 		form = "cluster" if druse else "single"
 	var rock: String
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
+	elif habit == "fossil": rock = Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
 	else: rock = Stones.pick_w([["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]], rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
-	var lustre := "metal" if metal else "glass"
+	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
 	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < 0.2:
 		lustre = "dark"
 	var dark_cols := [Color(0.012, 0.045, 0.045), Color(0.015, 0.035, 0.02), Color(0.012, 0.018, 0.045), Color(0.04, 0.026, 0.018), Color(0.02, 0.02, 0.022)]
@@ -73,9 +78,14 @@ static func of(o: Dictionary) -> Dictionary:
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	if form in ["geode", "botryoid"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
+	# a fossil without its slab of rock has nowhere for things to grow
+	if habit == "fossil" and fossil.get("show", "") != "matrix":
+		apool = []
 	for k in int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 3.0], [3, 1.2]], rng)):
+		if apool.is_empty(): break
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
+	acc.append_array(SpecFossil.accents(fossil))
 	var palette := {
 		pompom = int(rng.next() * SpecAccents.POMPOM.size()),
 		straw = int(rng.next() * SpecAccents.STRAW.size()),
@@ -100,7 +110,8 @@ static func of(o: Dictionary) -> Dictionary:
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
-	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid"]) and not "mushrooms" in acc:
+	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid"]) and not "mushrooms" in acc \
+			and not (habit == "fossil" and fossil.get("show", "") != "matrix"):
 		acc.append("mushrooms")
 	else:
 		shroom = -1
@@ -108,6 +119,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var anomaly := "anomaly" in tr
 	return {
 		form = form,
+		fossil = fossil,
 		lustre = lustre,
 		fx = fx,
 		fx_v = rng.next(),

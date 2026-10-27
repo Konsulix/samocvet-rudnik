@@ -16,6 +16,7 @@ var dt := {}            # where the crystals turn into rock; final values are ap
 var dt_mats := []
 var crust_ok := true
 var gene_m := {}
+var trs := []             # the find's traits
 var green_spots := []
 ## what really grew on the stone, so the card names nothing it doesn't show: gene id (a trait, an accent, or "fx")
 ## -> [[point, normal], ...] in the specimen's own space, where a callout can point at it
@@ -114,6 +115,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var tr: Array = o.get("traits", [])
 	var gi: int = int(o.get("gi", 1))
+	trs = tr
 	var legend: bool = o.get("legend", false)
 	root = Node3D.new()
 	var col := SpecMat.lin_s(sp.c)
@@ -203,7 +205,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		irk = maxf(irk, 0.3)
 		st.irk = irk
 	var mat: ShaderMaterial = null
-	if not metal and not (layout in ["nugget", "botryoid", "vein"]):
+	if not metal and not (layout in ["nugget", "botryoid", "vein"]) and gene.lustre != "fossil":
 		var d: Dictionary = cmat_spec.call()
 		if gene.lustre == "dark":
 			# a dark, lustrous stone: opaque, nearly black, an oil-slick rainbow sliding over it
@@ -228,6 +230,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		return (d + Vector3((rng.next() - 0.5) * a, 0, (rng.next() - 0.5) * a)).normalized()
 
 	match layout:
+		"ammonite":
+			main = SpecFossil.ammonite(self, gene, use_rock)
 		"nugget":
 			main = _nugget(sid, col)
 		"vein":
@@ -522,7 +526,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	crust_ok = layout != "geode"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)
 	if gene.gold:
-		_gold(main, st)
+		_gold(main, mat, st)
 	_growths(main, mat, col, tr, layout, sid, st, legend)
 	_accents(main, mat, gene, st, layout)
 	_finish()
@@ -820,10 +824,11 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 			mat.set_shader_parameter("smoke_col", Vector3(wc.r, wc.g, wc.b))
 
 # flakes of native gold caught inside the crystal and scattered over the rock
-func _gold(main: MeshInstance3D, st: Dictionary) -> void:
+func _gold(main: MeshInstance3D, mat: ShaderMaterial, st: Dictionary) -> void:
 	var gm := SpecMat.make({col = SpecMat.lin(0xf2c35a), metal = 1.0, rough = 0.22, flat = true, env = 1.8})
 	var flake := Geo.icosa(1, 0)
-	if main:
+	var glass := main != null and mat != null
+	if glass:
 		var bb: AABB = (main.get_meta("geo") as Geo).aabb()
 		var place := func(k: int) -> Array:
 			var p := bb.position + Vector3(0.2 + rng.next() * 0.6, 0.15 + rng.next() * 0.7, 0.2 + rng.next() * 0.6) * bb.size
@@ -838,7 +843,7 @@ func _gold(main: MeshInstance3D, st: Dictionary) -> void:
 			var s := 0.008 + pow(rng.next(), 2.0) * 0.035
 			return [_rot_inst(p, Vector3(rng.next() * 6, rng.next() * 6, rng.next() * 6), Vector3(s, s * 0.45, s)), Color(1, 1, 1)]
 		U.inst(flake, gm, 40 + int(rng.next() * 60), place2, root)
-		if not main: _mark_on("goldfleck", st.rock)
+		if not glass: _mark_on("goldfleck", st.rock)
 
 # a crumbling rock sheds bits: chips lying on it, a few about to fall, sand in the hollows
 func _crumbs(rm: ShaderMaterial, top: Array, sc: Vector3, loose: float) -> void:
@@ -1039,7 +1044,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var L: Array = list[k]
 			return [Transform3D(Basis(U.quat_to(UP, L[1])) * Basis.from_scale(Vector3(L[3], L[2], L[3])), L[0]), L[4]]
 		U.inst(geo, m, list.size(), place, root)
-	var has_base := not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein"])
+	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein"]) and not (gene_m.lustre == "fossil" and not st.rock)
 	var strong := "coral" in tr
 	var style := -1
 	if has_base:

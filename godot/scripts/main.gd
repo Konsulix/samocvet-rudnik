@@ -59,6 +59,20 @@ func _ready() -> void:
 			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["ruby", "sapphire"], value = 9000}]
 		Save.d.coins = 5000
+	if args.has("fossils"):
+		# test data: ammonites in the collection (they are in no mine's pool yet): `-- screen=museum fossils=8`;
+		# the ones a previous run left in the save are replaced, not added to
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return c.get("sid", "") != "ammonite")
+		for i in int(args.fossils):
+			var st := Stones.roll(9100 + i, 0, 1.2, 2)
+			st.sid = "ammonite"
+			st.kind = "fossil"
+			st.traits = ["irid"] if i % 3 == 0 else []
+			st.tier = Stones.tier_of(st.sid, int(st.gi), bool(st.legend))
+			st.area = 0
+			st.dl = i % 6
+			Save.d.coll.append(st)
+		if not "ammonite" in Save.d.seen: Save.d.seen.append("ammonite")
 	if args.has("tab"):
 		Museum.start_tab = args.tab
 	if args.has("screen"):
