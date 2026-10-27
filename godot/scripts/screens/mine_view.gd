@@ -158,8 +158,8 @@ func setup(a: int) -> void:
 	surf.texture = tex("surface.png")
 	surf.scale = Vector2.ONE / K
 	var sm := surf.material as ShaderMaterial
-	sm.set_shader_parameter("top", (float(J.sky) + 150.0) / (float(J.sky) + float(J.surf)))
-	sm.set_shader_parameter("bottom", (float(J.sky) + 340.0) / (float(J.sky) + float(J.surf)))
+	sm.set_shader_parameter("top", maxf(0.0, float(J.sky) - 150.0) / (float(J.sky) + float(J.surf)))
+	sm.set_shader_parameter("bottom", (float(J.sky) + 700.0) / (float(J.sky) + float(J.surf)))
 	sm.set_shader_parameter("amp", 3.0 / 1536.0)
 	_changes()
 	still.queue_redraw()
@@ -244,10 +244,9 @@ func _reveal(path: String, pos: Vector2, delay: float, done: Callable) -> void:
 
 ## where a job's work shows (source px): its place on the surface, or the chamber's band
 func job_pos(id: String) -> Vector2:
-	if J.places.has(id):
-		var at: Array = J.places[id]
-		var w := _size("place/%s_1.png" % id).x
-		return Vector2(float(at[0]) + w / 2, float(J.sky) + 520)
+	if J.has("place_box") and J.place_box.has(id):
+		var bx: Array = J.place_box[id]
+		return Vector2((float(bx[0]) + float(bx[2])) / 2, (float(bx[1]) + float(bx[3])) / 2)
 	if id == "chamber": return Vector2(900, band_y(5) + 300)
 	if id == "pump": return Vector2(700, band_y(3) + 300)
 	return Vector2(768, float(J.sky) + 520)
