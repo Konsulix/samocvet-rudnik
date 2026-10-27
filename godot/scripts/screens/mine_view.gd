@@ -19,6 +19,7 @@ const PICK_FPS := 8.0     # the old 6-drawing pick swing, the strike on the thir
 const CREW_FPS := 14.0    # the 24-drawing crews: a pick swing ~1.7 s, its strike on drawing 10
 
 static var _tex := {}
+static var last_result := {}   # the level just played (main sets it): the depth's crew reacts, the ore flies in
 static var force_event := ""   # test key (-- mine_event=hole|coil|eyes|bat): play it at once
 static var _last := {}    # area -> what the screen showed last: {places, bands, lived}
 
@@ -59,6 +60,9 @@ var _bands: Array = []    # per depth: {y, state, lived}
 var _bat_k := 0
 var _events := {}         # name -> start time of the running rare event, or -1
 var _next_event := 0.0
+var _tremor_at := -100.0  # when the mine last began to shake
+var _next_tremor := 20.0
+var _react := {}          # the reaction playing: {k, won, t0, iron, ore}
 var _bursts: Array = []   # dust bursts where something was just built: [centre, start time]
 var focus_y := -1.0       # where the last setup found a change to show (source px), -1: nothing new
 var _set_area := -1
@@ -172,6 +176,11 @@ func setup(a: int) -> void:
 	sm.set_shader_parameter("bottom", (float(J.sky) + 700.0) / (float(J.sky) + float(J.surf)))
 	sm.set_shader_parameter("amp", 3.0 / 1536.0)
 	_changes()
+	if not last_result.is_empty() and int(last_result.area) == a:
+		var k := clampi(int(last_result.k), 0, _bands.size() - 1)
+		_react = {k = k, won = bool(last_result.won), t0 = t + 0.7, iron = int(last_result.iron), ore = int(last_result.ore)}
+		if focus_y < 0: focus_y = band_y(k) + float(J.band) * 0.5
+		last_result = {}
 	_make_motes()
 	_find_niches()
 	still.queue_redraw()
@@ -202,7 +211,8 @@ func _changes() -> void:
 			_shown_places[p] = was
 			var at: Array = J.places[p]
 			var now := int(places[p])
-			_reveal("place/%s_%d.png" % [p, now], Vector2(float(at[0]), float(at[1])), wait, func(): _shown_places[p] = now)
+			_reveal("place/%s_%d.png" % [p, now], Vector2(float(at[0]), float(at[1])), wait, func(): _shown_places[p] = now,
+				"place/%s_%d.png" % [p, was] if was > 0 else "surface.png")
 			if p == "power" and now >= 3:
 				_power_on = t + wait + 1.6
 	for k in bands:
@@ -224,17 +234,19 @@ func _changes() -> void:
 			get_tree().create_timer(wait).timeout.connect(func(): amb.shot("rockfall", 0.0, 0.7))
 			for j in 3:
 				_bursts.append([Vector2(420 + 330 * j, y + 330), t + wait + 0.8 + 0.12 * j])
-			_reveal("band/d%d_%s.png" % [d, now], Vector2(0, y), wait + 1.1, func(): _shown_bands[k] = now)
+			_reveal("band/d%d_%s.png" % [d, now], Vector2(0, y), wait + 1.1, func(): _shown_bands[k] = now, "band/d%d_%s.png" % [d, was])
 		else:
 			_shown_bands[k] = was
-			_reveal("band/d%d_%s.png" % [d, now], Vector2(0, y), wait, func(): _shown_bands[k] = now)
+			_reveal("band/d%d_%s.png" % [d, now], Vector2(0, y), wait, func(): _shown_bands[k] = now, "band/d%d_%s.png" % [d, was])
+			if d == 6 and now == "open":
+				_tremor_at = t + wait + 2.2      # the door to the Great Poloz is open: the whole mine shudders
 	for k in lived:
 		if lived[k] and not bool(last.lived.get(k, false)):
 			_appear[k] = t + wait
 			if focus_y < 0: focus_y = band_y(int(k)) + float(J.band) * 0.5
 
 ## a stage coming in over the old one: ink lines first, then the colour; at the end the still layer takes it over
-func _reveal(path: String, pos: Vector2, delay: float, done: Callable) -> void:
+func _reveal(path: String, pos: Vector2, delay: float, done: Callable, prev_path := "") -> void:
 	var sp := Sprite2D.new()
 	sp.centered = false
 	sp.texture = tex(path)
@@ -243,12 +255,21 @@ func _reveal(path: String, pos: Vector2, delay: float, done: Callable) -> void:
 	var m := ShaderMaterial.new()
 	m.shader = load("res://shaders/mine_reveal.gdshader")
 	m.set_shader_parameter("p", 0.0)
+	if prev_path != "":
+		var pt := tex(prev_path)
+		m.set_shader_parameter("prev", pt)
+		m.set_shader_parameter("has_prev", 1.0)
+		if prev_path == "surface.png":
+			# a place's first step over the ruined surface: where the place's picture sits in the surface picture
+			var ps := pt.get_size() / K
+			var sz := tex(path).get_size() / K
+			m.set_shader_parameter("prev_rect", Vector4(pos.x / ps.x, pos.y / ps.y, sz.x / ps.x, sz.y / ps.y))
 	sp.material = m
 	reveals.add_child(sp)
 	var tw := sp.create_tween()
 	tw.tween_interval(delay)
 	tw.tween_callback(func(): amb.shot("rockfall", -6.0, 0.9))
-	tw.tween_method(func(v: float): m.set_shader_parameter("p", v), 0.0, 1.0, 1.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(v: float): m.set_shader_parameter("p", v), 0.0, 1.0, 2.6).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(func():
 		done.call()
 		still.queue_redraw()
@@ -487,9 +508,51 @@ func _process(delta: float) -> void:
 		return
 	t += delta
 	_tick_events()
+	_tremor()
 	_sounds(delta)
 	live.queue_redraw()
 	top.queue_redraw()
+
+## the shaking: a big one when the door opens, small ones now and then while the boss waits behind it
+func _tremor() -> void:
+	if String(_shown_bands.get(5, "")) == "open" and not bool(Save.d.boss_won[area]) and t > _next_tremor:
+		_next_tremor = t + _rng.randf_range(18.0, 30.0)
+		if t - _tremor_at > 5.0:
+			_tremor_at = t
+	var s := t - _tremor_at
+	var big := s < 2.5 and _tremor_at > 0.0
+	var amp := 0.0
+	if s >= 0.0 and s < 1.6:
+		amp = (7.0 if big else 3.0) * (1.0 - s / 1.6)
+		if _passed("tremor", s, 100.0, 0.0):
+			amp = amp
+	position.x = sin(t * 47.0) * amp * scale.x
+	if s >= 0.0 and s < 0.05 and not _cue.has("tremor%d" % int(_tremor_at)):
+		_cue["tremor%d" % int(_tremor_at)] = true
+		amb.shot("rockfall", -4.0, 0.6)
+		amb.shot("hiss", -8.0, 0.5)
+		for b in _bands:
+			if String(b.state) != "closed" and String(b.state) != "flooded":
+				_bursts.append([Vector2(_rng.randf_range(200, 1100), float(b.y) + 90), t + _rng.randf_range(0.0, 0.4)])
+
+func _finale(c: CanvasItem) -> void:
+	if String(_shown_bands.get(5, "")) != "open":
+		return
+	var y := band_y(5)
+	# the vein: points of gold light running up along it
+	for i in 9:
+		var u := fmod(t * 0.18 + i / 9.0, 1.0)
+		var p := Vector2(560, y + 380).lerp(Vector2(900, y + 90), u) + Vector2(sin(i * 2.3) * 60, cos(i * 1.7) * 30)
+		_light(c, p, 26, Color(1.0, 0.82, 0.3, 0.55 * sin(PI * u)))
+	# the door's crack breathes green, stronger while the mine shakes
+	var sh := clampf(1.0 - (t - _tremor_at) / 2.0, 0.0, 1.0)
+	var g := 0.45 + 0.25 * sin(t * 1.6) + 0.5 * sh
+	_light(c, Vector2(1117, y + 300), 120, Color(0.35, 1.0, 0.45, 0.30 * g))
+	c.draw_line(Vector2(1117, y + 180), Vector2(1117, y + 425), Color(0.5, 1.0, 0.55, 0.5 * g), 5)
+	# the carved serpent's eyes glint now and then
+	var e := maxf(0.0, sin(t * 0.7)) ** 8 + sh
+	if e > 0.05:
+		_light(c, Vector2(1078, y + 122), 22, Color(1.0, 0.85, 0.3, 0.8 * minf(e, 1.0)))
 
 ## how much quieter a sound is for being far from the middle of the screen (dB, 0 at the middle)
 func _far(y_src: float) -> float:
@@ -564,6 +627,8 @@ func _draw_live() -> void:
 	_snake_live(c)
 	for b in _bands:
 		_band_live(c, b)
+	_ore_flight(c)
+	_finale(c)
 	for bu in _bursts.duplicate():
 		var i := int((t - float(bu[1])) * 12)
 		if t < float(bu[1]):
@@ -650,6 +715,24 @@ func _surface_live(c: CanvasItem) -> void:
 		var gp := "guide/%02d.png" % (int(t * 8) % 24)
 		var gs := _size(gp)
 		_put(c, gp, Vector2(float(g[0]) - gs.x / 2, float(g[1]) - gs.y))
+	# the ore yard: a cart comes out of the adit full, rolls to the sorting shed, stands, rolls back in empty
+	if int(steps.get("yard", 0)) >= 3 and J.has("yard_cart"):
+		var yc: Dictionary = J.yard_cart
+		var run := float(yc.adit) - float(yc.shed)
+		var yu := fmod(t, 16.0)
+		var full: Dictionary = J.cart_full
+		var empty: Dictionary = J.cart_empty
+		var rail := float(yc.rail)
+		if yu < 5.0:
+			var r := run * (0.5 - 0.5 * cos(PI * yu / 5.0))
+			var x := float(yc.adit) + 40 - r
+			_cart(c, "cart_full", full, Vector2(x, rail), r, true, float(yc.adit) + 30)
+		elif yu < 8.0:
+			_cart(c, "cart_full" if yu < 6.5 else "cart_empty", full if yu < 6.5 else empty, Vector2(float(yc.shed) + 40, rail), run, true, 1e9)
+		elif yu < 13.0:
+			var r := run * (0.5 - 0.5 * cos(PI * (yu - 8.0) / 5.0))
+			var x := float(yc.shed) + 40 + r
+			_cart(c, "cart_empty", empty, Vector2(x - float(empty.w), rail), run + r, false, float(yc.adit) + 30)
 	# the generator hums once the power is on: it trembles and sparks jump at the brushes
 	if int(steps.get("power", 0)) >= 3:
 		var m: Array = J.machine
@@ -789,12 +872,63 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		return
 	var f := int(t * CREW_FPS + k * 7.0) % 24
 	var p := "%s/%02d.png" % [who, f]
+	var rx := _reaction_frame(who, k)
+	if rx != "":
+		p = rx
 	var sz := _size(p)
 	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), false, al)
 	if who == "pick24":
 		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)
 		if sf < 4:
 			_put(c, "gspark/%d.png" % sf, Vector2(x + 70, back - hs.y - 30), false, al)
+
+## the crew's reaction to the level just played, while it plays: its 12 drawings at 8 a second, or ""
+func _reaction_frame(who: String, k: int) -> String:
+	if _react.is_empty() or int(_react.k) != k:
+		return ""
+	var s := t - float(_react.t0)
+	var name := "%s_%s" % [who.trim_suffix("24"), "cheer" if bool(_react.won) else "scratch"]
+	if s < 0.0 or s > 1.5 or not _crew_ok(name):
+		return ""
+	return "react/%s/%02d.png" % [name, mini(int(s * 8.0), 11)]
+
+## after a win the ore of the level flies down from the top into the depth it came from: gold and iron nuggets in
+## arcs, each with a little flash where it lands (a tick of coins in the sound)
+func _ore_flight(c: CanvasItem) -> void:
+	if _react.is_empty():
+		return
+	var s := t - float(_react.t0)
+	if s > 4.0:
+		_react = {}
+		return
+	if not bool(_react.won):
+		return
+	var k := int(_react.k)
+	var cr: Dictionary = J.crews.get(str(k + 1), {}) if J.has("crews") else {}
+	var w: Array = cr.get("work", ["pick", 760, ""])
+	var to := Vector2(float(w[1]), band_y(k) + floor_of(k + 1) - 70)
+	var vp := get_viewport_rect().size
+	var from := Vector2(768, -position.y / scale.y + 40)   # the top of the screen, where the header's ore counters are
+	var n_gold := mini(int(_react.ore), 10)
+	var n_iron := mini(int(_react.iron), 10)
+	for i in n_gold + n_iron:
+		var u := (s - 0.4 - i * 0.09) / 0.8
+		if u < 0.0 or u > 1.25:
+			continue
+		var gold := i % 2 == 0 and i / 2 < n_gold or i >= 2 * n_iron
+		var tgt := to + Vector2((i % 5 - 2) * 18, (i % 3) * 6)
+		if u <= 1.0:
+			var e := u * u * (3.0 - 2.0 * u)
+			var p := from.lerp(tgt, e) + Vector2(sin(i * 1.7) * 160 * sin(PI * u), -220 * sin(PI * u))
+			var col := Color(1.0, 0.78, 0.25) if gold else Color(0.72, 0.76, 0.82)
+			c.draw_circle(p, 13, Color(0.12, 0.07, 0.03))
+			c.draw_circle(p, 10, col)
+			c.draw_circle(p + Vector2(-3, -3), 3.5, Color(1, 1, 1, 0.7))
+		else:
+			var f := (u - 1.0) / 0.25
+			_light(c, tgt, 40 + 30 * f, Color(1.0, 0.85, 0.4, 0.6 * (1.0 - f)))
+		if _passed("ore%d" % i, u, 1.0, 1.0):
+			amb.shot("coin", -10.0, 1.2 + (i % 4) * 0.05)
 
 ## a sprite cut off at the shaft: what is past the portal is inside the shaft
 func _clip_put(c: CanvasItem, path: String, pos: Vector2, flip: bool, portal: float, al := 1.0) -> void:

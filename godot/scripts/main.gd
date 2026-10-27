@@ -43,6 +43,10 @@ func _ready() -> void:
 			Save.d.jstep["%d:%s" % [Save.area(), p[0]]] = int(p[1])
 	if args.has("scroll"): Home.start_scroll = float(args.scroll)
 	if args.has("mine_event"): MineView.force_event = args.mine_event
+	if args.has("mine_result"):   # mine_result=win|lose[,depth[,ore[,iron]]]: the home screen plays the level's reaction
+		var r: PackedStringArray = String(args.mine_result).split(",")
+		MineView.last_result = {area = Save.area(), won = r[0] == "win", k = int(r[1]) if r.size() > 1 else 0,
+			ore = int(r[2]) if r.size() > 2 else 9, iron = int(r[3]) if r.size() > 3 else 8}
 	if args.has("fill"):
 		# test data: a museum full of stones, a few of them cut, and one jewel
 		Save.d.coll = []
@@ -262,6 +266,9 @@ func _hoard_demo() -> void:
 
 func _on_level_finished(res: Dictionary) -> void:
 	Save.level_played(res.won, int(res.get("depth", 0)))
+	if not res.get("boss", false):
+		var mined: Dictionary = res.get("mined", {})
+		MineView.last_result = {area = Save.area(), won = res.won, k = int(res.get("depth", 0)), iron = int(mined.get("iron", 0)), ore = int(mined.get("ore", 0))}
 	if res.get("boss", false) and not res.won:
 		Save.d.boss_tries[Save.area()] += 1
 	Save.persist()

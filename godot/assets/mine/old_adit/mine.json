@@ -88,6 +88,11 @@
   180,
   759
  ],
+ "yard_cart": {
+  "rail": 2276,
+  "shed": 470,
+  "adit": 1000
+ },
  "floor": 465,
  "lamp": [
   229,
@@ -96,7 +101,13 @@
  "crew_n": {
   "pick24": 24,
   "shovel24": 24,
-  "rest24": 24
+  "rest24": 24,
+  "pick_cheer": 12,
+  "pick_scratch": 12,
+  "shovel_cheer": 12,
+  "shovel_scratch": 12,
+  "rest_cheer": 12,
+  "rest_scratch": 12
  },
  "floors": {
   "1": 465,
