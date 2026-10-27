@@ -70,6 +70,7 @@ var _fade: Tween
 var _cur := 0
 var _track := ""
 var _level_i := 0
+var _click_at := -1.0
 
 func _ready() -> void:
 	for i in 12:
@@ -85,6 +86,11 @@ func _ready() -> void:
 func play(sfx_name: String, arg := 0) -> void:
 	if Save.d.get("mute", false): return
 	if sfx_name == "reveal" and arg >= 3: sfx_name = "reveal_rare"
+	# a press sounds as the book set down, even when it opens a window: the window's page turn is only for
+	# windows that come up by themselves (a win, a loss, a find)
+	var now := Time.get_ticks_msec() / 1000.0
+	if sfx_name == "click": _click_at = now
+	elif sfx_name == "open" and now - _click_at < 0.25: return
 	if SAMPLES.has(sfx_name):
 		var d: Dictionary = SAMPLES[sfx_name]
 		var takes: Array = d.f
