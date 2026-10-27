@@ -352,7 +352,7 @@ func _draw_still() -> void:
 		c.draw_rect(Rect2(0, float(b.y) - 3, float(J.W), 6), Color(0.08, 0.055, 0.04))
 	_draw_shaft(c)
 
-const PICK_W := 50.0      # the slot the pick takes on the plate of the depth being dug
+const PICK_W := 60.0      # the slot the pick takes on the plate of the depth being dug
 
 ## each depth's plate at its top left, over the lamps: a dark tablet with a brass rim and rivets; the depth being dug
 ## in gold with the pick, which opens its slot smoothly when the choice moves (the old plate closes up the same way)
@@ -392,7 +392,7 @@ func _draw_marks() -> void:
 			c.draw_circle(at + Vector2(-1.3, -1.3), 1.6, Color(1, 0.95, 0.8, 0.7 if not shut else 0.3))
 		var x0 := r.position.x + 32
 		if g > 0.0:
-			_draw_pick(c, Vector2(x0 + PICK_W * 0.5 - 4, r.get_center().y), g)
+			_draw_pick(c, Vector2(x0 + PICK_W * 0.5 - 7, r.get_center().y + 2), g)
 		x0 += PICK_W * g
 		var col := Color("#f0e6d2").lerp(gold, g)
 		if shut: col = Color(0.72, 0.68, 0.62, 0.6)
@@ -402,7 +402,7 @@ func _draw_marks() -> void:
 
 ## a small pickaxe drawn in lines (the font has no pick sign): the handle, the curved head; a: how far it has come in
 func _draw_pick(c: CanvasItem, at: Vector2, a: float) -> void:
-	var s := 0.6 + 0.4 * a
+	var s := (0.6 + 0.4 * a) * 1.15
 	c.draw_set_transform(at, 0.6, Vector2(s, s))
 	var dark := Color(0.04, 0.025, 0.01, a)
 	var tip := Vector2(0, -14)
@@ -673,6 +673,8 @@ func _sounds(_dt: float) -> void:
 		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 10.0)
 		elif who == "pick" or not _crew_ok(who): hit = _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0)
 		elif who == "shovel24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 20.0)
+		elif who == "jack24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 11.0)
+		elif who == "load24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 19.0)
 		if hit and (mine or randf() < 0.18):
 			amb.shot("pick", _far(y) + deep + (0.0 if mine else -4.0), 0.9 - k * 0.03)
 		# the cart: rolling sounds while it moves (each take is 4 s), out to the shaft and back
@@ -994,6 +996,10 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var cx := float(cr.cart[0])
 		_cart(c, "cart_full", cd, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
 	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), flip, al)
+	if who == "jack24" and f >= 11 and f <= 13:
+		# the sledge on the drill head: sparks at the rock face (the sheet's right edge; mirrored when flipped)
+		var fx := x + (sz.x * 0.38) * (-1.0 if flip else 1.0)
+		_put(c, "gspark/%d.png" % mini(f - 11, 3), Vector2(fx - 30, back - sz.y * 0.55), flip, al)
 	if who == "pick24":
 		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)
 		if sf < 4:

@@ -108,9 +108,10 @@
   "shovel_scratch": 12,
   "rest_cheer": 12,
   "rest_scratch": 12,
-  "doublejack24": 24,
+  "load24": 24,
+  "jack24": 24,
   "hen12": 12,
-  "rooster12": 9,
+  "rooster12": 12,
   "dog12": 12
  },
  "yard_life": [
@@ -183,11 +184,10 @@
   "3": {
    "work": [
     "rest24",
-    330,
+    300,
     ""
    ],
    "push": false,
-   "flip": true,
    "pause": 8,
    "pump": [
     1030,
@@ -200,11 +200,12 @@
   },
   "4": {
    "work": [
-    "shovel24",
-    820,
+    "load24",
+    280,
     ""
    ],
    "push": false,
+   "flip": true,
    "drip": [
     420,
     0
@@ -212,14 +213,12 @@
   },
   "5": {
    "work": [
-    "pick24",
-    900,
+    "jack24",
+    560,
     ""
    ],
    "push": false,
-   "jack": [
-    260
-   ]
+   "flip": true
   }
  },
  "push": {
