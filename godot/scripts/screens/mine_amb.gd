@@ -9,7 +9,7 @@ extends Node
 
 const AMB := "res://assets/audio/amb/"
 ## level of each layer on the bus (dB)
-const DB := {cave = -6.0, crickets = -16.0, winch = -12.0, cart = -9.0, pick = -14.0}
+const DB := {cave = -6.0, crickets = -16.0, winch = -12.0, cart = -9.0, pick = -4.0}
 
 var scene: Node2D          # MineScene (keeps its own clock here) or MineView (calls shot())
 var old: MineScene

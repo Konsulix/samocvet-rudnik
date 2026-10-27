@@ -107,8 +107,58 @@
   "shovel_cheer": 12,
   "shovel_scratch": 12,
   "rest_cheer": 12,
-  "rest_scratch": 12
+  "rest_scratch": 12,
+  "doublejack24": 24,
+  "hen12": 12,
+  "rooster12": 9,
+  "dog12": 12
  },
+ "yard_life": [
+  {
+   "name": "hen12",
+   "place": "yard",
+   "x": 160,
+   "y": 1752,
+   "roam": [
+    110,
+    9.0
+   ],
+   "fps": 7,
+   "ph": 0.0
+  },
+  {
+   "name": "hen12",
+   "place": "yard",
+   "x": 360,
+   "y": 1756,
+   "roam": [
+    -90,
+    11.0
+   ],
+   "fps": 6,
+   "ph": 3.3
+  },
+  {
+   "name": "rooster12",
+   "place": "yard",
+   "x": 560,
+   "y": 1758,
+   "roam": [
+    120,
+    13.0
+   ],
+   "fps": 6,
+   "ph": 6.1
+  },
+  {
+   "name": "dog12",
+   "place": "camp",
+   "x": 450,
+   "y": 668,
+   "fps": 3,
+   "ph": 0.0
+  }
+ ],
  "floors": {
   "1": 465,
   "2": 448,
@@ -133,10 +183,12 @@
   "3": {
    "work": [
     "rest24",
-    300,
+    330,
     ""
    ],
    "push": false,
+   "flip": true,
+   "pause": 8,
    "pump": [
     1030,
     385

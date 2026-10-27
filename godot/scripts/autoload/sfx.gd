@@ -167,7 +167,7 @@ func amb_bus() -> void:
 	AudioServer.set_bus_volume_db(b, AMB_DB)
 	AudioServer.set_bus_mute(b, Save.d.get("mute", false))
 	var lp := AudioEffectLowPassFilter.new()
-	lp.cutoff_hz = 1500.0
+	lp.cutoff_hz = 2200.0
 	AudioServer.add_bus_effect(b, lp)
 	var rv := AudioEffectReverb.new()
 	rv.room_size = 0.7

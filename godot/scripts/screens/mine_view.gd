@@ -62,11 +62,15 @@ var _events := {}         # name -> start time of the running rare event, or -1
 var _next_event := 0.0
 var _tremor_at := -100.0  # when the mine last began to shake
 var _next_tremor := 20.0
+var _wheel_dust: Array = []   # [where, when]: little puffs where a cart wheel knocks a rail joint
 var _react := {}          # the reaction playing: {k, won, t0, iron, ore}
 var _bursts: Array = []   # dust bursts where something was just built: [centre, start time]
 var focus_y := -1.0       # where the last setup found a change to show (source px), -1: nothing new
 var _set_area := -1
 var top: Node2D           # over the shaft: the cage riding it, its rope, the wheel
+var marks: Node2D         # the depth plates, over everything (the lamps and bulbs come later and must not cover them)
+var _sel_from := -1       # the depth the pick left (its plate closes up) and when
+var _sel_at := -100.0
 
 ## how many steps of a job are done (a finished job is in Save.d.built instead)
 static func job_step(a: int, id: String) -> int:
@@ -111,6 +115,9 @@ func _ready() -> void:
 	top = Node2D.new()
 	top.draw.connect(func(): _draw_cage(top))
 	add_child(top)
+	marks = Node2D.new()
+	marks.draw.connect(_draw_marks)
+	add_child(marks)
 	amb = MineAmb.new(self)
 	add_child(amb)
 	_motes = Node2D.new()
@@ -145,7 +152,11 @@ func setup(a: int) -> void:
 	K = float(J.K)
 	area = a
 	open = int(Save.d.depth[a])
+	var was_sel := sel
 	sel = mini(int(Save.d.depth_sel[a]), open)
+	if _set_area == a and was_sel != sel:
+		_sel_from = was_sel
+		_sel_at = t
 	wins = Save.d.dwins
 	steps = {}
 	for task in Data.AREAS[a].tasks:
@@ -172,9 +183,10 @@ func setup(a: int) -> void:
 	surf.texture = tex("surface.png")
 	surf.scale = Vector2.ONE / K
 	var sm := surf.material as ShaderMaterial
-	sm.set_shader_parameter("top", maxf(0.0, float(J.sky) - 150.0) / (float(J.sky) + float(J.surf)))
-	sm.set_shader_parameter("bottom", (float(J.sky) + 700.0) / (float(J.sky) + float(J.surf)))
-	sm.set_shader_parameter("amp", 3.0 / 1536.0)
+	sm.set_shader_parameter("top", float(J.sky) - 100.0)
+	sm.set_shader_parameter("bottom", float(J.sky) + 900.0)
+	sm.set_shader_parameter("amp", 6.0)
+	still.material = sm          # the places drawn over the surface sway with it (the bands are below the tree band)
 	_changes()
 	if not last_result.is_empty() and int(last_result.area) == a:
 		var k := clampi(int(last_result.k), 0, _bands.size() - 1)
@@ -338,19 +350,72 @@ func _draw_still() -> void:
 	for b in _bands:
 		c.draw_texture_rect(_shade, Rect2(0, float(b.y), float(J.W), 44), false)
 		c.draw_rect(Rect2(0, float(b.y) - 3, float(J.W), 6), Color(0.08, 0.055, 0.04))
-	# each depth's mark at its top left: the one being dug in gold, closed ones dim
+	_draw_shaft(c)
+
+const PICK_W := 50.0      # the slot the pick takes on the plate of the depth being dug
+
+## each depth's plate at its top left, over the lamps: a dark tablet with a brass rim and rivets; the depth being dug
+## in gold with the pick, which opens its slot smoothly when the choice moves (the old plate closes up the same way)
+func _draw_marks() -> void:
+	var c := marks
 	var font: Font = UI.body_bold
+	var u := clampf((t - _sel_at) / 0.3, 0.0, 1.0)
+	u = u * u * (3.0 - 2.0 * u)
 	for b in _bands:
 		var k := int(b.k)
-		var txt := "%d m" % Data.depth_m(area, k)
-		var fs := 54
-		var col := Color("#ffd27a") if k == sel else (Color("#f0e6d2") if k <= open else Color(0.75, 0.72, 0.68, 0.7))
-		if k == sel: txt = "⛏ " + txt
-		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var r := Rect2(24, float(b.y) + 18, w + 40, 74)
-		c.draw_style_box(_chip(k == sel), r)
-		c.draw_string(font, Vector2(r.position.x + 20, r.position.y + 54), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
-	_draw_shaft(c)
+		var shut := k > open
+		var g := 0.0          # how far the pick is in
+		if k == sel: g = u
+		elif k == _sel_from: g = 1.0 - u
+		var num := str(Data.depth_m(area, k))
+		var fs := 50
+		var fm := 32
+		var wn := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var wm := font.get_string_size(" m", HORIZONTAL_ALIGNMENT_LEFT, -1, fm).x
+		var r := Rect2(26, float(b.y) + 22, wn + wm + 64 + PICK_W * g, 70)
+		var gold := Color("#ffd27a")
+		var brass := Color("#c8913a")
+		if g > 0.0:
+			_light(c, r.get_center(), r.size.x * 0.8, Color(1.0, 0.75, 0.3, 0.22 * g))
+		# the shadow it casts on the rock, the tablet, its rim and the thin line inside
+		c.draw_style_box(_plate(Color(0, 0, 0, 0.35), Color(0, 0, 0, 0), 0), Rect2(r.position + Vector2(4, 6), r.size))
+		var rim := brass.lerp(gold, g)
+		rim.a = 0.45 if shut else 0.9
+		c.draw_style_box(_plate(Color(0.085, 0.06, 0.035, 0.9), rim, 3), r)
+		var inner := r.grow(-8)
+		c.draw_style_box(_plate(Color(0, 0, 0, 0), Color(rim, 0.28), 1, 5), inner)
+		# rivets at both ends
+		for x: float in [r.position.x + 15, r.end.x - 15]:
+			var at := Vector2(x, r.get_center().y)
+			c.draw_circle(at, 6.0, Color(0.05, 0.035, 0.02))
+			c.draw_circle(at, 4.5, Color(rim, 1.0 if not shut else 0.5))
+			c.draw_circle(at + Vector2(-1.3, -1.3), 1.6, Color(1, 0.95, 0.8, 0.7 if not shut else 0.3))
+		var x0 := r.position.x + 32
+		if g > 0.0:
+			_draw_pick(c, Vector2(x0 + PICK_W * 0.5 - 4, r.get_center().y), g)
+		x0 += PICK_W * g
+		var col := Color("#f0e6d2").lerp(gold, g)
+		if shut: col = Color(0.72, 0.68, 0.62, 0.6)
+		var base := r.position.y + 51
+		c.draw_string(font, Vector2(x0, base), num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+		c.draw_string(font, Vector2(x0 + wn, base), " m", HORIZONTAL_ALIGNMENT_LEFT, -1, fm, Color(col, col.a * 0.7))
+
+## a small pickaxe drawn in lines (the font has no pick sign): the handle, the curved head; a: how far it has come in
+func _draw_pick(c: CanvasItem, at: Vector2, a: float) -> void:
+	var s := 0.6 + 0.4 * a
+	c.draw_set_transform(at, 0.6, Vector2(s, s))
+	var dark := Color(0.04, 0.025, 0.01, a)
+	var tip := Vector2(0, -14)
+	c.draw_line(Vector2(0, 22), tip, dark, 9)
+	c.draw_line(Vector2(0, 22), tip, Color(0.66, 0.45, 0.24, a), 5)
+	var head := PackedVector2Array()
+	for i in 13:
+		var q := lerpf(-1.0, 1.0, i / 12.0)
+		head.append(tip + Vector2(q * 25, -9 * (1 - q * q) + 5))
+	c.draw_polyline(head, dark, 10)
+	c.draw_polyline(head, Color("#ffd27a", a), 6)
+	c.draw_circle(tip + Vector2(0, -3), 4.5, Color(0.55, 0.5, 0.45, a))
+	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 const CAGE_CYCLE := 16.0   # s: down 6, wait 2 at the bottom, up 6, wait 2 at the top
 
@@ -512,12 +577,13 @@ func _draw_shaft(c: CanvasItem) -> void:
 		c.draw_texture_rect_region(tex("shaft.png"), Rect2(float(sh[0]), y, seg.x, h), Rect2(0, 0, seg.x * K, h * K))
 		y += seg.y
 
-func _chip(on: bool) -> StyleBoxFlat:
+func _plate(bg: Color, rim: Color, wd: int, rad := 10) -> StyleBoxFlat:
 	var st := StyleBoxFlat.new()
-	st.bg_color = Color(0.1, 0.07, 0.02, 0.78)
-	st.border_color = Color("#e3a51e", 0.85 if on else 0.3)
-	st.set_border_width_all(3 if on else 2)
-	st.set_corner_radius_all(37)
+	st.bg_color = bg
+	st.border_color = rim
+	st.set_border_width_all(wd)
+	st.set_corner_radius_all(rad)
+	st.anti_aliasing = true
 	return st
 
 # ---------------------------------------------------------------- the live layer
@@ -531,6 +597,7 @@ func _process(delta: float) -> void:
 	_sounds(delta)
 	live.queue_redraw()
 	top.queue_redraw()
+	marks.queue_redraw()
 
 ## the shaking: a big one when the door opens, small ones now and then while the boss waits behind it
 func _tremor() -> void:
@@ -648,6 +715,15 @@ func _draw_live() -> void:
 	for b in _bands:
 		_band_live(c, b)
 	_ore_flight(c)
+	for wd in _wheel_dust.duplicate():
+		var i := int((t - float(wd[1])) * 14.0)
+		if i >= 8:
+			_wheel_dust.erase(wd)
+			continue
+		var dp := "dust/%d.png" % i
+		var ds := _size(dp) * 1.4
+		var at: Vector2 = wd[0]
+		c.draw_texture_rect(tex(dp), Rect2(at - Vector2(ds.x / 2, ds.y - 6), ds), false, Color(1, 1, 1, 0.75))
 	_finale(c)
 	for bu in _bursts.duplicate():
 		var i := int((t - float(bu[1])) * 12)
@@ -735,6 +811,27 @@ func _surface_live(c: CanvasItem) -> void:
 		var gp := "guide/%02d.png" % (int(t * 8) % 24)
 		var gs := _size(gp)
 		_put(c, gp, Vector2(float(g[0]) - gs.x / 2, float(g[1]) - gs.y))
+	# hens and a rooster pecking about the ore yard, a dog asleep by the hut, once those places are done
+	if J.has("yard_life"):
+		for a in J.yard_life:
+			var spec: Dictionary = a
+			if int(steps.get(String(spec.place), 0)) < 3 or not _crew_ok(String(spec.name)):
+				continue
+			var nm := String(spec.name)
+			var n := int(J.crew_n[nm])
+			var fps := float(spec.get("fps", 8))
+			var ph := float(spec.get("ph", 0))
+			var x := float(spec.x)
+			var flip := false
+			if spec.has("roam"):
+				# wanders: a few steps one way, pecks, a few steps back
+				var per := float(spec.roam[1])
+				var ru := fmod(t + ph, per) / per
+				x += float(spec.roam[0]) * (0.5 - 0.5 * cos(TAU * ru))
+				flip = (ru > 0.5) == (float(spec.roam[0]) > 0.0)
+			var fr := "%s/%02d.png" % [nm, int((t + ph) * fps) % n]
+			var fs := _size(fr)
+			_put(c, fr, Vector2(x - fs.x / 2, float(J.sky) + float(spec.y) - fs.y), flip)
 	# the generator hums once the power is on: it trembles and sparks jump at the brushes
 	if int(steps.get("power", 0)) >= 3:
 		var m: Array = J.machine
@@ -848,6 +945,16 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var pp := "pump/%d.png" % pi
 		var ps_ := _size(pp)
 		_put(c, pp, Vector2(float(cr.pump[0]) - ps_.x / 2, y + float(cr.pump[1]) - ps_.y + 6))
+	if cr.has("pair") and _crew_ok("doublejack24"):
+		var pf := int(t * 11.0 + k * 5.0) % 24
+		var pp := "doublejack24/%02d.png" % pf
+		var ps2 := _size(pp)
+		_put(c, pp, Vector2(float(cr.pair[0]) - ps2.x / 2, back + 4 - ps2.y), bool(cr.get("pair_flip", false)), al)
+		if pf >= 11 and pf <= 13:
+			var sx := float(cr.pair[0]) + float(cr.pair[1]) * (-1.0 if bool(cr.get("pair_flip", false)) else 1.0)
+			_put(c, "gspark/%d.png" % mini(pf - 11, 3), Vector2(sx, back - 120), false, al)
+		if _passed("pair%d" % k, t * 11.0 + k * 5.0, 24.0, 12.0) and k == sel:
+			amb.shot("pick", _far(back) - 2.0, 1.05)
 	if cr.has("jack"):
 		var jp := "jackhammer/%d.png" % (int(t * 12) % 4)
 		var js := _size(jp)
@@ -874,17 +981,37 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		if sf < 4:
 			_put(c, "gspark/%d.png" % sf, Vector2(x + 70, back - hs.y - 30), false, al)
 		return
-	var f := int(t * CREW_FPS + k * 7.0) % 24
+	var flip := bool(cr.get("flip", false))
+	var f := _crew_frame(cr, k)
 	var p := "%s/%02d.png" % [who, f]
 	var rx := _reaction_frame(who, k)
 	if rx != "":
 		p = rx
 	var sz := _size(p)
-	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), false, al)
+	if cr.has("cart"):
+		# the cart he loads, standing on the rails on the side he throws to; its load grows a little with each throw
+		var cd: Dictionary = J.cart_full
+		var cx := float(cr.cart[0])
+		_cart(c, "cart_full", cd, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
+	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), flip, al)
 	if who == "pick24":
 		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)
 		if sf < 4:
-			_put(c, "gspark/%d.png" % sf, Vector2(x + 70, back - hs.y - 30), false, al)
+			_put(c, "gspark/%d.png" % sf, Vector2(x + (-70 if flip else 70), back - hs.y - 30), false, al)
+
+## which of a crew's 24 drawings now: a steady loop, or - with "pause" - the action once, then he just sits, breathing
+## (drawings 17..24 back and forth) for that many seconds before the next time
+func _crew_frame(cr: Dictionary, k: int) -> int:
+	var v := t * CREW_FPS + k * 7.0
+	if not cr.has("pause"):
+		return int(v) % 24
+	var act := 24.0
+	var rest := float(cr.pause) * CREW_FPS
+	var u := fmod(v, act + rest)
+	if u < act:
+		return int(u)
+	var q := int((u - act) / 3.0) % 14
+	return 17 + (q if q < 7 else 13 - q)
 
 ## the crew's reaction to the level just played, while it plays: its 12 drawings at 8 a second, or ""
 func _reaction_frame(who: String, k: int) -> String:
@@ -967,6 +1094,14 @@ func _cart(c: CanvasItem, path: String, cd: Dictionary, bottom_left: Vector2, ro
 		dips.append(maxf(0.0, 1.0 - absf(uu - 1.0)) if uu < 2.0 else 0.0)
 	var sx := -1.0 if flip else 1.0
 	var tilt := deg_to_rad(1.2 * (float(dips[0]) - float(dips[1])) + 0.35 * sin(rolled / 37.0)) * sx
+	for wi in 2:
+		var jn := floorf((rolled + (base if wi == 0 else 0.0)) / joint)
+		var key := "%s%d_%d" % [path, wi, int(bottom_left.y)]
+		if int(_cue.get(key, jn)) != int(jn):
+			var wx := float(cd.wheels[1 - wi][0])
+			if flip: wx = w - wx
+			_wheel_dust.append([Vector2(bottom_left.x + wx, bottom_left.y), t])
+		_cue[key] = jn
 	var sink := 3.0 * maxf(float(dips[0]), float(dips[1]))
 	var piv := Vector2(bottom_left.x + w / 2, bottom_left.y + sink)
 	# the part of the cart (its own x, -w/2..w/2) still out of the shaft
