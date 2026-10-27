@@ -33,9 +33,13 @@ const SAMPLES := {
 	bloom = {f = ["magical_1", "magical_5", "magical_6"], db = -5.0},
 	# the gold pan: gravel rattling round it
 	pan = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -8.0, pitch = 1.5},
-	click = {f = ["click_002"], db = -10.0},
+	# buttons and windows: a book set down, a page turned (Kenney RPG Audio) — the old digital clicks were out of place
+	click = {f = ["bookPlace1", "bookPlace2", "bookPlace3"], db = -10.0},
 	tab = {f = ["switch_002"], db = -8.0},
-	open = {f = ["open_001"], db = -10.0},
+	open = {f = ["bookFlip1"], db = 1.0},
+	# the resonator rings like a singing bowl (BigSoundBank #1109); gas gurgles over a muffled hiss (bubbles + steam, CC0)
+	zap = {f = ["bowl_ping"], db = -8.0},
+	gas = {f = ["gas_0", "gas_1", "gas_2"], db = -8.0},
 }
 const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"],
 	# a mine's own: "<track>_<area>" wins over "<track>"
@@ -209,7 +213,6 @@ func _make(n: String, k: int) -> AudioStreamWAV:
 			_noise(buf, 0.6, 160, 0.5, "low")
 			_tone(buf, 70, 0, 0.4, 0.12, "saw", 0.5)
 		"rocket": _noise(buf, 0.35, 2600, 0.15, "high")
-		"zap": _tone(buf, 1400, 0, 0.25, 0.05, "saw", 0.4)
 		"special":
 			for i in 3: _tone(buf, [660, 880, 1320][i], i * 0.05, 0.18, 0.05, "triangle")
 		"coin":
@@ -228,7 +231,6 @@ func _make(n: String, k: int) -> AudioStreamWAV:
 		"build":
 			for i in 4: _tone(buf, [392, 523, 659, 784][i], i * 0.08, 0.4, 0.07, "triangle")
 			_noise(buf, 0.4, 400, 0.15, "low")
-		"gas": _noise(buf, 0.5, 500, 0.15, "band")
 	# trim the silent tail and convert to 16-bit PCM
 	var last := buf.size() - 1
 	while last > 0 and absf(buf[last]) < 0.0005: last -= 1

@@ -43,3 +43,13 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 - `winch_0/1.ogg` — bart, [Chain winch sounds](https://opengameart.org/content/chain-winch-sounds).
 - `cart_0/1.ogg` — синтезированы (гул, стук на стыках рельсов, скрип) тем же скриптом.
 - Кирка — те же Kenney `impactMining_*`, что и на поле.
+
+## Кнопки, окна, резонатор, газ (`sfx/`, CC0) — вместо синтезированных и «цифровых» щелчков
+
+Нарезаны `prototype/tools/sfx_cut.py`.
+
+- `bookPlace1..3`, `bookFlip1` — Kenney, [RPG Audio / 50 RPG sound effects](https://opengameart.org/content/50-rpg-sound-effects): кнопки и окна.
+- `bowl_ping` — Joseph Sardin, [BigSoundBank #1109 «Tibetan bowl singing»](https://bigsoundbank.com/tibetan-bowl-singing-s1109.html): резонатор (3 с установившегося звона).
+- `gas_0..2` — бульканье (rubberduck, [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx);
+  BMacZero, [Bubble Sound Effects](https://opengameart.org/content/bubble-sound-effects)) поверх приглушённого шипения
+  (bart, [Steam release sounds](https://opengameart.org/content/steam-release-sounds)).
