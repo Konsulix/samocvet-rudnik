@@ -15,11 +15,20 @@ var fit_h := false
 ## a round rivet in the middle of each short end (the green button, the title plate): this many picture pixels above
 ## and below the middle stay as drawn, and a taller plate grows the plain rim over and under the rivet instead
 var pin := 0.0
+## big panels (the window): the frame is hollow and the slate under it is this seamless tile, repeated at its own
+## size, so a tall card does not stretch the stone into streaks; it starts `fill_inset` picture px in from the edge
+var fill: Texture2D
+var fill_inset := 24.0
 
 func _draw(to_canvas_item: RID, rect: Rect2) -> void:
 	if tex == null:
 		return
 	var rs := RenderingServer
+	if fill:
+		rs.canvas_item_add_set_transform(to_canvas_item, Transform2D(0.0, Vector2.ONE / s, 0.0, rect.position))
+		var inner := Rect2(Vector2(fill_inset, fill_inset), rect.size * s - Vector2(fill_inset, fill_inset) * 2)
+		rs.canvas_item_set_default_texture_repeat(to_canvas_item, RenderingServer.CANVAS_ITEM_TEXTURE_REPEAT_ENABLED)
+		rs.canvas_item_add_texture_rect(to_canvas_item, inner, fill.get_rid(), true, modulate)
 	var th := float(tex.get_height())
 	if pin > 0.0 and rect.size.y * s >= th:
 		_pinned(to_canvas_item, rect)

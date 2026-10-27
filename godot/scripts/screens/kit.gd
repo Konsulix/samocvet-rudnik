@@ -15,6 +15,8 @@ const FRAMES := {
 const FIT_H := ["capsule"]
 ## plates with a round rivet on each short end: half the rivet's height in picture px, kept as drawn (KitBox.pin)
 const PIN := {btn_green = 18.0, btn_slate = 18.0, title = 15.0}
+## big panels drawn as a hollow frame over a tiled slate (art/ui_kit/slate_fill.py): frame -> [frame picture, tile]
+const FILLS := {window = ["window_frame", "slate"]}
 const CREAM := Color("#f3e6c8")       # text on slate
 const AMBER := Color("#ffc95a")
 const DIM := Color("#a89c86")
@@ -32,6 +34,10 @@ static func box(name: String, pad := -1.0, tint := Color.WHITE) -> KitBox:
 	var f: Array = FRAMES[name]
 	var b := KitBox.new()
 	b.tex = tex(name)
+	if FILLS.has(name):
+		var fl: Array = FILLS[name]
+		b.tex = tex(fl[0])
+		b.fill = tex(fl[1])
 	b.margin = Vector4(float(f[0]), float(f[1]), float(f[2]), float(f[3]))
 	b.s = float(f[4])
 	b.modulate = tint

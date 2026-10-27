@@ -338,7 +338,9 @@
   выбран стиль «L2 + окно с фонарём»). Детали нарисовал GPT на пурпуре (`art/ui_kit/gen_kit.sh frames|icons`), нарезка —
   `art/ui_kit/kit_cut.py frames|icons <лист> godot/assets/ui/kit[/icons]` (13 рамок + 20 иконок). В игре: `Kit` (`screens/kit.gd`:
   `box(рамка)`, `button`, `icon_button`, `icon`, `res_icon`, `label`, `lantern`) и `KitBox` — рамка-nine-patch, рисуется с ~3 px
-  картинки на pt (чёткая на телефоне), углы — `Kit.FRAMES`. Середина растягивается (плиткой были видны швы).
+  картинки на pt (чёткая на телефоне), углы — `Kit.FRAMES`. Середина растягивается (плиткой были видны швы); у окна (`Kit.FILLS`) рамка пустая
+  (`window_frame.png`), а сланец под ней — бесшовная плитка `slate.png` в родном масштабе (`art/ui_kit/slate_fill.py`), иначе
+  высокая карточка находки тянула камень в полосы.
   Переведены: верхний бар (`Chrome.top_bar`: портрет с уровнем и жизнями, капсулы монет/железа/руды, шестерёнка → настройки;
   удержание — диагностика), нижний (`Chrome.nav_bar`: Mines · Mine · Collection · Equipment; Mines — пока карточка `mines_card`),
   кнопки уровня и развития на главном, все окна `Ov.card/btn` (окно уровня — с фонарём `Kit.lantern(Ov.holder())`),
