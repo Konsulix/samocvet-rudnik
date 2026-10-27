@@ -1045,7 +1045,7 @@ func _show_looks() -> void:
 		var b := _looks_option(BoardSprites.ZONE_STYLES[style], BoardSprites.zone_style == style, 70)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if style != "classic":
-			var zt: Texture2D = load("res://assets/board/zones/%s/geode_2x2_0.png" % style)
+			var zt := BoardSprites.zone_icon("geode_2x2", style)
 			var zi := UI.icon(40, func(ci): ci.draw_texture_rect(zt, Rect2(0, 0, 40, 40), false))
 			zi.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 			zi.material = BoardSprites.plain_material()

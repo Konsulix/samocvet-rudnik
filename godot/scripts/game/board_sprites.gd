@@ -70,6 +70,13 @@ static func ore_hot() -> Vector3:
 	var c := Color.html(String(Data.ore(Save.area()).get("hot", "#ffc75c")))
 	return Vector3(c.r, c.g, c.b)
 
+## a big block's small square icon (prototype/tools/zone_icons.py): "find_2x2", "geode_2x2"... in this look.
+## The interface never draws the board's own block sprites: on iPhone those came out as plain white squares there
+static func zone_icon(name: String, look := "") -> Texture2D:
+	var path := "res://assets/board/zones/%s/icon/%s.png" % [zone_style if look == "" else look, name]
+	if not _tex.has(path): _tex[path] = load(path)
+	return _tex[path]
+
 ## the blockers that go with the gem sets (blocker_kit.py): "" when the cut-stone set is shown
 static func blocker(name: String) -> Texture2D:
 	if gem_style == "": return tex(name)

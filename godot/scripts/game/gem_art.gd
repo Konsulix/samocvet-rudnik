@@ -288,9 +288,7 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 				# the sealed block as it lies on the board, glowing in its rarity's colour
 				# the glow is a texture too: on iPhone a texture drawn right after polygons in one item came out white
 				ci.draw_texture_rect(glow_tex(), Rect2(Vector2(S, S) * 0.5 - Vector2(S, S) * 0.6, Vector2(S, S) * 1.2), false, Color(glow, 1.0))
-				var t: Texture2D = load("res://assets/board/zones/%s/find_%s_0.png" % [BoardSprites.zone_style, BoardSprites.find_shape])
-				var sz := t.get_size() * (S * 0.95 / maxf(t.get_width(), t.get_height()))
-				ci.draw_texture_rect(t, Rect2(Vector2(S, S) / 2 - sz / 2, sz), false)
+				ci.draw_texture_rect(BoardSprites.zone_icon("find_" + BoardSprites.find_shape), Rect2(Vector2(S, S) * 0.025, Vector2(S, S) * 0.95), false)
 			else:
 				find_icon(ci, S, glow)
 		"c", "boss": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
@@ -319,8 +317,7 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
 		"geo":
 			if BoardSprites.zone_style != "classic" and BoardSprites.gem_style != "":
-				var t: Texture2D = load("res://assets/board/zones/%s/geode_2x2_0.png" % BoardSprites.zone_style)
-				BoardSprites.draw(ci, t, Vector2(S / 2, S / 2), S * 0.95)
+				ci.draw_texture_rect(BoardSprites.zone_icon("geode_2x2"), Rect2(Vector2(S, S) * 0.025, Vector2(S, S) * 0.95), false)
 			else:
 				BoardSprites.draw(ci, BoardSprites.tex("geode"), Vector2(S / 2, S / 2), S * 0.5)
 		_: BoardSprites.draw(ci, BoardSprites.tex("nug"), Vector2(S / 2, S / 2), S)

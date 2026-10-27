@@ -325,7 +325,8 @@ func bore(sp: String, r: int, c: int, t_in: float, step: float) -> void:
 		# the groove runs from the rim to just behind the tip
 		var end := p - dir * ts * 0.2
 		if (end - edge).dot(dir) > 0.0:
-			for ln: Line2D in [scuff, groove, lip]: ln.set_point_position(1, end)
+			for ln: Line2D in [scuff, groove, lip]:
+				if is_instance_valid(ln): ln.set_point_position(1, end)
 	var come := t_in * 0.45
 	var rev := t_in * 0.35
 	var tw := create_tween()
@@ -360,9 +361,11 @@ func bore(sp: String, r: int, c: int, t_in: float, step: float) -> void:
 		shudder.kill()
 		holder.queue_free())
 	var fade := create_tween()
-	fade.tween_interval(t_in + step * (n - 1) + 0.15)
-	for ln: Line2D in [scuff, groove, lip]:
-		fade.parallel().tween_property(ln, "modulate:a", 0.0, 0.45)
+	# it fades once the bit is through (the first fade waits out the whole bore, the others run alongside it)
+	fade.tween_interval(t_in + step * (n - 1) + 0.4)
+	fade.tween_property(scuff, "modulate:a", 0.0, 0.45)
+	fade.parallel().tween_property(groove, "modulate:a", 0.0, 0.45)
+	fade.parallel().tween_property(lip, "modulate:a", 0.0, 0.45)
 	fade.tween_callback(func():
 		for ln: Line2D in [scuff, groove, lip]: ln.queue_free())
 

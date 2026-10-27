@@ -502,6 +502,10 @@ func _level_panel(dl: int, sel: Array) -> void:
 		bv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var sp0: String = p.sp[0]
 		var ic := UI.icon(38, func(ci: Control):
+			# the specials as the board draws them (special_kit.py: dynamite stick, the charge, the resonator)
+			if BoardSprites.gem_style != "":
+				BoardSprites.draw(ci, BoardSprites.tex(sp0), Vector2(19, 19), 38)
+				return
 			GemArt.begin(ci, Transform2D(0.0, Vector2(19, 19)))
 			GemArt.special(ci, sp0, 38)
 			GemArt.end(ci))
