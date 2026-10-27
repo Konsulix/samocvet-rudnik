@@ -73,6 +73,7 @@ func render() -> void:
 	if view:
 		view.visible = drawn
 		_top_shade.visible = drawn
+		if _dust_p: _dust_p.visible = not drawn
 	if drawn:
 		view.scale = Vector2.ONE * (vp.x / 1536.0)
 		view.setup(ai())
@@ -392,9 +393,12 @@ func _pick_depth(k: int) -> void:
 	else:
 		_open_next()
 
+var _dust_p: CPUParticles2D
+
 func _dust() -> void:
-	# motes drifting in the lamplight over the galleries
+	# motes drifting in the lamplight over the galleries (the drawn mine has its own, in its galleries)
 	var p := CPUParticles2D.new()
+	_dust_p = p
 	p.amount = 40
 	p.lifetime = 9.0
 	p.preprocess = 9.0

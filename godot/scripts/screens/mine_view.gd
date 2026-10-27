@@ -45,6 +45,13 @@ var _glow: Texture2D
 var _shade: Texture2D
 var _stars: Array = []
 var amb: MineAmb
+var _motes: Node2D        # dust motes in the open galleries, moving with the rock (not stuck to the screen)
+## the best find kept from each depth stands on its pedestal: niche centre x and pedestal top (band rows)
+const NICHES := {1: [383, 310], 2: [1050, 305], 3: [462, 318], 4: [350, 312], 5: [860, 316]}
+static var _niche_tex := {}  # stone key -> its picture (rendered once, transparent)
+static var _niche_studio: SpecStudio
+static var _niche_busy := false
+var _niche_want := {}     # depth k -> stone (the save's entry)
 var _cue := {}            # the last frame each sound cue was checked at, so it fires once per crossing
 var t := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -102,6 +109,8 @@ func _ready() -> void:
 	add_child(top)
 	amb = MineAmb.new(self)
 	add_child(amb)
+	_motes = Node2D.new()
+	still.add_child(_motes)
 	var g := GradientTexture2D.new()
 	var gr := Gradient.new()
 	gr.set_color(0, Color(1, 1, 1, 1))
@@ -163,6 +172,8 @@ func setup(a: int) -> void:
 	sm.set_shader_parameter("bottom", (float(J.sky) + 700.0) / (float(J.sky) + float(J.surf)))
 	sm.set_shader_parameter("amp", 3.0 / 1536.0)
 	_changes()
+	_make_motes()
+	_find_niches()
 	still.queue_redraw()
 	front.queue_redraw()
 
@@ -301,6 +312,7 @@ func _draw_still() -> void:
 	for b in _bands:
 		var st := String(_shown_bands.get(int(b.k), b.state))
 		_put(c, "band/d%d_%s.png" % [int(b.d), st], Vector2(0, float(b.y)))
+	_draw_niches(c)
 	# the seams between the bands: a dark line and the shadow of the band above falling on the next
 	for b in _bands:
 		c.draw_texture_rect(_shade, Rect2(0, float(b.y), float(J.W), 44), false)
@@ -349,6 +361,105 @@ func _draw_cage(c: CanvasItem) -> void:
 	_put_rot(c, "wheel.png", Vector2(float(hub[0]), float(hub[1])), depth / float(cg.r), _size("wheel.png"))
 	var bm: Array = cg.beams
 	_put(c, "beams.png", Vector2(float(bm[0]), float(bm[1])))
+
+## motes drifting in the lamplight of each open gallery: children of the picture, so a swipe carries them with the rock
+func _make_motes() -> void:
+	for ch in _motes.get_children(): ch.queue_free()
+	for b in _bands:
+		if String(b.state) in ["closed", "flooded"]:
+			continue
+		var p := CPUParticles2D.new()
+		p.amount = 14
+		p.lifetime = 9.0
+		p.preprocess = 9.0
+		p.local_coords = false
+		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		p.position = Vector2(640, float(b.y) + 270)
+		p.emission_rect_extents = Vector2(620, 170)
+		p.gravity = Vector2(0, -12)
+		p.direction = Vector2(1, 0)
+		p.spread = 180
+		p.initial_velocity_min = 8
+		p.initial_velocity_max = 30
+		p.scale_amount_min = 4.0
+		p.scale_amount_max = 9.0
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 0.85, 0.55, 0))
+		g.add_point(0.5, Color(1.3, 1.1, 0.7, 0.55))
+		g.set_color(g.get_point_count() - 1, Color(1, 0.85, 0.55, 0))
+		p.color_ramp = g
+		_motes.add_child(p)
+
+## the best stone kept from each open depth (the save's collection remembers where it was found): its picture is
+## rendered once in a small transparent studio and stands on the depth's pedestal
+## the game is closing: drop the static pictures and the niche studio while the renderer is still up
+static func release() -> void:
+	_tex.clear()
+	_niche_tex.clear()
+	if _niche_studio:
+		_niche_studio.vp.queue_free()
+		_niche_studio = null
+
+func _find_niches() -> void:
+	_niche_want = {}
+	for s in Save.d.coll:
+		if int(s.get("area", -1)) != area or not s.has("dl"):
+			continue
+		var k := int(s.dl)
+		if k > open or not NICHES.has(k + 1):
+			continue
+		if not _niche_want.has(k) or int(s.value) > int(_niche_want[k].value):
+			_niche_want[k] = s
+	for k in _niche_want:
+		var key := Spec.key_of(Spec.of_stone(_niche_want[k]))
+		if not _niche_tex.has(key):
+			_render_niche(Spec.of_stone(_niche_want[k]), key)
+
+func _render_niche(o: Dictionary, key: String) -> void:
+	while _niche_busy:
+		await get_tree().process_frame
+	if _niche_tex.has(key):
+		return
+	_niche_busy = true
+	if _niche_studio == null:
+		_niche_studio = SpecStudio.make(256, Viewport.MSAA_4X, true)
+		_niche_studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		Spec.add_child(_niche_studio.vp)
+	var st := _niche_studio
+	var p: Node3D = await st.show_async(o)
+	if p != null:
+		p.rotation = Vector3(0.12, 0.6, 0)
+		for i in 2:
+			st.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+			await RenderingServer.frame_post_draw
+		var img := st.vp.get_texture().get_image()
+		var used := img.get_used_rect()
+		if used.size.x > 2:
+			_niche_tex[key] = ImageTexture.create_from_image(img.get_region(used))
+		st.clear()
+	_niche_busy = false
+	if is_inside_tree():
+		still.queue_redraw()
+
+## the stones on their pedestals: a soft shadow, an ink outline (the picture eight times in dark, a pixel round),
+## the stone warmed by the lantern light
+func _draw_niches(c: CanvasItem) -> void:
+	for k in _niche_want:
+		var key := Spec.key_of(Spec.of_stone(_niche_want[k]))
+		if not _niche_tex.has(key):
+			continue
+		var tx: Texture2D = _niche_tex[key]
+		var nc: Array = NICHES[k + 1]
+		var h := 150.0
+		var sz := tx.get_size() * (h / maxf(1.0, tx.get_size().y))
+		if sz.x > 170:
+			sz *= 170.0 / sz.x
+		var top := band_y(k) + float(nc[1])
+		var pos := Vector2(float(nc[0]) - sz.x / 2, top - sz.y + 8)
+		c.draw_texture_rect(_glow, Rect2(Vector2(float(nc[0]) - sz.x * 0.6, top - 10), Vector2(sz.x * 1.2, 22)), false, Color(0.1, 0.06, 0.02, 0.6))
+		for d in [Vector2(-3, 0), Vector2(3, 0), Vector2(0, -3), Vector2(0, 3), Vector2(-2, -2), Vector2(2, 2), Vector2(-2, 2), Vector2(2, -2)]:
+			c.draw_texture_rect(tx, Rect2(pos + d, sz), false, Color(0.14, 0.08, 0.04, 1.0))
+		c.draw_texture_rect(tx, Rect2(pos, sz), false, Color(1.0, 0.9, 0.76))
 
 ## the shaft down to the floor of the deepest open depth
 func _draw_shaft(c: CanvasItem) -> void:

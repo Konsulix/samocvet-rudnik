@@ -91,7 +91,9 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.close()
 		finished.emit()
 	var keep := func():
-		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = traits, legend = s.get("legend", false), g = s.g, value = s.value, tier = tier})
+		# where it was found: the mine's screen puts the best find of each depth on its pedestal
+		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = traits, legend = s.get("legend", false), g = s.g, value = s.value, tier = tier,
+			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()]))})
 		Save.persist()
 		Ov.close()
 		Ov.toast("Added to the collection")

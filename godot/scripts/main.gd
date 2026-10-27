@@ -8,6 +8,7 @@ var args := {}
 ## the game is closing (the level, a child, has already left the tree): free what outlives levels (Level.release_pool)
 func _exit_tree() -> void:
 	Level.release_pool()
+	MineView.release()
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -48,6 +49,8 @@ func _ready() -> void:
 		for i in int(args.fill):
 			var st := Stones.roll(5000 + i, i % 3, 0.6 + (i % 5) * 0.3, i % 3)
 			if i % 4 == 0: st.cut = ["cab", "facet", "master"][i % 3]
+			st.area = 0
+			st.dl = i % 6          # spread over the depths of the first mine: its pedestals show the best of each
 			Save.d.coll.append(st)
 			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["ruby", "sapphire"], value = 9000}]
