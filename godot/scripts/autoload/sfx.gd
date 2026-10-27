@@ -137,6 +137,17 @@ func music(track: String) -> void:
 	tw.tween_property(old, "volume_db", -60.0, 0.9)
 	tw.chain().tween_callback(old.stop)
 
+## the music dies away to silence (a boss's theme as it falls); the next music() starts afresh
+func music_fade(sec: float) -> void:
+	var p := _music[_cur]
+	_track = ""
+	if _fade and _fade.is_valid(): _fade.kill()
+	var tw := create_tween()
+	_fade = tw
+	# eased out: most of the drop comes late, the theme seems to sink rather than switch off
+	tw.tween_property(p, "volume_db", -60.0, sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(p.stop)
+
 func _music_db() -> float:
 	return -80.0 if Save.d.get("mute", false) else MUSIC_DB
 

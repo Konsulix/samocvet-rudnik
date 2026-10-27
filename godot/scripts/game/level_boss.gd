@@ -311,6 +311,8 @@ static func defeat(lv: Level) -> void:
 	h.clear_intent()
 	h.set_hp(0, int(lv.model.boss.hp_max))
 	frame(lv).swaying = false
+	# its theme dies with it, gone before the win jingle
+	Sfx.music_fade(3.5)
 	await v.defeat()
 
 ## the show for screenshots and checks on a phone: hits, a flinch, its turn, a lost board, the defeat
