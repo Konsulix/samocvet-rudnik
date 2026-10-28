@@ -217,7 +217,7 @@ void fragment() {
 		if (fill_op > 0.5) {
 			opal_c = opal_play(p, vm, nm, fire_h, opal_spread, seed + pk_id, flow_k * TIME, 2.4, 1.0, 1.0, opal_g);
 			vec3 body = opal_body_col(opal_body, p, seed);
-			float on_dark = opal_body == 0 ? 1.0 : 0.5;
+			float on_dark = opal_body == 0 ? 1.0 : (opal_body == 2 ? 0.35 : 0.5);
 			pc = body + opal_c * 0.5 * on_dark;
 			em += opal_c * pk * (0.45 * on_dark + flow_k * 0.4);
 			om = max(om, pk);
@@ -262,7 +262,7 @@ void fragment() {
 		float edge = smoothstep(th - 0.035, th - 0.01, pn) - pool;
 		if (pool > 0.0) {
 			opal_c = opal_play(p, vm, nm, fire_h, opal_spread, seed + 17.0, flow_k * TIME, 2.4, 1.0, 1.0, opal_g);
-			float on_dark = opal_body == 0 ? 1.0 : 0.5;
+			float on_dark = opal_body == 0 ? 1.0 : (opal_body == 2 ? 0.35 : 0.5);
 			c = mix(c, opal_body_col(opal_body, p, seed) + opal_c * 0.5 * on_dark, pool);
 			em += opal_c * pool * (0.45 * on_dark + flow_k * 0.4);
 			om = max(om, pool);
