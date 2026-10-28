@@ -17,8 +17,29 @@ static func main() -> Node:
 
 static func open() -> void:
 	var a := Save.area()
-	var v := Ov.card(360)
-	v.add_child(UI.title("Admin", 20))
+	var card := Ov.card(360)
+	# the title with a ✕ (an empty slot on the left keeps it centred), the rest scrolls inside the screen
+	var head := HBoxContainer.new()
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(36, 0)
+	head.add_child(pad)
+	var title := UI.title("Admin", 20)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var x := Kit.icon_button("close", 36)
+	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	x.pressed.connect(func():
+		Ov.close()
+		_refresh())
+	head.add_child(x)
+	card.add_child(head)
+	var sc := UI.scroller()
+	sc.custom_minimum_size = Vector2(0, maxf(300.0, card.get_viewport_rect().size.y - 300.0))
+	card.add_child(sc)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 12)
+	sc.add_child(v)
 	v.add_child(Ov.text("%s · open to %d m · iron %d · %s %d · %s" % [Data.AREAS[a].n, Data.depth_m(a, int(Save.d.depth[a])),
 		int(Save.d.fe), String(Data.ore(a).n).to_lower(), int(Save.d.ore), UI.coins(Save.d.coins)], 12))
 	# the mine

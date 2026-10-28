@@ -845,7 +845,10 @@ func _next_mine_btn(a: int) -> Button:
 	var cn: int = cost[1]
 	var ok: bool = Save.d.fe >= fe and Save.d.coins >= cn
 	var nm := String(Data.AREAS[a + 1].n)
-	var b := Ov.btn("%s · %d iron + %s" % [nm, fe, UI.coins(cn)] if ok else "%s: need %d iron, %s" % [nm, fe, UI.coins(cn)], "green" if ok else "glass", func():
+	# two lines, the mine over its price: on one line the button widened the card past the screen
+	var b := Ov.btn("%s
+%d iron + %s" % [nm, fe, UI.coins(cn)] if ok else "%s
+need %d iron, %s" % [nm, fe, UI.coins(cn)], "green" if ok else "glass", func():
 		if Save.d.fe < fe or Save.d.coins < cn: return
 		Save.d.fe -= fe
 		Save.d.coins -= cn
@@ -855,6 +858,7 @@ func _next_mine_btn(a: int) -> Button:
 		render()
 		Ov.toast("Welcome to %s" % nm + (" · leftover ore sold for %s" % UI.coins(sold) if sold else "")))
 	b.disabled = not ok
+	b.custom_minimum_size.y = 76
 	return b
 
 ## " · step 2/3" for a job paid in steps, "" otherwise
