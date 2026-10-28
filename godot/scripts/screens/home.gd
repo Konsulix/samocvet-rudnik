@@ -10,6 +10,8 @@ signal go(screen: String)
 var scene: MineScene
 var scene_holder: Node2D
 var ui_root: VBoxContainer
+const COPPER_VIEW := "res://scripts/screens/mine_view_copper.gd"
+var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
 static var start_scroll := -1.0   # a test key puts the first view here (-- scroll=N)
@@ -34,9 +36,22 @@ func _ready() -> void:
 	add_child(scene_holder)
 	scene = MineScene.new()
 	scene_holder.add_child(scene)
+	# the drawn mine of each area that has one: Old Adit (MineView) and, once its screen exists, Copper Mountain
+	# (CopperView in mine_view_copper.gd - extends MineView, so Home talks to it the same way)
 	if MineView.available():
-		view = MineView.new()
-		add_child(view)
+		_views[0] = MineView.new()
+	if ResourceLoader.exists(COPPER_VIEW):
+		var cv: MineView = (load(COPPER_VIEW) as GDScript).new()
+		if cv.has_method("available_here") and cv.call("available_here"):
+			_views[1] = cv
+		else:
+			cv.free()
+	for a in _views:
+		var mv: MineView = _views[a]
+		mv.visible = false
+		add_child(mv)
+	view = _views.get(ai(), _views.get(0))
+	if view:
 		# the name and the plaques stay readable over the mine as it scrolls under them
 		_top_shade = TextureRect.new()
 		var gt := GradientTexture2D.new()
@@ -69,6 +84,11 @@ func render() -> void:
 	var s := minf(vp.x / 360.0, vp.y / hv)
 	scene_holder.scale = Vector2(s, s)
 	scene_holder.position = Vector2((vp.x - 360.0 * s) / 2, (vp.y - hv * s) / 2)
+	if _views.has(ai()) and view != _views[ai()]:
+		view = _views[ai()]
+		scroll = -1.0
+	for a in _views:
+		(_views[a] as MineView).visible = false
 	var drawn := uses_view()
 	scene_holder.visible = not drawn
 	if view:
@@ -309,7 +329,7 @@ func _play_button() -> Button:
 
 ## the drawn mine is used where its pictures exist (Old Adit, for now)
 func uses_view() -> bool:
-	return view != null and ai() == 0
+	return view != null and _views.has(ai()) and _views[ai()] == view
 
 ## a smooth ride of the drawn mine to a scroll position (the finger stops it)
 func _glide_to(v: float) -> void:
@@ -329,8 +349,11 @@ func _process(dt: float) -> void:
 
 func _scroll_to(v: float) -> void:
 	var vp := get_viewport_rect().size
-	# the last depth can come up above the Play row and the tab bar
-	scroll = clampf(v, 0.0, maxf(0.0, view.content_height() + 150.0 - vp.y))
+	# the last depth can come all the way up above the Play row and the tab bar (whatever they measure on this phone)
+	var below := 230.0
+	if is_instance_valid(_row) and _row.is_inside_tree() and _row.size.y > 0.0:
+		below = vp.y - _row.get_global_rect().position.y - 55.0   # the band's last ~60 pt are its floor: it may sit behind them
+	scroll = clampf(v, 0.0, maxf(0.0, view.content_height() + below - vp.y))
 	view.position = Vector2(0, -scroll)
 
 func _gui_input(e: InputEvent) -> void:

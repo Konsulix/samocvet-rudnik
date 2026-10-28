@@ -14,6 +14,7 @@ extends Node2D
 signal band_tapped(k: int)
 
 const DIR := "res://assets/mine/old_adit/"
+var dir := DIR            # where this mine's pictures and mine.json are
 const PLACES := ["camp", "power", "yard", "headframe"]
 const PICK_FPS := 8.0     # the old 6-drawing pick swing, the strike on the third
 const CREW_FPS := 14.0    # the 24-drawing crews: a pick swing ~1.7 s, its strike on drawing 10
@@ -89,10 +90,12 @@ static func step_cost(a: int, id: String, cost: int) -> int:
 static func available() -> bool:
 	return FileAccess.file_exists(DIR + "mine.json")
 
-static func tex(path: String) -> Texture2D:
-	if not _tex.has(path):
-		_tex[path] = load(DIR + path)
-	return _tex[path]
+## a picture of this mine (`dir`: a mine screen that extends this one sets its own folder)
+func tex(path: String) -> Texture2D:
+	var key := dir + path
+	if not _tex.has(key):
+		_tex[key] = load(key)
+	return _tex[key]
 
 func _ready() -> void:
 	surf = Sprite2D.new()
@@ -148,7 +151,7 @@ func _ready() -> void:
 		_stars.append([_rng.randf_range(0, 1536), _rng.randf_range(0, 620), _rng.randf_range(0, TAU), _rng.randf_range(0.6, 1.4)])
 
 func setup(a: int) -> void:
-	J = JSON.parse_string(FileAccess.get_file_as_string(DIR + "mine.json"))
+	J = JSON.parse_string(FileAccess.get_file_as_string(dir + "mine.json"))
 	K = float(J.K)
 	area = a
 	open = int(Save.d.depth[a])
