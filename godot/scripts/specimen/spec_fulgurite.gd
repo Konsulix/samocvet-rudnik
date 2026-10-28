@@ -61,6 +61,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	sm.set_shader_parameter("c_light", Color.hex(int(SAND[int(f.sand)]) << 8 | 0xff))
 	sm.set_shader_parameter("c_bark", Color.hex(0x2a2420ff))
 	sm.set_shader_parameter("c_end", Color.hex(0xb8a688ff))
+	sm.set_shader_parameter("sand_tex", load("res://assets/textures/dense_sand/dense_sand_diff_1k.jpg"))
 	var tint: Color = GLASS[int(f.glass)]
 	var gm := SpecMat.make({col = Color(1, 1, 1), glass = true, frost = 0.22, thick = 1.0, seed = 7.0})
 	var milk := SpecMat.make({col = SpecMat.lin(0xe8e6e0), rough = 0.55})

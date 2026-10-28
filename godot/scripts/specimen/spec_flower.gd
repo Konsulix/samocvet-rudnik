@@ -499,6 +499,8 @@ static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
 	m.set_shader_parameter("axes", Vector3(maxf(-bb.position.x, bb.end.x), maxf(-bb.position.y, bb.end.y), maxf(-bb.position.z, bb.end.z)) * 1.04)
 	m.set_shader_parameter("spangle_k", 1.0 if f.get("spangle", false) else 0.0)
 	m.set_shader_parameter("crust_k", f.get("crust", 0.0))
+	m.set_shader_parameter("crack_tex", load("res://assets/textures/mud_cracked_dry_03/mud_cracked_dry_03_diff_1k.jpg"))
+	m.set_shader_parameter("crack_k", 1.0)
 	m.set_shader_parameter("cloud_k", f.get("cloud", 0.0))
 	m.set_shader_parameter("dirt_k", 0.3 + float(int(f.seed) % 7) / 7.0 * 0.7)
 	m.set_shader_parameter("flow_k", 0.6 if f.host == "amber" else 0.35)

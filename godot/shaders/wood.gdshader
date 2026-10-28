@@ -24,6 +24,21 @@ uniform float heart_s = 0.0;
 uniform float flow_k = 0.0;         // the legendary dragon fire: the opal's colours flow
 uniform sampler2D bark_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float bark_k = 0.0;
+// scans: a real log's end (its rings, rays, checks, pores — luminance only: the minerals give the colour), banded
+// onyx (chalcedony, agate, the swirls of jasper), side grain (the fibre of a broken or sawn side)
+uniform sampler2D end_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float end_k = 0.0;
+uniform float end_r = 0.46;          // the scanned disc's radius in its own uv
+uniform sampler2D onyx_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float onyx_k = 0.0;
+uniform sampler2D fib_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float fib_k = 0.0;
+
+float lum3(vec3 c) { return dot(c, vec3(0.3, 0.5, 0.2)); }
+// a scan's detail: its brightness against its own blurred brightness (rings, pores, without the light falloff)
+float detail(sampler2D t, vec2 uv) {
+	return clamp(lum3(texture(t, uv).rgb) / max(lum3(textureLod(t, uv, 5.0).rgb), 0.03), 0.25, 2.0);
+}
 
 uniform float ring_k = 1.0;         // how plain the growth rings show (the colour runs in flames across them)
 uniform int star_n = 0;             // cracks out from the pith, in a star
@@ -71,6 +86,12 @@ void fragment() {
 	float yv = h3(vec3(yr, seed, 5.0));
 	vec3 early = lin(c_early) * (0.8 + 0.4 * yv);
 	vec3 c = mix(early, lin(c_late) * 0.6, late * 0.95 * ring_k * (0.6 + 0.8 * h3(vec3(yr, seed, 8.0))));
+	// the scanned log's end over it: real rings, rays, checks, pores
+	if (end_k > 0.0) {
+		vec2 eq = (p.xy - ecc * (1.0 - clamp(rel, 0.0, 1.0))) / R * end_r;
+		float hp = detail(end_tex, vec2(0.5) + vec2(eq.x, -eq.y));
+		c *= mix(1.0, pow(hp, 1.7), end_k);
+	}
 	// flames: colour running out from the pith in long streaks, across the rings
 	float fl1 = fbm(vec3(cs * 7.0, u * 1.2 + seed + 31.0));
 	float fl2 = vn(vec3(cs * 26.0, u * 2.5 + seed + 37.0));
@@ -83,6 +104,9 @@ void fragment() {
 	c *= 0.7 + 0.55 * fbm(vec3(p.xy * 3.0 / R, seed + 47.0));
 	// the minerals that stained it: big blotches across the rings, partly following them
 	float st = fbm(p * 1.3 + seed) * 0.65 + vn(vec3(x * 0.11, cs * 0.6 + seed + 9.0)) * 0.35;
+	// jasper's swirls: the stain follows the bands of a banded stone
+	vec3 oxs = texture(onyx_tex, p.xy * 0.32 + vec2(seed * 0.13, seed * 0.07)).rgb;
+	st = mix(st, lum3(oxs) * 1.25, 0.55 * onyx_k);
 	float st2 = fbm(p * 2.4 + seed + 11.0) * 0.7 + vn(vec3(x * 0.2, p.z, seed + 2.0)) * 0.3;
 	c = mix(c, lin(c_st1) * (0.8 + 0.4 * (1.0 - late)), smoothstep(0.48, 0.66, st) * 0.85);
 	c = mix(c, lin(c_st2) * (0.7 + 0.3 * (1.0 - late)), smoothstep(0.52, 0.7, st2) * 0.8);
@@ -91,7 +115,13 @@ void fragment() {
 	c *= 1.0 - smoothstep(0.6, 0.72, mn) * 0.75;
 	float milk = smoothstep(0.55, 0.72, fbm(p * 1.8 + seed + 23.0));
 	float lum = dot(c, vec3(0.3, 0.5, 0.2));
-	c = mix(c, mix(vec3(lum) * 1.1 + 0.03, lin(vec3(0.62, 0.66, 0.72)), 0.45), milk * 0.6);
+	vec3 milk_c = mix(vec3(lum) * 1.1 + 0.03, lin(vec3(0.62, 0.66, 0.72)), 0.45);
+	if (onyx_k > 0.0) {
+		// chalcedony banded like onyx, a little of its own colour
+		vec3 ox = texture(onyx_tex, p.xy * 0.5 + vec2(seed * 0.21, 0.4)).rgb;
+		milk_c = mix(milk_c, mix(vec3(lum3(ox)) * vec3(0.95, 0.98, 1.05) * 1.15, ox, 0.3), onyx_k);
+	}
+	c = mix(c, milk_c, milk * 0.6);
 	// not as saturated as paint: stone
 	c = mix(vec3(dot(c, vec3(0.3, 0.5, 0.2))), c, 0.8);
 	// the cells: fine dots across the grain, fine streaks along it; rays: short light lines out from the pith
@@ -126,6 +156,7 @@ void fragment() {
 		float rw = rind_w * (0.6 + 0.8 * fbm(vec3(cs * 3.0, seed + 50.0)));
 		float rm = (1.0 - smoothstep(rw * 0.85, rw, rd)) * step(0.0, rd) * step(0.002, rw) * (1.0 - bk) * step(0.9, COLOR.r);
 		float band = sin(rd / max(rw, 1e-3) * 22.0 + fbm(vec3(cs * 5.0, seed)) * 3.0) * 0.5 + 0.5;
+		if (onyx_k > 0.0) band = mix(band, smoothstep(0.25, 0.75, lum3(texture(onyx_tex, vec2(rd / max(rw, 1e-3) * 0.3 + phi * 0.02, phi * 0.4)).rgb)), onyx_k);
 		vec3 rc = mix(lin(vec3(0.78, 0.77, 0.74)), lin(vec3(0.42, 0.47, 0.56)), smoothstep(0.3, 0.7, band));
 		rc = mix(rc, c, 0.25);
 		rc = mix(rc, lin(c_late) * 0.4, (1.0 - smoothstep(0.0, 0.06, abs(band - 0.5))) * 0.4);
@@ -195,6 +226,7 @@ void fragment() {
 			// its crystals' faces catching the light
 			float bd = pk_d * 9.0 + fbm(vec3(cs * 6.0, pk_id + seed)) * 0.4;
 			float bb = sin(bd * 6.2832) * 0.5 + 0.5;
+			if (onyx_k > 0.0) bb = mix(bb, smoothstep(0.2, 0.8, lum3(texture(onyx_tex, vec2(pk_d * 0.35, pk_id * 0.37 + u * 0.1)).rgb)), onyx_k);
 			pc = mix(lin(vec3(0.88, 0.88, 0.86)), lin(vec3(0.55, 0.6, 0.7)), smoothstep(0.35, 0.65, bb));
 			pc = mix(pc, lin(c_st2) * 0.5, step(0.94, fract(bd * 0.5 + 0.3)) * 0.7);
 			vec3 gr = vor2(vec2(p.x, p.y) * 260.0 + pk_id * 7.0);
@@ -293,6 +325,8 @@ void fragment() {
 	if (COLOR.r < 0.1 && bk < 0.5 && COLOR.g < 0.5) {
 		// broken stone along the grain: the fibres show faintly, under weathered blotches and grit
 		float fib = vn(vec3(p.xy * 45.0, p.z * 6.0)) * 0.5 + vn(vec3(p.xy * 110.0, p.z * 14.0)) * 0.3 + vn(p * 160.0) * 0.2;
+		// the scanned grain along the trunk
+		if (fib_k > 0.0) fib = mix(fib, detail(fib_tex, vec2(p.z * 0.3, phi / 6.2832 * 2.5 + rel * 0.2)) * 0.5, fib_k);
 		float wx = fbm(p * 4.0 + seed + 80.0);
 		c = mix(vec3(dot(c, vec3(0.3, 0.5, 0.2))), c, 0.55) * (0.78 + 0.22 * fib) * (0.45 + 0.4 * wx);
 		c = mix(c, lin(c_bark) * 0.9, smoothstep(0.55, 0.75, wx) * 0.5);

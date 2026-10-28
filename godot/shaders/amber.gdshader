@@ -23,6 +23,8 @@ uniform float crust_k = 0.0;
 uniform float cloud_k = 0.0;
 uniform float dirt_k = 0.5;           // brown smoke of fine dirt
 uniform float seed = 0.0;
+uniform sampler2D crack_tex : source_color, filter_linear_mipmap, repeat_enable;   // a scan of crazed dry crust
+uniform float crack_k = 0.0;
 
 varying vec3 v_op;
 varying vec3 v_cam;
@@ -210,6 +212,13 @@ void fragment() {
 		crust = 1.0 - smoothstep(-0.02, 0.06, cn);
 		vec3 cell = vor2(vec2(dot(cp, vec3(1.0, 0.2, 0.0)), dot(cp, vec3(0.0, 0.9, 0.4))) * 16.0 + seed);
 		float craze = (1.0 - smoothstep(0.0, 0.04, cell.y)) * 0.7;
+		if (crack_k > 0.0) {
+			// the scanned crazing, seen from the side it faces most
+			vec3 an = abs(nmc);
+			vec2 cuv = (an.z > an.x && an.z > an.y ? cp.xy : (an.x > an.y ? cp.yz : cp.xz)) * 0.9 + seed * 0.1;
+			float cl = dot(texture(crack_tex, cuv).rgb, vec3(0.3, 0.5, 0.2)) / max(dot(textureLod(crack_tex, cuv, 5.0).rgb, vec3(0.3, 0.5, 0.2)), 0.03);
+			craze = mix(craze, (1.0 - smoothstep(0.55, 0.85, cl)) * 0.9, crack_k);
+		}
 		crust_c = mix(vec3(0.07, 0.025, 0.008), vec3(0.18, 0.07, 0.02), vn(cp * 5.0 + seed)) * (1.0 - craze * 0.6);
 	}
 	ALBEDO = crust_c * crust;

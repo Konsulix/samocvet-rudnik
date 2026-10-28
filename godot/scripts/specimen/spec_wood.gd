@@ -284,9 +284,21 @@ static func material(f: Dictionary) -> ShaderMaterial:
 	m.set_shader_parameter("fire_h", FIRE.get(f.fire, 0.3))
 	m.set_shader_parameter("opal_body", {dark = 0, crystal = 1, honey = 2}.get(f.get("body", "dark"), 0))
 	m.set_shader_parameter("opal_spread", f.get("spread", 0.3))
-	m.set_shader_parameter("bark_tex", load("res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg"))
+	var barks := ["res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg", "res://assets/textures/pine_bark/pine_bark_diff_1k.jpg"]
+	m.set_shader_parameter("bark_tex", load(barks[int(f.seed) % barks.size()]))
+	# scans: a real log's end for the rings, banded onyx for the chalcedony and the jasper's swirls, side grain
+	var ends := [[1, 0.47], [2, 0.44], [3, 0.44], [4, 0.43]]
+	var e: Array = ends[int(f.seed / 7) % ends.size()]
+	m.set_shader_parameter("end_tex", load("res://assets/textures/tree_end/tree_end_%03d.jpg" % int(e[0])))
+	m.set_shader_parameter("end_r", e[1])
+	m.set_shader_parameter("end_k", 0.85)
+	var onyx := {0: "010", 1: "006", 2: "013", 3: "015", 4: "010", 5: "006", 6: "015"}
+	m.set_shader_parameter("onyx_tex", load("res://assets/textures/onyx/onyx_%s.jpg" % onyx.get(int(f.pal), "015")))
+	m.set_shader_parameter("onyx_k", 0.8)
+	m.set_shader_parameter("fib_tex", load("res://assets/textures/grey_oak_veneer_02/grey_oak_veneer_02_diff_1k.jpg"))
+	m.set_shader_parameter("fib_k", 0.8)
 	m.set_shader_parameter("bark_k", 0.8)
-	m.set_shader_parameter("ring_k", f.get("ring_k", 1.0))
+	m.set_shader_parameter("ring_k", float(f.get("ring_k", 1.0)) * 0.4)
 	m.set_shader_parameter("star_n", f.get("star", 0))
 	m.set_shader_parameter("star_fill", {quartz = 0, dark = 1, opal = 2}.get(f.get("star_fill", "quartz"), 0))
 	m.set_shader_parameter("rind_w", f.get("rind", 0.0))
@@ -454,6 +466,7 @@ static func branch_mat(f: Dictionary, mode: int, scale: float) -> ShaderMaterial
 	m.set_shader_parameter("opal_spread", f.get("spread", 0.3))
 	m.set_shader_parameter("opal_body", {dark = 0, crystal = 1, honey = 2}.get(f.get("body", "dark"), 0))
 	m.set_shader_parameter("opal_scale", scale)
+	m.set_shader_parameter("fib_tex", load("res://assets/textures/weathered_wood/wood_040.jpg"))
 	return m
 
 ## an opal twig: a little branching stick standing up, its bark cracked into plates, some of them opal
@@ -467,7 +480,8 @@ static func _twig(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	m.set_shader_parameter("c_bark", Color.hex(0x6a584aff))
 	m.set_shader_parameter("c_light", Color.hex(0x9e8e7cff))
 	m.set_shader_parameter("c_end", Color.hex(0x9c8266ff))
-	m.set_shader_parameter("bark_tex", load("res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg"))
+	var barks := ["res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg", "res://assets/textures/pine_bark/pine_bark_diff_1k.jpg"]
+	m.set_shader_parameter("bark_tex", load(barks[int(f.seed) % barks.size()]))
 	m.set_shader_parameter("bark_k", 1.0)
 	if gene.fx == "dragonfire":
 		b.root.set_meta("dim", true)

@@ -24,7 +24,12 @@ uniform float twist = 0.25;         // the grain's twist round a branch (driftwo
 uniform float flow_k = 0.0;
 uniform sampler2D bark_tex : source_color, filter_linear_mipmap, repeat_enable;   // a bark scan for the twig's plates
 uniform float bark_k = 0.0;
-uniform float hollow_opal = 0.0;    // driftwood: its hollow packed with broken opal (1) or just rotten wood (0)
+uniform float hollow_opal = 0.0;
+// scans: weathered side grain (driftwood, broken ends), sand (the fulgurite's crust)
+uniform sampler2D fib_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D sand_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float scan_k = 0.8;
+float lum3(vec3 c) { return dot(c, vec3(0.3, 0.5, 0.2)); }    // driftwood: its hollow packed with broken opal (1) or just rotten wood (0)
 
 varying vec3 v_op;
 varying vec3 v_cam;
@@ -107,7 +112,14 @@ void fragment() {
 			* smoothstep(0.5, 0.65, fbm(vec3(u * 0.12, cs * 0.7 + rid + 9.0)));
 		float grit = vn(vec3(p * 300.0)) * 0.5 + vn(vec3(p * 80.0)) * 0.5;
 		float tone = fbm(vec3(u * 0.1, cs * 0.6 + rid + 4.0));
+		// the scanned grain, running along the branch and twisting with it
+		vec2 fuv = vec2(u * 0.18, a * 1.5 + u * twist * 0.016 + rid * 0.1);
+		float sg = clamp(lum3(texture(fib_tex, fuv).rgb) / max(lum3(textureLod(fib_tex, fuv, 5.0).rgb), 0.03), 0.3, 1.9);
+		fl = mix(fl, sg * 0.5, scan_k);
+		vec3 scol = texture(fib_tex, fuv).rgb;
 		c = lin(c_light) * (0.7 + 0.4 * tone) * (0.85 + 0.25 * grit) * (0.75 + 0.35 * fl);
+		// the scan's own silver-grey and brown, over the crests
+		c = mix(c, scol * (0.75 + 0.5 * tone) * 1.15, scan_k * 0.6);
 		c = mix(lin(c_bark) * (0.45 + 0.3 * fl), c, smoothstep(0.25, 0.65, crest));
 		c = mix(c, lin(c_bark) * 0.2, crack);
 		hgt = fl * 0.8 - crack * 2.0 + grit * 0.3;
@@ -154,6 +166,10 @@ void fragment() {
 		// sand crust: grains of several sizes, a few dark ones
 		vec3 g1 = vec3(vn(p * 700.0), vn(p * 260.0), vn(p * 90.0));
 		float grit = g1.x * 0.45 + g1.y * 0.35 + g1.z * 0.2;
+		// real sand, scanned, wrapped round the tube
+		vec2 suv = vec2(u * 0.35, a * 0.9 + rid * 0.1);
+		vec3 sc = texture(sand_tex, suv).rgb;
+		grit = mix(grit, clamp(lum3(sc) / max(lum3(textureLod(sand_tex, suv, 5.0).rgb), 0.03), 0.3, 1.8) * 0.55, scan_k);
 		float dark = step(0.955, h3(floor(p * 420.0) + rid)) + step(0.985, h3(floor(p * 180.0) + rid)) * 0.7;
 		dark = min(dark, 1.0);
 		c = lin(c_light) * (0.7 + 0.45 * grit);
