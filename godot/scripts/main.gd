@@ -14,7 +14,9 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	if not args.has("noglow"): _setup_glow()
+	# the 2D glow pass: off, it showed nothing (no HDR 2D, so nothing passes its threshold) and cost a full-screen
+	# blur every frame; `glow` turns it back on to compare
+	if args.has("glow"): _setup_glow()
 	if args.has("uv"): Spec.force_uv = float(args.uv)
 	if args.has("boot_seed"): Boot.seed_v = int(args.boot_seed)
 	if args.has("notch"):
@@ -255,6 +257,7 @@ func _swap(n: Node) -> void:
 	if screen: screen.queue_free()
 	screen = n
 	add_child(n)
+	Diag.where = n.get_script().get_global_name() if n.get_script() else String(n.name)
 	# a boss fight has started its own theme while mounting
 	if n is Level and (n as Level).model.boss_on(): return
 	Sfx.music("level" if n is Level else "home")

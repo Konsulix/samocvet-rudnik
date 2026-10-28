@@ -6,7 +6,9 @@
 and dl5/ (crow_caw.wav, fire.wav, Meow.ogg), dl6/ (BigSoundBank s0284 s0287 s0289 s0840 s0863 s1542 s1543, dove_cooing.mp3). The game's own samples come from godot/assets/audio/sfx.
 Makes: falls (loop: the mill race and the falling water), furnace (loop: the blast furnace's roar under crackling fire),
 chuff_0..2 (the hoisting engine's steam), creak_0..2 (the water wheel), crow_0..2 (a crow's caw, three voices),
-wings_0..2 (birds starting up), coo_0..2 (pigeons), neigh_0..2, snort_0..1, hoof_0..1 (the pony), meow, bell (the leaning tower's bell, far off), rivet_0..2 (a hammer on a rivet).
+wings_0..2 (birds starting up), coo_0..2 (pigeons), neigh_0..2, snort_0..1, hoof_0..1 (the pony), meow, bell (the leaning tower's bell, far off), rivet_0..2 (a hammer on a rivet),
+clank_0..2 (the shaft conveyor's chain as a bucket goes round a pulley), pour_0..2 (a bucket tipping its ore).
+Only the conveyor's: add `buckets` after the two paths.
 """
 import os
 import sys
@@ -144,7 +146,26 @@ def main():
     for i in range(3):
         p = trim(load(os.path.join(dl2, "RPGsounds_Kenney", "OGG", "metalPot%d.ogg" % (i + 1))))[: int(0.35 * SR)]
         write(os.path.join(dst, "rivet_%d.ogg" % i), norm(fade(pitch(p, 1.25), 0.002, 0.12), 0.8))
+    buckets(src, dst)
+
+
+def buckets(src, dst):
+    """the shaft's bucket conveyor: a heavy iron clank of chain and bucket round a pulley (Kenney's latch and click,
+    slowed and dulled) and the ore a bucket tips out at the top (Kenney's coins slowed down to gravel, a stone knock)"""
+    kn = os.path.join(src, "dl2", "RPGsounds_Kenney", "OGG")
+    for i, (f, k) in enumerate([("metalLatch", 0.55), ("metalClick", 0.5), ("metalLatch", 0.62)]):
+        c = pitch(trim(load(os.path.join(kn, f + ".ogg"))), k)[: int(0.45 * SR)]
+        write(os.path.join(dst, "clank_%d.ogg" % i), norm(fade(lowpass(c, 2600), 0.002, 0.15), 0.8))
+    knock = pitch(trim(load(os.path.join(kn, "chop.ogg"))), 0.7)[: int(0.25 * SR)]
+    for i, (f, k) in enumerate([("handleCoins", 0.42), ("handleCoins2", 0.4), ("handleCoins", 0.36)]):
+        g = lowpass(pitch(trim(load(os.path.join(kn, f + ".ogg"))), k), 1700)[: int(1.1 * SR)]
+        g = norm(g, 0.7)
+        g[: len(knock)] += norm(lowpass(knock, 1200), 0.35)
+        write(os.path.join(dst, "pour_%d.ogg" % i), norm(fade(g, 0.004, 0.35), 0.8))
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 3 and sys.argv[3] == "buckets":
+        buckets(sys.argv[1], sys.argv[2])
+    else:
+        main()

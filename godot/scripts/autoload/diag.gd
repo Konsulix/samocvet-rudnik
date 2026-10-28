@@ -49,24 +49,38 @@ func end(job: String, ok := true) -> void:
 var _win_t := 0.0
 var _win_n := 0
 var _win_worst := 0.0
+var _win_script := 0.0
+var _win_calls := 0.0
 var _measuring := false
+## the screen on now (main._swap sets it), written on each line of the log
+var where := ""
 
 func _process(dt: float) -> void:
-	# every 2 s: frames per second, the worst frame, and what the CPU and the GPU spend on a frame
+	# every 2 s, per frame: frames per second, the worst frame, our scripts (process and the _draw callbacks),
+	# the renderer's own CPU part, draw calls, and the video memory in use; the GPU only where it can be timed
+	# (Metal reports 0)
 	if not _measuring:
 		_measuring = true
 		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	_win_t += dt
 	_win_n += 1
 	_win_worst = maxf(_win_worst, dt)
+	_win_script += Performance.get_monitor(Performance.TIME_PROCESS)
+	_win_calls += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	if _win_t >= 2.0:
 		var rid := get_viewport().get_viewport_rid()
-		note("%d fps, worst %d ms, cpu %.1f ms, gpu %.1f ms" % [roundi(_win_n / _win_t), roundi(_win_worst * 1000.0),
+		var gpu := RenderingServer.viewport_get_measured_render_time_gpu(rid)
+		note("%s%s: %d fps, worst %d ms, script %.1f ms, render %.1f ms%s, %d calls, vram %d MB" % [where,
+			"+card" if Ov.is_open() else "", roundi(_win_n / _win_t), roundi(_win_worst * 1000.0),
+			_win_script / _win_n * 1000.0,
 			RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
-			RenderingServer.viewport_get_measured_render_time_gpu(rid)])
+			(", gpu %.1f ms" % gpu) if gpu > 0.0 else "", roundi(_win_calls / _win_n),
+			roundi(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0)])
 		_win_t = 0.0
 		_win_n = 0
 		_win_worst = 0.0
+		_win_script = 0.0
+		_win_calls = 0.0
 	var ms := int(dt * 1000.0)
 	if ms >= SLOW_MS:
 		_lock.lock()

@@ -165,3 +165,97 @@ static func chain(ci: CanvasItem, a: Vector2, b: Vector2, link := 5.0) -> void:
 				var t := TAU * k / 12.0
 				pts.append(c + Vector2(cos(t) * rr.x, sin(t) * rr.y).rotated(ang))
 			ci.draw_polyline(pts, dark if pass_i == 0 else brass, 1.6 if pass_i == 0 else 1.0, true)
+
+## a screen's name (the mine's, the museum's…) on a slate plate in its brass frame, in the titles' font (Nunito Sans Black) set in spaced capitals
+static func title_plate(n: String) -> Control:
+	var p := PanelContainer.new()
+	var st := box("title", 0.0)
+	st.content_margin_left = 20
+	st.content_margin_right = 20
+	st.content_margin_top = 4
+	st.content_margin_bottom = 5
+	p.add_theme_stylebox_override("panel", st)
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var font := FontVariation.new()
+	font.base_font = UI.display.base_font       # (a variation of a variation loses its weight: copy it over)
+	font.variation_opentype = UI.display.variation_opentype
+	font.spacing_glyph = 1
+	var l := label(n.to_upper(), 19, font, AMBER)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
+	l.add_theme_constant_override("shadow_offset_y", 2)
+	p.add_child(l)
+	return p
+
+## a plate hung under the top bar on two brass chains from the middles of its coins' and ore capsules (the bar's
+## "hooks"), as wide as the chains are apart; it sways a touch about the chains' tops
+static func hanging(p: Control, bar: Control) -> Control:
+	var hooks: Array = bar.get_meta("hooks", [])
+	var slot := Control.new()
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var sw := Control.new()     # the swinging part: the chains and the plate (a plain Control, so nothing resets it)
+	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(sw)
+	sw.add_child(p)
+	const INSET := 24.0         # from the plate's ends to its chains
+	var ends := func() -> Array:
+		# the hooks in the swinging part's own space: [left x, right x, top y]
+		var a: Control = hooks[0]
+		var b: Control = hooks[1]
+		var ga := a.get_global_rect()
+		var gb := b.get_global_rect()
+		var o := slot.get_global_rect().position
+		# under the middle of the capsule's slate, where its number is centred (Chrome.capsule)
+		return [ga.position.x + Chrome.capsule_mid(ga.size.x) - o.x, gb.position.x + Chrome.capsule_mid(gb.size.x) - o.x, ga.end.y - 5.0 - o.y]
+	var fit := func():
+		var m := p.get_combined_minimum_size()
+		if hooks.size() == 2:
+			var apart: float = (hooks[1] as Control).get_global_rect().get_center().x - (hooks[0] as Control).get_global_rect().get_center().x
+			m.x = maxf(m.x, apart + INSET * 2)
+		p.custom_minimum_size.x = m.x
+		slot.custom_minimum_size = m
+		sw.size = m
+		p.size = m
+	bar.resized.connect(func(): fit.call_deferred())
+	# the plate's middle under the middle between the chains (the slot itself is centred on the screen)
+	var place := func():
+		if hooks.size() == 2 and slot.is_inside_tree():
+			var e: Array = ends.call()
+			sw.position.x = (float(e[0]) + float(e[1])) / 2 - sw.size.x / 2
+		sw.queue_redraw()
+	slot.item_rect_changed.connect(func(): place.call_deferred())
+	fit.call()
+	sw.draw.connect(func():
+		var xs: Array = [INSET, sw.size.x - INSET]
+		var top := -30.0
+		if hooks.size() == 2 and slot.is_inside_tree():
+			var e: Array = ends.call()
+			xs = [float(e[0]) - sw.position.x, float(e[1]) - sw.position.x]
+			top = e[2]
+		sw.pivot_offset = Vector2((float(xs[0]) + float(xs[1])) / 2, top)
+		for x: float in xs:
+			chain(sw, Vector2(x, top), Vector2(x, 5)))
+	var tw := sw.create_tween().set_loops()
+	tw.tween_property(sw, "rotation", 0.012, 2.2).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(sw, "rotation", -0.012, 2.2).set_trans(Tween.TRANS_SINE)
+	return slot
+
+## tabs in the kit: a row of slate tiles in iron, the chosen one lit warm in brass (Collection, Depot)
+static func tabs(list: Array, active: String, on_pick: Callable) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	for t in list:
+		var id: String = t[0]
+		var on := id == active
+		var b := button(t[1], "tab_on" if on else "tab", 14, 0.0)
+		b.add_theme_font_override("font", UI.body_bold)
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(c, AMBER if on else DIM)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, 40)
+		b.pressed.connect(func(): if not on: on_pick.call(id))
+		h.add_child(b)
+	return h

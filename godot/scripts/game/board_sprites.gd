@@ -32,8 +32,7 @@ static var _plain_material: ShaderMaterial
 static func plain_material() -> ShaderMaterial:
 	if _plain_material == null:
 		_plain_material = ShaderMaterial.new()
-		_plain_material.shader = preload("res://shaders/gem_glint.gdshader")
-		_plain_material.set_shader_parameter("strength", 0.0)
+		_plain_material.shader = preload("res://shaders/plain.gdshader")
 	return _plain_material
 
 static func tex(name: String) -> Texture2D:

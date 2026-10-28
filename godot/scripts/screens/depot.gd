@@ -288,32 +288,8 @@ func _card(x: Dictionary, on: bool) -> Button:
 	return b
 
 ## a row of tabs on a glass bar
-static func tabs(list: Array, active: String, on_pick: Callable) -> PanelContainer:
-	var p := PanelContainer.new()
-	var st := UI.glass(14, 0.62)
-	st.set_content_margin_all(4)
-	p.add_theme_stylebox_override("panel", st)
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 4)
-	for t in list:
-		var id: String = t[0]
-		var on := id == active
-		var b := Button.new()
-		b.text = t[1]
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 36)
-		b.add_theme_font_override("font", UI.body_bold)
-		b.add_theme_font_size_override("font_size", 13)
-		var bs := StyleBoxFlat.new()
-		bs.set_corner_radius_all(11)
-		bs.bg_color = Color("#e3a51e") if on else Color(0, 0, 0, 0)
-		for s in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(s, bs)
-		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			b.add_theme_color_override(c, Color("#2a1a04") if on else UI.MUTED)
-		b.pressed.connect(func(): if not on: on_pick.call(id))
-		h.add_child(b)
-	p.add_child(h)
-	return p
+static func tabs(list: Array, active: String, on_pick: Callable) -> Control:
+	return Kit.tabs(list, active, on_pick)
 
 ## the workshop wall behind the stage: dark steel, a faint grid, a warm light from above
 class DepotBg extends Control:

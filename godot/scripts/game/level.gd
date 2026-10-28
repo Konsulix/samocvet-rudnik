@@ -492,14 +492,16 @@ func rock_mix() -> int:
 
 # ---------------------------------------------------------------- input
 
-var _find_frame := 0
+var _find_since := 0.0
 
 func _process(dt: float) -> void:
 	if find_spec:
 		find_spec.rotation.y += dt * 0.5
 	if find_studio:
-		_find_frame += 1
-		if _find_frame % 2 == 0 or not find_spec:
+		# 30 renders a second by the clock, whatever the screen's refresh rate
+		_find_since += dt
+		if _find_since >= 1.0 / 30.0 - 0.002 or not find_spec:
+			_find_since = 0.0
 			find_studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	if busy or model.over: return
 	idle += dt

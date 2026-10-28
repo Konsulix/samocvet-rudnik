@@ -327,6 +327,29 @@ func band_at(p: Vector2) -> int:
 func band_y(k: int) -> float:
 	return float(_bands[clampi(k, 0, _bands.size() - 1)].y)
 
+const SEEN_PAD := 300.0      # source px round the screen: lamps' light and what stands over a depth's edges
+var _seen := Vector2(-1e9, 1e9)   # the source rows on the screen this frame (top, bottom), set in _process
+
+func _seen_rows() -> Vector2:
+	var inv := get_global_transform_with_canvas().affine_inverse()
+	return Vector2((inv * Vector2.ZERO).y, (inv * Vector2(0, get_viewport_rect().size.y)).y)
+
+## the live layer draws a depth only while it is on the screen, or while something is happening in it
+## (its water going, the drill coming through, its people fading in: their drawing also ends them)
+func _band_seen(b: Dictionary) -> bool:
+	var k := int(b.k)
+	if _water.has(k) or _drill_in.has(k) or _appear.has(k):
+		return true
+	var y := float(b.y)
+	return y + float(J.band) + SEEN_PAD > _seen.x and y - SEEN_PAD < _seen.y
+
+## a depth off the screen: what its drawing keeps count of runs on (the pair's strike, heard at the chosen depth)
+func _band_off(b: Dictionary) -> void:
+	var k := int(b.k)
+	var cr: Dictionary = J.crews.get(str(int(b.d)), {}) if J.has("crews") else {}
+	if b.lived and cr.has("pair"):
+		_passed("pair%d" % k, t * 11.0 + k * 5.0, 24.0, 12.0)
+
 func _put(ci: CanvasItem, path: String, pos: Vector2, flip := false, alpha := 1.0) -> void:
 	var tx := tex(path)
 	var sz := tx.get_size() / K
@@ -365,7 +388,20 @@ func _draw_still() -> void:
 	for b in _bands:
 		c.draw_texture_rect(_shade, Rect2(0, float(b.y), float(J.W), 44), false)
 		c.draw_rect(Rect2(0, float(b.y) - 3, float(J.W), 6), Color(0.08, 0.055, 0.04))
+	_draw_bedrock(c)
 	_draw_shaft(c)
+
+const BEDROCK := preload("res://assets/mine/bedrock.png")   # loaded up front: drawn the frame it loads, it shows white
+
+## under the deepest depth: untouched rock fading into the dark (art/zone/bedrock, GPT), so the screen's foot behind
+## the Play row and the tabs is ground, not the empty background; with the seam and shade the bands have
+func _draw_bedrock(c: CanvasItem) -> void:
+	var tx := BEDROCK
+	var y := H
+	c.draw_texture_rect(tx, Rect2(0, y, float(J.W), float(J.W) * tx.get_height() / tx.get_width()), false)
+	c.draw_rect(Rect2(0, y + float(J.W) * tx.get_height() / tx.get_width() - 2, float(J.W), 2000), Color("#0b0c10"))
+	c.draw_texture_rect(_shade, Rect2(0, y, float(J.W), 44), false)
+	c.draw_rect(Rect2(0, y - 3, float(J.W), 6), Color(0.06, 0.05, 0.04))
 
 const PICK_W := 60.0      # the slot the pick takes on the plate of the depth being dug
 
@@ -607,6 +643,7 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	t += delta
+	_seen = _seen_rows()
 	_tick_events()
 	_tremor()
 	_sounds(delta)
@@ -734,7 +771,8 @@ func _draw_live() -> void:
 	_surface_live(c)
 	_snake_live(c)
 	for b in _bands:
-		_band_live(c, b)
+		if _band_seen(b): _band_live(c, b)
+		else: _band_off(b)
 	_ore_flight(c)
 	for wd in _wheel_dust.duplicate():
 		var i := int((t - float(wd[1])) * 14.0)
@@ -786,7 +824,7 @@ func _lights(c: CanvasItem) -> void:
 	var cs := _size("cable.png")
 	for b in _bands:
 		var k := int(b.k)
-		if String(_shown_bands.get(k, b.state)) in ["closed", "flooded"]:
+		if String(_shown_bands.get(k, b.state)) in ["closed", "flooded"] or not _band_seen(b):
 			continue
 		var y := float(b.y)
 		for l in J.lamps[str(int(b.d))]:

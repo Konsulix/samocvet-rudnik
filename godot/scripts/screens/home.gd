@@ -126,7 +126,7 @@ func render() -> void:
 	pad.add_child(col)
 	var bar := Chrome.top_bar()
 	col.add_child(bar)
-	col.add_child(_hanging(_name_plate(String(Data.AREAS[ai()].n)), bar))
+	col.add_child(Kit.hanging(Kit.title_plate(String(Data.AREAS[ai()].n)), bar))
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -148,83 +148,9 @@ func render() -> void:
 	gap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(gap2)
 	ui_root.add_child(Chrome.nav_bar("home", func(id: String): go.emit(id)))
-
-## the mine's name on a slate plate in its brass frame, in the titles' font (Nunito Sans Black) set in spaced capitals
-func _name_plate(n: String) -> Control:
-	var p := PanelContainer.new()
-	var st := Kit.box("title", 0.0)
-	st.content_margin_left = 20
-	st.content_margin_right = 20
-	st.content_margin_top = 4
-	st.content_margin_bottom = 5
-	p.add_theme_stylebox_override("panel", st)
-	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var font := FontVariation.new()
-	font.base_font = UI.display.base_font       # (a variation of a variation loses its weight: copy it over)
-	font.variation_opentype = UI.display.variation_opentype
-	font.spacing_glyph = 1
-	var l := Kit.label(n.to_upper(), 19, font, Kit.AMBER)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_constant_override("outline_size", 6)
-	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
-	l.add_theme_constant_override("shadow_offset_y", 2)
-	p.add_child(l)
-	return p
-
-## a plate hung under the top bar on two brass chains from the middles of its coins' and ore capsules (the bar's
-## "hooks"), as wide as the chains are apart; it sways a touch about the chains' tops
-func _hanging(p: Control, bar: Control) -> Control:
-	var hooks: Array = bar.get_meta("hooks", [])
-	var slot := Control.new()
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var sw := Control.new()     # the swinging part: the chains and the plate (a plain Control, so nothing resets it)
-	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.add_child(sw)
-	sw.add_child(p)
-	const INSET := 24.0         # from the plate's ends to its chains
-	var ends := func() -> Array:
-		# the hooks in the swinging part's own space: [left x, right x, top y]
-		var a: Control = hooks[0]
-		var b: Control = hooks[1]
-		var ga := a.get_global_rect()
-		var gb := b.get_global_rect()
-		var o := slot.get_global_rect().position
-		# under the middle of the capsule's slate, where its number is centred (Chrome.capsule)
-		return [ga.position.x + Chrome.capsule_mid(ga.size.x) - o.x, gb.position.x + Chrome.capsule_mid(gb.size.x) - o.x, ga.end.y - 5.0 - o.y]
-	var fit := func():
-		var m := p.get_combined_minimum_size()
-		if hooks.size() == 2:
-			var apart: float = (hooks[1] as Control).get_global_rect().get_center().x - (hooks[0] as Control).get_global_rect().get_center().x
-			m.x = maxf(m.x, apart + INSET * 2)
-		p.custom_minimum_size.x = m.x
-		slot.custom_minimum_size = m
-		sw.size = m
-		p.size = m
-	bar.resized.connect(func(): fit.call_deferred())
-	# the plate's middle under the middle between the chains (the slot itself is centred on the screen)
-	var place := func():
-		if hooks.size() == 2 and slot.is_inside_tree():
-			var e: Array = ends.call()
-			sw.position.x = (float(e[0]) + float(e[1])) / 2 - sw.size.x / 2
-		sw.queue_redraw()
-	slot.item_rect_changed.connect(func(): place.call_deferred())
-	fit.call()
-	sw.draw.connect(func():
-		var xs: Array = [INSET, sw.size.x - INSET]
-		var top := -30.0
-		if hooks.size() == 2 and slot.is_inside_tree():
-			var e: Array = ends.call()
-			xs = [float(e[0]) - sw.position.x, float(e[1]) - sw.position.x]
-			top = e[2]
-		sw.pivot_offset = Vector2((float(xs[0]) + float(xs[1])) / 2, top)
-		for x: float in xs:
-			Kit.chain(sw, Vector2(x, top), Vector2(x, 5)))
-	var tw := sw.create_tween().set_loops()
-	tw.tween_property(sw, "rotation", 0.012, 2.2).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(sw, "rotation", -0.012, 2.2).set_trans(Tween.TRANS_SINE)
-	return slot
+	if drawn:
+		# the scroll's floor depends on where the Play row ends up: settle it again once the row is laid out
+		(func(): _scroll_to(scroll)).call_deferred()
 
 ## what stands between the shaft and its next depth: the job of the deepest open depth (paid in the mine's own ore),
 ## then the drill (iron + coins). At the last depth only its job is left, then the next mine.
@@ -352,7 +278,9 @@ func _scroll_to(v: float) -> void:
 	# the last depth can come all the way up above the Play row and the tab bar (whatever they measure on this phone)
 	var below := 230.0
 	if is_instance_valid(_row) and _row.is_inside_tree() and _row.size.y > 0.0:
-		below = vp.y - _row.get_global_rect().position.y - 55.0   # the band's last ~60 pt are its floor: it may sit behind them
+		below = vp.y - _row.get_global_rect().position.y + 8.0
+	elif is_instance_valid(_row):
+		_scroll_to.call_deferred(v)      # the row is laid out next frame: settle the limit then
 	scroll = clampf(v, 0.0, maxf(0.0, view.content_height() + below - vp.y))
 	view.position = Vector2(0, -scroll)
 
