@@ -17,6 +17,7 @@ const DIR := "res://assets/mine/old_adit/"
 var dir := DIR            # where this mine's pictures and mine.json are
 const PLACES := ["camp", "power", "yard", "headframe"]
 const PICK_FPS := 8.0     # the old 6-drawing pick swing, the strike on the third
+const REACT_LEN := 1.5      # a crew's reaction: 12 drawings at 8 a second
 const CREW_FPS := 14.0    # the 24-drawing crews: a pick swing ~1.7 s, its strike on drawing 10
 
 static var _tex := {}
@@ -64,7 +65,8 @@ var _next_event := 0.0
 var _tremor_at := -100.0  # when the mine last began to shake
 var _next_tremor := 20.0
 var _wheel_dust: Array = []   # [where, when]: little puffs where a cart wheel knocks a rail joint
-var _react := {}          # the reaction playing: {k, won, t0, iron, ore}
+var _react := {}          # the reaction playing: {k, won, t0, iron, ore, ts - when the crew's reaction starts}
+var _held := {}           # k -> seconds a crew's loop has waited through its reactions (it goes on where it stopped)
 var _bursts: Array = []   # dust bursts where something was just built: [centre, start time]
 var focus_y := -1.0       # where the last setup found a change to show (source px), -1: nothing new
 var _set_area := -1
@@ -101,7 +103,7 @@ func _ready() -> void:
 	surf = Sprite2D.new()
 	surf.centered = false
 	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/mine_sway.gdshader")
+	sm.shader = load("res://shaders/mine_sway_mask.gdshader")
 	surf.material = sm
 	add_child(surf)
 	still = Node2D.new()
@@ -185,15 +187,22 @@ func setup(a: int) -> void:
 		_set_area = a
 	surf.texture = tex("surface.png")
 	surf.scale = Vector2.ONE / K
+	# only the pines sway, by their own mask (the colour test of mine_sway moved the huts' shadows and the rock too)
 	var sm := surf.material as ShaderMaterial
-	sm.set_shader_parameter("top", float(J.sky) - 100.0)
-	sm.set_shader_parameter("bottom", float(J.sky) + 900.0)
+	var sr: Array = J.sway.rect
+	sm.set_shader_parameter("mask", tex("pine_mask.png"))
+	sm.set_shader_parameter("mask_rect", Vector4(float(sr[0]), float(sr[1]), float(sr[2]), float(sr[3])))
 	sm.set_shader_parameter("amp", 6.0)
-	still.material = sm          # the places drawn over the surface sway with it (the bands are below the tree band)
+	sm.set_shader_parameter("to_mine", 1.0 / K)
+	# the places drawn over the surface sway with it (the bands are below the tree band); `still` draws in mine px
+	var stm := sm.duplicate() as ShaderMaterial
+	stm.set_shader_parameter("to_mine", 1.0)
+	still.material = stm
 	_changes()
 	if not last_result.is_empty() and int(last_result.area) == a:
 		var k := clampi(int(last_result.k), 0, _bands.size() - 1)
 		_react = {k = k, won = bool(last_result.won), t0 = t + 0.7, iron = int(last_result.iron), ore = int(last_result.ore)}
+		_react_start(k)
 		if focus_y < 0: focus_y = band_y(k) + float(J.band) * 0.5
 		last_result = {}
 	_make_motes()
@@ -676,11 +685,13 @@ func _sounds(_dt: float) -> void:
 		var wk: Array = cr.get("work", ["pick"])
 		var who := String(wk[0]) if wk.size() else ""
 		var hit := false
-		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 10.0)
+		# the strike: the sheet's drawing 10 / 20 / 11 / 19, wherever the export's order put it
+		var cv := _loop_at(k)
+		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 10))
 		elif who == "pick" or not _crew_ok(who): hit = _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0)
-		elif who == "shovel24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 20.0)
-		elif who == "jack24" or who == "lad24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 11.0)
-		elif who == "load24" or who == "old24": hit = _passed("pick%d" % k, t * CREW_FPS + k * 7.0, 24.0, 19.0)
+		elif who == "shovel24": hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 20))
+		elif who == "jack24" or who == "lad24": hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 11))
+		elif who == "load24" or who == "old24": hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 19))
 		if hit and (mine or randf() < 0.18):
 			amb.shot("pick", _far(y) + deep + (0.0 if mine else -4.0), 0.9 - k * 0.03)
 		# the cart: rolling sounds while it moves (each take is 4 s), out to the shaft and back
@@ -1015,19 +1026,20 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		var cx := float(cr.cart[0])
 		_cart(c, "cart_full", cd, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
 	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), flip, al)
-	if (who == "jack24" or who == "lad24") and f >= 11 and f <= 13:
+	var sheet_f := _sheet_of(who, f)
+	if (who == "jack24" or who == "lad24") and sheet_f >= 11 and sheet_f <= 13 and rx == "":
 		# the hammer on the chisel: sparks at its point, against the rock (the sheet's right edge; mirrored when flipped)
 		var fx := x + (sz.x * 0.42) * (-1.0 if flip else 1.0)
-		_put(c, "gspark/%d.png" % mini(f - 11, 3), Vector2(fx - 30, back - sz.y * 0.55), flip, al)
-	if who == "pick24":
-		var sf := int(fposmod(t * CREW_FPS + k * 7.0 - 10.0, 24.0) / 1.5)
+		_put(c, "gspark/%d.png" % mini(sheet_f - 11, 3), Vector2(fx - 30, back - sz.y * 0.55), flip, al)
+	if who == "pick24" and rx == "":
+		var sf := int(fposmod(_loop_at(k) - _step_of(who, 10), 24.0) / 1.5)
 		if sf < 4:
 			_put(c, "gspark/%d.png" % sf, Vector2(x + (-5 if flip else 5), back - hs.y - 5), false, al)
 
 ## which of a crew's 24 drawings now: a steady loop, or - with "pause" - the action once, then he just sits, breathing
 ## (drawings 17..24 back and forth) for that many seconds before the next time
 func _crew_frame(cr: Dictionary, k: int) -> int:
-	var v := t * CREW_FPS + k * 7.0
+	var v := _loop_at(k)
 	if not cr.has("pause"):
 		return int(v) % 24
 	var act := 24.0
@@ -1040,13 +1052,53 @@ func _crew_frame(cr: Dictionary, k: int) -> int:
 
 ## the crew's reaction to the level just played, while it plays: its 12 drawings at 8 a second, or ""
 func _reaction_frame(who: String, k: int) -> String:
-	if _react.is_empty() or int(_react.k) != k:
+	if _react.is_empty() or int(_react.k) != k or not _react.has("ts"):
 		return ""
-	var s := t - float(_react.t0)
-	var name := "%s_%s" % [who.trim_suffix("24"), "cheer" if bool(_react.won) else "scratch"]
-	if s < 0.0 or s > 1.5 or not _crew_ok(name):
+	var s := t - float(_react.ts)
+	if s < 0.0 or s > REACT_LEN:
 		return ""
-	return "react/%s/%02d.png" % [name, mini(int(s * 8.0), 11)]
+	return "react/%s/%02d.png" % [_react_name(who), mini(int(s * 8.0), 11)]
+
+func _react_name(who: String) -> String:
+	return "%s_%s" % [who.trim_suffix("24"), "cheer" if bool(_react.won) else "scratch"]
+
+## when the reaction starts: not mid-swing (the reaction's first drawing is the work's first, so it would jump), but
+## when the work loop comes round to its drawing 0 - or at once while a crew with "pause" just sits; the loop then
+## waits through the reaction and goes on from the same place (`_loop_at`). Without a reaction drawn nothing waits.
+func _react_start(k: int) -> void:
+	var cr: Dictionary = J.crews.get(str(k + 1), {}) if J.has("crews") else {}
+	var w: Array = cr.get("work", [])
+	if w.is_empty() or not _crew_ok(_react_name(String(w[0]))):
+		return
+	var v := _v_at(float(_react.t0), k) - float(_held.get(k, 0.0)) * CREW_FPS
+	var u := fposmod(v, 24.0 + float(cr.get("pause", 0.0)) * CREW_FPS)
+	var wait := 0.0 if u >= 24.0 or u < 0.01 else (24.0 - u) / CREW_FPS
+	_react.ts = float(_react.t0) + wait
+
+func _v_at(at: float, k: int) -> float:
+	return at * CREW_FPS + k * 7.0
+
+## where a 24-drawing crew is in its loop: time, held still while its reaction plays
+func _loop_at(k: int) -> float:
+	var v := _v_at(t, k) - float(_held.get(k, 0.0)) * CREW_FPS
+	if not _react.is_empty() and int(_react.k) == k and _react.has("ts") and t > float(_react.ts):
+		v -= minf(t - float(_react.ts), REACT_LEN) * CREW_FPS
+	return v
+
+## the export may put a crew's drawings in a smoother order than the sheet's (`crew_order`: file i is drawing order[i]):
+## the step at which the sheet's drawing i shows, and the sheet's drawing of a file
+func _step_of(who: String, i: int) -> float:
+	if J.has("crew_order") and J.crew_order.has(who):
+		var o: Array = J.crew_order[who]
+		for j in o.size():
+			if int(o[j]) == i:
+				return float(j)
+	return float(i)
+
+func _sheet_of(who: String, f: int) -> int:
+	if J.has("crew_order") and J.crew_order.has(who):
+		return int((J.crew_order[who] as Array)[f])
+	return f
 
 ## after a win the ore of the level flies down from the top into the depth it came from: gold and iron nuggets in
 ## arcs, each with a little flash where it lands (a tick of coins in the sound)
@@ -1054,7 +1106,9 @@ func _ore_flight(c: CanvasItem) -> void:
 	if _react.is_empty():
 		return
 	var s := t - float(_react.t0)
-	if s > 4.0:
+	if s > 4.0 and t > float(_react.get("ts", 0.0)) + REACT_LEN:
+		if _react.has("ts"):
+			_held[int(_react.k)] = float(_held.get(int(_react.k), 0.0)) + REACT_LEN
 		_react = {}
 		return
 	if not bool(_react.won):

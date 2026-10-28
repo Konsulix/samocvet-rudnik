@@ -20,7 +20,7 @@ const FILLS := {window = ["window_frame", "slate"]}
 ## frames whose middle is seamless (art/ui_kit/seam_mid.py) and repeats along these axes instead of stretching
 const TILE := {btn_green = "x", btn_slate = "x", btn_dark = "xy", title = "x", card = "xy", tab = "xy"}
 const CREAM := Color("#f3e6c8")       # text on slate
-const AMBER := Color("#ffc95a")
+const AMBER := Color("#e6c47e")       # calm brass, like the frames (was #ffc95a)
 const DIM := Color("#a89c86")
 const ON_GREEN := Color("#f6ffe8")
 
@@ -31,11 +31,14 @@ static func tex(name: String) -> Texture2D:
 		_tex[name] = load(DIR + name + ".png")
 	return _tex[name]
 
-## a frame as a style box; pad: the inner margin (points) around what sits in it, -1: just inside the frame
+## a frame as a style box; pad: the inner margin (points) around what sits in it, -1: just inside the frame.
+## "<frame>_calm" is the same frame with calmer brass, matching the card frame's rim (art/ui_kit/calm_rim.py)
 static func box(name: String, pad := -1.0, tint := Color.WHITE) -> KitBox:
+	var pic := name
+	name = name.trim_suffix("_calm")
 	var f: Array = FRAMES[name]
 	var b := KitBox.new()
-	b.tex = tex(name)
+	b.tex = tex(pic)
 	if FILLS.has(name):
 		var fl: Array = FILLS[name]
 		b.tex = tex(fl[0])
@@ -83,12 +86,13 @@ static func button(text: String, frame := "btn_dark", font_size := 18, pad := -1
 	b.text = text
 	b.add_theme_font_override("font", UI.display)
 	b.add_theme_font_size_override("font_size", font_size)
-	var fc := ON_GREEN if frame == "btn_green" else Color("#2b1a04") if frame in ["btn_gold", "sq_gold"] else CREAM
+	var kind := frame.trim_suffix("_calm")
+	var fc := ON_GREEN if kind == "btn_green" else Color("#2b1a04") if kind in ["btn_gold", "sq_gold"] else CREAM
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(st, fc)
 	b.add_theme_color_override("font_disabled_color", Color(fc, 0.4))
-	b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.55) if frame != "btn_gold" else Color(1, 0.9, 0.6, 0.3))
-	b.add_theme_constant_override("outline_size", 5 if frame != "btn_gold" else 0)
+	b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.55) if kind != "btn_gold" else Color(1, 0.9, 0.6, 0.3))
+	b.add_theme_constant_override("outline_size", 5 if kind != "btn_gold" else 0)
 	b.add_theme_stylebox_override("normal", box(frame, pad))
 	b.add_theme_stylebox_override("hover", box(frame, pad))
 	b.add_theme_stylebox_override("pressed", box(frame, pad, Color(0.78, 0.74, 0.68)))

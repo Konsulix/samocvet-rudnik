@@ -100,44 +100,119 @@ func show_stone(s: Dictionary, others := []) -> void:
 		finished.emit()
 	v.add_child(action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep))
 
-## the stone is the star: name on top, a big live specimen in a rounded frame, then only weight,
-## grade and soundness; rarity is the colour of the card's glow, the rest are badges. Shared with the museum.
-## on_close: a small ✕ in the header (the museum's card), instead of a Close button
+## the stone is the star: the live specimen fills the whole card under the frame (drag it anywhere above the info),
+## its name in the top left corner over a soft shade, a thin ✕ in the top right; below, an info panel with rounded
+## top corners laps over the stone: weight, grade and soundness, the gene tags, and whatever the caller adds to `v`
+## (the card's box now sits inside that panel). Rarity is the colour of the card's glow. Shared with the museum.
+## on_close: the ✕ (the museum's card), instead of a Close button
+const CARD_PAD := 7.0        # the card's frame to the stone: just inside the brass rim
+const INFO_R := 22.0         # the info panel's top corners
+const TITLE_H := 64.0        # the name in the corner covers this much of the stone's frame
+
 static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close := Callable()) -> SpecView:
+	# the card's own box becomes the info panel's content: the stone goes above it, edge to edge
+	var card := v.get_parent() as PanelContainer
+	card.add_theme_stylebox_override("panel", Kit.box("window", CARD_PAD))
+	card.remove_child(v)
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", int(-INFO_R))
+	card.add_child(outer)
 	v.add_theme_constant_override("separation", 10)
-	# the name in the same colour as the card's glow: the rarity at a glance
-	var name_l := UI.title(Data.SP[s.sid].n, 26)
-	name_l.add_theme_color_override("font_color", Data.rarity_color(int(s.tier)).lightened(0.15))
-	if on_close.is_valid():
-		# the name stays centred: an empty slot on the left balances the ✕ on the right
-		var head := HBoxContainer.new()
-		var pad := Control.new()
-		pad.custom_minimum_size = Vector2(36, 0)
-		head.add_child(pad)
-		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		head.add_child(name_l)
-		var x := Kit.icon_button("close", 36)
-		x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		x.pressed.connect(on_close)
-		head.add_child(x)
-		v.add_child(head)
-	else:
-		v.add_child(name_l)
 	var so := Spec.of_stone(s)
 	var frame := PanelContainer.new()
 	var fst := StyleBoxFlat.new()
 	fst.bg_color = Color.WHITE
-	fst.set_corner_radius_all(20)
+	fst.corner_radius_top_left = 15
+	fst.corner_radius_top_right = 15
 	fst.anti_aliasing = true
 	frame.add_theme_stylebox_override("panel", fst)
 	frame.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
 	var view := SpecView.new(384)
-	view.custom_minimum_size = Vector2(314, view_h)
+	view.custom_minimum_size = Vector2(320, view_h + INFO_R)
 	frame.add_child(view)
-	v.add_child(frame)
+	outer.add_child(frame)
 	view.show_spec(so)
-	if s.get("legend", false):
-		view.add_child(legend_frame())
+	# the stone in the middle of what is left free: below the name, above the panel's lip (the camera rises a little)
+	view.resized.connect(func():
+		var cam := view.studio.cam
+		var span := 2.0 * 6.6 * tan(deg_to_rad(28.0) / 2.0)    # what the studio's camera sees across, at the stone
+		var per_pt := span / (view.size.x if view.size.y > view.size.x else view.size.y)
+		cam.v_offset = (TITLE_H - INFO_R) / 2.0 * per_pt)
+	# over the stone: a shade under the name, the name in the corner with a short rule in the rarity's colour, the ✕
+	var shade := TextureRect.new()
+	var gt := GradientTexture2D.new()
+	var gg := Gradient.new()
+	gg.set_color(0, Color(0, 0, 0, 0.55))
+	gg.set_color(1, Color(0, 0, 0, 0))
+	gt.gradient = gg
+	gt.fill_from = Vector2(0.5, 0)
+	gt.fill_to = Vector2(0.5, 1)
+	gt.width = 4
+	gt.height = 64
+	shade.texture = gt
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	shade.offset_bottom = 92
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.add_child(shade)
+	var head := VBoxContainer.new()
+	head.position = Vector2(18, 14)
+	head.add_theme_constant_override("separation", 2)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var name_l := Kit.label(Data.SP[s.sid].n, 30, UI.display, Kit.CREAM)
+	name_l.add_theme_constant_override("outline_size", 0)
+	name_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	name_l.add_theme_constant_override("shadow_offset_y", 2)
+	head.add_child(name_l)
+	var rule := ColorRect.new()
+	rule.color = Data.rarity_color(int(s.tier)).lightened(0.15)
+	rule.custom_minimum_size = Vector2(28, 1.5)
+	rule.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(rule)
+	view.add_child(head)
+	if on_close.is_valid():
+		var x := thin_close()
+		x.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		x.position = Vector2(-48, 14)
+		x.pressed.connect(on_close)
+		view.add_child(x)
+	# the info panel: the card's own slate (the window's tile at its size), rounded on top, lapping over the stone's
+	# lower edge; its rounded shape is a mask (clip_children), the slate and a soft shade along its top are drawn in it
+	var info := PanelContainer.new()
+	var ist := StyleBoxFlat.new()
+	ist.bg_color = Color.WHITE
+	ist.corner_radius_top_left = int(INFO_R)
+	ist.corner_radius_top_right = int(INFO_R)
+	ist.corner_radius_bottom_left = 15
+	ist.corner_radius_bottom_right = 15
+	ist.anti_aliasing = true
+	ist.content_margin_left = 14
+	ist.content_margin_right = 14
+	ist.content_margin_top = 16
+	ist.content_margin_bottom = 12
+	info.add_theme_stylebox_override("panel", ist)
+	info.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	var slate := Control.new()
+	slate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slate.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	slate.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tile := Kit.tex("slate")
+	slate.draw.connect(func():
+		const S := 3.6               # tile px per point, as the window draws it (Kit.FRAMES.window)
+		slate.draw_set_transform(-Vector2(14, 16), 0.0, Vector2.ONE / S)
+		slate.draw_texture_rect(tile, Rect2(Vector2.ZERO, info.size * S), true)
+		slate.draw_set_transform(-Vector2(14, 16), 0.0, Vector2.ONE)
+		# the stone's shade fading down into the panel
+		for i in 10:
+			slate.draw_rect(Rect2(0, i, info.size.x, 1), Color(0, 0, 0, 0.3 * (1.0 - i / 10.0))))
+	info.add_child(slate)
+	info.resized.connect(func(): slate.queue_redraw())
+	info.add_child(v)
+	outer.add_child(info)
+	# the panel's brass rim, a layer of its own over the whole card: it rises out of the card's rim on each side,
+	# turns round the panel's rounded corner and runs across its top — one ribbon, no joint
+	card.add_child(_info_rim(card, info))
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)
 	_stat(stats, "Weight", Stones.fmt_weight(int(s.g)))
@@ -187,6 +262,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 			flow.queue_free()
 			return
 		var co := SpecCallouts.attach(view)
+		co.top_clear = TITLE_H - 10.0
+		co.bottom_clear = INFO_R
 		co.setup(list)
 		var close := func() -> void:
 			co.hide_all()
@@ -220,6 +297,89 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	return view
 
 static var auto_callouts := ""   # for screenshots: open the callouts once built ("1": none picked)
+
+## the info panel's rim over the card (stone_card): a ribbon of the frame's own brass (art/ui_kit/rule.png is cut
+## from its top edge: dark outline, brass band, inner shade) laid on the card's rim on either side — fading in up it,
+## exactly over it — then round the panel's top corners (outside them: its inner edge is the panel's edge) and across
+static func _info_rim(card: Control, info: Control) -> Control:
+	var rim := Control.new()
+	rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rim.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tex := Kit.tex("rule")
+	const OUT := 5.0 / 3.6       # the frame's rim strip (rule.png's rows) starts this far in from the card's edge
+	const WIDE := 20.0 / 3.6     # and is this wide
+	const UP := 46.0             # how far up the card's rim the ribbon fades in
+	rim.draw.connect(func():
+		# all in this layer's own space, through the transforms (the card opens with a scale tween: global rects
+		# taken mid-way would be off once it settles)
+		var to_me := rim.get_global_transform().affine_inverse()
+		var cg: Rect2 = to_me * card.get_global_transform() * Rect2(Vector2.ZERO, card.size)
+		var ig: Rect2 = to_me * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
+		var card_l := cg.position.x
+		var card_r := cg.end.x
+		var top := ig.position.y
+		var R := INFO_R
+		var mid := R + WIDE / 2.0                        # the ribbon's middle line: just outside the panel's corner
+		var cl := Vector2(ig.position.x + R, top + R)    # the corners' centres
+		var cr := Vector2(ig.end.x - R, top + R)
+		var xl := card_l + OUT + WIDE / 2.0              # down the sides: right over the card's own rim
+		var xr := card_r - OUT - WIDE / 2.0
+		var path := PackedVector2Array()
+		path.append(Vector2(xl, top + R + UP))
+		path.append(Vector2(xl, top + R))
+		for k in 17:
+			var a := PI - k * (PI / 2.0) / 16.0
+			path.append(cl + Vector2(cos(a) * (cl.x - xl), -sin(a) * mid))
+		for k in 17:
+			var a := PI / 2.0 - k * (PI / 2.0) / 16.0
+			path.append(cr + Vector2(cos(a) * (xr - cr.x), -sin(a) * mid))
+		path.append(Vector2(xr, top + R + UP))
+		var lens := [0.0]
+		for i in range(1, path.size()): lens.append(float(lens[i - 1]) + path[i].distance_to(path[i - 1]))
+		var total: float = lens[-1]
+		var nrm := func(i: int) -> Vector2:
+			var a := path[maxi(0, i - 1)]
+			var b := path[mini(path.size() - 1, i + 1)]
+			return (b - a).normalized().orthogonal() * -1.0     # inwards, towards the panel
+		for i in range(path.size() - 1):
+			var p0 := path[i]
+			var p1 := path[i + 1]
+			var n0: Vector2 = nrm.call(i)
+			var n1: Vector2 = nrm.call(i + 1)
+			# along the ribbon: the strip's even middle (its ends fade out), once over the whole length
+			var u0 := 0.3 + 0.4 * float(lens[i]) / total
+			var u1 := 0.3 + 0.4 * float(lens[i + 1]) / total
+			var f0 := clampf((top + R + UP - p0.y) / UP, 0.0, 1.0)
+			var f1 := clampf((top + R + UP - p1.y) / UP, 0.0, 1.0)
+			var c0 := Color(1, 1, 1, f0 * f0)
+			var c1 := Color(1, 1, 1, f1 * f1)
+			rim.draw_primitive(PackedVector2Array([p0 - n0 * WIDE / 2.0, p1 - n1 * WIDE / 2.0, p1 + n1 * WIDE / 2.0, p0 + n0 * WIDE / 2.0]),
+				PackedColorArray([c0, c1, c1, c0]),
+				PackedVector2Array([Vector2(u0, 0.0), Vector2(u1, 0.0), Vector2(u1, 1.0), Vector2(u0, 1.0)]), tex))
+	info.item_rect_changed.connect(func(): rim.queue_redraw())
+	card.item_rect_changed.connect(func(): rim.queue_redraw())
+	return rim
+
+## a quiet ✕ over the stone: a thin ring on a faint dark disc, a thin cross
+static func thin_close() -> Button:
+	var b := Button.new()
+	b.size = Vector2(34, 34)
+	b.custom_minimum_size = Vector2(34, 34)
+	b.focus_mode = Control.FOCUS_NONE
+	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	b.draw.connect(func():
+		var c := b.size / 2
+		var r := 16.0
+		var k := 0.75 if b.button_pressed else 1.0
+		b.draw_circle(c, r, Color(0, 0, 0, 0.35), true, -1.0, true)
+		b.draw_arc(c, r, 0, TAU, 40, Color(Kit.CREAM, 0.45 * k), 1.0, true)
+		var d := 5.5
+		for v2: Vector2 in [Vector2(d, d), Vector2(d, -d)]:
+			b.draw_line(c - v2, c + v2, Color(Kit.CREAM, 0.9 * k), 1.4, true))
+	b.pressed.connect(func():
+		Sfx.buzz(8)
+		Sfx.play("click"))
+	return b
 
 ## two quiet buttons side by side: [left] [right]
 static func action_row(left: Button, on_left: Callable, right: Button, on_right: Callable) -> HBoxContainer:

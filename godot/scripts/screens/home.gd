@@ -391,8 +391,10 @@ func _demo_build() -> void:
 
 ## test key (-- ui=demo_niche): a tap on the first stone standing in a niche
 func _demo_niche() -> void:
-	for k in 6:
-		var p := Vector2(float(MineView.NICHES.get(k + 1, [0, 0])[0]), view.band_y(k) + float(MineView.NICHES.get(k + 1, [0, 0])[1]) - 40)
+	for k in Data.depths(ai()).size():
+		# each mine knows where its pedestals are (Copper Mountain keeps them in its mine.json)
+		var nc: Array = view.call("niche_spot", k) if view.has_method("niche_spot") else MineView.NICHES.get(k + 1, [0, 0])
+		var p := Vector2(float(nc[0]), view.band_y(k) + float(nc[1]) - 40)
 		if not view.niche_at(p).is_empty():
 			var e := InputEventMouseButton.new()
 			e.button_index = MOUSE_BUTTON_LEFT

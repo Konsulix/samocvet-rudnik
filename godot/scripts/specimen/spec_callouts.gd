@@ -35,6 +35,8 @@ var _font: FontVariation
 var _hull: PackedVector3Array   # a sample of the stone's vertices, for its outline on screen
 var _box := Rect2()             # that outline
 var _repick := false            # as the labels open each gene points at its best spot afresh
+var top_clear := 0.0            # points at the frame's top and bottom kept free of labels (a card's title, a panel
+var bottom_clear := 0.0         # lapping over the frame)
 var _occ: Array = []            # the crystals as triangles, in the specimen's space: [{box, tris}], to tell what they hide
 
 static func attach(v: SpecView) -> SpecCallouts:
@@ -245,8 +247,8 @@ func _layout() -> void:
 		while _text(it).x > size.x * 0.5 - M - 10.0 and l.get_theme_font_size("font_size") > FONT_PX - 1:
 			l.add_theme_font_size_override("font_size", l.get_theme_font_size("font_size") - 1)
 	var th := _text(items[0]).y
-	var lo := M + th + 2.0        # the highest a rule may stand
-	var hi := size.y - M - 6.0    # the lowest
+	var lo := M + th + 2.0 + top_clear        # the highest a rule may stand
+	var hi := size.y - M - 6.0 - bottom_clear  # the lowest
 	var top0 := clampf(_box.position.y - CLEAR, lo, hi)
 	var bot0 := clampf(_box.end.y + CLEAR + th, lo, hi)
 	# how many fit in one column above and below the stone

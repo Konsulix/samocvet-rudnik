@@ -141,5 +141,5 @@
 | Экспорт в игру | `export_mine.py <godot>` → `godot/assets/mine/old_adit/` + `mine.json` (координаты в px исходника 1536, текстуры ×K) |
 | GIF из игры | `record_gifs.sh <out>` (движок пишет кадры, `--write-movie`) |
 
-В игре: `godot/scripts/screens/mine_view.gd` (`MineView`), шейдеры `mine_reveal`, `mine_sway`; ключи снимков —
+В игре: `godot/scripts/screens/mine_view.gd` (`MineView`), шейдеры `mine_reveal`, `mine_sway_mask` (качаются только сосны — по маске, не по цвету); ключи снимков —
 `screen=home built=… open=N wins=… steps=… scroll=N mine_event=… mine_result=… fill=N ui=demo_build|demo_niche`.

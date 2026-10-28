@@ -53,8 +53,8 @@ func _ready() -> void:
 		for i in int(args.fill):
 			var st := Stones.roll(5000 + i, i % 3, 0.6 + (i % 5) * 0.3, i % 3)
 			if i % 4 == 0: st.cut = ["cab", "facet", "master"][i % 3]
-			st.area = 0
-			st.dl = i % 6          # spread over the depths of the first mine: its pedestals show the best of each
+			st.area = Save.area()
+			st.dl = i % Data.depths(Save.area()).size()   # spread over the mine's depths: its pedestals show the best of each
 			Save.d.coll.append(st)
 			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["ruby", "sapphire"], value = 9000}]
@@ -82,6 +82,43 @@ func _ready() -> void:
 			st.dl = i % 6
 			Save.d.coll.append(st)
 		if not "ammonite" in Save.d.seen: Save.d.seen.append("ammonite")
+	if args.has("newfinds"):
+		# test data: every kind of petrified wood, fulgurite, flower in quartz and amber (in no mine's pool yet):
+		# `-- screen=museum newfinds`; a seed is looked up for each kind, old ones from a previous run are replaced
+		var sids := ["petrified_wood", "fulgurite", "flower_quartz", "amber"]
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("sid", "") in sids)
+		var want := [
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "slice" and float(g.opal) < 0.2],
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "slice" and float(g.opal) >= 0.5],
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "slice" and String(g.heart) != ""],
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "log"],
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "twig"],
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "driftwood" and g.core == "opal"],
+			["petrified_wood", func(g: Dictionary) -> bool: return g.show == "driftwood" and g.core == "crystal"],
+			["fulgurite", func(g: Dictionary) -> bool: return int(g.glass) == 0],
+			["fulgurite", func(g: Dictionary) -> bool: return int(g.glass) != 0]]
+		for b in ["star", "rose", "daisy", "bell", "blossom", "poppy"]:
+			want.append(["flower_quartz", func(g: Dictionary) -> bool: return g.bloom == b])
+		for c in ["ant", "beetle", "fly", "mosquito", "spider"]:
+			want.append(["amber", func(g: Dictionary) -> bool: return g.content == "insect" and g.insect == c])
+		for c in ["flower", "fern", "feather"]:
+			want.append(["amber", func(g: Dictionary) -> bool: return g.content == c])
+		var sd := 40000
+		for i in want.size():
+			var sid: String = want[i][0]
+			var ok: Callable = want[i][1]
+			while not ok.call(SpecFossil.genes(sd, sid, [])): sd += 1
+			var st := Stones.roll(sd, 0, 1.2, 2)
+			sd += 1
+			st.sid = sid
+			st.kind = "fossil"
+			st.traits = []
+			st.legend = false
+			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.area = 0
+			st.dl = i % 6
+			Save.d.coll.append(st)
+			if not sid in Save.d.seen: Save.d.seen.append(sid)
 	if args.has("tab"):
 		Museum.start_tab = args.tab
 	if args.has("screen"):

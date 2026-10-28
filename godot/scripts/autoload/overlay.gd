@@ -49,16 +49,20 @@ func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_card.resized.connect(func(): holder.custom_minimum_size = _card.size)
 	if glow.a > 0.0:
+		# a close, thin halo that flickers unevenly, like light off the rarity's stone
 		var halo := Panel.new()
 		var hs := StyleBoxFlat.new()
 		hs.bg_color = Color(0, 0, 0, 0)
-		hs.set_corner_radius_all(24)
-		hs.shadow_color = Color(glow, 0.5)
-		hs.shadow_size = 26
+		hs.set_corner_radius_all(20)
+		hs.shadow_color = Color(glow, 0.8)
+		hs.shadow_size = 5
 		halo.add_theme_stylebox_override("panel", hs)
 		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_card.resized.connect(func(): halo.size = _card.size)
 		holder.add_child(halo)
+		var fl := halo.create_tween().set_loops()
+		for k: float in [0.55, 1.0, 0.75, 0.95, 0.5, 0.85, 1.0, 0.65]:
+			fl.tween_property(halo, "modulate:a", k, 0.22 + 0.5 * absf(k - 0.75)).set_trans(Tween.TRANS_SINE)
 	holder.add_child(_card)
 	center.add_child(holder)
 	_card.scale = Vector2(0.86, 0.86)

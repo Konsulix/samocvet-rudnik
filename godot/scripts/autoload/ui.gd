@@ -6,7 +6,7 @@ var body: FontVariation      # Nunito Sans — everything else
 var body_bold: FontVariation
 var theme: Theme
 
-const GOLD := Color("#f5c04a")
+const GOLD := Color("#e2bd72")   # calm brass (was #f5c04a)
 const INK := Color("#eef2f8")
 const MUTED := Color("#9fb0c8")
 const GOOD := Color("#4cd480")

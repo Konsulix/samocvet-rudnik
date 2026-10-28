@@ -795,6 +795,7 @@
     "emerald": 1.2,
     "ruby": 0.4
    },
+   "steps": 3,
    "tasks": [
     [
      "hoist",
