@@ -141,6 +141,17 @@ static func open() -> void:
 				main().show_home()],
 			["Keep it", "glass", func(): Ov.close()]])))
 	v.add_child(pr)
+	# the mine screen with everything that moves on it: all jobs built, every depth open and lived in (crews come after
+	# two wins), a stone on every pedestal; and its rare events on demand
+	v.add_child(_head("Mine screen"))
+	var ms := _row()
+	ms.add_child(_btn("All animations on", false, func(): _alive()))
+	for ev in (["lizard", "reflection", "window", "hotcrack"] if a == 1 else ["hole", "coil", "eyes", "bat", "lizard"]):
+		ms.add_child(_btn("Event: " + ev, false, func():
+			MineView.force_event = ev
+			Ov.close()
+			_refresh()))
+	v.add_child(ms)
 	v.add_child(Ov.btn("Close", "glass", func():
 		Ov.close()
 		_refresh()))
@@ -211,6 +222,29 @@ static func _ammonites() -> void:
 	Save.persist()
 	Ov.toast("Added 8 ammonites")
 	_reopen()
+
+## the whole mine alive: every depth open, every job built, three wins on each depth (its people come), and a test
+## find on each pedestal that has none (the boss is left unbeaten: the finale's door keeps breathing)
+static func _alive() -> void:
+	var a := Save.area()
+	var n := Data.depths(a).size()
+	Save.d.depth[a] = n - 1
+	Save.d.built[a] = (Data.AREAS[a].tasks as Array).map(func(t): return t[0])
+	for k in n:
+		if k < Save.d.dwins.size(): Save.d.dwins[k] = maxi(int(Save.d.dwins[k]), 3)
+	var has := {}
+	for s in Save.d.coll:
+		if int(s.get("area", -1)) == a and s.has("dl"): has[int(s.dl)] = true
+	for k in n:
+		if not has.has(k):
+			var st := _find(1 + randi() % 999999, "", "")
+			st.dl = k
+			Save.d.coll.append(st)
+	# straight to the mine: the panel closes so the screen can be watched
+	Save.persist()
+	Ov.close()
+	_refresh()
+	Ov.toast("The whole mine is alive")
 
 static func _give(key: String, n: int) -> void:
 	Save.d[key] = int(Save.d[key]) + n

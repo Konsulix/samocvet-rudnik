@@ -132,6 +132,9 @@ func _ready() -> void:
 		await get_tree().create_timer(float(args.get("ui_after", "0"))).timeout
 		if screen.has_method("_" + args.ui): screen.call("_" + args.ui)
 	if args.has("lens"): Save.d.eq.lens = int(args.lens)
+	if args.has("alive"):
+		# the admin's "All animations on" for the current mine: `-- screen=home area=1 alive`
+		Admin._alive()
 	if args.has("admin"):
 		# the tester's panel, for a look: `-- screen=home admin`
 		get_tree().create_timer(float(args.get("ui_after", "1"))).timeout.connect(Admin.open)
