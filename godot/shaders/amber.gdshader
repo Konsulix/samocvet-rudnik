@@ -21,7 +21,11 @@ uniform float bubble_k = 0.5;
 uniform float spangle_k = 0.0;
 uniform float crust_k = 0.0;
 uniform float cloud_k = 0.0;
-uniform float dirt_k = 0.5;           // brown smoke of fine dirt
+uniform float dirt_k = 0.5;
+uniform float base_k = 0.3;     // the even light behind (resin glows; clear quartz shows the dark room through it)
+uniform float held_k = 0.3;     // how much of what it holds shows through (dark through amber, clear through quartz)
+uniform vec3 light_col = vec3(1.0, 0.86, 0.6);    // the light behind (warm for resin, white for quartz)
+uniform vec3 spangle_col = vec3(1.0, 0.55, 0.12); // what the disc cracks shine (gold in amber, white in quartz)           // brown smoke of fine dirt
 uniform float seed = 0.0;
 uniform sampler2D crack_tex : source_color, filter_linear_mipmap, repeat_enable;   // a scan of crazed dry crust
 uniform float crack_k = 0.0;
@@ -138,8 +142,7 @@ void fragment() {
 			// what the disc mirrors: the studio's lamps, seen in its own colour
 			vec3 m_dir = (MODEL_MATRIX * vec4(reflect(d, dn > 0.0 ? -pn : pn), 0.0)).xyz;
 			vec3 lamp = studio(normalize(m_dir));
-			vec3 gold = vec3(1.0, 0.55, 0.12);
-			vec3 c = gold * (0.12 + 1.6 * lamp.r * ridge) * absorb(tk);
+			vec3 c = spangle_col * (0.12 + 1.6 * lamp.r * ridge) * absorb(tk);
 			float ak = ins * (0.55 + 0.4 * ridge) * spangle_k;
 			sp_c += (1.0 - sp_a) * ak * c;
 			sp_a += (1.0 - sp_a) * ak;
@@ -169,7 +172,7 @@ void fragment() {
 	vec3 back;
 	vec2 bend = n.xy * 0.04 * (1.2 - abs(dot(n, VIEW)));
 	if (held) {
-		back = textureLod(screen_tex, SCREEN_UV - bend, 0.0).rgb * absorb(t_hit + 0.5) * 0.3;
+		back = textureLod(screen_tex, SCREEN_UV - bend, 0.0).rgb * absorb(t_hit + 0.5) * held_k;
 	} else {
 		// the far side: the ray bends in at the skin, crosses, bends out again (or is turned back inside, when it
 		// meets the far skin too slant) — and sees the studio's lamps, warped by the stone, dimmed by the way through
@@ -189,7 +192,7 @@ void fragment() {
 		float lamp = (studio(wdo).r + studio(normalize(wdo + ta * 0.18)).r + studio(normalize(wdo - ta * 0.18)).r
 			+ studio(normalize(wdo + tb * 0.18)).r + studio(normalize(wdo - tb * 0.18)).r) * 0.2;
 		float way = te + tir * chord * 0.6;
-		back = vec3(1.0, 0.86, 0.6) * (back_k * 0.3 + lamp * back_k * 1.0) * absorb(way) * (0.4 + 1.1 * fbm(v_op * 1.3 / rad + seed + 60.0));
+		back = light_col * (back_k * base_k + lamp * back_k * 1.0) * absorb(way) * (0.4 + 1.1 * fbm(v_op * 1.3 / rad + seed + 60.0));
 	}
 	vec3 body = back * tr + acc;
 	// light caught inside bouncing off the far skin brightens the rim

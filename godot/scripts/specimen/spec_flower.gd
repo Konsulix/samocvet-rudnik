@@ -1,8 +1,8 @@
 class_name SpecFlower
 extends RefCounted
-## Inclusions: something whole held in clear stone. The stone (shaders/host.gdshader) — a lump of quartz like ice,
-## with fracture sheets, veils and bubbles inside, chipped flat and frosted in places; or amber / copal, rounded,
-## its resin run in flow lines, with bubbles and specks of bark. What it holds:
+## Inclusions: something whole held in clear stone — a smooth tumbled pebble (shaders/amber.gdshader) of clear or
+## smoky quartz (ice-like cracks flashing white, a few bubbles) or of amber / copal (its resin run in flow lines,
+## specks of bark, sun spangles, a weathered crust). What it holds:
 ##   a flower — star, rose, daisy, bell, blossom or poppy; petals of their own shape (shaders/petal.gdshader: colour,
 ##              an eye at the base, a sheen on the rims, veins, spots or stripes), stamens tipped with gold, leaves;
 ##   an insect — ant, beetle, fly, mosquito or spider, built from its body parts, legs jointed and splayed as it
@@ -12,7 +12,6 @@ extends RefCounted
 const U := preload("res://scripts/specimen/spec_util.gd")
 const PETAL := preload("res://shaders/petal.gdshader")
 const WING := preload("res://shaders/wing.gdshader")
-const HOST := preload("res://shaders/host.gdshader")
 const AMBER := preload("res://shaders/amber.gdshader")
 ## amber's colour: how fast it swallows red, green and blue along the way through it (per unit of the stone's
 ## radius) — thin it is pale, thick it deepens: lemon, honey, cognac, cherry
@@ -36,12 +35,7 @@ const LOOKS := [
 const FORMS := [["star", 3.0], ["rose", 2.0], ["daisy", 2.0], ["bell", 1.5], ["blossom", 2.0], ["poppy", 1.5]]
 const INSECTS := [["ant", 3.0], ["beetle", 2.0], ["fly", 2.5], ["mosquito", 2.0], ["spider", 1.5]]
 ## hosts: [name, tint (linear), absorb, fractures, veils, bubbles, flow, debris, frost, inner glow]
-const HOSTS := {
-	quartz = ["clear quartz", Color(0.95, 0.97, 0.99), 0.15, 0.75, 0.12, 0.2, 0.0, 0.0, 0.3, 0.05],
-	smoky = ["smoky quartz", Color(0.72, 0.62, 0.52), 0.6, 0.6, 0.1, 0.15, 0.0, 0.0, 0.3, 0.1],
-	amber = ["Baltic amber", Color(1.0, 0.42, 0.06), 1.3, 0.15, 0.1, 0.6, 0.35, 0.6, 0.35, 0.8],
-	copal = ["copal", Color(1.0, 0.8, 0.35), 0.8, 0.1, 0.08, 0.5, 0.25, 0.3, 0.3, 0.5],
-}
+const HOSTS := {quartz = "clear quartz", smoky = "smoky quartz", amber = "Baltic amber", copal = "copal"}
 
 static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng := Rng32.new((seed_v * 2246822519 + 77) % 4294967296)
@@ -87,7 +81,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"flower": return "%s %s" % [LOOKS[int(g.look)][0], {star = "star flower", rose = "rose", daisy = "daisy", bell = "bellflower",
 			blossom = "blossom", poppy = "poppy"}.get(g.bloom, "flower")]
 		"insect": return {ant = "ant", beetle = "beetle", fly = "fly", mosquito = "mosquito", spider = "spider"}.get(g.insect, "insect")
-		"stone": return String(HOSTS[g.host][0]) if not g.host == "amber" else "%s Baltic amber" % g.get("tone", "honey")
+		"stone": return String(HOSTS[g.host]) if not g.host == "amber" else "%s Baltic amber" % g.get("tone", "honey")
 		"spangles": return "sun spangles"
 		"leaves": return "leaves"
 		"fern": return "fern frond"
@@ -393,52 +387,6 @@ static func _feather(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
 # ---------------------------------------------------------------- the stone
 
 ## the stone: a lump worn round, chipped flat here and there (quartz), or a rounded drop of resin (amber)
-static func _stone(rng: Rng32, resin: bool) -> Geo:
-	var g := Geo.icosa(1.0, 4).to_soup()
-	var nz := FastNoiseLite.new()
-	nz.seed = int(rng.next() * 100000.0)
-	nz.frequency = 0.9
-	nz.fractal_octaves = 3
-	var cuts := []
-	for k in (1 if resin else 4) + int(rng.next() * 4):
-		var d := Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized()
-		cuts.append([d, (0.8 if resin else 0.62) + rng.next() * 0.22])
-	var sc := Vector3(1.0 + rng.next() * 0.25, 1.05 + rng.next() * 0.3, 0.8 + rng.next() * 0.15)
-	for i in g.v.size():
-		var d := g.v[i].normalized()
-		var r := 1.0 + nz.get_noise_3dv(d * 1.3) * (0.14 if resin else 0.24)
-		var p := d * r
-		for c: Array in cuts:
-			var cd: Vector3 = c[0]
-			var over := p.dot(cd) - float(c[1])
-			if over > 0.0:
-				p -= cd * over
-		g.v[i] = p * sc
-	g.col.resize(g.v.size())
-	g.orient_out()
-	# smooth over the worn round, a sharp edge where a chip's flat meets it
-	var fn := []
-	var at := {}
-	for k in g.tri_count():
-		var t := g.tri(k)
-		var n := (t[1] - t[0]).cross(t[2] - t[0]).normalized()
-		if n.dot((t[0] + t[1] + t[2]) / 3.0) < 0.0: n = -n
-		fn.append(n)
-		for q in 3:
-			var key := t[q].snapped(Vector3.ONE * 0.0001)
-			if not at.has(key): at[key] = []
-			(at[key] as Array).append(k)
-	g.own_n.resize(g.v.size())
-	for k in g.tri_count():
-		for q in 3:
-			var vi := k * 3 + q
-			var key := g.v[vi].snapped(Vector3.ONE * 0.0001)
-			var acc := Vector3.ZERO
-			for o in at[key]:
-				if (fn[o] as Vector3).dot(fn[k]) > 0.82: acc += fn[o]
-			g.own_n[vi] = acc.normalized()
-	return g
-
 ## amber: a polished free-form pebble — smooth all over, flattened, its outline in soft lobes; sometimes a flat
 ## polished window on its face (a sharp edge round it). Raw pieces are lumpier.
 static func _resin(rng: Rng32, f: Dictionary) -> Geo:
@@ -494,9 +442,27 @@ static func _smooth(g: Geo, keep: float) -> void:
 static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = AMBER
-	m.set_shader_parameter("sigma", TONES[f.get("tone", "honey")][0])
-	var bb := g.aabb()
-	m.set_shader_parameter("axes", Vector3(maxf(-bb.position.x, bb.end.x), maxf(-bb.position.y, bb.end.y), maxf(-bb.position.z, bb.end.z)) * 1.04)
+	var resin: bool = f.host in ["amber", "copal"]
+	m.set_shader_parameter("sigma", TONES[f.get("tone", "honey")][0] if resin else (Vector3(0.015, 0.012, 0.01) if f.host == "quartz" else Vector3(0.25, 0.32, 0.45)))
+	if not resin:
+		# quartz: white light through it, its cracks flashing white like ice, no flow lines, no dirt
+		m.set_shader_parameter("light_col", Vector3(0.95, 0.97, 1.0))
+		m.set_shader_parameter("spangle_col", Vector3(0.85, 0.9, 1.0))
+		m.set_shader_parameter("dirt_k", 0.0)
+		m.set_shader_parameter("debris_k", 0.0)
+		m.set_shader_parameter("flow_k", 0.0)
+		m.set_shader_parameter("spangle_k", 0.8)
+		m.set_shader_parameter("cloud_k", 0.12)
+		m.set_shader_parameter("bubble_k", 0.3)
+		m.set_shader_parameter("back_k", 0.8)
+		m.set_shader_parameter("base_k", 0.06)
+		m.set_shader_parameter("held_k", 0.95)
+		m.set_shader_parameter("crust_k", 0.0)
+	m.set_shader_parameter("axes", _axes(g))
+	if not resin:
+		m.set_shader_parameter("axes", _axes(g))
+		m.set_shader_parameter("seed", float(int(f.seed) % 97) * 0.7)
+		return m
 	m.set_shader_parameter("spangle_k", 1.0 if f.get("spangle", false) else 0.0)
 	m.set_shader_parameter("crust_k", f.get("crust", 0.0))
 	m.set_shader_parameter("crack_tex", load("res://assets/textures/mud_cracked_dry_03/mud_cracked_dry_03_diff_1k.jpg"))
@@ -507,26 +473,9 @@ static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
 	m.set_shader_parameter("seed", float(int(f.seed) % 97) * 0.7)
 	return m
 
-static func host_mat(f: Dictionary) -> ShaderMaterial:
-	var h: Array = HOSTS[f.host]
-	var m := ShaderMaterial.new()
-	m.shader = HOST
-	var tc: Color = h[1]
-	m.set_shader_parameter("tint", Vector3(tc.r, tc.g, tc.b))
-	m.set_shader_parameter("absorb", h[2])
-	m.set_shader_parameter("frac_k", h[3])
-	m.set_shader_parameter("veil_k", h[4])
-	m.set_shader_parameter("bubble_k", h[5])
-	m.set_shader_parameter("flow_k", h[6])
-	m.set_shader_parameter("debris_k", h[7])
-	m.set_shader_parameter("frost_k", h[8])
-	m.set_shader_parameter("glow_k", h[9])
-	# amber's weathered crust is brown, quartz frosts white
-	var fc: Color = Color(0.45, 0.25, 0.08) if f.host in ["amber", "copal"] else Color(0.75, 0.77, 0.8)
-	m.set_shader_parameter("frost_col", Vector3(fc.r, fc.g, fc.b))
-	m.set_shader_parameter("seed", float(int(f.seed) % 97) * 0.7)
-	m.set_shader_parameter("size", 1.0)
-	return m
+static func _axes(g: Geo) -> Vector3:
+	var bb := g.aabb()
+	return Vector3(maxf(-bb.position.x, bb.end.x), maxf(-bb.position.y, bb.end.y), maxf(-bb.position.z, bb.end.z)) * 1.04
 
 static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var f: Dictionary = gene.fossil
@@ -538,7 +487,8 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var inner := Node3D.new()
 	holder.add_child(inner)
 	var marks := []
-	var resin: bool = f.host in ["amber", "copal"]
+	# every host is now a flattened pebble shown by its face: all are placed the way amber is
+	var resin := true
 	# amber: a flattened pebble turned to show its face (the viewer turns every find 0.6 about y), what it holds
 	# lies in it flat, smaller, off the middle; quartz: a round lump, the flower facing the viewer
 	var face := Basis.IDENTITY if resin else Basis(Vector3.UP, -0.6)
@@ -567,8 +517,9 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			return [Transform3D(Basis(Vector3(rng.next(), rng.next(), rng.next()).normalized(), rng.next() * TAU) * Basis.from_scale(Vector3(s, s * 0.3, s)), p), Color(1, 1, 1)]
 		U.inst(flake, gm, 90, place, holder)
 		b._mark("gold_dust", U.rel_xform(holder, root) * Vector3(0, -0.5, 0.2), Vector3.BACK)
-	var sg := _resin(rng, f) if resin else _stone(rng, false)
-	var stone := U.mesh(sg, amber_mat(f, sg) if resin else host_mat(f), holder)
+	# every host a smooth tumbled pebble: amber, or clear / smoky quartz (shaders/amber.gdshader for both)
+	var sg := _resin(rng, f)
+	var stone := U.mesh(sg, amber_mat(f, sg), holder)
 	stone.set_meta("col", true)
 	stone.visible = not f.get("bare", false)
 	# amber shows its face, turned a little so its thickness shows at one side

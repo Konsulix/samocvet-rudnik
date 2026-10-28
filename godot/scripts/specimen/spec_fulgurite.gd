@@ -15,15 +15,16 @@ const U := preload("res://scripts/specimen/spec_util.gd")
 const SAND := [
 	{name = "quartz sand", light = 0xd2ccbe, dark = 0x3a3430, glass = 0},
 	{name = "desert sand", light = 0xb09878, dark = 0x2e2420, glass = 1},
-	{name = "red sand", light = 0x8e6c5a, dark = 0x3a1a10, glass = 1},
+	{name = "red sand", light = 0x86705f, dark = 0x3a1a10, glass = 1},
 	{name = "volcanic sand", light = 0x5a5650, dark = 0x1a1816, glass = 3},
 	{name = "beach sand", light = 0xa0a090, dark = 0x2a2a26, glass = 2},
 ]
+## (lightning glass is not clear crystal: frosted, full of fine bubbles, often smoky)
 const GLASS := [
-	{name = "clear glass", tint = Color(0.93, 0.95, 0.97), lining = 0x8a9490},
-	{name = "smoky glass", tint = Color(0.82, 0.78, 0.72), lining = 0x5a4e44},
-	{name = "green glass", tint = Color(0.78, 0.9, 0.8), lining = 0x4a6a50},
-	{name = "black glass", tint = Color(0.45, 0.48, 0.46), lining = 0x1c2220},
+	{name = "clear glass", tint = Color(0.93, 0.95, 0.97), lining = 0x8a9490, smoke = 0.0, smoke_col = Color(0.3, 0.3, 0.3)},
+	{name = "smoky glass", tint = Color(0.86, 0.82, 0.76), lining = 0x5a4e44, smoke = 0.45, smoke_col = Color(0.25, 0.17, 0.1)},
+	{name = "green glass", tint = Color(0.8, 0.92, 0.82), lining = 0x4a6a50, smoke = 0.35, smoke_col = Color(0.1, 0.25, 0.12)},
+	{name = "black glass", tint = Color(0.55, 0.58, 0.56), lining = 0x1c2220, smoke = 0.85, smoke_col = Color(0.05, 0.06, 0.06)},
 ]
 
 static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
@@ -107,7 +108,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		hm.set_shader_parameter("glow_col", Color(1.0, 0.55, 0.2))
 		gm = hm
 	else:
-		gm = SpecMat.make({col = Color(1, 1, 1), glass = true, frost = 0.22, thick = 1.0, seed = 7.0})
+		gm = SpecMat.make({col = Color(1, 1, 1), glass = true, frost = 0.55, thick = 1.0, seed = 7.0, smoke = glass.smoke, smoke_col = glass.smoke_col})
 	var milk := SpecMat.make({col = SpecMat.lin(0xe8e6e0), rough = 0.55})
 	var first: MeshInstance3D = null
 	var glass_at := []
@@ -233,12 +234,19 @@ static func _heap(rng: Rng32, rad: float, h: float, seed_v: int) -> Geo:
 	var g := Geo.new()
 	var na := 48
 	var nr := 16
+	# its top off the middle, its foot spread unevenly; on the viewer's side dug away, a scooped slope where the
+	# fulgurite was freed (the viewer looks along -z, the find turned -0.6 about y by the holder)
+	var peak := Vector2(rng.next() - 0.5, rng.next() - 0.5) * rad * 0.25
+	var dig := Vector2(sin(0.6), cos(0.6))
 	for i in na + 1:
 		var a := TAU * float(i) / na
 		for j in nr + 1:
 			var t := float(j) / nr
-			var rr := rad * t * (1.0 + 0.15 * nz.get_noise_2d(cos(a) * 2.0, sin(a) * 2.0))
-			var y := h * pow(1.0 - t * t, 1.4) + h * 0.12 * nz.get_noise_2d(cos(a) * rr * 4.0, sin(a) * rr * 4.0) * (1.0 - t)
+			var rr := rad * t * (1.0 + 0.28 * nz.get_noise_2d(cos(a) * 1.4, sin(a) * 1.4))
+			var tt := clampf(t - Vector2(cos(a), sin(a)).dot(peak) / rad * (1.0 - t), 0.0, 1.0)
+			var y := h * pow(1.0 - tt * tt, 1.3) + h * 0.14 * nz.get_noise_2d(cos(a) * rr * 4.0, sin(a) * rr * 4.0) * (1.0 - t)
+			var front := maxf(0.0, Vector2(cos(a), sin(a)).dot(dig))
+			y *= 1.0 - 0.45 * front * smoothstep(0.2, 0.7, t)
 			g.v.append(Vector3(cos(a) * rr, y, sin(a) * rr))
 			g.rp.append(Vector3(rr * 14.0, float(i) / na, 0.3))
 			g.col.append(Color(0, rng.next(), 0, 0.5))
