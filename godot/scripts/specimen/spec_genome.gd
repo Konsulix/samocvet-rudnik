@@ -108,6 +108,8 @@ static func of(o: Dictionary) -> Dictionary:
 		var fpool := ["fluor", "levitate", "jellyfish"]
 		if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
 		if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
+		# a fulgurite's own: the lightning that made it runs through it still
+		if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
 		if lustre == "glass" and not (form in ["geode", "botryoid", "vein", "nugget"]):
 			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
 		fx = fpool[int(rng.next() * fpool.size())]

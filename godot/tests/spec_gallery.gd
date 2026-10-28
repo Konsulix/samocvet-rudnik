@@ -158,11 +158,16 @@ const SETS := [
 	{seed = 632, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "opal", fungi = false, body = "crystal", fire = "blue", spread = 0.4},
 	{seed = 633, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = true},
 	{seed = 634, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = true}],
-	# set 27: fulgurites — sand-crusted branches broken open to the glass
-	[{seed = 641, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, glass = 0},
-	{seed = 642, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.35, glass = 1},
-	{seed = 643, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.6, glass = 2, sand = 2},
-	{seed = 644, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.4, glass = 0, sand = 1}],
+	# set 27: fulgurites — hollow, branching like the strike; sands and glasses, in the sand, froth, iron, a fresh strike,
+	# living lightning
+	[{seed = 641, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, sand = 0, glass = 0, show = "loose", froth = 0.0, iron = false, hot = false},
+	{seed = 642, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.4, sand = 1, glass = 1, show = "sand", froth = 0.0, iron = false, hot = false},
+	{seed = 643, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.6, sand = 2, glass = 1, show = "loose", froth = 0.0, iron = true, hot = false},
+	{seed = 644, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.4, sand = 3, glass = 3, show = "sand", froth = 0.8, iron = false, hot = false},
+	{seed = 645, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, sand = 4, glass = 2, show = "loose", froth = 0.5, iron = true, hot = false},
+	{seed = 646, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, sand = 1, glass = 1, show = "sand", froth = 0.0, iron = false, hot = true},
+	{seed = 647, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, sand = 0, glass = 0, show = "loose", froth = 0.0, iron = false, hot = false, legend = true, fx = "discharge"},
+	{seed = 648, sid = "fulgurite", kind = "fossil", gi = 2, traits = [], open = 0.5, sand = 3, glass = 3, show = "sand", froth = 0.3, iron = false, hot = false, legend = true, fx = "discharge"}],
 	# set 28: flowers in stone — every form, colours, leaves; quartz, smoky, amber
 	[{seed = 651, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "star", look = 0, host = "quartz", leaves = 0, gold = true},
 	{seed = 652, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "rose", look = 2, host = "quartz", leaves = 2, gold = false},

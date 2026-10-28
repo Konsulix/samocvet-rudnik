@@ -213,6 +213,9 @@ static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: floa
 	if mode == "spear":
 		_spear(g, ring, m, ctr, axis, r, nz, rid)
 		return
+	if mode == "hollow":
+		_hollow(g, ring, m, ctr, axis, r, nz, rid)
+		return
 	var torn := mode == "torn"
 	var lens: Array[float] = []
 	for j in m:
@@ -279,7 +282,7 @@ static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: floa
 
 ## faces between successive rings of corner indices (each ring m + 1, the last repeating the first), each turned to
 ## face out (away from `back`, a point inside the wood); smooth normals for the corners from `first` on
-static func _bridge(g: Geo, rings: Array, first: int, back: Vector3, axis: Vector3) -> void:
+static func _bridge(g: Geo, rings: Array, first: int, back: Vector3, axis: Vector3, inner_from := 1 << 30) -> void:
 	for k in rings.size() - 1:
 		var r0: Array = rings[k]
 		var r1: Array = rings[k + 1]
@@ -290,7 +293,11 @@ static func _bridge(g: Geo, rings: Array, first: int, back: Vector3, axis: Vecto
 				var ic: int = tri[2]
 				var n := (g.v[ib] - g.v[ia]).cross(g.v[ic] - g.v[ia])
 				var mid := (g.v[ia] + g.v[ib] + g.v[ic]) / 3.0
-				if n.dot(mid - back) < 0.0:
+				# from `inner_from` on, the faces line a hole: they face in, towards the line through `back`
+				var away := mid - back
+				if k >= inner_from:
+					away = -(away - axis * away.dot(axis))
+				if n.dot(away) < 0.0:
 					var t := ib
 					ib = ic
 					ic = t
@@ -363,6 +370,55 @@ static func _spear(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: fl
 			cur.append(g.v.size() - 1)
 		rings.append(cur)
 	_bridge(g, rings, first, ctr - axis * r, axis)
+
+## a hollow end (a fulgurite's): snapped across, open — a ragged lip of the crust (COLOR.r 1) turning in to the bore,
+## then the bore's glassy lining (COLOR.a 0.95) going down into the tube, closing far inside
+static func _hollow(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: float, nz: FastNoiseLite, rid: float) -> void:
+	var row := m + 1
+	var ri := 0.5 + 0.12 * nz.get_noise_2d(rid * 9.0, 2.0)
+	var D := r * (1.6 + 0.8 * (nz.get_noise_2d(rid * 3.0, 8.0) * 0.5 + 0.5))
+	var first := g.v.size()
+	var rings: Array = []
+	var prev: Array[int] = []
+	for j in m + 1:
+		prev.append(ring * row + j)
+	rings.append(prev)
+	var KL := 4
+	var KW := 9
+	for k in range(1, KL + KW + 2):
+		var cur: Array[int] = []
+		for j in m + 1:
+			var jj := j % m
+			var a := TAU * float(jj) / m
+			var b: Vector3 = g.v[ring * row + jj]
+			var off := b - ctr
+			off -= axis * off.dot(axis)
+			var dir := off.normalized()
+			var pos: Vector3
+			var col := Color(0.0, rid, 0.0, 0.95)   # .b set below: how deep down the bore
+			# the break: ragged, the lip standing up and down a little round the ring
+			var rag := r * (0.18 * nz.get_noise_2d(a * 3.0, rid * 5.0) + 0.06 * nz.get_noise_2d(a * 11.0, rid * 2.0))
+			if k <= KL:
+				var t := float(k) / KL
+				var rad := lerpf(off.length(), r * (ri + 0.05 * nz.get_noise_2d(a * 6.0, rid)), t)
+				pos = ctr + dir * rad + axis * (rag + r * 0.12 * sin(t * PI))
+				col = Color(1.0, rid, 0.0, 0.5)
+			elif k <= KL + KW:
+				var sd := float(k - KL) / KW
+				var rad := r * (ri + 0.05 * nz.get_noise_2d(a * 6.0, rid)) * (1.0 - 0.15 * sd)
+				pos = ctr + dir * rad + axis * (rag * (1.0 - sd) - D * sd)
+				col.b = sd
+			else:
+				pos = ctr - axis * (D + r * 0.15)
+				col.b = 1.0
+			g.v.append(pos)
+			var src_rp := g.rp[ring * row + jj]
+			g.rp.append(Vector3(src_rp.x + (pos - ctr).dot(axis) / maxf(r, 0.01), src_rp.y, r * ri))
+			g.col.append(col)
+			g.own_n.append(Vector3.ZERO)
+			cur.append(g.v.size() - 1)
+		rings.append(cur)
+	_bridge(g, rings, first, ctr - axis * r, axis, KL)
 
 ## the tube's quads were wound by grid order: turn the whole tube (not its caps) to face along its own normals
 static func _wind(g: Geo) -> void:

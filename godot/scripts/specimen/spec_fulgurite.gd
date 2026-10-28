@@ -1,35 +1,64 @@
 class_name SpecFulgurite
 extends RefCounted
-## Fulgurite: lightning struck sand and fused it into branching tubes. Shown as a few crossing branches, crusted with
-## the sand it caught — grainy, a few dark grains — and in stretches broken open to the glass inside: clear rods,
-## a little smoky or milky, their ends snapped. Built on SpecBranch (sand: shaders/branch.gdshader mode 2; glass: the
-## generator's own crystal glass, so it refracts like every other find's).
+## Fulgurite: lightning struck sand and fused it into a tube that branches down like the strike itself — a thick
+## throat at the top splitting into ever thinner roots (a Lichtenberg figure). Crusted with the sand it caught, the
+## tube is hollow: its broken ends open on a bore lined with smooth glass; in stretches the crust is broken away to
+## clear glass rods. Its sands and glasses vary (quartz sand and near-clear glass; volcanic black sand and dark green
+## glass…), the crust sometimes half melted to a froth, sometimes with beads of iron the lightning reduced. Shown lying
+## loose, or dug out still standing in its sand. Rare: a fresh strike, the glass still glowing; legendary: "living
+## lightning", the discharge running down it again and again. Built on SpecBranch (sand: shaders/branch.gdshader
+## mode 2; glass: the generator's crystal glass).
 
 const U := preload("res://scripts/specimen/spec_util.gd")
 
-const SAND := [0xa9a399, 0xa0907e, 0xc2bcb2, 0x8a847c]   # pale quartz sand, tan, white, grey-brown
-const GLASS := [Color(0.93, 0.95, 0.97), Color(0.86, 0.84, 0.8), Color(0.82, 0.9, 0.86)]   # clear, smoky, faint green
+## sand: crust colour, dark grains; the glass it fused to: tint, the bore's lining
+const SAND := [
+	{name = "quartz sand", light = 0xd2ccbe, dark = 0x3a3430, glass = 0},
+	{name = "desert sand", light = 0xb09878, dark = 0x2e2420, glass = 1},
+	{name = "red sand", light = 0x8e6c5a, dark = 0x3a1a10, glass = 1},
+	{name = "volcanic sand", light = 0x5a5650, dark = 0x1a1816, glass = 3},
+	{name = "beach sand", light = 0xa0a090, dark = 0x2a2a26, glass = 2},
+]
+const GLASS := [
+	{name = "clear glass", tint = Color(0.93, 0.95, 0.97), lining = 0x8a9490},
+	{name = "smoky glass", tint = Color(0.82, 0.78, 0.72), lining = 0x5a4e44},
+	{name = "green glass", tint = Color(0.78, 0.9, 0.8), lining = 0x4a6a50},
+	{name = "black glass", tint = Color(0.45, 0.48, 0.46), lining = 0x1c2220},
+]
 
 static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng := Rng32.new((seed_v * 3266489917 + 41) % 4294967296)
 	var g := {kind = "fulgurite"}
-	g.sand = int(rng.next() * SAND.size())
-	g.glass = int(Stones.pick_w([[0, 4.0], [1, 2.0], [2, 1.0]], rng))
+	g.sand = int(Stones.pick_w([[0, 3.0], [1, 3.0], [2, 1.5], [3, 1.2], [4, 1.5]], rng))
+	g.glass = int(SAND[int(g.sand)].glass)
+	if rng.next() < 0.25: g.glass = int(rng.next() * GLASS.size())
 	g.open = 0.25 + rng.next() * 0.35        # how much of it is broken open to the glass
-	g.branches = 2 + int(rng.next() * 2)
+	g.branches = 3                            # forking levels of the strike
 	g.seed = int(rng.next() * 100000.0)
+	g.show = "sand" if rng.next() < 0.4 else "loose"
+	g.froth = 0.0 if rng.next() < 0.65 else 0.4 + rng.next() * 0.6
+	g.iron = rng.next() < 0.25
+	g.hot = rng.next() < 0.05
 	if "irid" in tr or "aurora" in tr: g.open = maxf(float(g.open), 0.5)
-	for k in ["sand", "glass", "open", "branches"]:
+	for k in ["sand", "glass", "open", "branches", "show", "froth", "iron", "hot"]:
 		if o.has(k): g[k] = o[k]
 	return g
 
 static func accents(g: Dictionary) -> Array:
-	return ["sand", "glass"]
+	var out := ["sand", "glass", "bore"]
+	if float(g.get("froth", 0.0)) > 0.0: out.append("froth")
+	if g.get("iron", false): out.append("iron")
+	if g.get("hot", false): out.append("hot")
+	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
 	match id:
-		"sand": return "fused sand crust"
-		"glass": return "lightning glass %d%%" % roundi(float(g.open) * 100.0)
+		"sand": return "fused %s" % SAND[int(g.sand)].name
+		"glass": return "%s %d%%" % [GLASS[int(g.glass)].name, roundi(float(g.open) * 100.0)]
+		"bore": return "glass-lined bore"
+		"froth": return "frothy glass"
+		"iron": return "iron beads"
+		"hot": return "fresh strike"
 	return ""
 
 static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
@@ -39,51 +68,73 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var holder := Node3D.new()
 	root.add_child(holder)
 	var gs: float = gene.scale
-	# a few crossing branches, each forking a little: as found, broken out of the sand
-	var sk := []
-	for k in int(f.branches):
-		# long and nearly straight, crossing near the middle at a slant
-		var part := SpecBranch.skeleton(rng, {r0 = 0.07 + rng.next() * 0.03, len0 = 1.6 + rng.next() * 0.6, levels = 1, kids = [1, 2],
-			kid_r = 0.75, kid_len = 0.4, spread = 0.55, gnarl = 0.35, up = 0.0, taper = 0.7})
-		var lean := (0.35 + rng.next() * 0.5) * (1.0 if k % 2 == 0 else -1.0)
-		# all roughly in one plane, facing the viewer, as a piece lies on a table
-		var turn := Basis(Vector3.BACK, lean) * Basis(Vector3.UP, (rng.next() - 0.5) * 0.8)
-		var shift := Vector3((rng.next() - 0.5) * 0.3, (rng.next() - 0.5) * 0.3, (rng.next() - 0.5) * 0.2) - turn * Vector3(0, 0.9, 0)
-		for br: Dictionary in part:
-			var pts: Array = []
-			for q in br.pts: pts.append(turn * (q as Vector3) + shift)
-			br.pts = pts
-			sk.append(br)
+	var sand: Dictionary = SAND[int(f.sand)]
+	var glass: Dictionary = GLASS[int(f.glass)]
+	var hot: bool = f.get("hot", false)
+	# the strike: a throat at the top forking down into thinner and thinner roots (grown up, then turned over)
+	var sk := SpecBranch.skeleton(rng, {r0 = 0.1 + rng.next() * 0.03, len0 = 1.1 + rng.next() * 0.4, levels = int(f.branches), kids = [2, 3],
+		kids2 = [1, 2], kid_r = 0.74, kid_len = 0.72, spread = 0.55, gnarl = 0.9, up = 0.6, taper = 0.5})
+	var flip := Basis(Vector3.RIGHT, PI)
+	var lo := INF
+	var hi := -INF
+	for br: Dictionary in sk:
+		var pts: Array = []
+		for q in br.pts:
+			var w := flip * (q as Vector3)
+			pts.append(w)
+			lo = minf(lo, w.y)
+			hi = maxf(hi, w.y)
+		br.pts = pts
 	var sm := ShaderMaterial.new()
 	sm.shader = SpecBranch.SHADER
 	sm.set_shader_parameter("mode", 2)
 	sm.set_shader_parameter("seed", float(int(f.seed) % 997) * 0.37)
-	sm.set_shader_parameter("c_light", Color.hex(int(SAND[int(f.sand)]) << 8 | 0xff))
-	sm.set_shader_parameter("c_bark", Color.hex(0x2a2420ff))
-	sm.set_shader_parameter("c_end", Color.hex(0xb8a688ff))
+	sm.set_shader_parameter("c_light", Color.hex(int(sand.light) << 8 | 0xff))
+	sm.set_shader_parameter("c_bark", Color.hex(int(sand.dark) << 8 | 0xff))
+	sm.set_shader_parameter("c_end", Color.hex(int(sand.light) << 8 | 0xff))
+	sm.set_shader_parameter("c_glass", Color.hex(int(glass.lining) << 8 | 0xff))
+	sm.set_shader_parameter("froth_k", f.get("froth", 0.0))
+	sm.set_shader_parameter("hot_k", 1.0 if hot else 0.0)
 	sm.set_shader_parameter("sand_tex", load("res://assets/textures/dense_sand/dense_sand_diff_1k.jpg"))
-	var tint: Color = GLASS[int(f.glass)]
-	var gm := SpecMat.make({col = Color(1, 1, 1), glass = true, frost = 0.22, thick = 1.0, seed = 7.0})
+	var tint: Color = glass.tint
+	var gm: Material
+	if hot:
+		# still glowing: the glass lit from within, orange-white
+		var hm := ShaderMaterial.new()
+		hm.shader = SpecWood.STONE
+		hm.set_shader_parameter("mode", 1)
+		hm.set_shader_parameter("seed", float(int(f.seed) % 97))
+		hm.set_shader_parameter("glow_col", Color(1.0, 0.55, 0.2))
+		gm = hm
+	else:
+		gm = SpecMat.make({col = Color(1, 1, 1), glass = true, frost = 0.22, thick = 1.0, seed = 7.0})
 	var milk := SpecMat.make({col = SpecMat.lin(0xe8e6e0), rough = 0.55})
 	var first: MeshInstance3D = null
 	var glass_at := []
+	var surf := PackedVector3Array()
+	# the throat and the thick roots open on their bore where they broke; the thin roots run out to points
+	var ends := {tip = "hollow", root = "hollow", kid_tip = "taper"}
 	for k in sk.size():
 		var br: Dictionary = sk[k]
 		var n: int = (br.pts as Array).size()
-		# stretches broken open to the glass
+		# stretches broken open to the glass, on the thicker roots
 		var cuts := []
-		var i := 1 + int(rng.next() * 3)
-		while i < n - 2:
-			if rng.next() < float(f.open) * 0.6:
-				var ln := 4 + int(rng.next() * 4)
-				cuts.append([i, mini(i + ln, n - 1)])
-				i += ln + 5
-			else:
-				i += 3 + int(rng.next() * 4)
-		var sand := SpecBranch.tube(br, {m = 16, sub = 3, lump = 0.3, ridge = 0.1, flat = 0.9, seed = int(f.seed) + k, glass = cuts}, false)
-		var mi := U.mesh(sand, sm, holder)
+		if int(br.depth) <= 1:
+			var i := 1 + int(rng.next() * 3)
+			while i < n - 2:
+				if rng.next() < float(f.open) * 0.6:
+					var ln := 4 + int(rng.next() * 4)
+					cuts.append([i, mini(i + ln, n - 1)])
+					i += ln + 5
+				else:
+					i += 3 + int(rng.next() * 4)
+		var e := ends.duplicate()
+		if int(br.depth) >= 1 and float(br.rad[br.rad.size() - 1]) > 0.035 and rng.next() < 0.5: e.kid_tip = "hollow"
+		var tg := SpecBranch.tube(br, {m = 16, sub = 3, lump = 0.3, ridge = 0.1, flat = 0.9, seed = int(f.seed) + k, glass = cuts, ends = e}, k == 0)
+		var mi := U.mesh(tg, sm, holder)
 		mi.set_meta("col", true)
 		if first == null: first = mi
+		for q in range(0, tg.v.size(), 23): surf.append(tg.v[q])
 		# the glass inside: a thinner smooth rod over each open stretch, a little longer than it
 		for c: Array in cuts:
 			var i0 := maxi(0, int(c[0]) - 1)
@@ -93,26 +144,107 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			for q in (br.rad as Array).slice(i0, i1 + 1): sub_r.append(float(q) * 0.75)
 			if sub_pts.size() < 3 or (sub_pts[0] as Vector3).distance_to(sub_pts[sub_pts.size() - 1]) < 0.02: continue
 			var gb := {pts = sub_pts, rad = sub_r, depth = 1, rnd = rng.next()}
-			var gg := SpecBranch.tube(gb, {m = 12, sub = 3, lump = 0.06, ridge = 0.03, flat = 0.95, seed = int(f.seed) + 99 + k}, true)
+			var gg := SpecBranch.tube(gb, {m = 12, sub = 3, lump = 0.06, ridge = 0.03, flat = 0.95, seed = int(f.seed) + 99 + k,
+				ends = {tip = "torn", root = "torn"}}, true)
 			gg.col.resize(gg.v.size())
 			gg.col.fill(tint)
 			var gi := U.mesh(gg, gm, holder)
 			gi.set_meta("col", true)
-			# the milky streak down its middle (where the sand only half melted), seen through the clear glass
-			var core_r: Array = []
-			for q in sub_r: core_r.append(float(q) * 0.3)
-			var cg := SpecBranch.tube({pts = sub_pts, rad = core_r, depth = 1, rnd = gb.rnd}, {m = 8, sub = 3, lump = 0.25, ridge = 0.05, flat = 0.7, seed = int(f.seed) + 7 + k}, true)
-			cg.col.resize(cg.v.size())
-			cg.col.fill(Color(1, 1, 1))
-			U.mesh(cg, milk, holder)
-			glass_at.append(sub_pts[int(sub_pts.size() / 2)])
-	holder.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 0.6) * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
+			if not hot:
+				# the milky streak down its middle (where the sand only half melted), seen through the clear glass
+				var core_r: Array = []
+				for q in sub_r: core_r.append(float(q) * 0.3)
+				var cg := SpecBranch.tube({pts = sub_pts, rad = core_r, depth = 1, rnd = gb.rnd}, {m = 8, sub = 3, lump = 0.25, ridge = 0.05, flat = 0.7,
+					seed = int(f.seed) + 7 + k}, true)
+				cg.col.resize(cg.v.size())
+				cg.col.fill(Color(1, 1, 1))
+				U.mesh(cg, milk, holder)
+			glass_at.append([sub_pts[int(sub_pts.size() / 2)], float(sub_r[0])])
+	# beads of iron the lightning reduced from the sand: little bright spheres on the glass and in the crust
+	if f.get("iron", false):
+		var im := SpecMat.make({col = SpecMat.lin(0x9a9894), metal = 1.0, rough = 0.18})
+		var bead := Geo.icosa(1.0, 2)
+		for k in 10 + int(rng.next() * 12):
+			if surf.is_empty(): break
+			var p: Vector3 = surf[int(rng.next() * surf.size())]
+			if glass_at.size() and rng.next() < 0.5:
+				var ga: Array = glass_at[int(rng.next() * glass_at.size())]
+				p = (ga[0] as Vector3) + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized() * float(ga[1]) * 0.9
+			var s := 0.006 + pow(rng.next(), 2.0) * 0.016
+			var bi := U.mesh(bead, im, holder, p, Basis.from_scale(Vector3.ONE * s))
+			bi.set_meta("col", true)
+	# dug out still in its sand: it stands, its roots going down into a heap of sand
+	var sand_mi: MeshInstance3D = null
+	if f.get("show", "loose") == "sand":
+		# the heap buries the lower half: the roots go down into it, the throat stands out
+		var bury := lo + (hi - lo) * 0.5
+		var reach := 0.0
+		for br: Dictionary in sk:
+			for q in br.pts:
+				if (q as Vector3).y < bury:
+					reach = maxf(reach, Vector2((q as Vector3).x, (q as Vector3).z).length())
+		var mg := _heap(rng, clampf(reach * 0.8, (hi - lo) * 0.25, (hi - lo) * 0.45), (hi - lo) * 0.5, int(f.seed))
+		sand_mi = U.mesh(mg, sm, holder, Vector3(0, lo - (hi - lo) * 0.05, 0))
+		sand_mi.set_meta("col", true)
+	if f.get("show", "loose") == "sand":
+		# upright, a little leaning, turned a bit to the viewer
+		holder.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 0.6) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.25) * Basis.from_scale(Vector3.ONE * gs * 0.9), Vector3(0, -(lo + hi) * 0.5 * gs * 0.9, 0))
+	else:
+		# lying loose: laid across the view, the throat to one side
+		holder.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 0.5) * Basis(Vector3.BACK, (0.9 + rng.next() * 0.5) * (1.0 if rng.next() < 0.5 else -1.0)) * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
+		holder.position = -(holder.transform.basis * Vector3(0, (lo + hi) * 0.5, 0))
+	# a fresh strike lights the sand round it
+	if hot:
+		var lamp := OmniLight3D.new()
+		lamp.light_color = Color(1.0, 0.5, 0.18)
+		lamp.light_energy = 1.4
+		lamp.omni_range = (hi - lo) * 0.9
+		lamp.position = Vector3(0, (lo + hi) * 0.5, 0.2)
+		holder.add_child(lamp)
+	# living lightning: the discharge runs down it again and again, sparks crackle over its crust, the glass flashes
+	if gene.fx == "discharge":
+		var bb := AABB(surf[0], Vector3.ZERO)
+		for q in surf: bb = bb.expand(q)
+		var bolt := SpecBolt.new()
+		holder.add_child(bolt)
+		if gm is ShaderMaterial and not hot:
+			bolt.glass = gm as ShaderMaterial
+		bolt.setup(bb, int(f.seed), Color(0.55, 0.65, 3.4), surf)
 	var xf := U.rel_xform(holder, root)
 	for k in mini(3, glass_at.size()):
-		b._mark("glass", xf * (glass_at[k] as Vector3), Vector3.BACK)
+		b._mark("glass", xf * (glass_at[k][0] as Vector3), Vector3.BACK)
+	var top: Array = sk[0].pts
+	b._mark("bore", xf * (top[0] as Vector3), (xf.basis * Vector3.UP).normalized())
 	for k in 2:
-		var br: Dictionary = sk[k % sk.size()]
+		var br: Dictionary = sk[mini(k + 1, sk.size() - 1)]
 		var pts: Array = br.pts
-		var p: Vector3 = pts[int(pts.size() * (0.3 + 0.4 * k))]
-		b._mark("sand", xf * (p + Vector3(0, float(br.rad[0]), 0)), Vector3.UP)
+		var p: Vector3 = pts[int(pts.size() * 0.4)]
+		b._mark("sand", xf * (p + Vector3(0, 0, float(br.rad[0]))), Vector3.BACK)
+		if float(f.get("froth", 0.0)) > 0.0: b._mark("froth", xf * (p + Vector3(0, float(br.rad[0]), 0)), Vector3.UP)
+	if f.get("iron", false) and surf.size(): b._mark("iron", xf * surf[surf.size() / 2], Vector3.BACK)
+	if hot and glass_at.size(): b._mark("hot", xf * (glass_at[0][0] as Vector3), Vector3.BACK)
 	return first
+
+## a heap of loose sand: a low mound, ripples and lumps on it
+static func _heap(rng: Rng32, rad: float, h: float, seed_v: int) -> Geo:
+	var nz := FastNoiseLite.new()
+	nz.seed = seed_v + 31
+	nz.frequency = 1.4
+	var g := Geo.new()
+	var na := 48
+	var nr := 16
+	for i in na + 1:
+		var a := TAU * float(i) / na
+		for j in nr + 1:
+			var t := float(j) / nr
+			var rr := rad * t * (1.0 + 0.15 * nz.get_noise_2d(cos(a) * 2.0, sin(a) * 2.0))
+			var y := h * pow(1.0 - t * t, 1.4) + h * 0.12 * nz.get_noise_2d(cos(a) * rr * 4.0, sin(a) * rr * 4.0) * (1.0 - t)
+			g.v.append(Vector3(cos(a) * rr, y, sin(a) * rr))
+			g.rp.append(Vector3(rr * 14.0, float(i) / na, 0.3))
+			g.col.append(Color(0, rng.next(), 0, 0.5))
+	for i in na:
+		for j in nr:
+			var p0 := i * (nr + 1) + j
+			var p1 := p0 + nr + 1
+			g.idx.append_array([p0, p1, p0 + 1, p0 + 1, p1, p1 + 1])
+	return g

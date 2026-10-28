@@ -29,6 +29,10 @@ uniform float hollow_opal = 0.0;
 uniform sampler2D fib_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D sand_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float scan_k = 0.8;
+// fulgurite: the glass lining its bore, how frothy its crust is, and a fresh strike (the glass still glowing)
+uniform vec3 c_glass : source_color = vec3(0.3, 0.33, 0.3);
+uniform float froth_k = 0.0;
+uniform float hot_k = 0.0;
 float lum3(vec3 c) { return dot(c, vec3(0.3, 0.5, 0.2)); }    // driftwood: its hollow packed with broken opal (1) or just rotten wood (0)
 
 varying vec3 v_op;
@@ -181,6 +185,18 @@ void fragment() {
 		}
 		ro = 0.9;
 		bk = 0.004 * r * 10.0;
+	} else if (COLOR.a > 0.9) {
+		// the bore's lining: smooth glass, darker the deeper (COLOR.b), with little bubbles; still glowing after a
+		// fresh strike, hottest deep in
+		float dp = COLOR.b;
+		float bub = smoothstep(0.75, 0.9, vn(p * 220.0));
+		c = lin(c_glass) * (1.0 - 0.75 * dp) * (0.85 + 0.25 * vn(p * 40.0));
+		c = mix(c, lin(c_glass) * 1.6 + 0.05, bub * 0.4);
+		em += vec3(1.0, 0.42, 0.1) * hot_k * (0.5 + 1.5 * dp) * (0.8 + 0.4 * vn(p * 30.0 + TIME * 0.4));
+		ro = 0.05;
+		coat = 1.0;
+		hgt = bub * 0.3;
+		bk = 0.002 * r * 10.0;
 	} else {
 		// where a glass stretch runs, the crust is broken away: ragged edge, a thin rim of fused grains
 		float gl = COLOR.b + (vn(vec3(p * 30.0)) - 0.5) * 0.5;
@@ -200,6 +216,18 @@ void fragment() {
 		hgt = grit + dark * 0.3;
 		ro = 0.95;
 		bk = 0.004 * r * 22.0;
+		// froth: the crust half melted to a foam of glass, round pits with glassy walls
+		if (froth_k > 0.0) {
+			vec3 vc = vor2(vec2(u * 2.2, a * 26.0) + rid);
+			float pit = (1.0 - smoothstep(0.1, 0.3, vc.x)) * step(1.0 - froth_k * 0.8, vc.z);
+			float wall = smoothstep(0.25, 0.32, vc.x) * (1.0 - smoothstep(0.32, 0.42, vc.x)) * step(1.0 - froth_k * 0.8, vc.z);
+			c = mix(c, lin(c_glass) * 0.35, pit * 0.85);
+			c = mix(c, mix(c, lin(c_glass), 0.5), wall * 0.6);
+			ro = mix(ro, 0.15, max(pit, wall));
+			hgt -= pit * 1.5;
+		}
+		// a fresh strike: the crust still hot by the glass
+		em += vec3(1.0, 0.35, 0.08) * hot_k * smoothstep(0.25, 0.5, COLOR.b) * 0.6;
 	}
 	NORMAL = bump(n, VERTEX, hgt * bk, 1.0);
 	ALBEDO = c;
