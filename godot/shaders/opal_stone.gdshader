@@ -43,12 +43,13 @@ void fragment() {
 		float face = clamp(dot(n, VIEW), 0.0, 1.0);
 		vec3 deep = body * (0.6 + 0.8 * fbm(p * 2.5 + seed + 8.0)) * (0.5 + 0.6 * face);
 		// milky potch in streaks and clouds through it, thickest at the rims
-		float potch = smoothstep(0.4, 0.66, fbm(p * 3.5 + seed + 3.0)) * 0.85 + fres * 0.5;
-		potch = clamp(potch, 0.0, 0.9);
+		float potch = smoothstep(0.55, 0.78, fbm(p * 3.5 + seed + 3.0)) * 0.5 + fres * 0.15;
+		potch = clamp(potch, 0.0, 0.6);
 		vec3 milk = lin(vec3(0.86, 0.84, 0.8)) * (0.8 + 0.25 * fbm(p * 14.0));
 		vec3 c = mix(deep + fire * 0.5, milk, potch);
 		ALBEDO = c;
-		EMISSION = (fire * 0.8 + deep * 0.12) * (1.0 - potch * 0.7) * (0.5 + flow_k * 0.4);
+		// clear fire opal glows through: its body lit from within, the play over it
+		EMISSION = (fire * 0.9 + deep * 0.5) * (1.0 - potch * 0.7) * (0.6 + flow_k * 0.4);
 		ROUGHNESS = 0.06;
 		CLEARCOAT = 1.0;
 		CLEARCOAT_ROUGHNESS = 0.03;

@@ -524,8 +524,10 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var gs: float = gene.scale
 	var dent := {t0 = 0.12, t1 = 0.78, a0 = rng.next(), wa = 0.2 + rng.next() * 0.08, depth = 0.3} if opal else \
 		{t0 = 0.22, t1 = 0.72, a0 = rng.next(), wa = 0.09, depth = 0.8}
-	var ms := SpecBranch.build(holder, sk, {m = 36, sub = 3, lump = 0.2, ridge = 0.06, flat = 0.85, seed = int(f.seed), dent = dent,
-		fibre = 0.5, twist = twist}, m)
+	# both ends grown out of the wood, never flat: the limbs snapped off in splinters, the foot torn or worn round
+	var ends := {tip = "torn", root = "torn" if rng.next() < 0.5 else "worn", kid_tip = "taper" if rng.next() < 0.7 else "torn"}
+	var ms := SpecBranch.build(holder, sk, {m = 48, sub = 3, lump = 0.2, ridge = 0.06, flat = 0.85, seed = int(f.seed), dent = dent,
+		fibre = 0.85, twist = twist, ends = ends}, m)
 	var tg: Geo = ms[0].get_meta("geo")
 	# the hollow's floor, and the trunk's bark outside it
 	var floor_pts := []
@@ -568,16 +570,17 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		if gene.fx == "dragonfire": om.set_shader_parameter("flow_k", 1.0)
 		# chunks packed into the hollow, big ones and small, standing a little proud of it: broken pieces, a few big
 		# flat facets each (an icosahedron pulled out of shape), so they read as broken glass-like stone
-		var n := 14 + int(rng.next() * 8)
+		var n := 22 + int(rng.next() * 10)
 		for k in n:
 			if floor_pts.is_empty(): break
-			# spread over the whole floor: each chunk from its own stretch of it
+			# spread over the whole floor: each chunk from its own stretch of it; big blocky pieces and small ones,
+			# packed tight, standing proud of the wood
 			var at: Array = floor_pts[clampi(int((float(k) + rng.next()) / n * floor_pts.size()), 0, floor_pts.size() - 1)]
-			var s := r0 * (0.08 + pow(rng.next(), 1.6) * 0.22)
+			var s := r0 * (0.1 + pow(rng.next(), 1.4) * 0.32)
 			var cg := _chunk(rng)
 			var nrm: Vector3 = at[1]
-			var bs := Basis(U.quat_to(Vector3.UP, nrm)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s)
-			var ci := U.mesh(cg, om, holder, (at[0] as Vector3) + nrm * s * 0.1, bs)
+			var bs := Basis(U.quat_to(Vector3.UP, nrm)) * Basis(Vector3.UP, rng.next() * TAU) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3(s, s * (0.7 + rng.next() * 0.5), s))
+			var ci := U.mesh(cg, om, holder, (at[0] as Vector3) + nrm * s * 0.25, bs)
 			ci.set_meta("col", true)
 	else:
 		# one long crystal lying in the split, glowing from inside, lighting the wood round it

@@ -63,8 +63,19 @@ void fragment() {
 		// a broken end: pale fibrous wood, splintery
 		float fib = vn(vec3(p * 140.0)) * 0.5 + vn(vec3(p * 40.0)) * 0.5;
 		c = lin(c_end) * (0.7 + 0.45 * fib);
+		if (mode == 1) {
+			// driftwood's torn end grain: growth rings round the middle (UV2.x is the distance from it), cracks out
+			// from the pith, greyed and dirty in the grooves
+			float rr = UV2.x * 60.0 + (vn(vec3(p * 12.0)) - 0.5) * 1.5;
+			float ring = smoothstep(0.65, 0.95, fract(rr));
+			float chk = 1.0 - smoothstep(0.0, 0.06, abs(vn(vec3(a * 7.0, rid, 2.0)) - 0.5));
+			c = mix(lin(c_end), lin(c_light) * 0.9, 0.35) * (0.75 + 0.35 * fib) * (1.0 - 0.3 * ring);
+			c = mix(c, lin(c_bark) * 0.25, chk * 0.8);
+			hgt = fib * 0.6 + ring * 0.5 - chk * 1.5;
+			bk = 0.004 * r * 10.0;
+		}
 		if (mode == 2) c = lin(c_light) * (0.75 + 0.3 * fib);
-		hgt = fib;
+		if (mode != 1) hgt = fib;
 	} else if (mode == 0) {
 		// plates: long cells along the branch, 7 round it; the bark between them a raised ridge
 		float N = 6.0;
@@ -120,7 +131,9 @@ void fragment() {
 		c = lin(c_light) * (0.7 + 0.4 * tone) * (0.85 + 0.25 * grit) * (0.75 + 0.35 * fl);
 		// the scan's own silver-grey and brown, over the crests
 		c = mix(c, scol * (0.75 + 0.5 * tone) * 1.15, scan_k * 0.6);
-		c = mix(lin(c_bark) * (0.45 + 0.3 * fl), c, smoothstep(0.25, 0.65, crest));
+		c = mix(lin(c_bark) * (0.22 + 0.25 * fl), c, smoothstep(0.3, 0.7, crest));
+		// the crests worn pale and smooth, silver
+		c *= 0.85 + 0.35 * smoothstep(0.6, 0.9, crest);
 		c = mix(c, lin(c_bark) * 0.2, crack);
 		hgt = fl * 0.8 - crack * 2.0 + grit * 0.3;
 		ro = 0.9;
@@ -135,7 +148,7 @@ void fragment() {
 			// clear body, milky potch in clouds, its fire in depth
 			vec2 fq = vec2(u * 1.3, a * 9.0);
 			vec3 fc = vor2w(fq + (vec2(vn(vec3(fq * 1.5, rid)), vn(vec3(fq * 1.5, rid + 4.0))) - 0.5) * 0.5, 9.0);
-			float gap = 1.0 - smoothstep(0.03, 0.08, fc.y);
+			float gap = 1.0 - smoothstep(0.012, 0.035, fc.y);
 			float into = smoothstep(0.25, 0.45, hol);
 			vec3 tilt = vec3(h3(vec3(fc.z * 91.0, 1.0, 2.0)), h3(vec3(fc.z * 37.0, 5.0, 1.0)), h3(vec3(fc.z * 53.0, 3.0, 7.0))) - 0.5;
 			vec3 fn2 = normalize(n + tilt * 1.1);
@@ -145,13 +158,13 @@ void fragment() {
 			vec3 body = opal_body_col(opal_body, q3, rid);
 			float face = clamp(dot(fn2, VIEW), 0.0, 1.0);
 			vec3 deep = body * (0.6 + 0.8 * fbm(q3 * 6.0 + 8.0)) * (0.5 + 0.6 * face);
-			float potch = clamp(smoothstep(0.4, 0.66, fbm(q3 * 9.0 + 3.0)) * 0.85, 0.0, 0.9);
+			float potch = clamp(smoothstep(0.55, 0.78, fbm(q3 * 9.0 + 3.0)) * 0.45, 0.0, 0.5);
 			vec3 milk = lin(vec3(0.86, 0.84, 0.8)) * (0.8 + 0.25 * fbm(q3 * 30.0));
 			vec3 oc = mix(deep + fire * 0.5, milk, potch);
 			float w_op = into * (1.0 - gap);
 			c = mix(c, oc, w_op);
 			c = mix(c, lin(c_bark) * (0.4 + 0.3 * fb), into * gap);
-			em += (fire * 0.8 + deep * 0.12) * (1.0 - potch * 0.7) * w_op * (0.5 + flow_k * 0.4);
+			em += (fire * 0.9 + deep * 0.5) * (1.0 - potch * 0.7) * w_op * (0.6 + flow_k * 0.4);
 			ro = mix(ro, 0.06, w_op);
 			coat = w_op;
 			n = normalize(mix(n, fn2, w_op));

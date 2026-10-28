@@ -100,8 +100,9 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 		cs.append(_cr(pts, k))
 		var i0 := mini(int(floor(k)), rad.size() - 2)
 		rs.append(lerpf(rad[i0], rad[i0 + 1], k - i0))
-	# the broken tip: the last rings close in fast and unevenly
-	var tip := mini(4, nr - 2)
+	# the broken tip: the last rings close in fast and unevenly (unless the ends are grown out of the tube, `ends`)
+	var ends: Dictionary = o.get("ends", {})
+	var tip := 0 if not ends.is_empty() else mini(4, nr - 2)
 	# frames carried along (parallel transport), so the tube never twists by itself
 	var tg := (cs[1] - cs[0]).normalized()
 	if not tg.is_normalized():
@@ -130,7 +131,7 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 			var fv := 0.5
 			if fibre > 0.0:
 				var at := a + u * twist * 0.1
-				fv = clampf(fz.get_noise_3d(cos(at) * 3.2, sin(at) * 3.2, u * 0.05 + rid * 20.0) * 0.5 + 0.5, 0.0, 1.0)
+				fv = clampf(fz.get_noise_3d(cos(at) * 4.5, sin(at) * 4.5, u * 0.05 + rid * 20.0) * 0.5 + 0.5, 0.0, 1.0)
 				l += (fv - 0.5) * fibre
 			var dm := 0.0
 			for gs: Array in glass:
@@ -145,12 +146,12 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 				l *= 1.0 - float(dent.depth) * dm
 			var pos := cs[i] + dv * r * l * close
 			# the very end breaks off ragged: its last ring pushed in and out along the branch
-			if i == nr - 1:
+			if i == nr - 1 and ends.is_empty():
 				pos += t2 * r * (nz.get_noise_2d(a * 2.0, 7.0 + rid * 10.0)) * 0.9
 			g.v.append(pos)
 			grid.append(pos)
 			g.rp.append(Vector3(u, float(j) / m, r * close))
-			g.col.append(Color(1.0 if i == nr - 1 else 0.0, rid, dm, fv))
+			g.col.append(Color(1.0 if i == nr - 1 and ends.is_empty() else 0.0, rid, dm, fv))
 	var row := m + 1
 	for i in nr - 1:
 		for j in m:
@@ -170,12 +171,118 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 			if n.dot(grid[i * row + jj] - cs[i]) < 0.0:
 				n = -n
 			g.own_n[i * row + j] = n
+	if not ends.is_empty():
+		_wind(g)
+		# the ends grow out of the tube itself: the tip, and the trunk's foot
+		_end(g, nr - 1, m, cs[nr - 1], (cs[nr - 1] - cs[nr - 2]).normalized(), rs[nr - 1], String(ends.get("tip", "torn")) if root else String(ends.get("kid_tip", "taper")), fz, nz, rid, u, twist)
+		if root:
+			_end(g, 0, m, cs[0], -(cs[1] - cs[0]).normalized(), rs[0], String(ends.get("root", "worn")), fz, nz, rid, 0.0, twist)
+		return g
 	# the broken end: a jagged cap, fibrous (COLOR.r 1); the trunk's foot: closed flat
 	_cap(g, nr - 1, row, m, cs[nr - 1] + (cs[nr - 1] - cs[nr - 2]).normalized() * rs[nr - 1] * 0.15, (cs[nr - 1] - cs[nr - 2]).normalized(), u, rid)
 	if root:
 		_cap(g, 0, row, m, cs[0], -(cs[1] - cs[0]).normalized(), 0.0, rid)
 	_wind(g)
 	return g
+
+## an end grown out of the tube's ring `ring` (its m corners), going on along `axis`: "torn" — snapped across the
+## grain, each fibre (a column round the ring) breaking off at its own length, so long splinters stand out of a
+## ragged stump, the inner wood torn at other lengths; "worn" — rubbed round by water and sand, a blunt dome whose
+## fibre ridges run on over it. Weathered all over, like the rest (COLOR.r 0); the fibre height carried on (COLOR.a)
+static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: float, mode: String, fz: FastNoiseLite, nz: FastNoiseLite, rid: float, u0: float, twist: float) -> void:
+	var row := m + 1
+	var K := 16
+	# a worn end: a blunt dome on a stump; "taper" — a worn limb's tip, long, narrowing to a rounded point
+	var wl := 0.55
+	if mode == "taper":
+		mode = "worn"
+		wl = 1.3
+	var torn := mode == "torn"
+	var lens: Array[float] = []
+	for j in m:
+		var a := TAU * float(j) / m
+		if torn:
+			# a few splinters standing out of the rim, the rest of the break low
+			var sp := nz.get_noise_2d(cos(a) * 1.3 + rid * 40.0, sin(a) * 1.3) * 0.5 + 0.5
+			lens.append(r * 1.3 * pow(smoothstep(0.58, 0.9, sp), 1.4))
+		else:
+			lens.append(r * (wl + 0.25 * nz.get_noise_2d(a * 2.0, rid * 9.0 + 4.0)))
+	# a torn end breaks slant: a tilted, uneven face
+	var tilt_a := rid * 37.0
+	var tilt_k := 0.45 + 0.5 * (nz.get_noise_2d(rid * 11.0, 3.0) * 0.5 + 0.5)
+	var first := g.v.size()
+	var prev: Array[int] = []
+	for j in m + 1:
+		prev.append(ring * row + j)
+	var rings: Array = [prev]
+	for k in range(1, K + 1):
+		var t := float(k) / K
+		var cur: Array[int] = []
+		for j in m + 1:
+			var jj := j % m
+			var b: Vector3 = g.v[ring * row + jj]
+			var off := b - ctr
+			off -= axis * off.dot(axis)
+			var a := TAU * float(jj) / m
+			# the fibre ridges die out inwards: no star of them meeting in the middle
+			off = off.lerp(off.normalized() * r, smoothstep(0.0, 0.45, t))
+			var radial: float
+			var along: float
+			if torn:
+				# the face: tilted, rough, stepped a little; the splinters rise from the rim and taper inwards
+				radial = 1.0 - t
+				var d2 := Vector2(cos(a), sin(a)) * radial
+				along = r * tilt_k * (d2.x * cos(tilt_a) + d2.y * sin(tilt_a) + 1.0) * 0.6
+				# snapped in steps along the grain: two or three ledges, their edges ragged, rough all over
+				var lv := nz.get_noise_3d(d2.x * 1.6 + 5.0, d2.y * 1.6, rid * 17.0) * 0.5 + 0.5
+				var ls := lv * 3.0
+				along += r * 0.5 * (floor(ls) + smoothstep(0.75, 1.0, ls - floor(ls))) / 3.0
+				along += r * 0.2 * nz.get_noise_3d(d2.x * 4.0, d2.y * 4.0, rid * 13.0)
+				along += lens[jj] * pow(1.0 - t, 1.2) * (1.0 - 0.4 * t)
+				# a splinter thins as it rises
+				if lens[jj] > r * 0.1: radial *= lerpf(1.0, 0.82, smoothstep(0.0, 0.4, t))
+			else:
+				radial = cos(t * PI * 0.5)
+				along = lens[jj] * sin(t * PI * 0.5)
+			var pos := ctr + off * radial + axis * along
+			if not torn:
+				# its fibre ridges run on over the dome, fading towards the middle
+				var at := a + (u0 + along / maxf(r, 0.01)) * twist * 0.1
+				pos += off.normalized() * (fz.get_noise_3d(cos(at) * 3.2, sin(at) * 3.2, rid * 20.0)) * r * 0.25 * radial
+			g.v.append(pos)
+			var src_rp := g.rp[ring * row + jj]
+			g.rp.append(Vector3(src_rp.x + along / maxf(r, 0.01) * signf(1.0), src_rp.y, r * maxf(radial, 0.15)))
+			var fv := g.col[ring * row + jj].a
+			# a torn face shows its end grain (COLOR.r 1, the shader's broken wood) inside its weathered rim
+			var face := smoothstep(0.12, 0.3, t) if torn else 0.0
+			g.col.append(Color(face, rid, 0.0, lerpf(fv, 0.5, smoothstep(0.0, 0.4, t))))
+			g.own_n.append(Vector3.ZERO)
+			cur.append(g.v.size() - 1)
+		rings.append(cur)
+	# quads between rings, each turned to face out (away from a point back inside the tube)
+	var back := ctr - axis * r
+	for k in K:
+		var r0: Array = rings[k]
+		var r1: Array = rings[k + 1]
+		for j in m:
+			for tri in [[r0[j], r1[j], r0[j + 1]], [r0[j + 1], r1[j], r1[j + 1]]]:
+				var ia: int = tri[0]
+				var ib: int = tri[1]
+				var ic: int = tri[2]
+				var n := (g.v[ib] - g.v[ia]).cross(g.v[ic] - g.v[ia])
+				var mid := (g.v[ia] + g.v[ib] + g.v[ic]) / 3.0
+				if n.dot(mid - back) < 0.0:
+					var t := ib
+					ib = ic
+					ic = t
+					n = -n
+				g.idx.append_array([ia, ib, ic])
+				# normals: the faces round each new corner, summed
+				for q in [ia, ib, ic]:
+					if q >= first:
+						g.own_n[q] += n
+	for q in range(first, g.v.size()):
+		g.own_n[q] = g.own_n[q].normalized() if g.own_n[q].length() > 1e-9 else axis
 
 static func _cap(g: Geo, i: int, row: int, m: int, ctr: Vector3, out: Vector3, u: float, rid: float) -> void:
 	var c := g.v.size()
