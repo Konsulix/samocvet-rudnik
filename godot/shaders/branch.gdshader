@@ -72,6 +72,15 @@ void fragment() {
 			c = mix(lin(c_end), lin(c_light) * 0.9, 0.35) * (0.75 + 0.35 * fib) * (1.0 - 0.3 * ring);
 			c = mix(c, lin(c_bark) * 0.25, chk * 0.8);
 			hgt = fib * 0.6 + ring * 0.5 - chk * 1.5;
+			if (COLOR.a > 0.9) {
+				// split along the grain (a long slant): pale fresh inner wood in streaks down its length, darker fibres
+				vec2 fuv = vec2(u * 0.18, a * 1.5 + rid * 0.1);
+				float sg = clamp(lum3(texture(fib_tex, fuv).rgb) / max(lum3(textureLod(fib_tex, fuv, 5.0).rgb), 0.03), 0.3, 1.9);
+				float streak = vn(vec3(u * 1.2, a * 24.0, rid)) * 0.55 + vn(vec3(u * 3.0, a * 70.0, rid)) * 0.3 + vn(p * 90.0) * 0.15;
+				c = mix(lin(vec3(0.64, 0.56, 0.45)), lin(c_light), 0.3) * (0.62 + 0.45 * streak) * (0.8 + 0.25 * sg);
+				c = mix(c, lin(c_bark) * 0.35, smoothstep(0.7, 0.9, 1.0 - streak) * 0.5);
+				hgt = streak * 1.2 + sg * 0.4;
+			}
 			bk = 0.004 * r * 10.0;
 		}
 		if (mode == 2) c = lin(c_light) * (0.75 + 0.3 * fib);

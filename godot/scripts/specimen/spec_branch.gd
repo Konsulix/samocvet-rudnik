@@ -215,6 +215,9 @@ static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: floa
 	if mode == "taper":
 		mode = "worn"
 		wl = 1.3
+	if mode == "spear":
+		_spear(g, ring, m, ctr, axis, r, nz, rid)
+		return
 	var torn := mode == "torn"
 	var lens: Array[float] = []
 	for j in m:
@@ -277,12 +280,15 @@ static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: floa
 			g.own_n.append(Vector3.ZERO)
 			cur.append(g.v.size() - 1)
 		rings.append(cur)
-	# quads between rings, each turned to face out (away from a point back inside the tube)
-	var back := ctr - axis * r
-	for k in K:
+	_bridge(g, rings, first, ctr - axis * r, axis)
+
+## faces between successive rings of corner indices (each ring m + 1, the last repeating the first), each turned to
+## face out (away from `back`, a point inside the wood); smooth normals for the corners from `first` on
+static func _bridge(g: Geo, rings: Array, first: int, back: Vector3, axis: Vector3) -> void:
+	for k in rings.size() - 1:
 		var r0: Array = rings[k]
 		var r1: Array = rings[k + 1]
-		for j in m:
+		for j in r0.size() - 1:
 			for tri in [[r0[j], r1[j], r0[j + 1]], [r0[j + 1], r1[j], r1[j + 1]]]:
 				var ia: int = tri[0]
 				var ib: int = tri[1]
@@ -295,12 +301,73 @@ static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: floa
 					ic = t
 					n = -n
 				g.idx.append_array([ia, ib, ic])
-				# normals: the faces round each new corner, summed
 				for q in [ia, ib, ic]:
 					if q >= first:
 						g.own_n[q] += n
 	for q in range(first, g.v.size()):
 		g.own_n[q] = g.own_n[q].normalized() if g.own_n[q].length() > 1e-9 else axis
+
+## a spear end: snapped on a long slant, so one side of the trunk runs on far past the other and ends in a point —
+## its weathered wall climbing to the slant, then the slant itself (torn grain, COLOR.r 1) back across to the low side
+static func _spear(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: float, nz: FastNoiseLite, rid: float) -> void:
+	var row := m + 1
+	var a0 := rid * 53.0
+	var S := r * (2.8 + 1.6 * (nz.get_noise_2d(rid * 7.0, 11.0) * 0.5 + 0.5))
+	var hs: Array[float] = []
+	for j in m:
+		var a := TAU * float(j) / m
+		var w := pow((1.0 + cos(a - a0)) * 0.5, 2.4)
+		# the slant's edge ragged: torn fibres stand a little above it here and there
+		hs.append(S * w + r * 0.18 * absf(nz.get_noise_2d(a * 5.0, rid * 3.0)) + r * 0.06)
+	var first := g.v.size()
+	var rings: Array = []
+	var prev: Array[int] = []
+	for j in m + 1:
+		prev.append(ring * row + j)
+	rings.append(prev)
+	var KW := 14
+	var KF := 10
+	for k in range(1, KW + KF + 1):
+		var cur: Array[int] = []
+		for j in m + 1:
+			var jj := j % m
+			var a := TAU * float(jj) / m
+			var b: Vector3 = g.v[ring * row + jj]
+			var off := b - ctr
+			off -= axis * off.dot(axis)
+			var pos: Vector3
+			var face := 0.0
+			if k <= KW:
+				# the wall climbing to the slant; the high side thins as it rises, into a splinter
+				var sw := float(k) / KW
+				var h: float = hs[jj] * sw
+				# the high side narrows into a splinter: squeezed in towards its own side of the trunk
+				var thin := 1.0 - 0.55 * smoothstep(0.25, 1.0, h / S)
+				pos = ctr + off * thin + axis * h
+			else:
+				# the slant: from the rim back to the trunk's middle line, low there, rough
+				var t := float(k - KW) / KF
+				var thin := 1.0 - 0.55 * smoothstep(0.25, 1.0, hs[jj] / S)
+				var hc := S * 0.3
+				# torn along the grain: ridges and grooves running down the slant, splinters lifting at its edge
+				var gr := absf(nz.get_noise_2d(a * 7.0, rid * 5.0))
+				var h := lerpf(hs[jj], hc, t) + r * 0.2 * nz.get_noise_3d(cos(a) * 2.5 * (1.0 - t), sin(a) * 2.5 * (1.0 - t), rid * 13.0 + t * 1.5) + r * 0.12 * gr * (1.0 - t)
+				pos = ctr + off * thin * (1.0 - t) + axis * h
+				face = smoothstep(0.0, 0.25, t)
+			g.v.append(pos)
+			var src_rp := g.rp[ring * row + jj]
+			# on the slant, UV.y runs across it (square to the long side): the grain's streaks run down it in parallel
+			var across := src_rp.y
+			if k > KW:
+				var sd := Vector3(cos(a0 + PI * 0.5), sin(a0 + PI * 0.5), 0.0)
+				across = 0.5 + 0.5 * (cos(a) * sd.x + sin(a) * sd.y) * (1.0 - float(k - KW) / KF * 0.5)
+			g.rp.append(Vector3(src_rp.x + (pos - ctr).dot(axis) / maxf(r, 0.01), across, r * (1.0 - (float(k - KW) / KF if k > KW else 0.0))))
+			# COLOR.a 0.95 on the slant: the shader draws it as wood split along its grain, not an end's rings
+			g.col.append(Color(face, rid, 0.0, g.col[ring * row + jj].a if face < 0.5 else 0.95))
+			g.own_n.append(Vector3.ZERO)
+			cur.append(g.v.size() - 1)
+		rings.append(cur)
+	_bridge(g, rings, first, ctr - axis * r, axis)
 
 static func _cap(g: Geo, i: int, row: int, m: int, ctr: Vector3, out: Vector3, u: float, rid: float) -> void:
 	var c := g.v.size()

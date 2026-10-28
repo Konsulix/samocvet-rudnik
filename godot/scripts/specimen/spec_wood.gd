@@ -68,7 +68,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	# driftwood: weathered grey wood with something set in a hollow of it — opal, or a crystal glowing from inside;
 	# sometimes fungi growing on it
 	g.core = Stones.pick_w([["opal", 3.0], ["crystal", 1.5]], rng)
-	g.fungi = rng.next() < (0.6 if g.core == "crystal" else 0.25)
+	g.fungi = rng.next() < (0.85 if g.core == "crystal" else 0.5)
 	for k in ["core", "fungi"]:
 		if o.has(k): g[k] = o[k]
 	if g.show == "driftwood" and g.core == "opal": g.opal = maxf(float(g.opal), 0.5)
@@ -130,7 +130,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"heart_citrine": return "citrine heart"
 		"glow_core": return "glowing crystal heart"
 		"grain": return "twisted grain"
-		"fungi": return "jelly fungus"
+		"fungi": return "honey fungus"
 	return ""
 
 # ---------------------------------------------------------------- shape
@@ -526,7 +526,11 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		{t0 = 0.2, t1 = 0.75, a0 = rng.next(), wa = 0.13, depth = 0.75}
 	# both ends grown out of the wood, never flat: the limbs snapped off in splinters, the foot torn or worn round
 	# a crystal's limb keeps only snapped-off stubs of its side branches
-	var ends := {tip = "torn", root = "torn" if rng.next() < 0.65 else "worn", kid_tip = ("taper" if rng.next() < 0.7 else "torn") if opal else "torn"}
+	# the ends: snapped on a long slant (one side running on into a point), or torn, or worn round
+	# (a stump's foot never a spear: it stood in the ground)
+	var ends := {tip = "spear" if rng.next() < (0.9 if not opal else 0.5) else "torn",
+		root = ("spear" if rng.next() < 0.7 else "torn") if not opal else ("torn" if rng.next() < 0.6 else "worn"),
+		kid_tip = ("taper" if rng.next() < 0.7 else "torn") if opal else "torn"}
 	var ms := SpecBranch.build(holder, sk, {m = 56, sub = 4, lump = 0.06, ridge = 0.04, flat = 0.8, seed = int(f.seed), dent = dent,
 		fibre = 1.0, twist = twist, ends = ends}, m)
 	var tg: Geo = ms[0].get_meta("geo")
@@ -647,23 +651,27 @@ static func _chunk(rng: Rng32) -> Geo:
 		g.v[i] = g.v[i] * float(dirs[key]) * sc
 	return g
 
-## jelly fungi: lumpy clusters of glossy brown-orange blobs on the wood, and little mushrooms by them
+## mushrooms on the wood: tufts of honey fungus, and now and then a lump of jelly fungus
 static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float) -> void:
+	# tufts of honey fungus all along the wood, crowded, a few big caps among buttons; now and then a lump of jelly
+	# fungus beside one
 	var jm := SpecMat.make({col = SpecMat.lin(0x7a4424), rough = 0.3, coat = 0.5, coat_r = 0.2})
 	var ball := Geo.icosa(1.0, 2)
-	for c in 2 + int(rng.next() * 2):
-		var at: Array = spots[int(rng.next() * spots.size())]
+	var n := 3 + int(rng.next() * 3)
+	for c in n:
+		# each tuft from its own stretch of the wood
+		var lo := int(float(c) / n * spots.size())
+		var hi := maxi(lo + 1, int(float(c + 1) / n * spots.size()))
+		var at: Array = spots[clampi(lo + int(rng.next() * (hi - lo)), 0, spots.size() - 1)]
 		var p0: Vector3 = at[0]
-		var n0: Vector3 = at[1]
-		var t1 := n0.cross(Vector3.UP if absf(n0.y) < 0.9 else Vector3.RIGHT).normalized()
-		var t2 := n0.cross(t1)
-		# many small lobes heaped and run together, a few bigger ones in the middle
-		for k in 22 + int(rng.next() * 14):
-			var s := r0 * (0.03 + pow(rng.next(), 2.5) * 0.09)
-			var spread := r0 * 0.5 * (0.4 + 0.6 * float(k) / 36.0)
-			var off := (t1 * (rng.next() - 0.5) + t2 * (rng.next() - 0.5)) * spread
-			var q := p0 + off + n0 * s * (0.3 + rng.next() * 0.6)
-			var mi := U.mesh(ball, jm, holder, q, Basis(Vector3(rng.next(), rng.next(), rng.next()).normalized(), rng.next() * TAU) * Basis.from_scale(Vector3(s, s * (0.75 + rng.next() * 0.4), s)))
-			mi.set_meta("col", true)
-		var near := spots.filter(func(sp: Array) -> bool: return (sp[0] as Vector3).distance_to(p0) < r0 * 0.8)
-		SpecFungi.cluster(holder, rng, near, 1, 4 + int(rng.next() * 4), r0 * 0.3)
+		var near := spots.filter(func(sp: Array) -> bool: return (sp[0] as Vector3).distance_to(p0) < r0 * 1.1)
+		SpecFungi.cluster(holder, rng, near, 4, 16 + int(rng.next() * 14), r0 * (0.6 + rng.next() * 0.25))
+		if rng.next() < 0.3:
+			var n0: Vector3 = at[1]
+			var t1 := n0.cross(Vector3.UP if absf(n0.y) < 0.9 else Vector3.RIGHT).normalized()
+			var t2 := n0.cross(t1)
+			for k in 10 + int(rng.next() * 8):
+				var sz := r0 * (0.03 + pow(rng.next(), 2.5) * 0.07)
+				var q := p0 + (t1 * (rng.next() - 0.5) + t2 * (rng.next() - 0.5)) * r0 * 0.35 + n0 * sz * 0.5
+				var mi := U.mesh(ball, jm, holder, q, Basis(Vector3(rng.next(), rng.next(), rng.next()).normalized(), rng.next() * TAU) * Basis.from_scale(Vector3(sz, sz * 0.8, sz)))
+				mi.set_meta("col", true)

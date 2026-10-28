@@ -8,7 +8,7 @@ extends RefCounted
 ## Decisions and placement use their own random stream (seeded from the stone), so stones that already
 ## existed keep every other gene exactly as they were.
 
-const NAMES := ["fly agarics", "chanterelles", "porcini", "glowing mycena"]
+const NAMES := ["fly agarics", "chanterelles", "porcini", "glowing mycena", "honey fungus"]
 
 ## profile points [r, y, region]: region 0 stem, 0.5 underside (gills or sponge), 1 cap.
 ## Bottom to top, out along the underside, then over the cap back to the axis.
@@ -29,6 +29,11 @@ const KINDS := [
 		[0.14, 0.84, 1], [0.09, 0.93, 1], [0.04, 0.98, 1], [0.0, 1.0, 1]],
 		cap_a = Color(0.5, 0.52, 0.38), cap_b = Color(0.72, 0.72, 0.55), gill = Color(0.75, 0.82, 0.6), stem = Color(0.7, 0.72, 0.6),
 		cap_r = 0.16, spots = 0.0, gills = 18.0, pores = 0.0, glow = 1.0, rough = 0.5, wave = 0.0},
+	# honey fungus: on dead wood only (driftwood), in crowded tufts — thin pale stems, rounded tawny caps
+	{prof = [[0.0, 0.0, 0], [0.045, 0.0, 0], [0.036, 0.25, 0], [0.032, 0.5, 0], [0.034, 0.56, 0], [0.034, 0.56, 0.5], [0.12, 0.58, 0.5],
+		[0.2, 0.57, 0.5], [0.22, 0.6, 1], [0.21, 0.67, 1], [0.16, 0.74, 1], [0.08, 0.78, 1], [0.0, 0.79, 1]],
+		cap_a = Color(0.2, 0.065, 0.018), cap_b = Color(0.48, 0.19, 0.05), gill = Color(0.46, 0.32, 0.17), stem = Color(0.42, 0.27, 0.14),
+		cap_r = 0.22, spots = 0.0, gills = 30.0, pores = 0.0, glow = 0.0, rough = 0.38, wave = 0.0},
 ]
 
 const SHADER := """
