@@ -13,6 +13,11 @@ const U := preload("res://scripts/specimen/spec_util.gd")
 const PETAL := preload("res://shaders/petal.gdshader")
 const WING := preload("res://shaders/wing.gdshader")
 const HOST := preload("res://shaders/host.gdshader")
+const AMBER := preload("res://shaders/amber.gdshader")
+## amber's colour: how fast it swallows red, green and blue along the way through it (per unit of the stone's
+## radius) — thin it is pale, thick it deepens: lemon, honey, cognac, cherry
+const TONES := {lemon = [Vector3(0.02, 0.14, 1.5), 1.5], honey = [Vector3(0.04, 0.32, 2.2), 4.0],
+	cognac = [Vector3(0.15, 0.75, 3.0), 3.0], cherry = [Vector3(0.5, 1.8, 3.5), 1.0]}
 
 ## petal colours: [name, base, sheen/rim, eye, eye reach, spots, stripes, sheen strength]
 const LOOKS := [
@@ -52,17 +57,29 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	g.insect = Stones.pick_w(INSECTS, rng)
 	g.petals = 5 + int(rng.next() * 3)
 	g.leaves = int(Stones.pick_w([[0, 2.0], [1, 2.0], [2, 2.0], [3, 1.0]], rng))
-	g.gold = rng.next() < 0.3 or "goldfleck" in tr
+	g.gold = (rng.next() < 0.3 or "goldfleck" in tr) and g.host != "amber" and g.host != "copal"
 	g.seed = int(rng.next() * 100000.0)
 	g.bare = false   # showcases: what it holds, without its stone
-	for k in ["host", "content", "bloom", "look", "insect", "petals", "leaves", "gold", "bare"]:
+	# resin: its colour, sun spangles (disc cracks that flash gold), a weathered crust left on, a polished window,
+	# milky clouds
+	var tw := []
+	for k: String in TONES: tw.append([k, float(TONES[k][1])])
+	g.tone = "lemon" if g.host == "copal" else Stones.pick_w(tw, rng)
+	g.spangle = rng.next() < 0.3
+	g.crust = 0.0 if rng.next() < 0.6 else 0.2 + rng.next() * 0.6
+	g.window = rng.next() < 0.4
+	g.cloud = 0.0 if rng.next() < 0.8 else 0.3 + rng.next() * 0.5
+	if g.host == "copal": g.cloud = maxf(float(g.cloud), 0.25)
+	for k in ["host", "content", "bloom", "look", "insect", "petals", "leaves", "gold", "bare", "tone", "spangle", "crust", "window", "cloud"]:
 		if o.has(k): g[k] = o[k]
+	if g.host == "copal" and not o.has("tone"): g.tone = "lemon"
 	return g
 
 static func accents(g: Dictionary) -> Array:
 	var out := [{flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(g.content, "insect"), "stone"]
 	if g.content == "flower" and int(g.leaves) > 0: out.append("leaves")
 	if g.gold: out.append("gold_dust")
+	if g.host in ["amber", "copal"] and g.get("spangle", false): out.append("spangles")
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
@@ -70,7 +87,8 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"flower": return "%s %s" % [LOOKS[int(g.look)][0], {star = "star flower", rose = "rose", daisy = "daisy", bell = "bellflower",
 			blossom = "blossom", poppy = "poppy"}.get(g.bloom, "flower")]
 		"insect": return {ant = "ant", beetle = "beetle", fly = "fly", mosquito = "mosquito", spider = "spider"}.get(g.insect, "insect")
-		"stone": return String(HOSTS[g.host][0])
+		"stone": return String(HOSTS[g.host][0]) if not g.host == "amber" else "%s Baltic amber" % g.get("tone", "honey")
+		"spangles": return "sun spangles"
 		"leaves": return "leaves"
 		"fern": return "fern frond"
 		"feather": return "feather"
@@ -421,6 +439,72 @@ static func _stone(rng: Rng32, resin: bool) -> Geo:
 			g.own_n[vi] = acc.normalized()
 	return g
 
+## amber: a polished free-form pebble — smooth all over, flattened, its outline in soft lobes; sometimes a flat
+## polished window on its face (a sharp edge round it). Raw pieces are lumpier.
+static func _resin(rng: Rng32, f: Dictionary) -> Geo:
+	var g := Geo.icosa(1.0, 5).to_soup()
+	var nz := FastNoiseLite.new()
+	nz.seed = int(rng.next() * 100000.0)
+	nz.frequency = 0.55
+	nz.fractal_octaves = 2
+	var bumps := FastNoiseLite.new()
+	bumps.seed = nz.seed + 7
+	bumps.frequency = 2.2
+	var raw := float(f.crust) > 0.0
+	var flat := 0.5 + rng.next() * 0.18
+	var sc := Vector3(1.05 + rng.next() * 0.3, 0.8 + rng.next() * 0.25, flat)
+	var win := 0.78 + rng.next() * 0.1 if f.window else 9.0
+	for i in g.v.size():
+		var d := g.v[i].normalized()
+		# lobes of the outline (around z), a drop-like taper to one end
+		var r := 1.0 + nz.get_noise_3d(d.x * 1.2, d.y * 1.2, 0.0) * 0.32 + nz.get_noise_3dv(d * 1.6) * 0.1
+		r += d.x * 0.08
+		if raw: r += bumps.get_noise_3dv(d) * 0.05
+		var p := d * r * sc
+		if p.z > win * flat: p.z = win * flat
+		g.v[i] = p
+	g.col.resize(g.v.size())
+	g.orient_out()
+	_smooth(g, 0.45 if f.window else -1.0)
+	return g
+
+## normals averaged over the faces round each corner — all of them, or only those within `keep` of each other
+## (a sharp edge where a flat cut meets the round)
+static func _smooth(g: Geo, keep: float) -> void:
+	var fn := []
+	var at := {}
+	for k in g.tri_count():
+		var t := g.tri(k)
+		var n := (t[1] - t[0]).cross(t[2] - t[0]).normalized()
+		if n.dot((t[0] + t[1] + t[2]) / 3.0) < 0.0: n = -n
+		fn.append(n)
+		for q in 3:
+			var key := t[q].snapped(Vector3.ONE * 0.0001)
+			if not at.has(key): at[key] = []
+			(at[key] as Array).append(k)
+	g.own_n.resize(g.v.size())
+	for k in g.tri_count():
+		for q in 3:
+			var vi := k * 3 + q
+			var acc := Vector3.ZERO
+			for o in at[g.v[vi].snapped(Vector3.ONE * 0.0001)]:
+				if (fn[o] as Vector3).dot(fn[k]) > keep: acc += fn[o]
+			g.own_n[vi] = acc.normalized()
+
+static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = AMBER
+	m.set_shader_parameter("sigma", TONES[f.get("tone", "honey")][0])
+	var bb := g.aabb()
+	m.set_shader_parameter("axes", Vector3(maxf(-bb.position.x, bb.end.x), maxf(-bb.position.y, bb.end.y), maxf(-bb.position.z, bb.end.z)) * 1.04)
+	m.set_shader_parameter("spangle_k", 1.0 if f.get("spangle", false) else 0.0)
+	m.set_shader_parameter("crust_k", f.get("crust", 0.0))
+	m.set_shader_parameter("cloud_k", f.get("cloud", 0.0))
+	m.set_shader_parameter("dirt_k", 0.3 + float(int(f.seed) % 7) / 7.0 * 0.7)
+	m.set_shader_parameter("flow_k", 0.6 if f.host == "amber" else 0.35)
+	m.set_shader_parameter("seed", float(int(f.seed) % 97) * 0.7)
+	return m
+
 static func host_mat(f: Dictionary) -> ShaderMaterial:
 	var h: Array = HOSTS[f.host]
 	var m := ShaderMaterial.new()
@@ -452,16 +536,24 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var inner := Node3D.new()
 	holder.add_child(inner)
 	var marks := []
+	var resin: bool = f.host in ["amber", "copal"]
+	# amber: a flattened pebble turned to show its face (the viewer turns every find 0.6 about y), what it holds
+	# lies in it flat, smaller, off the middle; quartz: a round lump, the flower facing the viewer
+	var face := Basis.IDENTITY if resin else Basis(Vector3.UP, -0.6)
+	var at := Vector3((rng.next() - 0.5) * 0.4, (rng.next() - 0.5) * 0.3, (rng.next() - 0.5) * 0.1) if resin else Vector3.ZERO
+	var lie := Basis(Vector3.BACK, rng.next() * TAU) * Basis(Vector3.RIGHT, PI / 2) if resin else Basis.IDENTITY
 	if f.content in ["fern", "feather"]:
-		inner.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 0.6) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * (1.4 if f.content == "feather" else 1.1)), Vector3.ZERO)
+		var k := (1.05 if f.content == "feather" else 0.85) if resin else (1.4 if f.content == "feather" else 1.1)
+		inner.transform = Transform3D(face * Basis(Vector3.UP, (rng.next() - 0.5) * 0.6) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * k), at)
 		marks = _fern(inner, rng, f) if f.content == "fern" else _feather(inner, rng, f)
 	elif f.content == "insect":
 		# caught as it fell: turned any way, legs splayed
-		inner.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.9) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.6) * Basis.from_scale(Vector3.ONE * (1.15 if f.insect in ["mosquito", "spider"] else 1.45)), Vector3.ZERO)
+		var k := (0.72 if f.insect in ["mosquito", "spider"] else 0.85) if resin else (1.15 if f.insect in ["mosquito", "spider"] else 1.45)
+		inner.transform = Transform3D(face * lie * Basis(Vector3.UP, (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.7) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * k), at)
 		marks = _insect(inner, rng, f)
 	else:
-		# the flower faces the viewer, a little turned and tipped (the viewer sees every find turned 0.6 about y)
-		inner.transform = Transform3D(Basis(Vector3.UP, -0.6 + (rng.next() - 0.5) * 0.7) * Basis(Vector3.RIGHT, -0.25 + (rng.next() - 0.5) * 0.4) * Basis.from_scale(Vector3.ONE * 1.15), Vector3(0, 0.05, 0))
+		# the flower faces the viewer, a little turned and tipped
+		inner.transform = Transform3D(face * Basis(Vector3.UP, (rng.next() - 0.5) * 0.7) * Basis(Vector3.RIGHT, -0.25 + (rng.next() - 0.5) * 0.4) * Basis.from_scale(Vector3.ONE * (0.9 if resin else 1.15)), at + Vector3(0, 0.05, 0))
 		marks = _flower(inner, rng, f)
 	# gold dust settled under it
 	if f.gold:
@@ -473,11 +565,13 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			return [Transform3D(Basis(Vector3(rng.next(), rng.next(), rng.next()).normalized(), rng.next() * TAU) * Basis.from_scale(Vector3(s, s * 0.3, s)), p), Color(1, 1, 1)]
 		U.inst(flake, gm, 90, place, holder)
 		b._mark("gold_dust", U.rel_xform(holder, root) * Vector3(0, -0.5, 0.2), Vector3.BACK)
-	var resin: bool = f.host in ["amber", "copal"]
-	var stone := U.mesh(_stone(rng, resin), host_mat(f), holder)
+	var sg := _resin(rng, f) if resin else _stone(rng, false)
+	var stone := U.mesh(sg, amber_mat(f, sg) if resin else host_mat(f), holder)
 	stone.set_meta("col", true)
 	stone.visible = not f.get("bare", false)
-	holder.transform = Transform3D(Basis.from_scale(Vector3.ONE * gs * 0.75), Vector3.ZERO)
+	# amber shows its face, turned a little so its thickness shows at one side
+	var turn := Basis(Vector3.UP, -0.6 + 0.35 + (rng.next() - 0.5) * 0.3) * Basis(Vector3.RIGHT, -0.2 + (rng.next() - 0.5) * 0.3) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) if resin else Basis.IDENTITY
+	holder.transform = Transform3D(turn * Basis.from_scale(Vector3.ONE * gs * (0.85 if resin else 0.75)), Vector3.ZERO)
 	var ix := U.rel_xform(inner, root)
 	for p in marks:
 		b._mark({flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(f.content, "insect"), ix * (p as Vector3), Vector3.BACK)

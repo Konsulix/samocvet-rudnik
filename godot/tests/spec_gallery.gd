@@ -135,8 +135,8 @@ const SETS := [
 	{seed = 503, sid = "fluorite", kind = "geode", gi = 4, traits = [], legend = true, fx = "jellyfish"},
 	{seed = 504, sid = "ammonite", kind = "fossil", gi = 4, traits = [], legend = true, fx = "jellyfish", show = "loose", hetero = ""}],
 	# set 23: petrified wood — slices (palettes, cracks, a hollow heart), logs, opal
-	[{seed = 601, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 0, opal = 0.0, checks = 2, ck_fill = "quartz", heart = ""},
-	{seed = 602, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 1, opal = 0.0, checks = 3, ck_fill = "empty", heart = ""},
+	[{seed = 601, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 0, opal = 0.0, checks = 2, ck_fill = "quartz", heart = "", pockets = 0, star = 7, rind = 0.04},
+	{seed = 602, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 1, opal = 0.0, checks = 3, ck_fill = "empty", heart = "", pockets = 7, rind = 0.06, star = 5},
 	{seed = 603, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 4, opal = 0.0, checks = 1, ck_fill = "quartz", heart = "amethyst"},
 	{seed = 604, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "slice", pal = 2, opal = 0.2, fire = "green", checks = 3, heart = ""},
 	{seed = 605, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "log", pal = 0, opal = 0.0, checks = 2, ck_fill = "quartz"},
@@ -173,14 +173,14 @@ const SETS := [
 	{seed = 657, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "star", look = 9, host = "quartz", leaves = 3, gold = true},
 	{seed = 658, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "daisy", look = 6, host = "quartz", leaves = 2, gold = false}],
 	# set 29: amber — every insect; copal; a flower in amber
-	[{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "ant", host = "amber"},
-	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "beetle", host = "amber"},
-	{seed = 663, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "fly", host = "copal"},
-	{seed = 664, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "mosquito", host = "amber"},
-	{seed = 665, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber"},
-	{seed = 666, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "flower", bloom = "blossom", look = 3, host = "amber"},
-	{seed = 667, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "fern", host = "amber"},
-	{seed = 668, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "feather", host = "copal"}],
+	[{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "ant", host = "amber", tone = "honey", crust = 0.0, spangle = false},
+	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "beetle", host = "amber", tone = "cognac", crust = 0.0, spangle = true},
+	{seed = 663, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "fly", host = "copal", crust = 0.0},
+	{seed = 664, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "mosquito", host = "amber", tone = "lemon", crust = 0.5, spangle = false},
+	{seed = 665, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber", tone = "cherry", crust = 0.0},
+	{seed = 666, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "flower", bloom = "blossom", look = 3, host = "amber", tone = "honey", crust = 0.7},
+	{seed = 667, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "fern", host = "amber", tone = "cognac", crust = 0.3},
+	{seed = 668, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "feather", host = "amber", tone = "honey", spangle = true, crust = 0.0}],
 
 ]
 

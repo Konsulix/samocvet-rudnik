@@ -18,11 +18,11 @@ const STONE := preload("res://shaders/opal_stone.gdshader")
 
 ## jasper palettes: earlywood, latewood, two stains crossing the rings, the bark
 const PAL := [
-	{early = 0xc8743a, late = 0x6e2a1c, st1 = 0xe0b850, st2 = 0x6e3e6a, bark = 0x5e4a3c},   # rainbow (Arizona): orange, red, yellow, purple
+	{early = 0xb0482c, late = 0x561812, st1 = 0xd8984c, st2 = 0x6a2e5e, bark = 0x4e3a30},   # rainbow (Arizona): orange, red, yellow, purple
 	{early = 0xa88c6a, late = 0x56402c, st1 = 0xcbb492, st2 = 0x3c3024, bark = 0x584a3c},   # brown, the plain kind
 	{early = 0x8a8680, late = 0x2c2826, st1 = 0xb8b0a4, st2 = 0x4c3c30, bark = 0x3e3834},   # black and grey
 	{early = 0xd6a868, late = 0x8a5428, st1 = 0xf0d8a8, st2 = 0xa86030, bark = 0x6a5038},   # honey chalcedony
-	{early = 0xa63c2a, late = 0x4a1810, st1 = 0xd8803e, st2 = 0x2a1a18, bark = 0x543a2e},   # red jasper
+	{early = 0x8c2a1e, late = 0x3a0e0a, st1 = 0xc86a3a, st2 = 0x4a1a3a, bark = 0x4a3028},   # red jasper
 	{early = 0x6c8a7c, late = 0x2a4038, st1 = 0xa8c8b0, st2 = 0x4a5a6c, bark = 0x464c44},   # blue-green, rare
 	{early = 0xb4ada2, late = 0x6e675c, st1 = 0xd2cbbd, st2 = 0x9a7c56, bark = 0x5a5248},   # opal: grey potch, honey
 ]
@@ -46,7 +46,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var ea := rng.next() * TAU
 	g.ecc = Vector2(cos(ea), sin(ea)) * rng.next() * 0.3
 	g.oval = 0.8 + rng.next() * 0.2
-	g.lobe = 0.03 + rng.next() * 0.07
+	g.lobe = 0.05 + rng.next() * 0.09
 	g.bark = 0.0 if rng.next() < 0.15 else 0.3 + rng.next() * 0.7
 	g.bark_t = 0.09 + rng.next() * 0.08
 	g.checks = int(Stones.pick_w([[0, 2.0], [1, 3.0], [2, 3.0], [3, 2.0], [4, 1.0], [5, 0.6]], rng))
@@ -54,7 +54,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.heart = Stones.pick_w([["amethyst", 2.0], ["quartz", 2.0], ["citrine", 0.7]], rng) if rng.next() < 0.18 else ""
 	g.heart_r = 0.14 + rng.next() * 0.12
 	g.len = 1.8 + rng.next() * 1.2      # a log's length, in trunk radii
-	g.thick = 0.17 + rng.next() * 0.09  # a slice's thickness
+	g.thick = 0.22 + rng.next() * 0.12  # a slice's thickness
 	g.seed = int(rng.next() * 100000.0)
 	for k in ["show", "opal", "fire", "pal", "checks", "ck_fill", "heart", "bark"]:
 		if o.has(k): g[k] = o[k]
@@ -85,6 +85,22 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	if float(g.opal) >= 0.4 and g.show == "slice":
 		g.thick = 0.32 + float(g.seed % 100) / 100.0 * 0.14
 		g.rings = maxf(float(g.rings), 38.0)
+	# as real slices look: rings faint (the colour runs in radial flames instead), a star of cracks out from the
+	# pith, a rind of white-blue chalcedony under the bark, lens-shaped pockets along the rays lined with banded
+	# agate (opal in an opal piece); the outline lobed and notched
+	var rng2 := Rng32.new(int(g.seed) * 7 + 5)
+	g.ring_k = 0.25 + rng2.next() * 0.45
+	g.star = int(Stones.pick_w([[0, 2.0], [3, 2.0], [5, 3.0], [7, 2.0]], rng2))
+	g.star_fill = Stones.pick_w([["quartz", 3.0], ["dark", 2.0]], rng2)
+	g.rind = 0.0 if rng2.next() < 0.35 else 0.025 + rng2.next() * 0.05
+	g.pockets = 0 if rng2.next() < 0.55 else 2 + int(rng2.next() * 6)
+	g.notch = rng2.next() * 0.8
+	if float(g.opal) > 0.0:
+		g.pockets = maxi(int(g.pockets), 3 + int(float(g.opal) * 6.0))
+		g.star = maxi(int(g.star), 3)
+		g.star_fill = "opal"
+	for k in ["ring_k", "star", "star_fill", "rind", "pockets", "notch"]:
+		if o.has(k): g[k] = o[k]
 	return g
 
 static func accents(g: Dictionary) -> Array:
@@ -155,6 +171,11 @@ static func _outline(f: Dictionary, nz: Dictionary, phi: float, z: float) -> Vec
 	var o: float = f.oval
 	var r := 1.0 / sqrt(c * c + s * s / (o * o))
 	r *= 1.0 + (nz.lump as FastNoiseLite).get_noise_3d(c * 1.4, s * 1.4, z * 0.5) * float(f.lobe) * 2.0
+	# notches: where the trunk grew round a branch or a wound — sharp-bottomed bays in the outline
+	if f.show == "slice":
+		var nb := absf((nz.fis as FastNoiseLite).get_noise_3d(c * 2.2 + 30.0, s * 2.2, z * 0.3))
+		r *= 1.0 - (1.0 - smoothstep(0.0, 0.12, nb)) * float(f.get("notch", 0.0)) * 0.12
+		r *= 1.0 + (nz.lump as FastNoiseLite).get_noise_3d(c * 3.5 + 7.0, s * 3.5, z) * 0.04
 	# a log thins a little to one end and swells here and there
 	if f.show == "log":
 		r *= 1.0 - 0.07 * z / float(f.len) + 0.04 * (nz.lump as FastNoiseLite).get_noise_2d(z * 1.3, 40.0)
@@ -265,6 +286,11 @@ static func material(f: Dictionary) -> ShaderMaterial:
 	m.set_shader_parameter("opal_spread", f.get("spread", 0.3))
 	m.set_shader_parameter("bark_tex", load("res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg"))
 	m.set_shader_parameter("bark_k", 0.8)
+	m.set_shader_parameter("ring_k", f.get("ring_k", 1.0))
+	m.set_shader_parameter("star_n", f.get("star", 0))
+	m.set_shader_parameter("star_fill", {quartz = 0, dark = 1, opal = 2}.get(f.get("star_fill", "quartz"), 0))
+	m.set_shader_parameter("rind_w", f.get("rind", 0.0))
+	m.set_shader_parameter("pk_n", f.get("pockets", 0))
 	if String(f.heart) != "":
 		m.set_shader_parameter("heart_col", Color.hex(int(HEART[f.heart]) << 8 | 0xff))
 		m.set_shader_parameter("heart_r", f.heart_r)
@@ -333,8 +359,8 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		# stands on its edge, the polished face to the viewer, leaning back a little
 		# a thick opal slab is tipped further and turned, so its bark-clad side shows as well as its face
 		var thick_slab := float(f.opal) >= 0.4
-		var tip := -0.65 if thick_slab else -0.22
-		var turn := (0.25 if thick_slab else -0.35) + (rng.next() - 0.5) * 0.4
+		var tip := -0.65 if thick_slab else -0.5
+		var turn := (0.25 if thick_slab else 0.2) + (rng.next() - 0.5) * 0.4
 		holder.transform = Transform3D(Basis(Vector3.UP, turn) * Basis(Vector3.RIGHT, tip) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
 	else:
 		# lies on its side, the polished end turned towards the viewer
