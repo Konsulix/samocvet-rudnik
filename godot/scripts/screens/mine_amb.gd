@@ -22,6 +22,7 @@ var _cage_ph := 0.0
 var _cart_ph := 0.0
 var _pick_at := 2.5
 var _hits: Array = []   # [time, depth] of picks still to strike
+var _hums := {}         # name -> [player, wanted dB]: loops of a place (a waterfall, a furnace) its screen keeps at a level
 
 func _init(s: Node2D) -> void:
 	scene = s
@@ -62,12 +63,14 @@ func _stream(n: String) -> AudioStream:
 func _phase(dur: float) -> float:
 	return fposmod(old.t, dur) / dur
 
-## one sound now: a layer of this file (winch_N, cart_N) or a board sample ("pick", or an Sfx sample name);
-## db on top of the layer's own level
+## one sound now: a layer of this file (winch_N, cart_N), a mine's own file ("copper/crow_1": its level is in the
+## file, db is all), or a board sample ("pick", or an Sfx sample name); db on top of the layer's own level
 func shot(n: String, db := 0.0, pitch := 1.0) -> void:
 	if not scene.is_visible_in_tree():
 		return
-	if n == "pick":
+	if "/" in n:
+		_shot(_stream(n), db, pitch)
+	elif n == "pick":
 		_shot(Sfx.pick_stream(), DB.pick + db, pitch)
 	elif n.begins_with("winch") or n.begins_with("cart"):
 		_shot(_stream(n), float(DB[n.get_slice("_", 0)]) + db, pitch)
@@ -84,10 +87,33 @@ func _shot(st: AudioStream, db: float, pitch := 1.0) -> void:
 	p.pitch_scale = pitch * randf_range(0.95, 1.05)
 	p.play()
 
+## a place's loop (a mine's own file, "copper/falls") held at `db` from now on - the screen calls it every frame with
+## the level for how far the place is from the middle of the screen; -80 or below lets it fall silent
+func hum(n: String, db: float) -> void:
+	if not _hums.has(n):
+		if db <= -60.0:
+			return
+		var p := AudioStreamPlayer.new()
+		p.bus = Sfx.AMB_BUS
+		var st: AudioStream = _stream(n)
+		st.set("loop", true)
+		p.stream = st
+		p.volume_db = -60.0
+		add_child(p)
+		p.play(randf() * st.get_length() * 0.8)
+		_hums[n] = [p, db]
+	_hums[n][1] = db
+
 func _process(dt: float) -> void:
 	var on := scene.is_visible_in_tree()
 	for lp in [_cave, _crickets]:
 		if lp: (lp as AudioStreamPlayer).stream_paused = not on
+	for n in _hums:
+		var h: Array = _hums[n]
+		var p: AudioStreamPlayer = h[0]
+		p.stream_paused = not on
+		# eased towards the wanted level (scrolling past a place swells and fades it, no jumps)
+		p.volume_db = move_toward(p.volume_db, maxf(float(h[1]), -60.0), dt * 24.0)
 	if not on or not old:
 		return
 	var t := old.t

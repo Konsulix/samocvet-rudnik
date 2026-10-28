@@ -61,3 +61,15 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
   (чем реже, тем больше), `magical_5`, высокий `bowl_ping`, у легендарной — медленный `impactBell_heavy_000`. `build_knock` —
   стройка вместо цифрового `confirmation_002`: доска и два удара молотка (`impactPlank_medium_000`) + латунная защёлка
   `metalLatch` (Kenney RPG Audio). Всё собрано в `sfx_cut.py`.
+
+## Звуки экрана рудника 2 Copper Mountain (`amb/copper/`, CC0)
+
+Собраны `prototype/tools/amb_copper.py`, играются `CopperSounds` через приглушённую шину `Amb`.
+
+- `falls` — водопад у мельницы: ручей rubberduck (`loop_water_02`, [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx)) + синтезированный гул падающей воды.
+- `furnace` — домна: PagDev, [Fireplace sound loop](https://opengameart.org/content/fireplace-sound-loop) + синтезированный низкий гул пламени.
+- `chuff_0..2` — пар машины: bart, [Steam release sounds](https://opengameart.org/content/steam-release-sounds).
+- `creak_0..2`, `wings_0..1`, `rivet_0..2` — Kenney RPG Audio (`creak1..3` ниже, `cloth1/3` быстрее — взмахи крыльев, `metalPot1..3` — клёпка).
+- `crow_0..2` — zeroisnotnull, [crow caw](https://opengameart.org/content/crow-caw), три высоты.
+- `meow` — IgnasD, [Meow](https://opengameart.org/content/meow).
+- `bell` — колокол башни: `sfx/impactBell_heavy_000` медленнее и глуше.

@@ -750,6 +750,7 @@ func _sounds(_dt: float) -> void:
 		if not cr.has("hit"):
 			continue
 		if _passed("hit%d" % k, _crew_v(k, t), 24.0, float(cr.hit)) and (k == sel or randf() < 0.15):
-			amb.shot("pick", _far(float(b.y) + floor_of(int(b.d))) - k * 1.2 + (0.0 if k == sel else -4.0), 0.95 - k * 0.02)
+			CopperSounds.strike(amb, String(cr.work[0]), _far(float(b.y) + floor_of(int(b.d))) - k * 1.2 + (0.0 if k == sel else -4.0), 0.95 - k * 0.02)
 	if int(_shown_places.get("hoist", 0)) >= 3 and (_passed("shaft_dn", t, SHAFT_CYCLE) or _passed("shaft_up", t, SHAFT_CYCLE, SHAFT_CYCLE / 2)):
 		amb.shot("winch_%d" % (randi() % 2), _far(float(J.sky) + 1500))
+	CopperSounds.of(self).tick(self)
