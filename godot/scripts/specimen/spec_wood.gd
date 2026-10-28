@@ -101,6 +101,25 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 		g.star_fill = "opal"
 	for k in ["ring_k", "star", "star_fill", "rind", "pockets", "notch"]:
 		if o.has(k): g[k] = o[k]
+	# a driftwood's own life, on its own stream: lichen on the crests, moss in the grooves, bark beetles' galleries
+	# engraved where the bark fell; or it lay long in the sea — bleached, bored by shipworm, barnacles on it; rare:
+	# foxfire (the rotting wood glowing), an old iron staple bleeding rust, a pebble the wood grew round
+	var rng3 := Rng32.new(int(g.seed) * 11 + 9)
+	g.sea = rng3.next() < 0.25
+	g.lichen = 0.0 if rng3.next() < 0.45 else 0.3 + rng3.next() * 0.6
+	g.moss = 0.0 if rng3.next() < 0.65 else 0.3 + rng3.next() * 0.6
+	g.galleries = 0.0 if rng3.next() < 0.55 else 0.4 + rng3.next() * 0.6
+	g.foxfire = rng3.next() < 0.08 or o.get("legend", false) and rng3.next() < 0.3
+	g.staple = rng3.next() < 0.12
+	g.pebble = "" if rng3.next() < 0.88 else Stones.pick_w([["jasper", 3.0], ["quartz", 2.0], ["agate", 2.0], ["garnet", 1.0]], rng3)
+	if g.sea:
+		# salt water: nothing green grows, no beetles — shipworm and barnacles instead
+		g.lichen = 0.0
+		g.moss = 0.0
+		g.galleries = 0.0
+		g.fungi = false
+	for k in ["sea", "lichen", "moss", "galleries", "foxfire", "staple", "pebble"]:
+		if o.has(k): g[k] = o[k]
 	return g
 
 static func accents(g: Dictionary) -> Array:
@@ -109,6 +128,13 @@ static func accents(g: Dictionary) -> Array:
 	if g.show == "driftwood":
 		var d := ["opal" if g.core == "opal" else "glow_core", "grain"]
 		if g.fungi: d.append("fungi")
+		if float(g.get("lichen", 0.0)) > 0.0: d.append("lichen")
+		if float(g.get("moss", 0.0)) > 0.0: d.append("moss")
+		if float(g.get("galleries", 0.0)) > 0.0: d.append("galleries")
+		if g.get("sea", false): d.append_array(["shipworm", "barnacles"])
+		if g.get("foxfire", false): d.append("foxfire")
+		if g.get("staple", false): d.append("staple")
+		if String(g.get("pebble", "")) != "": d.append("pebble")
 		return d
 	var out := ["rings"]
 	if float(g.opal) >= 0.03: out.append("opal")
@@ -131,6 +157,14 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"glow_core": return "glowing crystal heart"
 		"grain": return "twisted grain"
 		"fungi": return "honey fungus"
+		"lichen": return "lichen"
+		"moss": return "moss"
+		"galleries": return "bark beetle galleries"
+		"shipworm": return "shipworm borings"
+		"barnacles": return "barnacles"
+		"foxfire": return "foxfire"
+		"staple": return "iron staple"
+		"pebble": return "ingrown %s pebble" % String(g.pebble)
 	return ""
 
 # ---------------------------------------------------------------- shape
@@ -628,7 +662,8 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		lamp.position = mid + nmid * r0 * 0.5
 		holder.add_child(lamp)
 	if f.fungi and bark_pts.size():
-		_fungi(holder, rng, bark_pts, r0)
+		_fungi(holder, rng, bark_pts, r0, 3 if f.get("foxfire", false) else 4)
+	_life(b, f, holder, m, rng, bark_pts, r0)
 	# callouts
 	var xf := U.rel_xform(holder, b.root)
 	var cid := "opal" if f.core == "opal" else "glow_core"
@@ -654,8 +689,95 @@ static func _chunk(rng: Rng32) -> Geo:
 		g.v[i] = g.v[i] * float(dirs[key]) * sc
 	return g
 
+## driftwood's life: what the shader paints (lichen, moss, beetle galleries, the sea's bleaching and shipworm, foxfire,
+## rust) is switched on in its material; what stands out of the wood is built here — barnacles on sea-worn wood, an old
+## iron staple (its rust running down from it), a pebble the wood grew round
+static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMaterial, rng: Rng32, spots: Array, r0: float) -> void:
+	var sea: bool = f.get("sea", false)
+	m.set_shader_parameter("lichen_k", f.get("lichen", 0.0))
+	m.set_shader_parameter("moss_k", f.get("moss", 0.0))
+	m.set_shader_parameter("gall_k", f.get("galleries", 0.0))
+	m.set_shader_parameter("sea_k", 1.0 if sea else 0.0)
+	m.set_shader_parameter("fox_k", 1.0 if f.get("foxfire", false) else 0.0)
+	if f.get("foxfire", false):
+		b.root.set_meta("dim", true)
+	if spots.is_empty():
+		return
+	# what stands out of the wood goes on the side the viewer sees (every find is shown turned 0.6 about y)
+	var cam := (holder.basis.inverse() * (Basis(Vector3.UP, -0.6) * Vector3.BACK)).normalized()
+	var front := spots.filter(func(sp: Array) -> bool: return (sp[1] as Vector3).normalized().dot(cam) > 0.45)
+	if front.size() < 8: front = spots
+	var marks := {}
+	if sea:
+		# barnacles in a few crowded patches, chalky cones each with its crater
+		var prof := [Vector2(1.0, 0.0), Vector2(0.96, 0.22), Vector2(0.78, 0.55), Vector2(0.52, 0.78), Vector2(0.44, 0.8),
+			Vector2(0.36, 0.7), Vector2(0.0, 0.5)]
+		var bg := Geo.lathe(prof, 10)
+		var bm := SpecMat.make({col = SpecMat.lin(0xd6d0c2), rough = 0.85, side = "double"})
+		for c in 2 + int(rng.next() * 3):
+			var at: Array = front[int(rng.next() * front.size())]
+			var p0: Vector3 = at[0]
+			if c == 0: marks.barnacles = at
+			var near := spots.filter(func(sp: Array) -> bool: return (sp[0] as Vector3).distance_to(p0) < r0 * 0.7)
+			for k in 8 + int(rng.next() * 10):
+				var q: Array = near[int(rng.next() * near.size())]
+				var nrm: Vector3 = q[1]
+				var sz := r0 * (0.06 + pow(rng.next(), 1.5) * 0.12)
+				var mi := U.mesh(bg, bm, holder, (q[0] as Vector3) - nrm * sz * 0.1,
+					Basis(U.quat_to(Vector3.UP, nrm)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(sz, sz * (0.6 + rng.next() * 0.5), sz)))
+				mi.set_meta("col", true)
+		marks.shipworm = spots[int(rng.next() * spots.size())]
+	if f.get("staple", false):
+		# a hand-forged staple: a flat bridge standing a little off the wood, its two legs driven in
+		var at: Array = front[int(rng.next() * front.size())]
+		var p: Vector3 = at[0]
+		var nrm: Vector3 = at[1]
+		var t1 := nrm.cross(Vector3.UP if absf(nrm.y) < 0.9 else Vector3.RIGHT).normalized().rotated(nrm, rng.next() * TAU)
+		var im := SpecMat.make({col = SpecMat.lin(0x3a2418), metal = 0.35, rough = 0.75})
+		var bs := Basis(t1, nrm, t1.cross(nrm))
+		var w := r0 * 0.75
+		for part: Array in [[Vector3(0, r0 * 0.06, 0), Vector3(w, r0 * 0.05, r0 * 0.09)], [Vector3(-w * 0.45, -r0 * 0.04, 0), Vector3(r0 * 0.06, r0 * 0.22, r0 * 0.07)],
+				[Vector3(w * 0.45, -r0 * 0.04, 0), Vector3(r0 * 0.06, r0 * 0.22, r0 * 0.07)]]:
+			var mi := U.mesh(Geo.box(1, 1, 1), im, holder, p + bs * (part[0] as Vector3), bs * Basis.from_scale(part[1] as Vector3))
+			mi.set_meta("col", true)
+		m.set_shader_parameter("rust_k", 1.0)
+		m.set_shader_parameter("rust_p", p)
+		# rust runs down as the piece is shown (the holder is already turned)
+		m.set_shader_parameter("rust_dir", (holder.basis.inverse() * Vector3.DOWN).normalized())
+		marks.staple = at
+	if String(f.get("pebble", "")) != "":
+		# a pebble the wood grew round: half sunk in, the wood's surface closing on it
+		var at: Array = front[int(rng.next() * front.size())]
+		var nrm: Vector3 = at[1]
+		var pr := r0 * (0.35 + rng.next() * 0.2)
+		var pm: Material
+		match String(f.pebble):
+			"jasper": pm = SpecMat.make({col = SpecMat.lin(0x7a2a1a), rough = 0.3, coat = 0.5})
+			"quartz": pm = SpecMat.make({col = SpecMat.lin(0xb8b4aa), rough = 0.3, coat = 0.5})
+			"agate": pm = SpecMat.make({col = SpecMat.lin(0x8a7a6a), rough = 0.2, coat = 0.8})
+			_: pm = SpecMat.make({col = Color(0.55, 0.04, 0.06), glass = true, frost = 0.2, thick = 1.0, seed = 3.0})
+		# a water-worn pebble: lumpy, flattened
+		var pg := Geo.icosa(1.0, 3)
+		var pn := FastNoiseLite.new()
+		pn.seed = int(f.seed) + 77
+		pn.frequency = 1.2
+		for i in pg.v.size():
+			pg.v[i] *= 1.0 + pn.get_noise_3dv(pg.v[i]) * 0.22
+		var mi := U.mesh(pg, pm, holder, (at[0] as Vector3) - nrm * pr * 0.5,
+			Basis(U.quat_to(Vector3.UP, nrm)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(pr * 1.1, pr * 0.65, pr * 0.85)))
+		mi.set_meta("col", true)
+		marks.pebble = at
+	var xf := U.rel_xform(holder, b.root)
+	for id: String in marks:
+		var at: Array = marks[id]
+		b._mark(id, xf * (at[0] as Vector3), (xf.basis * (at[1] as Vector3)).normalized())
+	for id in ["lichen", "moss", "galleries", "foxfire"]:
+		if (id == "foxfire" and f.get("foxfire", false)) or (id != "foxfire" and float(f.get(id, 0.0)) > 0.0):
+			var at: Array = spots[int(rng.next() * spots.size())]
+			b._mark(id, xf * (at[0] as Vector3), (xf.basis * (at[1] as Vector3)).normalized())
+
 ## mushrooms on the wood: tufts of honey fungus, and now and then a lump of jelly fungus
-static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float) -> void:
+static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float, kind := 4) -> void:
 	# tufts of honey fungus all along the wood, crowded, a few big caps among buttons; now and then a lump of jelly
 	# fungus beside one
 	var jm := SpecMat.make({col = SpecMat.lin(0x7a4424), rough = 0.3, coat = 0.5, coat_r = 0.2})
@@ -668,7 +790,7 @@ static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float) -> void:
 		var at: Array = spots[clampi(lo + int(rng.next() * (hi - lo)), 0, spots.size() - 1)]
 		var p0: Vector3 = at[0]
 		var near := spots.filter(func(sp: Array) -> bool: return (sp[0] as Vector3).distance_to(p0) < r0 * 1.1)
-		SpecFungi.cluster(holder, rng, near, 4, 16 + int(rng.next() * 14), r0 * (0.6 + rng.next() * 0.25))
+		SpecFungi.cluster(holder, rng, near, kind, 16 + int(rng.next() * 14), r0 * (0.6 + rng.next() * 0.25) * (1.6 if kind == 3 else 1.0))
 		if rng.next() < 0.3:
 			var n0: Vector3 = at[1]
 			var t1 := n0.cross(Vector3.UP if absf(n0.y) < 0.9 else Vector3.RIGHT).normalized()

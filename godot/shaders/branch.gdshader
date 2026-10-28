@@ -32,6 +32,16 @@ uniform float scan_k = 0.8;
 // fulgurite: the glass lining its bore, how frothy its crust is, and a fresh strike (the glass still glowing)
 uniform vec3 c_glass : source_color = vec3(0.3, 0.33, 0.3);
 uniform float froth_k = 0.0;
+// driftwood's life: lichen rosettes on the crests, moss in the grooves, bark beetles' galleries, the sea (bleached,
+// shipworm borings), foxfire glowing in the grooves, rust running down from an iron staple (rust_p, downwards rust_dir)
+uniform float lichen_k = 0.0;
+uniform float moss_k = 0.0;
+uniform float gall_k = 0.0;
+uniform float sea_k = 0.0;
+uniform float fox_k = 0.0;
+uniform float rust_k = 0.0;
+uniform vec3 rust_p = vec3(0.0);
+uniform vec3 rust_dir = vec3(0.0, -1.0, 0.0);
 uniform float hot_k = 0.0;
 float lum3(vec3 c) { return dot(c, vec3(0.3, 0.5, 0.2)); }    // driftwood: its hollow packed with broken opal (1) or just rotten wood (0)
 
@@ -185,6 +195,80 @@ void fragment() {
 		}
 		ro = 0.9;
 		bk = 0.004 * r * 10.0;
+		float outer = 1.0 - smoothstep(0.05, 0.25, hol);
+		// the sea: bleached silver-white, bored by shipworm — round holes lined with white shell
+		if (sea_k > 0.0) {
+			c = mix(c, vec3(dot(c, vec3(0.3, 0.5, 0.2))) * 1.35 + vec3(0.04, 0.04, 0.035), sea_k * 0.55);
+			vec3 sw = vor2(vec2(u * 2.6, a * 26.0) + rid * 3.0);
+			float on = step(1.0 - sea_k * 0.45, sw.z) * outer;
+			float hole = (1.0 - smoothstep(0.09, 0.12, sw.x)) * on;
+			float lip = smoothstep(0.1, 0.13, sw.x) * (1.0 - smoothstep(0.15, 0.2, sw.x)) * on;
+			c = mix(c, lin(vec3(0.9, 0.88, 0.82)), lip * 0.9);
+			c = mix(c, lin(c_bark) * 0.08, hole);
+			hgt += lip * 0.6 - hole * 2.0;
+		}
+		// bark beetles: under the bark that fell, the mother gallery along the grain, the larvae's galleries out from
+		// it across, wavy, widening as they grew, each ending in a pupal chamber
+		if (gall_k > 0.0) {
+			vec2 gq = vec2(u * 0.55, a * 5.0 + rid);
+			vec2 gc = floor(gq);
+			vec2 gf = fract(gq);
+			float on = step(1.0 - gall_k * 0.6, h3(vec3(gc, rid + 3.0))) * outer;
+			float mainl = (1.0 - smoothstep(0.018, 0.04, abs(gf.y - 0.5 + 0.04 * sin(gf.x * 8.0 + gc.x)))) * step(0.12, gf.x) * step(gf.x, 0.88);
+			float lane = floor(gf.x * 11.0);
+			float k = fract(gf.x * 11.0);
+			float side = abs(gf.y - 0.5);
+			float reach = 0.18 + 0.27 * h3(vec3(lane, gc));
+			float lw = 0.06 + 0.14 * side / 0.45;
+			float lar = (1.0 - smoothstep(lw * 0.5, lw, abs(k - 0.5 + 0.18 * sin(side * 25.0 + lane * 1.7))))
+				* step(0.03, side) * (1.0 - smoothstep(reach - 0.02, reach, side)) * step(0.12, gf.x) * step(gf.x, 0.88);
+			float pupa = (1.0 - smoothstep(0.0, 0.03, abs(side - reach) + abs(k - 0.5) * 0.15)) * step(0.12, gf.x) * step(gf.x, 0.88);
+			float gal = max(mainl, max(lar, pupa)) * on;
+			c = mix(c, lin(c_bark) * 0.16, gal * 0.85);
+			hgt -= gal * 1.3;
+		}
+		// lichen: rosettes on the crests, grey-green, some bright orange (Xanthoria) with little fruiting cups
+		if (lichen_k > 0.0) {
+			vec3 lc = vor2(vec2(u * 0.6, a * 7.0) + rid * 7.0);
+			float pick = h3(vec3(lc.z * 91.0, rid, 4.0));
+			float rr = 0.22 + 0.25 * h3(vec3(lc.z * 37.0, rid, 5.0));
+			float edge = rr + (vn(vec3(u * 5.0, a * 50.0, rid)) - 0.5) * 0.18;
+			float on = step(1.0 - lichen_k * 0.7, pick) * smoothstep(0.3, 0.55, crest) * outer;
+			float lich = (1.0 - smoothstep(edge - 0.03, edge, lc.x)) * on;
+			bool orange = h3(vec3(lc.z * 13.0, rid, 6.0)) < 0.35;
+			vec3 lcol = orange ? lin(vec3(0.86, 0.5, 0.12)) : lin(vec3(0.6, 0.66, 0.52));
+			float lobes = 0.8 + 0.3 * vn(vec3(u * 16.0, a * 140.0, rid));
+			float cups = orange ? smoothstep(0.78, 0.88, vn(vec3(u * 22.0, a * 200.0, rid + 2.0))) : 0.0;
+			c = mix(c, mix(lcol * lobes, lcol * 0.55, cups), lich);
+			hgt += lich * (0.5 + cups * 0.6);
+			ro = mix(ro, 0.95, lich);
+		}
+		// moss: velvet in the grooves and low places
+		if (moss_k > 0.0) {
+			float mz = smoothstep(0.45, 0.62, fbm(vec3(u * 0.5, cs * 1.5 + rid + 30.0)) + (0.5 - crest) * 0.6) * moss_k * outer;
+			float pile = vn(vec3(p * 260.0)) * 0.6 + vn(vec3(p * 90.0)) * 0.4;
+			c = mix(c, mix(lin(vec3(0.16, 0.24, 0.07)), lin(vec3(0.36, 0.44, 0.12)), pile), mz);
+			hgt += mz * pile * 0.8;
+			ro = mix(ro, 1.0, mz);
+		}
+		// rust from an old iron staple: a stain round it and streaks run down the wood
+		if (rust_k > 0.0) {
+			vec3 dv = p - rust_p;
+			float along = dot(dv, rust_dir);
+			float perp = length(dv - rust_dir * along);
+			float wob = (vn(vec3(along * 20.0, rid, 3.0)) - 0.5) * 0.03;
+			float streak = step(0.0, along) * exp(-along / (0.35 * rust_k)) * (1.0 - smoothstep(0.015, 0.05 + along * 0.12, perp + wob));
+			float halo = exp(-length(dv) / 0.05);
+			float rs = clamp(max(streak, halo), 0.0, 1.0);
+			c = mix(c, lin(vec3(0.42, 0.17, 0.05)) * (0.7 + 0.5 * vn(p * 80.0)), rs * 0.85);
+		}
+		// foxfire: the rotting wood's fungus glows, cold green, in the grooves and the split, breathing slowly
+		if (fox_k > 0.0) {
+			float low = 1.0 - smoothstep(0.3, 0.7, crest);
+			float patchy = smoothstep(0.3, 0.6, fbm(vec3(u * 0.4, cs * 2.0 + rid + 50.0)));
+			float breath = 0.55 + 0.45 * sin(TIME * 0.7 + u * 0.35 + a * 6.2832);
+			em += vec3(0.22, 1.0, 0.5) * fox_k * (low * patchy + smoothstep(0.1, 0.5, hol) * 0.5) * breath * 2.6;
+		}
 	} else if (COLOR.a > 0.9) {
 		// the bore's lining: smooth glass, darker the deeper (COLOR.b), with little bubbles; still glowing after a
 		// fresh strike, hottest deep in

@@ -186,7 +186,15 @@ const SETS := [
 	{seed = 666, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "flower", bloom = "blossom", look = 3, host = "amber", tone = "honey", crust = 0.7},
 	{seed = 667, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "fern", host = "amber", tone = "cognac", crust = 0.3},
 	{seed = 668, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "feather", host = "amber", tone = "honey", spangle = true, crust = 0.0}],
-
+	# set 30: driftwood's life — lichen, moss, beetle galleries, the sea (shipworm, barnacles), foxfire, a staple, a pebble
+	[{seed = 671, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = false, sea = false, lichen = 0.9, moss = 0.6, galleries = 0.0, foxfire = false, staple = false, pebble = ""},
+	{seed = 672, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = false, sea = false, lichen = 0.0, moss = 0.0, galleries = 1.0, foxfire = false, staple = true, pebble = ""},
+	{seed = 673, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "opal", fungi = false, sea = true, lichen = 0.0, moss = 0.0, galleries = 0.0, foxfire = false, staple = false, pebble = ""},
+	{seed = 674, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = true, sea = false, lichen = 0.0, moss = 0.5, galleries = 0.5, foxfire = true, staple = false, pebble = ""},
+	{seed = 675, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "opal", fungi = false, sea = true, lichen = 0.0, moss = 0.0, galleries = 0.0, foxfire = false, staple = true, pebble = "jasper"},
+	{seed = 676, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = true, sea = false, lichen = 0.7, moss = 0.0, galleries = 0.6, foxfire = false, staple = false, pebble = "garnet"},
+	{seed = 677, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "opal", fungi = true, sea = false, lichen = 0.5, moss = 0.8, galleries = 0.0, foxfire = false, staple = false, pebble = "quartz"},
+	{seed = 678, sid = "petrified_wood", kind = "fossil", gi = 2, traits = [], show = "driftwood", core = "crystal", fungi = false, sea = true, lichen = 0.0, moss = 0.0, galleries = 0.0, foxfire = true, staple = false, pebble = "agate"}]
 ]
 
 func _ready() -> void:
