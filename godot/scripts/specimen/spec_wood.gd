@@ -511,8 +511,8 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	# opal: a stump with short arms curling off it; a crystal: a long broken limb split down its length
 	var opal: bool = f.core == "opal"
 	var sk := SpecBranch.skeleton(rng, {r0 = 0.3, len0 = 1.1, levels = 1, kids = [2, 3], kid_r = 0.55, kid_len = 0.55,
-		spread = 1.3, gnarl = 2.2, up = 0.1, taper = 0.45} if opal else {r0 = 0.26, len0 = 1.7, levels = 1, kids = [0, 1],
-		kid_r = 0.45, kid_len = 0.35, spread = 0.9, gnarl = 0.6, up = 0.3, taper = 0.6})
+		spread = 1.3, gnarl = 2.2, up = 0.1, taper = 0.45} if opal else {r0 = 0.26, len0 = 1.6, levels = 1, kids = [2, 3],
+		kid_r = 0.42, kid_len = 0.3, spread = 1.1, gnarl = 1.5, up = 0.25, taper = 0.6})
 	var m := branch_mat(f, 1, 1.0)
 	m.set_shader_parameter("c_light", Color.hex(0xa2a19cff))
 	m.set_shader_parameter("c_bark", Color.hex(0x5a4a3cff))
@@ -523,11 +523,12 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	b.root.add_child(holder)
 	var gs: float = gene.scale
 	var dent := {t0 = 0.12, t1 = 0.78, a0 = rng.next(), wa = 0.2 + rng.next() * 0.08, depth = 0.3} if opal else \
-		{t0 = 0.22, t1 = 0.72, a0 = rng.next(), wa = 0.09, depth = 0.8}
+		{t0 = 0.2, t1 = 0.75, a0 = rng.next(), wa = 0.13, depth = 0.75}
 	# both ends grown out of the wood, never flat: the limbs snapped off in splinters, the foot torn or worn round
-	var ends := {tip = "torn", root = "torn" if rng.next() < 0.5 else "worn", kid_tip = "taper" if rng.next() < 0.7 else "torn"}
-	var ms := SpecBranch.build(holder, sk, {m = 48, sub = 3, lump = 0.2, ridge = 0.06, flat = 0.85, seed = int(f.seed), dent = dent,
-		fibre = 0.85, twist = twist, ends = ends}, m)
+	# a crystal's limb keeps only snapped-off stubs of its side branches
+	var ends := {tip = "torn", root = "torn" if rng.next() < 0.65 else "worn", kid_tip = ("taper" if rng.next() < 0.7 else "torn") if opal else "torn"}
+	var ms := SpecBranch.build(holder, sk, {m = 56, sub = 4, lump = 0.06, ridge = 0.04, flat = 0.8, seed = int(f.seed), dent = dent,
+		fibre = 1.0, twist = twist, ends = ends}, m)
 	var tg: Geo = ms[0].get_meta("geo")
 	# the hollow's floor, and the trunk's bark outside it
 	var floor_pts := []
@@ -546,10 +547,24 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	if floor_pts.size():
 		mid /= floor_pts.size()
 		nmid = nmid.normalized()
-	# turn the hollow to the viewer (who sees every find turned 0.6 about y)
-	var yaw := -0.45 - atan2(nmid.x, nmid.z)
-	var tilt := Basis.IDENTITY if opal else Basis(Vector3.BACK, 0.45 * (1.0 if rng.next() < 0.5 else -1.0))
-	holder.transform = Transform3D(tilt * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * gs), Vector3(0, -0.6 * gs, 0))
+	# lay the trunk across the view, its hollow turned to the viewer (who sees every find turned 0.6 about y): the
+	# trunk's line becomes up the screen, the hollow's facing (square to that line) faces out of it; a crystal's limb
+	# then leans over to one side
+	var tp: Array = sk[0].pts
+	var tax := ((tp[tp.size() - 1] as Vector3) - (tp[0] as Vector3)).normalized()
+	var face := nmid - tax * nmid.dot(tax)
+	if face.length() < 0.1:
+		face = tax.cross(Vector3.RIGHT if absf(tax.x) < 0.9 else Vector3.FORWARD)
+	face = face.normalized()
+	var side := tax.cross(face).normalized()
+	var lay := Basis(side, tax, face).inverse()
+	var tilt := Basis(Vector3.BACK, 0.15 * (1.0 if rng.next() < 0.5 else -1.0)) if opal else Basis(Vector3.BACK, 0.55 * (1.0 if rng.next() < 0.5 else -1.0))
+	holder.transform = Transform3D(Basis(Vector3.UP, -0.45) * tilt * lay * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
+	# stand it in the middle of the frame
+	var ctr := Vector3.ZERO
+	for q in tp: ctr += q as Vector3
+	ctr /= tp.size()
+	holder.position = -(holder.transform.basis * ctr)
 	if gene.fx == "dragonfire":
 		b.root.set_meta("dim", true)
 	var r0 := 0.3

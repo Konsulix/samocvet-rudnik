@@ -86,6 +86,13 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 	# fibres: sharp ridges twisting round the branch (weathered wood), their height in COLOR.a for the shader
 	var fibre: float = o.get("fibre", 0.0)
 	var twist: float = o.get("twist", 0.0)
+	# splits along the wood: [round it 0..1, from, to (0..1 along), half-width round, depth]
+	var splits: Array = []
+	if fibre > 0.0:
+		var srng := Rng32.new(int(o.get("seed", 1)) * 3 + int(float(br.rnd) * 977.0))
+		for k in 1 + int(srng.next() * 3.0):
+			var s0 := srng.next() * 0.5
+			splits.append([srng.next(), s0, minf(1.0, s0 + 0.3 + srng.next() * 0.5), 0.015 + srng.next() * 0.02, 0.25 + srng.next() * 0.35])
 	var fz := FastNoiseLite.new()
 	fz.seed = nz.seed + 5
 	fz.frequency = 1.0
@@ -132,7 +139,18 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 			if fibre > 0.0:
 				var at := a + u * twist * 0.1
 				fv = clampf(fz.get_noise_3d(cos(at) * 4.5, sin(at) * 4.5, u * 0.05 + rid * 20.0) * 0.5 + 0.5, 0.0, 1.0)
+				# finer strands over the ropes, peeling in places
+				var fine := nz.get_noise_3d(cos(at) * 9.0 + 30.0, sin(at) * 9.0, u * 0.03 + rid * 20.0) * 0.5 + 0.5
+				fv = clampf(fv * 0.82 + fine * 0.18, 0.0, 1.0)
 				l += (fv - 0.5) * fibre
+				# splits: deep narrow cracks running along the wood, opening and closing
+				for sp: Array in splits:
+					var sa := absf(wrapf(float(j % m) / m - float(sp[0]) - u * twist * 0.1 / TAU, -0.5, 0.5))
+					var tt2 := float(i) / (nr - 1)
+					var on := smoothstep(float(sp[1]), float(sp[1]) + 0.08, tt2) * (1.0 - smoothstep(float(sp[2]) - 0.08, float(sp[2]), tt2))
+					var cut := (1.0 - smoothstep(0.0, float(sp[3]), sa)) * on
+					l -= cut * float(sp[4])
+					fv = minf(fv, 1.0 - cut)
 			var dm := 0.0
 			for gs: Array in glass:
 				var kk := float(i) / sub
@@ -193,7 +211,7 @@ static func _end(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: floa
 	var row := m + 1
 	var K := 16
 	# a worn end: a blunt dome on a stump; "taper" — a worn limb's tip, long, narrowing to a rounded point
-	var wl := 0.55
+	var wl := 0.38
 	if mode == "taper":
 		mode = "worn"
 		wl = 1.3
