@@ -375,7 +375,7 @@ func _draw_live() -> void:
 		if i >= 8:
 			_bursts.erase(bu)
 			continue
-		var p := "burst/%d.png" % i
+		var p := "burst/%02d.png" % i   # this mine's dust frames are 00..07
 		var sz := _size(p) * 1.6
 		var at: Vector2 = bu[0]
 		c.draw_texture_rect(tex(p), Rect2(at - sz / 2, sz), false)
