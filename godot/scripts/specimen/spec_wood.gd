@@ -602,21 +602,24 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			var ci := U.mesh(cg, om, holder, (at[0] as Vector3) + nrm * s * 0.25, bs)
 			ci.set_meta("col", true)
 	else:
-		# one long crystal lying in the split, glowing from inside, lighting the wood round it
-		var pts: Array = sk[0].pts
-		var ax: Vector3 = (pts[int(pts.size() * 0.75)] as Vector3) - (pts[int(pts.size() * 0.2)] as Vector3)
-		var ln := ax.length() * 0.75
+		# the split filled solid with one glowing mass: the trunk's own surface over the split, set a little below
+		# its rims (the same tube, hardly hollowed, only its faces over the hollow kept)
 		var gm := ShaderMaterial.new()
 		gm.shader = STONE
 		gm.set_shader_parameter("mode", 1)
 		gm.set_shader_parameter("seed", float(int(f.seed) % 997) * 0.37)
 		var hot: Color = [Color(1.0, 0.55, 0.15), Color(1.0, 0.75, 0.3), Color(0.95, 0.35, 0.12)][int(f.seed) % 3]
 		gm.set_shader_parameter("glow_col", hot)
-		var cg := RockKit.crystal("prism", rng, {h = 1.0, detail = 1})
-		var cbb := cg.aabb()
-		var sc := ln / maxf(cbb.size.y, 0.01)
-		var bs := Basis(U.quat_to(Vector3.UP, ax.normalized())) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(sc * 0.7, sc, sc * 0.45))
-		var ci := U.mesh(cg, gm, holder, mid - ax.normalized() * ln * 0.5 + nmid * r0 * 0.05, bs)
+		var fill_dent := dent.duplicate()
+		fill_dent.depth = 0.1
+		var fg := SpecBranch.tube(sk[0], {m = 56, sub = 4, lump = 0.06, ridge = 0.02, flat = 0.8, seed = int(f.seed), dent = fill_dent,
+			fibre = 0.0, twist = twist, ends = ends}, true)
+		var keep := PackedInt32Array()
+		for k in range(0, fg.idx.size(), 3):
+			if fg.col[fg.idx[k]].b > 0.2 and fg.col[fg.idx[k + 1]].b > 0.2 and fg.col[fg.idx[k + 2]].b > 0.2:
+				keep.append_array([fg.idx[k], fg.idx[k + 1], fg.idx[k + 2]])
+		fg.idx = keep
+		var ci := U.mesh(fg, gm, holder)
 		ci.set_meta("col", true)
 		var lamp := OmniLight3D.new()
 		lamp.light_color = hot

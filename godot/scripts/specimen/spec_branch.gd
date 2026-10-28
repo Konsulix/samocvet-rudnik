@@ -66,7 +66,8 @@ static func _cr(pts: Array, k: float) -> Vector3:
 
 ## the tube round one branch. o: m (sides), sub (rings per skeleton step), lump (bulges), ridge (lengthwise ridges),
 ## flat (how flattened), seed, dent ({t0, t1 along the branch 0..1, a0 round it 0..1, wa half-width round it,
-## depth}: a hollow worn into it, COLOR.b = how deep in it); root: the trunk's foot closed flat (COLOR.r 1)
+## depth}: a hollow worn into it, COLOR.b = how deep in it), ends ({tip, root, kid_tip}: "torn", "worn", "taper", "spear" —
+## see _end; never a flat cap); root: this is the trunk, its foot closed too
 static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 	var pts: Array = br.pts
 	var rad: Array = br.rad
@@ -108,7 +109,8 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 		var i0 := mini(int(floor(k)), rad.size() - 2)
 		rs.append(lerpf(rad[i0], rad[i0 + 1], k - i0))
 	# the broken tip: the last rings close in fast and unevenly (unless the ends are grown out of the tube, `ends`)
-	var ends: Dictionary = o.get("ends", {})
+	# no flat ends anywhere: unless told otherwise, both ends are torn off
+	var ends: Dictionary = o.get("ends", {tip = "torn", root = "torn"})
 	var tip := 0 if not ends.is_empty() else mini(4, nr - 2)
 	# frames carried along (parallel transport), so the tube never twists by itself
 	var tg := (cs[1] - cs[0]).normalized()
@@ -189,18 +191,11 @@ static func tube(br: Dictionary, o: Dictionary, root: bool) -> Geo:
 			if n.dot(grid[i * row + jj] - cs[i]) < 0.0:
 				n = -n
 			g.own_n[i * row + j] = n
-	if not ends.is_empty():
-		_wind(g)
-		# the ends grow out of the tube itself: the tip, and the trunk's foot
-		_end(g, nr - 1, m, cs[nr - 1], (cs[nr - 1] - cs[nr - 2]).normalized(), rs[nr - 1], String(ends.get("tip", "torn")) if root else String(ends.get("kid_tip", "taper")), fz, nz, rid, u, twist)
-		if root:
-			_end(g, 0, m, cs[0], -(cs[1] - cs[0]).normalized(), rs[0], String(ends.get("root", "worn")), fz, nz, rid, 0.0, twist)
-		return g
-	# the broken end: a jagged cap, fibrous (COLOR.r 1); the trunk's foot: closed flat
-	_cap(g, nr - 1, row, m, cs[nr - 1] + (cs[nr - 1] - cs[nr - 2]).normalized() * rs[nr - 1] * 0.15, (cs[nr - 1] - cs[nr - 2]).normalized(), u, rid)
-	if root:
-		_cap(g, 0, row, m, cs[0], -(cs[1] - cs[0]).normalized(), 0.0, rid)
 	_wind(g)
+	# the ends grow out of the tube itself: the tip, and the trunk's foot
+	_end(g, nr - 1, m, cs[nr - 1], (cs[nr - 1] - cs[nr - 2]).normalized(), rs[nr - 1], String(ends.get("tip", "torn")) if root else String(ends.get("kid_tip", "taper")), fz, nz, rid, u, twist)
+	if root:
+		_end(g, 0, m, cs[0], -(cs[1] - cs[0]).normalized(), rs[0], String(ends.get("root", "worn")), fz, nz, rid, 0.0, twist)
 	return g
 
 ## an end grown out of the tube's ring `ring` (its m corners), going on along `axis`: "torn" — snapped across the
@@ -368,31 +363,6 @@ static func _spear(g: Geo, ring: int, m: int, ctr: Vector3, axis: Vector3, r: fl
 			cur.append(g.v.size() - 1)
 		rings.append(cur)
 	_bridge(g, rings, first, ctr - axis * r, axis)
-
-static func _cap(g: Geo, i: int, row: int, m: int, ctr: Vector3, out: Vector3, u: float, rid: float) -> void:
-	var c := g.v.size()
-	g.v.append(ctr)
-	g.rp.append(Vector3(u, 0, 0))
-	g.col.append(Color(1, rid, 0, 1))
-	g.own_n.append(out)
-	var base := g.v.size()
-	for j in m:
-		g.v.append(g.v[i * row + j])
-		g.rp.append(g.rp[i * row + j])
-		g.col.append(Color(1, rid, 0, 1))
-		g.own_n.append(out)
-	for j in m:
-		g.idx.append_array([c, base + j, base + (j + 1) % m])
-	# the cap's triangles are wound whichever way; turn each to face `out`
-	var k0 := g.idx.size() - m * 3
-	for k in range(k0, g.idx.size(), 3):
-		var a := g.v[g.idx[k]]
-		var b := g.v[g.idx[k + 1]]
-		var cc := g.v[g.idx[k + 2]]
-		if (b - a).cross(cc - a).dot(out) < 0.0:
-			var t := g.idx[k + 1]
-			g.idx[k + 1] = g.idx[k + 2]
-			g.idx[k + 2] = t
 
 ## the tube's quads were wound by grid order: turn the whole tube (not its caps) to face along its own normals
 static func _wind(g: Geo) -> void:
