@@ -112,14 +112,13 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.foxfire = rng3.next() < 0.08 or o.get("legend", false) and rng3.next() < 0.3
 	g.staple = rng3.next() < 0.12
 	g.pebble = "" if rng3.next() < 0.88 else Stones.pick_w([["jasper", 3.0], ["quartz", 2.0], ["agate", 2.0], ["garnet", 1.0]], rng3)
-	if g.sea:
-		# salt water: nothing green grows, no beetles — shipworm and barnacles instead
-		g.lichen = 0.0
-		g.moss = 0.0
-		g.galleries = 0.0
-		g.fungi = false
 	for k in ["sea", "lichen", "moss", "galleries", "foxfire", "staple", "pebble"]:
 		if o.has(k): g[k] = o[k]
+	if g.sea:
+		# salt water: nothing green grows, no beetles, no mushrooms — shipworm and barnacles instead
+		for k in ["lichen", "moss", "galleries"]:
+			if not o.has(k): g[k] = 0.0
+		if not o.has("fungi"): g.fungi = false
 	return g
 
 static func accents(g: Dictionary) -> Array:
@@ -538,7 +537,7 @@ static func _twig(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	return ms[0]
 
 ## driftwood: a gnarled, weathered stump with curling arms, a hollow worn into its trunk holding chunks of opal or a
-## crystal that glows from inside; jelly fungi and little mushrooms on it sometimes
+## crystal that glows from inside; honey fungus on it sometimes
 static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var f: Dictionary = gene.fossil
 	var rng := Rng32.new(int(f.seed) * 17 + 3)
@@ -662,7 +661,7 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		lamp.position = mid + nmid * r0 * 0.5
 		holder.add_child(lamp)
 	if f.fungi and bark_pts.size():
-		_fungi(holder, rng, bark_pts, r0, 3 if f.get("foxfire", false) else 4)
+		_fungi(holder, rng, _front(holder, bark_pts), r0)
 	_life(b, f, holder, m, rng, bark_pts, r0)
 	# callouts
 	var xf := U.rel_xform(holder, b.root)
@@ -692,6 +691,12 @@ static func _chunk(rng: Rng32) -> Geo:
 ## driftwood's life: what the shader paints (lichen, moss, beetle galleries, the sea's bleaching and shipworm, foxfire,
 ## rust) is switched on in its material; what stands out of the wood is built here — barnacles on sea-worn wood, an old
 ## iron staple (its rust running down from it), a pebble the wood grew round
+## the spots on the side the viewer sees (every find is shown turned 0.6 about y; the holder already turned)
+static func _front(holder: Node3D, spots: Array) -> Array:
+	var cam := (holder.basis.inverse() * (Basis(Vector3.UP, -0.6) * Vector3.BACK)).normalized()
+	var front := spots.filter(func(sp: Array) -> bool: return (sp[1] as Vector3).normalized().dot(cam) > 0.45)
+	return front if front.size() >= 8 else spots
+
 static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMaterial, rng: Rng32, spots: Array, r0: float) -> void:
 	var sea: bool = f.get("sea", false)
 	m.set_shader_parameter("lichen_k", f.get("lichen", 0.0))
@@ -703,10 +708,7 @@ static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMateria
 		b.root.set_meta("dim", true)
 	if spots.is_empty():
 		return
-	# what stands out of the wood goes on the side the viewer sees (every find is shown turned 0.6 about y)
-	var cam := (holder.basis.inverse() * (Basis(Vector3.UP, -0.6) * Vector3.BACK)).normalized()
-	var front := spots.filter(func(sp: Array) -> bool: return (sp[1] as Vector3).normalized().dot(cam) > 0.45)
-	if front.size() < 8: front = spots
+	var front := _front(holder, spots)
 	var marks := {}
 	if sea:
 		# barnacles in a few crowded patches, chalky cones each with its crater
@@ -733,11 +735,11 @@ static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMateria
 		var p: Vector3 = at[0]
 		var nrm: Vector3 = at[1]
 		var t1 := nrm.cross(Vector3.UP if absf(nrm.y) < 0.9 else Vector3.RIGHT).normalized().rotated(nrm, rng.next() * TAU)
-		var im := SpecMat.make({col = SpecMat.lin(0x3a2418), metal = 0.35, rough = 0.75})
+		var im := SpecMat.make({col = SpecMat.lin(0x6a3418), metal = 0.3, rough = 0.8})
 		var bs := Basis(t1, nrm, t1.cross(nrm))
-		var w := r0 * 0.75
-		for part: Array in [[Vector3(0, r0 * 0.06, 0), Vector3(w, r0 * 0.05, r0 * 0.09)], [Vector3(-w * 0.45, -r0 * 0.04, 0), Vector3(r0 * 0.06, r0 * 0.22, r0 * 0.07)],
-				[Vector3(w * 0.45, -r0 * 0.04, 0), Vector3(r0 * 0.06, r0 * 0.22, r0 * 0.07)]]:
+		var w := r0 * 1.0
+		for part: Array in [[Vector3(0, r0 * 0.1, 0), Vector3(w, r0 * 0.08, r0 * 0.13)], [Vector3(-w * 0.45, -r0 * 0.02, 0), Vector3(r0 * 0.09, r0 * 0.3, r0 * 0.1)],
+				[Vector3(w * 0.45, -r0 * 0.02, 0), Vector3(r0 * 0.09, r0 * 0.3, r0 * 0.1)]]:
 			var mi := U.mesh(Geo.box(1, 1, 1), im, holder, p + bs * (part[0] as Vector3), bs * Basis.from_scale(part[1] as Vector3))
 			mi.set_meta("col", true)
 		m.set_shader_parameter("rust_k", 1.0)
@@ -790,7 +792,7 @@ static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float, kind := 
 		var at: Array = spots[clampi(lo + int(rng.next() * (hi - lo)), 0, spots.size() - 1)]
 		var p0: Vector3 = at[0]
 		var near := spots.filter(func(sp: Array) -> bool: return (sp[0] as Vector3).distance_to(p0) < r0 * 1.1)
-		SpecFungi.cluster(holder, rng, near, kind, 16 + int(rng.next() * 14), r0 * (0.6 + rng.next() * 0.25) * (1.6 if kind == 3 else 1.0))
+		SpecFungi.cluster(holder, rng, near, kind, 16 + int(rng.next() * 14), r0 * (0.6 + rng.next() * 0.25))
 		if rng.next() < 0.3:
 			var n0: Vector3 = at[1]
 			var t1 := n0.cross(Vector3.UP if absf(n0.y) < 0.9 else Vector3.RIGHT).normalized()

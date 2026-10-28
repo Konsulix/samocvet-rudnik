@@ -57,8 +57,9 @@ vec3 opal_body_col(int body, vec3 p, float s) {
 	return mix(lin(vec3(0.05, 0.08, 0.16)), lin(vec3(0.16, 0.24, 0.42)), m);
 }
 
-// the spectrum without the purples that join its ends: 0 red .. 1 violet (wraps)
-vec3 spectral(float t) { return hue(fract(t) * 0.8); }
+// the spectrum without the purples that join its ends: 0 red .. 1 violet. Past an end it turns back (red never
+// jumps to violet: a red fire strays to orange, not to pink)
+vec3 spectral(float t) { return hue((1.0 - abs(fract(t * 0.5) * 2.0 - 1.0)) * 0.8); }
 
 // Precious opal's play of colour at model point p, seen along v (model space, towards the eye), surface normal n:
 // three layers at growing depth (shifted along the view: they slide over each other as the stone turns, which reads
