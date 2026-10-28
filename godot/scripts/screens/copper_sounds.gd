@@ -6,7 +6,8 @@ extends RefCounted
 ##   the falls of the mill race (a loop, while the wheel turns) and the wheel's creaks, twice a turn;
 ##   the blast furnace's roar (a loop, once lit); the hoisting engine's steam, a chuff each turn of the flywheel;
 ##   the incline's cart rolling up and down; the tower's bell (struck in CopperView._sky) and the crows off the
-##   belfry; now and then a crow over the ridge, the smelter's cat; the Mistress's signs: the lizard's scurry and
+##   belfry; now and then a crow over the ridge, the smelter's cat, the pigeons cooing on the incline's roof, the
+##   groom's pony down at 300 m snorting, stamping, now and then a neigh; the Mistress's signs: the lizard's scurry and
 ##   hiss, a breath of her in the waterfall, the hot crack's steam and rumble, the hall of the flower's shimmer.
 
 const FALLS_DB := -16.0
@@ -17,6 +18,8 @@ var _heard := {}          # event -> the start time it was sounded for
 var _crow_at := 8.0       # next lone crow over the ridge
 var _cat_at := 25.0
 var _hall_at := 4.0
+var _coo_at := 3.0
+var _pony_at := 6.0
 
 static func of(v: CopperView) -> CopperSounds:
 	if not v.has_meta("copper_sounds"):
@@ -64,6 +67,11 @@ func tick(v: CopperView) -> void:
 		if v._passed("cu_inc_up", t, 16.0) or v._passed("cu_inc_dn", t, 16.0, 8.0):
 			a.shot("cart_%d" % (randi() % 2), -6.0 + v._far(mid), 0.67)
 	_birds(v, a, t, sky)
+	if int(sp.get("incline", 0)) >= 3 and t >= _coo_at:
+		# the two pigeons on the roof by the winch house (mine.json life: pigeon12)
+		_coo_at = t + randf_range(7.0, 18.0)
+		a.shot("copper/coo_%d" % (randi() % 3), -20.0 + v._far(sky + 310.0), randf_range(0.95, 1.08))
+	_pony(v, a, t)
 	if int(sp.get("smelter", 0)) >= 3 and t >= _cat_at:
 		_cat_at = t + randf_range(45.0, 90.0)
 		a.shot("copper/meow", -20.0 + v._far(sky + 1185.0), randf_range(0.9, 1.15))
@@ -79,7 +87,7 @@ func _birds(v: CopperView, a: MineAmb, t: float, sky: float) -> void:
 	var wins: Array = tw.windows
 	var bs := fmod(t + 4.0, TOWER_CYCLE) - wins.size() * 2.2
 	if v._passed("cu_birds", bs, 100.0, 0.15):
-		a.shot("copper/wings_%d" % (randi() % 2), -12.0 + v._far(by))
+		a.shot("copper/wings_%d" % (randi() % 3), -12.0 + v._far(by))
 		var n := 3 + randi() % 2
 		for i in n:
 			var at := 0.3 + i * randf_range(0.35, 0.6)
@@ -89,6 +97,26 @@ func _birds(v: CopperView, a: MineAmb, t: float, sky: float) -> void:
 		var calls := 1 + randi() % 3
 		for i in calls:
 			v.get_tree().create_timer(i * randf_range(0.45, 0.7)).timeout.connect(func(): a.shot("copper/crow_%d" % (randi() % 3), -22.0 + v._far(sky + 250.0), randf_range(0.9, 1.0)))
+
+## the groom's pony (the crew of the depth that has a pet: mine.json crews[].pet), once its people live there
+func _pony(v: CopperView, a: MineAmb, t: float) -> void:
+	if t < _pony_at:
+		return
+	_pony_at = t + randf_range(8.0, 16.0)
+	for b in v._bands:
+		var cr: Dictionary = v.J.crews.get(str(int(b.d)), {})
+		if not cr.has("pet") or not b.lived:
+			continue
+		var y := float(b.y) + v.floor_of(int(b.d))
+		var f := v._far(y)
+		var r := randf()
+		if r < 0.2:
+			a.shot("copper/neigh_%d" % (randi() % 3), -24.0 + f, randf_range(0.95, 1.05))
+		elif r < 0.6:
+			a.shot("copper/snort_%d" % (randi() % 2), -20.0 + f, randf_range(0.9, 1.1))
+		else:
+			for j in 2:
+				v.get_tree().create_timer(j * randf_range(0.3, 0.5)).timeout.connect(func(): a.shot("copper/hoof_%d" % (randi() % 2), -18.0 + f, randf_range(0.9, 1.1)))
 
 ## the Mistress's signs, sounded once as each starts (CopperView._tick_events / _events_live)
 func _events(v: CopperView, a: MineAmb, t: float) -> void:

@@ -73,3 +73,8 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 - `crow_0..2` — zeroisnotnull, [crow caw](https://opengameart.org/content/crow-caw), три высоты.
 - `meow` — IgnasD, [Meow](https://opengameart.org/content/meow).
 - `bell` — колокол башни: `sfx/impactBell_heavy_000` медленнее и глуше.
+- `coo_0..2` — голуби: mary905, [Dove cooing](https://commons.wikimedia.org/wiki/File:Dove_cooing.ogg) (Wikimedia Commons, общественное достояние), три фразы.
+- `neigh_0..2`, `snort_0..1`, `hoof_0..1`, `wings_2` — Joseph Sardin, BigSoundBank (CC0): ржание #1/#3/#5
+  ([#0284](https://bigsoundbank.com/neighing-of-a-horse-1-s0284.html), [#0863](https://bigsoundbank.com/horse-neighing-3-s0863.html), [#1542](https://bigsoundbank.com/horse-neighing-5-s1542.html)),
+  дыхание #3/#4 ([#0287](https://bigsoundbank.com/breath-horse-3-s0287.html), [#1543](https://bigsoundbank.com/breath-horse-4-s1543.html)),
+  копыта ([#0289](https://bigsoundbank.com/horses-s0289.html)), взлёт голубя ([#0840](https://bigsoundbank.com/flight-of-a-pigeon-s0840.html)).
