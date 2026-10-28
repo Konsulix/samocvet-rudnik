@@ -49,20 +49,7 @@ func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_card.resized.connect(func(): holder.custom_minimum_size = _card.size)
 	if glow.a > 0.0:
-		# a close, thin halo that flickers unevenly, like light off the rarity's stone
-		var halo := Panel.new()
-		var hs := StyleBoxFlat.new()
-		hs.bg_color = Color(0, 0, 0, 0)
-		hs.set_corner_radius_all(20)
-		hs.shadow_color = Color(glow, 0.8)
-		hs.shadow_size = 5
-		halo.add_theme_stylebox_override("panel", hs)
-		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_card.resized.connect(func(): halo.size = _card.size)
-		holder.add_child(halo)
-		var fl := halo.create_tween().set_loops()
-		for k: float in [0.55, 1.0, 0.75, 0.95, 0.5, 0.85, 1.0, 0.65]:
-			fl.tween_property(halo, "modulate:a", k, 0.22 + 0.5 * absf(k - 0.75)).set_trans(Tween.TRANS_SINE)
+		holder.add_child(_halo(glow, _card))
 	holder.add_child(_card)
 	center.add_child(holder)
 	_card.scale = Vector2(0.86, 0.86)
@@ -103,6 +90,49 @@ func keep_clear(top: float, bottom: float) -> void:
 	if _center:
 		_center.offset_top = top
 		_center.offset_bottom = -bottom
+
+## the light round a card in the rarity's colour (being chosen: `-- glow=<look>` for snapshots):
+##   muted (chosen) — the colour greyed towards brass, narrow and still; flicker — the first one, a thin halo flickering unevenly;
+##   lamp — warm lamplight, no rarity colour; ember — the colour deep and dark, breathing slowly;
+##   rim — a dark shadow and a thin line of the colour hugging the frame
+static var glow_look := ""
+
+func _halo(glow: Color, card: Control) -> Control:
+	if glow_look == "":
+		glow_look = "muted"
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("glow="): glow_look = a.get_slice("=", 1)
+	var brass := Color("#c9a35a")
+	var layers: Array = []      # [colour, size, radius]
+	match glow_look:
+		"muted": layers = [[Color(glow.lerp(brass, 0.55), 0.45), 7, 20]]
+		"lamp": layers = [[Color(1.0, 0.78, 0.45, 0.3), 18, 22]]
+		"ember": layers = [[Color(glow.darkened(0.35), 0.55), 12, 22], [Color(glow.lerp(brass, 0.3), 0.25), 3, 18]]
+		"rim": layers = [[Color(0, 0, 0, 0.7), 18, 22], [Color(glow.lerp(brass, 0.25), 0.7), 2, 18]]
+		_: layers = [[Color(glow, 0.8), 5, 20]]
+	var box := Control.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for L: Array in layers:
+		var halo := Panel.new()
+		var hs := StyleBoxFlat.new()
+		hs.bg_color = Color(0, 0, 0, 0)
+		hs.set_corner_radius_all(int(L[2]))
+		hs.shadow_color = L[0]
+		hs.shadow_size = int(L[1])
+		halo.add_theme_stylebox_override("panel", hs)
+		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.resized.connect(func(): halo.size = card.size)
+		box.add_child(halo)
+	match glow_look:
+		"flicker":
+			var fl := box.create_tween().set_loops()
+			for k: float in [0.55, 1.0, 0.75, 0.95, 0.5, 0.85, 1.0, 0.65]:
+				fl.tween_property(box, "modulate:a", k, 0.22 + 0.5 * absf(k - 0.75)).set_trans(Tween.TRANS_SINE)
+		"ember":
+			var br := box.create_tween().set_loops()
+			br.tween_property(box, "modulate:a", 0.7, 2.4).set_trans(Tween.TRANS_SINE)
+			br.tween_property(box, "modulate:a", 1.0, 2.4).set_trans(Tween.TRANS_SINE)
+	return box
 
 func close(emit := true) -> void:
 	for n in [_dim, _center]:
