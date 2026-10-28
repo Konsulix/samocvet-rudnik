@@ -722,13 +722,17 @@ func _sounds(_dt: float) -> void:
 		var wk: Array = cr.get("work", ["pick"])
 		var who := String(wk[0]) if wk.size() else ""
 		var hit := false
-		# the strike: the sheet's drawing 10 / 20 / 11 / 19, wherever the export's order put it
+		# the strike: the sheet's drawing PICK_HIT / 20 / 9 and 12 / 18, wherever the loop shows it
 		var cv := _loop_at(k)
-		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 10))
+		var ln := _len_of(who)
+		if who == "pick24" and _crew_ok(who): hit = _passed("pick%d" % k, cv, ln, _step_of(who, PICK_HIT))
 		elif who == "pick" or not _crew_ok(who): hit = _passed("pick%d" % k, t * PICK_FPS + k * 2.3, 6.0, 2.0)
-		elif who == "shovel24": hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 20))
-		elif who == "jack24" or who == "lad24": hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 11))
-		elif who == "load24" or who == "old24": hit = _passed("pick%d" % k, cv, 24.0, _step_of(who, 19))
+		elif who == "shovel24": hit = _passed("pick%d" % k, cv, ln, _step_of(who, 20))
+		elif who == "jack24" or who == "lad24":
+			hit = _passed("pick%d" % k, cv, ln, _step_of(who, 9))
+			hit = _passed("pick2_%d" % k, cv, ln, _step_of(who, 12)) or hit
+		elif who == "load24": hit = _passed("pick%d" % k, cv, ln, _step_of(who, 19))
+		elif who == "old24": hit = _passed("pick%d" % k, cv, ln, _step_of(who, 18))      # the coal leaves the shovel
 		if hit and (mine or randf() < 0.18):
 			amb.shot("pick", _far(y) + deep + (0.0 if mine else -4.0), 0.9 - k * 0.03)
 		# the cart: rolling sounds while it moves (each take is 4 s), out to the shaft and back
@@ -867,7 +871,7 @@ func _surface_live(c: CanvasItem) -> void:
 			c.draw_texture_rect(tex("puff.png"), Rect2(pos - ps * s / 2, ps * s), false, Color(1, 1, 1, a))
 	if camp >= 3:
 		var g: Array = J.guide
-		var gp := "guide/%02d.png" % (int(t * 8) % 24)
+		var gp := "guide/%02d.png" % (_drawing_at(J.guide_play, t * 8.0) if J.has("guide_play") else int(t * 8) % 24)
 		var gs := _size(gp)
 		_put(c, gp, Vector2(float(g[0]) - gs.x / 2, float(g[1]) - gs.y))
 	# hens and a rooster pecking about the ore yard, a dog asleep by the hut, once those places are done
@@ -1024,7 +1028,7 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 		_put(c, jp, Vector2(float(cr.jack[0]) - js.x / 2, back + 10 - js.y), false, al)
 	if cr.has("cart") and (cr.get("work", ["x"]) as Array).is_empty():
 		_cart(c, "cart_full", J.cart_full, Vector2(float(cr.cart[0]), floor_y + 4), 0.0, false, 1e9, al)
-	if cr.has("heap"):
+	if cr.has("heap") and not cr.has("heap_front"):
 		var hs0 := _size("heap.png")
 		_put(c, "heap.png", Vector2(float(cr.heap[0]) - hs0.x / 2, floor_y + 12 - hs0.y), false, al)
 	var w: Array = cr.get("work", ["pick", 760, "heap"])
@@ -1038,6 +1042,7 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 	var hs := _size("heap.png")
 	if bool(cr.get("front", false)):
 		back = floor_y + 6            # he stands by the rails, not at the back wall
+	back += float(cr.get("dy", 0.0))     # a man whose feet came out above the floor
 	if heap == "heap":
 		_put(c, "heap.png", Vector2(x + 52, back - hs.y + 8), false, al)
 	elif heap == "heap_l":
@@ -1060,24 +1065,98 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 	var sz := _size(p)
 	if cr.has("cart"):
 		# the cart he loads, standing on the rails on the side he throws to; its load grows a little with each throw
-		var cd: Dictionary = J.cart_full
 		var cx := float(cr.cart[0])
-		_cart(c, "cart_full", cd, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
+		if who == "old24":
+			_cart(c, "cart_empty", J.cart_empty, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
+			_coal_load(c, k, cx, floor_y + 4, al)
+		else:
+			_cart(c, "cart_full", J.cart_full, Vector2(cx, floor_y + 4), 0.0, flip, 1e9, al)
 	_put(c, p, Vector2(x - sz.x / 2, back - sz.y), flip, al)
+	if cr.has("heap_front"):
+		# the heap in the foreground, below the rails and over the man's feet and shovel (`heap_front`: how much lower)
+		var hf := _size("heap.png")
+		_put(c, "heap.png", Vector2(float(cr.heap[0]) - hf.x / 2, floor_y + float(cr.heap_front) - hf.y), false, al)
+	if who == "old24" and cr.has("cart") and rx == "":
+		_coal_flight(c, k, Vector2(x - sz.x / 2 + sz.x * COAL_TIP.x, back - sz.y + sz.y * COAL_TIP.y), float(cr.cart[0]), floor_y + 4, al)
 	var sheet_f := _sheet_of(who, f)
-	if (who == "jack24" or who == "lad24") and sheet_f >= 11 and sheet_f <= 13 and rx == "":
+	if (who == "jack24" or who == "lad24") and LAD_SPARK.has(sheet_f) and rx == "":
 		# the hammer on the chisel: sparks at its point, against the rock (the sheet's right edge; mirrored when flipped)
 		var fx := x + (sz.x * 0.42) * (-1.0 if flip else 1.0)
-		_put(c, "gspark/%d.png" % mini(sheet_f - 11, 3), Vector2(fx - 30, back - sz.y * 0.55), flip, al)
+		_put(c, "gspark/%d.png" % int(LAD_SPARK[sheet_f]), Vector2(fx - 30, back - sz.y * 0.55), flip, al)
 	if who == "pick24" and rx == "":
-		var sf := int(fposmod(_loop_at(k) - _step_of(who, 10), 24.0) / 1.5)
+		var sf := int(fposmod(_loop_at(k) - _step_of(who, PICK_HIT), _len_of(who)) / 1.5)
 		if sf < 4:
 			_put(c, "gspark/%d.png" % sf, Vector2(x + (-5 if flip else 5), back - hs.y - 5), false, al)
+
+## the old loader (old24): the coal leaves his shovel on drawing 18 (its tip there, a share of the drawing), flies into the
+## cart in an arc and lands on the mound of coal that always fills it (COAL_FULL layers of lumps)
+const COAL_TIP := Vector2(0.95, 0.15)
+const COAL_FLY := 0.45            # seconds in the air
+const COAL_FULL := 6
+
+## seconds since the last throw (and how many throws have landed)
+func _coal_beat(k: int) -> Vector2:
+	var ln := _len_of("old24")
+	var v := _loop_at(k) - _step_of("old24", 18)
+	var n := floorf(v / ln)
+	var since := fposmod(v, ln) / CREW_FPS
+	return Vector2(since, n - (1.0 if since < COAL_FLY else 0.0))
+
+func _coal_lump(c: CanvasItem, p: Vector2, r: float, seed_: int, al: float) -> void:
+	var pts := PackedVector2Array()
+	for j in 6:
+		var a := TAU * j / 6.0 + float(seed_ % 7) * 0.4
+		pts.append(p + Vector2(cos(a), sin(a) * 0.8) * r * (0.75 + 0.25 * sin(seed_ * 1.7 + j * 2.3)))
+	c.draw_colored_polygon(pts, Color(0.12, 0.11, 0.11, al))
+	c.draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.28, Color(0.42, 0.4, 0.38, 0.8 * al))
+
+## the coal in the cart: a full mound over its rim (the thrown lumps land on it)
+func _coal_load(c: CanvasItem, k: int, cx: float, bottom: float, al: float) -> void:
+	var cd: Dictionary = J.cart_empty
+	var w := float(cd.w)
+	var rim := bottom - float(cd.h) + 10.0
+	# a dark bed under the lumps, so the wall does not show between them
+	var bed := PackedVector2Array([Vector2(cx + w * 0.07, rim + 6)])
+	for j in 13:
+		var u := -1.0 + j / 6.0
+		bed.append(Vector2(cx + w / 2 + u * w * 0.43, rim - COAL_FULL * 5.0 * (1.0 - u * u * 0.85)))
+	bed.append(Vector2(cx + w * 0.93, rim + 6))
+	c.draw_colored_polygon(bed, Color(0.08, 0.075, 0.075, al))
+	var rng := RandomNumberGenerator.new()
+	for i in COAL_FULL * 9:
+		rng.seed = k * 1000 + i
+		var u := rng.randf_range(-1.0, 1.0)
+		var layer := floorf(i / 9.0) + rng.randf()
+		_coal_lump(c, Vector2(cx + w / 2 + u * w * 0.42, rim - layer * 7.0 * (1.0 - u * u * 0.8)), rng.randf_range(13.0, 18.0), k * 1000 + i, al)
+
+## the lumps in the air between the shovel and the cart
+func _coal_flight(c: CanvasItem, k: int, tip: Vector2, cx: float, bottom: float, al: float) -> void:
+	var since := _coal_beat(k).x
+	if since >= COAL_FLY:
+		return
+	var cd: Dictionary = J.cart_empty
+	var to := Vector2(cx + float(cd.w) / 2, bottom - float(cd.h))
+	for j in 5:
+		var q := clampf(since / COAL_FLY - j * 0.06, 0.0, 1.0)
+		var spread := Vector2((j - 2) * 18.0, (j % 2) * 10.0)
+		var pos := tip.lerp(to + spread, q) + Vector2(0, -90.0 * 4.0 * q * (1.0 - q))
+		_coal_lump(c, pos, 13.0 + j % 3 * 3.0, k * 77 + j, al)
+
+## the crowned lizard: seconds her last coming-out drawing takes to melt into the sitting one (and back)
+const LIZ_MELT := 0.35
+
+## the pick's blow (pick24): the drawing with the chips
+const PICK_HIT := 16
+
+## the hammer on the chisel (lad24): the drawings of its two blows -> the spark's stage
+const LAD_SPARK := {9: 0, 10: 1, 11: 2, 12: 0, 14: 1}
 
 ## which of a crew's 24 drawings now: a steady loop, or - with "pause" - the action once, then he just sits, breathing
 ## (drawings 17..24 back and forth) for that many seconds before the next time
 func _crew_frame(cr: Dictionary, k: int) -> int:
 	var v := _loop_at(k)
+	if cr.has("play"):
+		return _drawing_at(cr, v)
 	if not cr.has("pause"):
 		return int(v) % 24
 	var act := 24.0
@@ -1109,8 +1188,9 @@ func _react_start(k: int) -> void:
 	if w.is_empty() or not _crew_ok(_react_name(String(w[0]))):
 		return
 	var v := _v_at(float(_react.t0), k) - float(_held.get(k, 0.0)) * CREW_FPS
-	var u := fposmod(v, 24.0 + float(cr.get("pause", 0.0)) * CREW_FPS)
-	var wait := 0.0 if u >= 24.0 or u < 0.01 else (24.0 - u) / CREW_FPS
+	var ln := _loop(cr)
+	var u := fposmod(v, ln + float(cr.get("pause", 0.0)) * CREW_FPS)
+	var wait := 0.0 if u >= ln or u < 0.01 else (ln - u) / CREW_FPS
 	_react.ts = float(_react.t0) + wait
 
 func _v_at(at: float, k: int) -> float:
@@ -1126,12 +1206,66 @@ func _loop_at(k: int) -> float:
 ## the export may put a crew's drawings in a smoother order than the sheet's (`crew_order`: file i is drawing order[i]):
 ## the step at which the sheet's drawing i shows, and the sheet's drawing of a file
 func _step_of(who: String, i: int) -> float:
+	var cr := _crew_of(who)
+	if cr.has("play"):
+		var p := _play(cr)
+		var seq: Array = p.seq
+		var at: Array = p.at
+		return float(at[maxi(seq.find(i), 0)])
 	if J.has("crew_order") and J.crew_order.has(who):
 		var o: Array = J.crew_order[who]
 		for j in o.size():
 			if int(o[j]) == i:
 				return float(j)
 	return float(i)
+
+## a loop played from `play` in the data: [drawing, how long in drawings at its fps] in the order they show - a drawing
+## can hold (the swing hangs at the top, the blow stays), flash by, be skipped (a frame GPT got wrong) or come back
+## (a move played back); without it the sheet's 24 drawings evenly
+func _play(spec: Dictionary) -> Dictionary:
+	if not spec.has("_play"):
+		var seq: Array = []
+		var at: Array = []
+		var s := 0.0
+		for e in spec.get("play", []):
+			var p: Array = e
+			seq.append(int(p[0]))
+			at.append(s)
+			s += float(p[1])
+		if seq.is_empty():
+			for i in 24:
+				seq.append(i)
+				at.append(float(i))
+			s = 24.0
+		spec["_play"] = {seq = seq, at = at, len = s}
+	return spec["_play"]
+
+## the loop's length in drawings
+func _loop(spec: Dictionary) -> float:
+	return float(_play(spec).len)
+
+## the drawing shown `u` drawings into the loop
+func _drawing_at(spec: Dictionary, u: float) -> int:
+	var p := _play(spec)
+	var at: Array = p.at
+	var seq: Array = p.seq
+	var w := fposmod(u, float(p.len))
+	var i := at.size() - 1
+	while i > 0 and float(at[i]) > w:
+		i -= 1
+	return int(seq[i])
+
+## the crew working that sheet, and the length of its loop
+func _crew_of(who: String) -> Dictionary:
+	if J.has("crews"):
+		for cr in J.crews.values():
+			var w: Array = (cr as Dictionary).get("work", [])
+			if w.size() and String(w[0]) == who:
+				return cr
+	return {}
+
+func _len_of(who: String) -> float:
+	return _loop(_crew_of(who))
 
 func _sheet_of(who: String, f: int) -> int:
 	if J.has("crew_order") and J.crew_order.has(who):
@@ -1304,7 +1438,15 @@ func _snake_live(c: CanvasItem) -> void:
 				elif s < out_s * 2.0 + sit: fr = "lizard2/out_%02d.png" % (23 - int((s - out_s - sit) * 12.0))
 				else: done = true
 				if fr != "":
-					_put(c, fr, Vector2(float(L2.x), band_y(int(L2.get("k", 0))) + float(L2.y)))
+					var lp := Vector2(float(L2.x), band_y(int(L2.get("k", 0))) + float(L2.y))
+					_put(c, fr, lp)
+					# the sitting drawing is another one than the last of the coming out: one melts into the other
+					var q2 := s - out_s
+					var mix := 1.0 - q2 / LIZ_MELT if q2 >= 0.0 and q2 < LIZ_MELT else 0.0
+					var q3 := out_s + sit - s
+					if q3 >= 0.0 and q3 < LIZ_MELT: mix = 1.0 - q3 / LIZ_MELT
+					if mix > 0.0:
+						_put(c, "lizard2/out_23.png", lp, false, mix)
 			"bat":
 				var u := s / 3.2
 				if u >= 1.0: done = true

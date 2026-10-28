@@ -94,7 +94,8 @@ func setup(a: int) -> void:
 		# and ends in), and the loop waits meanwhile and goes on from that drawing - no jump in or out
 		var t0 := t + 0.7
 		var v := _crew_v(k, t0)
-		t0 += (ceilf(v / 24.0) * 24.0 - v) / CREW_FPS
+		var ln := _loop(J.crews.get(str(int(_bands[k].d)), {}))
+		t0 += (ceilf(v / ln) * ln - v) / CREW_FPS
 		_hold[k] = t0
 		_react = {k = k, won = bool(last_result.won), t0 = t0, iron = int(last_result.iron), ore = int(last_result.ore)}
 		if focus_y < 0: focus_y = band_y(k) + float(J.band) * 0.5
@@ -591,7 +592,8 @@ func _surface_live(c: CanvasItem) -> void:
 			var ru := fmod(t + ph, per) / per
 			x += float(spec.roam[0]) * (0.5 - 0.5 * cos(TAU * ru))
 			flip = (ru > 0.5) != flip
-		var fr := "%s/%02d.png" % [nm, int((t + ph) * float(spec.get("fps", 8))) % n]
+		var u := (t + ph) * float(spec.get("fps", 8))
+		var fr := "%s/%02d.png" % [nm, _drawing_at(spec, u) if spec.has("play") else int(u) % n]
 		var fs := _size(fr) * float(spec.get("s", 1.0))
 		var pos := Vector2(x - fs.x / 2, sky + float(spec.y) - fs.y)
 		if flip:
@@ -687,9 +689,11 @@ func _conv_runs() -> Array:
 		var p0: Array = r[0]
 		var p1: Array = r[1]
 		var oy := float(r[2])
-		# the rails run 32 px to the floor side of the flight's axis; the conveyor stands on the axis, a little above
-		out.append([Vector2(float(p0[0]) + 32.0, oy + float(p0[1]) + CONV_R + 6.0),
-			Vector2(float(p1[0]) + 32.0, oy + float(p1[1]) - CONV_R - 6.0)])
+		# the rails run 32 px to the floor side of the flight's axis (left of it going down-right, right of it on the
+		# mirrored flights going down-left); the conveyor stands on the axis
+		var ax := 32.0 * signf(float(p1[0]) - float(p0[0]))
+		out.append([Vector2(float(p0[0]) + ax, oy + float(p0[1]) + CONV_R + 6.0),
+			Vector2(float(p1[0]) + ax, oy + float(p1[1]) - CONV_R - 6.0)])
 	return out
 
 ## the conveyor's sounds, as the buckets pass the pulleys: a clank of chain as one goes round the bottom and scoops,
@@ -824,7 +828,7 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 		var psz := _size(pp)
 		_put(c, pp, Vector2(float(cr.pet[1]) - psz.x / 2, floor_y - psz.y + 4), bool(cr.get("pet_flip", false)), al)
 	_put(c, p, Vector2(x - sz.x / 2, floor_y - sz.y + 4), flip, al)
-	if cr.has("spark") and _crew_frame(cr, k) in [10, 11]:
+	if cr.has("spark") and _crew_frame(cr, k) in [int(cr.hit), int(cr.hit) + 1]:
 		var sp: Array = cr.spark
 		_light(c, Vector2(x + float(sp[0]) * (-1.0 if flip else 1.0), floor_y + float(sp[1])), 40, Color(1.0, 0.7, 0.3, 0.6 * al))
 
@@ -1071,7 +1075,14 @@ func _crew_v(k: int, at: float) -> float:
 	return v
 
 func _crew_frame(cr: Dictionary, k: int) -> int:
-	return int(_crew_v(k, t)) % 24
+	return _drawing_at(cr, _crew_v(k, t))
+
+## where in the loop the blow lands (its drawing's first showing)
+func _hit_at(cr: Dictionary) -> float:
+	var p := _play(cr)
+	var seq: Array = p.seq
+	var at: Array = p.at
+	return float(at[maxi(seq.find(int(cr.hit)), 0)])
 
 func _sounds(_dt: float) -> void:
 	for b in _bands:
@@ -1081,7 +1092,7 @@ func _sounds(_dt: float) -> void:
 		var cr: Dictionary = J.crews[str(int(b.d))]
 		if not cr.has("hit"):
 			continue
-		if _passed("hit%d" % k, _crew_v(k, t), 24.0, float(cr.hit)) and (k == sel or randf() < 0.15):
+		if _passed("hit%d" % k, _crew_v(k, t), _loop(cr), _hit_at(cr)) and (k == sel or randf() < 0.15):
 			CopperSounds.strike(amb, String(cr.work[0]), _far(float(b.y) + floor_of(int(b.d))) - k * 1.2 + (0.0 if k == sel else -4.0), 0.95 - k * 0.02)
 	if int(_shown_places.get("hoist", 0)) >= 3:
 		_conv_sounds()
