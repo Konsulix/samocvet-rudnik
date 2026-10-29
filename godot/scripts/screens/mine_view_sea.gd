@@ -487,10 +487,16 @@ func _surface_live(c: CanvasItem) -> void:
 	if int(_shown_places.get("chapel", 0)) >= 3:
 		_chapel(c)
 	_spray_live(c)
+	var first_gull := true
 	for a in J.life:
 		var spec: Dictionary = a
 		if (spec.has("place") and int(_shown_places.get(String(spec.place), 0)) < 3) or not _crew_ok(String(spec.name)):
 			continue
+		if String(spec.name) == "gull" and first_gull:
+			# the first gull now and then flies off its post and another comes back to it (_gull_trip)
+			first_gull = false
+			if _gull_trip(c, spec):
+				continue
 		var nm := String(spec.name)
 		var n := int(J.crew_n[nm])
 		var ph := float(spec.get("ph", 0))
@@ -525,6 +531,44 @@ func _surface_live(c: CanvasItem) -> void:
 			var gy := sky + 260.0 + g * 50.0 + 30.0 * sin(t * 0.9 + g)
 			var gf := "gullfly/%02d.png" % ((int(t * 10) + g * 3) % int(J.crew_n.gullfly))
 			_put(c, gf, Vector2(gx, gy) - _size(gf) / 2)
+
+## once a minute the gull on the post at the crane takes off, flies away over the edge of the picture, and a gull comes in
+## from the other side and settles on the same post; true while it is in the air (the standing drawing is not drawn)
+const GULL_TRIP := 60.0
+var _gull_off := 20.0
+func _gull_trip(c: CanvasItem, spec: Dictionary) -> bool:
+	if not _crew_ok("gullfly"):
+		return false
+	var u := fposmod(t + _gull_off, GULL_TRIP)
+	if u < 50.0:
+		return false
+	var post := Vector2(float(spec.x), float(J.sky) + float(spec.y) - 12.0)
+	var out := Vector2(float(J.W) + 120.0, post.y - 380.0)
+	var back := Vector2(-120.0, post.y - 300.0)
+	var p: Vector2
+	var right := true
+	var up := 0.0
+	if u < 54.0:
+		var q := (u - 50.0) / 4.0
+		p = post.lerp(out, q) + Vector2(0, -120.0 * sin(PI * q) * (1.0 - q))
+		up = q
+	elif u < 56.0:
+		return true              # gone over the edge
+	else:
+		var q := (u - 56.0) / 4.0
+		var e := 1.0 - (1.0 - q) * (1.0 - q)       # slowing as it settles
+		p = back.lerp(post, e) + Vector2(0, -60.0 * sin(PI * e))
+		up = 1.0 - q
+	var fr := "gullfly/%02d.png" % (int(t * (12.0 if up > 0.1 else 6.0)) % int(J.crew_n.gullfly))
+	var fs := _size(fr) * 1.5
+	# the flying drawing faces left: mirrored when it goes right
+	if right:
+		c.draw_set_transform(p + Vector2(fs.x / 2, -fs.y / 2), 0, Vector2(-1, 1))
+		c.draw_texture_rect(tex(fr), Rect2(Vector2.ZERO, fs), false)
+		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	else:
+		c.draw_texture_rect(tex(fr), Rect2(p - fs / 2, fs), false)
+	return true
 
 ## the beam: a long soft cone from the lantern that swings out to the left, shrinks as it turns towards us (the lantern
 ## flares), and swings out to the right; a faint pool of it on the clouds
@@ -843,6 +887,9 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 # ---------------------------------------------------------------- the Kraken about the place
 
 func _tick_events() -> void:
+	if force_event == "gull" and t > 0.5:
+		_gull_off = 49.5 - t
+		force_event = ""
 	if force_event in STORMS and t > 0.5:
 		_start_storm(force_event.trim_prefix("bolt_"))
 		force_event = ""
