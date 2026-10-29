@@ -725,59 +725,49 @@ func _man_engine(c: CanvasItem) -> void:
 		if u < 0.4: dy = -stroke * (0.5 - 0.5 * cos(PI * u / 0.4))
 		elif u < 0.5: dy = -stroke
 		elif u < 0.9: dy = -stroke * (0.5 + 0.5 * cos(PI * (u - 0.5) / 0.4))
-	var wood := Color(0.36, 0.25, 0.15)
-	var ink := Color(0.05, 0.04, 0.03)
-	# over the hatch the engine's balance bob: a heavy timber beam on an A-frame, rocking; the rod hangs from its end and
-	# goes up and down with it, out of the hatch and back
-	var head := top - 30.0 + dy
-	var piv := Vector2(x + 105.0, top - 140.0)
-	var lend := Vector2(x, head - 20.0)
-	var arm := piv - lend
-	var rend := piv + arm * 0.45
-	var iron := Color(0.16, 0.16, 0.18)
-	for leg in [Vector2(x + 60.0, top + 10.0), Vector2(x + 150.0, top + 10.0)]:
-		c.draw_line(piv, leg, ink, 20.0)
-		c.draw_line(piv, leg, wood.darkened(0.15), 12.0)
-	c.draw_line(lend, rend, ink, 30.0)
-	c.draw_line(lend, rend, wood, 20.0)
-	c.draw_line(lend + Vector2(0, -6), rend + Vector2(0, -6), Color(0.6, 0.44, 0.27), 4.0)
-	c.draw_circle(rend, 22.0, ink)                    # the counterweight box at its far end
-	c.draw_circle(rend, 16.0, iron)
-	c.draw_circle(piv, 11.0, ink)
-	c.draw_circle(piv, 6.0, Color(0.55, 0.5, 0.42))
-	# the rod: thick timber in iron straps, from the beam's end down the shaft
-	c.draw_line(lend, Vector2(x, bottom + dy), ink, 36.0)
-	c.draw_line(lend, Vector2(x, bottom + dy), wood, 24.0)
-	c.draw_line(lend + Vector2(-6, 0), Vector2(x - 6, bottom + dy), Color(0.62, 0.46, 0.28), 6.0)
-	var sy0 := lend.y + 40.0
-	while sy0 < bottom + dy:
-		if sy0 > _seen.x - 100 and sy0 < _seen.y + 100:
-			c.draw_rect(Rect2(x - 18, sy0, 36, 8), iron)
-			c.draw_rect(Rect2(x - 18, sy0, 36, 2.5), Color(0.5, 0.5, 0.52))
-		sy0 += 95.0
+	if not J.has("me_art"):
+		return
+	# over the hatch the engine's balance bob (GPT's drawing: the trestle stands on the landing, the beam rocks on it);
+	# the rod hangs from the beam's left end and goes up and down with it, out of the hatch and back
+	var art: Dictionary = J.me_art
+	var bp := Vector2(float(art.beam_pivot[0]), float(art.beam_pivot[1]))
+	var hang0 := Vector2(float(art.beam_hang[0]), float(art.beam_hang[1]))
+	var fp := Vector2(float(art.frame_pivot[0]), float(art.frame_pivot[1]))
+	var piv := Vector2(x + (bp.x - hang0.x), top - float(art.frame_h) + fp.y)
+	var arm := (hang0 - bp).length()
+	# GPT drew the beam a little tilted (its left end higher): level at rest, then rocked by the rod's stroke
+	var ang := asin(clampf(-dy / arm, -0.9, 0.9)) - 0.069
+	var hang := piv + (hang0 - bp).rotated(ang)
+	# the rod: the drawn piece repeated from the hanging point down
+	var rt := tex("me_rod.png")
+	var rs := _size("me_rod.png")
+	var rx := hang.x - float(art.rod_axis)
+	var ry := hang.y
+	while ry < bottom + dy:
+		if ry + rs.y > _seen.x - 100 and ry < _seen.y + 100:
+			var h := minf(rs.y, bottom + dy - ry)
+			c.draw_texture_rect_region(rt, Rect2(rx, ry, rs.x, h), Rect2(0, 0, rs.x * K, h * K))
+		ry += rs.y
+	# its steps, and a miner riding every third one
 	var gap := float(me.gap)
 	var y := top + gap * 0.5
 	var i := 0
+	var ss := _size("me_step.png")
 	while y < bottom - 20:
 		var sy := y + dy
 		if sy > _seen.x - 200 and sy < _seen.y + 200:
-			# an iron strap and a step on the rod, a fixed landing on the shaft wall beside it
-			# a step on the rod with its bracket, a fixed landing on the shaft wall opposite
-			c.draw_rect(Rect2(x + 10, sy - 4, 70, 16), ink)
-			c.draw_rect(Rect2(x + 13, sy - 1, 64, 10), wood)
-			c.draw_rect(Rect2(x + 13, sy - 1, 64, 3), Color(0.62, 0.46, 0.28))
-			c.draw_line(Vector2(x + 14, sy + 12), Vector2(x + 50, sy + 30), iron, 5.0)
-			c.draw_rect(Rect2(x - 88, y + 30, 72, 16), ink)
-			c.draw_rect(Rect2(x - 85, y + 33, 66, 10), wood.darkened(0.2))
-			# riders: one on every third step; on the way up the rod carries him
+			_put(c, "me_step.png", Vector2(rx, sy - float(art.step_foot)))
 			if on and i % 3 == 1 and _crew_ok("riders"):
 				var rf := "riders/%02d.png" % (i / 3 % int(J.crew_n.riders))
-				var rs := _size(rf)
-				# he faces the rod, his hand on its handle, standing on its step
-				_put(c, rf, Vector2(x + 8, sy - rs.y + 3))
-				_light(c, Vector2(x + rs.x * 0.45, sy - rs.y + 8), 34, Color(1.0, 0.75, 0.4, 0.45))
+				var rz := _size(rf)
+				_put(c, rf, Vector2(hang.x + 4.0, sy - rz.y + 3))
+				_light(c, Vector2(hang.x + rz.x * 0.45, sy - rz.y + 8), 34, Color(1.0, 0.75, 0.4, 0.45))
 		y += gap
 		i += 1
+	_put(c, "me_frame.png", piv - fp)
+	c.draw_set_transform(piv, ang, Vector2.ONE)
+	c.draw_texture_rect(tex("me_beam.png"), Rect2(-bp, _size("me_beam.png")), false)
+	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	if on and _passed("me_top", t, ME_PERIOD, ME_PERIOD * 0.4):
 		amb.shot("copper/creak_%d" % (randi() % 3), -20.0 + _far((top + bottom) / 2), 0.7)
 
