@@ -7,7 +7,7 @@ extends Node2D
 ## last board two rise out of the water in front of him over the fight's top bar, sway, grope and now and then slap down
 ## on the end of the boss' name plate (never over its words). Each arm is drawn twice along the same curve: once over his
 ## sprite and under the water (`back`, between BossView and this node: its root is under the surface) and once over the
-## top bar, clipped to above his stage (`front`) - both over him, so they meet without a seam. The close button, the
+## top bar, clipped to above the water's surface (`front`) - both over him, so they meet without a seam. The close button, the
 ## moves and the bubble stay over them. Where an arm comes out of the water, a ring of foam.
 
 const WAVE := 4.0            # the surface's swell, pt
@@ -107,8 +107,10 @@ func fit() -> void:
 		# over a bar: down to it; past the board's sides: a little lower, fading - never short of his sprite's bottom
 		bottom[x] = top + 2.0 if top < INF else minf(near, top_line + DEEP_FADE) if near < INF else top_line + DEEP_FADE
 		bottom[x] = maxf(bottom[x], sprite_bottom + 6.0)
+	# the arms over everything (the top bar too) from the water's surface up; under it they are in `back`, under the water.
+	# The line between them is the swell's trough, hidden in its foam
 	front.position = Vector2.ZERO
-	front.size = Vector2(vp.x, view.position.y)
+	front.size = Vector2(vp.x, surface - WAVE)
 	_rim_paths(reach - b.TS * 0.3)
 	# the rim arms show over the frame from its top bar down; above it they are in the water (`back`)
 	var cut := b.PAD + _top_row() * b.TS - reach
@@ -394,7 +396,8 @@ func _arm(i: int) -> PackedVector2Array:
 	# the left one over the top bar: never past the start of the name plate's words
 	if i == 0:
 		var over := 0.0
-		for p in pts: if p.y < view.position.y: over = maxf(over, p.x - PLATE_END)
+		var bar := LevelBoss.hud(lv).bar_bottom() + 6.0
+		for p in pts: if p.y < bar: over = maxf(over, p.x - PLATE_END)
 		if over > 0.0:
 			for k in pts.size(): pts[k].x -= over * pow(k / float(pts.size() - 1), 1.5)
 	return pts
