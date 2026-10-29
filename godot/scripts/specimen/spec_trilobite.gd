@@ -858,14 +858,15 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 		"glow":
 			# the room goes dark; cold light runs in waves down its rings, its eyes lit, plankton glinting round it
 			root.set_meta("dark", true)
-			var gc := Color(0.25, 0.75, 1.0)
+			# a cold blue-green, not neon
+			var gc := Color(0.3, 0.9, 0.8)
 			for m: ShaderMaterial in [sm, em]:
-				m.set_shader_parameter("glow_k", 2.2)
+				m.set_shader_parameter("glow_k", 3.0)
 				m.set_shader_parameter("glow_col", gc)
-			em.set_shader_parameter("eye_glow", 2.0)
+			em.set_shader_parameter("eye_glow", 0.7)
 			var lamp := OmniLight3D.new()
 			lamp.light_color = gc
-			lamp.light_energy = 0.8
+			lamp.light_energy = 0.35
 			lamp.omni_range = 1.4
 			lamp.position = Vector3(0, 0.25, 0.3)
 			nd0.add_child(lamp)
@@ -874,7 +875,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			var pk := SpecSea.bubbles(holder, [pc + Vector3(sz * 0.5, 0, 0.1 * sz), pc + Vector3(-sz * 0.5, 0, -0.1 * sz), pc + Vector3(0, 0, sz * 0.55)], Vector3.UP, sz * 1.1, sz * 0.012, 14)
 			for it: Array in pk.items:
 				var bm := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
-				bm.set_shader_parameter("tint", Color(0.5, 1.2, 2.2))
+				bm.set_shader_parameter("tint", Color(0.5, 1.6, 1.4))
 				(it[0] as MeshInstance3D).material_override = bm
 		"hunter":
 			# Anomalocaris circles over the slab; as it passes over, the trilobite rolls up, then slowly uncurls

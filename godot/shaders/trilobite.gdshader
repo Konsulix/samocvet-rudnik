@@ -176,11 +176,20 @@ void fragment() {
 			ro = mix(ro, 0.12, opal_k * (1.0 - dirt));
 		}
 		NORMAL = bump(n, VERTEX, h, 1.0);
-		// the deep-sea glow: waves of cold light running down the rings, the axis brightest, a faint glow all over
+		// the deep-sea glow: the shell stays itself, and rows of little photophores along its lobes light up one by
+		// one in a slow wave from head to tail, each on its own delay, the axis's brighter; between waves they smoulder
 		if (glow_k > 0.0) {
-			float wave = pow(max(0.0, sin(UV2.x * 28.0 - TIME * 3.2)), 6.0) * (0.35 + 0.65 * axis) + 0.12 + 0.25 * furrow;
-			EMISSION = glow_col * glow_k * wave * (1.0 - step(0.3, 1.0 - COLOR.a));
-			c *= 1.0 - 0.5 * glow_k;
+			vec2 q = vec2(b.x * 18.0, UV2.x * 24.0);
+			vec2 cell = floor(q);
+			vec2 fq = fract(q) - 0.5;
+			float hid = h3(vec3(cell, seed + 41.0));
+			fq += (vec2(h3(vec3(cell, seed + 5.0)), h3(vec3(cell, seed + 9.0))) - 0.5) * 0.35;
+			float pt = (1.0 - smoothstep(0.1, 0.24, length(fq))) * step(0.42, hid) * (1.0 - smoothstep(0.35, 0.6, furrow));
+			float halo = (1.0 - smoothstep(0.15, 0.5, length(fq))) * step(0.42, hid) * 0.25;
+			float wave = pow(max(0.0, sin(UV2.x * 7.0 - TIME * 1.4 + hid * 1.8)), 10.0);
+			float lit = 0.12 + 1.6 * wave * (0.6 + 0.4 * axis);
+			EMISSION = glow_col * glow_k * (pt + halo) * lit * (1.0 - step(0.3, 1.0 - COLOR.a));
+			c *= 0.7;
 		}
 	}
 	if (part == 1 && eye_glow > 0.0) {
