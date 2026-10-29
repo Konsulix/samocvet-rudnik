@@ -208,12 +208,16 @@ func _shaft_column(c: CanvasItem) -> void:
 	var bottom := band_y(open) + floor_of(open + 1) + 30.0
 	var tx := tex("shaft.png")
 	var y0 := y
-	const FADE := 220.0      # its head comes out of the cliff's rock gradually, not cut off flat
+	var FADE := float(sh.get("fade", 220.0))      # the old piece's head came out of the rock gradually; the drawn shaft goes on seamless
 	while y < bottom:
 		var h := minf(seg.y, bottom - y)
 		var off := 0.0
 		while off < h:
 			var sl := minf(h - off, 20.0 if y + off - y0 < FADE else h - off)
+			if FADE <= 0.0:
+				c.draw_texture_rect_region(tx, Rect2(x, y + off, seg.x, sl), Rect2(0, off * K, seg.x * K, sl * K))
+				off += sl
+				continue
 			var al := clampf((y + off - y0 + sl * 0.5) / FADE, 0.0, 1.0)
 			c.draw_texture_rect_region(tx, Rect2(x, y + off, seg.x, sl), Rect2(0, off * K, seg.x * K, sl * K), Color(1, 1, 1, al * al))
 			off += sl
@@ -677,7 +681,7 @@ func _man_engine(c: CanvasItem) -> void:
 	var sh: Dictionary = J.shaft
 	var me: Dictionary = J.man_engine
 	var x := float(me.x)
-	var top := float(sh.top) + 140.0     # under the shaft's head, where it has come out of the rock
+	var top := float(me.get("top", float(sh.top) + 140.0))     # from the hatch in the landing (or under the old shaft's head)
 	var bottom := band_y(open) + floor_of(open + 1)
 	if bottom < _seen.x - SEEN_PAD or top > _seen.y + SEEN_PAD:
 		return
@@ -691,9 +695,34 @@ func _man_engine(c: CanvasItem) -> void:
 		elif u < 0.9: dy = -stroke * (0.5 + 0.5 * cos(PI * (u - 0.5) / 0.4))
 	var wood := Color(0.36, 0.25, 0.15)
 	var ink := Color(0.05, 0.04, 0.03)
-	c.draw_line(Vector2(x, top - 10 + dy), Vector2(x, bottom + dy), ink, 30.0)
-	c.draw_line(Vector2(x, top - 10 + dy), Vector2(x, bottom + dy), wood, 20.0)
-	c.draw_line(Vector2(x - 5, top - 10 + dy), Vector2(x - 5, bottom + dy), Color(0.6, 0.44, 0.27), 5.0)
+	# over the hatch the engine's balance bob: a heavy timber beam on an A-frame, rocking; the rod hangs from its end and
+	# goes up and down with it, out of the hatch and back
+	var head := top - 30.0 + dy
+	var piv := Vector2(x + 105.0, top - 140.0)
+	var lend := Vector2(x, head - 20.0)
+	var arm := piv - lend
+	var rend := piv + arm * 0.45
+	var iron := Color(0.16, 0.16, 0.18)
+	for leg in [Vector2(x + 60.0, top + 10.0), Vector2(x + 150.0, top + 10.0)]:
+		c.draw_line(piv, leg, ink, 20.0)
+		c.draw_line(piv, leg, wood.darkened(0.15), 12.0)
+	c.draw_line(lend, rend, ink, 30.0)
+	c.draw_line(lend, rend, wood, 20.0)
+	c.draw_line(lend + Vector2(0, -6), rend + Vector2(0, -6), Color(0.6, 0.44, 0.27), 4.0)
+	c.draw_circle(rend, 22.0, ink)                    # the counterweight box at its far end
+	c.draw_circle(rend, 16.0, iron)
+	c.draw_circle(piv, 11.0, ink)
+	c.draw_circle(piv, 6.0, Color(0.55, 0.5, 0.42))
+	# the rod: thick timber in iron straps, from the beam's end down the shaft
+	c.draw_line(lend, Vector2(x, bottom + dy), ink, 36.0)
+	c.draw_line(lend, Vector2(x, bottom + dy), wood, 24.0)
+	c.draw_line(lend + Vector2(-6, 0), Vector2(x - 6, bottom + dy), Color(0.62, 0.46, 0.28), 6.0)
+	var sy0 := lend.y + 40.0
+	while sy0 < bottom + dy:
+		if sy0 > _seen.x - 100 and sy0 < _seen.y + 100:
+			c.draw_rect(Rect2(x - 18, sy0, 36, 8), iron)
+			c.draw_rect(Rect2(x - 18, sy0, 36, 2.5), Color(0.5, 0.5, 0.52))
+		sy0 += 95.0
 	var gap := float(me.gap)
 	var y := top + gap * 0.5
 	var i := 0
@@ -701,12 +730,13 @@ func _man_engine(c: CanvasItem) -> void:
 		var sy := y + dy
 		if sy > _seen.x - 200 and sy < _seen.y + 200:
 			# an iron strap and a step on the rod, a fixed landing on the shaft wall beside it
-			c.draw_rect(Rect2(x - 16, sy - 12, 32, 9), Color(0.13, 0.13, 0.15))
-			c.draw_rect(Rect2(x - 16, sy - 12, 32, 3), Color(0.45, 0.45, 0.48))
-			c.draw_rect(Rect2(x + 8, sy - 2, 58, 14), ink)
-			c.draw_rect(Rect2(x + 11, sy + 1, 52, 8), wood)
-			c.draw_rect(Rect2(x - 72, y + 30, 58, 14), ink)
-			c.draw_rect(Rect2(x - 69, y + 33, 52, 8), wood.darkened(0.2))
+			# a step on the rod with its bracket, a fixed landing on the shaft wall opposite
+			c.draw_rect(Rect2(x + 10, sy - 4, 70, 16), ink)
+			c.draw_rect(Rect2(x + 13, sy - 1, 64, 10), wood)
+			c.draw_rect(Rect2(x + 13, sy - 1, 64, 3), Color(0.62, 0.46, 0.28))
+			c.draw_line(Vector2(x + 14, sy + 12), Vector2(x + 50, sy + 30), iron, 5.0)
+			c.draw_rect(Rect2(x - 88, y + 30, 72, 16), ink)
+			c.draw_rect(Rect2(x - 85, y + 33, 66, 10), wood.darkened(0.2))
 			# riders: one on every third step; on the way up the rod carries him
 			if on and i % 3 == 1 and _crew_ok("riders"):
 				var rf := "riders/%02d.png" % (i / 3 % int(J.crew_n.riders))
