@@ -238,6 +238,10 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = SpecFulgurite.build(self, gene)
 		"flower_quartz", "amber":
 			main = SpecFlower.build(self, gene)
+		"trilobite":
+			main = SpecTrilobite.build(self, gene, use_rock)
+		"pearl":
+			main = SpecPearl.build(self, gene)
 		"nugget":
 			main = _nugget(sid, col)
 		"vein":
@@ -542,6 +546,9 @@ func _specimen(o: Dictionary) -> Node3D:
 		_gold(main, mat, st)
 	_growths(main, mat, col, tr, layout, sid, st, legend)
 	_accents(main, mat, gene, st, layout)
+	# a trilobite's slab is held up to the viewer, everything that grew on it with it
+	if layout == "trilobite":
+		SpecTrilobite.lean(self, gene)
 	_finish()
 	if legend:
 		root.set_meta("glow", U.raw(0xe4ae39))

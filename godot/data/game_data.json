@@ -6,6 +6,18 @@
    "v": 45,
    "r": 1
   },
+  "trilobite": {
+   "n": "Trilobite",
+   "c": "#8f6e4e",
+   "v": 55,
+   "r": 2
+  },
+  "pearl": {
+   "n": "Pearl",
+   "c": "#efe6dc",
+   "v": 350,
+   "r": 3
+  },
   "amber": {
    "n": "Amber",
    "c": "#e09a2a",
@@ -1060,6 +1072,8 @@
     "fluorite": 6,
     "aquamarine": 6,
     "opal": 5,
+    "trilobite": 5,
+    "pearl": 1.5,
     "amber": 5,
     "petrified_wood": 4,
     "sapphire": 1,
@@ -1714,6 +1728,8 @@
   "fulgurite": "fossil",
   "flower_quartz": "fossil",
   "amber": "fossil",
+  "trilobite": "fossil",
+  "pearl": "fossil",
   "quartz": "prism",
   "amethyst": "prism",
   "calcite": "scaleno",

@@ -42,6 +42,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	for t in traits:
 		tm *= Data.TR[t].m
 	var base_g := 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 250.0 if kind == "fossil" else 60.0
+	if sid == "pearl": base_g = 30.0   # its oyster, mostly
 	var g := roundi(base_g * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * 0.35))
 	var kind_m := 1.4 if kind == "druse" else 1.6 if kind == "geode" else 1.0
 	if kind == "fossil":
@@ -58,6 +59,20 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		# wood: opal in it, a crystal heart
 		kind_m *= 1.0 + 6.0 * pow(float(fg.get("opal", 0.0)), 2.0)
 		if String(fg.get("heart", "")) != "": kind_m *= 1.8
+		# trilobites: spiny kinds are rare and hard to prepare; pyrite, legs, a moult, a bite, a whole plate
+		if sid == "trilobite":
+			kind_m *= {dicranurus = 2.5, walliserops = 3.0, asaphus = 1.8, phacops = 1.2}.get(fg.get("genus", ""), 1.0)
+			if int(fg.get("pal", 0)) == 4: kind_m *= 1.6
+			if fg.get("soft", false): kind_m *= 4.0
+			if fg.get("moult", false): kind_m *= 1.4
+			if fg.get("bite", false): kind_m *= 1.3
+			if fg.get("show", "") == "mass": kind_m *= 1.0 + 0.2 * int(fg.get("mass", 1))
+		# pearls: the body (conch and melo are the rarest), roundness, luster, more than one
+		if sid == "pearl":
+			kind_m *= {tahitian = 1.5, golden = 1.4, south_sea = 1.3, conch = 3.0, melo = 2.5}.get(fg.get("body", ""), 1.0)
+			kind_m *= {round = 1.3, baroque = 0.8, circled = 0.8}.get(fg.get("shape", ""), 1.0)
+			kind_m *= 0.6 + float(fg.get("luster", 0.5))
+			if int(fg.get("count", 1)) > 1: kind_m *= 1.5
 	var value := roundi(Data.SP[sid].v * Data.GR[gi].m * tm * (3.0 if legend else 1.0) * kind_m * 1.3 * (1.0 + dl * 0.25))
 	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = value, tier = tier_of(sid, gi, legend)}
 

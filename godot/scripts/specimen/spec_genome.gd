@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -65,6 +65,7 @@ static func of(o: Dictionary) -> Dictionary:
 		form = "cluster" if druse else "single"
 	var rock: String
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
+	elif habit == "fossil" and fossil.has("rock"): rock = fossil.rock
 	elif habit == "fossil": rock = "slate" if fossil.get("crushed", false) else Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
 	else: rock = Stones.pick_w([["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]], rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
@@ -110,6 +111,9 @@ static func of(o: Dictionary) -> Dictionary:
 		if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
 		# a fulgurite's own: the lightning that made it runs through it still
 		if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
+		# a trilobite's pyrite legs walk again; a pearl glows like the moon
+		if sid == "trilobite": fpool = ["awaken", "jellyfish"]
+		if sid == "pearl": fpool = ["moon", "jellyfish"]
 		if lustre == "glass" and not (form in ["geode", "botryoid", "vein", "nugget"]):
 			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
 		fx = fpool[int(rng.next() * fpool.size())]
