@@ -83,10 +83,16 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.mass = 3 + int(rng.next() * 4.0)
 	g.lens_tilt = rng.next()
 	if "irid" in tr or "aurora" in tr: g.pal = 4
-	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters"]:
+	# how well it kept: a perfect one is rare; most are worn, chipped, their spines broken
+	var rng3 := Rng32.new((seed_v * 3266489917 + 71) % 4294967296)
+	g.keep = clampf(0.42 + 0.58 * pow(rng3.next(), 0.75), 0.42, 1.0)
+	g.wear_seed = int(rng3.next() * 100000.0) + 1
+	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep"]:
 		if o.has(k): g[k] = o[k]
 	# a legendary one keeps its legs and antennae (the awakening walks them)
-	if o.get("legend", false): g.soft = true
+	if o.get("legend", false):
+		g.soft = true
+		g.keep = maxf(float(g.keep), 0.85)
 	if g.soft:
 		g.pal = 4
 		if g.show == "enrolled" or g.show == "mass": g.show = "matrix"
@@ -108,7 +114,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	return g
 
 static func accents(g: Dictionary) -> Array:
-	var out := []
+	var out := ["keep"]
 	var c: Dictionary = GENUS[g.genus]
 	if c.eye == "lens" or c.eye == "tower": out.append("eyes")
 	if c.eye == "stalk": out.append("stalks")
@@ -141,6 +147,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"mass": return "a plate of %d" % int(g.mass)
 		"enrolled": return "rolled up"
 		"opal": return "opalized"
+		"keep": return "preserved %d%%" % roundi(float(g.get("keep", 1.0)) * 100.0)
 		"nodule": return "split nodule"
 		"lilies": return "sea lilies"
 		"oyster":
@@ -259,9 +266,9 @@ static func _bend(p: Vector3, k: float) -> Vector3:
 ## the body as one grid over its outline (u0..u1 of its length: a moult's head is apart from it), its edge
 ## turned under to a thin rim; a flat underside closes it. Body space: length 1 along z (snout +), y up.
 static func body_geo(f: Dictionary, c: Dictionary, u0: float, u1: float, k: float) -> Geo:
-	# One sheet round the whole shield, as the real one is: a thin curved shell. Across the top (|v| <= 1), its edge
-	# rolling under in a rounded lip (the doublure, 1 .. 1.3), then back in under the dome (1.3 .. 2.3) — the hollow
-	# underneath, here filled with the rock that set inside it (COLOR.a 0: the shader paints it as matrix)
+	# One sheet round the whole find: across the shield (|v| <= 1), its edge rolling under in a rounded lip (the
+	# doublure, 1 .. 1.3), then the rock that filled the shell underneath (1.3 .. 2.3), bulging out below the rim in an
+	# uneven lump, as on a real one freed from its rock (COLOR.a 0: the shader paints it as matrix)
 	var g := Geo.new()
 	var nu := int(150.0 * (u1 - u0)) + 20
 	var nv := 104
@@ -270,6 +277,12 @@ static func body_geo(f: Dictionary, c: Dictionary, u0: float, u1: float, k: floa
 	var nz := FastNoiseLite.new()
 	nz.seed = int(f.seed)
 	nz.frequency = 9.0
+	# wear (1 - keep): fresh breaks along the edge, dents in the shell, the shell flaked off in patches
+	var wear := 1.0 - float(f.get("keep", 1.0))
+	var wn := FastNoiseLite.new()
+	wn.seed = int(f.get("wear_seed", 1)) + int(f.seed) % 1000
+	wn.frequency = 3.0
+	var chips := _chips(f, wear)
 	for i in nu + 1:
 		var u := lerpf(u0, u1, float(i) / nu)
 		var env := smoothstep(0.0, 0.025, u - u0 + (0.025 if u0 <= 0.0 else 0.0)) * smoothstep(0.0, 0.025, u1 - u + (0.025 if u1 >= 1.0 else 0.0))
@@ -279,27 +292,33 @@ static func body_geo(f: Dictionary, c: Dictionary, u0: float, u1: float, k: floa
 			var v := -vmax + 2.0 * vmax * float(j) / nv
 			var s := signf(v) if v != 0.0 else 1.0
 			var av := absf(v)
-			var w := _w(f, c, u, s)
+			var w := _w(f, c, u, s) * _broken(chips, u, s)
 			var x := 0.0
 			var y := 0.0
 			var hh := _h(f, c, u, s * minf(av, 1.0) * w, w)
 			var top: float = float(hh[0]) * env + 0.004 * nz.get_noise_2d(u * 3.0, s * minf(av, 1.0) * w * 3.0)
 			var under := 1.0
+			var flake := 0.0
 			if av <= 1.0:
 				x = s * av * w
 				y = top
+				# dents and flaked patches (the rock that filled it shows, a step below the shell)
+				var pn := wn.get_noise_2d(u * 4.0, x * 4.0)
+				flake = smoothstep(0.55 - wear * 0.5, 0.62 - wear * 0.5, pn) * smoothstep(0.05, 0.25, wear)
+				y -= flake * 0.012 + wear * 0.006 * maxf(0.0, wn.get_noise_2d(u * 14.0 + 7.0, x * 14.0))
 			elif av <= 1.3:
 				# the lip: out a hair, round and under, ending a little way in
 				var ph := (av - 1.0) / 0.3 * PI
 				x = s * (w + lip * 0.5 * sin(ph) - lip * 0.8 * (1.0 - cos(ph)) * 0.5)
 				y = top - lip * (1.0 - cos(ph))
 			else:
-				# under the dome, back in to the middle line: following the shield's curve, a shell's thickness below it
+				# the rock filling it, in to the middle line: a rounded, lumpy belly bulging below the rim — deepest under
+				# the axis, never a flat floor
 				var t := (av - 1.3) / (vmax - 1.3)
 				var xi := w - lip * 0.8
 				x = s * xi * (1.0 - t)
-				var hu := _h(f, c, u, x, w)
-				y = (float(hu[0]) * env) * 0.55 - lip * 2.0 * (1.0 - t * 0.5)
+				var belly := float(c.H) * 0.75 * pow(1.0 - pow(1.0 - t, 2.0), 0.6) * env
+				y = -lip * 2.0 - belly * (1.0 + 0.35 * nz.get_noise_2d(u * 1.7, x * 1.7)) + 0.008 * nz.get_noise_2d(u * 9.0 + 40.0, x * 9.0)
 				under = 0.0
 			# (the ends of the body: the whole section closes down to the rim)
 			if env < 1.0:
@@ -309,11 +328,32 @@ static func body_geo(f: Dictionary, c: Dictionary, u0: float, u1: float, k: floa
 			# UV: the flat body position (granules, lenses keep their size); UV2.x: along the body
 			g.rp.append(Vector3(x, 0.5 - u, u))
 			if under > 0.5:
-				g.col.append(Color(float(hh[1]), float(hh[2]), float(hh[3]), 1.0))
+				# COLOR.a: 1 shell, down to 0.6 where it flaked off to the rock inside
+				g.col.append(Color(float(hh[1]), float(hh[2]), float(hh[3]), 1.0 - 0.4 * flake))
 			else:
 				g.col.append(Color(0, 0, 0, 0.0))
 	_grid(g, 0, nu, nv)
 	return g
+
+## where the body is broken: a few bites out of its outline, more the worse it kept — [u, side, width, depth]
+static func _chips(f: Dictionary, wear: float) -> Array:
+	var r := Rng32.new(int(f.get("wear_seed", 1)) * 7 + int(f.seed) % 1000 + 3)
+	var out := []
+	for k in int(wear * 9.0 + r.next() * wear * 3.0):
+		out.append([0.05 + r.next() * 0.9, -1.0 if r.next() < 0.5 else 1.0, 0.03 + r.next() * 0.06, 0.08 + r.next() * 0.25 * (0.5 + wear)])
+	return out
+
+## how much of the half-width is left at u on side s after the breaks: jagged, stepped notches
+static func _broken(chips: Array, u: float, s: float) -> float:
+	var k := 1.0
+	for ch: Array in chips:
+		if float(ch[1]) != s: continue
+		var d := absf(u - float(ch[0])) / float(ch[2])
+		if d < 1.0:
+			# a fresh break is not round: a steep step and a ragged floor
+			var jag := 0.75 + 0.25 * sin(u * 310.0 + float(ch[0]) * 50.0)
+			k = minf(k, 1.0 - float(ch[3]) * jag * (1.0 - d * d))
+	return k
 
 ## indices of a grid (rows of nv+1 points from base), wound to face +y (Geo's normals: (c-b) x (a-b))
 static func _grid(g: Geo, base: int, nu: int, nv: int) -> void:
@@ -436,6 +476,8 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	var half: float = c.half
 	var H: float = c.H
 	var sp: float = f.spines
+	var wear := 1.0 - float(f.get("keep", 1.0))
+	var wr := Rng32.new(int(f.get("wear_seed", 1)) * 13 + 1)
 	var spines: Array = []
 	var ax: float = float(c.ax) * half
 	# the eyes, at the sides of the glabella
@@ -469,7 +511,7 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 		for s: float in [-1.0, 1.0]:
 			var w := _w(f, c, ce - 0.01, s)
 			var p0 := Vector3(s * w * 0.97, 0.0, 0.5 - ce + 0.03)
-			var ln: float = float(c.gspine) * sp
+			var ln: float = float(c.gspine) * sp * (0.3 + wr.next() * 0.5 if wr.next() < wear * 0.7 else 1.0)
 			var pts := []
 			for q in 8:
 				var t := float(q) / 7.0
@@ -485,6 +527,8 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 				var w := _w(f, c, u, s)
 				var p0 := Vector3(s * w * 0.95, -0.005, 0.5 - u)
 				var ln: float = float(c.pspine) * sp * (0.75 + 0.35 * sin(PI * float(i) / float(f.seg)) + (rng.next() - 0.5) * 0.12)
+				# a worn one has lost some, snapped short
+				if wr.next() < wear * 0.8: ln *= 0.15 + wr.next() * 0.45
 				var pts := []
 				for q in 7:
 					var t := float(q) / 6.0
@@ -508,15 +552,15 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 		var rod := []
 		for q in 6:
 			var t := float(q) / 5.0
-			rod.append(p0 + Vector3(0, (0.25 * t + 0.1 * t * t) * ln, 0.6 * t * ln))
+			rod.append(p0 + Vector3(0, 0.12 * t * ln, 0.62 * t * ln))
 		spines.append(spine_geo(rod, 0.016, 0.012))
 		var fork: Vector3 = rod[rod.size() - 1]
 		for s: float in [-1.0, 0.0, 1.0]:
 			var pts := [fork]
 			for q in range(1, 6):
 				var t := float(q) / 5.0
-				pts.append(fork + Vector3(s * 0.14 * sin(t * 1.4) * ln, (0.12 * t - 0.05 * t * t) * ln, (0.35 * t - absf(s) * 0.08 * t * t) * ln))
-			spines.append(spine_geo(pts, 0.011, 0.003))
+				pts.append(fork + Vector3(s * 0.085 * (1.0 - exp(-t * 5.0)) * ln, 0.03 * t * ln, (0.36 + 0.06 * (1.0 - absf(s))) * t * ln))
+			spines.append(spine_geo(pts, 0.012, 0.004))
 		tips.append(fork)
 		out.trident = fork
 	# ram's horns off the back of the head, curling back and down beside the thorax
@@ -614,6 +658,8 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			var n := int(f.mass) if show == "mass" else 1
 			var placed := []
 			var bodies: Array[Node3D] = []
+			var md_node: Node3D = null
+			var hd_node: Node3D = null
 			for q in n:
 				var s := span * (0.82 if n == 1 else 0.3 + rng.next() * 0.28)
 				if f.get("moult", false) and n == 1: s = span * 0.6
@@ -652,17 +698,23 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			if f.get("moult", false):
 				var md := Node3D.new()
 				holder.add_child(md)
-				var ms := span * 0.52
-				md.transform = Transform3D(Basis(Vector3.UP, PI + 0.5 + rng.next() * 0.6) * Basis.from_scale(Vector3.ONE * ms), Vector3(rb.get_center().x + span * 0.24, top - THICK * ms * 0.5, rb.get_center().z + span * 0.08))
+				var ms := span * 0.44
+				var mat_ := Vector3(rb.get_center().x + span * 0.22, 0, rb.get_center().z + span * 0.1)
+				mat_.y = _ground(rk, mat_, ms * 0.3) + 0.02 * ms
+				md.transform = Transform3D(Basis(Vector3.UP, PI + 0.35 + rng.next() * 0.4) * Basis.from_scale(Vector3.ONE * ms), mat_)
 				var c: Dictionary = GENUS[f.genus]
 				var fm := f.duplicate()
 				fm.bite = false
 				animal(fm, md, sm, em, 0.0, float(c.ceph) - 0.02, 1.0)
 				var hd := Node3D.new()
 				holder.add_child(hd)
-				hd.transform = Transform3D(Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * ms), Vector3(rb.get_center().x + span * 0.3, top, rb.get_center().z - span * 0.22))
+				# the head lies just past the thorax's front (its own body space starts there), turned aside
+				hd.transform = md.transform * Transform3D(Basis(Vector3.UP, 0.5 + rng.next() * 0.5), Vector3(0.1, 0.0, 0.1))
+				hd.position.y = _ground(rk, hd.position, ms * 0.15) + 0.02 * ms
 				animal(fm, hd, sm, em, 0.0, 0.0, float(c.ceph) - 0.03)
 				marks.moult = md
+				md_node = md
+				hd_node = hd
 			# the sea floor it lay on. What lies on the slab keeps its room: the trilobites (a chain of discs along each),
 			# then the oysters, then the sea lilies, each put only on the slab's top where nothing is yet
 			var lrng := Rng32.new(int(f.seed) * 17 + 5)
@@ -675,16 +727,19 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 					var p := nd.transform * Vector3(0, 0, 0.5 - u)
 					occ.append([Vector2(p.x, p.z), reach * sc])
 			if f.get("moult", false):
-				occ.append([Vector2(rb.get_center().x + span * 0.26, rb.get_center().z), span * 0.25])
+				var mp := md_node.transform * Vector3(0, 0, -0.1)
+				occ.append([Vector2(mp.x, mp.z), span * 0.2])
+				var hp := hd_node.position
+				occ.append([Vector2(hp.x, hp.z), span * 0.13])
 			var cands := _top_spots(rk, rb)
 			var spots := []
 			# pearl oysters: open ones breathe and now and then snap shut; shut ones now and then gape, the pearl inside
 			var oys_n := 0
 			for fp: Dictionary in f.get("pearls", []):
-				var os := span * (0.15 + lrng.next() * 0.04)
+				var os := span * (0.11 + lrng.next() * 0.1)
 				# a few free spots (a crowded slab gets smaller oysters rather than none); of them the one where the
 				# oyster sits flattest: seated so its cupped valve clears every bump of the rock under it
-				var yaw := PI + (lrng.next() - 0.5) * 0.9
+				var yaw := PI + (lrng.next() - 0.5) * 2.2
 				var best: Array = []
 				for shrink: float in [1.0, 0.8, 0.62]:
 					for tries in 8:
@@ -963,10 +1018,11 @@ static func _plate(f: Dictionary) -> Geo:
 			elif i <= nr + ns:
 				# the side: broken stone, bulging and stepping in and out as it goes down, a little wider at the foot
 				var t := float(i - nr) / ns
-				var k := 1.03 + 0.05 * t + 0.07 * nb.get_noise_2d(a * 4.0, t * 3.0) + 0.04 * nb.get_noise_2d(a * 13.0, t * 9.0)
+				var k := 1.03 + (0.05 + 0.07 * nb.get_noise_2d(a * 4.0, t * 3.0) + 0.04 * nb.get_noise_2d(a * 13.0, t * 9.0)) * t
 				x = sin(a) * rb * wob * k
 				z = cos(a) * ra * wob * k
-				y = -THICK * 1.1 - 0.035 - 0.05 - t * (depth - 0.085) + 0.02 * nb.get_noise_2d(a * 6.0, 7.0) * t
+				var y0 := -THICK * 1.1 - 0.035 + 0.01 * nz.get_noise_2d(sin(a) * rb * wob * 1.03 * 6.0, cos(a) * ra * wob * 1.03 * 6.0) - 0.05
+				y = y0 - t * (depth - 0.085) + 0.02 * nb.get_noise_2d(a * 6.0, 7.0) * t
 				rough = 1.0
 				g.col.append(Color(0, 0, 1, 1))
 			else:

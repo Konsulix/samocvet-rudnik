@@ -101,7 +101,7 @@ void fragment() {
 		vec3 sc = tri(scan_tex, p * 2.4 + seed, tw0).rgb;
 		float sl = dot(sc, vec3(0.3, 0.5, 0.2));
 		float pits = smoothstep(0.75, 0.9, vn(vec3(b * 140.0, seed))) * (1.0 - tub);
-		h = tub * 0.005 + grain * 0.0004 + (wear - 0.5) * 0.0006 + (sl - 0.4) * 0.0012 * scan_k - pits * 0.0005;
+		h = tub * 0.0035 + grain * 0.0004 + (wear - 0.5) * 0.0006 + (sl - 0.4) * 0.0012 * scan_k - pits * 0.0005;
 		// colour: darker down in the furrows, lighter and polished on the high points the rock wore
 		c = mix(base_col, dark_col, furrow * 0.65);
 		c *= 0.82 + 0.3 * fbm(vec3(b * 9.0, seed + 2.0));
@@ -110,15 +110,29 @@ void fragment() {
 		float high = axis * (1.0 - furrow) * smoothstep(0.45, 0.75, wear);
 		c = mix(c, c * 1.35 + 0.02, high * 0.5 + tub * 0.35);
 		ro = rough_k * (1.0 - high * 0.4) * (0.85 + 0.3 * wear) * mix(1.0, 0.7 + sl, scan_k * 0.6);
+		// pyrite is never a polished ball: crystal grain (each tiny facet tipped its own way), limonite rust in
+		// patches, dull where it weathered
+		if (metal_k > 0.5) {
+			vec3 cg = vor2(b * 160.0 + seed);
+			h += (cg.z - 0.5) * 0.0014 + (1.0 - smoothstep(0.0, 0.08, cg.y)) * -0.0006;
+			float rust = smoothstep(0.52, 0.72, fbm(vec3(b * 4.0, seed + 20.0))) * (0.6 + 0.4 * fbm(vec3(b * 30.0, seed)));
+			c = mix(c, vec3(0.26, 0.14, 0.06) * (0.7 + 0.6 * fbm(vec3(b * 40.0, seed + 3.0))), rust * 0.85);
+			ro = mix(ro * (0.8 + 0.6 * cg.z), 0.85, rust);
+			me = mix(me, 0.1, rust);
+			c *= 0.85 + 0.3 * cg.z;
+		}
 		// pyrite: a tarnish in patches, blue and purple and gold
 		float tar = film_k * smoothstep(0.45, 0.7, fbm(vec3(b * 6.0, seed + 9.0)));
 		vec3 film = hue(0.55 + fbm(vec3(b * 14.0, seed)) * 0.5 + (1.0 - abs(dot(n, VIEW))) * 0.3);
 		c = mix(c, c * 0.5 + film * length(c) * 0.7, tar);
 		// its rock left in the furrows and round the edge, matt
 		float dirt = dirt_k * smoothstep(0.55, 0.95, furrow + (fbm(vec3(b * 30.0, seed + 5.0)) - 0.5) * 0.7);
-		// the underside: the hollow under the shield, filled with the rock that set inside it
+		// the underside (COLOR.a 0) and the patches where the shell flaked off (0.6): the rock that filled it
 		vec3 fill = rock_col * (0.45 + 0.6 * fbm(vec3(b * 22.0, seed + 31.0)));
-		c = mix(c, fill, 1.0 - COLOR.a);
+		float gone = max(1.0 - step(0.3, COLOR.a), smoothstep(0.95, 0.7, COLOR.a));
+		c = mix(c, fill * mix(1.0, 1.25, step(0.3, COLOR.a)), gone);
+		ro = mix(ro, 0.9, gone);
+		me = mix(me, 0.0, gone);
 		vec3 tw = pow(abs(normalize(v_no)), vec3(4.0));
 		tw /= tw.x + tw.y + tw.z;
 		vec3 rc = rock_col * (0.6 + 0.8 * tri(rock_tex, p * 2.0, tw).rgb);
