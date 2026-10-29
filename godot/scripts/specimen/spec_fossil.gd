@@ -111,6 +111,7 @@ static func accents(g: Dictionary) -> Array:
 		if int(g.get("brood", 0)) > 0: out.append("brood")
 		if g.get("crushed", false): out.append("crushed")
 		if String(g.get("hetero", "")) != "": out.append("hetero")
+		if g.show == "matrix": out.append("lilies")
 	return out
 
 ## the card's name for a fossil gene that carries a number (the nacre's share)
@@ -132,6 +133,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"brood": return "brood of %d" % (int(g.brood) + 1)
 		"crushed": return "crushed in shale"
 		"hetero": return {open = "open coil", helix = "turreted coil", hook = "hooked shell"}.get(g.hetero, "uncoiled")
+		"lilies": return "sea lilies"
 	return ""
 
 # ---------------------------------------------------------------- ammonite
@@ -570,6 +572,7 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 			if crushed:
 				b._mark("crushed", at + Vector3(0, s * 0.08, 0), Vector3.UP)
 			# the brood: young ones about it, half in the stone
+			var occ := []
 			var br := Rng32.new(int(f.plates) * 3 + 17)
 			for k in brood:
 				var f2 := f.duplicate()
@@ -583,6 +586,33 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 				var young := U.mesh(shell_geo(f2, false), _mat(f2, 0, false, _plates(f2, float(f2.turns) * TAU)), root, p2, b2)
 				young.set_meta("col", true)
 				if k == 0: b._mark("brood", p2 + Vector3(0, s2 * 0.4, 0), Vector3.UP)
+				young.set_meta("sea_light", true)
+				occ.append([Vector2(p2.x, p2.z), s2 * 1.0])
+			# the sea floor it lay on: sunlight through the water over it, sea lilies swaying behind it (where they
+			# rise clear of the shell), bubbles from the rock — the same sea as the trilobites' (SpecSea)
+			root.set_meta("sea", true)
+			rk.set_meta("sea_light", true)
+			shell.set_meta("sea_light", true)
+			# (tipped up on its edge, the shell takes less of the slab than its size)
+			occ.append([Vector2(at.x, at.z), s * (0.8 if not f.get("crushed", false) else 1.0)])
+			var lrng := Rng32.new(int(f.plates) * 5 + 23)
+			var span := minf(rb.size.x, rb.size.z)
+			# (out to the slab's edge: the shell fills its middle)
+			var cands := SpecTrilobite._top_spots(rk, rb, 0.48)
+			var lm := SpecSea.life_mat(0, span * 0.45, span * 0.03, 0.8, 0.55, 0.4)
+			var spots := []
+			for k in 2 + int(lrng.next() * 3.0):
+				var spot: Variant = SpecTrilobite._free_spot(cands, occ, span * 0.05, lrng, rb.get_center().z + rb.size.z * 0.12)
+				if spot == null: break
+				var lp: Vector3 = spot
+				lp.y = SpecTrilobite._ground(rk, lp, span * 0.05) - span * 0.01
+				var li := U.mesh(SpecSea.lily(lrng, span * (0.35 + lrng.next() * 0.2)), lm, root, lp, Basis(Vector3.UP, (lrng.next() - 0.5) * 0.8))
+				li.set_meta("col", true)
+				occ.append([Vector2(lp.x, lp.z), span * 0.06])
+				spots.append(lp)
+				if k == 0: b._mark("lilies", lp + Vector3(0, span * 0.3, 0), Vector3.UP)
+			if spots.size():
+				SpecSea.bubbles(root, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
 		"loose":
 			var bs := Basis(Vector3.UP, (rng.next() - 0.5) * 0.8) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * gs)
 			shell = U.mesh(shell_geo(f, false), sm, root, Vector3.ZERO, bs)

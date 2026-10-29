@@ -249,7 +249,16 @@ const SETS := [
 	{seed = 755, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "elrathia", show = "mass", mass = 4, pal = 0, oysters = 2, moult = false, bite = false, soft = false},
 	{seed = 756, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "walliserops", show = "matrix", pal = 4, oysters = 1, moult = false, bite = false, soft = false},
 	{seed = 757, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "phacops", show = "matrix", pal = 6, oysters = 1, moult = false, bite = false, soft = false},
-	{seed = 758, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", oysters = 1, moult = false, bite = false, soft = true, legend = true, fx = "awaken"}]
+	{seed = 758, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", oysters = 1, moult = false, bite = false, soft = true, legend = true, fx = "awaken"}],
+	# set 37: ammonites on their slab in the sea (lilies, light through water, bubbles); trilobites with moon pearls
+	[{seed = 401, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", hetero = ""},
+	{seed = 402, sid = "ammonite", kind = "fossil", gi = 2, traits = ["irid"], show = "matrix", hetero = ""},
+	{seed = 433, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", brood = 3, crushed = false, hetero = ""},
+	{seed = 415, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", nacre = 0.5, fire = "green", hetero = ""},
+	{seed = 761, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "elrathia", show = "matrix", pal = 0, oysters = 2, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
+	{seed = 762, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", pal = 1, oysters = 1, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
+	{seed = 763, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "isotelus", show = "mass", mass = 3, pal = 5, oysters = 3, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
+	{seed = 434, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", crushed = true, brood = 0, hetero = "", pal = 4}]
 ]
 
 func _ready() -> void:

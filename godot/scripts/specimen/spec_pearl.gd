@@ -343,18 +343,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		marks[id] = U.rel_xform(oy, root) * (marks[id] as Vector3)
 	# the legendary moon pearl: a light inside it, its shell lit by it, the room darkened; glowing plankton drifting up
 	if moon and pearls.size():
-		root.set_meta("dark", true)
-		var lamp := OmniLight3D.new()
-		lamp.light_color = Color(0.75, 0.82, 1.0)
-		lamp.light_energy = 0.3
-		lamp.omni_range = gs * 1.6
-		(pearls[0] as Node3D).add_child(lamp)
-		var pc: Vector3 = (pearls[0] as Node3D).position
-		var pk := SpecSea.bubbles(oy, [pc + Vector3(0.4, -0.2, 0.2), pc + Vector3(-0.5, -0.2, 0.1), pc + Vector3(0.1, -0.1, -0.4)], Vector3.UP, 2.6, 0.016, 14)
-		for it: Array in pk.items:
-			var bm2 := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
-			bm2.set_shader_parameter("tint", Color(0.9, 1.0, 1.0) * 2.2)
-			(it[0] as MeshInstance3D).material_override = bm2
+		moon_glow(root, oy, pearls[0] as Node3D, gs * 1.6)
 	# callouts
 	if pearls.size():
 		var p0 := pearls[0] as MeshInstance3D
@@ -420,6 +409,23 @@ static func oyster(parent: Node3D, f: Dictionary, pm: ShaderMaterial, pg: Geo, r
 		out.up = up
 		out.breath = breath
 	return out
+
+## the legendary moon pearl's light: a cold lamp in the pearl (its shell lit by it), the room darkened, glowing
+## plankton drifting up round it (parent: the oyster's or the floor's node, in valve units; reach: the lamp's range
+## in world units). The pearl's own glow is its material's moon_k.
+static func moon_glow(root: Node3D, parent: Node3D, pearl: Node3D, reach: float) -> void:
+	root.set_meta("dark", true)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(0.75, 0.82, 1.0)
+	lamp.light_energy = 0.3
+	lamp.omni_range = reach
+	pearl.add_child(lamp)
+	var pc := pearl.position
+	var pk := SpecSea.bubbles(parent, [pc + Vector3(0.4, -0.2, 0.2), pc + Vector3(-0.5, -0.2, 0.1), pc + Vector3(0.1, -0.1, -0.4)], Vector3.UP, 2.6, 0.016, 14)
+	for it: Array in pk.items:
+		var bm2 := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+		bm2.set_shader_parameter("tint", Color(0.9, 1.0, 1.0) * 2.2)
+		(it[0] as MeshInstance3D).material_override = bm2
 
 ## the sea floor: a low rippled mound of sand (radius r), its rim rolling under; COLOR.r the shade under the find
 static func _sand(f: Dictionary, r: float, y0: float) -> Geo:

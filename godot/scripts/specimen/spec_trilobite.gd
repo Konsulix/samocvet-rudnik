@@ -673,7 +673,14 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				var on := Node3D.new()
 				holder.add_child(on)
 				on.transform = Transform3D(Basis(Vector3.UP, PI + (lrng.next() - 0.5) * 0.9) * Basis.from_scale(Vector3.ONE * os), oat)
-				var oys := SpecPearl.oyster(on, fp, SpecPearl.mat(fp, 0), SpecPearl.pearl_geo(String(fp.shape), int(fp.seed)), lrng, true, 0.72, fp.get("open", true))
+				var ppm := SpecPearl.mat(fp, 0)
+				# the legendary moon pearl: the pearls glow, the first lights its oyster and the slab
+				if gene.fx == "moon": ppm.set_shader_parameter("moon_k", 1.0)
+				# (a moon pearl's oyster lies open: its light is the point)
+				var opened: bool = fp.get("open", true) or (gene.fx == "moon" and oys_n == 0)
+				var oys := SpecPearl.oyster(on, fp, ppm, SpecPearl.pearl_geo(String(fp.shape), int(fp.seed)), lrng, true, 0.72, opened)
+				if gene.fx == "moon":
+					SpecPearl.moon_glow(root, on, (oys.pearls as Array)[0] as Node3D, span * (0.9 if oys_n == 0 else 0.5))
 				occ.append([Vector2(oat.x, oat.z), os * 1.1])
 				if oys_n == 0: marks.oyster = (oys.pearls as Array)[0]
 				spots.append(oat + Vector3(0, os * 0.15, 0))
@@ -804,7 +811,7 @@ static func _ground(rk: MeshInstance3D, at: Vector3, r: float) -> float:
 	return ys[int(ys.size() * 0.8)]
 
 ## spots on the slab's top to set things on: the rock's own vertices up on its top, away from its edge
-static func _top_spots(rk: MeshInstance3D, rb: AABB) -> Array:
+static func _top_spots(rk: MeshInstance3D, rb: AABB, inner := 0.4) -> Array:
 	var out := []
 	var g: Geo = rk.get_meta("geo")
 	var cx := rb.get_center()
@@ -812,7 +819,7 @@ static func _top_spots(rk: MeshInstance3D, rb: AABB) -> Array:
 		var w := rk.transform * v
 		if w.y < rb.end.y - rb.size.y * 0.35:
 			continue
-		if pow((w.x - cx.x) / (rb.size.x * 0.4), 2.0) + pow((w.z - cx.z) / (rb.size.z * 0.4), 2.0) > 1.0:
+		if pow((w.x - cx.x) / (rb.size.x * inner), 2.0) + pow((w.z - cx.z) / (rb.size.z * inner), 2.0) > 1.0:
 			continue
 		out.append(w)
 	return out
