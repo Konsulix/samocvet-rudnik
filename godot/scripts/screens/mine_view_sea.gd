@@ -511,6 +511,12 @@ func _surface_live(c: CanvasItem) -> void:
 			c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 		else:
 			c.draw_texture_rect(tex(fr), Rect2(pos, fs), false)
+	# the railings the people stand behind, over them
+	if J.has("rails"):
+		for pl in J.rails:
+			if int(_shown_places.get(String(pl), 0)) >= 3:
+				var ra: Array = J.rails[pl]
+				_put(c, "rail_%s.png" % pl, Vector2(float(ra[0]), float(ra[1])))
 	# gulls crossing the sky now and then, wings beating
 	var u2 := fmod(t + 5.0, 21.0)
 	if u2 < 7.0 and _crew_ok("gullfly"):
