@@ -900,10 +900,9 @@ func _events_live(c: CanvasItem) -> void:
 			"brine":
 				# the next mine is the Kraken's sea: under the great block the rock weeps - salt water wells out of a crack,
 				# glows a cold sea-cyan for a moment, runs down in streaks and drips, and the crack dries dark again
-				var hb: Dictionary = J.hotcrack
 				if s > 7.0: done = true
 				else:
-					_brine(c, Vector2(float(hb.x), band_y(int(hb.d) - 1) + float(hb.y)), s)
+					_brine(c, band_y(7), s)
 			"hotcrack":
 				# the next mine's heart of fire: a crack opens in the deepest rock, heat runs along it, embers and steam
 				# rise, then it cools to a dark scar and closes
@@ -1042,37 +1041,42 @@ func _hot_crack(c: CanvasItem, at: Vector2, s: float) -> void:
 		var ps := _size("puff.png") * (0.2 + 0.4 * u)
 		c.draw_texture_rect(tex("puff.png"), Rect2(at + Vector2(-100 + 65 * j + 10 * sin(j * 2.0 + s), -20 - 120 * u) - ps / 2, ps), false, Color(1, 0.9, 0.85, 0.3 * heat * (1.0 - u)))
 
-var _brine_pts: Array = []   # the weeping crack's line, made once
+## the sea seeping in at 400 m: from a joint in the strip of back wall between the niche's post and the great block,
+## band px; it runs down the wall to the floor
+const BRINE := Vector2(778, 150)
+const BRINE_FLOOR := 462.0
 
-func _brine(c: CanvasItem, at: Vector2, s: float) -> void:
-	if _brine_pts.is_empty():
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 23
-		for j in 13:
-			var x := -200.0 + 400.0 * j / 12.0
-			_brine_pts.append(Vector2(x + rng.randf_range(-6, 6), rng.randf_range(-22, 22) - 40.0))
-	var wet := clampf(s / 1.2, 0.0, 1.0) * (1.0 - smoothstep(5.0, 7.0, s))
-	var glow := wet * (0.6 + 0.4 * sin(s * 2.2))
-	for j in _brine_pts.size() - 1:
-		var a: Vector2 = at + _brine_pts[j]
-		var b: Vector2 = at + _brine_pts[j + 1]
-		c.draw_line(a, b, Color(0.03, 0.04, 0.05, 0.95), 20.0)
-		c.draw_line(a, b, Color(0.35, 0.95, 1.0, 0.9 * glow), 8.0)
-		c.draw_line(a, b, Color(0.85, 1.0, 1.0, 0.8 * glow), 2.5)
-	_light(c, at + Vector2(0, -40), 320, Color(0.25, 0.85, 1.0, 0.45 * glow))
-	# streaks running down the rock from the crack, and drops falling off their ends
-	for k in 7:
-		var p0: Vector2 = at + _brine_pts[1 + k * 3 % 11]
-		var ln := (40.0 + 30.0 * sin(k * 2.1)) * clampf((s - 0.4 - k * 0.15) / 1.5, 0.0, 1.0)
-		c.draw_line(p0, p0 + Vector2(sin(k) * 4.0, ln), Color(0.7, 0.92, 1.0, 0.7 * wet), 5.0)
-		var u := fmod(s * 1.3 + k * 0.37, 1.0)
-		var dp := p0 + Vector2(sin(k) * 4.0, ln + u * 90.0)
-		c.draw_circle(dp, 4.0, Color(0.8, 0.96, 1.0, 0.8 * wet * (1.0 - u)))
-	# a glint of salt crystals along the lips
-	for k in 6:
-		var g := maxf(0.0, sin(s * 3.0 + k * 1.7)) ** 6
-		if g > 0.1:
-			_light(c, at + _brine_pts[k * 2], 22, Color(0.9, 1.0, 1.0, 0.8 * g * wet))
+func _brine(c: CanvasItem, y: float, s: float) -> void:
+	var at := Vector2(BRINE.x, y + BRINE.y)
+	var wet := clampf(s / 1.5, 0.0, 1.0) * (1.0 - smoothstep(5.5, 7.0, s))
+	# the wall darkens where the water runs: a few thin wet streaks, wider towards the floor
+	var bot := y + BRINE_FLOOR
+	for k in 3:
+		var pts := PackedVector2Array()
+		for j in 9:
+			var q := j / 8.0
+			pts.append(Vector2(at.x + (k - 1) * 7.0 * q + sin(q * 5.0 + k) * 3.0, lerpf(at.y, bot, q * minf(1.0, s / 2.0))))
+		c.draw_polyline(pts, Color(0.02, 0.05, 0.06, 0.35 * wet), 5.0)
+		c.draw_polyline(pts, Color(0.55, 0.85, 0.95, 0.12 * wet), 1.5)
+	# a faint cold glint at the joint, breathing
+	_light(c, at, 40, Color(0.35, 0.85, 1.0, 0.12 * wet * (0.7 + 0.3 * sin(s * 2.0))))
+	# a small puddle spreading on the floor under it, catching a little light
+	var pw := 40.0 * clampf((s - 1.0) / 3.0, 0.0, 1.0)
+	if pw > 1.0:
+		c.draw_set_transform(Vector2(at.x, bot + 2.0), 0.0, Vector2(1.0, 0.22))
+		c.draw_circle(Vector2.ZERO, pw, Color(0.05, 0.12, 0.15, 0.55 * wet))
+		c.draw_arc(Vector2.ZERO, pw * (0.5 + 0.5 * fmod(s * 0.8, 1.0)), 0, TAU, 20, Color(0.7, 0.92, 1.0, 0.35 * wet), 3.0)
+		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	# drops gather at the joint and fall to the floor, splashing
+	for k in 4:
+		var u := fmod(s * 0.8 + k * 0.25, 1.0)
+		var dx := (k - 1.5) * 5.0
+		if u < 0.65:
+			var q := u / 0.65
+			c.draw_circle(Vector2(at.x + dx, lerpf(at.y + 6.0, bot, q * q)), 4.5, Color(0.8, 0.96, 1.0, 0.9 * wet))
+		else:
+			var q := (u - 0.65) / 0.35
+			c.draw_arc(Vector2(at.x + dx, bot), 4.0 + 12.0 * q, PI, TAU, 10, Color(0.8, 0.96, 1.0, 0.6 * wet * (1.0 - q)), 1.6)
 
 func _tremor() -> void:
 	if String(_shown_bands.get(8, "")) == "done" and not bool(Save.d.boss_won[area]) and t > _next_tremor:

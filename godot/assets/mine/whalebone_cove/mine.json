@@ -1696,8 +1696,8 @@
   },
   {
    "name": "keeper24",
-   "x": 468,
-   "y": 368,
+   "x": 540,
+   "y": 358,
    "fps": 8,
    "flip": true,
    "place": "lighthouse",
@@ -1802,8 +1802,8 @@
   },
   {
    "name": "widow24",
-   "x": 142,
-   "y": 843,
+   "x": 308,
+   "y": 866,
    "fps": 8,
    "flip": true,
    "place": "chapel",
@@ -1913,7 +1913,7 @@
   {
    "name": "trier24",
    "x": 945,
-   "y": 590,
+   "y": 606,
    "fps": 9,
    "place": "tryworks",
    "play": [
@@ -2017,8 +2017,8 @@
   },
   {
    "name": "craneman24",
-   "x": 1358,
-   "y": 648,
+   "x": 1299,
+   "y": 804,
    "fps": 10,
    "flip": true,
    "place": "crane",
