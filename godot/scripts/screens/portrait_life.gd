@@ -103,17 +103,19 @@ func _arm() -> void:
 		var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
 		var hang := smoothstep(0.55, 1.0, q)
 		pts[i] += d.orthogonal() * (sin(q * 7.0 - _t * 2.0) * f * 0.012 * hang + pow(q, 3.0) * f * 0.05 * sin(_t * 1.1))
-	# now and then its tip winds up into a spiral, in towards the frame, holds a moment and unwinds
+	# now and then its very tip winds up into a tight spiral, in by the frame, holds a moment and unwinds
 	var c := fposmod(_t, 7.0)
 	var wind := smoothstep(0.0, 1.0, clampf(c / 1.2, 0.0, 1.0)) * (1.0 - smoothstep(0.0, 1.0, clampf((c - 2.6) / 1.4, 0.0, 1.0)))
 	if wind > 0.0:
-		var k0 := int(n * 0.6)
-		var rest := 0.0
-		for i in range(k0, n - 1): rest += pts[i].distance_to(pts[i + 1])
-		var a0 := (pts[k0] - pts[k0 - 1]).angle()
-		var tail := Bend.chain(pts[k0], rest, n - 1 - k0, func(q: float) -> float:
-			return a0 + wind * pow(q, 1.4) * 7.5)
-		for i in range(k0, n): pts[i] = tail[i - k0]
+		# each segment of the tip turned on from its own angle, more towards the end: at no wind it is the same shape
+		var k0 := int(n * 0.72)
+		var segs := []
+		for i in range(k0, n - 1): segs.append(pts[i + 1] - pts[i])
+		var p := pts[k0]
+		for j in segs.size():
+			var q := float(j + 1) / segs.size()
+			p += (segs[j] as Vector2).rotated(wind * pow(q, 2.2) * 7.0)
+			pts[k0 + j + 1] = p
 	# his arm's own drawing, laid on the grid at this size (art/boss/export_kraken.py: arm_xs), stretched along the bar
 	var hw := float(strip.get_height()) * 0.5 * f / 72.0
 	Bend.draw(self, pts, func(_q: float) -> float: return hw, strip, 0.0, out / full)
