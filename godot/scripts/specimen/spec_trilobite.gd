@@ -16,6 +16,7 @@ extends RefCounted
 
 const U := preload("res://scripts/specimen/spec_util.gd")
 const SHADER := preload("res://shaders/trilobite.gdshader")
+const PLATE := preload("res://shaders/matrix_plate.gdshader")
 
 ## half: half-width for the length; seg: thorax segments; ceph/pyg: share of the length in head and tail; H: how high
 ## it stands; ax: the axis's half-width for the half-width; glab: how swollen the head's middle; tip: pleural tips;
@@ -603,9 +604,10 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			nd.transform = Transform3D(Basis(Vector3.UP, PI + (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * s), Vector3.ZERO)
 			main = animal(f, nd, sm, em, 0.0)
 			main.node = nd
-			var pm := mat(f, 2, rock)
-			pm.set_shader_parameter("carve_k", 1.0)
-			pm.set_shader_parameter("rock_col", Color.hex(0x7c766cff))
+			var pm := ShaderMaterial.new()
+			pm.shader = PLATE
+			pm.set_shader_parameter("rock_col", Color.hex(0x8a857cff))
+			pm.set_shader_parameter("seed", float(int(f.seed) % 97))
 			var pi := U.mesh(_plate(f), pm, nd)
 			pi.set_meta("col", true)
 		"enrolled":
@@ -667,6 +669,7 @@ static func lean(b: RefCounted, gene: Dictionary) -> void:
 	if a == 0.0:
 		return
 	var root: Node3D = b.root
+	root.set_meta("face", true)
 	var pv := Node3D.new()
 	var kids := root.get_children()
 	root.add_child(pv)
@@ -710,7 +713,9 @@ static func _plate(f: Dictionary) -> Geo:
 				z *= 1.0 + 0.04 * r
 			g.v.append(Vector3(x, y, z))
 			g.rp.append(Vector3(x, z, 0.0))
-			g.col.append(Color(0, 0, 0, 1))
+			# the contact shadow: under the body and a little round it
+			var near := 1.0 - smoothstep(0.95, 1.5, absf(x) / maxf(_w(f, c, u, signf(x) if x != 0.0 else 1.0), 0.01)) if z > -0.55 and z < 0.55 else 0.0
+			g.col.append(Color(near, 0, 0, 1))
 	_grid(g, 0, nr, na)
 	return g
 

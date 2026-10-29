@@ -25,7 +25,6 @@ uniform sampler2D rock_tex : source_color, filter_linear_mipmap, repeat_enable;
 // a scan of stone over the shell (calcite, dark rock…): its lightness mottles the colour and roughens the relief
 uniform sampler2D scan_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float scan_k = 0.5;
-uniform float carve_k = 0.0;        // a prepared plate: air-pen tool marks in the matrix
 
 varying vec3 v_op;
 varying vec3 v_no;
@@ -107,16 +106,6 @@ void fragment() {
 		ro = 0.92;
 		me = 0.0;
 		h = fbm(p * 45.0) * 0.004 + vn(p * 140.0) * 0.001;
-		if (carve_k > 0.0) {
-			// the air-pen's marks: a maze of wormy ridges between little scooped hollows, the hollows in shadow
-			vec2 q = vec2(UV.x * 19.0, UV.y * 12.0) + (vec2(fbm(vec3(UV * 6.0, 1.0)), fbm(vec3(UV * 6.0, 4.0))) - 0.5) * 2.4;
-			vec3 cv = vor2(q);
-			// (the reference: pale rounded lumps, the air-pen's narrow dark grooves winding between them)
-			float groove = 1.0 - smoothstep(0.0, 0.11, cv.y);
-			float lump = 1.0 - smoothstep(0.1, 0.65, cv.x);
-			h = (lump * 0.5 - groove * 0.6) * 0.005 * carve_k + vn(p * 160.0) * 0.0006;
-			c = rock_col * (0.85 + 0.25 * lump + 0.08 * cv.z) * (1.0 - groove * 0.75) * (0.88 + 0.2 * fbm(p * 8.0));
-		}
 		NORMAL = bump(n, VERTEX, h, 1.0);
 	} else {
 		vec2 b = UV;

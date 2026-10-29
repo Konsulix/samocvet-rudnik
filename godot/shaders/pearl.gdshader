@@ -79,7 +79,7 @@ void fragment() {
 		// orient: a faint rainbow that slides with the angle
 		// (in patches over the face, not a ring at the rim: a ring reads as a soap bubble)
 		vec3 orc = hue(fr * 0.8 + fbm(d * 4.0 + seed + 3.0) * 1.2 + seed);
-		c += (orc - 0.5) * orient_k * 0.12 * smoothstep(0.4, 0.7, fbm(d * 3.0 + seed + 8.0)) * (1.0 - fr * 0.7);
+		c *= 1.0 + (orc - 0.5) * orient_k * 0.35 * smoothstep(0.4, 0.7, fbm(d * 3.0 + seed + 8.0)) * (1.0 - fr * 0.7);
 		// flame structure (conch, melo): silky flames that flicker as the pearl turns
 		if (flame_k > 0.0) {
 			// fine wavy streaks, crossing, like watered silk
@@ -118,8 +118,9 @@ void fragment() {
 		float win = pow(max(dot(rv, normalize(vec3(-0.45, 0.55, 0.7))), 0.0), mix(25.0, 260.0, luster));
 		float win2 = pow(max(dot(rv, normalize(vec3(0.6, -0.3, 0.75))), 0.0), mix(10.0, 60.0, luster));
 		em += vec3(1.0, 0.98, 0.95) * (win * (0.5 + 0.8 * luster) + win2 * 0.08) * (1.0 - moon_k * 0.5);
+		ro = mix(ro, 0.55, pow(fr, 2.5));
 		METALLIC = 0.0;
-		SPECULAR = 0.45;
+		SPECULAR = 0.45 * (1.0 - 0.6 * pow(fr, 2.0));
 	} else {
 		float rho = UV.x;
 		float bt = UV.y;
@@ -141,14 +142,14 @@ void fragment() {
 			float band = smoothstep(0.2, 0.9, sin(rho * 22.0 + fbm(p * 3.0 + seed) * 7.0) * 0.5 + 0.5) * smoothstep(0.25, 0.65, rho);
 			float fk = max(smoothstep(0.4, 0.75, fbm(p * 1.6 + seed + 4.0)), band) * (0.55 + 0.45 * fr);
 			// the sheen tints the nacre (on a dark black-lip it stays a dark sheen, not paint)
-			vec3 mop = base * (0.82 + 0.25 * fbm(p * 12.0) - 0.1 * gl) * (1.0 + (film - 0.5) * 0.7 * fk) + (film - 0.5) * 0.06 * fk;
+			vec3 mop = base * (0.82 + 0.25 * fbm(p * 12.0) - 0.1 * gl) * (1.0 + (film - 0.5) * 0.7 * fk);
 			// the muscle scar: a dull, faintly coloured patch in the middle
 			float scar = smoothstep(0.12, 0.06, length(vec2(rho - 0.5, (bt - 0.42) * 0.9)));
 			mop = mix(mop, mop * vec3(0.9, 0.85, 0.75), scar * 0.6);
 			// the lip: the oyster's own colour, deepest at the edge
 			// the lip in thin layers, each a little paler at its edge, darker and more translucent-looking outward
 			float layer = fract(rho * 34.0 + fbm(vec3(bt * 12.0, rho * 4.0, seed)) * 2.0);
-			vec3 lip = lip_col * (0.4 + 0.45 * smoothstep(1.05, nend, rho)) * (0.85 + 0.25 * smoothstep(0.6, 1.0, layer)) + (film - 0.5) * 0.06;
+			vec3 lip = lip_col * (0.4 + 0.45 * smoothstep(1.05, nend, rho)) * (0.85 + 0.25 * smoothstep(0.6, 1.0, layer)) * (1.0 + (film - 0.5) * 0.25);
 			// the fringe of growth scales beyond: thin, brownish, translucent-looking
 			vec3 fringe = back_col * (0.8 + 0.4 * fbm(p * 20.0));
 			c = mix(lip, mop, nac);

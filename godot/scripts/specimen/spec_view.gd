@@ -95,7 +95,12 @@ func _process(dt: float) -> void:
 		return
 	dt = minf(dt, 0.05)
 	_t += dt
-	if not _drag:
+	if not _drag and live.has_meta("face") and absf(spin_v) < 1.0:
+		# a find with a front (an open oyster, a slab): it sways to and fro about its front instead of turning its back
+		spin_v = 0.0
+		var to := 0.6 + sin(_t * 0.32) * 0.75
+		live.rotation.y = lerp_angle(live.rotation.y, to, minf(1.0, dt * (0.6 if not hold else 0.0)))
+	elif not _drag:
 		spin_v += ((0.0 if hold else 0.45) - spin_v) * minf(1.0, dt * (2.5 if hold else 1.2))
 		live.rotation.y += spin_v * dt
 		tilt *= maxf(0.0, 1.0 - dt * 0.8)

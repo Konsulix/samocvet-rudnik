@@ -17,7 +17,7 @@ const BODY := {
 	akoya = {n = "akoya", col = 0xf2ece4, over = 0xf4c6c8, ok = 0.45, orient = 0.35, flame = 0.0, lip = "silver", w = 4.0},
 	south_sea = {n = "south sea", col = 0xe9e6e0, over = 0xd8e4ee, ok = 0.35, orient = 0.3, flame = 0.0, lip = "silver", w = 2.0},
 	golden = {n = "golden", col = 0xe0bb72, over = 0xf2dca0, ok = 0.4, orient = 0.25, flame = 0.0, lip = "gold", w = 2.0},
-	tahitian = {n = "Tahitian", col = 0x4a4d4a, over = 0x3f8a6c, ok = 0.7, orient = 0.3, flame = 0.0, lip = "black", w = 3.0},
+	tahitian = {n = "Tahitian", col = 0x5e625e, over = 0x3f8a6c, ok = 0.7, orient = 0.3, flame = 0.0, lip = "black", w = 3.0},
 	conch = {n = "conch", col = 0xec7470, over = 0xffd2c8, ok = 0.2, orient = 0.0, flame = 1.0, lip = "", w = 0.8},
 	melo = {n = "melo", col = 0xec8a3a, over = 0xffcf8a, ok = 0.2, orient = 0.0, flame = 0.9, lip = "", w = 0.6},
 }
@@ -240,6 +240,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			pearls.append(mi)
 		main = pearls[0]
 	else:
+		root.set_meta("face", true)
 		var sm := mat(f, 1)
 		var vg := valve_geo(f, int(f.seed))
 		var oy := Node3D.new()
