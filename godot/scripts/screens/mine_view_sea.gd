@@ -808,6 +808,11 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 	if rx != "":
 		p = rx
 	var sz := _size(p)
+	if cr.has("prop"):
+		# what he works on, on the floor in front of him (drawn first: his tool comes down over it)
+		var pr: Array = cr.prop
+		var ps := _size(String(pr[0]))
+		_put(c, String(pr[0]), Vector2(float(pr[1]) - ps.x / 2, floor_y - ps.y + 8), bool(pr[2]), al)
 	_put(c, p, Vector2(x - sz.x / 2, floor_y - sz.y + 4 + float(cr.get("dy", 0.0))), flip, al)
 	if cr.has("lamp"):
 		var lp: Array = cr.lamp

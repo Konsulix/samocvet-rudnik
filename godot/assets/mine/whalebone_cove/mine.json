@@ -590,10 +590,10 @@
   "1": {
    "work": [
     "splitter24",
-    640,
+    575,
     ""
    ],
-   "flip": false,
+   "flip": true,
    "hit": 10,
    "play": [
     [
@@ -692,12 +692,17 @@
      23,
      1.1
     ]
+   ],
+   "prop": [
+    "block.png",
+    487,
+    true
    ]
   },
   "2": {
    "work": [
     "caulker24",
-    520,
+    985,
     ""
    ],
    "flip": false,
@@ -804,10 +809,10 @@
   "3": {
    "work": [
     "fossil24",
-    520,
+    752,
     ""
    ],
-   "flip": false,
+   "flip": true,
    "play": [
     [
      0,
@@ -910,7 +915,7 @@
   "4": {
    "work": [
     "smith24",
-    590,
+    770,
     ""
    ],
    "flip": false,
@@ -1228,7 +1233,7 @@
   "7": {
    "work": [
     "listener24",
-    650,
+    985,
     ""
    ],
    "flip": false,
@@ -1338,10 +1343,10 @@
   "8": {
    "work": [
     "brush24",
-    930,
+    700,
     ""
    ],
-   "flip": false,
+   "flip": true,
    "play": [
     [
      0,
