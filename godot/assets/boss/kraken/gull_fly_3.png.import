@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cbs1032jhvcdq"
-path="res://.godot/imported/gull_0.png-57c26413a7f5e7cb719fb737a269ea40.ctex"
+uid="uid://bcr56xw43jelt"
+path="res://.godot/imported/gull_fly_3.png-8d4281ab31ae9c69462206cdaefe2b11.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/boss/kraken/gull_0.png"
-dest_files=["res://.godot/imported/gull_0.png-57c26413a7f5e7cb719fb737a269ea40.ctex"]
+source_file="res://assets/boss/kraken/gull_fly_3.png"
+dest_files=["res://.godot/imported/gull_fly_3.png-8d4281ab31ae9c69462206cdaefe2b11.ctex"]
 
 [params]
 

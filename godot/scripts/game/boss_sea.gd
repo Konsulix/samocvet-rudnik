@@ -23,10 +23,11 @@ var back: Node2D             # the arms behind his sprite
 var front: Control           # the arms over the top bar
 var _t := 0.0
 var _splash := -10.0         # when he last rose out of the water: spray and rings
-var _slap := -10.0
-## the gulls asleep on the island (cut out of phase 1's picture, `gull_<i>.png` at `gulls` in boss.json): as he wakes
-## they start up and fly off, flapping. [{tex, at, t0, vx}]
-var _gulls := []           # when an arm last slapped down over the name plate
+var _slap := -10.0           # when an arm last slapped down over the name plate
+## the gulls asleep on the island (on phase 1's picture, where `gulls` in boss.json says): as he wakes they start up
+## off his head and fly away, beating their wings (`gull_fly_<k>.png`, a GPT sheet of a wing-beat). [{at, t0, dir, ph}]
+var _gulls := []
+var _gull_tex: Array[Texture2D] = []
 var _next_slap := 4.0
 
 static func load_for(level: Level, v: BossView) -> BossSea:
@@ -95,12 +96,17 @@ func splash() -> void:
 
 ## he wakes: the gulls on his head (where his sprite stood, `from`) take off
 func gulls_off(from: Vector2) -> void:
+	if _gull_tex.is_empty():
+		for k in 6:
+			if ResourceLoader.exists(view.dir + "gull_fly_%d.png" % k): _gull_tex.append(load(view.dir + "gull_fly_%d.png" % k))
+	if _gull_tex.is_empty(): return
 	var list: Array = view.meta.get("gulls", [])
 	for i in list.size():
 		var p: Array = list[i]
-		var tex: Texture2D = load(view.dir + "gull_%d.png" % i)
-		if tex == null: continue
-		_gulls.append({tex = tex, at = from + Vector2(float(p[0]), float(p[1])), t0 = _t + i * 0.18, vx = 40.0 + i * 25.0})
+		var at := from + Vector2(float(p[0]), float(p[1]))
+		# each flees to its own side, a beat apart
+		var dir := -1.0 if at.x < view.position.x + view.size.x * 0.45 else 1.0
+		_gulls.append({at = at, t0 = _t + i * 0.12, dir = dir, ph = i * 2})
 
 func set_board(i: int) -> void:
 	arms_on = i >= 2
@@ -159,16 +165,20 @@ func _draw() -> void:
 	var line := PackedVector2Array()
 	for i in range(0, w, 3): line.append(Vector2(i, wave.call(float(i))))
 	draw_polyline(line, Color(0.72, 0.86, 0.84, 0.75), 1.5)
-	# the gulls flying off: up and away, beating their wings (the sprite squashed and stretched), fading
+	# the gulls flying off: a steep start, then away to their side and a little up, the wings beating fast at first
 	for g: Dictionary in _gulls:
 		var gt := _t - float(g.t0)
-		if gt < 0.0 or gt > 3.0: continue
-		var gtex: Texture2D = g.tex
+		if gt < 0.0 or gt > 2.6: continue
+		var dir := float(g.dir)
+		var at: Vector2 = g.at + Vector2(dir * (130.0 * gt * gt / (gt + 0.35)), -110.0 * gt + 25.0 * gt * gt)
+		var fps := 16.0 if gt < 0.8 else 11.0
+		var gtex: Texture2D = _gull_tex[(int(gt * fps) + int(g.ph)) % _gull_tex.size()]
 		var sz := Vector2(gtex.get_size())
-		var flap := 0.55 + 0.45 * absf(sin(gt * 14.0))
-		var at: Vector2 = g.at + Vector2(float(g.vx) * gt, -70.0 * gt - 30.0 * gt * gt)
-		var a := clampf(3.0 - gt, 0.0, 1.0)
-		draw_texture_rect(gtex, Rect2((at + Vector2(0, sz.y * (1.0 - flap) * 0.5)).round(), Vector2(sz.x, roundf(sz.y * flap))), false, Color(1, 1, 1, a))
+		var a := clampf((2.6 - gt) / 0.5, 0.0, 1.0)
+		# the sheet flies right: mirrored for those fleeing left
+		draw_set_transform((at - sz * 0.5).round() + Vector2(sz.x if dir < 0.0 else 0.0, 0), 0.0, Vector2(dir, 1.0))
+		draw_texture(gtex, Vector2.ZERO, Color(1, 1, 1, a))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# the spray as he rises: drops thrown up from the surface along his width, falling back
 	var ss := _t - _splash
 	if ss < 1.8:
