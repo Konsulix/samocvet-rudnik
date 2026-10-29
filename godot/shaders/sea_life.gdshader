@@ -14,6 +14,8 @@ uniform float amp = 0.05;
 uniform float speed = 1.0;
 uniform float rough = 0.6;
 uniform float rim_k = 0.35;
+uniform float reach = 0.0;   // a swimmer's arms opening forward (0 .. 1)
+uniform float snap = 0.0;    // and snapping shut
 
 varying vec3 v_op;
 
@@ -37,7 +39,17 @@ void vertex() {
 		VERTEX += NORMAL * sin(UV.x * 34.0 + TIME * speed * 2.0 + ph) * amp * UV.y;
 	} else if (mode == 3) {
 		// its eyes blink now and then (UV2.x 1: an eye; its centre on the stalk's tip): squashed shut for a moment
-		if (UV2.x > 0.5) {
+		// its arms (UV2.x 2): curling and uncurling slowly at rest, the two out of step; opened forward as it closes
+		// in on its prey, snapped shut over it. A bend about the root, growing towards the tip (UV.y)
+		if (UV2.x > 1.5) {
+			float sd = sign(VERTEX.x);
+			float ang = (0.28 * sin(TIME * 1.1 + sd * 0.9) - 0.95 * reach + 1.25 * snap) * UV.y;
+			vec3 piv = vec3(VERTEX.x, -0.03, 0.4);
+			vec3 r = VERTEX - piv;
+			float ca = cos(ang), sa = sin(ang);
+			VERTEX = piv + vec3(r.x, r.y * ca - r.z * sa, r.y * sa + r.z * ca);
+			NORMAL = vec3(NORMAL.x, NORMAL.y * ca - NORMAL.z * sa, NORMAL.y * sa + NORMAL.z * ca);
+		} else if (UV2.x > 0.5) {
 			float bt = fract(TIME / 4.3 + COLOR.a);
 			float shut = smoothstep(0.0, 0.03, bt) * (1.0 - smoothstep(0.05, 0.09, bt));
 			float ey = 0.05;

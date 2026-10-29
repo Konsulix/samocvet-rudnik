@@ -1321,7 +1321,9 @@ static func hunter_geo(rng: Rng32) -> Geo:
 		# the joints: rings alternately dark and pale
 		for i in range(a0, g.v.size()):
 			if int(float(i - a0) / 9.0) % 2 == 0: g.col[i] = g.col[i].darkened(0.35)
-		pad.call(0.0)
+		# (UV2.x 2: an arm, UV.y how far along it — the shader curls it about its root, more towards the tip)
+		for i in range(a0, g.v.size()):
+			g.rp.append(Vector3(0.0, float(int(float(i - a0) / 9.0)) / nj, 2.0))
 		for q in range(1, nj):
 			var p: Vector3 = pts[q]
 			var nxt: Vector3 = pts[q + 1]
@@ -1331,8 +1333,10 @@ static func hunter_geo(rng: Rng32) -> Geo:
 			inn.x = 0.0
 			inn = inn.normalized()
 			var ln := 0.075 * (1.0 - 0.5 * float(q) / nj)
+			var sp0 := g.v.size()
 			SpecSea.tube(g, [p, p + inn * ln * 0.6 + fwd * ln * 0.2, p + inn * ln + fwd * ln * 0.45], 0.007, 0.001, ochre, ochre.lightened(0.3), 0.0, 4)
-		pad.call(0.0)
+			for i in range(sp0, g.v.size()):
+				g.rp.append(Vector3(0.0, float(q) / nj, 2.0))
 	# the eyes: big and dark on short thick stalks at the back of the head
 	for s: float in [-1.0, 1.0]:
 		var root := Vector3(s * 0.09, 0.02, 0.32)
@@ -1387,7 +1391,12 @@ class Hunter extends Node3D:
 		tan = nt
 		body.position = p
 		body.basis = Basis.looking_at(-tan, Vector3.UP) * Basis(Vector3.BACK, bank) * Basis.from_scale(Vector3.ONE * sc)
-		var near := Vector2(p.x - target.x, p.z - target.z).length() < radius * 0.5
+		var dn := Vector2(p.x - target.x, p.z - target.z).length() / radius
+		# its arms: they open forward as it closes in, and snap shut right over its prey
+		var am := (body as MeshInstance3D).material_override as ShaderMaterial
+		am.set_shader_parameter("reach", smoothstep(0.95, 0.5, dn))
+		am.set_shader_parameter("snap", smoothstep(0.35, 0.12, dn))
+		var near := dn < 0.5
 		rolled = move_toward(rolled, 1.0 if near else 0.0, dt * (1.6 if near else 0.35))
 		var r := smoothstep(0.0, 1.0, rolled)
 		for m: ShaderMaterial in mats:
