@@ -2,9 +2,8 @@ class_name PortraitLife
 extends Node2D
 ## The live touch on the top bar's portrait frame, the mine's boss in small, as on his fight's own frame: the Poloz'
 ## tail hangs out from under the frame's lower left corner, its tip curling; one of the Mistress' lizards runs round
-## the frame, stops, looks about and runs on; the Kraken's arm comes out from behind the frame's right bar and hangs
-## beside it, groping. Each is its boss' own drawing bent live (Bend), gentle bends only; the arm is drawn behind the
-## frame (Chrome adds it under it), so its cut root is hidden.
+## the frame, stops, looks about and runs on; the Kraken's arm lies along the top bar from the frame's left edge and
+## hangs down the right bar, groping. Each is its boss' own drawing bent live (Bend), gentle bends only.
 
 var id := ""
 var f := 72.0                # the frame's size, pt
@@ -39,7 +38,7 @@ func _loop(s: float) -> Array:
 	var m := f * 0.13
 	var side := f - 2.0 * m
 	s = fposmod(s, side * 4.0)
-	var k := int(s / side)
+	var k := mini(int(s / side), 3)
 	var e := s - k * side
 	var corners := [Vector2(m, m), Vector2(f - m, m), Vector2(f - m, f - m), Vector2(m, f - m)]
 	var dirs := [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]
@@ -63,7 +62,7 @@ func _lizard() -> void:
 	var c := fposmod(_t, cycle)
 	var run := c < 3.2
 	var s := (floorf(_t / cycle) * 3.2 + minf(c, 3.2)) * f * 0.42
-	var ln := f * 0.5
+	var ln := f * 0.4
 	var body := PackedVector2Array()
 	for i in 9:
 		body.append(_loop(s - ln + ln * i / 8.0)[0])
@@ -79,20 +78,23 @@ func _lizard() -> void:
 	Bend.draw(self, shadow, func(_q: float) -> float: return hw, strip, 0.0, 1.0, false, Color(0.02, 0.04, 0.03, 0.5))
 	Bend.draw(self, body, func(_q: float) -> float: return hw, strip)
 
-## his arm out from behind the frame: its root hidden under the right bar, it comes out past the bar's outer edge and
-## hangs down beside the frame, reaching and drawing back, its tip groping and curling (drawn behind the frame)
+## his arm along the whole top bar - its cut root end on the frame's left edge, as if it comes round from behind -
+## over the upper right corner and down the right bar, reaching and drawing back there, its tip groping
 func _arm() -> void:
 	var m := f * 0.13
-	var ctrl := PackedVector2Array([Vector2(f - m * 1.6, f * 0.2), Vector2(f + m * 0.2, f * 0.26),
-		Vector2(f + m * 0.9, f * 0.5), Vector2(f + m * 0.5, f * 0.78), Vector2(f - m * 0.2, f * 0.98)])
+	var ctrl := PackedVector2Array([Vector2(0.0, m), Vector2(f * 0.45, m - 1.0), Vector2(f - m * 1.2, m),
+		Vector2(f - m + 1.0, f * 0.35), Vector2(f - m + 2.0, f * 0.62), Vector2(f + m * 0.4, f * 0.82)])
 	var line := Bend.smooth(ctrl, 8)
-	var out := Bend.length(line) * (0.78 + 0.16 * sin(_t * 0.6) + 0.06 * sin(_t * 1.7))
-	var pts := Bend.sample(line, 0.0, out, 30)
+	var full := Bend.length(line)
+	# the root stays at the edge; only the hanging end reaches and draws back
+	var out := full * (0.86 + 0.1 * sin(_t * 0.6) + 0.04 * sin(_t * 1.7))
+	var pts := Bend.sample(line, 0.0, out, 36)
 	var n := pts.size()
 	for i in n:
 		var q := i / float(n - 1)
 		var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
-		pts[i] += d.orthogonal() * (sin(q * 6.0 - _t * 2.0) * f * 0.012 * q + pow(q, 3.0) * f * 0.05 * sin(_t * 1.1))
-	# his arm's own drawing, laid on the grid at this size (art/boss/export_kraken.py: arm_xs)
+		var hang := smoothstep(0.55, 1.0, q)
+		pts[i] += d.orthogonal() * (sin(q * 7.0 - _t * 2.0) * f * 0.012 * hang + pow(q, 3.0) * f * 0.05 * sin(_t * 1.1))
+	# his arm's own drawing, laid on the grid at this size (art/boss/export_kraken.py: arm_xs), stretched along the bar
 	var hw := float(strip.get_height()) * 0.5 * f / 72.0
-	Bend.draw(self, pts, func(_q: float) -> float: return hw, strip, 1.0 - out / Bend.length(line), 1.0)
+	Bend.draw(self, pts, func(_q: float) -> float: return hw, strip, 0.0, out / full)
