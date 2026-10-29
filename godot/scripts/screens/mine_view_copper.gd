@@ -407,6 +407,7 @@ func _draw_live() -> void:
 	var c := live
 	_lights(c)
 	_surface_live(c)
+	_flags(c)
 	_shaft_cart(c)
 	_lizard_live(c)
 	for b in _bands:

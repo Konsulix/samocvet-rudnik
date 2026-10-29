@@ -44,6 +44,7 @@ func _ready() -> void:
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))
 	if args.has("wins"):   # wins per depth, e.g. wins=3,2,0 (the drawn mine fills a depth with people after two)
+	if args.has("beaten"): Save.d.boss_won[Save.area()] = true   # the mine's boss beaten (its flags fly)
 		var ws: PackedStringArray = String(args.wins).split(",")
 		for i in ws.size(): Save.d.dwins[i] = int(ws[i])
 	if args.has("steps"):  # job steps paid, e.g. steps=camp:2,chamber:1

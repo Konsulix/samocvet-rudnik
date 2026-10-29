@@ -19,6 +19,7 @@ const SSTAGES := ["clear", "step1", "step2", "done"]
 
 var _waves: Sprite2D       # the waves at the foot of the cliff (cut from the picture, set moving by sea_water.gdshader)
 var _deep: Sprite2D        # the sea in section
+var _kelp: Array[Sprite2D] = []   # its kelp stands, cut out and swaying (export_kelp.py, kelp_sway.gdshader)
 var _sfx: Node2D           # smoke, spray (particles in the picture's own coordinates)
 var _smoke: Array = []     # the tryworks' chimney smoke emitters
 var _hold := {}            # depth -> when its crew's reaction began: the crew's loop waits while it plays
@@ -295,6 +296,25 @@ func _setup_sea() -> void:
 	var dm := _deep.material as ShaderMaterial
 	dm.set_shader_parameter("mode", 1)
 	dm.set_shader_parameter("amp", 2.5)
+	if _kelp.is_empty() and FileAccess.file_exists(SDIR + "kelp.json"):
+		var kj: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SDIR + "kelp.json"))
+		var ksh: Shader = load("res://shaders/kelp_sway.gdshader")
+		var i := 0
+		for st: Dictionary in kj.stands:
+			var sp := Sprite2D.new()
+			sp.centered = false
+			sp.texture = tex("kelp_%d.png" % i)
+			sp.scale = Vector2.ONE / K
+			sp.position = Vector2(float(dp.at[0]), float(dp.at[1])) + Vector2(float(st.at[0]), float(st.at[1])) / K
+			var km := ShaderMaterial.new()
+			km.shader = ksh
+			km.set_shader_parameter("seed", i * 2.1)
+			km.set_shader_parameter("amp", 16.0 + i * 3.0)
+			sp.material = km
+			add_child(sp)
+			move_child(sp, _deep.get_index() + 1)
+			_kelp.append(sp)
+			i += 1
 
 func _setup_smoke() -> void:
 	for ch in _sfx.get_children(): ch.queue_free()
@@ -386,6 +406,7 @@ func _draw_live() -> void:
 	var c := live
 	_lights(c)
 	_surface_live(c)
+	_flags(c)
 	_sea_live(c)
 	for b in _bands:
 		if _band_seen(b): _band_live(c, b)
@@ -779,6 +800,7 @@ func _tick_events() -> void:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
 	var pool := ["ink", "bubbles"]
+	if ResourceLoader.exists(dir + "eel_strip.png"): pool.append("eel")
 	for cr in J.cracks:
 		var k := int(cr.d) - 1
 		if k <= open and String(_shown_bands.get(k, "closed")) != "closed":
@@ -800,6 +822,88 @@ func _tick_events() -> void:
 		_events["tip_at"] = cand[_rng.randi() % cand.size()]
 		SeaSounds.squelch(amb, _far(band_y(int(_events.tip_at.d) - 1) + 300))
 
+
+## the kraken's tentacle in a crack of a gallery wall: ONE straight drawing (`tip_strip.png`, thick end left, tip right)
+## bent along a curve that moves - it slides out slowly tip first, gropes along the wall in slow waves, the tip curling and
+## tasting, freezes, then whips back into the dark. The crack breathes darker while it is out.
+const TIP_LEN := 7.5
+const TIP_REACH := 270.0         # how much of it comes out at most, picture px
+const TIP_THICK := 1.9           # fatter than the drawing's own proportions: at its length it read as a rope
+func _tentacle(c: CanvasItem, cr: Dictionary, s: float) -> void:
+	var at := Vector2(float(cr.at[0]), band_y(int(cr.d) - 1) + float(cr.at[1]))
+	var dir := -1.0 if bool(cr.get("flip", false)) else 1.0
+	var tx := tex("tip_strip.png")
+	var full := TIP_REACH * 1.2                       # the whole drawing's length; only its tip end comes out
+	var half_w := full * float(tx.get_height()) / float(tx.get_width()) * 0.5 * TIP_THICK
+	# how far out: eases out over 2.4 s, holds, a small lunge at 4.6 s, whips back in 0.45 s at the end
+	var out := 0.0
+	if s < 2.4: out = 1.0 - pow(1.0 - s / 2.4, 3.0)
+	elif s < TIP_LEN - 0.45: out = 1.0 + 0.12 * exp(-pow((s - 4.6) * 3.0, 2.0))
+	else: out = pow(1.0 - (s - TIP_LEN + 0.45) / 0.45, 2.0)
+	var vis := TIP_REACH * out
+	# the crack darkens and glistens while something is in it
+	var dark := clampf(s / 0.6, 0.0, 1.0) * clampf((TIP_LEN - s) / 0.8, 0.0, 1.0)
+	c.draw_circle(at, 26.0, Color(0, 0, 0, 0.45 * dark))
+	if vis < 2.0:
+		return
+	# the angle along it: out from the wall and a little down, a slow wave running to the tip (stronger towards it), the
+	# tip curling in and out; it freezes for a beat at 4.0 s and twitches
+	var still := 1.0 - 0.85 * exp(-pow((s - 4.0) * 2.5, 2.0))
+	var lunge := exp(-pow((s - 4.6) * 3.0, 2.0))
+	var n := 40
+	var pts := Bend.chain(at, vis, n, func(q: float) -> float:
+		var a := -0.35 + 0.95 * q * sin(q * 4.2 - s * 1.5) * still + 2.6 * pow(q, 2.5) * sin(s * 0.8 + 0.9)
+		a += 0.08 * sin(s * 13.0) * lunge * q
+		return a if dir > 0.0 else PI - a)
+	# the drawing's suckers stay on its underside either way
+	Bend.draw(c, pts, func(_q: float) -> float: return half_w, tx, 1.0 - vis / full, 1.0, dir < 0.0, Color(0.82, 0.86, 0.9))
+	# a drop of slime falls from it once it is out
+	var dq := s - 2.6
+	if dq > 0.0 and dq < 1.2:
+		var dp: Vector2 = pts[n / 2]
+		c.draw_circle(dp + Vector2(0, 160.0 * dq * dq), 3.0, Color(0.7, 0.8, 0.85, 0.7 * (1.0 - dq / 1.2)))
+
+## a great old moray in the dark under the wreck's stern: ONE straight drawing (`eel_strip.png`, tail left, head right)
+## slid out along a path from the gap - the body keeps to the path, a slow swimming wave runs down it while it hangs in the
+## current, the head sways and gapes, it snaps forward once and pours back into the dark.
+const EEL_LEN := 8.0
+const EEL_AT := Vector2(341, 905)      # a broken hatch in the wreck's deck, source px from the sea's top: it rises into the open water
+const EEL_BODY := 340.0
+func _eel(c: CanvasItem, s: float) -> void:
+	var at := EEL_AT + Vector2(0, _sea_top())
+	var dark := clampf(s / 0.6, 0.0, 1.0) * clampf((EEL_LEN - s) / 0.8, 0.0, 1.0)
+	c.draw_circle(at, 18.0, Color(0, 0, 0, 0.5 * dark))
+	var path := Bend.smooth(PackedVector2Array([Vector2(0, 60), Vector2(0, 0), Vector2(4, -50), Vector2(20, -100),
+		Vector2(55, -140), Vector2(105, -162), Vector2(160, -160), Vector2(210, -142), Vector2(250, -116), Vector2(280, -100)]), 10)
+	var tx := tex("eel_strip.png")
+	var snap := exp(-pow((s - 5.1) * 4.0, 2.0))
+	var head := 0.0
+	if s < 2.6: head = 60.0 + 280.0 * (1.0 - pow(1.0 - s / 2.6, 3.0))
+	elif s < 6.4: head = 340.0 + 8.0 * sin((s - 2.6) * 1.1) + 30.0 * snap
+	else: head = lerpf(340.0, 40.0, smoothstep(6.4, 7.7, s))
+	var vis := clampf(head - 60.0, 0.0, EEL_BODY)
+	if vis < 3.0: return
+	var n := 36
+	var pts := Bend.sample(path, head - vis, head, n)
+	# the swimming wave: nothing at the gap, growing along the body, the head steadier; the head sways and lifts
+	var calm := 1.0 - 0.8 * snap
+	for i in n + 1:
+		var q := float(i) / n
+		var d := (pts[mini(i + 1, n)] - pts[maxi(i - 1, 0)]).normalized()
+		var amp := 7.0 * smoothstep(0.0, 0.35, q) * (1.0 - 0.6 * smoothstep(0.75, 1.0, q)) * calm
+		pts[i] += d.orthogonal() * amp * sin(q * 9.0 - s * 3.4)
+	var neck := n - 6
+	var look := (0.28 * sin(s * 1.7) + 0.12 * sin(s * 4.3)) * smoothstep(1.6, 2.6, s) * calm
+	for i in range(neck + 1, n + 1):
+		var w := float(i - neck) / (n - neck)
+		pts[i] = pts[neck] + (pts[i] - pts[neck]).rotated(look * w)
+	for i in pts.size(): pts[i] += at
+	var hw := EEL_BODY * float(tx.get_height()) / float(tx.get_width()) * 0.42
+	# it breathes: the gills pump, the body a little fuller and thinner
+	var breathe := 1.0 + 0.04 * sin(s * 5.0)
+	var dq := 40.0 / vis
+	Bend.draw(c, pts, func(q: float) -> float: return hw * (breathe if q > 0.8 else 1.0), tx, 1.0 - vis / EEL_BODY, 1.0, false,
+		func(q: float) -> Color: var v := clampf(q / dq, 0.15, 1.0) * 0.8; return Color(v * 0.9, v, v * 1.12))
 
 func _ink_at() -> Vector2:
 	var se: Dictionary = J.sea_life
@@ -825,10 +929,16 @@ func _events_live(c: CanvasItem) -> void:
 						if u > 1.0: continue
 						var p := Vector2(float(tn[0]) + sin(j * 2.3) * 60.0 + sin(u * 8.0 + j) * 10.0, _sea_top() + float(tn[1]) - 40.0 - u * float(J.sea_life.rise))
 						c.draw_arc(p, 4.0 + (j % 4) * 2.5, 0, TAU, 12, Color(0.75, 0.95, 1.0, 0.6 * (1.0 - u)), 2.0)
+			"eel":
+				if s > EEL_LEN: done = true
+				else: _eel(c, s)
 			"tip":
 				# a thin tentacle tip feels its way out of a wet crack in the gallery wall and slips back
 				var cr: Dictionary = _events.get("tip_at", {})
-				if cr.is_empty() or s > 3.2 or not _crew_ok("tip"): done = true
+				if cr.is_empty() or s > TIP_LEN: done = true
+				elif ResourceLoader.exists(dir + "tip_strip.png"):
+					_tentacle(c, cr, s)
+				elif s > 3.2 or not _crew_ok("tip"): done = true
 				else:
 					var n := int(J.crew_n.tip)
 					var fr := "tip/%02d.png" % mini(int(s / 3.2 * n), n - 1)

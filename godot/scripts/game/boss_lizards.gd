@@ -5,6 +5,8 @@ extends Node2D
 ## takes, a lizard leaps off the nearest bar, runs to it, takes it in its mouth (the stone shrinks and rides at its
 ## head) and runs back off the board and away along the bar. The run cycle is art/boss/lizard.py's 8 frames
 ## (head up); the rules (which stones) are BoardModel's, LevelBoss drives the raid. Coordinates: the board's own.
+## With `lizard_strip.png` (the same lizard straight, head right) a lizard is bent live instead (Bend): its body lies along
+## the way it has come - round a corner of the frame its tail follows it round - and the S-wave of its run moves with it.
 
 const N := 3
 const GAP := 44.0            # pt along the frame, at a 42-pt cell
@@ -15,6 +17,8 @@ const STEP := 0.14           # s between two raiders setting off
 const GRAB := 0.16
 
 var frames: Array[Texture2D] = []
+var strip: Texture2D             # the straight lizard, if there is one: bent live
+const WAVE := 0.07               # the run's side swing, of the body's length (as art/boss/lizard.py)
 var fps := 12.0
 var path := PackedVector2Array()   # the bars' middle line, a closed loop of corners
 var total := 0.0
@@ -36,6 +40,7 @@ static func load_for(id: String) -> BossLizards:
 	for i in int(meta.frames):
 		L.frames.append(load(dir + "lizard_%d.png" % i))
 	L.fps = float(meta.get("fps", 12))
+	if ResourceLoader.exists(dir + "lizard_strip.png"): L.strip = load(dir + "lizard_strip.png")
 	L.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	L.material = BoardSprites.plain_material()
 	return L
@@ -78,7 +83,7 @@ func fit(shape: Callable, grid_origin: Vector2, cell: float, mid: float) -> void
 	if walkers.is_empty():
 		for i in N:
 			walkers.append({s = total * (i + _rng.randf_range(-0.15, 0.15)) / N,
-				v = (1.0 if _rng.randf() < 0.5 else -1.0) * _rng.randf_range(55.0, 80.0), stop = 0.0})
+				v = (1.0 if _rng.randf() < 0.5 else -1.0) * _rng.randf_range(55.0, 80.0), stop = 0.0, ph = i * 2.0})
 	queue_redraw()
 
 ## a point on the loop and the way along it there
@@ -134,6 +139,7 @@ func _process(dt: float) -> void:
 			w.stop = _rng.randf_range(0.5, 1.2)
 		else:
 			w.s = float(w.s) + float(w.v) * k * dt
+			w.ph = float(w.get("ph", 0.0)) + TAU * fps / 8.0 * dt
 			if _rng.randf() < 0.03 * dt * 12.0: w.stop = _rng.randf_range(0.4, 1.2)
 			if _rng.randf() < 0.01 * dt * 12.0: w.v = -float(w.v)
 	var done := []
@@ -175,6 +181,41 @@ func _lizard(pos: Vector2, dir: Vector2, f: int, scale: float, alpha := 1.0) -> 
 	draw_texture_rect(tex, Rect2(-sz / 2, sz), false, Color(1, 1, 1, alpha))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
+## a bent lizard: body - its middle line from the head back (n + 1 points), phase - its run's wave
+func _bent(body: PackedVector2Array, phase: float, alpha := 1.0) -> void:
+	var n := body.size() - 1
+	var ln := 0.0
+	for i in n: ln += body[i].distance_to(body[i + 1])
+	var pts := PackedVector2Array()
+	for i in n + 1:
+		var q := float(n - i) / n                 # 1 at the head ... 0 at the tail tip: pts run tail to head
+		var tq := 1.0 - q
+		var j := n - i
+		var d := (body[maxi(j - 1, 0)] - body[mini(j + 1, n)]).normalized()
+		pts.append(body[j] + d.orthogonal() * WAVE * ln * sin(TAU * tq * 1.1 - phase) * (0.35 + 0.65 * tq))
+	var hw := ln * float(strip.get_height()) / float(strip.get_width()) * 0.5
+	var shadow := PackedVector2Array()
+	for p in pts: shadow.append(p + Vector2(2, 2) * k)
+	Bend.draw(self, shadow, func(_q: float) -> float: return hw, strip, 0.0, 1.0, false, Color(0.02, 0.04, 0.03, 0.55 * alpha))
+	Bend.draw(self, pts, func(_q: float) -> float: return hw, strip, 0.0, 1.0, false, Color(1, 1, 1, alpha))
+
+## the middle line of a lizard running the frame: from its head back along the way it came
+func _on_loop(s: float, dir: float, scale: float) -> PackedVector2Array:
+	var body := PackedVector2Array()
+	var ln := float(strip.get_width()) * k * scale
+	for i in 9:
+		body.append(_at(s - dir * ln * i / 8.0)[0])
+	return body
+
+## ... and of one running a straight line (a raider): from its head straight back
+func _straight(pos: Vector2, d: Vector2, scale: float) -> PackedVector2Array:
+	var body := PackedVector2Array()
+	var ln := float(strip.get_width()) * k * scale
+	var head := pos + d * ln * 0.5
+	for i in 9:
+		body.append(head - d * ln * i / 8.0)
+	return body
+
 func _draw() -> void:
 	if frames.is_empty() or total <= 0.0: return
 	var f := int(_t * fps)
@@ -182,7 +223,12 @@ func _draw() -> void:
 		var w: Dictionary = walkers[i]
 		var at := _at(float(w.s))
 		var d: Vector2 = at[1] * signf(float(w.v))
-		_lizard(at[0], d, 0 if float(w.stop) > 0.0 else f + i * 3, 1.0)
+		if strip:
+			# its head half a body ahead of its place, so it runs where the frame runs
+			var sv := signf(float(w.v))
+			_bent(_on_loop(float(w.s) + sv * float(strip.get_width()) * k * 0.5, sv, 1.0), float(w.get("ph", 0.0)))
+		else:
+			_lizard(at[0], d, 0 if float(w.stop) > 0.0 else f + i * 3, 1.0)
 	for r in raiders:
 		if float(r.t) < 0.0: continue
 		var run := (r.b as Vector2).distance_to(r.a) / (SPEED * k)
@@ -190,4 +236,8 @@ func _draw() -> void:
 		var t: float = r.t
 		var leap := 1.0 + 0.25 * sin(PI * minf(1.0, t / run * 3.0)) if t < run / 3.0 else 1.0
 		var alpha := 1.0 if t < run * 2.0 + GRAB else maxf(0.0, 1.0 - (t - run * 2.0 - GRAB) / 0.6)
-		_lizard(pos[0], pos[1], 0 if (t >= run and t < run + GRAB) else f + int(r.f0), BIG * leap, alpha)
+		if strip:
+			var ph := 0.0 if (t >= run and t < run + GRAB) else TAU * (_t * fps + int(r.f0)) / 8.0
+			_bent(_straight(pos[0], pos[1], BIG * leap), ph, alpha)
+		else:
+			_lizard(pos[0], pos[1], 0 if (t >= run and t < run + GRAB) else f + int(r.f0), BIG * leap, alpha)

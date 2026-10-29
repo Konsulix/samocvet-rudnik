@@ -22,6 +22,11 @@ var whole: Texture2D
 var whole_tails: Array[Texture2D] = []
 var whole_meta := {}
 var _t := 0.0
+## the tail bent live (Bend) on a whole frame: the end of the body itself, read from the frame's own picture along the
+## bar it lies on (so where it lies it is the bar, without a seam), whose tip lifts off and curls and uncurls; the baked
+## frames only tell where it is: their used rect (`_tail_rect`, in the frame picture's px)
+var live_tail := true
+var _tail_rect := Rect2i()
 
 static func load_for(id: String) -> BossFrame:
 	var f := BossFrame.new()
@@ -52,6 +57,10 @@ func use_stage(i: int) -> void:
 	whole = load(dir + "stage%d.png" % i)
 	for f in int(whole_meta.tail_frames):
 		whole_tails.append(load(dir + "stage%d_tail%d.png" % [i, f]))
+	_tail_rect = Rect2i()
+	if not whole_tails.is_empty():
+		var im := whole_tails[0].get_image()
+		if im: _tail_rect = im.get_used_rect()
 	queue_redraw()
 
 ## the board's shape and where its grid lies (in the parent's coordinates), cell size ts
@@ -90,7 +99,7 @@ func _process(dt: float) -> void:
 	if not swaying or fill.is_null() or (tails.is_empty() and whole_tails.is_empty()): return
 	var was := int(_t * 8.0)
 	_t += dt
-	if int(_t * 8.0) != was: queue_redraw()
+	if int(_t * 8.0) != was or (whole and live_tail and _tail_rect.size.x > 0): queue_redraw()
 
 func _draw() -> void:
 	if fill.is_null(): return
@@ -100,6 +109,9 @@ func _draw() -> void:
 		var sz := Vector2(whole.get_size()) * kw
 		draw_texture_rect(whole, Rect2(o, sz), false)
 		if whole_tails.is_empty(): return
+		if live_tail and _tail_rect.size.x > 0:
+			_tail_live(o, kw)
+			return
 		var tt: Texture2D = whole_tails[int(_t * 8.0) % whole_tails.size()] if swaying else whole_tails[0]
 		draw_texture_rect(tt, Rect2(o, sz), false)
 		return
@@ -170,3 +182,25 @@ func _draw() -> void:
 		var p := _pt(best.outer_br[1], best.outer_br[2])
 		var tex: Texture2D = tails[int(_t * 8.0) % tails.size()] if swaying else tails[0]
 		draw_texture_rect(tex, Rect2((p - Vector2(half, half)).round(), Vector2(half, half) * 2.0), false)
+
+## the tail: from its root (the right end of the baked tail, where it leaves the corner) leftwards along the bottom bar,
+## TAIL_LEN px of the frame picture; its first part lies on the bar, the rest lifts off and curls under in a hook that
+## tightens and loosens, the tip flicking; the last quarter narrows to a point (not a cut end). The texture is the bar
+## itself, read leftwards from the root, as thick as the bar (a thicker tail looked stuck on) and TAIL_K times as long.
+const TAIL_LEN := 100.0
+const TAIL_THICK := 17.0
+const TAIL_K := 2.0
+func _tail_live(o: Vector2, kw: float) -> void:
+	var W := float(whole.get_width())
+	var H := float(whole.get_height())
+	var root := Vector2(_tail_rect.end.x - 1, _tail_rect.position.y + TAIL_THICK * 0.5)
+	var tt := _t if swaying else 0.0
+	var curl := 3.9 + 1.0 * sin(tt * 1.25) + 0.35 * sin(tt * 3.4 + 0.7)
+	var pts := Bend.chain(o + root * kw, TAIL_LEN * TAIL_K * kw, 30, func(q: float) -> float:
+		var lift := smoothstep(0.3, 1.0, q)
+		return PI - curl * lift * lift - 0.25 * sin(tt * 5.2 - q * 6.0) * lift * q)
+	var v0 := float(_tail_rect.position.y) / H
+	var v1 := (float(_tail_rect.position.y) + TAIL_THICK) / H
+	Bend.draw(self, pts, func(q: float) -> float: return TAIL_THICK * 0.5 * kw * (1.0 - 0.45 * pow(maxf(q - 0.3, 0.0) / 0.7, 1.4)) * sqrt(maxf(1.0 - smoothstep(0.72, 1.0, q), 0.0)),
+		whole, (root.x) / W, (root.x - TAIL_LEN * TAIL_K) / W, true, Color.WHITE, v0, v1)
+

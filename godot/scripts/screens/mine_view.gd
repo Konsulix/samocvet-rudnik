@@ -789,10 +789,50 @@ func _tick_events() -> void:
 			"hole": get_tree().create_timer(1.6).timeout.connect(func(): amb.shot("hiss", _far(band_y(0) + 400) - 14.0, 1.4))
 			"coil": amb.shot("hiss", _far(band_y(3) + 300) - 10.0, 0.6)
 
+## flags on the finished places of a mine whose boss is beaten (the mine is won): ONE flat drawing per mine
+## (`flag_strip.png`, pole edge left) on a pole drawn here, its
+## middle line bent by the wind - waves run from the pole to the free end, growing towards it, gusts come and go and in a
+## lull the cloth sags; the folds are shaded and pinch the cloth a little. pole: the staff's foot and top in the place's
+## picture px (K), len: the flag's length in source px, fly: 1 - it flies right, -1 - left.
+const FLAGS := {
+	0: [{place = "camp", pole = [418, 236, 70], len = 170.0, fly = 1.0}],
+	1: [{place = "hoist", pole = [118, 26, -38], len = 120.0, fly = 1.0}],
+	2: [{place = "lighthouse", pole = [123, 128, 20], len = 150.0, fly = 1.0}],
+}
+func _flags(c: CanvasItem) -> void:
+	if not ResourceLoader.exists(dir + "flag_strip.png"): return
+	if area >= Save.d.boss_won.size() or not bool(Save.d.boss_won[area]): return
+	var tx := tex("flag_strip.png")
+	var i := 0
+	for fl: Dictionary in FLAGS.get(area, []):
+		i += 1
+		if int(_shown_places.get(String(fl.place), 0)) < 3: continue
+		var at: Array = J.places[String(fl.place)]
+		var pole: Array = fl.pole
+		var foot := Vector2(float(at[0]) + float(pole[0]) / K, float(at[1]) + float(pole[1]) / K)
+		var top := Vector2(foot.x, float(at[1]) + float(pole[2]) / K)
+		c.draw_line(foot, top, Color(0.09, 0.07, 0.05), 4.0)
+		c.draw_line(foot + Vector2(-0.6, 0), top + Vector2(-0.6, 0), Color(0.42, 0.33, 0.22), 1.6)
+		c.draw_circle(top, 3.2, Color(0.55, 0.43, 0.22))
+		var ln: float = fl.len
+		var fly: float = fl.fly
+		var hw := ln * float(tx.get_height()) / float(tx.get_width()) * 0.5
+		# the wind: two slow swells make the gusts; in a lull the cloth sags along the pole
+		var ph := t + i * 3.7
+		var wind := clampf(0.62 + 0.25 * sin(ph * 0.31) + 0.18 * sin(ph * 0.83 + 1.0), 0.15, 1.0)
+		var sag := (1.0 - wind) * 0.9
+		var fold := func(q: float) -> float: return q * 7.5 - ph * (5.0 + 4.0 * wind)
+		var pts := Bend.chain(top + Vector2(0, hw + 2.0), ln * (0.9 + 0.1 * wind), 24, func(q: float) -> float:
+			var a := (0.18 + 0.32 * wind) * q * sin(fold.call(q)) + 0.06 * sin(ph * 1.7) * q + sag * q
+			return a if fly > 0.0 else PI - a)
+		Bend.draw(c, pts, func(q: float) -> float: return hw * (1.0 - 0.1 * q * absf(cos(fold.call(q)))), tx, 0.0, 1.0, fly < 0.0,
+			func(q: float) -> Color: var v := 0.82 + 0.2 * q * sin(fold.call(q) + 1.2); return Color(v, v, v))
+
 func _draw_live() -> void:
 	var c := live
 	_lights(c)
 	_surface_live(c)
+	_flags(c)
 	_snake_live(c)
 	for b in _bands:
 		if _band_seen(b): _band_live(c, b)
@@ -1416,21 +1456,76 @@ func _eyes(c: CanvasItem, at: Vector2, s: float, k := 1.0) -> void:
 		var pu := e + Vector2(look * 5 * k, 0)
 		c.draw_rect(Rect2(pu.x - 1.6 * k, e.y - h * 0.9, 3.2 * k, h * 1.8), Color(0.08, 0.04, 0.0))
 
+## the snake of the 50 m burrow: ONE straight drawing (`snake_strip.png`, tail left, head right) slid along a wavy path
+## out of the burrow and down the wall under it (not down to the floor: left of it the hewer breaks his rock) - the body keeps to the path behind the head, as a snake's does
+## (the waves stay put in the world while it slides through them). It peeks out and looks about, pours out down the wall,
+## hangs on the wall tasting the air with its head raised and turning, and draws back into the dark.
+const SNAKE_LEN := 9.5
+const SNAKE_BODY := 190.0        # source px head to tail
+const SNAKE_W := 1.5             # of the drawing's own thickness: thinner, on the screen it read as a thread
+var _snake_path := PackedVector2Array()
+func _snake_out(c: CanvasItem, s: float) -> bool:
+	if s > SNAKE_LEN: return true
+	var hp: Dictionary = J.hole
+	var h0 := Vector2(float(hp.x), band_y(0) + float(hp.y))
+	if _snake_path.is_empty():
+		# out of the burrow, down the wall in a lazy S and off along the floor to the left; then waves laid across it
+		var base := Bend.smooth(PackedVector2Array([Vector2(0, 0), Vector2(-6, 26), Vector2(6, 56), Vector2(-8, 84),
+			Vector2(4, 106), Vector2(30, 116), Vector2(52, 108), Vector2(66, 90)]), 12)
+		var acc := 0.0
+		for i in base.size():
+			if i > 0: acc += base[i].distance_to(base[i - 1])
+			var d := (base[mini(i + 1, base.size() - 1)] - base[maxi(i - 1, 0)]).normalized()
+			_snake_path.append(base[i] + d.orthogonal() * 13.0 * sin(acc * 0.065) * clampf((acc - 20.0) / 40.0, 0.0, 1.0))
+	var tx := tex("snake_strip.png")
+	var plen := Bend.length(_snake_path)
+	# how far the head is along the path: a peek, a look about, the pour down, the rest, the retreat
+	var head := 0.0
+	if s < 0.9: head = 38.0 * (1.0 - pow(1.0 - s / 0.9, 2.0))
+	elif s < 2.2: head = 38.0
+	elif s < 5.2: head = lerpf(38.0, plen - 10.0, smoothstep(2.2, 5.2, s))
+	elif s < 8.0: head = plen - 10.0 + 6.0 * sin((s - 5.2) * 1.3)
+	else: head = lerpf(plen - 10.0, 0.0, smoothstep(8.0, SNAKE_LEN, s))
+	var vis := minf(head, SNAKE_BODY)
+	if vis < 3.0: return false
+	var n := 36
+	var pts := Bend.sample(_snake_path, head - vis, head, n)
+	# the head lifts off the floor and turns, tasting the air, while it rests (and looks about at the burrow's mouth)
+	var look := 0.0
+	if s < 2.2: look = 0.5 * sin(s * 3.1) * smoothstep(0.6, 1.0, s)
+	elif s > 5.4 and s < 8.0: look = -0.55 * smoothstep(5.4, 6.0, s) * smoothstep(8.0, 7.6, s) + 0.25 * sin(s * 2.6)
+	if look != 0.0:
+		var neck := n - 5
+		var piv := pts[neck]
+		for i in range(neck + 1, n + 1):
+			var w := float(i - neck) / (n - neck)
+			pts[i] = piv + (pts[i] - piv).rotated(look * w * w * 1.6)
+	for i in pts.size(): pts[i] += h0
+	var hw := SNAKE_BODY * float(tx.get_height()) / float(tx.get_width()) * 0.5 * SNAKE_W
+	# the body darkens into the burrow at its tail end
+	var dark_q := 30.0 / vis
+	Bend.draw(c, pts, func(_q: float) -> float: return hw, tx, 1.0 - vis / SNAKE_BODY, 1.0, true,
+		func(q: float) -> Color: var v := clampf(q / dark_q, 0.25, 1.0) if head - vis < 1.0 else 1.0; return Color(v, v, v))
+	return false
+
 func _snake_live(c: CanvasItem) -> void:
 	for ev in _events.keys():
 		var s := t - float(_events[ev])
 		var done := false
 		match ev:
 			"hole":
-				# frames are the snake alone, placed by the burrow drawn in the 50 m wall (mine.json "hole")
-				var seq := [1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 4, 4, 6, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6, 3, 2, 1, 1]
-				var i := int(s * 6)
-				if i >= seq.size() or String(_shown_bands.get(0, "")) == "closed": done = true
+				if String(_shown_bands.get(0, "")) == "closed": done = true
+				elif ResourceLoader.exists(dir + "snake_strip.png"): done = _snake_out(c, s)
 				else:
-					var hp: Dictionary = J.hole
-					var fi := int(seq[i])
-					var off: Array = hp.frames[fi]
-					_put(c, "snake/hole_%02d.png" % fi, Vector2(float(hp.x) + float(off[0]), band_y(0) + float(hp.y) + float(off[1])))
+					# frames are the snake alone, placed by the burrow drawn in the 50 m wall (mine.json "hole")
+					var seq := [1, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 4, 4, 6, 6, 7, 8, 9, 10, 10, 10, 10, 10, 10, 10, 10, 9, 8, 7, 6, 3, 2, 1, 1]
+					var i := int(s * 6)
+					if i >= seq.size(): done = true
+					else:
+						var hp: Dictionary = J.hole
+						var fi := int(seq[i])
+						var off: Array = hp.frames[fi]
+						_put(c, "snake/hole_%02d.png" % fi, Vector2(float(hp.x) + float(off[0]), band_y(0) + float(hp.y) + float(off[1])))
 			"coil":
 				var i := int(s * 8)
 				if i >= 16 + 4: done = true
