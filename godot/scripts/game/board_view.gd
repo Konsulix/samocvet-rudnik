@@ -557,6 +557,7 @@ func _process(dt: float) -> void:
 		var kick := clampf(1.0 - (Time.get_ticks_msec() / 1000.0 - _whirl_kick) / 0.8, 0.0, 1.0)
 		_whirl_a += dt * (1.0 + 3.0 * kick)
 		(_whirl.canvas.material as ShaderMaterial).set_shader_parameter("flow", _whirl_a)
+		_whirl.redraw()
 	# a grown nodule stays drawn as its new stage
 	var now := Time.get_ticks_msec() / 1000.0
 	for key in nod_grow.keys():
@@ -605,6 +606,10 @@ func _draw_sea_under(ci: Node2D) -> void:
 	if model == null: return
 	var now := Time.get_ticks_msec() / 1000.0
 	var w := _sea_mid(1)
+	# the deep's light spills out of the maelstrom onto the cells round it, under their stones (breathing as in its shader)
+	if w.x >= 0.0 and _whirl_tex != null:
+		var breath := 0.75 + 0.25 * sin(_whirl_a * 1.3) + 0.08 * sin(_whirl_a * 3.7)
+		GemArt.radial_disc(ci, w, TS * 2.6, Color(0.5, 0.88, 1.0, 0.5 * breath), Color(0.45, 0.85, 1.0, 0.3 * breath), Color(0.45, 0.85, 1.0, 0), 0.62)
 	if w.x >= 0.0 and _whirl_tex == null:
 		var rad := TS * 1.45
 		ci.draw_circle(w, rad, Color("#0b2233"))
