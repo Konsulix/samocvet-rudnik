@@ -146,7 +146,7 @@ func _ready() -> void:
 		want.append(func(g: Dictionary) -> bool: return g.moult)
 		want.append(func(g: Dictionary) -> bool: return g.bite)
 		var sd := 70000
-		var fxs := ["awaken", "moon", "hunter", "watch", "glow"]
+		var fxs := ["awaken", "moon", "hunter", "glow"]
 		for i in want.size() + fxs.size():
 			var legend := i >= want.size()
 			var st := {}

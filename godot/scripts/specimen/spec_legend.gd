@@ -8,7 +8,7 @@ extends RefCounted
 const FX := ["lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi"]
 const FX_N := {lava = "lava", heart = "star heart", fluor = "fluorescence", levitate = "levitation", chameleon = "chameleon",
 	lightning = "frozen lightning", starry = "starry sky", opal = "opal fire", kintsugi = "kintsugi", dragonfire = "dragon fire",
-	jellyfish = "jellyfish", discharge = "living lightning", awaken = "awakened", moon = "moon pearl", hunter = "the hunter", watch = "watching eyes", glow = "deep-sea glow"}
+	jellyfish = "jellyfish", discharge = "living lightning", awaken = "awakened", moon = "moon pearl", hunter = "the hunter", glow = "deep-sea glow"}
 const FLUOR := [Color(0.35, 1.6, 0.25), Color(1.1, 0.3, 1.8), Color(0.3, 0.9, 2.0), Color(1.8, 0.9, 0.15)]
 const CHAM := [Color(0.55, 0.04, 0.12), Color(0.1, 0.5, 0.15), Color(0.6, 0.35, 0.02), Color(0.15, 0.1, 0.6)]
 

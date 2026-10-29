@@ -54,9 +54,26 @@ void fragment() {
 	}
 	vec3 n = normalize(NORMAL);
 	if (!FRONT_FACING) n = -n;
+	float ro = rough;
+	if (mode == 3) {
+		// chitin: a glossy horn-like skin over fine growth lines and pits, mottled in patches, the rings' edges
+		// lighter where they overlap; translucent-looking at the thin edges of the flaps
+		float lines = sin(v_op.z * 260.0 + vn(v_op * 30.0) * 4.0) * 0.5 + 0.5;
+		float pits = smoothstep(0.7, 0.85, vn(v_op * 320.0));
+		float mott = vn(v_op * 18.0);
+		c *= 0.82 + 0.25 * mott - 0.12 * pits + 0.06 * lines;
+		vec3 dx = dFdx(v_op), dy = dFdy(v_op);
+		float hgt = lines * 0.0008 - pits * 0.0012 + vn(v_op * 90.0) * 0.0006;
+		vec3 r1 = cross(dy, n), r2 = cross(n, dx);
+		float det = dot(dx, r1);
+		n = normalize(abs(det) * n - sign(det) * (dFdx(hgt) * r1 + dFdy(hgt) * r2));
+		ro = mix(0.22, 0.45, pits + (1.0 - mott) * 0.3);
+		c += c * vec3(0.6, 0.35, 0.2) * smoothstep(0.3, 0.9, UV.y) * 0.5;
+		SPECULAR = 0.6;
+	}
 	float rim = pow(1.0 - abs(dot(n, VIEW)), 2.0);
 	ALBEDO = c;
 	EMISSION = c * rim * rim_k;
-	ROUGHNESS = rough;
+	ROUGHNESS = ro;
 	NORMAL = n;
 }

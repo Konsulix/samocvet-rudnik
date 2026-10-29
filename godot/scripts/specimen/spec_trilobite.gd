@@ -13,8 +13,7 @@ extends RefCounted
 ## Shown lying on its slab, prepared out standing on a pedestal of its rock, rolled up, or as a plate of several
 ## that died together. Kept as black shell, calcite (tan, grey, honey), cream, or pyrite. Rare: its moult beside it,
 ## a healed bite out of its side, its legs and antennae kept in pyrite. Legendary: "awakened" (its legs walk, it
-## crawls), "the hunter" (Anomalocaris circles; the trilobite rolls up as it passes), "watching eyes" (the eyes turn
-## to the viewer, lit amber), "deep-sea glow" (cold light in waves down its rings), the moon pearl (with oysters).
+## crawls), "the hunter" (Anomalocaris circles; the trilobite rolls up as it passes), "deep-sea glow" (cold light in waves down its rings), the moon pearl (with oysters).
 
 const U := preload("res://scripts/specimen/spec_util.gd")
 const SHADER := preload("res://shaders/trilobite.gdshader")
@@ -484,8 +483,6 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	# the eyes, at the sides of the glabella
 	var ue := ce * 0.55
 	var eye_pts := []
-	var eyes := []
-	var watch: bool = f.get("fx", "") == "watch" and k <= 0.0
 	for s: float in [-1.0, 1.0]:
 		var xe := s * minf(ax * 1.45 + float(c.eye_r) * 0.5, _w(f, c, ue, s) * 0.7)
 		var hh := _h(f, c, ue, xe, _w(f, c, ue, s))
@@ -503,14 +500,11 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 				var top: Vector3 = pts[pts.size() - 1]
 				var ec := top + Vector3(0, float(c.eye_r) * 0.35, 0)
 				eye_pts.append(top)
-				if watch: eyes.append([_eye_node(c, ec, s, "lens" if c.eye == "tower" else "bulb", em, parent), s])
-				else: _add_bent(eye_geo(c, ec, s, "lens" if c.eye == "tower" else "bulb"), em, parent, k)
+				_add_bent(eye_geo(c, ec, s, "lens" if c.eye == "tower" else "bulb"), em, parent, k)
 			_:
-				if watch: eyes.append([_eye_node(c, at, s, String(c.eye), em, parent), s])
-				else: _add_bent(eye_geo(c, at, s, String(c.eye)), em, parent, k)
+				_add_bent(eye_geo(c, at, s, String(c.eye)), em, parent, k)
 				eye_pts.append(at + Vector3(s * float(c.eye_r) * 0.6, float(c.eye_r) * 0.6, 0))
 	out.eyes = eye_pts
-	out.eye_nodes = eyes
 	var tips := []
 	# genal spines from the head's back corners, swept back along the sides
 	if float(c.gspine) > 0.0:
@@ -861,13 +855,6 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			wk.base = (main.node as Node3D).transform
 	var nd0: Node3D = main.node
 	match String(gene.fx):
-		"watch":
-			# the eyes turn to whoever looks at it, their lenses lit amber
-			em.set_shader_parameter("eye_glow", 1.6)
-			em.set_shader_parameter("glow_col", Color(1.0, 0.62, 0.18))
-			var wt := Watcher.new()
-			wt.eyes = main.get("eye_nodes", [])
-			holder.add_child(wt)
 		"glow":
 			# the room goes dark; cold light runs in waves down its rings, its eyes lit, plankton glinting round it
 			root.set_meta("dark", true)
@@ -896,14 +883,19 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			holder.add_child(hn)
 			var hm := MeshInstance3D.new()
 			hm.mesh = hunter_geo(Rng32.new(int(f.seed) + 77)).to_mesh()
-			hm.material_override = SpecSea.life_mat(3, 1.0, 0.03, 0.8, 0.6, 0.12)
+			hm.material_override = SpecSea.life_mat(3, 1.0, 0.03, 0.8, 0.35, 0.12)
 			hn.add_child(hm)
 			hn.body = hm
 			hn.sc = sz * 0.85
 			hn.target = nd0.position
-			hn.radius = sz * 0.55
-			hn.height = sz * 0.32
+			hn.radius = sz * 0.75
+			hn.height = sz * 0.62
 			hn.mats = [sm, em]
+			# an unseen box round the whole loop: the studio frames the find by its meshes, and would otherwise cut
+			# the hunter off at the edge of the card
+			var fb := Geo.box(hn.radius * 2.0 + sz * 0.9, hn.height + sz * 0.5, hn.radius * 1.4 + sz * 0.9)
+			var fm := U.mesh(fb, sm, holder, nd0.position + Vector3(hn.radius * 0.3, hn.height * 0.55, 0))
+			fm.visible = false
 	var xf := U.rel_xform(nd0, root)
 	for p: Vector3 in main.get("eyes", []):
 		if "eyes" in gene.accents: b._mark("eyes", xf * p, (xf.basis * Vector3(signf(p.x), 1, 0)).normalized())
@@ -1196,37 +1188,14 @@ static func _pedestal(f: Dictionary, h: float) -> Geo:
 			g.idx.append_array([a, a + 1, a + na + 1, a + na + 1, a + 1, a + na + 2])
 	return g
 
-## a watching eye: the eye built round its own centre on a node at `at` (so it can turn); returns the node
-static func _eye_node(c: Dictionary, at: Vector3, s: float, kind: String, em: ShaderMaterial, parent: Node3D) -> MeshInstance3D:
-	var mi := U.mesh(eye_geo(c, Vector3.ZERO, s, kind), em, parent, at)
-	mi.set_meta("col", true)
-	return mi
-
-## the legendary watching eyes: each turns towards the camera, as far as an eye can, easing after it
-class Watcher extends Node3D:
-	var eyes: Array = []
-	func _process(dt: float) -> void:
-		var cam := get_viewport().get_camera_3d()
-		if cam == null:
-			return
-		for e: Array in eyes:
-			var mi: MeshInstance3D = e[0]
-			var s: float = e[1]
-			var par := mi.get_parent() as Node3D
-			var d := par.global_transform.affine_inverse() * cam.global_position - mi.position
-			if d.length_squared() < 1e-8: continue
-			var out := Vector3(s, 0.25, 0).normalized()
-			var to := d.normalized()
-			# no further than ~50 degrees from where the eye looks at rest
-			var ang := out.angle_to(to)
-			if ang > 0.9: to = out.slerp(to, 0.9 / ang)
-			var want := Basis(U.quat_to(out, to))
-			mi.basis = mi.basis.slerp(want, minf(1.0, dt * 3.0)).orthonormalized()
-
 ## Anomalocaris (body length 1, head towards +z, y up): an oval head shield, eyes on stalks, two long jointed grasping
 ## arms curling down under the head with spines on their inner side, a tapering body edged with eleven overlapping
 ## flaps a side (smaller towards the tail), a tail fan of three pairs of blades. UV.x: along it (0 head .. 1 tail),
 ## UV.y: out along a flap (the shader beats the flaps in a wave). Reddish, spotted darker, as the reconstructions are.
+## the hunter's back: arched a little, highest behind the head (t 0 head .. 1 tail)
+static func _arch(t: float) -> float:
+	return 0.03 * sin(PI * minf(1.0, t * 1.3))
+
 static func hunter_geo(rng: Rng32) -> Geo:
 	# (after the reconstructions in art/refs/anomalocaris: a flat body almost hidden under its flaps; a big round head,
 	# its eyes large on short stalks; the arms heavy and jointed, long spines below; a tail fan in a V. Not a shrimp:
@@ -1258,12 +1227,13 @@ static func hunter_geo(rng: Rng32) -> Geo:
 	for i in nr + 1:
 		var t := float(i) / nr
 		var z := 0.3 - t * 0.72
-		var hw := 0.1 * (1.0 - 0.65 * t)
-		var hh := 0.05 * (1.0 - 0.55 * t)
+		# narrowing steadily, then drawn in to the fan's root (no stump)
+		var hw := 0.1 * (1.0 - 0.65 * t) * (1.0 - 0.6 * smoothstep(0.75, 1.0, t))
+		var hh := 0.05 * (1.0 - 0.55 * t) * (1.0 - 0.5 * smoothstep(0.75, 1.0, t))
 		for j in m + 1:
 			var a := TAU * float(j) / m
 			# its back arched a little, highest behind the head
-			var p := Vector3(cos(a) * hw, sin(a) * hh + 0.03 * sin(PI * minf(1.0, t * 1.3)), z)
+			var p := Vector3(cos(a) * hw, sin(a) * hh + _arch(t), z)
 			g.v.append(p)
 			g.col.append(spot.call(p, base.darkened(0.3 if i % 2 == 0 else 0.0)))
 			g.rp.append(Vector3(0.15 + 0.85 * t, 0.0, 0.0))
@@ -1307,7 +1277,9 @@ static func hunter_geo(rng: Rng32) -> Geo:
 					var droop := 0.3 * o * ln
 					# and twisted: the leading edge high, the trailing low — the light falls on each lobe apart
 					var twist := -w * half * 0.9 * o
-					var p := Vector3(s * (0.07 * (1.0 - 0.6 * t) + o * ln * 0.95), lift - droop - 0.004 * float(i) + twist, z + w * half - o * ln * 0.75)
+					# (its root inside the trunk's side, at the trunk's own height: grown from it, not hung under it)
+					var root_x := 0.1 * (1.0 - 0.65 * t) * 0.75
+					var p := Vector3(s * (root_x + o * ln * 0.95), _arch(t) + lift - droop - 0.004 * float(i) * o + twist, z + w * half - o * ln * 0.75)
 					g.v.append(p)
 					# fine dark lines radiating along the lobe, its trailing edge in shadow (that is what separates the lobes)
 					var vein := 0.25 if absf(fposmod(w * 3.0 + 0.5, 1.0) - 0.5) < 0.08 and o > 0.1 else 0.0
@@ -1326,7 +1298,7 @@ static func hunter_geo(rng: Rng32) -> Geo:
 				var o := float(q) / 6.0
 				for r in 3:
 					var w := (float(r) - 1.0) * 0.05 * sin(PI * minf(1.0, o * 1.2 + 0.15))
-					var p := Vector3(0, 0.008, -0.4) + dir * o * 0.4 + side * w
+					var p := Vector3(0, _arch(1.0) + 0.004, -0.4) + dir * o * 0.4 + side * w
 					g.v.append(p)
 					g.col.append(spot.call(p, base.lerp(ochre, 0.5 * o)))
 					g.rp.append(Vector3(1.0, o * 0.4, 0.0))
@@ -1392,13 +1364,13 @@ class Hunter extends Node3D:
 	var rolled := 0.0
 	func _process(dt: float) -> void:
 		a += dt * TAU / 13.0
-		# an oval loop, its far end over the trilobite
-		var c := target + Vector3(radius * 0.95, 0, 0)
+		# an oval loop round the slab, off centre so that one side of it passes right over the trilobite
+		var c := target + Vector3(radius * 0.3, 0, 0)
 		var p := c + Vector3(cos(a) * radius, height + sin(a * 2.0) * radius * 0.08, sin(a) * radius * 0.7)
 		var tan := Vector3(-sin(a) * radius, cos(a * 2.0) * radius * 0.16, cos(a) * radius * 0.7).normalized()
 		body.position = p
 		body.basis = Basis.looking_at(-tan, Vector3.UP) * Basis(Vector3.BACK, -0.25 * cos(a)) * Basis.from_scale(Vector3.ONE * sc)
-		var near := Vector2(p.x - target.x, p.z - target.z).length() < radius * 0.55
+		var near := Vector2(p.x - target.x, p.z - target.z).length() < radius * 0.6
 		rolled = move_toward(rolled, 1.0 if near else 0.0, dt * (1.6 if near else 0.35))
 		var r := smoothstep(0.0, 1.0, rolled)
 		for m: ShaderMaterial in mats:
