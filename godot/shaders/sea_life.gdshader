@@ -36,6 +36,13 @@ void vertex() {
 	} else if (mode == 1) {
 		VERTEX += NORMAL * sin(UV.x * 34.0 + TIME * speed * 2.0 + ph) * amp * UV.y;
 	} else if (mode == 3) {
+		// its eyes blink now and then (UV2.x 1: an eye; its centre on the stalk's tip): squashed shut for a moment
+		if (UV2.x > 0.5) {
+			float bt = fract(TIME / 4.3 + COLOR.a);
+			float shut = smoothstep(0.0, 0.03, bt) * (1.0 - smoothstep(0.05, 0.09, bt));
+			float ey = 0.05;
+			VERTEX.y = ey + (VERTEX.y - ey) * (1.0 - 0.9 * shut);
+		}
 		// a swimmer (UV.x along it, head 0 .. tail 1; UV.y out along a flap): its flaps beat in a wave running back,
 		// the body sways a little behind the head
 		VERTEX.y += sin(TIME * speed * 5.0 - UV.x * 11.0) * amp * UV.y;

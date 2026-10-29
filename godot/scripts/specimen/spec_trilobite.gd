@@ -886,6 +886,8 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			hm.material_override = SpecSea.life_mat(3, 1.0, 0.03, 0.8, 0.35, 0.12)
 			hn.add_child(hm)
 			hn.body = hm
+			# a thin trail of bubbles from its mouth as it swims
+			SpecSea.bubbles(hm, [Vector3(0, -0.02, 0.4), Vector3(0, 0.02, 0.2)], Vector3.UP, 0.5, 0.014, 4)
 			hn.sc = sz * 0.85
 			hn.target = nd0.position
 			hn.radius = sz * 0.75
@@ -1346,7 +1348,8 @@ static func hunter_geo(rng: Rng32) -> Geo:
 			if look > 0.55: ec = Color(0.85, 0.62, 0.2)
 			if look > 0.82: ec = Color(0.03, 0.02, 0.02)
 			g.col.append(ec)
-			g.rp.append(Vector3(0.0, 0.0, 0.0))
+			# (UV2.x 1: an eye — the shader blinks it about its centre)
+			g.rp.append(Vector3(0.0, 0.0, 1.0))
 		for i in e.idx:
 			g.idx.append(e0 + i)
 	return g

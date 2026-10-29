@@ -62,7 +62,8 @@ void vertex() {
 		float a = q.z / R;
 		float sa = sin(a), ca = cos(a), sha = sin(a * 0.5);
 		VERTEX = vec3(q.x, q.y * ca - 2.0 * R * sha * sha, q.z * (abs(a) > 1e-4 ? sa / a : 1.0) + q.y * sa);
-		VERTEX.y += roll * 0.17;
+		// (the ball hangs two radii below the back: lift it by that, so it rolls up on the rock, not into it)
+		VERTEX.y += roll * (2.0 * R + 0.03);
 		vec3 n = NORMAL;
 		n = vec3(n.x * cp + n.y * sp, -n.x * sp + n.y * cp, n.z);
 		NORMAL = vec3(n.x, n.y * ca - n.z * sa, n.y * sa + n.z * ca);
@@ -95,6 +96,10 @@ void fragment() {
 		vec3 lc = mix(vec3(0.02, 0.016, 0.012), base_col * 0.4, 0.2) * (0.6 + 0.8 * id);
 		vec3 rim = mix(dark_col, base_col, 0.6) * (0.75 + 0.3 * fbm(p * 120.0));
 		c = mix(rim, lc, lens);
+		// no lids to blink: now and then a ripple of light runs across the lenses instead, front to back
+		float ph = fract(TIME * 0.17 + seed * 0.13);
+		float band = exp(-pow((UV.x - mix(0.22, 0.78, ph * 1.7)) / 0.045, 2.0)) * step(ph, 0.6);
+		c = mix(c, vec3(0.95, 0.85, 0.62), band * lens * 0.7);
 		if (lens_on < 0.5) c = mix(base_col * 0.35, vec3(0.03), 0.6);   // a smooth eye: dark and glossy
 		ro = mix(rough_k, 0.06, max(lens, 1.0 - lens_on));
 		me = mix(metal_k, 0.0, lens);
