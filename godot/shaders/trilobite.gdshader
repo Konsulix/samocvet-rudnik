@@ -62,8 +62,10 @@ void vertex() {
 		float a = q.z / R;
 		float sa = sin(a), ca = cos(a), sha = sin(a * 0.5);
 		VERTEX = vec3(q.x, q.y * ca - 2.0 * R * sha * sha, q.z * (abs(a) > 1e-4 ? sa / a : 1.0) + q.y * sa);
-		// (the ball hangs two radii below the back: lift it by that, so it rolls up on the rock, not into it)
-		VERTEX.y += roll * (2.0 * R + 0.03);
+		// lift it by exactly how far its ends have dropped (each end is half the length round the circle), so it rolls
+		// up on the rock, not into it — and grows from nothing as the curl starts (no jump)
+		float ae = min(0.5 / R, 3.1416);
+		VERTEX.y += R * (1.0 - cos(ae)) + 0.03 * roll;
 		vec3 n = NORMAL;
 		n = vec3(n.x * cp + n.y * sp, -n.x * sp + n.y * cp, n.z);
 		NORMAL = vec3(n.x, n.y * ca - n.z * sa, n.y * sa + n.z * ca);
