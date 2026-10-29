@@ -304,6 +304,13 @@ func _ready() -> void:
 		await get_tree().create_timer(float(args.get("after", "3"))).timeout
 		await RenderingServer.frame_post_draw
 		var vp: Viewport = (get_child(0) as SpecView).studio.vp if args.has("alpha") else get_viewport()
-		vp.get_texture().get_image().save_png(args.shot)
+		# frames=N every=S: a run of shots (shot_0.png …) for a GIF of what moves
+		var nf := int(args.get("frames", "1"))
+		for k in nf:
+			var path: String = args.shot if nf == 1 else String(args.shot).replace(".png", "_%d.png" % k)
+			vp.get_texture().get_image().save_png(path)
+			if k < nf - 1:
+				await get_tree().create_timer(float(args.get("every", "0.2"))).timeout
+				await RenderingServer.frame_post_draw
 		print("shot saved")
 		get_tree().quit()
