@@ -2,8 +2,9 @@ class_name PortraitLife
 extends Node2D
 ## The live touch on the top bar's portrait frame, the mine's boss in small, as on his fight's own frame: the Poloz'
 ## tail hangs out from under the frame's lower left corner, its tip curling; one of the Mistress' lizards runs round
-## the frame, stops, looks about and runs on; the Kraken's arm comes over the upper right corner and down the right
-## bar, groping. Each is one straight drawing bent live (Bend), on the frame's 1-pt scale, gentle bends only.
+## the frame, stops, looks about and runs on; the Kraken's arm comes out from behind the frame's right bar and hangs
+## beside it, groping. Each is its boss' own drawing bent live (Bend), gentle bends only; the arm is drawn behind the
+## frame (Chrome adds it under it), so its cut root is hidden.
 
 var id := ""
 var f := 72.0                # the frame's size, pt
@@ -16,7 +17,7 @@ static func make(boss: String, size: float) -> PortraitLife:
 	p.f = size
 	var path: String = {poloz = "res://assets/boss/poloz/kit/straight_h.png",
 		mistress = "res://assets/boss/mistress/lizard_strip.png",
-		kraken = "res://assets/boss/kraken/arm_strip.png"}.get(boss, "")
+		kraken = "res://assets/boss/kraken/arm_xs.png"}.get(boss, "")
 	if path != "" and ResourceLoader.exists(path): p.strip = load(path)
 	p.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	p.material = BoardSprites.plain_material()
@@ -78,12 +79,12 @@ func _lizard() -> void:
 	Bend.draw(self, shadow, func(_q: float) -> float: return hw, strip, 0.0, 1.0, false, Color(0.02, 0.04, 0.03, 0.5))
 	Bend.draw(self, body, func(_q: float) -> float: return hw, strip)
 
-## his arm over the upper right corner: along the top bar from behind its middle, round the corner and down the right
-## bar, reaching and drawing back, its tip groping off the frame
+## his arm out from behind the frame: its root hidden under the right bar, it comes out past the bar's outer edge and
+## hangs down beside the frame, reaching and drawing back, its tip groping and curling (drawn behind the frame)
 func _arm() -> void:
 	var m := f * 0.13
-	var ctrl := PackedVector2Array([Vector2(f * 0.35, m - 1.0), Vector2(f * 0.7, m - 2.0), Vector2(f - m + 1.0, f * 0.22),
-		Vector2(f - m + 2.0, f * 0.5), Vector2(f + m * 0.6, f * 0.68)])
+	var ctrl := PackedVector2Array([Vector2(f - m * 1.6, f * 0.2), Vector2(f + m * 0.2, f * 0.26),
+		Vector2(f + m * 0.9, f * 0.5), Vector2(f + m * 0.5, f * 0.78), Vector2(f - m * 0.2, f * 0.98)])
 	var line := Bend.smooth(ctrl, 8)
 	var out := Bend.length(line) * (0.78 + 0.16 * sin(_t * 0.6) + 0.06 * sin(_t * 1.7))
 	var pts := Bend.sample(line, 0.0, out, 30)
@@ -91,6 +92,7 @@ func _arm() -> void:
 	for i in n:
 		var q := i / float(n - 1)
 		var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
-		pts[i] += d.orthogonal() * (sin(q * 6.0 - _t * 2.0) * f * 0.015 * q + pow(q, 3.0) * f * 0.07 * sin(_t * 1.1))
-	var hw := f * 0.12
-	Bend.draw(self, pts, func(q: float) -> float: return hw * (1.0 - 0.55 * q), strip, 0.0, 0.96)
+		pts[i] += d.orthogonal() * (sin(q * 6.0 - _t * 2.0) * f * 0.012 * q + pow(q, 3.0) * f * 0.05 * sin(_t * 1.1))
+	# his arm's own drawing, laid on the grid at this size (art/boss/export_kraken.py: arm_xs)
+	var hw := float(strip.get_height()) * 0.5 * f / 72.0
+	Bend.draw(self, pts, func(_q: float) -> float: return hw, strip, 1.0 - out / Bend.length(line), 1.0)

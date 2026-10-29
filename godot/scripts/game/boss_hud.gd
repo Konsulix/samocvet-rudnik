@@ -103,6 +103,8 @@ func _ready() -> void:
 	_icons = {coils = BoardSprites.tex("lock"), rockfall = BoardSprites.blocker(BoardSprites.granite()),
 		breath = load("res://assets/board/pieces/gas.png"), crust = BoardSprites.malachite("crust_0"),
 		flower = BoardSprites.flower("flower_s3")}
+	if ResourceLoader.exists("res://assets/boss/kraken/arm_xs.png"):
+		_icons.arm = load("res://assets/boss/kraken/arm_xs.png")
 	if ResourceLoader.exists("res://assets/boss/mistress/lizard_0.png"):
 		_icons.lizards = load("res://assets/boss/mistress/lizard_0.png")
 
@@ -246,8 +248,9 @@ func _draw_act(act: String, c: Vector2) -> void:
 		return
 	# the Kraken's: drawn here, in his sea's colours
 	if act == "tentacle":
-		var pts := Bend.chain(c + Vector2(-12, 11), 34.0, 20, func(q: float) -> float: return -0.6 - q * q * 4.2)
-		BoardView.tentacle_body(bubble, pts, 5.0, 1.5)
+		var tx: Texture2D = _icons.get("arm")
+		var pts := Bend.chain(c + Vector2(-12, 11), 34.0, 20, func(q: float) -> float: return -0.6 - q * q * 3.2)
+		Bend.draw(bubble, pts, func(_q: float) -> float: return 5.0, tx, 0.0, 1.0)
 		return
 	if act == "ink":
 		for o in [Vector2(-5, 2), Vector2(5, -3), Vector2(2, 6), Vector2(-3, -6)]:

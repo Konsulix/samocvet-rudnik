@@ -35,6 +35,7 @@ const NOD_GROW_S := 0.6
 var sea_under: Node2D
 var sea_over: Node2D
 var tent_at := {}             # tentacle id -> when it reached out (it slides onto the board tip first)
+var _arm_tex: Texture2D
 var eye_at := -10.0           # when the eye was last hit: it flinches shut
 const TENT_IN := 0.55
 ## the maelstrom: a square hole broken through the board (art/boss/export_kraken.py), its water flowing in a whirlpool
@@ -711,31 +712,9 @@ func _draw_tentacle(ci: Node2D, tn: Dictionary, now: float) -> void:
 	k = 1.0 - pow(1.0 - k, 3.0)
 	# it slides in tip first: the part out on the board is the end of the whole arm
 	var pts := Bend.sample(line, 0.0, L * maxf(k, 0.02), 40)
-	tentacle_body(ci, pts, lerpf(TS * 0.1, TS * 0.36, k), TS * 0.1)
+	# his arm's own drawing, laid on the grid at this size (art/boss/export_kraken.py: arm_s); the part on the board is
+	# its tip end, its cut root end under the frame's bar
+	if _arm_tex == null: _arm_tex = load("res://assets/boss/kraken/arm_s.png")
+	var hw := float(_arm_tex.get_height()) * 0.65 * TS / 37.0
+	Bend.draw(ci, pts, func(_q: float) -> float: return hw, _arm_tex, 1.0 - maxf(k, 0.02), 1.0)
 
-## a tentacle's body along pts (root first): a dark hide tapering from w0 to w1 (half widths), a pale belly with a row
-## of suckers along it, a wet glint on its back. Drawn in code until its own picture is made
-static func tentacle_body(ci: CanvasItem, pts: PackedVector2Array, w0: float, w1: float) -> void:
-	var n := pts.size()
-	if n < 2: return
-	var wd := func(i: int) -> float: return lerpf(w0, w1, float(i) / float(n - 1))
-	var side := func(i: int) -> Vector2:
-		var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
-		return Vector2(-d.y, d.x)
-	for i in n: ci.draw_circle(pts[i], float(wd.call(i)) + 1.5, Color("#1a0f16"))
-	for i in n: ci.draw_circle(pts[i], float(wd.call(i)), Color("#5b3446"))
-	var belly := PackedVector2Array()
-	var back := PackedVector2Array()
-	for i in n:
-		var s: Vector2 = side.call(i)
-		belly.append(pts[i] + s * float(wd.call(i)) * 0.45)
-		back.append(pts[i] - s * float(wd.call(i)) * 0.45)
-	ci.draw_polyline(belly, Color("#a7787f"), maxf(1.5, w0 * 0.55), true)
-	ci.draw_polyline(back, Color(0.85, 0.75, 0.85, 0.35), maxf(1.0, w0 * 0.12), true)
-	var i := 2
-	while i < n - 1:
-		var s: Vector2 = side.call(i)
-		var w: float = wd.call(i)
-		ci.draw_circle(pts[i] + s * w * 0.5, w * 0.32, Color("#e2c9c0"))
-		ci.draw_circle(pts[i] + s * w * 0.5, w * 0.14, Color("#4a2632"))
-		i += 3

@@ -59,6 +59,8 @@ static func _portrait() -> Control:
 	back.position = Vector2(o - 1, o - 1)
 	back.size = Vector2(n + 2, n + 2)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the Kraken's arm comes out from behind the frame: under everything of the portrait
+	if id == "kraken": w.add_child(PortraitLife.make(id, F))
 	w.add_child(back)
 	var face := Kit.icon("equipment", n * 0.86)
 	face.size = Vector2(n, n) * 0.86
@@ -73,7 +75,7 @@ static func _portrait() -> Control:
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	w.add_child(frame)
 	# the mine's boss alive on it: the Poloz' tail, a lizard of the Mistress', the Kraken's arm (under the heart)
-	w.add_child(PortraitLife.make(id, F))
+	if id != "kraken": w.add_child(PortraitLife.make(id, F))
 	var mins := Save.minutes_to_life()
 	# the lives: a heart on the frame's lower right corner with their number on it; while one is coming back,
 	# the minutes left in small print under the portrait
