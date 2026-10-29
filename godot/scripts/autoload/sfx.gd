@@ -61,6 +61,7 @@ const SAMPLES := {
 	kr_ink = {f = ["gas_0", "gas_1", "gas_2"], db = -5.0, pitch = 0.6},
 	kr_tide = {f = ["amb/sea/crash_0", "amb/sea/crash_1"], db = -7.0, pitch = 1.1},
 	kr_maelstrom = {f = ["amb/sea/bubble_0", "amb/sea/bubble_1", "amb/sea/bubble_2"], db = -8.0, pitch = 0.55},
+	kr_suck = {f = ["amb/sea/bubble_0", "amb/sea/squelch"], all = true, db = -5.0, pitch = 0.5},
 	kr_eye = {f = ["weird_08", "weird_09"], db = -3.0, pitch = 0.6},
 	kr_gulls = {f = ["amb/sea/gull_1", "amb/sea/gull_2", "amb/sea/gull_4"], all = true, db = -6.0},
 	kr_drown = {f = ["amb/sea/deep", "amb/sea/bubble_0"], all = true, db = -2.0, pitch = 0.8},

@@ -45,8 +45,10 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		m.gas_spread()
 		m.nodule_grow()
 		if m.boss_on():
-			# the sea's own move (the Kraken): the maelstrom's ring turns, and what it lines up goes
-			if not m.sea_turn().turned.is_empty():
+			# the sea's own move (the Kraken): the maelstrom's ring turns and swallows a blue or a special, what it lines up goes
+			var sea := m.sea_turn()
+			if not sea.turned.is_empty():
+				if not sea.sucked.is_empty(): m.collapse()
 				_resolve(m, [], [], broken)
 				if m.boss_stage_clear():
 					m.next_stage()

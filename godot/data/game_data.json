@@ -1265,6 +1265,9 @@
       "rows": 2,
       "moves": 2
      },
+     "maelstrom": {
+      "take": 1
+     },
      "eye": {
       "dmg": 60,
       "shut": 2
@@ -1293,6 +1296,7 @@
      "tide": "kr_tide",
      "maelstrom": "kr_maelstrom",
      "eye": "kr_eye",
+     "suck": "kr_suck",
      "drown": "kr_drown"
     },
     "stages": [

@@ -429,9 +429,11 @@ func _cut_tentacle(r: int, c: int, t: float, tip_only: bool) -> bool:
 	return true
 
 ## the sea's own move after each of the player's (the Kraken's boards): the maelstrom turns its ring a cell
-## clockwise, stones and all; ink thins, the tide ebbs, the eye opens. Returns {turned: [[id, from, to]]}
+## clockwise, stones and all, then sucks in up to `take` (act "maelstrom") of the blue stones and specials sitting
+## beside its water, specials first; ink thins, the tide ebbs, the eye opens.
+## Returns {turned: [[id, from, to]], sucked: [{id, r, c}]} (the sucked cells left empty: the caller lets stones fall)
 func sea_turn() -> Dictionary:
-	var out := {turned = []}
+	var out := {turned = [], sucked = []}
 	for r in R:
 		for c in C:
 			if INK[r][c]: INK[r][c] -= 1
@@ -444,7 +446,28 @@ func sea_turn() -> Dictionary:
 			var to: Vector2i = ring[(i + 1) % ring.size()]
 			G[to.x][to.y] = gs[i]
 			if gs[i]: out.turned.append([(gs[i] as Gem).id, ring[i], to])
+		_suck(out)
 	return out
+
+## the maelstrom takes the blue stones (the boss' weak colour) and the specials on the ring cells that touch its water
+## side by side
+func _suck(out: Dictionary) -> void:
+	var A: Dictionary = boss.B.act.get("maelstrom", {}) if boss_on() else {}
+	var take := int(A.get("take", 1))
+	var weak := int(boss.B.weak) if boss_on() else -1
+	var sp := []
+	var blue := []
+	for p: Vector2i in ring:
+		var g: Gem = G[p.x][p.y]
+		if g == null or g.item != "" or LOCK[p.x][p.y]: continue
+		if not DIRS4.any(func(d: Vector2i) -> bool: return playable(p.x + d.x, p.y + d.y) and SEA[p.x + d.x][p.y + d.y] == 1): continue
+		if g.sp != "": sp.append(p)
+		elif g.t == weak: blue.append(p)
+	sp.shuffle()
+	blue.shuffle()
+	for p: Vector2i in (sp + blue).slice(0, take):
+		out.sucked.append({id = (G[p.x][p.y] as Gem).id, r = p.x, c = p.y})
+		G[p.x][p.y] = null
 
 ## the ring of cells round a w x h block at (r, c), clockwise from its top-left corner
 func _ring_round(r: int, c: int, w: int, h: int) -> Array:

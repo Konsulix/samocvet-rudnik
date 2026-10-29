@@ -312,26 +312,57 @@ static func _flower(lv: Level, res: Dictionary) -> void:
 		m.shuffle()
 		await lv.board.animate_shuffle()
 
-## the maelstrom carries the stones of its ring round a cell; what that lines up goes as usual
+## the maelstrom carries the stones of its ring round a cell - along an arc round its water, turning a little - and
+## sucks in a blue stone or a special beside it: down the spiral, shrinking; what falls in and lines up goes as usual
 static func _sea(lv: Level) -> void:
 	var m: BoardModel = lv.model
 	var res := m.sea_turn()
 	lv.board.sea_over.queue_redraw()
 	if res.turned.is_empty(): return
+	var b := lv.board
+	var mid := b.whirl_mid()
 	var tw := lv.create_tween().set_parallel(true)
 	var any := false
 	for t: Array in res.turned:
-		var n: GemNode = lv.board.nodes.get(int(t[0]))
+		var n: GemNode = b.nodes.get(int(t[0]))
 		if n == null: continue
 		var to: Vector2i = t[2]
-		tw.tween_property(n, "position", lv.board.cell_center(to.x, to.y), 0.34).set_trans(Tween.TRANS_SINE)
+		var p0 := n.position - mid
+		var p1 := b.cell_center(to.x, to.y) - mid
+		var a0 := p0.angle()
+		var a1 := a0 + wrapf(p1.angle() - a0, -PI, PI)
+		tw.tween_method(func(k: float) -> void:
+			n.position = mid + Vector2.from_angle(lerp_angle(a0, a1, k)) * lerpf(p0.length(), p1.length(), k)
+			n.rotation = sin(k * PI) * 0.25, 0.0, 1.0, 0.42).set_trans(Tween.TRANS_SINE)
 		any = true
 	if not any:
 		tw.kill()
 		return
 	sound(lv, "maelstrom")
-	lv.board.whirl_kick()
+	b.whirl_kick()
 	await tw.finished
+	if not res.sucked.is_empty():
+		var sw := lv.create_tween().set_parallel(true)
+		for s: Dictionary in res.sucked:
+			var n: GemNode = b.nodes.get(int(s.id))
+			if n == null: continue
+			b.nodes.erase(int(s.id))
+			var p0 := n.position - mid
+			var a0 := p0.angle()
+			sw.tween_method(func(k: float) -> void:
+				var e := k * k
+				n.position = mid + Vector2.from_angle(a0 + e * TAU * 1.25) * p0.length() * (1.0 - e)
+				n.rotation = e * TAU * 1.5
+				n.scale = Vector2.ONE * (1.0 - 0.85 * e)
+				n.modulate.a = 1.0 - clampf((k - 0.7) / 0.3, 0.0, 1.0), 0.0, 1.0, 0.75)
+			lv.get_tree().create_timer(0.8).timeout.connect(n.queue_free)
+		sound(lv, "suck", "kr_maelstrom")
+		b.whirl_kick()
+		await sw.finished
+		if not lv.has_meta("suck_told"):
+			lv.set_meta("suck_told", true)
+			lv._toast("The maelstrom swallows blue stones and specials beside it")
+		await b.animate_collapse(m.collapse())
 	await lv._resolve([], [])
 
 ## the tentacles left on the board drag the stones at their tips over the rim into the deep: he heals

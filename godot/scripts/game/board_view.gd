@@ -37,8 +37,9 @@ var sea_over: Node2D
 var tent_at := {}             # tentacle id -> when it reached out (it slides onto the board tip first)
 var eye_at := -10.0           # when the eye was last hit: it flinches shut
 const TENT_IN := 0.55
-## the maelstrom's drawn water (art/boss/export_kraken.py) turning on the boss' 1-pt grid (a PixelLayer, so the turned
-## pixel art stays clean); it spins faster for a moment when the ring goes round (whirl_kick)
+## the maelstrom: a square hole broken through the board (art/boss/export_kraken.py), its water flowing in a whirlpool
+## (shaders/whirl.gdshader) on the boss' 1-pt grid (a PixelLayer); it flows faster for a moment when the ring goes round
+## (whirl_kick)
 var _whirl: PixelLayer
 var _whirl_tex: Texture2D
 var _whirl_a := 0.0
@@ -108,9 +109,12 @@ func rebuild(m: BoardModel) -> void:
 		_whirl.queue_free()
 		_whirl = null
 	var dir := "res://assets/boss/%s/" % String(m.boss.B.get("id", "")) if m.boss_on() else ""
-	if dir != "" and not m.ring.is_empty() and ResourceLoader.exists(dir + "whirl.png"):
-		_whirl_tex = load(dir + "whirl.png")
+	if dir != "" and not m.ring.is_empty() and ResourceLoader.exists(dir + "whirl_hi.png"):
+		_whirl_tex = load(dir + "whirl_hi.png")
 		_whirl = PixelLayer.make(size, _draw_whirl)
+		var wm := ShaderMaterial.new()
+		wm.shader = preload("res://shaders/whirl.gdshader")
+		_whirl.canvas.material = wm
 		add_child(_whirl)
 		move_child(_whirl, gems.get_index())
 	if dir != "" and not m.eye.is_empty() and ResourceLoader.exists(dir + "eye_open.png"):
@@ -551,8 +555,8 @@ func _process(dt: float) -> void:
 		sea_over.queue_redraw()
 	if _whirl:
 		var kick := clampf(1.0 - (Time.get_ticks_msec() / 1000.0 - _whirl_kick) / 0.8, 0.0, 1.0)
-		_whirl_a += dt * (0.7 + 3.5 * kick)
-		_whirl.redraw()
+		_whirl_a += dt * (1.0 + 3.0 * kick)
+		(_whirl.canvas.material as ShaderMaterial).set_shader_parameter("flow", _whirl_a)
 	# a grown nodule stays drawn as its new stage
 	var now := Time.get_ticks_msec() / 1000.0
 	for key in nod_grow.keys():
@@ -614,6 +618,10 @@ func _draw_sea_under(ci: Node2D) -> void:
 				pts.append(w + Vector2(cos(a), sin(a)) * rad * (0.95 - q * 0.75))
 			ci.draw_polyline(pts, Color(0.62, 0.82, 0.88, 0.5), maxf(1.5, TS * 0.05), true)
 
+## the middle of the maelstrom's water
+func whirl_mid() -> Vector2:
+	return _sea_mid(1)
+
 ## the ring went round: the water spins faster a moment
 func whirl_kick() -> void:
 	_whirl_kick = Time.get_ticks_msec() / 1000.0
@@ -621,10 +629,8 @@ func whirl_kick() -> void:
 func _draw_whirl(ci: Node2D) -> void:
 	var w := _sea_mid(1)
 	if w.x < 0.0 or _whirl_tex == null: return
-	var sz := Vector2(_whirl_tex.get_size()) * TS / 37.0
-	ci.draw_set_transform(w, -_whirl_a, Vector2.ONE)
-	ci.draw_texture_rect(_whirl_tex, Rect2(-sz * 0.5, sz), false)
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var sz := Vector2(_whirl_tex.get_size()) / 3.0 * TS / 37.0
+	ci.draw_texture_rect(_whirl_tex, Rect2((w - sz * 0.5).round(), sz.round()), false)
 
 ## his eye (2x2, art/boss/export_kraken.py, on the boss' 1-pt grid): drawn over the stones - it bulges up out of the
 ## board, its torn edge over the cells round it, its shadow on them; open (watching the board) or shut after a hit
