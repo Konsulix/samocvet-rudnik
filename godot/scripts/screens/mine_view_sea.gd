@@ -587,8 +587,9 @@ func _sea_live(c: CanvasItem) -> void:
 			var top := float(bp[2])
 			var p := Vector2(float(bp[0]) + sin(u * 9.0 + j) * 8.0, y0 + float(bp[1]) - u * top)
 			c.draw_arc(p, 3.0 + j % 3, 0, TAU, 10, Color(0.7, 0.9, 1.0, 0.5 * (1.0 - u)), 1.5)
-	# the diver on the wreck; his air hose goes on from where it leaves his drawing, up through the water and out to
-	# the pump on the landing, swaying with the sea
+	# the diver on the wreck; his air hose goes on from where it leaves his drawing and rises in a slow S through the
+	# water to the surf, where it is lost in the foam. Seen through the water: the deeper, the more of the sea's blue in
+	# it, light ripples running over it, a bubble now and then escaping along it
 	if int(_shown_places.get("crane", 0)) >= 3 and _crew_ok("diver24"):
 		var dv: Array = se.diver
 		var dp := Vector2(float(dv[0]), y0 + float(dv[1]))
@@ -598,24 +599,45 @@ func _sea_live(c: CanvasItem) -> void:
 		var topl := dp - Vector2(ds.x / 2, ds.y)
 		var hs: Array = se.get("hose", [])
 		var start := topl + Vector2(ds.x * (float(hs[fi]) if fi < hs.size() else 0.32), 1.0)
-		var pump := Vector2(float(se.pump[0]), y0 + float(se.pump[1]))
-		var ctrl := Vector2(start.x - 30.0, y0 + float(se.surface) + 120.0)
-		var hose := PackedVector2Array()
-		for j in 25:
-			var q := j / 24.0
-			var p := start.lerp(ctrl, q).lerp(ctrl.lerp(pump, q), q)
-			# it sways under water, hangs straighter above it
-			var under := clampf((p.y - (y0 + float(se.surface))) / 300.0, 0.0, 1.0)
-			p.x += sin(q * 6.0 + t * 0.7) * 22.0 * sin(PI * q) * under
-			hose.append(p)
-		c.draw_polyline(hose, Color(0.05, 0.05, 0.05, 0.92), 6.0)
-		c.draw_polyline(hose, Color(0.4, 0.31, 0.22, 0.92), 2.8)
+		var surf := y0 + float(se.surface)
+		var top := Vector2(start.x + 150.0, surf - 8.0)
+		var c1 := Vector2(start.x - 40.0, lerpf(start.y, surf, 0.35))
+		var c2 := Vector2(start.x + 210.0, lerpf(start.y, surf, 0.7))
+		var pts: Array[Vector2] = []
+		for j in 33:
+			var q := j / 32.0
+			var m := 1.0 - q
+			var p := start * m * m * m + c1 * 3.0 * m * m * q + c2 * 3.0 * m * q * q + top * q * q * q
+			p.x += sin(q * 5.0 + t * 0.6) * 18.0 * sin(PI * q)
+			p.y += sin(q * 3.0 + t * 0.9) * 6.0 * sin(PI * q)
+			pts.append(p)
+		var brown := Color(0.4, 0.31, 0.22) * Color(0.72, 0.85, 0.92)
+		var water := Color(0.07, 0.2, 0.27)
+		for j in pts.size() - 1:
+			var q := j / 31.0
+			var a := pts[j]
+			var b := pts[j + 1]
+			# blue with distance from the diver (it goes off into the water), gone at the surface
+			var blue := clampf(0.25 + 0.55 * q, 0.0, 0.85)
+			var al := clampf((b.y - surf) / 60.0, 0.0, 1.0)
+			var col := brown.lerp(water, blue)
+			c.draw_line(a, b, Color(0.02, 0.05, 0.07, 0.8 * al * (1.0 - blue * 0.6)), 6.0)
+			c.draw_line(a, b, Color(col, 0.95 * al), 3.0)
+			# a ripple of light running along it
+			var rip := maxf(0.0, sin(q * 18.0 - t * 2.4))
+			if rip > 0.8:
+				c.draw_line(a, b, Color(0.55, 0.8, 0.9, 0.35 * al * (rip - 0.8) * 5.0), 1.5)
 		c.draw_texture_rect(tex(fr), Rect2(topl, ds), false, Color(0.72, 0.85, 0.92))
 		var head := topl + Vector2(ds.x * 0.42, ds.y * 0.12)
 		for j in 5:
 			var u := fmod(t * 0.4 + j / 5.0, 1.0)
-			var p := head + Vector2(sin(u * 7.0 + j) * 6.0, -u * (head.y - (y0 + float(se.surface))))
+			var p := head + Vector2(sin(u * 7.0 + j) * 6.0, -u * (head.y - surf))
 			c.draw_arc(p, 4.0 + 2.0 * u, 0, TAU, 10, Color(0.75, 0.92, 1.0, 0.55 * (1.0 - u)), 1.8)
+		# a bubble slipping up along the hose from a loose joint
+		for j in 2:
+			var u := fmod(t * 0.25 + j * 0.5, 1.0)
+			var p := pts[int(lerpf(8.0, 31.0, u))] + Vector2(5.0, -4.0)
+			c.draw_arc(p, 3.0, 0, TAU, 8, Color(0.75, 0.92, 1.0, 0.5 * sin(PI * u)), 1.5)
 
 ## the man engine: a long timber rod down the shaft, rocked up and down by the engine house above (once it works); a
 ## step on it every few yards, and here and there a miner riding it, stepping off at the fixed landings
