@@ -621,24 +621,34 @@ func _sea_live(c: CanvasItem) -> void:
 			var top := float(bp[2])
 			var p := Vector2(float(bp[0]) + sin(u * 9.0 + j) * 8.0, y0 + float(bp[1]) - u * top)
 			c.draw_arc(p, 3.0 + j % 3, 0, TAU, 10, Color(0.7, 0.9, 1.0, 0.5 * (1.0 - u)), 1.5)
-	# the diver on the wreck, his hose snaking up to the surface
+	# the diver on the wreck; his air hose goes on from where it leaves his drawing, up through the water and out to
+	# the pump on the landing, swaying with the sea
 	if int(_shown_places.get("crane", 0)) >= 3 and _crew_ok("diver24"):
 		var dv: Array = se.diver
 		var dp := Vector2(float(dv[0]), y0 + float(dv[1]))
-		var fr := "diver24/%02d.png" % (int(t * 7) % int(J.crew_n.diver24))
+		var fi := int(t * 7) % int(J.crew_n.diver24)
+		var fr := "diver24/%02d.png" % fi
 		var ds := _size(fr)
-		var head := dp + Vector2(-ds.x * 0.12, -ds.y * 0.86)
+		var topl := dp - Vector2(ds.x / 2, ds.y)
+		var hs: Array = se.get("hose", [])
+		var start := topl + Vector2(ds.x * (float(hs[fi]) if fi < hs.size() else 0.32), 1.0)
+		var pump := Vector2(float(se.pump[0]), y0 + float(se.pump[1]))
+		var ctrl := Vector2(start.x - 30.0, y0 + float(se.surface) + 120.0)
 		var hose := PackedVector2Array()
-		var surf_y := y0 + float(se.surface)
-		for j in 13:
-			var q := j / 12.0
-			hose.append(head.lerp(Vector2(head.x + 260.0, surf_y), q) + Vector2(sin(q * 5.0 + t * 0.7) * 26.0 * sin(PI * q), 0))
-		c.draw_polyline(hose, Color(0.05, 0.05, 0.05, 0.9), 5.0)
-		c.draw_polyline(hose, Color(0.38, 0.3, 0.22, 0.9), 2.5)
-		c.draw_texture_rect(tex(fr), Rect2(dp - Vector2(ds.x / 2, ds.y), ds), false, Color(0.72, 0.85, 0.92))
+		for j in 25:
+			var q := j / 24.0
+			var p := start.lerp(ctrl, q).lerp(ctrl.lerp(pump, q), q)
+			# it sways under water, hangs straighter above it
+			var under := clampf((p.y - (y0 + float(se.surface))) / 300.0, 0.0, 1.0)
+			p.x += sin(q * 6.0 + t * 0.7) * 22.0 * sin(PI * q) * under
+			hose.append(p)
+		c.draw_polyline(hose, Color(0.05, 0.05, 0.05, 0.92), 6.0)
+		c.draw_polyline(hose, Color(0.4, 0.31, 0.22, 0.92), 2.8)
+		c.draw_texture_rect(tex(fr), Rect2(topl, ds), false, Color(0.72, 0.85, 0.92))
+		var head := topl + Vector2(ds.x * 0.42, ds.y * 0.12)
 		for j in 5:
 			var u := fmod(t * 0.4 + j / 5.0, 1.0)
-			var p := head + Vector2(sin(u * 7.0 + j) * 6.0, -u * (head.y - surf_y))
+			var p := head + Vector2(sin(u * 7.0 + j) * 6.0, -u * (head.y - (y0 + float(se.surface))))
 			c.draw_arc(p, 4.0 + 2.0 * u, 0, TAU, 10, Color(0.75, 0.92, 1.0, 0.55 * (1.0 - u)), 1.8)
 
 ## the man engine: a long timber rod down the shaft, rocked up and down by the engine house above (once it works); a
@@ -771,7 +781,7 @@ func _tick_events() -> void:
 	if t < _next_event:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
-	var pool := ["tentacle", "ink", "bubbles"]
+	var pool := ["ink", "bubbles"]
 	for cr in J.cracks:
 		var k := int(cr.d) - 1
 		if k <= open and String(_shown_bands.get(k, "closed")) != "closed":
@@ -792,8 +802,7 @@ func _tick_events() -> void:
 				cand.append(cr)
 		_events["tip_at"] = cand[_rng.randi() % cand.size()]
 		SeaSounds.squelch(amb, _far(band_y(int(_events.tip_at.d) - 1) + 300))
-	if ev == "tentacle":
-		SeaSounds.deep(amb, _far(_sea_top() + float(J.sea) * 0.6))
+
 
 func _ink_at() -> Vector2:
 	var se: Dictionary = J.sea_life
@@ -807,17 +816,6 @@ func _events_live(c: CanvasItem) -> void:
 		var s := t - float(_events[ev])
 		var done := false
 		match ev:
-			"tentacle":
-				# a gigantic tentacle rises out of the dark between the kelp, curls and sinks back
-				var tn: Array = J.sea_life.tentacle
-				if s > 4.2 or not _crew_ok("tentacle"): done = true
-				else:
-					var n := int(J.crew_n.tentacle)
-					var fr := "tentacle/%02d.png" % mini(int(s / 4.2 * n), n - 1)
-					var ts := _size(fr)
-					var base := Vector2(float(tn[0]), _sea_top() + float(tn[1]))
-					var al := clampf(s / 0.6, 0.0, 1.0) * clampf((4.2 - s) / 0.6, 0.0, 1.0)
-					c.draw_texture_rect(tex(fr), Rect2(base - Vector2(ts.x / 2, ts.y), ts), false, Color(0.55, 0.62, 0.7, 0.85 * al))
 			"ink":
 				if s > 9.0: done = true
 			"bubbles":
@@ -1054,8 +1052,8 @@ func _storm_live(c: CanvasItem) -> void:
 		var tn: Array = J.sea_life.tentacle
 		if f > 0.2 and _crew_ok("tentacle"):
 			var fr := "tentacle/05.png"
-			var ts := _size(fr) * 1.7
-			var base := Vector2(float(tn[0]) + 300.0, _sea_top() + float(tn[1]) + 60.0)
+			var ts := _size(fr) * 0.75
+			var base := Vector2(float(tn[0]) + 380.0, _sea_top() + float(tn[1]) + 40.0)
 			c.draw_texture_rect(tex(fr), Rect2(base - Vector2(ts.x / 2, ts.y), ts), false, Color(0.02, 0.03, 0.06, 0.55 * f))
 	if kind == "rod":
 		var at := Vector2(float(sd.rod[0]), float(sd.rod[1]))
