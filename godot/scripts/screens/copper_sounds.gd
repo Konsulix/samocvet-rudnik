@@ -140,6 +140,13 @@ func _events(v: CopperView, a: MineAmb, t: float) -> void:
 					continue
 				var rf: Array = v.J.water.reflection
 				a.shot("bloom", -16.0 + v._far(float(rf[1])), 0.6)
+			"brine":
+				if not v.J.has("hotcrack"):
+					continue
+				var hb: Dictionary = v.J.hotcrack
+				var yb := v.band_y(int(hb.d) - 1) + float(hb.y)
+				a.shot("sea/bubble_%d" % (randi() % 3), -12.0 + v._far(yb), 0.8)
+				v.get_tree().create_timer(1.2).timeout.connect(func(): a.shot("sea/squelch", -16.0 + v._far(yb), 0.7))
 			"hotcrack":
 				if not v.J.has("hotcrack"):
 					continue
