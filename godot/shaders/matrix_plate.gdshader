@@ -6,7 +6,9 @@ render_mode shadows_disabled, cull_disabled;
 
 uniform vec3 rock_col : source_color = vec3(0.55, 0.53, 0.5);
 uniform float seed = 0.0;
-uniform int mode = 0;        // 0 a carved plate of matrix, 1 rippled sea sand (SpecPearl), 2 a concretion's split face (SpecTrilobite)
+uniform int mode = 0;
+// the broken side and underside of a prepared plate (COLOR.b): the host rock's scan, rough
+uniform sampler2D rock_tex : source_color, filter_linear_mipmap, repeat_enable;        // 0 a carved plate of matrix, 1 rippled sea sand (SpecPearl), 2 a concretion's split face (SpecTrilobite)
 
 varying vec3 v_op;
 
@@ -78,10 +80,25 @@ void fragment() {
 		// the mould's rim: a fine pale line where the shell parted from the rock
 		c = mix(c, vec3(0.8, 0.72, 0.6), smoothstep(0.05, 0.3, COLOR.g) * (1.0 - smoothstep(0.3, 0.6, COLOR.g)) * 0.5);
 	}
+	if (COLOR.b > 0.5) {
+		// broken stone: the rock's scan from three sides, a coarse fracture relief, grit, darker in the hollows
+		vec3 tw = pow(abs(normalize((inverse(VIEW_MATRIX) * vec4(n, 0.0)).xyz)), vec3(4.0));
+		tw /= tw.x + tw.y + tw.z;
+		vec3 q3 = v_op * 1.6;
+		vec3 sc = texture(rock_tex, q3.yz).rgb * tw.x + texture(rock_tex, q3.xz).rgb * tw.y + texture(rock_tex, q3.xy).rgb * tw.z;
+		float fr = fbm(v_op * 18.0 + seed);
+		h = fr * 0.012 + vn(v_op * 90.0) * 0.002;
+		c = rock_col * (0.45 + 0.75 * sc) * (0.7 + 0.45 * fr);
+		NORMAL = bump(n, VERTEX, h, 1.0);
+		ALBEDO = c;
+		ROUGHNESS = 0.95;
+		SPECULAR = 0.25;
+	} else {
 	// the contact shadow under and round the body
 	c *= 1.0 - 0.6 * COLOR.r;
 	NORMAL = bump(n, VERTEX, h, 1.0);
 	ALBEDO = c;
 	ROUGHNESS = 0.93;
 	SPECULAR = 0.3;
+}
 }

@@ -61,7 +61,9 @@ void fragment() {
 		vec2 d = (fract(q) - 0.5) * 2.0;
 		float r = length(d);
 		float id = h3(vec3(cell, seed));
-		float lens = lens_on * (1.0 - smoothstep(0.86, 0.97, r)) * step(0.08, UV.y) * step(UV.y, 0.92);
+		// lenses on the eye's outer side only; round its back and its foot plain shell
+		float side = smoothstep(0.27, 0.32, UV.x) * smoothstep(0.73, 0.68, UV.x) * smoothstep(0.12, 0.22, UV.y) * smoothstep(0.98, 0.9, UV.y);
+		float lens = lens_on * (1.0 - smoothstep(0.82, 0.97, r)) * side;
 		// each lens its own dome, tipped its own way: some face the lamp as the find turns, others go dark
 		vec2 tilt = (vec2(id, h3(vec3(cell, seed + 3.0))) - 0.5) * 1.2;
 		float dome = sqrt(max(0.0, 1.0 - r * r)) + dot(d, tilt) * 0.5;
@@ -114,8 +116,9 @@ void fragment() {
 		c = mix(c, c * 0.5 + film * length(c) * 0.7, tar);
 		// its rock left in the furrows and round the edge, matt
 		float dirt = dirt_k * smoothstep(0.55, 0.95, furrow + (fbm(vec3(b * 30.0, seed + 5.0)) - 0.5) * 0.7);
-		// the underside (seen only through gaps): the shell's own dark
-		c = mix(c, dark_col * 0.7, 1.0 - COLOR.a);
+		// the underside: the hollow under the shield, filled with the rock that set inside it
+		vec3 fill = rock_col * (0.45 + 0.6 * fbm(vec3(b * 22.0, seed + 31.0)));
+		c = mix(c, fill, 1.0 - COLOR.a);
 		vec3 tw = pow(abs(normalize(v_no)), vec3(4.0));
 		tw /= tw.x + tw.y + tw.z;
 		vec3 rc = rock_col * (0.6 + 0.8 * tri(rock_tex, p * 2.0, tw).rgb);

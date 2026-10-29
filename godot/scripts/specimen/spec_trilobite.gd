@@ -259,9 +259,14 @@ static func _bend(p: Vector3, k: float) -> Vector3:
 ## the body as one grid over its outline (u0..u1 of its length: a moult's head is apart from it), its edge
 ## turned under to a thin rim; a flat underside closes it. Body space: length 1 along z (snout +), y up.
 static func body_geo(f: Dictionary, c: Dictionary, u0: float, u1: float, k: float) -> Geo:
+	# One sheet round the whole shield, as the real one is: a thin curved shell. Across the top (|v| <= 1), its edge
+	# rolling under in a rounded lip (the doublure, 1 .. 1.3), then back in under the dome (1.3 .. 2.3) — the hollow
+	# underneath, here filled with the rock that set inside it (COLOR.a 0: the shader paints it as matrix)
 	var g := Geo.new()
 	var nu := int(150.0 * (u1 - u0)) + 20
-	var nv := 44
+	var nv := 104
+	var vmax := 2.3
+	var lip := 0.03         # the rolled rim's radius (body units)
 	var nz := FastNoiseLite.new()
 	nz.seed = int(f.seed)
 	nz.frequency = 9.0
@@ -271,37 +276,43 @@ static func body_geo(f: Dictionary, c: Dictionary, u0: float, u1: float, k: floa
 		if u0 <= 0.0: env = smoothstep(0.0, 0.03, u) if u < 0.03 else env
 		if u1 >= 1.0 and u > 0.97: env = smoothstep(1.0, 0.97, u)
 		for j in nv + 1:
-			var v := -1.08 + 2.16 * float(j) / nv
+			var v := -vmax + 2.0 * vmax * float(j) / nv
 			var s := signf(v) if v != 0.0 else 1.0
+			var av := absf(v)
 			var w := _w(f, c, u, s)
-			var vv := clampf(absf(v), 0.0, 1.0)
-			var x := s * vv * w
-			var hh := _h(f, c, u, x, w)
-			var y: float = float(hh[0]) * env + 0.004 * nz.get_noise_2d(u * 3.0, x * 3.0)
-			if absf(v) > 1.0 or env < 1.0:
-				# the edge turns under: down to the rim of the underside
-				var dn := clampf((absf(v) - 1.0) / 0.08, 0.0, 1.0)
-				y = lerpf(y, -THICK, maxf(dn, 1.0 - env))
+			var x := 0.0
+			var y := 0.0
+			var hh := _h(f, c, u, s * minf(av, 1.0) * w, w)
+			var top: float = float(hh[0]) * env + 0.004 * nz.get_noise_2d(u * 3.0, s * minf(av, 1.0) * w * 3.0)
+			var under := 1.0
+			if av <= 1.0:
+				x = s * av * w
+				y = top
+			elif av <= 1.3:
+				# the lip: out a hair, round and under, ending a little way in
+				var ph := (av - 1.0) / 0.3 * PI
+				x = s * (w + lip * 0.5 * sin(ph) - lip * 0.8 * (1.0 - cos(ph)) * 0.5)
+				y = top - lip * (1.0 - cos(ph))
+			else:
+				# under the dome, back in to the middle line: following the shield's curve, a shell's thickness below it
+				var t := (av - 1.3) / (vmax - 1.3)
+				var xi := w - lip * 0.8
+				x = s * xi * (1.0 - t)
+				var hu := _h(f, c, u, x, w)
+				y = (float(hu[0]) * env) * 0.55 - lip * 2.0 * (1.0 - t * 0.5)
+				under = 0.0
+			# (the ends of the body: the whole section closes down to the rim)
+			if env < 1.0:
+				y = lerpf(-lip * 2.0, y, env)
 			var p := Vector3(x, y, 0.5 - u)
 			g.v.append(_bend(p, k))
 			# UV: the flat body position (granules, lenses keep their size); UV2.x: along the body
 			g.rp.append(Vector3(x, 0.5 - u, u))
-			g.col.append(Color(float(hh[1]), float(hh[2]), float(hh[3]), 1.0))
+			if under > 0.5:
+				g.col.append(Color(float(hh[1]), float(hh[2]), float(hh[3]), 1.0))
+			else:
+				g.col.append(Color(0, 0, 0, 0.0))
 	_grid(g, 0, nu, nv)
-	# the underside: a flat plate a little inside the outline (never seen but through the gaps)
-	var base := g.v.size()
-	for i in nu + 1:
-		var u := lerpf(u0, u1, float(i) / nu)
-		for j in 3:
-			var s := -1.0 + float(j)
-			var w := _w(f, c, u, 1.0 if s >= 0.0 else -1.0) * 0.98
-			g.v.append(_bend(Vector3(s * w, -THICK, 0.5 - u), k))
-			g.rp.append(Vector3(s * w, 0.5 - u, u))
-			g.col.append(Color(0, 1, 0, 0.0))
-	for i in nu:
-		for j in 2:
-			var a := base + i * 3 + j
-			g.idx.append_array([a, a + 3, a + 1, a + 1, a + 3, a + 4])
 	return g
 
 ## indices of a grid (rows of nv+1 points from base), wound to face +y (Geo's normals: (c-b) x (a-b))
@@ -340,23 +351,29 @@ static func spine_geo(pts: Array, r0: float, r1: float, m := 7) -> Geo:
 			g.idx.append_array([a, a + m + 1, a + 1, a + 1, a + m + 1, a + m + 2])
 	return g
 
-## an eye: a dome of lenses (lens / tower), a smooth crescent, or a cap; in body space round its base `at`,
-## facing `out` (UV: across the eye, up it — the shader lays its lenses on them)
+## an eye, closed all round and sunk into the cheek at its foot (no gap under it): a kidney-shaped dome, longer
+## along the body than across it — tall for schizochroal eyes (lens / tower), low for holochroal ones (crescent) —
+## or a round bulb on a stalk's tip (bulb). Body space, round `at`, its outer side towards s. UV.x runs round it
+## (the outer side is 0.29 .. 0.71: the shader lays the lenses only there), UV.y up it.
 static func eye_geo(c: Dictionary, at: Vector3, s: float, kind: String) -> Geo:
 	var g := Geo.new()
 	var r: float = c.eye_r
-	var na := 16
-	var ne := 9
-	var tall := 1.25 if kind != "crescent" else 0.55
+	var na := 28
+	var ne := 12
+	var dims := Vector3(0.75, 1.15, 1.5)
+	var el0 := -0.35
+	match kind:
+		"crescent": dims = Vector3(0.7, 0.75, 1.55)
+		"bulb":
+			dims = Vector3(1.0, 0.95, 1.1)
+			el0 = -PI * 0.5
 	for i in ne + 1:
-		var e := float(i) / ne
+		var el := lerpf(el0, PI * 0.5, float(i) / ne)
 		for j in na + 1:
-			var a := lerpf(-1.25, 1.25, float(j) / na)
-			var el := e * PI * 0.5
-			# kidney: longer along the body than across it
-			var p := Vector3(s * cos(a) * cos(el) * r * 0.75, sin(el) * r * tall, sin(a) * cos(el) * r * 1.5)
+			var a := -PI + TAU * float(j) / na
+			var p := Vector3(s * cos(a) * cos(el) * r * dims.x, sin(el) * r * dims.y, sin(a) * cos(el) * r * dims.z)
 			g.v.append(at + p)
-			g.rp.append(Vector3(float(j) / na, e, 1.0))
+			g.rp.append(Vector3(float(j) / na, float(i) / ne, 1.0))
 			g.col.append(Color(0, 0, 0, 1))
 	for i in ne:
 		for j in na:
@@ -383,8 +400,9 @@ static func mat(f: Dictionary, part: int, rock: String) -> ShaderMaterial:
 	m.set_shader_parameter("opal_k", pal.get("opal", 0.0))
 	m.set_shader_parameter("opal_h", float(int(f.seed) % 7) / 7.0)
 	m.set_shader_parameter("tub_k", c.tub)
-	m.set_shader_parameter("lens_on", 1.0 if c.eye in ["lens", "tower"] else 0.0)
-	m.set_shader_parameter("lens_n", Vector2(19.0, 8.0) if c.eye in ["lens", "tower"] else Vector2(1, 1))
+	m.set_shader_parameter("lens_on", 1.0)
+	# (lenses round the whole of UV.x; only its outer 0.42 carries them)
+	m.set_shader_parameter("lens_n", Vector2(44.0, 9.0) if c.eye in ["lens", "tower"] else Vector2(90.0, 14.0))
 	m.set_shader_parameter("rock_col", Color.hex(int(ROCK_COL.get(rock, 0x777068)) << 8 | 0xff))
 	m.set_shader_parameter("dirt_k", 0.45 if f.show in ["matrix", "mass", "prepared"] else 0.2)
 	m.set_shader_parameter("seed", float(int(f.seed) % 991) * 0.13)
@@ -426,7 +444,7 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	for s: float in [-1.0, 1.0]:
 		var xe := s * minf(ax * 1.45 + float(c.eye_r) * 0.5, _w(f, c, ue, s) * 0.7)
 		var hh := _h(f, c, ue, xe, _w(f, c, ue, s))
-		var at := Vector3(xe, float(hh[0]) - float(c.eye_r) * 0.25, 0.5 - ue)
+		var at := Vector3(xe, float(hh[0]) - float(c.eye_r) * 0.2, 0.5 - ue)
 		match String(c.eye):
 			"stalk", "tower":
 				var ln: float = float(c.get("stalk", 0.06)) * (1.0 if c.eye == "stalk" else 1.0)
@@ -434,9 +452,11 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 				for q in 7:
 					var t := float(q) / 6.0
 					pts.append(at + Vector3(s * t * ln * 0.18, t * ln, -t * t * ln * 0.12))
-				spines.append(spine_geo(pts, float(c.eye_r) * 0.45, float(c.eye_r) * 0.4, 8))
+				# (its open foot buried in the head, swelling out of it)
+				pts.insert(0, at - Vector3(0, float(c.eye_r) * 0.8, 0))
+				spines.append(spine_geo(pts, float(c.eye_r) * 0.75, float(c.eye_r) * 0.4, 8))
 				var top: Vector3 = pts[pts.size() - 1]
-				var e := eye_geo(c, top - Vector3(0, float(c.eye_r) * 0.5, 0), s, "lens" if c.eye == "tower" else "cap")
+				var e := eye_geo(c, top + Vector3(0, float(c.eye_r) * 0.35, 0), s, "lens" if c.eye == "tower" else "bulb")
 				eye_pts.append(top)
 				_add_bent(e, em, parent, k)
 			_:
@@ -502,7 +522,9 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	# ram's horns off the back of the head, curling back and down beside the thorax
 	if c.has("horns"):
 		for s: float in [-1.0, 1.0]:
-			var p0 := Vector3(s * ax * 0.7, H * 1.2, 0.5 - ce + 0.07)
+			var hu := ce - 0.07
+			var hw := _w(f, c, hu, s)
+			var p0 := Vector3(s * ax * 0.7, float(_h(f, c, hu, s * ax * 0.7, hw)[0]) - 0.012, 0.5 - hu)
 			var pts := []
 			for q in 14:
 				var t := float(q) / 13.0
@@ -511,7 +533,7 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 				# the curl's plane leans out over the side, so the horn comes down beside the thorax
 				var up := Vector3(s * 0.75, 0.65, 0.0)
 				pts.append(p0 + Vector3(s * (0.02 + 0.06 * t) * sp, 0, 0) + up * rr * sin(ph) + Vector3(0, 0, -rr * (1.0 - cos(ph)) * 0.9))
-			spines.append(spine_geo(pts, 0.026, 0.006, 8))
+			spines.append(spine_geo(pts, 0.032, 0.006, 8))
 			tips.append(pts[7])
 		out.horns = tips[tips.size() - 1]
 	# two long spines off the tail
@@ -612,7 +634,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				holder.add_child(nd)
 				# lying on its rock, head away from the viewer, a little sunk in
 				# on the rock's own surface under it (a bulge would swallow its sides, a hollow leave it floating)
-				at.y = _ground(rk, at, s * 0.3) + THICK * s * 0.4
+				at.y = _ground(rk, at, s * 0.3) + 0.02 * s
 				nd.transform = Transform3D(Basis(Vector3.UP, PI + (rng.next() - 0.5) * (0.6 if n == 1 else TAU)) * Basis.from_scale(Vector3.ONE * s), at)
 				bodies.append(nd)
 				var fq := f.duplicate()
@@ -660,19 +682,25 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			var oys_n := 0
 			for fp: Dictionary in f.get("pearls", []):
 				var os := span * (0.15 + lrng.next() * 0.04)
-				# (a crowded slab gets smaller oysters rather than none)
-				var spot: Variant = null
+				# a few free spots (a crowded slab gets smaller oysters rather than none); of them the one where the
+				# oyster sits flattest: seated so its cupped valve clears every bump of the rock under it
+				var yaw := PI + (lrng.next() - 0.5) * 0.9
+				var best: Array = []
 				for shrink: float in [1.0, 0.8, 0.62]:
-					spot = _free_spot(cands, occ, os * shrink * 1.1, lrng)
-					if spot != null:
-						os *= shrink
-						break
-				if spot == null: continue
-				var oat: Vector3 = spot
-				oat.y = _ground(rk, oat, os * 0.8) + DEPTH_ON * os
+					for tries in 8:
+						var spot: Variant = _free_spot(cands, occ, os * shrink * 1.15, lrng)
+						if spot == null: break
+						var seat := _seat(rk, spot as Vector3, yaw, os * shrink)
+						if best.is_empty() or float(seat[1]) < float(best[1]):
+							best = [spot, seat[1], seat[0], shrink]
+					if not best.is_empty(): break
+				if best.is_empty(): continue
+				os *= float(best[3])
+				var oat: Vector3 = best[0]
+				oat.y = float(best[2])
 				var on := Node3D.new()
 				holder.add_child(on)
-				on.transform = Transform3D(Basis(Vector3.UP, PI + (lrng.next() - 0.5) * 0.9) * Basis.from_scale(Vector3.ONE * os), oat)
+				on.transform = Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * os), oat)
 				var ppm := SpecPearl.mat(fp, 0)
 				# the legendary moon pearl: the pearls glow, the first lights its oyster and the slab
 				if gene.fx == "moon": ppm.set_shader_parameter("moon_k", 1.0)
@@ -681,7 +709,8 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				var oys := SpecPearl.oyster(on, fp, ppm, SpecPearl.pearl_geo(String(fp.shape), int(fp.seed)), lrng, true, 0.72, opened)
 				if gene.fx == "moon":
 					SpecPearl.moon_glow(root, on, (oys.pearls as Array)[0] as Node3D, span * (0.9 if oys_n == 0 else 0.5))
-				occ.append([Vector2(oat.x, oat.z), os * 1.1])
+				var oc := oat + Basis(Vector3.UP, yaw) * Vector3(0, 0, -0.25 * os)
+				occ.append([Vector2(oc.x, oc.z), os * 1.15])
 				if oys_n == 0: marks.oyster = (oys.pearls as Array)[0]
 				spots.append(oat + Vector3(0, os * 0.15, 0))
 				oys_n += 1
@@ -710,8 +739,10 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			main.node = nd
 			var pm := ShaderMaterial.new()
 			pm.shader = PLATE
-			pm.set_shader_parameter("rock_col", Color.hex(0x8a857cff))
+			pm.set_shader_parameter("rock_col", Color.hex(0x8c806eff))
 			pm.set_shader_parameter("seed", float(int(f.seed) % 97))
+			var rn: String = SpecMat.SCANS[RockKit.SCAN_OF.get(rock, 0)]
+			pm.set_shader_parameter("rock_tex", load("res://assets/textures/%s/%s_diff_1k.jpg" % [rn, rn]))
 			var pi := U.mesh(_plate(f), pm, nd)
 			pi.set_meta("col", true)
 		"nodule":
@@ -810,6 +841,29 @@ static func _ground(rk: MeshInstance3D, at: Vector3, r: float) -> float:
 	ys.sort()
 	return ys[int(ys.size() * 0.8)]
 
+## where a pearl oyster (hinge at `at`, turned `yaw`, size os) must sit so its cupped lower valve clears the rock:
+## for each rock point under it, the height that puts the valve's underside just above it; returns [that height,
+## how far it then floats above the rock on average — smaller is flatter]
+static func _seat(rk: MeshInstance3D, at: Vector3, yaw: float, os: float) -> Array:
+	var g: Geo = rk.get_meta("geo")
+	var inv := Basis(Vector3.UP, yaw).inverse()
+	var top := -INF
+	var need: Array[float] = []
+	for v in g.v:
+		var w := rk.transform * v
+		var l := inv * (w - Vector3(at.x, 0, at.z)) / os
+		if Vector2(l.x, l.z).length() > 1.15 or l.z > SpecPearl.ZH:
+			continue
+		# the valve's underside there is outer_y below the hinge
+		var h := w.y + SpecPearl._outer_y(l.x, l.z) * os
+		need.append(h)
+		top = maxf(top, h)
+	if need.is_empty():
+		return [_ground(rk, at, os * 0.8) + DEPTH_ON * os, 1e9]
+	var gap := 0.0
+	for h in need: gap += top - h
+	return [top + 0.01 * os, gap / need.size()]
+
 ## spots on the slab's top to set things on: the rock's own vertices up on its top, away from its edge
 static func _top_spots(rk: MeshInstance3D, rb: AABB, inner := 0.4) -> Array:
 	var out := []
@@ -872,33 +926,60 @@ static func _plate(f: Dictionary) -> Geo:
 	var nz := FastNoiseLite.new()
 	nz.seed = int(f.seed) + 9
 	nz.frequency = 2.5
+	var nb := FastNoiseLite.new()
+	nb.seed = int(f.seed) + 19
+	nb.frequency = 7.0
 	var na := 72
-	var nr := 40
+	var nr := 36        # the carved top, out to its rounded edge
+	var ns := 7         # the broken side going down
+	var nd := 8         # the underside back in to the middle
+	var depth := 0.3
 	var ra := 0.5 + float(c.get("gspine", 0.0)) * 0.3 + 0.16
 	var rb := float(c.half) + float(c.get("pspine", 0.0)) * 0.6 + 0.16
-	for i in nr + 1:
-		var t := float(i) / nr
+	for i in nr + ns + nd + 1:
 		for j in na + 1:
 			var a := TAU * float(j) / na
 			var wob := 1.0 + 0.07 * nz.get_noise_1d(a * 2.0)
-			var e := minf(t / 0.86, 1.0)
-			var x := sin(a) * rb * e * wob
-			var z := cos(a) * ra * e * wob
-			# under the body it rises to the shell's underside; out on the plate it lies lower; at the rim it rolls under
-			var u := clampf(0.5 - z, 0.0, 1.0)
-			var inside := 1.0 - smoothstep(0.85, 1.25, absf(x) / maxf(_w(f, c, u, signf(x) if x != 0.0 else 1.0), 0.01)) if z > -0.5 and z < 0.5 else 0.0
-			var y := -THICK * 1.1 - 0.035 * (1.0 - inside) + 0.01 * nz.get_noise_2d(x * 6.0, z * 6.0)
-			if t > 0.86:
-				var r := (t - 0.86) / 0.14
-				y -= 0.12 * (1.0 - cos(r * PI * 0.5))
-				x *= 1.0 + 0.04 * r
-				z *= 1.0 + 0.04 * r
+			var x := 0.0
+			var z := 0.0
+			var y := 0.0
+			var rough := 0.0
+			if i <= nr:
+				var t := float(i) / nr
+				var e := minf(t / 0.88, 1.0)
+				x = sin(a) * rb * e * wob
+				z = cos(a) * ra * e * wob
+				# under the body it rises to the shell's underside; out on the plate it lies lower; at the edge it rounds over
+				var u := clampf(0.5 - z, 0.0, 1.0)
+				var inside := 1.0 - smoothstep(0.85, 1.25, absf(x) / maxf(_w(f, c, u, signf(x) if x != 0.0 else 1.0), 0.01)) if z > -0.5 and z < 0.5 else 0.0
+				y = -THICK * 1.1 - 0.035 * (1.0 - inside) + 0.01 * nz.get_noise_2d(x * 6.0, z * 6.0)
+				if t > 0.88:
+					var r := (t - 0.88) / 0.12
+					y -= 0.05 * (1.0 - cos(r * PI * 0.5))
+					x *= 1.0 + 0.03 * r
+					z *= 1.0 + 0.03 * r
+				var near := 1.0 - smoothstep(0.95, 1.5, absf(x) / maxf(_w(f, c, u, signf(x) if x != 0.0 else 1.0), 0.01)) if z > -0.55 and z < 0.55 else 0.0
+				g.col.append(Color(near, 0, 0, 1))
+			elif i <= nr + ns:
+				# the side: broken stone, bulging and stepping in and out as it goes down, a little wider at the foot
+				var t := float(i - nr) / ns
+				var k := 1.03 + 0.05 * t + 0.07 * nb.get_noise_2d(a * 4.0, t * 3.0) + 0.04 * nb.get_noise_2d(a * 13.0, t * 9.0)
+				x = sin(a) * rb * wob * k
+				z = cos(a) * ra * wob * k
+				y = -THICK * 1.1 - 0.035 - 0.05 - t * (depth - 0.085) + 0.02 * nb.get_noise_2d(a * 6.0, 7.0) * t
+				rough = 1.0
+				g.col.append(Color(0, 0, 1, 1))
+			else:
+				# the underside: uneven, lumpy, back in to the middle
+				var t := 1.0 - float(i - nr - ns) / nd
+				var k := (1.08 + 0.07 * nb.get_noise_2d(a * 4.0, 3.0)) * t
+				x = sin(a) * rb * wob * k
+				z = cos(a) * ra * wob * k
+				y = -THICK * 1.1 - depth - 0.03 * nb.get_noise_2d(x * 5.0, z * 5.0) - 0.02 * (1.0 - t)
+				g.col.append(Color(0, 0, 1, 1))
 			g.v.append(Vector3(x, y, z))
-			g.rp.append(Vector3(x, z, 0.0))
-			# the contact shadow: under the body and a little round it
-			var near := 1.0 - smoothstep(0.95, 1.5, absf(x) / maxf(_w(f, c, u, signf(x) if x != 0.0 else 1.0), 0.01)) if z > -0.55 and z < 0.55 else 0.0
-			g.col.append(Color(near, 0, 0, 1))
-	_grid(g, 0, nr, na)
+			g.rp.append(Vector3(x, z, rough))
+	_grid(g, 0, nr + ns + nd, na)
 	return g
 
 ## a split face of the nodule (ellipse rx by rz, face up at y 0): its mould half pressed with the trilobite's
