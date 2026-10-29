@@ -585,7 +585,7 @@
   Музыку дома и уровней пользователь делает в Suno (как темы боссов), стиль — тёмное мифическое средневековье, без голоса.
   Свой трек рудника — ключ `home_<area>` / `level_<area>` в `Sfx.MUSIC` (иначе общий). Трек Suno → петля:
   `py prototype/tools/music_loop.py <in.mp3> <out.ogg>` (ищет похожие места, срезает концовку, сводит шов) → начало петли
-  в `Sfx.LOOP_AT`. Есть: `home_adit.ogg` (рудник 1, «Deep Mine Drones»), `home_copper.ogg` (рудник 2, «Spirit of the Deep»), `home_cove.ogg` (рудник 3, «Buoy Call», петля с 48,25 с).
+  в `Sfx.LOOP_AT`. Есть: `home_adit.ogg` (рудник 1, «Deep Mine Drones»), `home_copper.ogg` (рудник 2, «Spirit of the Deep»), `home_cove.ogg` (рудник 3, «Buoy Call», петля с 48,25 с). Бой с Кракеном — `boss_kraken.ogg` («tempest mariana», петля с 57,65 с).
   Пока одна тема на рудник и дома, и в уровнях (`level_0/1` = те же файлы; тот же трек при переходе не перезапускается). Тема босса угасает за 3,5 с с началом его падения
   (`Sfx.music_fade` в `LevelBoss.defeat`), к джинглу победы уже тишина.
   27.10: кирка на экране рудника тонула под музыкой — `MineAmb.DB.pick` −4, срез шины `Amb` 2200 Гц. Синтезированные звуки

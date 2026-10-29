@@ -27,6 +27,7 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
   Петля с 19,3 с, так же.
 - `music/home_cove.ogg` — «Buoy Call», главный экран и уровни рудника 3 (Whalebone Cove); сделана владельцем проекта (Suno).
   Петля с 48,25 с, конец на 162,7 с.
+- `music/boss_kraken.ogg` — «tempest mariana», тема боя с Кракеном; сделана владельцем проекта (Suno). Петля с 57,65 с, конец на 162,65 с.
 
 ## Звуки рудника 2 и Хозяйки (`sfx/`, CC0, OpenGameArt)
 
