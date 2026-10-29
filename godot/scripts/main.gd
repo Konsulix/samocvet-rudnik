@@ -129,6 +129,42 @@ func _ready() -> void:
 			st.dl = i % 6
 			Save.d.coll.append(st)
 			if not sid in Save.d.seen: Save.d.seen.append(sid)
+	if args.has("trilobites"):
+		# test data: a trilobite of every kind and rarity in the collection: `-- screen=stones trilobites`;
+		# a seed is looked up for each, old ones from a previous run are replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return c.get("sid", "") != "trilobite")
+		var want := []
+		for gn in ["elrathia", "phacops", "asaphus", "dicranurus", "walliserops", "isotelus"]:
+			want.append(func(g: Dictionary) -> bool: return g.genus == gn and int(g.oysters) == 0)
+		want.append(func(g: Dictionary) -> bool: return g.show == "enrolled")
+		want.append(func(g: Dictionary) -> bool: return g.show == "nodule")
+		want.append(func(g: Dictionary) -> bool: return g.show == "mass")
+		want.append(func(g: Dictionary) -> bool: return int(g.pal) == 6)
+		want.append(func(g: Dictionary) -> bool: return int(g.pal) == 4 and g.show == "matrix")
+		for n in [1, 2, 3]:
+			want.append(func(g: Dictionary) -> bool: return int(g.oysters) == n)
+		want.append(func(g: Dictionary) -> bool: return g.moult)
+		want.append(func(g: Dictionary) -> bool: return g.bite)
+		var sd := 70000
+		for i in want.size() + 1:
+			var legend := i == want.size()
+			var st := {}
+			while true:
+				st = Stones.roll(sd, 2, 1.2, 2)
+				st.sid = "trilobite"
+				st.kind = "fossil"
+				st.traits = []
+				st.legend = legend
+				sd += 1
+				if legend:
+					# the legendary one: a seed whose living effect is the awakening
+					if SpecGenome.of(Spec.of_stone(st)).fx == "awaken": break
+				elif (want[i] as Callable).call(SpecFossil.genes(int(st.id), "trilobite", [])): break
+			st.tier = Stones.tier_of(st.sid, int(st.gi), legend)
+			st.area = 2
+			st.dl = i % 6
+			Save.d.coll.append(st)
+		if not "trilobite" in Save.d.seen: Save.d.seen.append("trilobite")
 	if args.has("tab"):
 		Museum.start_tab = args.tab
 	if args.has("screen"):
