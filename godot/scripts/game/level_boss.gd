@@ -124,7 +124,7 @@ static func place(lv: Level) -> void:
 		lz.fit(lv.model.playable, grid, b.TS, float(f.meta.offset))
 	var top_line := lv.holder.position.y + f.top_line()
 	var v := view(lv)
-	v.position = Vector2(float(v.meta.get("x", BOSS_X)), roundf(top_line + float(v.meta.get("sink", SINK)) - v.size.y))
+	v.position = Vector2(float(v.meta.get("x", BOSS_X)), roundf(top_line + _sink(v, int(lv.model.boss.stage)) - v.size.y))
 	var s := sea(lv)
 	if s:
 		# no flat-cut bottom to hide: it goes on under his water
@@ -145,10 +145,18 @@ static func place(lv: Level) -> void:
 	var x1: float = gx + float(cs[-1] + 1) * b.TS - inset
 	h.hp_rect = Rect2(roundf(x0), roundf(top_line + r0 * b.TS - 10), roundf(x1 - x0), 20)
 	h.bubble_target = v.head_global()
+	# a head under his water (the Kraken, sunk on the early boards): the bubble points at the surface over it
+	if s: h.bubble_target.y = minf(h.bubble_target.y, s.surface - 10.0)
 	h.queue_redraw()
 
 ## which columns of the boss' picture have no bar of the frame under their bottom: beyond the board's sides and
 ## over a cut-away corner of its top. The frame's bar reaches a little past its cells; the edge is ramped softly
+## how far the boss' bottom sits below the frame's top bar on board i: the Kraken rises out of his water board by
+## board ("sinks" in its boss.json), the others sit at one depth ("sink")
+static func _sink(v: BossView, i: int) -> float:
+	var ss: Array = v.meta.get("sinks", [])
+	return float(ss[clampi(i, 0, ss.size() - 1)]) if not ss.is_empty() else float(v.meta.get("sink", SINK))
+
 static func _expose(lv: Level, v: BossView, f: BossFrame) -> void:
 	var b := lv.board
 	var m := lv.model
@@ -396,7 +404,16 @@ static func next_board(lv: Level) -> void:
 	lv.board.rebuild(m)
 	lv._render_hud()
 	if v:
+		var was := v.position.y
 		place(lv)
+		# the Kraken rises from his water to the new board's height, with a burst of spray
+		if sea(lv) and absf(v.position.y - was) > 1.0:
+			var to := v.position.y
+			v.position.y = was
+			sea(lv).splash()
+			if int(m.boss.stage) == 1: sea(lv).gulls_off(Vector2(v.position.x, was))
+			lv.create_tween().tween_property(v, "position:y", to, 1.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			sound(lv, "rise", "rockfall")
 		title(lv)
 		moves(lv)
 		refresh_hp(lv)

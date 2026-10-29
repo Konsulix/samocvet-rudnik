@@ -1009,6 +1009,13 @@ func _on_quit() -> void:
 func _boss_demo() -> void:
 	if model.boss_on(): await LevelBoss.demo(self)
 
+## `-- area=2 level=1 gen depth=9 ui=boss_next`: the next board of the fight comes in now (the Kraken rising, his gulls)
+func _boss_next() -> void:
+	if not model.boss_on(): return
+	busy = true
+	await LevelBoss.next_board(self)
+	busy = false
+
 ## `-- area=1 level=1 gen depth=6 ui=boss_raid`: the Mistress' lizards come for the greens right away
 func _boss_raid() -> void:
 	if not model.boss_on() or not model.boss.B.act.has("lizards"): return
