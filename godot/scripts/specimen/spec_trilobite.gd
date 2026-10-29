@@ -49,6 +49,7 @@ const PAL := [
 ## the host rock's colour where it clings in the furrows and makes a pedestal
 const ROCK_COL := {limestone = 0x9a9284, slate = 0x55555a, ironstone = 0x6e4a36}
 const THICK := 0.03
+const DEPTH_ON := 0.26     # how high a pearl oyster's hinge sits above the rock (valve units: its cupped lower valve)
 
 static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng := Rng32.new((seed_v * 2654435761 + 61) % 4294967296)
@@ -69,6 +70,9 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng2 := Rng32.new((seed_v * 2246822519 + 13) % 4294967296)
 	if not spiny and rng2.next() < 0.28: g.show = "nodule"
 	if rng2.next() < 0.04: g.pal = 6
+	# a pearl oyster grown on the same sea floor, lying open on its slab, a pearl in it (its own pearl genes)
+	g.oyster = rng2.next() < 0.18
+	g.pearl_seed = int(rng2.next() * 100000.0) + 1
 	g.seg = int(c.seg) + int(floorf(rng.next() * 3.0)) - 1
 	g.spines = 0.8 + rng.next() * 0.5        # how long its spines grew
 	g.seed = int(rng.next() * 100000.0)
@@ -78,7 +82,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.mass = 3 + int(rng.next() * 4.0)
 	g.lens_tilt = rng.next()
 	if "irid" in tr or "aurora" in tr: g.pal = 4
-	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass"]:
+	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oyster"]:
 		if o.has(k): g[k] = o[k]
 	# a legendary one keeps its legs and antennae (the awakening walks them)
 	if o.get("legend", false): g.soft = true
@@ -89,6 +93,8 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 		g.moult = false
 		g.bite = false
 	if g.show != "matrix": g.moult = false
+	if not (g.show in ["matrix", "mass"]): g.oyster = false
+	if g.oyster: g.pearl = SpecPearl.genes(int(g.pearl_seed), [], {show = "shell", count = 1})
 	if g.show == "nodule": g.bite = false
 	# black shell lies in pale shale (Utah); pyrite legs in black shale (New York)
 	if int(g.pal) == 0: g.rock = "limestone"
@@ -107,6 +113,7 @@ static func accents(g: Dictionary) -> Array:
 	if int(g.pal) == 6: out.append("opal")
 	if g.get("show", "") == "nodule": out.append("nodule")
 	if g.get("show", "") in ["matrix", "mass"]: out.append("lilies")
+	if g.get("oyster", false): out.append("oyster")
 	if g.get("moult", false): out.append("moult")
 	if g.get("bite", false): out.append("bite")
 	if g.get("soft", false): out.append("soft")
@@ -130,6 +137,9 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"opal": return "opalized"
 		"nodule": return "split nodule"
 		"lilies": return "sea lilies"
+		"oyster":
+			var pg: Dictionary = g.get("pearl", {})
+			return "%s pearl in its oyster" % SpecPearl.BODY.get(pg.get("body", "akoya"), {n = "a"}).n
 	return ""
 
 static func _lens_count(g: Dictionary) -> int:
@@ -570,6 +580,8 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			for q in n:
 				var s := span * (0.82 if n == 1 else 0.3 + rng.next() * 0.28)
 				if f.get("moult", false) and n == 1: s = span * 0.6
+				# room for the oyster: the trilobite a little smaller, to one side
+				if f.get("oyster", false) and n == 1: s = span * 0.64
 				var at := Vector3(rb.get_center().x, top, rb.get_center().z)
 				if n > 1:
 					for tries in 20:
@@ -579,6 +591,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 							if Vector2(at.x - (p[0] as Vector3).x, at.z - (p[0] as Vector3).z).length() < (s + float(p[1])) * 0.36: ok = false
 						if ok: break
 				if f.get("moult", false): at.x -= span * 0.14
+				if f.get("oyster", false) and n == 1: at.x -= span * 0.15
 				placed.append([at, s])
 				var nd := Node3D.new()
 				holder.add_child(nd)
@@ -630,6 +643,27 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 					spots.append(at)
 					if k == 0: marks.lilies = li
 					break
+			# a pearl oyster open on the slab beside it, breathing, its pearl catching the light
+			if f.get("oyster", false):
+				var fp: Dictionary = f.pearl
+				var os := span * 0.2
+				var oat := Vector3.ZERO
+				for tries in 16:
+					# beside it rather than above or below, where it would hide the trilobite or be hidden
+					var a := (0.0 if tries < 10 else PI) + (lrng.next() - 0.5) * 0.9
+					oat = Vector3(rb.get_center().x + cos(a) * rb.size.x * 0.3, 0, rb.get_center().z + sin(a) * rb.size.z * 0.3)
+					var clear := true
+					for p: Array in placed:
+						if Vector2(oat.x - (p[0] as Vector3).x, oat.z - (p[0] as Vector3).z).length() < float(p[1]) * 0.45 + os: clear = false
+					if clear: break
+				oat.y = _ground(rk, oat, os * 0.8) + DEPTH_ON * os
+				var on := Node3D.new()
+				holder.add_child(on)
+				on.transform = Transform3D(Basis(Vector3.UP, PI + (lrng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * os), oat)
+				var ppm := SpecPearl.mat(fp, 0)
+				var oys := SpecPearl.oyster(on, fp, ppm, SpecPearl.pearl_geo(String(fp.shape), int(fp.seed)), lrng, true)
+				marks.oyster = (oys.pearls as Array)[0]
+				spots.append(oat + Vector3(0, os * 0.2, 0))
 			if spots.size():
 				SpecSea.bubbles(holder, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
 		"prepared":
@@ -718,6 +752,10 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 		var lx := U.rel_xform(marks.lilies as Node3D, root)
 		b._mark("lilies", lx * Vector3(0, 0.3, 0), (lx.basis * Vector3.UP).normalized())
 	marks.erase("lilies")
+	if marks.has("oyster") and "oyster" in gene.accents:
+		var ox := U.rel_xform(marks.oyster as Node3D, root)
+		b._mark("oyster", ox * Vector3(0, 0.8, 0.4), (ox.basis * Vector3.UP).normalized())
+	marks.erase("oyster")
 	if "opal" in gene.accents: b._mark("opal", xf * Vector3(0.12, 0.1, -0.05), (xf.basis * Vector3.UP).normalized())
 	for id: String in ["moult", "mass", "enrolled", "soft", "nodule"]:
 		if marks.has(id):

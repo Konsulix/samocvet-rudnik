@@ -240,7 +240,16 @@ const SETS := [
 	{seed = 745, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "asaphus", show = "matrix", pal = 4, moult = false, bite = false, soft = false},
 	{seed = 746, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "elrathia", show = "matrix", pal = 0, moult = false, bite = false, soft = false},
 	{seed = 747, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "isotelus", show = "mass", mass = 3, pal = 1, moult = false, bite = false, soft = false},
-	{seed = 748, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", moult = false, bite = false, soft = true, legend = true, fx = "awaken"}]
+	{seed = 748, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", moult = false, bite = false, soft = true, legend = true, fx = "awaken"}],
+	# set 36: trilobites with a pearl oyster on their slab (the pearl is a trilobite's gene now)
+	[{seed = 751, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "elrathia", show = "matrix", pal = 0, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 752, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "phacops", show = "matrix", pal = 1, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 753, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "isotelus", show = "matrix", pal = 5, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 754, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "asaphus", show = "matrix", pal = 3, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 755, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "elrathia", show = "mass", mass = 4, pal = 0, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 756, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "walliserops", show = "matrix", pal = 4, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 757, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "phacops", show = "matrix", pal = 6, oyster = true, moult = false, bite = false, soft = false},
+	{seed = 758, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", oyster = true, moult = false, bite = false, soft = true, legend = true, fx = "awaken"}]
 ]
 
 func _ready() -> void:
