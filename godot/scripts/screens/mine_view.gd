@@ -109,6 +109,10 @@ static func _list(d: String, out: Array) -> void:
 		elif f.ends_with(".png"): out.append(d + f)
 
 ## a picture of this mine (`dir`: a mine screen that extends this one sets its own folder)
+## MineAmb's loops under this mine's own sounds: the cave's breath, and crickets on a summer night in the pines
+func amb_beds() -> Array:
+	return ["cave", "crickets"]
+
 func tex(path: String) -> Texture2D:
 	var key := dir + path
 	if not _tex.has(key):

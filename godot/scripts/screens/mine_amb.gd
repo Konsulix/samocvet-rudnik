@@ -30,8 +30,12 @@ func _init(s: Node2D) -> void:
 
 func _ready() -> void:
 	Sfx.amb_bus()
-	_cave = _loop("cave")
-	if not (old and old.fire):
+	# the beds under everything: the drawn mine screens name their own (no crickets by the cold sea); the old scene has
+	# both but for Fire Horizon
+	var beds: Array = scene.amb_beds() if scene.has_method("amb_beds") else (["cave"] if old.fire else ["cave", "crickets"])
+	if "cave" in beds:
+		_cave = _loop("cave")
+	if "crickets" in beds:
 		_crickets = _loop("crickets")
 	for i in 6:
 		var p := AudioStreamPlayer.new()

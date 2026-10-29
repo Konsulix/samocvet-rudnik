@@ -32,6 +32,10 @@ var _next_storm := 14.0
 func _init() -> void:
 	dir = SDIR
 
+## no crickets by the cold northern sea: the surf, the gulls and the galleries' own drips are its night
+func amb_beds() -> Array:
+	return ["cave"]
+
 func available_here() -> bool:
 	return FileAccess.file_exists(SDIR + "mine.json")
 
