@@ -86,6 +86,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# a fossil without its slab of rock has nowhere for things to grow
 	if habit == "fossil" and fossil.get("show", "") != "matrix":
 		apool = []
+	# a trilobite's slab holds the sea's own life: big puffs and sprays would bury the animal
+	if sid == "trilobite":
+		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["pompom", "straw", "needles"]))
 	for k in int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 3.0], [3, 1.2]], rng)):
 		if apool.is_empty(): break
 		var a: String = Stones.pick_w(apool, rng)

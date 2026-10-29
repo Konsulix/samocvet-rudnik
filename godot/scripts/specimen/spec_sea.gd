@@ -76,7 +76,8 @@ static func lily(rng: Rng32, h: float) -> Geo:
 	var cs := Color.hex(int(pal[0]) << 8 | 0xff)
 	var ca := Color.hex(int(pal[1]) << 8 | 0xff)
 	var ph := rng.next()
-	var bend := Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * h * 0.35
+	# leaning back, away from the viewer (the caller turns it only a little)
+	var bend := Vector3((rng.next() - 0.5) * 0.3, 0, -0.2 - rng.next() * 0.2) * h
 	var stalk := []
 	for i in 16:
 		var t := float(i) / 15.0

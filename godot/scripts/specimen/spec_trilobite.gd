@@ -70,8 +70,9 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng2 := Rng32.new((seed_v * 2246822519 + 13) % 4294967296)
 	if not spiny and rng2.next() < 0.28: g.show = "nodule"
 	if rng2.next() < 0.04: g.pal = 6
-	# a pearl oyster grown on the same sea floor, lying open on its slab, a pearl in it (its own pearl genes)
-	g.oyster = rng2.next() < 0.18
+	# pearl oysters grown on the same sea floor, on its slab beside it, a pearl in each (its own pearl genes):
+	# none mostly, else one to three; each lies open (now and then snapping shut) or shut (now and then gaping)
+	g.oysters = 0 if rng2.next() < 0.82 else int(Stones.pick_w([[1, 5.5], [2, 3.0], [3, 1.5]], rng2))
 	g.pearl_seed = int(rng2.next() * 100000.0) + 1
 	g.seg = int(c.seg) + int(floorf(rng.next() * 3.0)) - 1
 	g.spines = 0.8 + rng.next() * 0.5        # how long its spines grew
@@ -82,7 +83,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.mass = 3 + int(rng.next() * 4.0)
 	g.lens_tilt = rng.next()
 	if "irid" in tr or "aurora" in tr: g.pal = 4
-	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oyster"]:
+	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters"]:
 		if o.has(k): g[k] = o[k]
 	# a legendary one keeps its legs and antennae (the awakening walks them)
 	if o.get("legend", false): g.soft = true
@@ -93,8 +94,13 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 		g.moult = false
 		g.bite = false
 	if g.show != "matrix": g.moult = false
-	if not (g.show in ["matrix", "mass"]): g.oyster = false
-	if g.oyster: g.pearl = SpecPearl.genes(int(g.pearl_seed), [], {show = "shell", count = 1})
+	if not (g.show in ["matrix", "mass"]): g.oysters = 0
+	var ors := Rng32.new(int(g.pearl_seed) * 3 + 1)
+	g.pearls = []
+	for k in int(g.oysters):
+		var pg := SpecPearl.genes(int(g.pearl_seed) + k * 7, [], {show = "shell", count = 1})
+		pg.open = ors.next() < 0.6
+		(g.pearls as Array).append(pg)
 	if g.show == "nodule": g.bite = false
 	# black shell lies in pale shale (Utah); pyrite legs in black shale (New York)
 	if int(g.pal) == 0: g.rock = "limestone"
@@ -113,7 +119,7 @@ static func accents(g: Dictionary) -> Array:
 	if int(g.pal) == 6: out.append("opal")
 	if g.get("show", "") == "nodule": out.append("nodule")
 	if g.get("show", "") in ["matrix", "mass"]: out.append("lilies")
-	if g.get("oyster", false): out.append("oyster")
+	if int(g.get("oysters", 0)) > 0: out.append("oyster")
 	if g.get("moult", false): out.append("moult")
 	if g.get("bite", false): out.append("bite")
 	if g.get("soft", false): out.append("soft")
@@ -138,7 +144,9 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"nodule": return "split nodule"
 		"lilies": return "sea lilies"
 		"oyster":
-			var pg: Dictionary = g.get("pearl", {})
+			var ps: Array = g.get("pearls", [])
+			if ps.size() > 1: return "%d pearl oysters" % ps.size()
+			var pg: Dictionary = ps[0] if ps.size() else {}
 			return "%s pearl in its oyster" % SpecPearl.BODY.get(pg.get("body", "akoya"), {n = "a"}).n
 	return ""
 
@@ -397,6 +405,12 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	var body := U.mesh(body_geo(f, c, u0, u1, k), sm, parent)
 	body.set_meta("col", true)
 	body.set_meta("sea_light", true)
+	# an unseen block under it, down into the rock: what the builder grows on the rock afterwards (puffs, lichen,
+	# flowers) keeps out of the crystals' boxes, and this makes the trilobite one
+	if u0 <= 0.0 and k <= 0.0:
+		var ko := U.mesh(Geo.box(float(c.half) * 2.2, 0.36, 1.08), sm, parent, Vector3(0, -0.14, 0))
+		ko.visible = false
+		ko.set_meta("col", true)
 	out.body = body
 	if u0 > 0.0:
 		return out
@@ -577,11 +591,12 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			var span := minf(rb.size.x, rb.size.z)
 			var n := int(f.mass) if show == "mass" else 1
 			var placed := []
+			var bodies: Array[Node3D] = []
 			for q in n:
 				var s := span * (0.82 if n == 1 else 0.3 + rng.next() * 0.28)
 				if f.get("moult", false) and n == 1: s = span * 0.6
 				# room for the oyster: the trilobite a little smaller, to one side
-				if f.get("oyster", false) and n == 1: s = span * 0.64
+				if int(f.get("oysters", 0)) > 0 and n == 1: s = span * (0.66 - 0.04 * int(f.oysters))
 				var at := Vector3(rb.get_center().x, top, rb.get_center().z)
 				if n > 1:
 					for tries in 20:
@@ -591,7 +606,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 							if Vector2(at.x - (p[0] as Vector3).x, at.z - (p[0] as Vector3).z).length() < (s + float(p[1])) * 0.36: ok = false
 						if ok: break
 				if f.get("moult", false): at.x -= span * 0.14
-				if f.get("oyster", false) and n == 1: at.x -= span * 0.15
+				if int(f.get("oysters", 0)) > 0 and n == 1: at.x -= span * 0.12
 				placed.append([at, s])
 				var nd := Node3D.new()
 				holder.add_child(nd)
@@ -599,6 +614,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				# on the rock's own surface under it (a bulge would swallow its sides, a hollow leave it floating)
 				at.y = _ground(rk, at, s * 0.3) + THICK * s * 0.4
 				nd.transform = Transform3D(Basis(Vector3.UP, PI + (rng.next() - 0.5) * (0.6 if n == 1 else TAU)) * Basis.from_scale(Vector3.ONE * s), at)
+				bodies.append(nd)
 				var fq := f.duplicate()
 				if q > 0: fq.seed = int(f.seed) + q * 31
 				var a := animal(fq, nd, sm, em, 0.0)
@@ -625,45 +641,55 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				hd.transform = Transform3D(Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * ms), Vector3(rb.get_center().x + span * 0.3, top, rb.get_center().z - span * 0.22))
 				animal(fm, hd, sm, em, 0.0, 0.0, float(c.ceph) - 0.03)
 				marks.moult = md
-			# the sea floor it lay on: sea lilies swaying on their stalks round it, bubbles from the rock
+			# the sea floor it lay on. What lies on the slab keeps its room: the trilobites (a chain of discs along each),
+			# then the oysters, then the sea lilies, each put only on the slab's top where nothing is yet
 			var lrng := Rng32.new(int(f.seed) * 17 + 5)
-			var lm := SpecSea.life_mat(0, span * 0.45, span * 0.03, 0.8, 0.55, 0.4)
+			var c: Dictionary = GENUS[f.genus]
+			var occ := []
+			for nd: Node3D in bodies:
+				var sc := nd.transform.basis.get_scale().x
+				var reach := float(c.half) * 1.1 + float(c.get("pspine", 0.0)) * 0.5
+				for u: float in [0.1, 0.3, 0.5, 0.7, 0.9]:
+					var p := nd.transform * Vector3(0, 0, 0.5 - u)
+					occ.append([Vector2(p.x, p.z), reach * sc])
+			if f.get("moult", false):
+				occ.append([Vector2(rb.get_center().x + span * 0.26, rb.get_center().z), span * 0.25])
+			var cands := _top_spots(rk, rb)
 			var spots := []
-			for k in 2 + int(lrng.next() * 3.0):
-				for tries in 12:
-					var a := lrng.next() * TAU
-					var at := Vector3(rb.get_center().x + cos(a) * rb.size.x * (0.3 + lrng.next() * 0.12), 0, rb.get_center().z + sin(a) * rb.size.z * (0.3 + lrng.next() * 0.12))
-					var clear := true
-					for p: Array in placed:
-						if Vector2(at.x - (p[0] as Vector3).x, at.z - (p[0] as Vector3).z).length() < float(p[1]) * 0.42: clear = false
-					if not clear: continue
-					at.y = _ground(rk, at, span * 0.05) - span * 0.01
-					var li := U.mesh(SpecSea.lily(lrng, span * (0.35 + lrng.next() * 0.2)), lm, holder, at, Basis(Vector3.UP, lrng.next() * TAU))
-					li.set_meta("col", true)
-					spots.append(at)
-					if k == 0: marks.lilies = li
-					break
-			# a pearl oyster open on the slab beside it, breathing, its pearl catching the light
-			if f.get("oyster", false):
-				var fp: Dictionary = f.pearl
-				var os := span * 0.2
-				var oat := Vector3.ZERO
-				for tries in 16:
-					# beside it rather than above or below, where it would hide the trilobite or be hidden
-					var a := (0.0 if tries < 10 else PI) + (lrng.next() - 0.5) * 0.9
-					oat = Vector3(rb.get_center().x + cos(a) * rb.size.x * 0.3, 0, rb.get_center().z + sin(a) * rb.size.z * 0.3)
-					var clear := true
-					for p: Array in placed:
-						if Vector2(oat.x - (p[0] as Vector3).x, oat.z - (p[0] as Vector3).z).length() < float(p[1]) * 0.45 + os: clear = false
-					if clear: break
+			# pearl oysters: open ones breathe and now and then snap shut; shut ones now and then gape, the pearl inside
+			var oys_n := 0
+			for fp: Dictionary in f.get("pearls", []):
+				var os := span * (0.15 + lrng.next() * 0.04)
+				# (a crowded slab gets smaller oysters rather than none)
+				var spot: Variant = null
+				for shrink: float in [1.0, 0.8, 0.62]:
+					spot = _free_spot(cands, occ, os * shrink * 1.1, lrng)
+					if spot != null:
+						os *= shrink
+						break
+				if spot == null: continue
+				var oat: Vector3 = spot
 				oat.y = _ground(rk, oat, os * 0.8) + DEPTH_ON * os
 				var on := Node3D.new()
 				holder.add_child(on)
-				on.transform = Transform3D(Basis(Vector3.UP, PI + (lrng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * os), oat)
-				var ppm := SpecPearl.mat(fp, 0)
-				var oys := SpecPearl.oyster(on, fp, ppm, SpecPearl.pearl_geo(String(fp.shape), int(fp.seed)), lrng, true)
-				marks.oyster = (oys.pearls as Array)[0]
-				spots.append(oat + Vector3(0, os * 0.2, 0))
+				on.transform = Transform3D(Basis(Vector3.UP, PI + (lrng.next() - 0.5) * 0.9) * Basis.from_scale(Vector3.ONE * os), oat)
+				var oys := SpecPearl.oyster(on, fp, SpecPearl.mat(fp, 0), SpecPearl.pearl_geo(String(fp.shape), int(fp.seed)), lrng, true, 0.72, fp.get("open", true))
+				occ.append([Vector2(oat.x, oat.z), os * 1.1])
+				if oys_n == 0: marks.oyster = (oys.pearls as Array)[0]
+				spots.append(oat + Vector3(0, os * 0.15, 0))
+				oys_n += 1
+			# sea lilies swaying on their stalks
+			var lm := SpecSea.life_mat(0, span * 0.45, span * 0.03, 0.8, 0.55, 0.4)
+			for k in 2 + int(lrng.next() * 3.0):
+				var spot: Variant = _free_spot(cands, occ, span * 0.06, lrng, rb.get_center().z - rb.size.z * 0.05)
+				if spot == null: break
+				var at: Vector3 = spot
+				at.y = _ground(rk, at, span * 0.05) - span * 0.01
+				var li := U.mesh(SpecSea.lily(lrng, span * (0.35 + lrng.next() * 0.2)), lm, holder, at, Basis(Vector3.UP, (lrng.next() - 0.5) * 0.8))
+				li.set_meta("col", true)
+				occ.append([Vector2(at.x, at.z), span * 0.06])
+				spots.append(at)
+				if k == 0: marks.lilies = li
 			if spots.size():
 				SpecSea.bubbles(holder, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
 		"prepared":
@@ -776,6 +802,36 @@ static func _ground(rk: MeshInstance3D, at: Vector3, r: float) -> float:
 		return at.y
 	ys.sort()
 	return ys[int(ys.size() * 0.8)]
+
+## spots on the slab's top to set things on: the rock's own vertices up on its top, away from its edge
+static func _top_spots(rk: MeshInstance3D, rb: AABB) -> Array:
+	var out := []
+	var g: Geo = rk.get_meta("geo")
+	var cx := rb.get_center()
+	for v in g.v:
+		var w := rk.transform * v
+		if w.y < rb.end.y - rb.size.y * 0.35:
+			continue
+		if pow((w.x - cx.x) / (rb.size.x * 0.4), 2.0) + pow((w.z - cx.z) / (rb.size.z * 0.4), 2.0) > 1.0:
+			continue
+		out.append(w)
+	return out
+
+## a spot from cands with a disc of radius r clear of every disc in occ ([centre (x, z), radius]), or null
+## behind: only spots behind z (further from the viewer: tall things there rise clear of the trilobite, not over it)
+static func _free_spot(cands: Array, occ: Array, r: float, rng: Rng32, behind := INF) -> Variant:
+	if cands.is_empty():
+		return null
+	for tries in 60:
+		var p: Vector3 = cands[int(rng.next() * cands.size())]
+		var ok := p.z < behind
+		for o: Array in occ:
+			if Vector2(p.x, p.z).distance_to(o[0] as Vector2) < r + float(o[1]):
+				ok = false
+				break
+		if ok:
+			return p
+	return null
 
 ## the camera looks nearly level: a flat slab would be seen edge on. Hold the whole find up to the viewer
 ## (its rock, what grew on it, the callouts' points) like a plate on a stand

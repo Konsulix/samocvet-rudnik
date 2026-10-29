@@ -375,7 +375,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 ## valve with its living mantle, the pearls in it (f.count, pearl material pm, the first pearl's shape pg), and — if
 ## `top` — the upper valve open on its hinge, breathing, barnacles on its back. Also laid on a trilobite's slab.
 ## Returns {low, pearls, up, breath}
-static func oyster(parent: Node3D, f: Dictionary, pm: ShaderMaterial, pg: Geo, rng: Rng32, top: bool) -> Dictionary:
+static func oyster(parent: Node3D, f: Dictionary, pm: ShaderMaterial, pg: Geo, rng: Rng32, top: bool, pk := 1.0, open_rest := true) -> Dictionary:
 	var sm := mat(f, 1)
 	var vg := valve_geo(f, int(f.seed))
 	# the lower valve lies cupped, its nacre up (turned over on the hinge's own line)
@@ -391,7 +391,7 @@ static func oyster(parent: Node3D, f: Dictionary, pm: ShaderMaterial, pg: Geo, r
 	for k in (int(f.count) if top else 0):
 		var sp: Vector2 = spots[k]
 		sp += Vector2(rng.next() - 0.5, rng.next() - 0.5) * 0.1
-		var s := (0.34 if k == 0 else 0.24) * (1.0 if f.shape != "drop" else 0.85)
+		var s := (0.34 if k == 0 else 0.24) * (1.0 if f.shape != "drop" else 0.85) * pk
 		var at := Vector3(-sp.x, -_inner_y(sp.x, sp.y) + s * 0.82, sp.y)
 		var mi := U.mesh(pg if k == 0 else pearl_geo(String(f.shape), int(f.seed) + k), pm, parent, at,
 			Basis(Vector3.BACK, (rng.next() - 0.5) * 0.6 + (PI * 0.5 if f.shape == "drop" else 0.0)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s))
@@ -407,11 +407,13 @@ static func oyster(parent: Node3D, f: Dictionary, pm: ShaderMaterial, pg: Geo, r
 		up.set_meta("sea_light", true)
 		U.mesh(_mantle(f, false), mm, up).set_meta("col", true)
 		var open := 1.4 + rng.next() * 0.15
-		hinge.basis = Basis(Vector3.RIGHT, open)
 		var breath := Breath.new()
 		breath.hinge = hinge
 		breath.open = open
-		breath.phase = rng.next() * TAU
+		breath.rest_open = open_rest
+		breath.period = 9.0 + rng.next() * 6.0
+		breath.phase = rng.next()
+		hinge.basis = Basis(Vector3.RIGHT, open if open_rest else Breath.SHUT)
 		parent.add_child(breath)
 		if f.get("barnacles", false):
 			_barnacles(up, rng)
@@ -503,17 +505,38 @@ static func _barnacles(v: MeshInstance3D, rng: Rng32, rim := 0.0) -> void:
 			Basis(U.quat_to(Vector3.UP, nrm)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(s, s * (0.6 + rng.next() * 0.5), s)))
 		mi.set_meta("col", true)
 
-## the oyster breathing: the upper valve eases open and shut on its hinge, slowly, a pause when shut
+## the oyster breathing on its hinge. One lying open breathes slowly and, once a cycle, snaps shut, holds, and
+## eases open again; one lying shut stays shut but, once a cycle, slowly gapes — the pearl shows — and closes.
 class Breath extends Node3D:
+	const SHUT := 0.04          # the hinge's angle when closed (a hair of a gap)
 	var hinge: Node3D
 	var beam: SpotLight3D
 	var open := 1.8
+	var rest_open := true
+	var period := 11.0
 	var phase := 0.0
 	var t := 0.0
 	func _process(dt: float) -> void:
 		t += dt
-		var c := sin(t * TAU / 7.0 + phase)
-		var shut := 0.5 + 0.5 * c * absf(c)
-		hinge.basis = Basis(Vector3.RIGHT, open - 0.12 * shut)
+		var cyc := fposmod(t + phase * period, period)
+		var k := 1.0
+		if rest_open:
+			# open, breathing; the last 3 s of the cycle: shut in a third of a second, hold, ease open
+			k = 1.0 - 0.08 * (0.5 + 0.5 * sin(t * TAU / 6.0 + phase * 9.0))
+			var sub := cyc - (period - 3.0)
+			if sub > 0.0:
+				if sub < 0.32: k *= 1.0 - smoothstep(0.0, 0.32, sub)
+				elif sub < 1.5: k = 0.0
+				else: k *= smoothstep(1.5, 3.0, sub)
+		else:
+			# shut; the last 6 s of the cycle: gape slowly, hold breathing, close
+			k = 0.0
+			var sub := cyc - (period - 6.0)
+			if sub > 0.0:
+				var g := 0.55 + 0.05 * sin(t * 2.0)
+				if sub < 2.5: k = g * smoothstep(0.0, 2.5, sub)
+				elif sub < 4.6: k = g
+				else: k = g * (1.0 - smoothstep(4.6, 6.0, sub))
+		hinge.basis = Basis(Vector3.RIGHT, lerpf(SHUT, open, k))
 		# the shaft of light on the pearl brightens as the valve lifts
-		if beam: beam.light_energy = 2.4 * (1.0 - 0.6 * shut)
+		if beam: beam.light_energy = 2.4 * (0.25 + 0.75 * k)
