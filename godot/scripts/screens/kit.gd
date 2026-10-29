@@ -26,6 +26,12 @@ const ON_GREEN := Color("#f6ffe8")
 
 static var _tex := {}
 
+## any picture by its path, kept like the kit's own
+static func tex_at(path: String) -> Texture2D:
+	if not _tex.has(path):
+		_tex[path] = load(path)
+	return _tex[path]
+
 static func tex(name: String) -> Texture2D:
 	if not _tex.has(name):
 		_tex[name] = load(DIR + name + ".png")

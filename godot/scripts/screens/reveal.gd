@@ -75,7 +75,9 @@ func show_stone(s: Dictionary, others := []) -> void:
 	Sfx.buzz(140 if tier >= 3 else 40)
 	if not s.sid in Save.d.seen:
 		Save.d.seen.append(s.sid)
-		Save.persist()
+	# into the atlas whether it is kept or sold
+	Save.note_find(s, Save.area(), mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])))
+	Save.persist()
 	var v := Ov.card(350, Data.rarity_color(tier))
 	var traits: Array = s.get("traits", [])
 	stone_card(v, s, 400 if others.is_empty() else 360)
@@ -96,7 +98,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()]))})
 		Save.persist()
 		Ov.close()
-		Ov.toast("Added to the collection")
+		Ov.toast("Added to the inventory")
 		finished.emit()
 	v.add_child(action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep))
 

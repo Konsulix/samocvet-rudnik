@@ -913,7 +913,7 @@ func _tick_events() -> void:
 	if int(_shown_places.get("landing", 0)) >= 3:
 		pool.append("compass")
 	if open >= 6 and String(_shown_bands.get(6, "closed")) != "closed":
-		pool.append("frost")      # the herald of the next mine, the frozen one: nobody here knows what it means
+		pool.append("sulphur")    # the herald of the next mine, the fiery one: nobody here knows what it means
 	var ev: String = pool[_rng.randi() % pool.size()]
 	_events[ev] = t
 	if ev == "ink":
@@ -1052,21 +1052,15 @@ func _events_live(c: CanvasItem) -> void:
 					c.draw_set_transform(at, 0.0, Vector2(-1 if flip else 1, 1))
 					c.draw_texture_rect(tex(fr), Rect2(Vector2(0, -ts.y / 2), ts), false)
 					c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-			"frost":
-				# a breath of frost on the wet wall of 350 m: white ferns grow out from a point, glitter, and melt to drops
+			"sulphur":
+				# a warm breath on the wet wall of 350 m: steam hisses out of a crack, yellow sulphur needles grow round it,
+				# glow and fade (the herald of Fire Horizon)
 				if s > 5.5: done = true
 				else:
-					_frost(c, Vector2(860, band_y(6) + 200), s)
+					_sulphur(c, Vector2(860, band_y(6) + 200), s)
 			"compass":
-				# the old whaler's compass needle swings round and round, a cold glint in its glass
-				if s > 4.0: done = true
-				else:
-					for e in J.life:
-						if String(e.name) == "guide24":
-							var gp := Vector2(float(e.x) + 22.0, float(J.sky) + float(e.y) - 52.0)
-							_light(c, gp, 26, Color(0.4, 1.0, 1.0, 0.6 * sin(PI * s / 4.0)))
-							var na := t * 9.0
-							c.draw_line(gp - Vector2.from_angle(na) * 6.0, gp + Vector2.from_angle(na) * 6.0, Color(0.9, 1.0, 1.0, 0.9), 2.0)
+				if s > COMPASS_LEN: done = true
+				else: _compass(c, s)
 		if done:
 			_events.erase(ev)
 	# the ink: dark clouds blooming in the water, drifting and thinning
@@ -1083,42 +1077,46 @@ func _events_live(c: CanvasItem) -> void:
 			var p := at + Vector2(cos(a), sin(a) * 0.6) * (40.0 + 150.0 * grow * (0.5 + 0.5 * sin(j * 1.7))) + Vector2(s * 12.0, -s * 6.0)
 			_light(c, p, 70.0 + 110.0 * grow, Color(0.02, 0.01, 0.04, 0.55 * fade))
 
-var _frost_pts: Array = []    # the frost's branches (made once): [from, to, the share of growth at which it starts]
+var _sulphur_pts: Array = []    # the sulphur crystals (made once): [foot, direction, length, the share of growth at which it starts]
 
-func _frost(c: CanvasItem, at: Vector2, s: float) -> void:
-	if _frost_pts.is_empty():
+func _sulphur(c: CanvasItem, at: Vector2, s: float) -> void:
+	if _sulphur_pts.is_empty():
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 7
-		var tips: Array = []
-		for k in 7:
-			tips.append([Vector2.ZERO, rng.randf_range(0, TAU), 0.0, 0])
-		while not tips.is_empty():
-			var tp: Array = tips.pop_back()
-			var p: Vector2 = tp[0]
-			var a: float = tp[1]
-			var g: float = tp[2]
-			var depth: int = tp[3]
-			var ln := rng.randf_range(16, 30) * (1.0 - depth * 0.18)
-			var q := p + Vector2.from_angle(a) * ln
-			_frost_pts.append([p, q, g])
-			if depth < 4:
-				tips.append([q, a + rng.randf_range(-0.25, 0.25), g + 0.17, depth + 1])
-				if rng.randf() < 0.7:
-					tips.append([q, a + (0.8 if rng.randf() < 0.5 else -0.8), g + 0.2, depth + 1])
-	var grow := clampf(s / 2.0, 0.0, 1.0)
-	var melt := clampf((s - 3.5) / 2.0, 0.0, 1.0)
-	for f in _frost_pts:
-		var g := clampf((grow - float(f[2])) / 0.17, 0.0, 1.0)
+		# a crust along the crack: short pointed crystals, longer in the middle, leaning out and up
+		for k in 26:
+			var x := rng.randf_range(-1.0, 1.0)
+			var foot := Vector2(x * 46.0, rng.randf_range(-8.0, 8.0) + x * x * 10.0)
+			var dir := Vector2.from_angle(-PI / 2 + x * 0.9 + rng.randf_range(-0.5, 0.5))
+			_sulphur_pts.append([foot, dir, rng.randf_range(18, 40) * (1.2 - absf(x) * 0.6), absf(x) * 0.6 + rng.randf() * 0.3])
+	var grow := clampf((s - 0.4) / 2.2, 0.0, 1.0)
+	var fade := clampf((s - 4.0) / 1.5, 0.0, 1.0)
+	# the steam: warm puffs hissing out of the crack and rising, strongest at first
+	var hiss := clampf(1.0 - s / 3.5, 0.0, 1.0)
+	for j in 6:
+		var k := fmod(s * 0.9 + j / 6.0, 1.0)
+		var p := at + Vector2(sin(j * 2.3 + s) * 30.0 * k, -20.0 - k * 240.0)
+		_light(c, p, 50.0 + 110.0 * k, Color(1.0, 0.95, 0.88, 0.6 * hiss * (1.0 - k)))
+	_light(c, at, 150, Color(1.0, 0.6, 0.15, 0.45 * grow * (1.0 - fade)))
+	# the crystals: dark ink outline, sulphur yellow, a pale lit face on the upper left
+	for f in _sulphur_pts:
+		var g := clampf((grow - float(f[3])) / 0.35, 0.0, 1.0)
 		if g <= 0.0:
 			continue
-		var a: Vector2 = at + f[0]
-		var b: Vector2 = a.lerp(at + f[1], g)
-		c.draw_line(a, b, Color(0.85, 0.95, 1.0, 0.85 * (1.0 - melt)), 2.5)
-	_light(c, at, 70, Color(0.7, 0.9, 1.0, 0.3 * grow * (1.0 - melt)))
-	if melt > 0.0:
-		for j in 6:
-			var p: Vector2 = at + Vector2(-50 + j * 20, 20 + melt * 90.0 * (0.6 + 0.4 * sin(j * 2.0)))
-			c.draw_circle(p, 3.0, Color(0.75, 0.9, 1.0, 0.7 * (1.0 - melt)))
+		var foot: Vector2 = at + f[0]
+		var dir: Vector2 = f[1]
+		var ln: float = float(f[2]) * g
+		if ln < 4.0:
+			continue
+		var side := dir.orthogonal() * maxf(4.0, ln * 0.32)
+		var tip := foot + dir * ln
+		var mid := foot + dir * ln * 0.55
+		var shape := PackedVector2Array([foot - side * 0.6, mid - side, tip, mid + side, foot + side * 0.6])
+		var a := 1.0 - fade
+		c.draw_colored_polygon(shape, Color(0.98, 0.8, 0.12, a))
+		c.draw_colored_polygon(PackedVector2Array([mid - side, tip, mid]), Color(1.0, 0.95, 0.55, a))
+		shape.append(shape[0])
+		c.draw_polyline(shape, Color(0.2, 0.13, 0.02, 0.9 * a), 2.5)
 
 # ---------------------------------------------------------------- the storm
 
@@ -1319,6 +1317,52 @@ func _storm_live(c: CanvasItem) -> void:
 		var snd := ("sea/thunder_near_%d" % (randi() % 2)) if near else ("sea/thunder_far_%d" % (randi() % 3))
 		# a strike close by is the loudest thing on the screen (over the surf and the music), a far one a soft roll
 		amb.shot(snd, maxf(-10.0, _far(sky + 400.0)) + (10.0 if near else -2.0), randf_range(0.92, 1.05))
+
+## the old whaler's compass goes mad: the needle shivers, then spins faster and faster, a cold glow wakes in its glass;
+## all at once it stops and swings round to point down, out to the sea and the deep, trembling there - a faint cold
+## ring goes out from it - and slowly it comes back to north as the glow dies. Drawn on the compass in his hands, in
+## whichever drawing he is in (`compass` in the data: its place in each)
+const COMPASS_LEN := 6.0
+func _compass(c: CanvasItem, s: float) -> void:
+	var spec: Dictionary = {}
+	for e in J.life:
+		if String(e.name) == "guide24": spec = e
+	if spec.is_empty() or not J.has("compass") or int(_shown_places.get(String(spec.get("place", "")), 3)) < 3:
+		return
+	var u := (t + float(spec.get("ph", 0))) * float(spec.get("fps", 8))
+	var fi := _drawing_at(spec, u) if spec.has("play") else int(u) % int(J.crew_n.guide24)
+	var fs := _size("guide24/%02d.png" % fi) * float(spec.get("s", 1.0))
+	var cp: Array = J.compass[clampi(fi, 0, (J.compass as Array).size() - 1)]
+	var at := Vector2(float(spec.x) - fs.x / 2 + fs.x * float(cp[0]), float(J.sky) + float(spec.y) - fs.y + fs.y * float(cp[1]))
+	var r := fs.x * 0.075                       # the needle's half length, inside the drawn dial
+	var fade := clampf(s / 0.4, 0.0, 1.0) * clampf((COMPASS_LEN - s) / 1.2, 0.0, 1.0)
+	var ang := -PI / 2.0                        # north: up
+	var glow := 0.0
+	if s < 2.6:
+		# a shiver, then spinning up
+		var spin := s * s * 2.2
+		ang += sin(s * 31.0) * 0.25 * (1.0 - s / 2.6) + spin * TAU
+		glow = s / 2.6
+	elif s < 4.2:
+		# snapped round to point down at the sea, trembling, overshooting a little and settling
+		var q := s - 2.6
+		ang = PI * 0.62 + 0.5 * exp(-q * 4.0) * cos(q * 18.0) + 0.04 * sin(t * 40.0)
+		glow = 1.0
+	else:
+		var q := (s - 4.2) / (COMPASS_LEN - 4.2)
+		ang = lerp_angle(PI * 0.62, -PI / 2.0, q * q * (3.0 - 2.0 * q))
+		glow = 1.0 - q
+	_light(c, at, r * 5.0, Color(0.35, 0.9, 1.0, 0.35 * glow * fade))
+	_light(c, at, r * 2.0, Color(0.7, 1.0, 1.0, 0.45 * glow * fade))
+	if s > 2.6 and s < 3.8:
+		var q := (s - 2.6) / 1.2
+		c.draw_arc(at, r * (1.5 + 7.0 * q), 0, TAU, 32, Color(0.6, 0.95, 1.0, 0.45 * (1.0 - q) * fade), 1.5)
+	var dir := Vector2.from_angle(ang)
+	c.draw_line(at - dir * r * 0.7, at, Color(0.92, 0.94, 0.95, 0.9 * fade), 2.0)
+	c.draw_line(at, at + dir * r, Color(0.85, 0.15, 0.12, 0.95 * fade), 2.0)
+	c.draw_circle(at, 1.6, Color(0.95, 0.85, 0.5, fade))
+	if _passed("compass_snap", s, 100.0, 2.6):
+		SeaSounds.deep(amb, _far(at.y) - 6.0)
 
 ## after a win the level's ore flies down into the depth it came from: lumps of jet (black, glassy) and of iron
 func _ore_flight(c: CanvasItem) -> void:

@@ -3,6 +3,9 @@ extends RefCounted
 ## Rolling a mineral find: species from the mine's pool, kind, quality, rare traits, weight and price.
 ## Same formulas and seeds as the prototype.
 
+const LEGEND_V := 900.0  # a living effect's own worth, before grade and depth
+const LEGEND_K := 1.5    # and the stone under it counts this much more
+
 static func pick_w(entries: Array, rng: Rng32) -> Variant:
 	var total := 0.0
 	for e in entries:
@@ -78,11 +81,19 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			kind_m *= {round = 1.3, baroque = 0.8, circled = 0.8}.get(fg.get("shape", ""), 1.0)
 			kind_m *= 0.6 + float(fg.get("luster", 0.5))
 			if int(fg.get("count", 1)) > 1: kind_m *= 1.5
-	var value := roundi(Data.SP[sid].v * Data.GR[gi].m * tm * (3.0 if legend else 1.0) * kind_m * 1.3 * (1.0 + dl * 0.25))
-	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = value, tier = tier_of(sid, gi, legend)}
+	var value: float = float(Data.SP[sid].v) * float(Data.GR[gi].m) * tm * kind_m
+	# a living effect is worth the same on any body: added, not multiplied, so a legendary pyrite
+	# outprices a plain emerald (it is about as rare); the stone itself still counts a little more
+	if legend:
+		value = value * LEGEND_K + LEGEND_V * sqrt(float(Data.GR[gi].m))
+	value *= 1.3 * (1.0 + dl * 0.25)
+	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = roundi(value), tier = tier_of(sid, gi, legend)}
 
+## a legendary find is always the top tier, whatever its body
 static func tier_of(sid: String, gi: int, legend: bool) -> int:
-	return mini(4, int(Data.SP[sid].r) + (1 if gi >= 3 else 0) + (1 if legend else 0))
+	if legend:
+		return 4
+	return mini(4, int(Data.SP[sid].r) + (1 if gi >= 3 else 0))
 
 static func fmt_weight(g: int) -> String:
 	if g >= 1000:

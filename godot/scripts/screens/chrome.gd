@@ -241,7 +241,7 @@ static func coin_icon(ci: CanvasItem, kind: String, c: Vector2, r: float) -> voi
 			ci.draw_colored_polygon(pts2, oc.lightened(0.65))
 			ci.draw_circle(c + Vector2(-r * 0.18, -r * 0.16), r * 0.15, Color(1, 1, 1, 0.9))
 
-## the bottom tab bar: mine, depot, museum, three even segments edge to edge; the open one is lit,
+## the bottom tab bar: mines, mine, atlas, inventory (the old museum for now), three even segments edge to edge; the open one is lit,
 ## with a gold top edge, a bigger icon and its label, the others show just their icon
 ## the bottom bar (the drawn kit): the map of mines, the mine itself, the collection, the equipment — four slate
 ## tiles in iron frames on a dark ledge; the open one lit warm, with its icon a little bigger
@@ -260,7 +260,7 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", st)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 5)
-	var tabs := [["map", "Mines", "map"], ["home", "Mine", "mine"], ["museum", "Collection", "collection"], ["depot", "Equipment", "equipment"]]
+	var tabs := [["map", "Mines", "map"], ["home", "Mine", "mine"], ["atlas", "Atlas", "collection"], ["museum", "Inventory", "equipment"]]
 	for tab: Array in tabs:
 		var id: String = tab[0]
 		var on := id == active

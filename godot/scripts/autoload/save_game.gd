@@ -20,7 +20,7 @@ func blank() -> Dictionary:
 		boss_tries = [0, 0, 0], boss_won = [false, false, false],
 		built = [[], [], []], jstep = {}, boost = {pick = 2, bore_h = 2, bore_v = 2, pan = 2}, btold = ["pick"], pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
-		jewels = [], seen = [], coll = [], sets = [], uid = 1000, lab = 0, mute = false,
+		jewels = [], seen = [], coll = [], sets = [], atlas = {}, area_back = -1, uid = 1000, lab = 0, mute = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 	}
 	b.vein = fresh_veins(0)
@@ -64,7 +64,31 @@ func _init() -> void:
 	var fv := fresh_veins(area())
 	while d.vein.size() < fv.size(): d.vein.append(fv[d.vein.size()])
 	while d.dwins.size() < fv.size(): d.dwins.append(0)
+	# a boss fight replayed from the atlas switches the mine for the fight; closed during it, the game comes back here
+	if int(d.area_back) >= 0:
+		d.area = int(d.area_back)
+		d.area_back = -1
+	# the atlas came after the collection: the stones already kept are its first entries
+	if d.atlas.is_empty():
+		for s in d.coll:
+			note_find(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	looks_to_board()
+
+## the atlas remembers every species ever found, whatever became of the stone: sid -> {best = the most valuable
+## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
+func note_find(s: Dictionary, a: int, dl: int) -> void:
+	var e: Dictionary = d.atlas.get(s.sid, {n = 0, max_g = 0, max_v = 0, legend = false})
+	e.n = int(e.n) + 1
+	e.max_g = maxi(int(e.max_g), int(s.g))
+	e.max_v = maxi(int(e.max_v), int(s.value))
+	e.legend = bool(e.legend) or bool(s.get("legend", false))
+	if not e.has("best") or int(s.value) > int(e.best.value):
+		var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
+			g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
+		for k in ["fx", "shroom"]:
+			if s.has(k): b[k] = s[k]
+		e.best = b
+	d.atlas[s.sid] = e
 
 ## the board's looks from the save (the level's look panel writes them back)
 func looks_to_board() -> void:

@@ -1,7 +1,7 @@
 class_name Museum
 extends Control
-## The mineralogical museum: glass cases with the specimens you kept, jewellery and the workshop
-## that makes it from cut stones, and the atlas of every species with collection sets to complete.
+## The inventory (for now the old museum): glass cases with the specimens you kept, jewellery and the workshop
+## that makes it from cut stones. Every species ever found is in the atlas (Atlas), not here.
 ## Any piece opens in 3D; kept stones can be cut (a gamble on their value) or sold.
 
 signal go(screen: String)
@@ -10,6 +10,7 @@ const SORTS := [["value", "Valuable"], ["rare", "Rare"], ["new", "New"]]
 
 var tab := "spc"
 var sort := "value"
+var mine := -1          # the stones of one mine only (-1: all)
 var content: VBoxContainer
 var scroll: ScrollContainer
 
@@ -19,8 +20,9 @@ static var start_tab := "spc"
 func _ready() -> void:
 	size = get_viewport_rect().size
 	tab = start_tab
-	var bg := MuseumBg.new()
+	var bg: Control = Atlas.SlateBg.new() if tab == "spc" else MuseumBg.new()
 	bg.size = size
+	bg.name = "Bg"
 	add_child(bg)
 	render()
 
@@ -31,7 +33,7 @@ static func cut_ok(s: Dictionary) -> bool:
 func render() -> void:
 	var keep_scroll := scroll.scroll_vertical if scroll else 0
 	for ch in get_children():
-		if ch is MuseumBg: continue
+		if ch.name == "Bg": continue
 		ch.queue_free()
 	var root := VBoxContainer.new()
 	root.size = size
@@ -56,55 +58,66 @@ func render() -> void:
 	_head()
 	match tab:
 		"jw": _jewels()
-		"atlas": _atlas()
 		_: _cases()
 	var tail := Control.new()
 	tail.custom_minimum_size = Vector2(0, 16)
 	content.add_child(tail)
+	if tab == "spc":
+		var dup := _dupes()
+		if dup.size():
+			root.add_child(_sell_bar(dup))
 	root.add_child(Chrome.nav_bar("museum", func(id: String): go.emit(id)))
 	if keep_scroll:
 		await get_tree().process_frame
 		scroll.scroll_vertical = keep_scroll
 
 func _head() -> void:
-	for s in Save.d.coll:
-		if not s.sid in Save.d.seen: Save.d.seen.append(s.sid)
 	var worth := 0
-	for s in Save.d.coll: worth += int(s.value)
-	for j in Save.d.jewels: worth += int(j.value)
-	var minable := Data.minable()
-	var seen := 0
-	for id in Save.d.seen:
-		if id in minable: seen += 1
-	content.add_child(UI.title("Collection", 22))
-	content.add_child(Ov.text("Mineralogical museum", 13, Color("#d8c8a8")))
-	var stats := HBoxContainer.new()
-	stats.add_theme_constant_override("separation", 6)
-	for st in [["%d/%d" % [seen, minable.size()], "species"], [UI.fmt(worth), "worth"], ["%d/%d" % [Save.d.sets.size(), Data.SETS.size()], "sets"]]:
-		var p := PanelContainer.new()
-		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var ps := StyleBoxFlat.new()
-		ps.bg_color = Color(0.055, 0.04, 0.025, 0.6)
-		ps.border_color = Color(0.89, 0.65, 0.12, 0.3)
-		ps.set_border_width_all(1)
-		ps.set_corner_radius_all(12)
-		ps.set_content_margin_all(6)
-		p.add_theme_stylebox_override("panel", ps)
-		var v := VBoxContainer.new()
-		v.add_theme_constant_override("separation", 0)
-		var b := UI.label(st[0], 15, UI.display, Color("#ffd77a"))
-		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(b)
-		var sm := UI.label(String(st[1]).to_upper(), 10, UI.body_bold, Color("#c8b090"))
-		sm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(sm)
-		p.add_child(v)
-		stats.add_child(p)
-	content.add_child(stats)
-	content.add_child(Depot.tabs([["spc", "Showcase · %d" % Save.d.coll.size()], ["jw", "Jewellery · %d" % Save.d.jewels.size()], ["atlas", "Atlas"]], tab, func(id: String):
-		tab = id
-		scroll.scroll_vertical = 0
-		render()))
+	for st in Save.d.coll: worth += int(st.value)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	var back := Kit.button("", "sq_dark", 16, 2.0)
+	back.custom_minimum_size = Vector2(32, 32)
+	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var chev := Control.new()
+	chev.set_anchors_preset(Control.PRESET_FULL_RECT)
+	chev.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chev.draw.connect(func():
+		var c := chev.size / 2.0 + Vector2(-1, 0)
+		chev.draw_polyline(PackedVector2Array([c + Vector2(4, -8), c + Vector2(-4, 0), c + Vector2(4, 8)]), Kit.CREAM, 3.0, true))
+	back.add_child(chev)
+	back.pressed.connect(func():
+		Sfx.play("tab")
+		go.emit("museum"))
+	head.add_child(back)
+	var t := VBoxContainer.new()
+	t.add_theme_constant_override("separation", -4)
+	t.add_child(Kit.label("Stones" if tab == "spc" else "Workshop", 20, UI.display, Kit.CREAM))
+	if tab == "spc":
+		t.add_child(Kit.label("%d · %s" % [Save.d.coll.size(), UI.fmt(worth)], 12, UI.body_bold, Kit.AMBER))
+	else:
+		t.add_child(Kit.label("Jewellery · %d" % Save.d.jewels.size(), 12, UI.body_bold, Kit.AMBER))
+	head.add_child(t)
+	if tab == "spc":
+		# two pickers instead of rows of buttons: they hold any number of mines
+		var sort_n := ""
+		for o in SORTS:
+			if o[0] == sort: sort_n = o[1]
+		var sp := _picker(sort_n, SORTS, sort, func(id: String): sort = id)
+		var picks := HBoxContainer.new()
+		picks.alignment = BoxContainer.ALIGNMENT_CENTER
+		picks.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		picks.add_theme_constant_override("separation", 14)
+		head.add_child(picks)
+		var mines := [[-1, "All mines"]]
+		for a in Data.AREAS.size():
+			if Atlas.is_open(a): mines.append([a, String(Data.AREAS[a].n)])
+		var mine_n := "All mines"
+		for o in mines:
+			if int(o[0]) == mine: mine_n = o[1]
+		picks.add_child(sp)
+		picks.add_child(_picker(mine_n, mines, mine, func(id): mine = int(id)))
+	content.add_child(head)
 
 static func h3(t: String) -> Label:
 	var l := UI.label(t.to_upper(), 11, UI.body_bold, Color("#c8b090"))
@@ -137,86 +150,237 @@ static func photo(o: Dictionary, px: float, round := false) -> TextureRect:
 
 func _cases() -> void:
 	var list: Array = Save.d.coll.duplicate()
+	if mine >= 0:
+		list = list.filter(func(st: Dictionary) -> bool: return int(st.get("area", 0)) == mine)
 	match sort:
 		"rare": list.sort_custom(func(a, b): return int(a.tier) > int(b.tier) or (int(a.tier) == int(b.tier) and int(a.value) > int(b.value)))
 		"new": list.sort_custom(func(a, b): return int(a.id) > int(b.id))
 		_: list.sort_custom(func(a, b): return int(a.value) > int(b.value))
 	if list.is_empty():
-		content.add_child(note("The showcases are empty for now. Stones drop on levels: reach the specimen in the rock."))
+		content.add_child(note("No stones here yet. Stones drop on levels: reach the specimen in the rock."))
 		return
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	for s in SORTS:
-		var on: bool = s[0] == sort
-		var b := UI.button(s[1], "gold" if on else "glass", 12)
-		b.custom_minimum_size = Vector2(0, 32)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var id: String = s[0]
-		b.pressed.connect(func():
-			sort = id
-			render())
-		row.add_child(b)
-	content.add_child(row)
 	var grid := GridContainer.new()
 	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	var w := (size.x - 24 - 16) / 3.0
-	for s in list:
-		grid.add_child(_case(s, w))
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	var w := (size.x - 24 - 20) / 3.0
+	# one tile per species: its stones in the sort's order, the tile shows the first; a pile swipes through the rest
+	var groups := {}
+	var order := []
+	for st in list:
+		if not groups.has(st.sid):
+			groups[st.sid] = []
+			order.append(st.sid)
+		groups[st.sid].append(st)
+	for sid in order:
+		grid.add_child(_tile(groups[sid], w))
 	content.add_child(grid)
 
-func _case(s: Dictionary, w: float) -> Button:
+## a small chip with the current choice and ▾; tapped, a short list of the choices
+func _picker(label: String, opts: Array, cur: Variant, pick: Callable) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(w, w + 44)
-	var rc := Data.rarity_color(int(s.tier))
-	var st := StyleBoxFlat.new()
-	st.bg_color = Color(0.03, 0.04, 0.05, 0.85)
-	st.border_color = Color(rc, 0.55) if s.get("legend", false) else Color("#6a5028")
-	st.set_border_width_all(2)
-	st.set_corner_radius_all(14)
-	st.shadow_color = Color(0, 0, 0, 0.5)
-	st.shadow_size = 6
+	b.text = label + " ▾"
+	b.add_theme_font_override("font", UI.body_bold)
+	b.add_theme_font_size_override("font_size", 12)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(c, Kit.AMBER)
+	var st := StyleBoxEmpty.new()
+	st.content_margin_left = 8
+	st.content_margin_right = 8
+	st.content_margin_bottom = 7
 	for k in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(k, st)
-	b.clip_contents = true
-	var img := photo(Spec.of_stone(s), w - 12)
-	img.position = Vector2(6, 6)
-	img.size = Vector2(w - 12, w - 12)
-	b.add_child(img)
-	var dot := UI.icon(10, func(ci: Control):
-		ci.draw_circle(Vector2(5, 5), 7, Color(rc, 0.3))
-		ci.draw_circle(Vector2(5, 5), 4.5, Color(rc.r * 1.4, rc.g * 1.4, rc.b * 1.4)))
-	dot.position = Vector2(11, 11)
-	b.add_child(dot)
-	if cut_ok(s):
-		var cm := UI.label("✦", 14, UI.body_bold, Color(1.4, 1.2, 0.7))
-		cm.position = Vector2(w - 22, 4)
-		b.add_child(cm)
-	var plate := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color("#c8a050")
-	ps.border_color = Color("#f8e0a0")
-	ps.border_width_top = 1
-	ps.content_margin_top = 3
-	ps.content_margin_bottom = 4
-	plate.add_theme_stylebox_override("panel", ps)
-	plate.position = Vector2(0, w - 2)
-	plate.size = Vector2(w, 46)
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", -2)
-	var n := UI.label(Data.SP[s.sid].n, 12, UI.body_bold, Color("#2a1a04"))
-	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	n.clip_text = true
-	n.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	v.add_child(n)
-	var sm := UI.label("%s · %s" % [Stones.fmt_weight(int(s.g)), UI.fmt(int(s.value))], 10, UI.body_bold, Color("#4a3008"))
-	sm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(sm)
-	plate.add_child(v)
-	b.add_child(plate)
-	b.pressed.connect(func(): _open_stone(s))
+	b.custom_minimum_size = Vector2(0, 30)
+	b.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tex := Kit.tex("underline")
+	b.draw.connect(func():
+		const H := 6.0           # as Reveal.chip: the texture 8 pt tall, its ends 4 of its 64 pt
+		var ts := tex.get_size()
+		var e := ts.y * 4.0 / 8.0
+		var ep := H * 4.0 / 8.0
+		var y := b.size.y - H + 0.5
+		var w := b.size.x
+		b.draw_texture_rect_region(tex, Rect2(0, y, ep, H), Rect2(0, 0, e, ts.y))
+		b.draw_texture_rect_region(tex, Rect2(ep, y, w - ep * 2, H), Rect2(e, 0, ts.x - e * 2, ts.y))
+		b.draw_texture_rect_region(tex, Rect2(w - ep, y, ep, H), Rect2(ts.x - e, 0, e, ts.y)))
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.pressed.connect(func():
+		var v := Ov.card(280)
+		for o in opts:
+			var id = o[0]
+			var on: bool = id == cur
+			var ob := Kit.button(("✓  " if on else "") + String(o[1]), "tab_on" if on else "tab", 15, 0.0)
+			ob.custom_minimum_size = Vector2(0, 42)
+			ob.pressed.connect(func():
+				Ov.close()
+				if on: return
+				Sfx.play("tab")
+				pick.call(id)
+				scroll.scroll_vertical = 0
+				render())
+			v.add_child(ob))
 	return b
+
+## a species' tile like the atlas's: the first stone on its own tinted ground, the name and the rarity's rule in the
+## corner, the price low on the right; more of them: two more edges behind and the count
+func _tile(g: Array, w: float) -> Control:
+	var s0: Dictionary = g[0]
+	var box := Control.new()
+	box.custom_minimum_size = Vector2(w, w * 1.12)
+	var lift := 4.0 if g.size() > 1 else 0.0
+	var spc := Data.sp_color(s0.sid)
+	if g.size() > 1:
+		for k in [2, 1]:
+			var edge := Panel.new()
+			var es := StyleBoxFlat.new()
+			es.bg_color = Color("#17130f")
+			es.border_color = Color(Kit.AMBER, 0.14 + 0.08 * (2 - k))
+			es.set_border_width_all(1)
+			es.set_corner_radius_all(10)
+			edge.add_theme_stylebox_override("panel", es)
+			edge.position = Vector2(2.0 * k + 2.0, 0)
+			edge.size = Vector2(w - 2.0 * k - 2.0, w * 1.12 - 2.0 * k - 2.0)
+			edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			box.add_child(edge)
+	var rc := Data.rarity_color(int(s0.tier))
+	var b := Button.new()
+	b.position = Vector2(0, lift)
+	b.size = Vector2(w - lift, w * 1.12 - lift)
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color("#17130f").lerp(spc, 0.06)
+	st.border_color = Color(Kit.AMBER, 0.38)
+	st.set_border_width_all(1)
+	st.set_corner_radius_all(10)
+	st.anti_aliasing = true
+	for k in ["normal", "hover", "focus"]: b.add_theme_stylebox_override(k, st)
+	var sp := st.duplicate() as StyleBoxFlat
+	sp.bg_color = Color("#17130f").lerp(spc, 0.16)
+	b.add_theme_stylebox_override("pressed", sp)
+	b.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	var glow := Control.new()
+	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.draw.connect(func():
+		GemArt.radial_disc(glow, glow.size * Vector2(0.5, 0.6), glow.size.x * 0.55, Color(spc, 0.2), Color(spc, 0.06), Color(spc, 0.0)))
+	b.add_child(glow)
+	var img := TextureRect.new()
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	img.set_anchors_preset(Control.PRESET_FULL_RECT)
+	img.offset_top = w * 0.24
+	img.offset_bottom = -w * 0.2
+	img.offset_left = w * 0.08
+	img.offset_right = -w * 0.08
+	b.add_child(img)
+	Atlas.cutout(Spec.of_stone(s0), func(tx: Texture2D): if is_instance_valid(img): img.texture = tx)
+	var txt := VBoxContainer.new()
+	txt.position = Vector2(9, 7)
+	txt.add_theme_constant_override("separation", 2)
+	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var nl := Kit.label(String(Data.SP[s0.sid].n), 11, UI.body_bold, Kit.CREAM)
+	nl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
+	nl.add_theme_constant_override("shadow_offset_y", 1)
+	nl.clip_text = true
+	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nl.custom_minimum_size = Vector2(w - 26 - lift, 0)
+	txt.add_child(nl)
+	var rule := ColorRect.new()
+	rule.color = rc.lightened(0.15)
+	rule.custom_minimum_size = Vector2(18, 1.5)
+	rule.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	txt.add_child(rule)
+	b.add_child(txt)
+	if cut_ok(s0):
+		var cm := Kit.label("✦", 12, UI.body_bold, Kit.AMBER)
+		cm.position = Vector2(w - lift - 20, 6)
+		b.add_child(cm)
+	var price := Kit.label(UI.fmt(int(s0.value)), 11, UI.body_bold, Kit.AMBER)
+	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	price.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	price.add_theme_constant_override("shadow_offset_y", 1)
+	price.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	price.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	price.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	price.offset_right = -8
+	price.offset_bottom = -5
+	b.add_child(price)
+	if g.size() > 1:
+		var cnt := Kit.label("×%d" % g.size(), 11, UI.body_bold, Kit.DIM)
+		cnt.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+		cnt.add_theme_constant_override("shadow_offset_y", 1)
+		cnt.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+		cnt.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		cnt.offset_left = 9
+		cnt.offset_bottom = -5
+		b.add_child(cnt)
+	b.pressed.connect(func(): _open_stone(s0, g))
+	box.add_child(b)
+	return box
+
+# ---------------------------------------------------------------- duplicates
+
+## the stones that can go: every one but the best of its species, never a legendary or a cut one
+func _dupes() -> Array:
+	var best := {}
+	for st in Save.d.coll:
+		if not best.has(st.sid) or int(st.value) > int(best[st.sid].value): best[st.sid] = st
+	var out := []
+	for st in Save.d.coll:
+		if st == best[st.sid] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "": continue
+		out.append(st)
+	return out
+
+func _sell_bar(dup: Array) -> Control:
+	var sum := 0
+	for st in dup: sum += roundi(float(st.value) * Save.coin_mul())
+	var m := MarginContainer.new()
+	for side in ["left", "right"]: m.add_theme_constant_override("margin_" + side, 12)
+	m.add_theme_constant_override("margin_bottom", 6)
+	var b := Kit.button("Sell %d duplicates · %s" % [dup.size(), UI.coins(sum)], "btn_gold", 15, 4.0)
+	b.custom_minimum_size = Vector2(0, 46)
+	b.pressed.connect(func(): _sell_dupes(dup, sum))
+	m.add_child(b)
+	return m
+
+func _sell_dupes(dup: Array, sum: int) -> void:
+	Ov.panel("Sell duplicates?", "%d stones go, the best of every species stays. Legendary and cut stones are never sold here." % dup.size(), [
+		["Sell · " + UI.coins(sum), "gold", func():
+			for st in dup: Save.d.coll.erase(st)
+			Save.d.coins += sum
+			Save.persist()
+			Sfx.play("coin")
+			Ov.close()
+			render()],
+		["Keep them", "glass", func(): Ov.close()]])
+
+## for screenshots: ui=swipe_stack opens the biggest pile and swipes once to its second stone
+func _swipe_stack() -> void:
+	_open_stack()
+	await get_tree().create_timer(0.6).timeout
+	var groups := {}
+	var all: Array = Save.d.coll.duplicate()
+	all.sort_custom(func(a, b): return int(a.value) > int(b.value))
+	for s in all:
+		if not groups.has(s.sid): groups[s.sid] = []
+		groups[s.sid].append(s)
+	var best: Array = []
+	for k in groups:
+		if groups[k].size() > best.size(): best = groups[k]
+	_open_stone(best[1], best, 1)
+
+## for screenshots: ui=open_stack opens the gallery of the species with the most stones
+func _open_stack() -> void:
+	var groups := {}
+	var all: Array = Save.d.coll.duplicate()
+	all.sort_custom(func(a, b): return int(a.value) > int(b.value))
+	for s in all:
+		if not groups.has(s.sid): groups[s.sid] = []
+		groups[s.sid].append(s)
+	var best: Array = []
+	for k in groups:
+		if groups[k].size() > best.size(): best = groups[k]
+	if best.size(): _open_stone(best[0], best)
 
 ## for screenshots: ui=open_first
 func _open_first() -> void:
@@ -229,9 +393,13 @@ func _open_uncut() -> void:
 			_open_stone(s)
 			return
 
-func _open_stone(s: Dictionary) -> void:
+## group: the stones of one species in the showcase's order; a sideways swipe over the info panel brings the next one
+## (the stone itself turns under the finger, so the swipe is taken below it), from: -1 / 1 the side it slides in from
+func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	var v := Ov.card(350, Data.rarity_color(int(s.tier)))
 	Reveal.stone_card(v, s, 400, func(): Ov.close())
+	if group.size() > 1:
+		_swipe_between(v, s, group, from)
 	var cut_done: bool = s.get("cut", "") != ""
 	if cut_done:
 		v.add_child(Ov.text("Cut: " + String(Data.CUTN[s.cut]), 13))
@@ -250,6 +418,51 @@ func _open_stone(s: Dictionary) -> void:
 		v.add_child(sell_b)
 	else:
 		v.add_child(Reveal.action_row(Kit.button("Cut", "btn_dark", 17, 4.0), func(): _cut_panel(s), sell_b, sell))
+
+func _swipe_between(v: VBoxContainer, s: Dictionary, group: Array, from: int) -> void:
+	var i := group.find(s)
+	# where it is in the pile: a dot for each stone, this one lit
+	var dots := HBoxContainer.new()
+	dots.alignment = BoxContainer.ALIGNMENT_CENTER
+	dots.add_theme_constant_override("separation", 6)
+	for k in group.size():
+		var d := Control.new()
+		d.custom_minimum_size = Vector2(7, 7)
+		var on := k == i
+		d.draw.connect(func(): d.draw_circle(Vector2(3.5, 3.5), 3.5 if on else 2.5, Kit.AMBER if on else Color(Kit.DIM, 0.6)))
+		dots.add_child(d)
+	v.add_child(dots)
+	v.move_child(dots, 0)
+	var info := v.get_parent() as Control
+	var start := [Vector2.ZERO, false]
+	info.mouse_filter = Control.MOUSE_FILTER_STOP
+	info.gui_input.connect(func(e: InputEvent):
+		var press: bool = (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT) or e is InputEventScreenTouch
+		if not press: return
+		if e.pressed:
+			start[0] = e.position
+			start[1] = true
+		elif start[1]:
+			start[1] = false
+			var d: Vector2 = e.position - start[0]
+			if absf(d.x) > 48.0 and absf(d.x) > absf(d.y) * 1.5:
+				var step := -1 if d.x > 0.0 else 1
+				var j := clampi(i + step, 0, group.size() - 1)
+				if j != i:
+					Sfx.play("tab")
+					_open_stone(group[j], group, step))
+	# the new card slides in from the side it was swiped from
+	# (the holder itself is placed by its CenterContainer, so the card and its halo inside it are moved, not the holder)
+	if from != 0:
+		var h := Ov.holder()
+		if h:
+			h.modulate.a = 0.0
+			var tw := h.create_tween().set_parallel()
+			tw.tween_property(h, "modulate:a", 1.0, 0.18)
+			for c in h.get_children():
+				var ci := c as Control
+				if ci == null: continue
+				tw.tween_property(ci, "position:x", ci.position.x, 0.22).from(ci.position.x + 70.0 * from).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 # ---------------------------------------------------------------- cutting
 
@@ -546,131 +759,6 @@ func _show_jewel(j: Dictionary, fresh := false) -> void:
 		render())
 	v.add_child(sell)
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
-
-# ---------------------------------------------------------------- atlas
-
-func _atlas() -> void:
-	var ids := Data.minable()
-	var best := {}
-	var got := {}
-	for s in Save.d.coll:
-		got[s.sid] = true
-		if not best.has(s.sid) or int(s.value) > int(best[s.sid].value): best[s.sid] = s
-	ids.sort_custom(func(a, b): return int(Data.SP[a].r) < int(Data.SP[b].r) or (int(Data.SP[a].r) == int(Data.SP[b].r) and float(Data.SP[a].v) < float(Data.SP[b].v)))
-	var nseen := 0
-	for id in ids:
-		if id in Save.d.seen: nseen += 1
-	content.add_child(h3("Species · found %d of %d" % [nseen, ids.size()]))
-	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 10)
-	var w := (size.x - 24 - 24) / 4.0
-	for id in ids:
-		var seen: bool = id in Save.d.seen
-		var v := VBoxContainer.new()
-		v.custom_minimum_size = Vector2(w, 0)
-		v.add_theme_constant_override("separation", 3)
-		var holder := Control.new()
-		holder.custom_minimum_size = Vector2(w, w)
-		var spc := Data.sp_color(id)
-		holder.draw.connect(func():
-			var c := Vector2(w, w) / 2
-			holder.draw_circle(c, w / 2, Color("#08060a"))
-			GemArt.radial_disc(holder, c - Vector2(0, w * 0.08), w * 0.48, Color("#1a1410"), Color("#120e0b"), Color("#08060a"))
-			holder.draw_arc(c, w / 2 - 1, 0, TAU, 40, Color("#6a5028"), 2.0, true)
-			if not best.has(id):
-				if seen:
-					holder.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -w * 0.22), c + Vector2(w * 0.16, 0), c + Vector2(0, w * 0.22), c + Vector2(-w * 0.16, 0)]), spc)
-				else:
-					holder.draw_string(UI.display, c + Vector2(-w * 0.1, w * 0.12), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, int(w * 0.34), Color("#4a3a28")))
-		if best.has(id):
-			var img := photo(Spec.of_stone(best[id]), w, true)
-			img.size = Vector2(w, w)
-			holder.add_child(img)
-		v.add_child(holder)
-		var nl := UI.label(Data.SP[id].n if seen else "???", 11, UI.body_bold, Color("#e8d8bc") if seen else Color("#7a6a58"))
-		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(nl)
-		if not seen:
-			var where := ""
-			for A in Data.AREAS:
-				if A.pool.has(id):
-					where = A.n
-					break
-			var wl := UI.label(where, 9, UI.body, Color("#8a7a62"))
-			wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			v.add_child(wl)
-		grid.add_child(v)
-	content.add_child(grid)
-	content.add_child(h3("Sets"))
-	for st in Data.SETS:
-		content.add_child(_set_row(st, got))
-
-func _set_row(st: Dictionary, got: Dictionary) -> PanelContainer:
-	var n := 0
-	for x in st.need:
-		if got.has(x): n += 1
-	var full: bool = n == st.need.size()
-	var claimed: bool = st.id in Save.d.sets
-	var p := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0, 0, 0, 0.35)
-	ps.border_color = Color("#e3a51e") if full and not claimed else Color("#4a3a22")
-	ps.set_border_width_all(1)
-	ps.set_corner_radius_all(14)
-	ps.set_content_margin_all(10)
-	p.add_theme_stylebox_override("panel", ps)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	var top := HBoxContainer.new()
-	var nm := UI.label(st.n, 15, UI.display, Color("#ffe8c0"))
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(nm)
-	top.add_child(UI.label("%d/%d" % [n, st.need.size()], 12, UI.body_bold, Color("#c8b090")))
-	v.add_child(top)
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 6)
-	bar.max_value = st.need.size()
-	bar.value = n
-	var bgs := StyleBoxFlat.new()
-	bgs.bg_color = Color(1, 1, 1, 0.08)
-	bgs.set_corner_radius_all(3)
-	var fgs := StyleBoxFlat.new()
-	fgs.bg_color = UI.GOLD
-	fgs.set_corner_radius_all(3)
-	bar.add_theme_stylebox_override("background", bgs)
-	bar.add_theme_stylebox_override("fill", fgs)
-	v.add_child(bar)
-	var chips := HFlowContainer.new()
-	chips.add_theme_constant_override("h_separation", 5)
-	chips.add_theme_constant_override("v_separation", 5)
-	for x in st.need:
-		chips.add_child(Reveal.chip(Data.SP[x].n, got.has(x)))
-	v.add_child(chips)
-	var rw: Dictionary = st.reward
-	v.add_child(note("Reward: %d coins%s%s" % [int(rw.coins), (", pickaxe ×%d" % int(rw.pick)) if rw.get("pick", 0) else "", (", rock drill ×%d" % int(rw.bore_h)) if rw.get("bore_h", 0) else ""]))
-	if claimed:
-		v.add_child(UI.label("✓ Claimed", 13, UI.body_bold, UI.GOOD))
-	elif full:
-		var b := UI.button("Claim reward", "gold", 15)
-		b.custom_minimum_size = Vector2(0, 44)
-		b.pressed.connect(func():
-			if st.id in Save.d.sets: return
-			Save.d.sets.append(st.id)
-			Save.d.coins += int(rw.coins)
-			Save.d.boost.pick += int(rw.get("pick", 0))
-			Save.d.boost.bore_h += int(rw.get("bore_h", 0))
-			Save.persist()
-			Sfx.play("coin")
-			render()
-			Ov.toast("%s: reward claimed" % st.n))
-		v.add_child(b)
-	p.add_child(v)
-	return p
 
 ## a dark gallery: warm wood fading to black, wall panels, two spotlights from above
 class MuseumBg extends Control:

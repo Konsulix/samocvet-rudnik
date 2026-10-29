@@ -148,7 +148,7 @@ static func open() -> void:
 	ms.add_child(_btn("All animations on", false, func(): _alive()))
 	var evs: Array = ["hole", "coil", "eyes", "bat", "lizard"]
 	if a == 1: evs = ["lizard", "reflection", "window", "brine"]
-	elif a == 2: evs = ["ink", "bubbles", "tip", "compass", "frost", "bolt_far", "bolt_near", "sheet", "bolt_rod", "elmo", "gull"]
+	elif a == 2: evs = ["ink", "bubbles", "tip", "compass", "sulphur", "bolt_far", "bolt_near", "sheet", "bolt_rod", "elmo", "gull"]
 	for ev in evs:
 		ms.add_child(_btn("Event: " + ev, false, func():
 			MineView.force_event = ev

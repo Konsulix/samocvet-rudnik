@@ -10,6 +10,7 @@ func _exit_tree() -> void:
 	if args.has("diag"): print(Diag.text())
 	Level.release_pool()
 	MineView.release()
+	Atlas.release()
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -43,8 +44,8 @@ func _ready() -> void:
 	if args.has("built"):
 		Save.d.built[Save.area()] = Array(args.built.split(","))
 		Save.d.depth[Save.area()] = int(args.get("open", "1"))
-	if args.has("wins"):   # wins per depth, e.g. wins=3,2,0 (the drawn mine fills a depth with people after two)
 	if args.has("beaten"): Save.d.boss_won[Save.area()] = true   # the mine's boss beaten (its flags fly)
+	if args.has("wins"):   # wins per depth, e.g. wins=3,2,0 (the drawn mine fills a depth with people after two)
 		var ws: PackedStringArray = String(args.wins).split(",")
 		for i in ws.size(): Save.d.dwins[i] = int(ws[i])
 	if args.has("steps"):  # job steps paid, e.g. steps=camp:2,chamber:1
@@ -67,6 +68,8 @@ func _ready() -> void:
 			st.dl = i % Data.depths(Save.area()).size()   # spread over the mine's depths: its pedestals show the best of each
 			Save.d.coll.append(st)
 			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+		Save.d.atlas = {}
+		for st in Save.d.coll: Save.note_find(st, int(st.area), int(st.dl))
 		Save.d.jewels = [{id = 77, rid = "crown", cols = ["#e0115f", "#0f52ba", "#50c878", "#e8f4ff", "#ffd700"], names = ["ruby", "sapphire"], value = 9000}]
 		Save.d.coins = 5000
 	if args.has("fossils"):
@@ -172,6 +175,8 @@ func _ready() -> void:
 		Save.persist()
 	if args.has("tab"):
 		Museum.start_tab = args.tab
+	if args.has("atlas"):
+		Atlas.start_area = int(args.atlas)
 	if args.has("screen"):
 		go(args.screen)
 	elif args.has("level"):
@@ -336,7 +341,16 @@ func go(id: String) -> void:
 			var d := Depot.new()
 			_swap(d)
 			d.go.connect(go)
+		"atlas":
+			var at := Atlas.new()
+			_swap(at)
+			at.go.connect(go)
+			at.replay.connect(_replay_boss)
 		"museum":
+			var cb := Cabinet.new()
+			_swap(cb)
+			cb.go.connect(go)
+		"stones":
 			var m := Museum.new()
 			_swap(m)
 			m.go.connect(go)
@@ -380,7 +394,24 @@ func _hoard_demo() -> void:
 	var hs := await Hoard.pick(Save.area())
 	Reveal.new().show_stone(hs)
 
+## a beaten boss fought again from the atlas: the fight is that mine's (its board, frame, music), so the mine is
+## switched for it and switched back after (Save.d.area_back brings it back if the game closes mid-fight)
+var _replay := -1
+func _replay_boss(a: int) -> void:
+	Save.tick_lives()
+	if Save.d.lives <= 0:
+		Ov.toast("No lives: next in %d min" % Save.minutes_to_life())
+		return
+	_replay = a
+	Save.d.area_back = Save.d.area
+	Save.d.area = a
+	Save.persist()
+	show_level(Save.d.level, [], Data.depths(a).size(), LevelGen.boss_fight(a))
+
 func _on_level_finished(res: Dictionary) -> void:
+	if _replay >= 0:
+		await _replay_done(res)
+		return
 	Save.level_played(res.won, int(res.get("depth", 0)))
 	if not res.get("boss", false):
 		var mined: Dictionary = res.get("mined", {})
@@ -403,6 +434,21 @@ func _on_level_finished(res: Dictionary) -> void:
 			await Reveal.new().crack(s, "A stone from a geode on the board")
 		await _win_card(res)
 	show_home()
+
+func _replay_done(res: Dictionary) -> void:
+	var a := _replay
+	_replay = -1
+	Save.d.area = int(Save.d.area_back)
+	Save.d.area_back = -1
+	Save.persist()
+	if res.won:
+		var v := Ov.card()
+		v.add_child(UI.title("%s is beaten again" % Data.AREAS[a].boss.n, 22))
+		v.add_child(Reveal.chip("$ +%s" % UI.fmt(int(res.coins)), true))
+		v.add_child(Ov.btn("Continue", "green", func(): Ov.close()))
+		await Ov.closed
+	Atlas.start_area = -1
+	go("atlas")
 
 ## the end-of-level card: coins, the win streak
 func _win_card(res: Dictionary) -> void:
