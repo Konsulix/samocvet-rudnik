@@ -46,7 +46,7 @@ var FLW := []       # the cells of the Mistress' stone flower (2x2, "F" on her b
 var flower := {}
 ## the Kraken (Whalebone Cove): ink hides stones, still playable (moves left before it thins away); the tide floods the
 ## bottom rows (moves left: its stones can't move, match or be hit); SEA: 1 the maelstrom's water in the middle of its
-## ring (3x3, "O" on the map: its top left), 2 his eye (3x3, "E")
+## ring (3x3, "O" on the map: its top left), 2 his eye (2x2, "E")
 var INK := []
 var TIDE := []
 var SEA := []
@@ -567,8 +567,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					for d in QUAD:
 						FLW[r + d.x][c + d.y] = true
 				"O", "E":
-					for dr in 3:
-						for dc in 3: SEA[r + dr][c + dc] = 1 if ch == "O" else 2
+					var sn := 3 if ch == "O" else 2
+					for dr in sn:
+						for dc in sn: SEA[r + dr][c + dc] = 1 if ch == "O" else 2
 					if ch == "O": ring = _ring_round(r, c, 3, 3)
 					else: eye = {r = r, c = c, shut = 0}
 				"k":
@@ -873,8 +874,8 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 			if int(eye.shut) <= 0 and boss_on():
 				var A: Dictionary = boss.B.act.get("eye", {})
 				eye.shut = int(A.get("shut", 2)) + 1
-				_fx(t, "eye_hit", {r = int(eye.r) + 1, c = int(eye.c) + 1})
-				_boss_damage(int(A.get("dmg", 60)), int(eye.r) + 1, int(eye.c) + 1, t)
+				_fx(t, "eye_hit", {r = float(eye.r) + 0.5, c = float(eye.c) + 0.5})
+				_boss_damage(int(A.get("dmg", 60)), int(eye.r), int(eye.c), t)
 		return
 	if ROCK[r][c]:   # rocks soak a hit
 		if kind == "adj" and _rock_hit.has(k): return

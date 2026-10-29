@@ -59,7 +59,6 @@ func _ready() -> void:
 	flower_layer = _layer(_draw_flower)
 	flower_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sea_under = _layer(_draw_sea_under)
-	sea_under.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
@@ -67,6 +66,7 @@ func _ready() -> void:
 	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
 	over.material = BoardSprites.plain_material()
 	sea_over = _layer(_draw_sea_over)
+	sea_over.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 func _layer(fn: Callable) -> Node2D:
 	var n := Node2D.new()
@@ -566,14 +566,18 @@ func _gui_input(e: InputEvent) -> void:
 
 # ---------------------------------------------------------------- the Kraken's board
 
-## the middle of the 3x3 block of SEA cells of kind k, or (-1, -1)
+## the middle of the block of SEA cells of kind k (the maelstrom's 3x3, his eye's 2x2), or (-1, -1)
 func _sea_mid(k: int) -> Vector2:
+	var sum := Vector2.ZERO
+	var n := 0
 	for r in R:
 		for c in C:
-			if model.SEA[r][c] == k: return cell_center(r + 1, c + 1)
-	return Vector2(-1, -1)
+			if model.SEA[r][c] == k:
+				sum += cell_center(r, c)
+				n += 1
+	return sum / n if n else Vector2(-1, -1)
 
-## the maelstrom's water turning in the middle of its ring; his eye, open (watching the board) or shut
+## the maelstrom's water turning in the middle of its ring
 func _draw_sea_under(ci: Node2D) -> void:
 	if model == null: return
 	var now := Time.get_ticks_msec() / 1000.0
@@ -590,53 +594,33 @@ func _draw_sea_under(ci: Node2D) -> void:
 				var a := now * 1.6 + arm * TAU / 5.0 + q * 4.2
 				pts.append(w + Vector2(cos(a), sin(a)) * rad * (0.95 - q * 0.75))
 			ci.draw_polyline(pts, Color(0.62, 0.82, 0.88, 0.5), maxf(1.5, TS * 0.05), true)
+
+## his eye (2x2, art/boss/export_kraken.py, on the boss' 1-pt grid): drawn over the stones - it bulges up out of the
+## board, its torn edge over the cells round it, its shadow on them; open (watching the board) or shut after a hit
+func _draw_eye(ci: Node2D, now: float) -> void:
 	var e := _sea_mid(2)
-	if e.x >= 0.0 and not model.eye.is_empty():
-		var rad := TS * 1.4
-		var shut := int(model.eye.shut) > 0
-		# his own drawn eye (art/boss/export_kraken.py), on the boss' 1-pt grid; drawn in code while there is none
-		if not _eye_tex.is_empty():
-			var tx: Texture2D = _eye_tex.shut if shut else _eye_tex.open
-			if not shut:
-				var glow := 0.55 + 0.25 * sin(now * 2.2)
-				GemArt.radial_disc(ci, e, rad * 1.15, Color(0.5, 0.9, 1.0, 0.3 * glow), Color(0.4, 0.85, 1.0, 0.1), Color(0.4, 0.85, 1.0, 0))
-			var sz := (Vector2(tx.get_size()) * TS / 37.0).round()
-			ci.draw_texture_rect(tx, Rect2((e - sz * 0.5).round(), sz), false)
-			var since0 := now - eye_at
-			if since0 < 0.4:
-				ci.draw_circle(e, rad * (1.0 + since0), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since0 / 0.4)), false, 3.0)
-			return
-		ci.draw_circle(e, rad, Color("#2c2028"))
-		ci.draw_circle(e, rad * 0.9, Color("#4a3640"))
-		if shut:
-			# the lids drawn together: a fold of hide with the eye's glow leaking along the seam
-			var seam := PackedVector2Array()
-			for i in 17:
-				var x := -1.0 + i / 8.0
-				seam.append(e + Vector2(x * rad * 0.85, sin(x * PI) * 2.0 - (1.0 - x * x) * rad * 0.12))
-			ci.draw_polyline(seam, Color(0.5, 0.88, 1.0, 0.55), maxf(2.0, TS * 0.07), true)
-			ci.draw_polyline(seam, Color("#1a1218"), maxf(1.0, TS * 0.03), true)
-		else:
-			var look := Vector2(sin(now * 0.7) * 0.18, sin(now * 0.43) * 0.1) * rad
-			var glow := 0.55 + 0.25 * sin(now * 2.2)
-			GemArt.radial_disc(ci, e + look, rad * 0.95, Color(0.5, 0.9, 1.0, 0.35 * glow), Color(0.4, 0.85, 1.0, 0.12), Color(0.4, 0.85, 1.0, 0))
-			ci.draw_circle(e + look, rad * 0.62, Color("#7fe0ff"))
-			ci.draw_circle(e + look, rad * 0.5, Color("#4fb6d6"))
-			# the slit pupil of a cephalopod, lying flat
-			var slit := PackedVector2Array()
-			for i in 16:
-				var a := i / 16.0 * TAU
-				slit.append(e + look + Vector2(cos(a) * rad * 0.42, sin(a) * rad * 0.09))
-			ci.draw_colored_polygon(slit, Color("#05080b"))
-			ci.draw_circle(e + look + Vector2(-rad * 0.22, -rad * 0.24), rad * 0.08, Color(1, 1, 1, 0.8))
-		var since := now - eye_at
-		if since < 0.4:
-			ci.draw_circle(e, rad * (1.0 + since), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since / 0.4)), false, 3.0)
+	if e.x < 0.0 or model.eye.is_empty() or _eye_tex.is_empty(): return
+	var shut := int(model.eye.shut) > 0
+	var tx: Texture2D = _eye_tex.shut if shut else _eye_tex.open
+	if not shut:
+		var glow := 0.55 + 0.25 * sin(now * 2.2)
+		GemArt.radial_disc(ci, e, TS * 1.3, Color(0.5, 0.9, 1.0, 0.25 * glow), Color(0.4, 0.85, 1.0, 0.08), Color(0.4, 0.85, 1.0, 0))
+	var k := TS / 37.0
+	var sz := (Vector2(tx.get_size()) * k).round()
+	var at := (e - sz * 0.5).round()
+	# its own shape as a shadow cast down-right
+	ci.draw_texture_rect(tx, Rect2(at + (Vector2(6, 8) * k).round(), sz), false, Color(0, 0, 0, 0.28))
+	ci.draw_texture_rect(tx, Rect2(at + (Vector2(3, 4) * k).round(), sz), false, Color(0, 0, 0, 0.45))
+	ci.draw_texture_rect(tx, Rect2(at, sz), false)
+	var since := now - eye_at
+	if since < 0.4:
+		ci.draw_circle(e, TS * (1.0 + since), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since / 0.4)), false, 3.0)
 
 ## the tide over the bottom rows, the ink clouds, the tentacles gripping their stones
 func _draw_sea_over(ci: Node2D) -> void:
 	if model == null: return
 	var now := Time.get_ticks_msec() / 1000.0
+	_draw_eye(ci, now)
 	for r in R:
 		for c in C:
 			if not model.playable(r, c): continue
