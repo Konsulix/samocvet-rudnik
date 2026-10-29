@@ -330,6 +330,7 @@ static func _sea(lv: Level) -> void:
 		tw.kill()
 		return
 	sound(lv, "maelstrom")
+	lv.board.whirl_kick()
 	await tw.finished
 	await lv._resolve([], [])
 
