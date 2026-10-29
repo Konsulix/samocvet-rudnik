@@ -4,10 +4,11 @@ extends Node2D
 ## dark water from just above the frame's top bar down to the frame itself - into the board's cut-away top corners too -
 ## so where another boss' flat-cut bottom sank into a black box, his body goes on under the water, darker and darker.
 ## And his arms (`arm_strip.png`, one straight drawing bent live, Bend, on the 1-pt grid through a PixelLayer): on the
-## last board two rise from behind him over the fight's top bar, sway, grope and now and then slap down on the end of
-## the boss' name plate (never over its words). Each arm is drawn twice along the same curve: once behind his sprite
-## (where it grows out of his body) and once over the top bar, clipped to above his stage, so the two meet without a
-## seam. The close button, the moves and the bubble stay over them.
+## last board two rise out of the water in front of him over the fight's top bar, sway, grope and now and then slap down
+## on the end of the boss' name plate (never over its words). Each arm is drawn twice along the same curve: once over his
+## sprite and under the water (`back`, between BossView and this node: its root is under the surface) and once over the
+## top bar, clipped to above his stage (`front`) - both over him, so they meet without a seam. The close button, the
+## moves and the bubble stay over them. Where an arm comes out of the water, a ring of foam.
 
 const WAVE := 4.0            # the surface's swell, pt
 const OVER := 16.0           # the surface stands this far over the frame's top bar
@@ -20,12 +21,13 @@ var arm_root := 34.0
 var surface := 0.0           # the water line, in the level's coordinates
 var bottom := PackedFloat32Array()   # per x of the screen: how far down the water goes
 var arms_on := false         # the last board: the arms are up
-var back: PixelLayer         # the arms behind his sprite
+var back: PixelLayer         # the arms over his sprite, under the water (the rim arms' roots too)
 ## two more arms on every board, like the Poloz' tail and the Mistress' lizards: out of his water at the board's top
 ## corners they reach over the top bar and hang down its left and right bars, following the frame's steps, stretch and
 ## draw back, a wave down them, the tip groping and curling; now and then one squeezes and the frame shudders.
 ## Over the frame, never over the stones
 var rim: PixelLayer
+var rim_clip: Control        # the rim arms over the frame: only below the water (their roots are in `back`)
 const RIM_M := 60.0          # room round the board in the rim's layer
 var _rims: Array[PackedVector2Array] = []
 var _squeeze := -10.0
@@ -55,15 +57,18 @@ static func load_for(level: Level, v: BossView) -> BossSea:
 
 func _ready() -> void:
 	var vp := lv.get_viewport_rect().size
-	back = PixelLayer.make(vp, _draw_arms)
+	back = PixelLayer.make(vp, _draw_under)
 	lv.add_child(back)
-	lv.move_child(back, view.get_index())
+	lv.move_child(back, view.get_index() + 1)
 	var bs := lv.board.size
 	rim = PixelLayer.make(bs + Vector2(RIM_M, RIM_M) * 2.0, _draw_rim, Vector2(RIM_M, RIM_M))
-	rim.position = -Vector2(RIM_M, RIM_M)
+	rim_clip = Control.new()
+	rim_clip.clip_contents = true
+	rim_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rim_clip.add_child(rim)
 	var f := LevelBoss.frame(lv)
-	lv.shaker.add_child(rim)
-	lv.shaker.move_child(rim, f.get_index() + 1)
+	lv.shaker.add_child(rim_clip)
+	lv.shaker.move_child(rim_clip, f.get_index() + 1)
 	front = Control.new()
 	front.clip_contents = true
 	front.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -85,6 +90,7 @@ func fit() -> void:
 	surface = top_line - OVER
 	var reach := b.TS * (float(f.meta.offset) + 0.3)
 	var gx0 := lv.holder.position.x + b.PAD
+	var sprite_bottom := view.position.y + view.size.y
 	bottom.resize(int(vp.x) + 1)
 	for x in bottom.size():
 		var gx := x - gx0
@@ -98,12 +104,24 @@ func fit() -> void:
 					if d <= 0.0: top = minf(top, y)
 					else: near = minf(near, y + d * 0.6)
 					break
-		# over a bar: down to it; past the board's sides: a little lower, fading
+		# over a bar: down to it; past the board's sides: a little lower, fading - never short of his sprite's bottom
 		bottom[x] = top + 2.0 if top < INF else minf(near, top_line + DEEP_FADE) if near < INF else top_line + DEEP_FADE
+		bottom[x] = maxf(bottom[x], sprite_bottom + 6.0)
 	front.position = Vector2.ZERO
 	front.size = Vector2(vp.x, view.position.y)
 	_rim_paths(reach - b.TS * 0.3)
+	# the rim arms show over the frame from its top bar down; above it they are in the water (`back`)
+	var cut := b.PAD + _top_row() * b.TS - reach
+	rim_clip.position = Vector2(-RIM_M, cut)
+	rim_clip.size = b.size + Vector2(RIM_M * 2.0, RIM_M - cut)
+	rim.position = Vector2(0, -cut - RIM_M)
 	queue_redraw()
+
+func _top_row() -> int:
+	for r in lv.model.R:
+		for c in lv.model.C:
+			if lv.model.playable(r, c): return r
+	return 0
 
 ## the lines the rim arms lie along (the board's coordinates): out of the water over a top corner of the frame, over
 ## its top bar and down the middle of the left / the right bar, round every step
@@ -114,6 +132,7 @@ func _rim_paths(off: float) -> void:
 	_rims.clear()
 	for side in [-1, 1]:
 		var ctrl := PackedVector2Array()
+		var last_x := 0.0
 		for r in m.R:
 			var cs := range(m.C).filter(func(c: int) -> bool: return m.playable(r, c))
 			if cs.is_empty(): continue
@@ -123,6 +142,13 @@ func _rim_paths(off: float) -> void:
 				# its root in the water, a little in from the corner: it comes up over the bar and down
 				ctrl.append(Vector2(x - side * b.TS * 0.9, sea_y + 4.0))
 				ctrl.append(Vector2(x - side * b.TS * 0.2, yt - off))
+			elif not is_equal_approx(x, last_x):
+				# a step of the frame: along its level bar (over this row when it is wider, under the last when narrower),
+				# not across the cells at its corner
+				var y_bar := yt - off if (x - last_x) * side > 0.0 else yt + off
+				ctrl.append(Vector2(last_x, y_bar))
+				ctrl.append(Vector2(x, y_bar))
+			last_x = x
 			ctrl.append(Vector2(x, yt + b.TS * 0.25))
 			ctrl.append(Vector2(x, yt + b.TS * 0.75))
 		_rims.append(Bend.smooth(ctrl, 6))
@@ -160,8 +186,8 @@ func _process(dt: float) -> void:
 		if _t > _next_slap:
 			_slap = _t
 			_next_slap = _t + randf_range(5.0, 9.0)
-		back.redraw()
 		front_px.redraw()
+	back.redraw()
 	if rim: rim.redraw()
 	if _t > _next_squeeze:
 		_squeeze = _t
@@ -267,6 +293,12 @@ func _draw() -> void:
 			if p.y > surface + 4.0: continue
 			var sz := 1.0 + float(k % 3)
 			draw_rect(Rect2(p.round(), Vector2(sz, sz)), Color(0.8, 0.9, 0.9, 0.85 * clampf(1.6 - ss, 0.0, 1.0)))
+	# a ring of foam where each arm comes up through the surface
+	for pts: PackedVector2Array in _crossings():
+		for p in pts:
+			var wob := sin(_t * 5.0 + p.x) * 1.5
+			draw_arc(p + Vector2(0, 1), 9.0 + wob, PI * 1.05, TAU * 0.98, 10, Color(0.85, 0.93, 0.9, 0.7), 1.0)
+			draw_arc(p + Vector2(0, 2), 13.0 - wob, PI * 1.1, TAU * 0.95, 10, Color(0.85, 0.93, 0.9, 0.35), 1.0)
 	# foam: short bright dashes riding the swell
 	for k in 14:
 		var fx := fposmod(k * 61.0 + _t * (8.0 + k % 3 * 5.0), float(w))
@@ -275,30 +307,69 @@ func _draw() -> void:
 
 # ---------------------------------------------------------------- the arms on his frame
 
-func _draw_rim(ci: Node2D) -> void:
-	if arm_tex == null or _rims.is_empty(): return
-	var ts := lv.board.TS
+## where the arms come up through the surface (the level's coordinates), for the foam
+func _crossings() -> Array:
+	var out := []
+	var hits := PackedVector2Array()
+	var lines := []
+	var off := lv.holder.position
 	for i in _rims.size():
-		var path := _rims[i]
-		var side := -1.0 if i == 0 else 1.0
-		var ph := _t * 0.3 + i * 2.4
-		# how far down it hangs: out of the water, over the bar and on down, reaching and drawing back
-		var out := ts * (5.0 + 1.4 * sin(ph) + 0.5 * sin(ph * 2.3 + 1.0))
-		var pts := Bend.sample(path, 0.0, minf(out, Bend.length(path)), 44)
-		var n := pts.size()
-		var sq := clampf(1.0 - absf(_t - _squeeze - 0.4) / 0.5, 0.0, 1.0) if i == int(_squeeze) % 2 else 0.0
-		for k in n:
-			var q := k / float(n - 1)
-			var d := (pts[mini(k + 1, n - 1)] - pts[maxi(k - 1, 0)]).normalized()
-			var nrm := Vector2(-d.y, d.x)
-			# a slow wave down it, the tip groping out over the board's rim and curling back; a squeeze pulls it taut
-			var wave := sin(q * 8.0 - _t * 2.0 + i) * ts * 0.07 * q * (1.0 - sq)
-			var curl := -side * pow(q, 4.0) * ts * (0.35 + 0.25 * sin(_t * 1.1 + i * 1.7)) * (1.0 - sq)
-			pts[k] += nrm * (wave + curl)
-		var half := ts * (0.36 + 0.05 * sq)
-		# it comes up out of the water: faint at the root
-		var col := func(q: float) -> Color: return Color(1, 1, 1, clampf(q / 0.15, 0.0, 1.0))
-		Bend.draw(ci, pts, func(_q: float) -> float: return half, arm_tex, 0.0, 1.0, i == 0, col)
+		var pts := _rim_arm(i)
+		for k in pts.size(): pts[k] += off
+		lines.append(pts)
+	if arms_on:
+		for i in 2: lines.append(_arm(i))
+	for pts: PackedVector2Array in lines:
+		for k in range(1, pts.size()):
+			if (pts[k - 1].y - surface) * (pts[k].y - surface) <= 0.0:
+				hits.append(Vector2(pts[k].x, surface))
+				break
+	out.append(hits)
+	return out
+
+## the rim arms, the part of them over the frame (their whole length, clipped to below the water by rim_clip)
+func _draw_rim(ci: Node2D) -> void:
+	for i in _rims.size(): _rim_draw(ci, i, Vector2.ZERO)
+
+## the arms under the water, in the level's coordinates: the rim arms' roots, and on the last board the big arms
+func _draw_under(ci: Node2D) -> void:
+	for i in _rims.size(): _rim_draw(ci, i, lv.holder.position)
+	_draw_arms(ci)
+
+func _rim_draw(ci: Node2D, i: int, at: Vector2) -> void:
+	if arm_tex == null: return
+	var pts := _rim_arm(i)
+	for k in pts.size(): pts[k] += at
+	var ts := lv.board.TS
+	var sq := clampf(1.0 - absf(_t - _squeeze - 0.4) / 0.5, 0.0, 1.0) if i == int(_squeeze) % 2 else 0.0
+	var half := ts * (0.36 + 0.05 * sq)
+	# the drawing's very tip is a few thin pixels: left off, they only fray when bent
+	Bend.draw(ci, pts, func(_q: float) -> float: return half, arm_tex, 0.0, 0.96, i == 0)
+
+## a rim arm's curve (the board's coordinates)
+func _rim_arm(i: int) -> PackedVector2Array:
+	var ts := lv.board.TS
+	var path := _rims[i]
+	var side := -1.0 if i == 0 else 1.0
+	var ph := _t * 0.3 + i * 2.4
+	# how far down it hangs: out of the water, over the bar and on down, reaching and drawing back
+	var out := ts * (5.0 + 1.4 * sin(ph) + 0.5 * sin(ph * 2.3 + 1.0))
+	var pts := Bend.sample(path, 0.0, minf(out, Bend.length(path)), 44)
+	var n := pts.size()
+	var sq := clampf(1.0 - absf(_t - _squeeze - 0.4) / 0.5, 0.0, 1.0) if i == int(_squeeze) % 2 else 0.0
+	# offsets across it, then the normals of the bent line: a gentle wave and a gentle curl of the tip (a hard
+	# one folds the strip over itself)
+	var off := PackedFloat32Array()
+	for k in n:
+		var q := k / float(n - 1)
+		var wave := sin(q * 6.0 - _t * 2.0 + i) * ts * 0.05 * q * (1.0 - sq)
+		var curl := -side * pow(q, 3.0) * ts * (0.22 + 0.12 * sin(_t * 1.1 + i * 1.7)) * (1.0 - sq)
+		off.append(wave + curl)
+	var bent := PackedVector2Array()
+	for k in n:
+		var d := (pts[mini(k + 1, n - 1)] - pts[maxi(k - 1, 0)]).normalized()
+		bent.append(pts[k] + Vector2(-d.y, d.x) * off[k])
+	return bent
 
 # ---------------------------------------------------------------- his arms
 
@@ -306,8 +377,9 @@ func _draw_rim(ci: Node2D) -> void:
 ## one slaps down across the name plate and lifts again
 func _arm(i: int) -> PackedVector2Array:
 	var sx := 1.0 if i == 0 else -1.0
-	var root := view.position + Vector2(view.size.x * (0.12 if i == 0 else 0.9), view.size.y * 0.5)
-	var length := view.size.y * (1.25 if i == 0 else 1.0)
+	# out of the water in front of him, up past his sides over the top bar
+	var root := Vector2(view.position.x + view.size.x * (0.1 if i == 0 else 0.9), surface + 22.0)
+	var length := (surface - view.position.y) * (1.55 if i == 0 else 1.35)
 	var s := _t - _slap
 	var slap := 0.0
 	if i == int(_slap * 7.0) % 2 and s < 1.6:
@@ -335,4 +407,4 @@ func _draw_arms(ci: Node2D) -> void:
 		var L := Bend.length(pts)
 		# the drawing tapers by itself: laid whole along the arm, as thick as its length keeps its proportions
 		var half := L / aspect * 0.5
-		Bend.draw(ci, pts, func(_q: float) -> float: return half, arm_tex, 0.0, 1.0, i == 1)
+		Bend.draw(ci, pts, func(_q: float) -> float: return half, arm_tex, 0.0, 0.96, i == 1)
