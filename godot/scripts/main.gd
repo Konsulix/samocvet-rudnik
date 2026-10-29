@@ -165,6 +165,10 @@ func _ready() -> void:
 			st.dl = i % 6
 			Save.d.coll.append(st)
 		if not "trilobite" in Save.d.seen: Save.d.seen.append("trilobite")
+		# kept in the save, so a later run without the key still has them (and the atlas knows them)
+		for st: Dictionary in Save.d.coll:
+			if st.get("sid", "") == "trilobite": Save.note_find(st, 2, int(st.dl))
+		Save.persist()
 	if args.has("tab"):
 		Museum.start_tab = args.tab
 	if args.has("screen"):
