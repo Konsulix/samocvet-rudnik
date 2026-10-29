@@ -37,6 +37,8 @@ var sea_over: Node2D
 var tent_at := {}             # tentacle id -> when it reached out (it slides onto the board tip first)
 var eye_at := -10.0           # when the eye was last hit: it flinches shut
 const TENT_IN := 0.55
+var _eye_tex := {}            # his drawn eye, open and shut: loaded with the board (a texture first drawn the frame it
+                              # loads shows white)
 var _down := {}
 
 func _init() -> void:
@@ -57,6 +59,7 @@ func _ready() -> void:
 	flower_layer = _layer(_draw_flower)
 	flower_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sea_under = _layer(_draw_sea_under)
+	sea_under.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
@@ -93,6 +96,10 @@ func cell_at(p: Vector2) -> Vector2i:
 
 func rebuild(m: BoardModel) -> void:
 	model = m
+	_eye_tex = {}
+	var dir := "res://assets/boss/%s/" % String(m.boss.B.get("id", "")) if m.boss_on() else ""
+	if dir != "" and not m.eye.is_empty() and ResourceLoader.exists(dir + "eye_open.png"):
+		_eye_tex = {open = load(dir + "eye_open.png"), shut = load(dir + "eye_shut.png")}
 	for n in gems.get_children(): n.queue_free()
 	nodes.clear()
 	for r in R:
@@ -587,6 +594,18 @@ func _draw_sea_under(ci: Node2D) -> void:
 	if e.x >= 0.0 and not model.eye.is_empty():
 		var rad := TS * 1.4
 		var shut := int(model.eye.shut) > 0
+		# his own drawn eye (art/boss/export_kraken.py), on the boss' 1-pt grid; drawn in code while there is none
+		if not _eye_tex.is_empty():
+			var tx: Texture2D = _eye_tex.shut if shut else _eye_tex.open
+			if not shut:
+				var glow := 0.55 + 0.25 * sin(now * 2.2)
+				GemArt.radial_disc(ci, e, rad * 1.15, Color(0.5, 0.9, 1.0, 0.3 * glow), Color(0.4, 0.85, 1.0, 0.1), Color(0.4, 0.85, 1.0, 0))
+			var sz := (Vector2(tx.get_size()) * TS / 37.0).round()
+			ci.draw_texture_rect(tx, Rect2((e - sz * 0.5).round(), sz), false)
+			var since0 := now - eye_at
+			if since0 < 0.4:
+				ci.draw_circle(e, rad * (1.0 + since0), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since0 / 0.4)), false, 3.0)
+			return
 		ci.draw_circle(e, rad, Color("#2c2028"))
 		ci.draw_circle(e, rad * 0.9, Color("#4a3640"))
 		if shut:
