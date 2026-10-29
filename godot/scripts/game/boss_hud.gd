@@ -15,6 +15,8 @@ var lv: Level
 var name_label: Label
 var sub_label: Label
 var moves_label: Label
+var close_btn: Control
+var moves_box: Control
 var hp := [1, 1]             # left, max
 var hp_rect := Rect2()
 var bubble: Control
@@ -52,6 +54,7 @@ func _ready() -> void:
 	close.size = Vector2(BAR, BAR)
 	close.pressed.connect(lv._on_quit)
 	add_child(close)
+	close_btn = close
 	# the boss' name over its title and depth, on the kit's title plate
 	var title := PanelContainer.new()
 	title.add_theme_stylebox_override("panel", Kit.box("title", 0.0))
@@ -90,6 +93,7 @@ func _ready() -> void:
 		mvv.add_child(l)
 	mv.add_child(mvv)
 	add_child(mv)
+	moves_box = mv
 	# the bubble draws itself (intent or words)
 	bubble = Control.new()
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE

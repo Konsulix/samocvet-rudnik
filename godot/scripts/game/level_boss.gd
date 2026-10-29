@@ -26,6 +26,7 @@ static func view(lv: Level) -> BossView: return lv.get_node_or_null("BossView") 
 static func frame(lv: Level) -> BossFrame: return lv.shaker.get_node_or_null("BossFrame") as BossFrame
 static func hud(lv: Level) -> BossHud: return lv.hud.get_node_or_null("BossHud") as BossHud
 static func lizards(lv: Level) -> BossLizards: return lv.shaker.get_node_or_null("BossLizards") as BossLizards
+static func sea(lv: Level) -> BossSea: return lv.get_node_or_null("BossSea") as BossSea
 
 ## a boss' own sound for a moment of the fight (its data's "sfx": hurt, phase, an action's name), or `fallback`
 static func sound(lv: Level, key: String, fallback := "") -> void:
@@ -72,8 +73,10 @@ static func mount(lv: Level) -> void:
 	v.name = "BossView"
 	lv.add_child(v)
 	lv.move_child(v, lv.holder.get_index())
-	var f := BossFrame.load_for(look)
-	f.kit_only = look != id
+	# his frame isn't made yet either: the first boss' kit, built round his boards
+	var flook := look if FileAccess.file_exists("res://assets/boss/%s/kit/kit.json" % look) else "poloz"
+	var f := BossFrame.load_for(flook)
+	f.kit_only = flook != id
 	f.name = "BossFrame"
 	lv.shaker.add_child(f)
 	lv.shaker.move_child(f, lv.board.get_index() + 1)
@@ -87,6 +90,13 @@ static func mount(lv: Level) -> void:
 	var h := BossHud.new(lv)
 	h.name = "BossHud"
 	lv.hud.add_child(h)
+	# the Kraken's sea over his bottom, and his arms
+	if ResourceLoader.exists(v.dir + "arm_strip.png"):
+		var s := BossSea.load_for(lv, v)
+		s.name = "BossSea"
+		lv.add_child(s)
+		lv.move_child(s, v.get_index() + 1)
+		s.set_board(int(lv.model.boss.stage))
 	# the level's title row and goal plate are the fight's top bar and health now
 	(lv.title_label.get_parent().get_parent() as Control).visible = false
 	(lv.moves_token.get_parent() as Control).visible = false
@@ -115,7 +125,13 @@ static func place(lv: Level) -> void:
 	var top_line := lv.holder.position.y + f.top_line()
 	var v := view(lv)
 	v.position = Vector2(float(v.meta.get("x", BOSS_X)), roundf(top_line + float(v.meta.get("sink", SINK)) - v.size.y))
-	_expose(lv, v, f)
+	var s := sea(lv)
+	if s:
+		# no flat-cut bottom to hide: it goes on under his water
+		v.set_exposed(PackedFloat32Array([0.0]), SINK_BAND)
+		s.fit()
+	else:
+		_expose(lv, v, f)
 	var h := hud(lv)
 	var gx := lv.holder.position.x + b.PAD
 	# inset by a cell and a bit: the quartz on the frame's top corners stays in sight
@@ -386,6 +402,7 @@ static func next_board(lv: Level) -> void:
 		refresh_hp(lv)
 		v.set_phase(int(m.boss.stage))
 		v.set_rest("rage" if int(m.boss.stage) >= 2 else "idle")
+	if sea(lv): sea(lv).set_board(int(m.boss.stage))
 	await lv.board.drop_in()
 	lv._toast(String(m.boss.B.stages[m.boss.stage].name))
 	show_intent(lv)
