@@ -534,8 +534,34 @@ func _lighthouse(c: CanvasItem) -> void:
 		c.draw_set_transform(at, 0.0 if dirx > 0 else PI, sc)
 		# out to sea (left) it shines; swung inland (right) it is mostly behind the hill and the station
 		var k := 1.0 if dirx < 0 else 0.3
-		c.draw_texture_rect(tex("beam.png"), Rect2(Vector2(0, -bs.y / 2), bs), false, Color(1.0, 0.92, 0.7, 0.55 * k * (0.4 + 0.6 * absf(bm.x))))
+		var bk := k * (0.4 + 0.6 * absf(bm.x))
 		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+		# the cone as a fan of light: narrow and bright at the lantern, wide and gone at its end (a halo, then the core)
+		var wd := float(lh.width) * (0.75 + 0.25 * (1.0 - absf(bm.x)))
+		for layer in 3:
+			var w0: float = [34.0, 20.0, 9.0][layer]
+			var w1: float = wd * [1.45, 1.0, 0.5][layer]
+			var a0: float = [0.08, 0.16, 0.42][layer] * bk
+			var end := at + Vector2(dirx * ln, 0)
+			var poly := PackedVector2Array([at + Vector2(0, -w0), end + Vector2(0, -w1), end + Vector2(0, w1), at + Vector2(0, w0)])
+			var cols := PackedColorArray([Color(1.0, 0.93, 0.72, a0), Color(1.0, 0.93, 0.72, 0.0), Color(1.0, 0.93, 0.72, 0.0), Color(1.0, 0.93, 0.72, a0)])
+			c.draw_polygon(poly, cols)
+		# rain lit up inside the beam: short slanting streaks falling through it
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 5
+		for j in 46:
+			var q := rng.randf_range(0.08, 0.95)
+			var half := wd * 0.55 * (0.1 + 0.9 * q)
+			var off := rng.randf_range(-1.0, 1.0) * half
+			var fall := fmod(t * 520.0 + rng.randf() * 900.0, 900.0) - 450.0
+			var p := at + Vector2(dirx * ln * q, off + fall * 0.25)
+			var inside := 1.0 - absf(p.y - at.y) / maxf(half, 1.0)
+			if inside <= 0.0:
+				continue
+			c.draw_line(p, p + Vector2(-8.0, 24.0), Color(0.95, 0.95, 0.9, 0.75 * bk * inside * (1.0 - q * 0.7)), 2.2)
+		# where it falls on the low clouds: a pale pool sweeping along them
+		if dirx < 0.0:
+			_light(c, at + Vector2(dirx * ln * 0.8, -40.0), 160.0 + 120.0 * absf(bm.x), Color(0.95, 0.9, 0.75, 0.16 * bk))
 	_light(c, at, 60 + 140 * bm.y, Color(1.0, 0.88, 0.6, 0.35 + 0.5 * bm.y))
 
 ## the chapel: its windows glow; every 31 s its bell strikes three times (rings of light from the belfry)
