@@ -79,18 +79,21 @@ func _lizard() -> void:
 	Bend.draw(self, body, func(_q: float) -> float: return hw, strip)
 
 ## his arm along the whole top bar - its cut root end on the frame's left edge, as if it comes round from behind -
-## over the upper right corner and down the right bar, reaching and drawing back there, its tip groping
+## over the upper right corner and down beside the frame, off its right bar, reaching and drawing back, its tip groping
 func _arm() -> void:
 	# the frame picture (kraken_frame.py avatar): 108 pt with 30 of room round a 48-pt window, its bars 14 thick
 	# (AVATAR_BAR) - the outer edge 16 pt in, the bars' middle 23 pt in
 	var edge := f * 16.0 / 108.0
 	var mid := f * 23.0 / 108.0
-	var ctrl := PackedVector2Array([Vector2(edge, mid), Vector2(f * 0.45, mid), Vector2(f - mid * 1.3, mid),
-		Vector2(f - mid, f * 0.35), Vector2(f - mid, f * 0.62), Vector2(f - edge * 0.5, f * 0.82)])
+	# along the top a little over the bar's middle; round the corner it goes off the frame and hangs beside it
+	var top := mid - f * 0.06
+	var out_x := f - edge + f * 0.09
+	var ctrl := PackedVector2Array([Vector2(edge, top), Vector2(f * 0.45, top), Vector2(f - edge, top + 1.0),
+		Vector2(out_x, f * 0.3), Vector2(out_x + f * 0.01, f * 0.62), Vector2(out_x + f * 0.05, f * 0.95)])
 	var line := Bend.smooth(ctrl, 8)
 	var full := Bend.length(line)
 	# the root stays at the edge; only the hanging end reaches and draws back
-	var out := full * (0.86 + 0.1 * sin(_t * 0.6) + 0.04 * sin(_t * 1.7))
+	var out := full * (0.9 + 0.07 * sin(_t * 0.6) + 0.03 * sin(_t * 1.7))
 	var pts := Bend.sample(line, 0.0, out, 36)
 	var n := pts.size()
 	for i in n:
