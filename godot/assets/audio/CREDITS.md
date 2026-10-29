@@ -89,3 +89,6 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 - `lap` — лодка у причала: [Boat by a wharf 3](https://commons.wikimedia.org/wiki/File:Boat_by_a_wharf_3.ogg) (общественное достояние).
 - `under` — море в разрезе: те же волны глухо + `loop_bubbles_02` rubberduck (CC0); `bubble_0..2` — пузыри водолаза (rubberduck `bubble_01..03`).
 - `tryworks` — салотопня: `amb/copper/furnace` + `loop_bubbles_1` (rubberduck).
+- `thunder_near_0..1`, `thunder_far_0..2` — гром: Joseph Sardin, BigSoundBank (CC0), одиночные удары без дождя
+  [#1](https://bigsoundbank.com/thunder-s2718.html), #3, #4, [#5](https://bigsoundbank.com/thunder-5-s3116.html), [#7](https://bigsoundbank.com/thunder-7-s3180.html)
+  (`prototype/tools/amb_storm_rec.py`, у близкого удара сверху короткий синтезированный треск); огни святого Эльма `elmo` — синтез `amb_storm.py`.

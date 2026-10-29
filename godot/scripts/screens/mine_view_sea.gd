@@ -1074,13 +1074,14 @@ func _storm_live(c: CanvasItem) -> void:
 				i += 1
 		if s >= e0 and not _storm.played.has("elmo"):
 			_storm.played["elmo"] = true
-			amb.shot("sea/elmo", -14.0 + _far(float(sd.rod[1])), randf_range(0.95, 1.05))
+			amb.shot_clear("sea/elmo", 4.0 + _far(float(sd.rod[1])), randf_range(0.95, 1.05))
 	# thunder: at once for a near strike, after the light's lead for a far one, a low roll for the sheet lightning
 	if not _storm.played.has("thunder") and s >= float(THUNDER_DELAY[kind]):
 		_storm.played["thunder"] = true
 		var near := kind == "near" or kind == "rod"
 		var snd := ("sea/thunder_near_%d" % (randi() % 2)) if near else ("sea/thunder_far_%d" % (randi() % 3))
-		amb.shot(snd, maxf(-10.0, _far(sky + 400.0)) - (2.0 if near else 8.0), randf_range(0.92, 1.05))
+		# a strike close by is the loudest thing on the screen (over the surf and the music), a far one a soft roll
+		amb.shot(snd, maxf(-10.0, _far(sky + 400.0)) + (10.0 if near else -2.0), randf_range(0.92, 1.05))
 
 ## after a win the level's ore flies down into the depth it came from: lumps of jet (black, glassy) and of iron
 func _ore_flight(c: CanvasItem) -> void:

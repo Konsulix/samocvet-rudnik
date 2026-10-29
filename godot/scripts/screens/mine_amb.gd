@@ -79,9 +79,17 @@ func shot(n: String, db := 0.0, pitch := 1.0) -> void:
 		var takes: Array = sm.f
 		_shot(Sfx._sample(takes[randi() % takes.size()]), float(sm.db) + db, pitch * float(sm.get("pitch", 1.0)))
 
-func _shot(st: AudioStream, db: float, pitch := 1.0) -> void:
+## like shot() for a mine's own file, but past the bus's low-pass and reverb (as far down as the bus, though): a sound
+## that is nearly all highs - St. Elmo's thin buzz - would be filtered away to nothing
+func shot_clear(n: String, db := 0.0, pitch := 1.0) -> void:
+	if not scene.is_visible_in_tree() or Save.d.get("mute", false):
+		return
+	_shot(_stream(n), db + Sfx.AMB_DB, pitch, "Master")
+
+func _shot(st: AudioStream, db: float, pitch := 1.0, bus := Sfx.AMB_BUS) -> void:
 	var p := _pool[_next]
 	_next = (_next + 1) % _pool.size()
+	p.bus = bus
 	p.stream = st
 	p.volume_db = db
 	p.pitch_scale = pitch * randf_range(0.95, 1.05)
