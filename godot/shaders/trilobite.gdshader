@@ -25,6 +25,7 @@ uniform sampler2D rock_tex : source_color, filter_linear_mipmap, repeat_enable;
 // a scan of stone over the shell (calcite, dark rock…): its lightness mottles the colour and roughens the relief
 uniform sampler2D scan_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float scan_k = 0.5;
+uniform float carve_k = 0.0;        // a prepared plate: air-pen tool marks in the matrix
 
 varying vec3 v_op;
 varying vec3 v_no;
@@ -106,6 +107,16 @@ void fragment() {
 		ro = 0.92;
 		me = 0.0;
 		h = fbm(p * 45.0) * 0.004 + vn(p * 140.0) * 0.001;
+		if (carve_k > 0.0) {
+			// the air-pen's marks: a maze of wormy ridges between little scooped hollows, the hollows in shadow
+			vec2 q = vec2(UV.x * 19.0, UV.y * 12.0) + (vec2(fbm(vec3(UV * 6.0, 1.0)), fbm(vec3(UV * 6.0, 4.0))) - 0.5) * 2.4;
+			vec3 cv = vor2(q);
+			// (the reference: pale rounded lumps, the air-pen's narrow dark grooves winding between them)
+			float groove = 1.0 - smoothstep(0.0, 0.11, cv.y);
+			float lump = 1.0 - smoothstep(0.1, 0.65, cv.x);
+			h = (lump * 0.5 - groove * 0.6) * 0.005 * carve_k + vn(p * 160.0) * 0.0006;
+			c = rock_col * (0.85 + 0.25 * lump + 0.08 * cv.z) * (1.0 - groove * 0.75) * (0.88 + 0.2 * fbm(p * 8.0));
+		}
 		NORMAL = bump(n, VERTEX, h, 1.0);
 	} else {
 		vec2 b = UV;
@@ -113,7 +124,7 @@ void fragment() {
 		float furrow = COLOR.g;
 		float glab = COLOR.b;
 		// granules: dense on the glabella, scattered over the rest by kind
-		vec3 gr = vor2(b * 95.0 + seed);
+		vec3 gr = vor2(b * mix(95.0, 70.0, glab) + seed);
 		float gk = max(glab, tub_k * 0.6) * tub_k;
 		float tub = (1.0 - smoothstep(0.15, 0.42, gr.x)) * gk * step(0.25, gr.z);
 		vec3 fine = vor2(b * 260.0 + seed * 3.0);
@@ -124,7 +135,7 @@ void fragment() {
 		vec3 sc = tri(scan_tex, p * 2.4 + seed, tw0).rgb;
 		float sl = dot(sc, vec3(0.3, 0.5, 0.2));
 		float pits = smoothstep(0.75, 0.9, vn(vec3(b * 140.0, seed))) * (1.0 - tub);
-		h = tub * 0.0022 + grain * 0.0004 + (wear - 0.5) * 0.0006 + (sl - 0.4) * 0.0012 * scan_k - pits * 0.0005;
+		h = tub * 0.005 + grain * 0.0004 + (wear - 0.5) * 0.0006 + (sl - 0.4) * 0.0012 * scan_k - pits * 0.0005;
 		// colour: darker down in the furrows, lighter and polished on the high points the rock wore
 		c = mix(base_col, dark_col, furrow * 0.65);
 		c *= 0.82 + 0.3 * fbm(vec3(b * 9.0, seed + 2.0));

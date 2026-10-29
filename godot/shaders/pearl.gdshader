@@ -23,6 +23,7 @@ uniform float circle_k = 0.0;
 uniform float blister_k = 0.0;
 uniform float moon_k = 0.0;
 uniform vec3 lip_col : source_color = vec3(0.8, 0.8, 0.78);
+uniform vec3 nacre_col : source_color = vec3(0.6, 0.6, 0.6);   // the mother-of-pearl's own grey (dark in a black-lip)
 uniform vec3 back_col : source_color = vec3(0.4, 0.38, 0.32);
 uniform float seed = 0.0;
 
@@ -67,9 +68,9 @@ void fragment() {
 	if (part == 0) {
 		vec3 d = normalize(v_dir + 1e-4);
 		// the body: deep and soft, lighter where it faces the viewer (light comes back out of the nacre)
-		c = body_col * (0.72 + 0.22 * nv);
+		c = body_col * (0.62 + 0.2 * nv);
 		// overtone: a tint floating over the body, strongest towards the rim, in soft patches
-		float patch = fbm(d * 2.5 + seed);
+		float patch = fbm(d * 1.6 + seed);
 		vec3 ov = mix(over_col, over2_col, smoothstep(0.35, 0.65, patch));
 		// (on a dark body the overtone tints it rather than painting over it)
 		float dk = clamp(1.0 - dot(body_col, vec3(0.3, 0.5, 0.2)) * 1.6, 0.0, 1.0);
@@ -86,8 +87,12 @@ void fragment() {
 			float s1 = pow(abs(sin(w.x * 38.0 + w.y * 9.0)), 6.0);
 			float s2 = pow(abs(sin(w.z * 38.0 - w.y * 11.0)), 6.0);
 			float sh = 0.5 + 0.5 * sin(dot(VIEW, n) * 7.0 + fbm(d * 5.0) * 8.0);
-			float flame = max(s1, s2) * smoothstep(0.35, 0.6, fbm(d * 2.5 + seed + 1.0)) * (0.35 + 0.65 * sh);
-			c = mix(c, vec3(1.0, 0.95, 0.92), flame * 0.5 * flame_k);
+			// and the mottle the flames gather into (white clouds over the pink in the reference)
+			float mott = smoothstep(0.5, 0.7, fbm(vec3(d.x * 5.0, d.y * 9.0, d.z * 5.0) + seed + 2.0));
+			vec3 wd = d * 11.0 + (vec3(fbm(d * 4.0 + seed), fbm(d * 4.0 + seed + 3.0), fbm(d * 4.0 + seed + 6.0)) - 0.5) * 3.0;
+			float fine = smoothstep(0.5, 0.75, fbm(wd));
+			float flame = max(max(s1, s2) * 0.25, max(mott * 0.7, fine * 0.8)) * smoothstep(0.3, 0.55, fbm(d * 2.0 + seed + 9.0)) * (0.45 + 0.55 * sh);
+			c = mix(c, vec3(1.0, 0.95, 0.92), flame * 0.65 * flame_k);
 		}
 		// circled pearls: grooves round them; the nacre's own faint rings and blemishes
 		float rings = pow(abs(sin(d.y * 11.0)), 6.0) * circle_k;
@@ -95,7 +100,7 @@ void fragment() {
 		float blem = smoothstep(0.82, 0.92, vn(d * 40.0 + seed)) * 0.5;
 		c *= 1.0 - blem * 0.12;
 		h = -rings * 0.004 + (fbm(d * 30.0) - 0.5) * 0.0015 * (1.3 - luster) - blem * 0.001;
-		ro = mix(0.36, 0.15, luster);
+		ro = mix(0.3, 0.07, luster);
 		// a blister: where it meets the shell it is nacre like the shell
 		c = mix(c, c * 0.85, blister_k * smoothstep(0.25, 0.0, d.y));
 		// the moon pearl: a cold light in it, clouds drifting across
@@ -106,6 +111,13 @@ void fragment() {
 			em = mc * (0.35 + 0.45 * smoothstep(0.35, 0.75, cl) - 0.3 * smoothstep(0.55, 0.8, cl2)) * moon_k * (0.6 + 0.4 * nv);
 			c *= 1.0 - 0.4 * moon_k;
 		}
+		// what the reference pearls show: the rim greys (it mirrors the dark room), and a crisp window of light
+		// near the top with a soft second one opposite — luster is how sharp they are
+		c *= mix(1.0, 0.42, pow(fr, 1.2) * (0.4 + 0.6 * luster));
+		vec3 rv = reflect(-VIEW, n);
+		float win = pow(max(dot(rv, normalize(vec3(-0.45, 0.55, 0.7))), 0.0), mix(25.0, 260.0, luster));
+		float win2 = pow(max(dot(rv, normalize(vec3(0.6, -0.3, 0.75))), 0.0), mix(10.0, 60.0, luster));
+		em += vec3(1.0, 0.98, 0.95) * (win * (0.5 + 0.8 * luster) + win2 * 0.08) * (1.0 - moon_k * 0.5);
 		METALLIC = 0.0;
 		SPECULAR = 0.45;
 	} else {
@@ -115,7 +127,7 @@ void fragment() {
 		vec3 p = v_op;
 		if (inside > 0.5) {
 			// where the nacre ends: a wandering line inside the edge
-			float nend = 0.78 + (fbm(vec3(bt * 9.0, 1.0, seed)) - 0.5) * 0.14;
+			float nend = 0.7 + (fbm(vec3(bt * 9.0, 1.0, seed)) - 0.5) * 0.14;
 			float nac = 1.0 - smoothstep(nend - 0.03, nend + 0.02, rho);
 			// mother-of-pearl: growth lines, a film whose colours slide over it and with the angle
 			// growth lines: faint, uneven, broken (not a fingerprint)
@@ -123,22 +135,30 @@ void fragment() {
 			float fl = fbm(p * 2.2 + seed);
 			vec3 film = hue(fl * 1.1 + fr * 0.7 + seed);
 			// silvery, a little of the lip's colour soaking in towards the edge; colour only where the film is thick
-			vec3 base = mix(vec3(0.5, 0.5, 0.5), lip_col * 0.7 + 0.04, smoothstep(0.3, 0.8, rho) * 0.55);
-			float fk = smoothstep(0.35, 0.75, fbm(p * 1.6 + seed + 4.0)) * (0.5 + 0.5 * fr);
-			vec3 mop = base * (0.82 + 0.2 * fbm(p * 12.0) - 0.1 * gl) + (film - 0.5) * 0.22 * fk * (0.4 + 0.6 * length(base));
+			// (the reference shells: a mirror-like grey that takes the dark of the room, rainbow sheen running in bands
+			// along the growth towards the edge, and in a few broad flashes)
+			vec3 base = mix(nacre_col, lip_col * 0.7 + 0.04, smoothstep(0.35, 0.75, rho) * 0.4);
+			float band = smoothstep(0.2, 0.9, sin(rho * 22.0 + fbm(p * 3.0 + seed) * 7.0) * 0.5 + 0.5) * smoothstep(0.25, 0.65, rho);
+			float fk = max(smoothstep(0.4, 0.75, fbm(p * 1.6 + seed + 4.0)), band) * (0.55 + 0.45 * fr);
+			// the sheen tints the nacre (on a dark black-lip it stays a dark sheen, not paint)
+			vec3 mop = base * (0.82 + 0.25 * fbm(p * 12.0) - 0.1 * gl) * (1.0 + (film - 0.5) * 0.7 * fk) + (film - 0.5) * 0.06 * fk;
 			// the muscle scar: a dull, faintly coloured patch in the middle
 			float scar = smoothstep(0.12, 0.06, length(vec2(rho - 0.5, (bt - 0.42) * 0.9)));
 			mop = mix(mop, mop * vec3(0.9, 0.85, 0.75), scar * 0.6);
 			// the lip: the oyster's own colour, deepest at the edge
-			vec3 lip = lip_col * (0.45 + 0.4 * smoothstep(1.05, nend, rho)) + (film - 0.5) * 0.05;
+			// the lip in thin layers, each a little paler at its edge, darker and more translucent-looking outward
+			float layer = fract(rho * 34.0 + fbm(vec3(bt * 12.0, rho * 4.0, seed)) * 2.0);
+			vec3 lip = lip_col * (0.4 + 0.45 * smoothstep(1.05, nend, rho)) * (0.85 + 0.25 * smoothstep(0.6, 1.0, layer)) + (film - 0.5) * 0.06;
 			// the fringe of growth scales beyond: thin, brownish, translucent-looking
 			vec3 fringe = back_col * (0.8 + 0.4 * fbm(p * 20.0));
 			c = mix(lip, mop, nac);
 			c = mix(c, fringe, smoothstep(1.0, 1.06, rho));
-			ro = mix(0.35, 0.16, nac) + scar * 0.2;
-			METALLIC = 0.35 * nac;
+			ro = mix(0.3, 0.1, nac) + scar * 0.25;
+			// (dielectric: its mirror stays white, as on the reference shells — a metal would tint the room's light)
+			METALLIC = 0.12 * nac;
+			SPECULAR = 0.7;
 			ro = mix(ro, 0.75, smoothstep(1.0, 1.06, rho));
-			h = gl * 0.0004 * nac + fbm(p * 40.0) * 0.0004;
+			h = gl * 0.0004 * nac + fbm(p * 40.0) * 0.0004 + (1.0 - nac) * smoothstep(0.6, 1.0, layer) * 0.0012;
 		} else {
 			// the back: scaly growth lamellae, pale rays, worn and chalky in places
 			float lam = fract(rho * 26.0 + fbm(vec3(bt * 8.0, rho * 3.0, seed)) * 1.5);

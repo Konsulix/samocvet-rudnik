@@ -188,7 +188,8 @@ static func _h(f: Dictionary, c: Dictionary, u: float, x: float, w: float) -> Ar
 		h += H * 0.12 * rim - H * 0.1 * bf * eff
 		groove = maxf(groove, bf * eff * 0.7)
 		# the cheeks fall away steeply at the front
-		h *= smoothstep(-0.02, 0.07, u) * 0.4 + 0.6
+		# the head slopes down to its front border, the glabella a dome over it (no cliff at the snout)
+		h *= 0.22 + 0.78 * smoothstep(0.0, ce * 0.75, u)
 	elif u < ce + th:
 		# thorax rings: the axial rings and, slanting back across the pleurae, the pleural furrows
 		var q := (u - ce) / th * float(f.seg) + maxf(0.0, xa - axw) * 1.4 * (1.0 - on_ax)
@@ -216,8 +217,12 @@ static func _bend(p: Vector3, k: float) -> Vector3:
 	if k <= 0.0:
 		return p
 	var R := 1.0 / (TAU * k * 0.93)
-	var a := p.z / R
-	return Vector3(p.x, (R + p.y) * cos(a) - R, (R + p.y) * sin(a))
+	# the pleurae curl down round the sides too (arc length kept), closing the ball's flanks
+	var rs := R / 0.55
+	var ph := p.x / rs
+	var q := Vector3((rs + p.y) * sin(ph), (rs + p.y) * cos(ph) - rs, p.z)
+	var a := q.z / R
+	return Vector3(q.x, (R + q.y) * cos(a) - R, (R + q.y) * sin(a))
 
 ## the body as one grid over its outline (u0..u1 of its length: a moult's head is apart from it), its edge
 ## turned under to a thin rim; a flat underside closes it. Body space: length 1 along z (snout +), y up.
@@ -590,19 +595,18 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				animal(fm, hd, sm, em, 0.0, 0.0, float(c.ceph) - 0.03)
 				marks.moult = md
 		"prepared":
-			# prepared out of its rock: standing on a pedestal of it above a block
-			var rk: MeshInstance3D = use_rock.call("small")
-			var rb: AABB = rk.transform * (rk.get_meta("geo") as Geo).aabb()
-			var s := maxf(rb.size.x, rb.size.z) * 0.95
-			var ped := 0.05 * s
-			var at := Vector3(rb.get_center().x, rb.end.y - rb.size.y * 0.08 + ped, rb.get_center().z)
+			# prepared the Moroccan way: standing proud on an oval of its matrix, the matrix round it carved down
+			# with an air-pen — a pale plate covered in wormy tool marks
+			var s := gs * 2.2
 			var nd := Node3D.new()
 			holder.add_child(nd)
-			nd.transform = Transform3D(Basis(Vector3.UP, PI + (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * s), at)
+			nd.transform = Transform3D(Basis(Vector3.UP, PI + (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * s), Vector3.ZERO)
 			main = animal(f, nd, sm, em, 0.0)
 			main.node = nd
-			var pg := _pedestal(f, ped / s + 0.06)
-			var pi := U.mesh(pg, rk.material_override, nd)
+			var pm := mat(f, 2, rock)
+			pm.set_shader_parameter("carve_k", 1.0)
+			pm.set_shader_parameter("rock_col", Color.hex(0x7c766cff))
+			var pi := U.mesh(_plate(f), pm, nd)
 			pi.set_meta("col", true)
 		"enrolled":
 			var nd := Node3D.new()
@@ -659,7 +663,7 @@ static func _ground(rk: MeshInstance3D, at: Vector3, r: float) -> float:
 ## (its rock, what grew on it, the callouts' points) like a plate on a stand
 static func lean(b: RefCounted, gene: Dictionary) -> void:
 	var f: Dictionary = gene.fossil
-	var a: float = {matrix = 0.95, mass = 1.0, prepared = 0.55}.get(f.show, 0.0)
+	var a: float = {matrix = 0.95, mass = 1.0, prepared = 0.85}.get(f.show, 0.0)
 	if a == 0.0:
 		return
 	var root: Node3D = b.root
@@ -674,6 +678,41 @@ static func lean(b: RefCounted, gene: Dictionary) -> void:
 		for m: Array in grown[id]:
 			m[0] = pv.basis * (m[0] as Vector3)
 			m[1] = pv.basis * (m[1] as Vector3)
+
+## the oval plate of matrix under a prepared trilobite (body space): its top a little below the shell's rim, rising
+## to meet it under the body, its edge rounded down; UV the flat position (the shader carves the tool marks by it)
+static func _plate(f: Dictionary) -> Geo:
+	var c: Dictionary = GENUS[f.genus]
+	var g := Geo.new()
+	var nz := FastNoiseLite.new()
+	nz.seed = int(f.seed) + 9
+	nz.frequency = 2.5
+	var na := 72
+	var nr := 40
+	var ra := 0.5 + float(c.get("gspine", 0.0)) * 0.3 + 0.16
+	var rb := float(c.half) + float(c.get("pspine", 0.0)) * 0.6 + 0.16
+	for i in nr + 1:
+		var t := float(i) / nr
+		for j in na + 1:
+			var a := TAU * float(j) / na
+			var wob := 1.0 + 0.07 * nz.get_noise_1d(a * 2.0)
+			var e := minf(t / 0.86, 1.0)
+			var x := sin(a) * rb * e * wob
+			var z := cos(a) * ra * e * wob
+			# under the body it rises to the shell's underside; out on the plate it lies lower; at the rim it rolls under
+			var u := clampf(0.5 - z, 0.0, 1.0)
+			var inside := 1.0 - smoothstep(0.85, 1.25, absf(x) / maxf(_w(f, c, u, signf(x) if x != 0.0 else 1.0), 0.01)) if z > -0.5 and z < 0.5 else 0.0
+			var y := -THICK * 1.1 - 0.035 * (1.0 - inside) + 0.01 * nz.get_noise_2d(x * 6.0, z * 6.0)
+			if t > 0.86:
+				var r := (t - 0.86) / 0.14
+				y -= 0.12 * (1.0 - cos(r * PI * 0.5))
+				x *= 1.0 + 0.04 * r
+				z *= 1.0 + 0.04 * r
+			g.v.append(Vector3(x, y, z))
+			g.rp.append(Vector3(x, z, 0.0))
+			g.col.append(Color(0, 0, 0, 1))
+	_grid(g, 0, nr, na)
+	return g
 
 ## a pedestal of rock under a prepared trilobite: its outline drawn in and roughened, carried down into the block
 static func _pedestal(f: Dictionary, h: float) -> Geo:

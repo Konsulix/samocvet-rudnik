@@ -17,14 +17,15 @@ const BODY := {
 	akoya = {n = "akoya", col = 0xf2ece4, over = 0xf4c6c8, ok = 0.45, orient = 0.35, flame = 0.0, lip = "silver", w = 4.0},
 	south_sea = {n = "south sea", col = 0xe9e6e0, over = 0xd8e4ee, ok = 0.35, orient = 0.3, flame = 0.0, lip = "silver", w = 2.0},
 	golden = {n = "golden", col = 0xe0bb72, over = 0xf2dca0, ok = 0.4, orient = 0.25, flame = 0.0, lip = "gold", w = 2.0},
-	tahitian = {n = "Tahitian", col = 0x4a4d4a, over = 0x3f8a6c, ok = 0.85, orient = 0.6, flame = 0.0, lip = "black", w = 3.0},
-	conch = {n = "conch", col = 0xf08e8a, over = 0xffd2c8, ok = 0.2, orient = 0.0, flame = 1.0, lip = "", w = 0.8},
+	tahitian = {n = "Tahitian", col = 0x4a4d4a, over = 0x3f8a6c, ok = 0.7, orient = 0.3, flame = 0.0, lip = "black", w = 3.0},
+	conch = {n = "conch", col = 0xec7470, over = 0xffd2c8, ok = 0.2, orient = 0.0, flame = 1.0, lip = "", w = 0.8},
 	melo = {n = "melo", col = 0xec8a3a, over = 0xffcf8a, ok = 0.2, orient = 0.0, flame = 0.9, lip = "", w = 0.6},
 }
 ## a Tahitian's overtone varies: peacock, aubergine, pistachio, green
 const TAHITI := [["peacock", 0x3f8a6c, 0xa05a8c], ["aubergine", 0x7a4a7c, 0x7a4a7c], ["pistachio", 0x8a9a4a, 0x8a9a4a], ["green", 0x2f7a5a, 0x2f7a5a]]
 ## the oyster's lip round its nacre, and the back of its shell
-const LIP := {"silver": [0xc8c8c4, 0x6a6a5c], "gold": [0xc89a48, 0x7a6232], "black": [0x22262a, 0x3a3a30], "": [0xb0a8a0, 0x6a6458]}
+## the lip, the back, the nacre's own grey
+const LIP := {"silver": [0xc8c8c4, 0x6a6a5c, 0x9c9c9a], "gold": [0xc89a48, 0x7a6232, 0xb4a88a], "black": [0x22262a, 0x3a3a30, 0x4a4e4c], "": [0xb0a8a0, 0x6a6458, 0x9c9a96]}
 const SHAPES := {round = "round", near = "near round", drop = "drop", button = "button", baroque = "baroque", circled = "circled"}
 
 static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
@@ -107,7 +108,7 @@ static func pearl_geo(shape: String, seed_v: int) -> Geo:
 				r *= 1.0 + 0.42 * pow(maxf(0.0, d.y), 2.2) - 0.06 * maxf(0.0, -d.y)
 			"button": if d.y < 0.0: d.y *= 0.55
 			"baroque":
-				r += 0.22 * nz.get_noise_3dv(d * 1.1) + 0.025 * nz.get_noise_3dv(d * 3.2 + Vector3(5, 0, 0))
+				r += 0.18 * nz.get_noise_3dv(d * 0.8) + 0.06 * nz.get_noise_3dv(d * 1.7 + Vector3(5, 0, 0)) + 0.15 * d.y * d.y
 			"circled":
 				# rings round it, grooved where the nacre grew unevenly as it turned
 				r += 0.03 * nz.get_noise_3dv(d * 1.4) - 0.022 * pow(absf(sin(d.y * 11.0)), 6.0)
@@ -206,6 +207,7 @@ static func mat(f: Dictionary, part: int) -> ShaderMaterial:
 	var lip: Array = LIP[String(b.lip)]
 	m.set_shader_parameter("lip_col", Color.hex(int(lip[0]) << 8 | 0xff))
 	m.set_shader_parameter("back_col", Color.hex(int(lip[1]) << 8 | 0xff))
+	m.set_shader_parameter("nacre_col", Color.hex(int(lip[2]) << 8 | 0xff))
 	m.set_shader_parameter("seed", float(int(f.seed) % 997) * 0.11)
 	return m
 
