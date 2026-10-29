@@ -452,8 +452,6 @@ func _surface_live(c: CanvasItem) -> void:
 		_light(c, Vector2(float(dr[0]), float(dr[1])), 120, Color(1.0, 0.5, 0.15, 0.4 * _flick(31)))
 	if int(_shown_places.get("chapel", 0)) >= 3:
 		_chapel(c)
-	if int(_shown_places.get("crane", 0)) >= 3:
-		_crane(c)
 	_spray_live(c)
 	for a in J.life:
 		var spec: Dictionary = a
@@ -522,38 +520,6 @@ func _chapel(c: CanvasItem) -> void:
 			c.draw_arc(bp, 10.0 + q * 80.0, 0, TAU, 40, Color(1.0, 0.85, 0.55, 0.32 * (1.0 - q)), 2.0)
 		if _passed("bell%d" % k, v, CHAPEL_CYCLE, k * 1.7):
 			SeaSounds.bell(amb, _far(bp.y))
-
-## the steam crane: its hook goes down on the rope to the landing, waits, and comes up with a net of jet and shale
-const CRANE_CYCLE := 18.0
-func _crane(c: CanvasItem) -> void:
-	var cr: Dictionary = J.crane
-	var tip := Vector2(float(cr.tip[0]), float(cr.tip[1]))
-	var low := float(cr.low)
-	var u := fmod(t, CRANE_CYCLE)
-	var q := 0.0
-	if u < 5.0: q = 0.5 - 0.5 * cos(PI * u / 5.0)
-	elif u < 8.0: q = 1.0
-	elif u < 13.0: q = 0.5 + 0.5 * cos(PI * (u - 8.0) / 5.0)
-	var sway := sin(t * 1.3) * 4.0 * q
-	var hook := Vector2(tip.x + sway, lerpf(tip.y + 40.0, low, q))
-	var full := u >= 7.0 and u < 15.0
-	c.draw_line(tip, hook, Color(0.06, 0.05, 0.04), 4.0)
-	c.draw_line(tip, hook, Color(0.5, 0.42, 0.3), 1.6)
-	# the hook
-	c.draw_arc(hook + Vector2(0, 14), 10.0, -0.3, PI + 0.6, 10, Color(0.06, 0.05, 0.04), 6.0)
-	c.draw_arc(hook + Vector2(0, 14), 10.0, -0.3, PI + 0.6, 10, Color(0.42, 0.4, 0.38), 2.5)
-	if full:
-		# a sling net heavy with lumps
-		var nb := hook + Vector2(0, 28)
-		var pts := PackedVector2Array([nb + Vector2(-26, 6), nb + Vector2(26, 6), nb + Vector2(20, 40), nb + Vector2(0, 50), nb + Vector2(-20, 40)])
-		c.draw_colored_polygon(pts, Color(0.06, 0.06, 0.07))
-		for j in 5:
-			c.draw_circle(nb + Vector2(-15 + j * 7.5, 22 + (j % 2) * 9), 8.0, [Color(0.12, 0.12, 0.14), Color(0.3, 0.32, 0.36)][j % 2])
-		c.draw_circle(nb + Vector2(-6, 18), 3.0, Color(0.7, 0.8, 0.95, 0.8))
-		c.draw_line(hook + Vector2(0, 20), nb + Vector2(-24, 8), Color(0.45, 0.36, 0.24), 2.0)
-		c.draw_line(hook + Vector2(0, 20), nb + Vector2(24, 8), Color(0.45, 0.36, 0.24), 2.0)
-	if _passed("crane_dn", t, CRANE_CYCLE) or _passed("crane_up", t, CRANE_CYCLE, 8.0):
-		amb.shot("winch_%d" % (randi() % 2), _far(tip.y) - 4.0, 0.9)
 
 ## the spray of the big waves breaking on the rocks: soft white puffs of foam thrown up and drifting off with the wind,
 ## and a scatter of drops falling back
