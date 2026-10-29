@@ -78,3 +78,14 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
   ([#0284](https://bigsoundbank.com/neighing-of-a-horse-1-s0284.html), [#0863](https://bigsoundbank.com/horse-neighing-3-s0863.html), [#1542](https://bigsoundbank.com/horse-neighing-5-s1542.html)),
   дыхание #3/#4 ([#0287](https://bigsoundbank.com/breath-horse-3-s0287.html), [#1543](https://bigsoundbank.com/breath-horse-4-s1543.html)),
   копыта ([#0289](https://bigsoundbank.com/horses-s0289.html)), взлёт голубя ([#0840](https://bigsoundbank.com/flight-of-a-pigeon-s0840.html)).
+
+## Звуки экрана рудника 3 Whalebone Cove — записи (`amb/sea/`)
+
+Нарезаны `prototype/tools/amb_sea_rec.py` (заменили синтезированные прибой, удары волн и чаек; гул и хлюпанье Кракена — синтез `amb_sea.py`).
+
+- `surf`, `crash_0..2` — Joseph Sardin, BigSoundBank (CC0): [Sea: Waves #0266](https://bigsoundbank.com/sea-waves-s0266.html), волны о скалу «Cliff #1» #2570.
+- `gull_0..4` — [Gull 1](https://commons.wikimedia.org/wiki/File:Gull_1.ogg) (Wikimedia Commons, общественное достояние); `gull_5..6` — дальние, из [Gulls on the Harbor #2573](https://bigsoundbank.com/detail-2573-gulls-on-the-harbor.html) (CC0).
+- `horn` — туманный горн маяка: [Original foghorn at East Brother Island Lighthouse](https://commons.wikimedia.org/wiki/File:Original_foghorn_at_East_Brother_Island_Lighthouse.ogg) (CC0).
+- `lap` — лодка у причала: [Boat by a wharf 3](https://commons.wikimedia.org/wiki/File:Boat_by_a_wharf_3.ogg) (общественное достояние).
+- `under` — море в разрезе: те же волны глухо + `loop_bubbles_02` rubberduck (CC0); `bubble_0..2` — пузыри водолаза (rubberduck `bubble_01..03`).
+- `tryworks` — салотопня: `amb/copper/furnace` + `loop_bubbles_1` (rubberduck).
