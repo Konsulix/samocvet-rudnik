@@ -1162,7 +1162,8 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var s := 0.006 + rng.next() * 0.01
 			return [Transform3D(Basis.from_scale(Vector3.ONE * s), v), SpecMat.hsl(0.01, 0.6, 0.2 + rng.next() * 0.1).srgb_to_linear()]
 		U.inst(Geo.icosa(1, 0), SpecMat.make({rough = 0.9}), 160, place, root)
-	if "bubbles" in tr:
+	# (a fossil with no rock under it — loose, sawn — has nowhere for them: they stacked up in a column over its middle)
+	if "bubbles" in tr and not (Data.HABIT.get(sid, "") == "fossil" and not st.rock):
 		var made := []
 		var place := func(k: int) -> Array:
 			var v: Vector3 = (pick.call() as Vector3) * 1.02

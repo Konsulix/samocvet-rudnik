@@ -314,13 +314,11 @@ void fragment() {
 			// darker deeper down (smooth, not the break's flat facets)
 			vec3 fc = fill == 2 ? lin(vec3(0.78, 0.66, 0.34)) : fill == 3 ? lin(vec3(0.7, 0.74, 0.8))
 				: fill == 1 ? lin(vec3(0.86, 0.82, 0.74)) : lin(vec3(0.86, 0.6, 0.3));
-			// (a hollow must read as a hollow: lit only near its mouth, falling into shadow — a bright, glossy floor
-			// read as a flat coloured patch stuck over the polished face)
 			float deep = clamp(-p.z / max(0.02, r * tube_k * 1.2), 0.0, 1.0);
-			c = fc * 0.55;
-			nb = druse(p, n, c, 0.35 + deep * 0.6);
+			c = fc;
+			nb = druse(p, n, c, deep * 0.8);
 			m = fill == 2 ? 0.8 : 0.0;
-			ro = 0.35;
+			ro = 0.12;
 		} else if (inside) {
 			// the break's own flat surface (the fan of triangles closing the tube would show as a star otherwise),
 			// and grains laid out so they never smear, whichever way it faces
@@ -345,9 +343,9 @@ void fragment() {
 		vec3 wc = fill == 1 ? lin(vec3(0.88, 0.84, 0.76)) : lin(vec3(0.9, 0.72, 0.45));
 		vec3 wn = normalize(NORMAL);
 		if (!FRONT_FACING) wn = -wn;
-		NORMAL = druse(v_op, wn, wc, 0.25 + 0.75 * (1.0 - COLOR.r));
-		ALBEDO = wc * 0.6;
-		ROUGHNESS = 0.35;
+		NORMAL = druse(v_op, wn, wc, 1.0 - COLOR.r);
+		ALBEDO = wc * 0.8;
+		ROUGHNESS = 0.14;
 	} else {
 		float th = UV.x;
 		float t = UV.y;
