@@ -20,6 +20,13 @@ var surface := 0.0           # the water line, in the level's coordinates
 var bottom := PackedFloat32Array()   # per x of the screen: how far down the water goes
 var arms_on := false         # the last board: the arms are up
 var back: Node2D             # the arms behind his sprite
+## two more arms on every board, like the Poloz' tail and the Mistress' lizards: out of the dark under the board they
+## creep up its left and right bars, following the frame's steps, stretch and draw back, a wave down them, the tip
+## groping and curling; now and then one squeezes and the frame shudders. Over the frame, never over the stones
+var rim: Node2D
+var _rims: Array[PackedVector2Array] = []
+var _squeeze := -10.0
+var _next_squeeze := 6.0
 var front: Control           # the arms over the top bar
 var _t := 0.0
 var _splash := -10.0         # when he last rose out of the water: spray and rings
@@ -48,6 +55,12 @@ func _ready() -> void:
 	back.draw.connect(func(): _draw_arms(back))
 	lv.add_child(back)
 	lv.move_child(back, view.get_index())
+	rim = Node2D.new()
+	rim.material = BoardSprites.plain_material()
+	rim.draw.connect(_draw_rim)
+	var f := LevelBoss.frame(lv)
+	lv.shaker.add_child(rim)
+	lv.shaker.move_child(rim, f.get_index() + 1)
 	front = Control.new()
 	front.clip_contents = true
 	front.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -89,7 +102,26 @@ func fit() -> void:
 		bottom[x] = top + 2.0 if top < INF else minf(near, top_line + DEEP_FADE) if near < INF else top_line + DEEP_FADE
 	front.position = Vector2.ZERO
 	front.size = Vector2(vp.x, view.position.y)
+	_rim_paths(reach - b.TS * 0.3)
 	queue_redraw()
+
+## the lines the rim arms lie along: the middle of the left and the right bar, from the dark below the board's bottom
+## up its sides, round every step of the frame (beside the widest rows the bars are at the screen's edges)
+func _rim_paths(off: float) -> void:
+	var b := lv.board
+	var m := lv.model
+	_rims.clear()
+	for side in [-1, 1]:
+		var ctrl := PackedVector2Array()
+		for r in range(m.R - 1, -1, -1):
+			var cs := range(m.C).filter(func(c: int) -> bool: return m.playable(r, c))
+			if cs.is_empty(): continue
+			var x: float = b.PAD + (float(cs[0]) * b.TS - off if side < 0 else float(cs[-1] + 1) * b.TS + off)
+			var yb: float = b.PAD + (r + 1) * b.TS
+			if ctrl.is_empty(): ctrl.append(Vector2(x, yb + b.TS * 2.2))
+			ctrl.append(Vector2(x, yb - b.TS * 0.2))
+			ctrl.append(Vector2(x, yb - b.TS * 0.8))
+		_rims.append(Bend.smooth(ctrl, 6))
 
 ## he rises (a new board): the water bursts up along his body and falls back
 func splash() -> void:
@@ -126,6 +158,15 @@ func _process(dt: float) -> void:
 			_next_slap = _t + randf_range(5.0, 9.0)
 		back.queue_redraw()
 		if front.get_child_count(): (front.get_child(0) as Node2D).queue_redraw()
+	if rim: rim.queue_redraw()
+	if _t > _next_squeeze:
+		_squeeze = _t
+		_next_squeeze = _t + randf_range(6.0, 11.0)
+		var f := LevelBoss.frame(lv)
+		if f:
+			var tw := f.create_tween()
+			for k in 3: tw.tween_property(f, "position", Vector2(randf_range(-1, 1), randf_range(-1, 1)).round(), 0.05)
+			tw.tween_property(f, "position", Vector2.ZERO, 0.05)
 	if _t - _slap > 0.25 and _t - _slap < 0.3:
 		var h := LevelBoss.hud(lv)
 		if h: _thump(h)
@@ -227,6 +268,33 @@ func _draw() -> void:
 		var fx := fposmod(k * 61.0 + _t * (8.0 + k % 3 * 5.0), float(w))
 		var fy: float = wave.call(fx)
 		draw_line(Vector2(fx, fy + 1.0), Vector2(fx + 5.0 + k % 4 * 2.0, fy + 1.0), Color(0.9, 0.95, 0.92, 0.55), 1.0)
+
+# ---------------------------------------------------------------- the arms on his frame
+
+func _draw_rim() -> void:
+	if arm_tex == null or _rims.is_empty(): return
+	var ts := lv.board.TS
+	for i in _rims.size():
+		var path := _rims[i]
+		var side := -1.0 if i == 0 else 1.0
+		var ph := _t * 0.3 + i * 2.4
+		# how far up it has crept: out of the dark below (2.2 cells) and on up the bar, breathing in and out
+		var out := ts * (2.2 + 3.8 + 1.4 * sin(ph) + 0.5 * sin(ph * 2.3 + 1.0))
+		var pts := Bend.sample(path, 0.0, minf(out, Bend.length(path)), 44)
+		var n := pts.size()
+		var sq := clampf(1.0 - absf(_t - _squeeze - 0.4) / 0.5, 0.0, 1.0) if i == int(_squeeze) % 2 else 0.0
+		for k in n:
+			var q := k / float(n - 1)
+			var d := (pts[mini(k + 1, n - 1)] - pts[maxi(k - 1, 0)]).normalized()
+			var nrm := Vector2(-d.y, d.x)
+			# a slow wave down it, the tip groping out over the board's rim and curling back; a squeeze pulls it taut
+			var wave := sin(q * 8.0 - _t * 2.0 + i) * ts * 0.07 * q * (1.0 - sq)
+			var curl := side * pow(q, 5.0) * ts * (0.5 + 0.35 * sin(_t * 1.1 + i * 1.7)) * (1.0 - sq)
+			pts[k] += nrm * (wave + curl)
+		var half := ts * (0.34 + 0.06 * sq)
+		# fades in from the dark it comes out of
+		var col := func(q: float) -> Color: return Color(1, 1, 1, clampf(q / 0.35, 0.0, 1.0))
+		Bend.draw(rim, pts, func(_q: float) -> float: return half, arm_tex, 0.0, 1.0, i == 1, col)
 
 # ---------------------------------------------------------------- his arms
 

@@ -600,12 +600,13 @@ func _draw_sea_under(ci: Node2D) -> void:
 func _draw_eye(ci: Node2D, now: float) -> void:
 	var e := _sea_mid(2)
 	if e.x < 0.0 or model.eye.is_empty() or _eye_tex.is_empty(): return
-	var shut := int(model.eye.shut) > 0
+	# shut after a hit; open, it blinks now and then (two rhythms, so not like a clock) and breathes a little
+	var shut := int(model.eye.shut) > 0 or fposmod(now + 1.3, 4.7) < 0.15 or fposmod(now + 3.1, 6.3) < 0.12
 	var tx: Texture2D = _eye_tex.shut if shut else _eye_tex.open
 	if not shut:
 		var glow := 0.55 + 0.25 * sin(now * 2.2)
 		GemArt.radial_disc(ci, e, TS * 1.3, Color(0.5, 0.9, 1.0, 0.25 * glow), Color(0.4, 0.85, 1.0, 0.08), Color(0.4, 0.85, 1.0, 0))
-	var k := TS / 37.0
+	var k := TS / 37.0 * (1.0 + 0.018 * sin(now * 1.7))
 	var sz := (Vector2(tx.get_size()) * k).round()
 	var at := (e - sz * 0.5).round()
 	# its own shape as a shadow cast down-right
