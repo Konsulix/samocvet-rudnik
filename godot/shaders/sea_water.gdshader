@@ -12,6 +12,7 @@ uniform float swell = 0.0;
 uniform float rays = 1.0;
 uniform float beam = 0.0;          // the lighthouse's beam sweeping over the water: 0..1 strength
 uniform float beam_x = 0.5;        // where (0..1 of the layer's width)
+uniform float flash = 0.0;         // a lightning flash lighting the water (0..1)
 
 void fragment() {
 	vec2 px = TEXTURE_PIXEL_SIZE;
@@ -46,6 +47,9 @@ void fragment() {
 		float bx = abs(UV.x - beam_x - (UV.y) * 0.18);
 		col += vec3(0.16, 0.15, 0.1) * beam * smoothstep(0.09, 0.0, bx) * pow(1.0 - deep, 2.2);
 	}
+	// a lightning flash: the water lit cold and pale for an instant, fading with depth in the section
+	float fk = flash * (mode == 0 ? 1.0 : pow(1.0 - UV.y, 1.3));
+	col = mix(col, col * 2.2 + vec3(0.07, 0.09, 0.13), fk);
 	// COLOR already holds the picture (times the modulate): only the change is added, the tone stays
 	COLOR.rgb += col - here.rgb;
 }

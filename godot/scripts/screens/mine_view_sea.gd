@@ -26,6 +26,8 @@ var _swell_at := -100.0    # the last big wave that broke on the cliff
 var _next_swell := 3.0
 var _spray: Array = []     # [where, when, size] of the bursts of spray now flying
 var _ink: Array = []       # the Kraken's ink: [centre, start]
+var _storm := {}           # the lightning now playing: {kind, t0, bolts, pulses, seed, played}
+var _next_storm := 14.0
 
 func _init() -> void:
 	dir = SDIR
@@ -356,6 +358,14 @@ func _process(delta: float) -> void:
 	# the beam lights the water while it points out to sea (to the left)
 	dm.set_shader_parameter("beam", maxf(0.0, -bm.x) * float(int(_shown_places.get("lighthouse", 0)) >= 3))
 	dm.set_shader_parameter("beam_x", 0.35)
+	# the storm: now and then a bolt or a flicker of lightning (its flash lights the water too)
+	if t > _next_storm and _storm.is_empty():
+		_next_storm = t + _rng.randf_range(28.0, 50.0)
+		_start_storm(["far", "far", "sheet", "near", "rod", "elmo"][_rng.randi() % 6])
+	var fl := _storm_flash()
+	var sk := String(_storm.get("kind", ""))
+	dm.set_shader_parameter("flash", fl * (0.9 if sk == "near" else 0.4))
+	(_waves.material as ShaderMaterial).set_shader_parameter("flash", fl * (1.0 if sk == "near" or sk == "rod" else 0.45))
 
 ## the lighthouse's lamp turns: seen from the side, its beam swings from pointing at us to the left (out to sea), back
 ## through us to the right; x: -1 left .. 1 right, y: how much it points at us (a flash at the lantern)
@@ -371,6 +381,7 @@ func _draw_live() -> void:
 	for b in _bands:
 		if _band_seen(b): _band_live(c, b)
 	_events_live(c)
+	_storm_live(c)
 	_ore_flight(c)
 	_finale(c)
 	for bu in _bursts.duplicate():
@@ -747,6 +758,9 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 # ---------------------------------------------------------------- the Kraken about the place
 
 func _tick_events() -> void:
+	if force_event in STORMS and t > 0.5:
+		_start_storm(force_event.trim_prefix("bolt_"))
+		force_event = ""
 	if force_event != "" and t > 0.5:
 		_events[force_event] = t
 		if force_event == "ink":
@@ -896,6 +910,191 @@ func _frost(c: CanvasItem, at: Vector2, s: float) -> void:
 		for j in 6:
 			var p: Vector2 = at + Vector2(-50 + j * 20, 20 + melt * 90.0 * (0.6 + 0.4 * sin(j * 2.0)))
 			c.draw_circle(p, 3.0, Color(0.75, 0.9, 1.0, 0.7 * (1.0 - melt)))
+
+# ---------------------------------------------------------------- the storm
+
+## test keys / the admin's buttons for each kind of lightning
+const STORMS := ["bolt_far", "bolt_near", "sheet", "bolt_rod", "elmo"]
+## each kind: how long it plays and its flashes [when, how bright]
+const STORM := {
+	"far": {len = 4.0, pulses = [[0.12, 0.55], [0.3, 0.35], [0.62, 0.3]]},
+	"near": {len = 4.5, pulses = [[0.08, 1.0], [0.2, 0.55], [0.42, 0.95], [0.78, 0.45]]},
+	"sheet": {len = 3.2, pulses = []},
+	"rod": {len = 6.5, pulses = [[0.08, 0.95], [0.26, 0.5], [0.5, 0.85]]},
+	"elmo": {len = 5.5, pulses = []},
+}
+const THUNDER_DELAY := {"far": 1.6, "near": 0.05, "rod": 0.05, "sheet": 0.9, "elmo": 1e9}
+
+## a storm begins: its bolts are made once (from the clouds to where they strike, jagged, with branches)
+func _start_storm(kind: String) -> void:
+	var sd: Dictionary = J.storm
+	var seed_ := _rng.randi()
+	var bolts: Array = []
+	var pulses: Array = (STORM[kind].pulses as Array).duplicate()
+	match kind:
+		"far":
+			# far off over the sea: a bolt crawling from cloud to cloud in the sky left of the lighthouse, forking
+			var rod := Vector2(float(sd.rod[0]), float(sd.rod[1]))
+			var a := Vector2(_rng.randf_range(-20, 60), rod.y - _rng.randf_range(40, 120))
+			var b := Vector2(rod.x - _rng.randf_range(120, 230), rod.y + _rng.randf_range(170, 280))
+			bolts = _make_bolt(a, b, seed_, 1.3)
+		"near":
+			var at := Vector2(float(sd.near[0]), float(sd.near[1]))
+			bolts = _make_bolt(Vector2(at.x + _rng.randf_range(220, 380), at.y - 1300), at, seed_, 1.0)
+			_spray.append([at, t + 0.1, 1.7])
+			_spray.append([at + Vector2(60, 10), t + 0.25, 1.2])
+		"rod":
+			var at := Vector2(float(sd.rod[0]), float(sd.rod[1]))
+			# out of the cloud over the sea at the upper left, slanting into the lighthouse's rod
+			bolts = _make_bolt(Vector2(at.x - _rng.randf_range(260, 460), at.y - _rng.randf_range(240, 340)), at, seed_, 0.9)
+		"sheet":
+			# flickers inside the clouds here and there, no bolt to be seen
+			for i in 5:
+				pulses.append([0.15 + i * 0.45 + _rng.randf_range(-0.1, 0.1), _rng.randf_range(0.3, 0.7)])
+	_storm = {kind = kind, t0 = t, bolts = bolts, pulses = pulses, seed = seed_, played = {}}
+
+## the brightness of the flash now (0..1): each pulse flares and dies in a few hundredths of a second
+func _storm_flash() -> float:
+	if _storm.is_empty():
+		return 0.0
+	var s := t - float(_storm.t0)
+	var f := 0.0
+	for p in _storm.pulses:
+		var d := s - float(p[0])
+		if d >= 0.0:
+			f += float(p[1]) * exp(-d / 0.075)
+	return clampf(f, 0.0, 1.0)
+
+## a bolt from a to b: the main channel by midpoint displacement, then side branches forking off it downwards
+func _make_bolt(a: Vector2, b: Vector2, seed_: int, k: float) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_
+	var main := _jag(a, b, rng, 0.2 * k)
+	var out: Array = [main]
+	for i in 3 + rng.randi() % 3:
+		var j := rng.randi_range(int(main.size() * 0.15), int(main.size() * 0.7))
+		var p := main[j]
+		var dir := (b - a).normalized().rotated(rng.randf_range(0.35, 0.9) * (1.0 if rng.randf() < 0.5 else -1.0))
+		var ln := (b - a).length() * rng.randf_range(0.15, 0.35)
+		out.append(_jag(p, p + dir * ln, rng, 0.25))
+	return out
+
+func _jag(a: Vector2, b: Vector2, rng: RandomNumberGenerator, rough: float) -> PackedVector2Array:
+	var pts: Array = [a, b]
+	var off := (b - a).length() * rough
+	for level in 6:
+		var nx: Array = []
+		for i in pts.size() - 1:
+			var p: Vector2 = pts[i]
+			var q: Vector2 = pts[i + 1]
+			var m := (p + q) * 0.5 + (q - p).orthogonal().normalized() * rng.randf_range(-off, off)
+			nx.append(p)
+			nx.append(m)
+		nx.append(pts[pts.size() - 1])
+		pts = nx
+		off *= 0.52
+	return PackedVector2Array(pts)
+
+func _storm_live(c: CanvasItem) -> void:
+	if _storm.is_empty():
+		return
+	var kind := String(_storm.kind)
+	var s := t - float(_storm.t0)
+	var len_ := float(STORM[kind].len)
+	if s > len_:
+		_storm = {}
+		return
+	var f := _storm_flash()
+	var sd: Dictionary = J.storm
+	var sky := float(J.sky)
+	var bolts: Array = _storm.bolts
+	# the clouds lit from inside: big cold patches over the sky, the whole station washed pale by a near strike
+	if f > 0.01:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(_storm.seed) + int(s * 6.0)
+		if kind == "near" or kind == "rod":
+			# the station washed pale, the wash thinning out down the cliff (no edge across the waves)
+			var bot := sky + float(J.surf) - 500.0
+			c.draw_rect(Rect2(0, 0, float(J.W), bot), Color(0.72, 0.8, 1.0, 0.3 * f))
+			for k in 10:
+				c.draw_rect(Rect2(0, bot + k * 70.0, float(J.W), 70.0), Color(0.72, 0.8, 1.0, 0.3 * f * (1.0 - (k + 1) / 11.0)))
+		if kind == "sheet" or kind == "far":
+			# the clouds flicker as a whole, brightest high up
+			var top := sky + 560.0
+			for k in 8:
+				c.draw_rect(Rect2(0, k * top / 8.0, float(J.W), top / 8.0), Color(0.6, 0.68, 1.0, (0.2 if kind == "sheet" else 0.1) * f * (1.0 - k / 9.0)))
+		var bx := 600.0
+		if not bolts.is_empty():
+			var b0: PackedVector2Array = bolts[0]
+			bx = b0[0].x
+		for i in 4:
+			var cx := rng.randf_range(0, float(J.W)) if kind == "sheet" else bx + rng.randf_range(-300, 300)
+			var ka := 0.62 if kind == "sheet" else 0.42
+			_light(c, Vector2(cx, rng.randf_range(sky - 100.0, sky + 520.0)), rng.randf_range(260, 520), Color(0.62, 0.7, 1.0, ka * f))
+	# the bolt itself: grown down in a tenth of a second, bright while it flashes, then a fading violet trace
+	var grow := clampf(s / 0.1, 0.0, 1.0)
+	var trace := clampf(1.0 - (s - 0.85) / 0.5, 0.0, 1.0)
+	for bi in bolts.size():
+		var pts: PackedVector2Array = bolts[bi]
+		var n := int(pts.size() * (grow if bi == 0 else clampf(s / 0.1 - 0.3, 0.0, 1.0)))
+		if n < 2:
+			continue
+		var line := pts.slice(0, n)
+		var w := 1.0 if bi == 0 else 0.55
+		var on := maxf(f, 0.12 * trace)
+		if on < 0.02:
+			continue
+		c.draw_polyline(line, Color(0.45, 0.5, 1.0, 0.2 * on), 44.0 * w)
+		c.draw_polyline(line, Color(0.7, 0.8, 1.0, 0.55 * on), 18.0 * w)
+		c.draw_polyline(line, Color(1.0, 1.0, 1.0, minf(1.0, on * 1.6)), 7.0 * w)
+	if kind == "near":
+		var at := Vector2(float(sd.near[0]), float(sd.near[1]))
+		_light(c, at, 220, Color(0.75, 0.9, 1.0, 0.7 * f))
+		# in the flash, for an instant, something vast shows under the water
+		var tn: Array = J.sea_life.tentacle
+		if f > 0.2 and _crew_ok("tentacle"):
+			var fr := "tentacle/05.png"
+			var ts := _size(fr) * 1.7
+			var base := Vector2(float(tn[0]) + 300.0, _sea_top() + float(tn[1]) + 60.0)
+			c.draw_texture_rect(tex(fr), Rect2(base - Vector2(ts.x / 2, ts.y), ts), false, Color(0.02, 0.03, 0.06, 0.55 * f))
+	if kind == "rod":
+		var at := Vector2(float(sd.rod[0]), float(sd.rod[1]))
+		_light(c, at, 160, Color(0.8, 0.88, 1.0, 0.8 * f))
+		# sparks run down the lighthouse's conductor and spill off the gallery rail
+		for j in 10:
+			var u := (s - 0.1 - j * 0.04) / 0.7
+			if u < 0.0 or u > 1.0:
+				continue
+			var p := at + Vector2(sin(j * 2.3) * 6.0 + (j % 3 - 1) * 20.0 * u, u * 150.0 + 60.0 * u * u * (j % 2))
+			c.draw_circle(p, 3.5 * (1.0 - u) + 1.0, Color(0.85, 0.92, 1.0, 1.0 - u))
+	# St. Elmo's fire: blue-violet tongues on the tall points of the station after a strike on the rod, or alone in the
+	# charged air before a storm
+	if kind == "rod" or kind == "elmo":
+		var e0 := 0.6 if kind == "rod" else 0.0
+		var ek := clampf((s - e0) / 0.6, 0.0, 1.0) * clampf((len_ - s) / 1.0, 0.0, 1.0)
+		if ek > 0.0:
+			var i := 0
+			for e in sd.elmo:
+				var p := Vector2(float(e[0]), float(e[1]))
+				var fl := ek * (0.6 + 0.4 * sin(t * 23.0 + i * 1.9) * sin(t * 7.0 + i))
+				_light(c, p, 90, Color(0.5, 0.55, 1.0, 0.5 * fl))
+				_light(c, p, 34, Color(0.8, 0.85, 1.0, 0.7 * fl))
+				for j in 5:
+					var hgt := 26.0 + 22.0 * absf(sin(t * 17.0 + j * 2.1 + i))
+					var tip := p + Vector2(sin(t * 29.0 + j * 1.7 + i) * 9.0 + (j - 2) * 7.0, -hgt)
+					var mid := p.lerp(tip, 0.5) + Vector2(sin(t * 41.0 + j) * 6.0, 0)
+					c.draw_polyline(PackedVector2Array([p, mid, tip]), Color(0.55, 0.62, 1.0, 0.7 * fl), 6.0)
+					c.draw_polyline(PackedVector2Array([p, mid, tip]), Color(0.92, 0.95, 1.0, 0.9 * fl), 2.4)
+				i += 1
+		if s >= e0 and not _storm.played.has("elmo"):
+			_storm.played["elmo"] = true
+			amb.shot("sea/elmo", -14.0 + _far(float(sd.rod[1])), randf_range(0.95, 1.05))
+	# thunder: at once for a near strike, after the light's lead for a far one, a low roll for the sheet lightning
+	if not _storm.played.has("thunder") and s >= float(THUNDER_DELAY[kind]):
+		_storm.played["thunder"] = true
+		var near := kind == "near" or kind == "rod"
+		var snd := ("sea/thunder_near_%d" % (randi() % 2)) if near else ("sea/thunder_far_%d" % (randi() % 3))
+		amb.shot(snd, maxf(-10.0, _far(sky + 400.0)) - (2.0 if near else 8.0), randf_range(0.92, 1.05))
 
 ## after a win the level's ore flies down into the depth it came from: lumps of jet (black, glassy) and of iron
 func _ore_flight(c: CanvasItem) -> void:
