@@ -85,7 +85,9 @@ func _ready() -> void:
 	_bar_fill.add_theme_stylebox_override("panel", fs)
 	_bar_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(_bar_fill)
-	_paths = BoardSprites.paths() + BoardKit.paths() + EXTRA
+	# + the pictures of the mine on the home screen, and the scripts of the other mines' screens (compiling them
+	# when the home screen is built held the frame the loading screen leaves on)
+	_paths = BoardSprites.paths() + BoardKit.paths() + EXTRA + MineView.pictures(Save.area()) + [Home.COPPER_VIEW, Home.SEA_VIEW]
 	for f in ResourceLoader.list_directory("res://assets/thumbs/"):
 		if f.ends_with(".png"): _paths.append("res://assets/thumbs/" + f)
 	for p in _paths:

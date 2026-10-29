@@ -7,6 +7,7 @@ var args := {}
 
 ## the game is closing (the level, a child, has already left the tree): free what outlives levels (Level.release_pool)
 func _exit_tree() -> void:
+	if args.has("diag"): print(Diag.text())
 	Level.release_pool()
 	MineView.release()
 
@@ -14,6 +15,12 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	if args.has("slow"): Diag.slow_ms = int(args.slow)
+	if args.has("bake_shaders"):
+		# the shaders written as text, as files for the export's shader baker (ShaderFiles); the iOS build runs this
+		print("baked %d shaders into %s" % [ShaderFiles.bake(), ShaderFiles.DIR])
+		get_tree().quit()
+		return
 	# the 2D glow pass: off, it showed nothing (no HDR 2D, so nothing passes its threshold) and cost a full-screen
 	# blur every frame; `glow` turns it back on to compare
 	if args.has("glow"): _setup_glow()

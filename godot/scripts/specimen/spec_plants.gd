@@ -77,9 +77,7 @@ static func material(kind: String) -> ShaderMaterial:
 	if _mats.has(pack):
 		return _mats[pack]
 	var m := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = SHADER
-	m.shader = sh
+	m.shader = ShaderFiles.get_shader("plants", SHADER)
 	m.set_shader_parameter("tex", load("res://assets/plants/%s/textures/%s_diff_1k.png" % [pack, pack]))
 	m.set_shader_parameter("nrm", load("res://assets/plants/%s/textures/%s_nor_gl_1k.jpg" % [pack, pack]))
 	_mats[pack] = m
@@ -130,9 +128,7 @@ static func scatter(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, ra
 static func bed_material(tint: Color) -> ShaderMaterial:
 	if not _bed_mat:
 		_bed_mat = ShaderMaterial.new()
-		var sh := Shader.new()
-		sh.code = BED_SHADER
-		_bed_mat.shader = sh
+		_bed_mat.shader = ShaderFiles.get_shader("plants_bed", BED_SHADER)
 		_bed_mat.set_shader_parameter("bed", load("res://assets/plants/moss_bed/moss_bed_diff.png"))
 		_bed_mat.set_shader_parameter("bed_n", load("res://assets/plants/moss_bed/moss_bed_nrm.png"))
 		_bed_mat.set_shader_parameter("bed_h", load("res://assets/plants/moss_bed/moss_bed_height.png"))

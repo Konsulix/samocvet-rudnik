@@ -92,6 +92,22 @@ static func step_cost(a: int, id: String, cost: int) -> int:
 static func available() -> bool:
 	return FileAccess.file_exists(DIR + "mine.json")
 
+## each area's folder (the screens that extend this one set theirs: CopperView.CDIR, SeaView.SDIR)
+const DIRS := [DIR, "res://assets/mine/copper_mountain/", "res://assets/mine/whalebone_cove/"]
+
+## every picture of an area's mine: the loading screen reads them on background threads, so the first minute
+## on the home screen does not stop for each picture (an animation's drawings load as they first come up)
+static func pictures(area: int) -> Array:
+	var out := []
+	if area >= 0 and area < DIRS.size():
+		_list(String(DIRS[area]), out)
+	return out
+
+static func _list(d: String, out: Array) -> void:
+	for f in ResourceLoader.list_directory(d):
+		if f.ends_with("/"): _list(d + f, out)
+		elif f.ends_with(".png"): out.append(d + f)
+
 ## a picture of this mine (`dir`: a mine screen that extends this one sets its own folder)
 func tex(path: String) -> Texture2D:
 	var key := dir + path

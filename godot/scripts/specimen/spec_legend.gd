@@ -30,8 +30,7 @@ static var _heart_shader: Shader
 
 static func heart_mat(c: Color, soft: float, swell: float) -> ShaderMaterial:
 	if not _heart_shader:
-		_heart_shader = Shader.new()
-		_heart_shader.code = HEART
+		_heart_shader = ShaderFiles.get_shader("legend_heart", HEART)
 	var m := ShaderMaterial.new()
 	m.shader = _heart_shader
 	m.set_shader_parameter("col", Vector3(c.r, c.g, c.b))
@@ -63,8 +62,7 @@ void fragment() {
 ## glowing light drawn over the glass (not seen through it), so it keeps its brightness and blooms
 static func over_mat(c: Color, speed := 7.0) -> ShaderMaterial:
 	if not _over_shader:
-		_over_shader = Shader.new()
-		_over_shader.code = OVER
+		_over_shader = ShaderFiles.get_shader("legend_over", OVER)
 	var m := ShaderMaterial.new()
 	m.shader = _over_shader
 	m.set_shader_parameter("col", Vector3(c.r, c.g, c.b))
@@ -84,8 +82,7 @@ static func shader_params(fx: String, rng_v: float) -> Dictionary:
 ## an unlit glowing material; pulse > 0 makes it throb (phase from the vertex/instance colour's red)
 static func glow_mat(c: Color, pulse := 0.0, speed := 3.0) -> ShaderMaterial:
 	if not _glow_shader:
-		_glow_shader = Shader.new()
-		_glow_shader.code = GLOW
+		_glow_shader = ShaderFiles.get_shader("legend_glow", GLOW)
 	var m := ShaderMaterial.new()
 	m.shader = _glow_shader
 	m.set_shader_parameter("col", Vector3(c.r, c.g, c.b))

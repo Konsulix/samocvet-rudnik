@@ -57,9 +57,7 @@ static func material(kind: String) -> ShaderMaterial:
 	if _mat.has(kind):
 		return _mat[kind]
 	var m := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = SHADER
-	m.shader = sh
+	m.shader = ShaderFiles.get_shader("foliage", SHADER)
 	m.set_shader_parameter("tex", texture(kind))
 	_mat[kind] = m
 	return m

@@ -35,6 +35,9 @@ jobs:
         run: |
           mkdir -p build/ios
           "$GODOT" --headless --import || true
+          # the shaders the game writes as text, as .gdshader files the baker sees (ShaderFiles), then import them
+          "$GODOT" --headless -- bake_shaders
+          "$GODOT" --headless --import || true
           set -o pipefail
           # the shader baker (export_presets: shader_baker/enabled) compiles Metal shaders at export,
           # but only with a real rendering device: export with Metal, fall back to headless if that fails

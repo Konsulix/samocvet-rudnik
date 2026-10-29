@@ -10,9 +10,27 @@ extends RefCounted
 static var _shaders := {}
 
 static func _shader(flat: bool, transp: bool, cull: String, irid: bool, dirt: bool, unshaded: bool, add: bool, glass := false) -> Shader:
-	var key := "%s%s%s%s%s%s%s%s" % [int(flat), int(transp), cull, int(irid), int(dirt), int(unshaded), int(add), int(glass)]
+	var f := [flat, transp, cull, irid, dirt, unshaded, add, glass]
+	var key := name_of(f)
 	if _shaders.has(key):
 		return _shaders[key]
+	var sh := ShaderFiles.get_shader(key, code_of(f))
+	_shaders[key] = sh
+	return sh
+
+## a variant's name, the file the shader baker sees (ShaderFiles): spec_<flat><transp><cull>... as 0/1
+static func name_of(f: Array) -> String:
+	return "spec_%d%d%s%d%d%d%d%d" % [int(f[0]), int(f[1]), f[2], int(f[3]), int(f[4]), int(f[5]), int(f[6]), int(f[7])]
+
+static func code_of(f: Array) -> String:
+	var flat: bool = f[0]
+	var transp: bool = f[1]
+	var cull: String = f[2]
+	var irid: bool = f[3]
+	var dirt: bool = f[4]
+	var unshaded: bool = f[5]
+	var add: bool = f[6]
+	var glass: bool = f[7]
 	var modes := ["cull_" + cull]
 	if unshaded: modes.append("unshaded")
 	if add: modes.append("blend_add")
@@ -26,10 +44,7 @@ static func _shader(flat: bool, transp: bool, cull: String, irid: bool, dirt: bo
 	if unshaded: code += "#define UNSHADED\n"
 	if glass: code += "#define GLASS\n"
 	code += "#include \"res://shaders/spec.gdshaderinc\"\n"
-	var sh := Shader.new()
-	sh.code = code
-	_shaders[key] = sh
-	return sh
+	return code
 
 ## the shader variants specimens actually use (flat, transp, cull, irid, dirt, unshaded, add, glass);
 ## Spec renders each once at startup so a find never waits for a shader to compile
@@ -41,9 +56,13 @@ const COMMON := [
 	[false, true, "disabled", true, false, false, false, true], [true, true, "disabled", true, false, false, false, true],
 	[true, true, "disabled", true, true, false, false, true]]
 
+## every variant the builder makes (COMMON first): each is written as a file for the shader baker (ShaderFiles).
+## A variant missing here says so in Diag ("built at run time") — `-- stress=100` finds them
+const BAKE := COMMON + [[false, false, "back", true, true, false, false, false]]
+
 static func warm_materials() -> Array[ShaderMaterial]:
 	var out: Array[ShaderMaterial] = []
-	for f in COMMON:
+	for f in BAKE:
 		var m := ShaderMaterial.new()
 		m.shader = _shader(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7])
 		out.append(m)

@@ -61,6 +61,11 @@ func _warm() -> void:
 	var wm := ShaderMaterial.new()
 	wm.shader = SpecWood.SHADER
 	mats.append(wm)
+	var src := ShaderFiles.sources()
+	for nm in ["legend_over", "foliage", "plants", "plants_bed", "bolt"]:
+		var gm := ShaderMaterial.new()
+		gm.shader = ShaderFiles.get_shader(nm, src[nm])
+		mats.append(gm)
 	for sh: Shader in [SpecBranch.SHADER, SpecWood.STONE, SpecFlower.PETAL, SpecFlower.WING, SpecFlower.AMBER]:
 		var xm := ShaderMaterial.new()
 		xm.shader = sh

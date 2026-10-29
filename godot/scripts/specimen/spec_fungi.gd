@@ -146,8 +146,7 @@ static func material(kind: int) -> ShaderMaterial:
 	if _mats.has(kind):
 		return _mats[kind]
 	if not _shader:
-		_shader = Shader.new()
-		_shader.code = SHADER
+		_shader = ShaderFiles.get_shader("fungi", SHADER)
 	var K: Dictionary = KINDS[kind]
 	var m := ShaderMaterial.new()
 	m.shader = _shader

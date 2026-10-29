@@ -21,6 +21,7 @@ class ErrLog extends Logger:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_priority = -1000000    # first in every frame: _process marks the frame's start
 	_logger = ErrLog.new()
 	_logger.diag = self
 	OS.add_logger(_logger)
@@ -49,40 +50,45 @@ func end(job: String, ok := true) -> void:
 var _win_t := 0.0
 var _win_n := 0
 var _win_worst := 0.0
-var _win_script := 0.0
+var _win_logic := 0
+var _win_draw := 0
 var _win_calls := 0.0
-var _measuring := false
+var _hooked := false
+var _t0 := 0     # usec: this frame's start (Diag processes first), the renderer's start
+var _t_pre := 0
 ## the screen on now (main._swap sets it), written on each line of the log
 var where := ""
+## frames at least this long are noted (`-- slow=20` on a desktop, where nothing takes 60 ms)
+var slow_ms := SLOW_MS
 
 func _process(dt: float) -> void:
-	# every 2 s, per frame: frames per second, the worst frame, our scripts (process and the _draw callbacks),
-	# the renderer's own CPU part, draw calls, and the video memory in use; the GPU only where it can be timed
-	# (Metal reports 0)
-	if not _measuring:
-		_measuring = true
-		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	# every 2 s, per frame: frames per second, the worst frame, "logic" — from the frame's start to the renderer's
+	# (every _process, and the _draw callbacks), "draw" — the renderer, waiting on the GPU included — and draw calls
+	# and the video memory in use. Diag goes first in the frame (process_priority), so _t0 is the frame's start.
+	if not _hooked:
+		_hooked = true
+		RenderingServer.frame_pre_draw.connect(func():
+			_t_pre = Time.get_ticks_usec()
+			_win_logic += _t_pre - _t0)
+		RenderingServer.frame_post_draw.connect(func(): _win_draw += Time.get_ticks_usec() - _t_pre)
+	_t0 = Time.get_ticks_usec()
 	_win_t += dt
 	_win_n += 1
 	_win_worst = maxf(_win_worst, dt)
-	_win_script += Performance.get_monitor(Performance.TIME_PROCESS)
 	_win_calls += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	if _win_t >= 2.0:
-		var rid := get_viewport().get_viewport_rid()
-		var gpu := RenderingServer.viewport_get_measured_render_time_gpu(rid)
-		note("%s%s: %d fps, worst %d ms, script %.1f ms, render %.1f ms%s, %d calls, vram %d MB" % [where,
+		note("%s%s: %d fps, worst %d ms, logic %.1f ms, draw %.1f ms, %d calls, vram %d MB" % [where,
 			"+card" if Ov.is_open() else "", roundi(_win_n / _win_t), roundi(_win_worst * 1000.0),
-			_win_script / _win_n * 1000.0,
-			RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
-			(", gpu %.1f ms" % gpu) if gpu > 0.0 else "", roundi(_win_calls / _win_n),
+			_win_logic / 1000.0 / _win_n, _win_draw / 1000.0 / _win_n, roundi(_win_calls / _win_n),
 			roundi(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0)])
 		_win_t = 0.0
 		_win_n = 0
 		_win_worst = 0.0
-		_win_script = 0.0
+		_win_logic = 0
+		_win_draw = 0
 		_win_calls = 0.0
 	var ms := int(dt * 1000.0)
-	if ms >= SLOW_MS:
+	if ms >= slow_ms:
 		_lock.lock()
 		var jobs := ", ".join(PackedStringArray(_active.keys()))
 		_lock.unlock()

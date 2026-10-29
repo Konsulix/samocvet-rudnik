@@ -71,10 +71,8 @@ func setup(bb: AABB, seed_v: int, glow: Color, surf := PackedVector3Array()) -> 
 	col = glow
 	surface = surf
 	rng.seed = seed_v
-	var sh := Shader.new()
-	sh.code = SHADER
 	_mat = ShaderMaterial.new()
-	_mat.shader = sh
+	_mat.shader = ShaderFiles.get_shader("bolt", SHADER)
 	_mat.set_shader_parameter("strands", STRANDS)
 	_mat.set_shader_parameter("glow_col", Vector3(col.r, col.g, col.b))
 	_mat.render_priority = 100

@@ -143,8 +143,7 @@ static var _shader: Shader
 
 static func material(c: Color, part: int, phase: float, speed: float, seed := 0.0) -> ShaderMaterial:
 	if not _shader:
-		_shader = Shader.new()
-		_shader.code = SHADER
+		_shader = ShaderFiles.get_shader("jelly", SHADER)
 	var m := ShaderMaterial.new()
 	m.shader = _shader
 	m.set_shader_parameter("col", Vector3(c.r, c.g, c.b))
