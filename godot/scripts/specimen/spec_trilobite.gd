@@ -896,7 +896,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			holder.add_child(hn)
 			var hm := MeshInstance3D.new()
 			hm.mesh = hunter_geo(Rng32.new(int(f.seed) + 77)).to_mesh()
-			hm.material_override = SpecSea.life_mat(3, 1.0, 0.035, 1.0, 0.55, 0.3)
+			hm.material_override = SpecSea.life_mat(3, 1.0, 0.03, 0.8, 0.6, 0.12)
 			hn.add_child(hm)
 			hn.body = hm
 			hn.sc = sz * 0.85
@@ -1228,114 +1228,152 @@ class Watcher extends Node3D:
 ## flaps a side (smaller towards the tail), a tail fan of three pairs of blades. UV.x: along it (0 head .. 1 tail),
 ## UV.y: out along a flap (the shader beats the flaps in a wave). Reddish, spotted darker, as the reconstructions are.
 static func hunter_geo(rng: Rng32) -> Geo:
+	# (after the reconstructions in art/refs/anomalocaris: a flat body almost hidden under its flaps; a big round head,
+	# its eyes large on short stalks; the arms heavy and jointed, long spines below; a tail fan in a V. Not a shrimp:
+	# nothing round in section but the head)
 	var g := Geo.new()
-	var base := Color(0.5, 0.2, 0.12)
-	var pale := Color(0.74, 0.42, 0.2)
+	# (vertex colours are taken into linear light by the shader: these are as on screen — a dusky salmon red, the
+	# flaps paler towards their edges)
+	# (the studio lights it hard: kept deep, or it washes out to a pink shrimp)
+	var base := Color(0.46, 0.17, 0.13)
+	var ochre := Color(0.7, 0.42, 0.28)
 	var nz := FastNoiseLite.new()
 	nz.seed = int(rng.next() * 9999.0)
-	nz.frequency = 9.0
+	nz.frequency = 11.0
 	var spot := func(p: Vector3, c: Color) -> Color:
-		var k := smoothstep(0.15, 0.4, nz.get_noise_3dv(p))
-		return c.lerp(Color(0.16, 0.06, 0.04), k * 0.8)
+		var k := smoothstep(0.1, 0.35, nz.get_noise_3dv(p))
+		return c.lerp(Color(0.18, 0.06, 0.05), k * 0.7)
 	var pad := func(u: float) -> void:
 		while g.rp.size() < g.v.size():
 			g.rp.append(Vector3(u, 0.0, 0.0))
-	# the body: elliptical rings from the head back to the tail
-	var nr := 28
-	var m := 14
+	var quads := func(b0: int, rows: int, cols: int) -> void:
+		for i in rows:
+			for j in cols:
+				var a := b0 + i * (cols + 1) + j
+				g.idx.append_array([a, a + cols + 1, a + 1, a + 1, a + cols + 1, a + cols + 2])
+	# the trunk: flat, broad at the front, tapering to the tail
+	var nr := 24
+	var m := 16
 	var b0 := g.v.size()
 	for i in nr + 1:
 		var t := float(i) / nr
-		var z := 0.48 - t * 0.9
-		var hw := 0.075 + 0.07 * sin(PI * minf(1.0, (t + 0.15) * 0.95)) - 0.03 * t
-		var hh := 0.045 * (1.0 - 0.6 * t) + 0.01
-		if t < 0.12: hw *= 0.8 + 1.6 * t   # the head shield, rounded in front
+		var z := 0.3 - t * 0.72
+		var hw := 0.1 * (1.0 - 0.65 * t)
+		var hh := 0.05 * (1.0 - 0.55 * t)
 		for j in m + 1:
 			var a := TAU * float(j) / m
-			var p := Vector3(cos(a) * hw, sin(a) * hh, z)
+			# its back arched a little, highest behind the head
+			var p := Vector3(cos(a) * hw, sin(a) * hh + 0.03 * sin(PI * minf(1.0, t * 1.3)), z)
 			g.v.append(p)
-			# its segments: a darker band at each joint
-			var seg := 0.25 if i % 3 == 0 and i > 3 else 0.0
-			g.col.append(spot.call(p, base.lerp(pale, 0.3 * maxf(0.0, -sin(a))).darkened(seg)))
-			g.rp.append(Vector3(t, 0.0, 0.0))
-	for i in nr:
-		for j in m:
-			var a := b0 + i * (m + 1) + j
-			g.idx.append_array([a, a + m + 1, a + 1, a + 1, a + m + 1, a + m + 2])
-	# the flaps: eleven a side, overlapping, drooping a little, shorter towards the tail
+			g.col.append(spot.call(p, base.darkened(0.3 if i % 2 == 0 else 0.0)))
+			g.rp.append(Vector3(0.15 + 0.85 * t, 0.0, 0.0))
+	quads.call(b0, nr, m)
+	# the head: a broad rounded dome, wider than the trunk
+	var hs := Geo.sphere(1.0, 18, 10)
+	var h0 := g.v.size()
+	for v in hs.v:
+		var p := Vector3(v.x * 0.12, v.y * 0.065 + 0.012, v.z * 0.11 + 0.36)
+		g.v.append(p)
+		# the dorsal plate: a paler oval on top of the head, rimmed darker
+		var plate := smoothstep(0.55, 0.75, v.y)
+		var rim := smoothstep(0.4, 0.55, v.y) * (1.0 - plate)
+		g.col.append(spot.call(p, base.lerp(ochre, 0.45 * plate).darkened(0.35 * rim)))
+		g.rp.append(Vector3(0.05, 0.0, 0.0))
+	for i in hs.idx:
+		g.idx.append(h0 + i)
+	# the flaps: eleven a side, broad rounded lobes, each overlapping the next, the front ones on top, swept back and
+	# drooping a little; ochre edged, dark-veined
 	for i in 11:
-		var t := 0.16 + 0.062 * float(i)
-		var z := 0.48 - t * 0.9
-		var ln := 0.22 - 0.012 * float(i)
-		var wd := 0.075   # wide enough that each overlaps the next
+		var t := 0.08 + 0.075 * float(i)
+		var z := 0.3 - t * 0.72
+		var ln := 0.28 - 0.016 * float(i)
+		# (half-width a little more than half the spacing: each lobe overlaps the next only at its edge, so they read
+		# as separate lobes, not one skirt)
+		var wd := 0.042 - 0.0012 * float(i)
+		var lift := -0.002 * float(i)
 		for s: float in [-1.0, 1.0]:
 			var f0 := g.v.size()
-			var na := 6
-			for q in na + 1:
-				var o := float(q) / na
-				for r in 3:
-					# a rounded lobe: widest a third of the way out, its tip round, swept back a little
-					var w := (float(r) - 1.0) * wd * (0.7 + 0.5 * sin(PI * minf(1.0, o * 1.4))) * (1.0 - 0.6 * o * o)
-					var p := Vector3(s * (0.1 + o * ln), -0.01 - 0.025 * o * o, z + w - o * 0.07)
+			var no := 7
+			var nw := 6
+			for q in no + 1:
+				var o := float(q) / no
+				for r in nw + 1:
+					var w := (float(r) / nw - 0.5) * 2.0
+					# a rounded lobe: its half-width along the body shrinks to a round tip
+					# (round-tipped, not pointed: the outline is a row of scallops, not a saw)
+					var half := wd * pow(maxf(0.0, 1.0 - pow(o, 4.0)), 0.5)
+					# drooping down from the body, as they hang in the reconstructions (seen from the side, a skirt)
+					# swept well back: each lobe slants down and back over the next, its trailing edge in shadow
+					var droop := 0.3 * o * ln
+					# and twisted: the leading edge high, the trailing low — the light falls on each lobe apart
+					var twist := -w * half * 0.9 * o
+					var p := Vector3(s * (0.07 * (1.0 - 0.6 * t) + o * ln * 0.95), lift - droop - 0.004 * float(i) + twist, z + w * half - o * ln * 0.75)
 					g.v.append(p)
-					# the body's red, its edge a little paler, a dark vein down the middle
-					var vein := 0.35 if r == 1 and o > 0.15 else 0.0
-					g.col.append(spot.call(p, base.lerp(pale, 0.1 + 0.25 * o).darkened(vein)))
-					g.rp.append(Vector3(t, o, 0.0))
-			for q in na:
-				for r in 2:
-					var a := f0 + q * 3 + r
-					g.idx.append_array([a, a + 3, a + 1, a + 1, a + 3, a + 4])
-	# the tail fan: three pairs of long blades, splayed back and up
+					# fine dark lines radiating along the lobe, its trailing edge in shadow (that is what separates the lobes)
+					var vein := 0.25 if absf(fposmod(w * 3.0 + 0.5, 1.0) - 0.5) < 0.08 and o > 0.1 else 0.0
+					vein = maxf(vein, 0.5 * smoothstep(-0.55, -0.95, w))
+					g.col.append(spot.call(p, base.lerp(ochre, 0.15 + 0.6 * o * o).darkened(vein)))
+					g.rp.append(Vector3(0.15 + 0.85 * t, o, 0.0))
+			quads.call(f0, no, nw)
+	# the tail fan: three pairs of long blades, in a V up and back
 	for k in 3:
 		for s: float in [-1.0, 1.0]:
 			var f0 := g.v.size()
-			var ang := 0.25 + 0.3 * float(k)
-			var dir := Vector3(s * sin(ang) * 0.6, 0.25 + 0.15 * float(k), -cos(ang)).normalized()
-			for q in 6:
-				var o := float(q) / 5.0
-				for r in 2:
-					var side := Vector3(-dir.z, 0, dir.x).normalized() * (float(r) - 0.5) * 0.035 * (1.0 - o * 0.6)
-					var p := Vector3(0, 0.01, -0.42) + dir * o * 0.22 + side
+			var ang := 0.18 + 0.22 * float(k)
+			var dir := Vector3(s * sin(ang) * 0.55, 0.8 + 0.35 * float(k), -cos(ang) * 1.0).normalized()
+			var side := Vector3(-dir.z, 0, dir.x).normalized()
+			for q in 7:
+				var o := float(q) / 6.0
+				for r in 3:
+					var w := (float(r) - 1.0) * 0.05 * sin(PI * minf(1.0, o * 1.2 + 0.15))
+					var p := Vector3(0, 0.008, -0.4) + dir * o * 0.4 + side * w
 					g.v.append(p)
-					g.col.append(base.lerp(pale, 0.5 * o))
-					g.rp.append(Vector3(1.0, o * 0.5, 0.0))
-			for q in 5:
-				var a := f0 + q * 2
-				g.idx.append_array([a, a + 2, a + 1, a + 1, a + 2, a + 3])
-	# the grasping arms: jointed, out in front, curling down and back under the head, spines on their inner side
+					g.col.append(spot.call(p, base.lerp(ochre, 0.5 * o)))
+					g.rp.append(Vector3(1.0, o * 0.4, 0.0))
+			quads.call(f0, 6, 2)
+	# the grasping arms: heavy, jointed, reaching forward from under the head and curling down and back, a long
+	# spine down from each joint
 	for s: float in [-1.0, 1.0]:
 		var pts := []
-		for q in 14:
-			var o := float(q) / 13.0
-			var ph := o * PI * 1.25
-			pts.append(Vector3(s * (0.04 + 0.03 * o), -0.02 - 0.12 * (1.0 - cos(ph)) * 0.8, 0.48 + 0.16 * sin(ph)))
+		var nj := 14
+		for q in nj + 1:
+			var o := float(q) / nj
+			# long: forward and down from under the head, only the last third curling in
+			var ph := o * PI * 0.62 + pow(o, 3.0) * PI * 0.45
+			pts.append(Vector3(s * (0.05 + 0.04 * o), -0.03 - 0.3 * (1.0 - cos(ph)) * 0.7, 0.4 + 0.3 * sin(ph)))
 		var a0 := g.v.size()
-		SpecSea.tube(g, pts, 0.026, 0.008, base.darkened(0.2), pale, 0.0, 6)
-		# the joints: darker bands
+		SpecSea.tube(g, pts, 0.036, 0.012, base.darkened(0.1), ochre, 0.0, 8)
+		# the joints: rings alternately dark and pale
 		for i in range(a0, g.v.size()):
-			var ring := int(float(i - a0) / 7.0)
-			if ring % 2 == 0: g.col[i] = g.col[i].darkened(0.3)
+			if int(float(i - a0) / 9.0) % 2 == 0: g.col[i] = g.col[i].darkened(0.35)
 		pad.call(0.0)
-		for q in range(2, 13):
+		for q in range(1, nj):
 			var p: Vector3 = pts[q]
 			var nxt: Vector3 = pts[q + 1]
-			var inward := (Vector3(0, 0.48 - 0.12, 0.48) - p)
-			inward.x = 0.0
-			inward = inward.normalized()
-			SpecSea.tube(g, [p, p + inward * 0.03 + (nxt - p) * 0.3], 0.006, 0.001, pale, pale.lightened(0.3), 0.0, 3)
+			var fwd := (nxt - p).normalized()
+			# the inside of the curl: towards the curl's centre
+			var inn := (Vector3(p.x, -0.25, 0.42) - p)
+			inn.x = 0.0
+			inn = inn.normalized()
+			var ln := 0.075 * (1.0 - 0.5 * float(q) / nj)
+			SpecSea.tube(g, [p, p + inn * ln * 0.6 + fwd * ln * 0.2, p + inn * ln + fwd * ln * 0.45], 0.007, 0.001, ochre, ochre.lightened(0.3), 0.0, 4)
 		pad.call(0.0)
-	# the eyes on their stalks
+	# the eyes: big and dark on short thick stalks at the back of the head
 	for s: float in [-1.0, 1.0]:
-		var root := Vector3(s * 0.06, 0.03, 0.42)
-		var tip := root + Vector3(s * 0.06, 0.05, 0.02)
-		SpecSea.tube(g, [root, tip], 0.012, 0.01, base, base, 0.0, 6)
+		var root := Vector3(s * 0.09, 0.02, 0.32)
+		var tip := root + Vector3(s * 0.05, 0.03, -0.01)
+		SpecSea.tube(g, [root, tip], 0.02, 0.016, base, base, 0.0, 8)
 		pad.call(0.0)
-		var e := Geo.sphere(1.0, 10, 8)
+		var e := Geo.sphere(1.0, 12, 9)
 		var e0 := g.v.size()
 		for v in e.v:
-			g.v.append(tip + Vector3(v.x * 0.03, v.y * 0.022, v.z * 0.026))
-			g.col.append(Color(0.04, 0.03, 0.03))
+			g.v.append(tip + Vector3(v.x * 0.052, v.y * 0.045, v.z * 0.05))
+			# a dark pupil looking out sideways, a golden iris round it, the rest of the ball dark red-brown
+			var look := v.normalized().dot(Vector3(s, 0.2, 0.15).normalized())
+			var ec := Color(0.35, 0.12, 0.08)
+			if look > 0.55: ec = Color(0.85, 0.62, 0.2)
+			if look > 0.82: ec = Color(0.03, 0.02, 0.02)
+			g.col.append(ec)
 			g.rp.append(Vector3(0.0, 0.0, 0.0))
 		for i in e.idx:
 			g.idx.append(e0 + i)
