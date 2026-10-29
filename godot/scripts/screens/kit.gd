@@ -196,11 +196,16 @@ static func hanging(p: Control, bar: Control) -> Control:
 	var slot := Control.new()
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var sw := Control.new()     # the swinging part: the chains and the plate (a plain Control, so nothing resets it)
+	# the chains: fixed at the hooks, their lower ends following the plate as it sways (drawn behind it)
+	var ch := Control.new()
+	ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(ch)
+	var sw := Control.new()     # the swinging part: the plate (a plain Control, so nothing resets it)
 	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.add_child(sw)
 	sw.add_child(p)
 	const INSET := 24.0         # from the plate's ends to its chains
+	const LINKS_SHOWN := 4.0    # links of chain left showing between the capsules and the plate
 	var ends := func() -> Array:
 		# the hooks in the swinging part's own space: [left x, right x, top y]
 		var a: Control = hooks[0]
@@ -220,27 +225,37 @@ static func hanging(p: Control, bar: Control) -> Control:
 		sw.size = m
 		p.size = m
 	bar.resized.connect(func(): fit.call_deferred())
+	# the bar over the chains: they come out from behind the capsules
+	bar.z_index = 1
 	# the plate's middle under the middle between the chains (the slot itself is centred on the screen)
 	var place := func():
 		if hooks.size() == 2 and slot.is_inside_tree():
 			var e: Array = ends.call()
 			sw.position.x = (float(e[0]) + float(e[1])) / 2 - sw.size.x / 2
-		sw.queue_redraw()
+			# pulled up close under the capsules: two links of chain show between them and the plate
+			sw.position.y = float(e[2]) + 5.0 + LINKS_SHOWN * 5.0 - 2.0
+		ch.queue_redraw()
 	slot.item_rect_changed.connect(func(): place.call_deferred())
 	fit.call()
-	sw.draw.connect(func():
-		var xs: Array = [INSET, sw.size.x - INSET]
-		var top := -30.0
+	ch.draw.connect(func():
+		# in the slot's space: the hooks stay put, the ends on the plate go where its sway takes them
+		var xs: Array = [sw.position.x + INSET, sw.position.x + sw.size.x - INSET]
+		var top := sw.position.y - 30.0
 		if hooks.size() == 2 and slot.is_inside_tree():
 			var e: Array = ends.call()
-			xs = [float(e[0]) - sw.position.x, float(e[1]) - sw.position.x]
-			top = e[2]
-		sw.pivot_offset = Vector2((float(xs[0]) + float(xs[1])) / 2, top)
+			xs = [float(e[0]), float(e[1])]
+			top = float(e[2])
+		# the plate swings about the point between the hooks
+		sw.pivot_offset = Vector2((float(xs[0]) + float(xs[1])) / 2 - sw.position.x, top - sw.position.y)
+		var xf := sw.get_transform()
 		for x: float in xs:
-			chain(sw, Vector2(x, top), Vector2(x, 5)))
+			chain(ch, Vector2(x, top), xf * Vector2(x - sw.position.x, 5)))
+	var swing := func(r: float):
+		sw.rotation = r
+		ch.queue_redraw()
 	var tw := sw.create_tween().set_loops()
-	tw.tween_property(sw, "rotation", 0.012, 2.2).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(sw, "rotation", -0.012, 2.2).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(swing, -0.012, 0.012, 2.2).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(swing, 0.012, -0.012, 2.2).set_trans(Tween.TRANS_SINE)
 	return slot
 
 ## tabs in the kit: a row of slate tiles in iron, the chosen one lit warm in brass (Collection, Depot)
