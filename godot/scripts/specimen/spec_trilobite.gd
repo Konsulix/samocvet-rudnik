@@ -889,10 +889,10 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			hn.body = hm
 			# a thin trail of bubbles from its mouth as it swims
 			SpecSea.bubbles(hm, [Vector3(0, -0.02, 0.4), Vector3(0, 0.02, 0.2)], Vector3.UP, 0.5, 0.014, 4)
-			hn.sc = sz * 0.85
+			hn.sc = sz * 0.72
 			hn.target = nd0.position
-			hn.radius = sz * 0.75
-			hn.height = sz * 0.62
+			hn.radius = sz * 0.9
+			hn.height = sz * 0.75
 			hn.mats = [sm, em]
 			# an unseen box round the whole loop: the studio frames the find by its meshes, and would otherwise cut
 			# the hunter off at the edge of the card
@@ -1366,15 +1366,28 @@ class Hunter extends Node3D:
 	var mats: Array = []
 	var a := 0.0
 	var rolled := 0.0
-	func _process(dt: float) -> void:
-		a += dt * TAU / 13.0
-		# an oval loop round the slab, off centre so that one side of it passes right over the trilobite
+	var bank := 0.0
+	var last := Vector3.ZERO
+	var tan := Vector3.FORWARD
+	## the path: a lazy figure of eight round the slab, rising and sinking, one crossing over the trilobite
+	func at(t: float) -> Vector3:
 		var c := target + Vector3(radius * 0.3, 0, 0)
-		var p := c + Vector3(cos(a) * radius, height + sin(a * 2.0) * radius * 0.08, sin(a) * radius * 0.7)
-		var tan := Vector3(-sin(a) * radius, cos(a * 2.0) * radius * 0.16, cos(a) * radius * 0.7).normalized()
+		return c + Vector3(cos(t) * radius, height + sin(t * 3.0 + 0.7) * radius * 0.14, (sin(t * 2.0) * 0.45 + sin(t) * 0.3) * radius)
+	func _process(dt: float) -> void:
+		# its pace: it glides slowly round the far side and darts as it passes over its prey
+		var here := at(a)
+		var d := Vector2(here.x - target.x, here.z - target.z).length() / radius
+		var pace := 0.55 + 1.3 * exp(-d * d / 0.25)
+		a += dt * TAU / 17.0 * pace
+		var p := at(a)
+		var nt := (at(a + 0.02) - p).normalized()
+		# banking into its turns
+		var turn := tan.cross(nt).y / maxf(dt, 0.001)
+		bank = lerpf(bank, clampf(-turn * 0.3, -0.5, 0.5), minf(1.0, dt * 3.0))
+		tan = nt
 		body.position = p
-		body.basis = Basis.looking_at(-tan, Vector3.UP) * Basis(Vector3.BACK, -0.25 * cos(a)) * Basis.from_scale(Vector3.ONE * sc)
-		var near := Vector2(p.x - target.x, p.z - target.z).length() < radius * 0.6
+		body.basis = Basis.looking_at(-tan, Vector3.UP) * Basis(Vector3.BACK, bank) * Basis.from_scale(Vector3.ONE * sc)
+		var near := Vector2(p.x - target.x, p.z - target.z).length() < radius * 0.5
 		rolled = move_toward(rolled, 1.0 if near else 0.0, dt * (1.6 if near else 0.35))
 		var r := smoothstep(0.0, 1.0, rolled)
 		for m: ShaderMaterial in mats:
