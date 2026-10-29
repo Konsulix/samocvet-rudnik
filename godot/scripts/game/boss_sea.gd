@@ -24,6 +24,7 @@ var front: Control           # the arms over the top bar
 var _t := 0.0
 var _splash := -10.0         # when he last rose out of the water: spray and rings
 var _slap := -10.0           # when an arm last slapped down over the name plate
+var _drown := -10.0          # when he went down for good: a whirl and bubbles where he was
 ## the gulls asleep on the island (on phase 1's picture, where `gulls` in boss.json says): as he wakes they start up
 ## off his head and fly away, beating their wings (`gull_fly_<k>.png`, a GPT sheet of a wing-beat). [{at, t0, dir, ph}]
 var _gulls := []
@@ -108,6 +109,11 @@ func gulls_off(from: Vector2) -> void:
 		var dir := -1.0 if at.x < view.position.x + view.size.x * 0.45 else 1.0
 		_gulls.append({at = at, t0 = _t + i * 0.12, dir = dir, ph = i * 2})
 
+## his defeat: he sinks (BossView.defeat), his arms (rooted in his sprite) go down with him, the water closes over him
+## in a slow whirl
+func drown() -> void:
+	_drown = _t
+
 func set_board(i: int) -> void:
 	arms_on = i >= 2
 
@@ -179,6 +185,28 @@ func _draw() -> void:
 		draw_set_transform((at - sz * 0.5).round() + Vector2(sz.x if dir < 0.0 else 0.0, 0), 0.0, Vector2(dir, 1.0))
 		draw_texture(gtex, Vector2.ZERO, Color(1, 1, 1, a))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# where he went down: rings spreading on the surface, turning, and bubbles coming up
+	var dd := _t - _drown
+	if dd > 0.8 and dd < 9.0:
+		var c := Vector2(view.position.x + view.size.x * 0.55, surface + 2.0)
+		var fade := clampf((9.0 - dd) / 3.0, 0.0, 1.0)
+		for k in 4:
+			var rr := fposmod((dd - 0.8) * 26.0 + k * 22.0, 90.0)
+			var arc := PackedVector2Array()
+			for j in 25:
+				var a := j / 24.0 * PI + dd * 0.8 + k
+				arc.append(c + Vector2(cos(a) * rr, sin(a) * rr * 0.12))
+			draw_polyline(arc, Color(0.75, 0.88, 0.86, 0.5 * fade * (1.0 - rr / 90.0)), 1.0)
+		var rnd := RandomNumberGenerator.new()
+		rnd.seed = 31
+		for k in 26:
+			var t0 := rnd.randf() * 6.0
+			var bt := fposmod(dd - 0.8 - t0, 1.4)
+			if dd - 0.8 < t0: continue
+			var bx := c.x + rnd.randf_range(-70.0, 70.0) + sin(bt * 6.0 + k) * 2.0
+			var by := surface + 26.0 - bt * 22.0
+			if by < surface: continue
+			draw_arc(Vector2(bx, by).round(), 1.0 + k % 3, 0.0, TAU, 8, Color(0.8, 0.92, 0.9, 0.7 * fade), 1.0)
 	# the spray as he rises: drops thrown up from the surface along his width, falling back
 	var ss := _t - _splash
 	if ss < 1.8:

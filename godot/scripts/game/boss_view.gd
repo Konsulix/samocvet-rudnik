@@ -161,6 +161,15 @@ func defeat() -> void:
 	Sfx.play("boom")
 	Sfx.buzz(60)
 	await get_tree().create_timer(1.1).timeout
+	# a boss of the sea (boss.json "drown"): no stones and dust - he dims and goes down under his water for good
+	if bool(meta.get("drown", false)):
+		_go("fall")
+		var dt := create_tween()
+		dt.tween_property(self, "position:y", position.y + size.y * 0.8, 3.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		await get_tree().create_timer(1.3).timeout
+		_go("defeated")
+		await get_tree().create_timer(2.2).timeout
+		return
 	_go("fall")
 	_pebbles_age = 0.0
 	var tw := create_tween()
