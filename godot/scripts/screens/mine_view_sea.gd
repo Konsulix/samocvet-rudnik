@@ -365,7 +365,12 @@ func _process(delta: float) -> void:
 	# the storm: now and then a bolt or a flicker of lightning (its flash lights the water too)
 	if t > _next_storm and _storm.is_empty():
 		_next_storm = t + _rng.randf_range(28.0, 50.0)
-		_start_storm(["far", "far", "sheet", "near", "rod", "elmo"][_rng.randi() % 6])
+		var kinds := ["far", "far", "sheet", "near"]
+		if int(_shown_places.get("lighthouse", 0)) >= 3:
+			kinds.append("rod")          # the rod is on the lighthouse's lantern: only on the one that is built
+		if not _elmo_points().is_empty():
+			kinds.append("elmo")
+		_start_storm(kinds[_rng.randi() % kinds.size()])
 	var fl := _storm_flash()
 	var sk := String(_storm.get("kind", ""))
 	dm.set_shader_parameter("flash", fl * (0.9 if sk == "near" else 0.4))
@@ -915,6 +920,21 @@ const STORM := {
 }
 const THUNDER_DELAY := {"far": 1.6, "near": 0.05, "rod": 0.05, "sheet": 0.9, "elmo": 1e9}
 
+## the tall points where St. Elmo's fire burns: only on what is built (finished) - the points are on the final picture,
+## and over a ruin or an empty ledge the tongues flickered in thin air. Each point belongs to the place whose box holds it
+## (a little above the box too: the tip of a mast or a cross)
+func _elmo_points() -> Array:
+	var out: Array = []
+	for e in J.storm.elmo:
+		var p := Vector2(float(e[0]), float(e[1]))
+		for id in SPLACES:
+			var bx: Array = J.place_box[id]
+			if p.x >= float(bx[0]) and p.x <= float(bx[2]) and p.y >= float(bx[1]) - 60.0 and p.y <= float(bx[3]):
+				if int(_shown_places.get(id, 0)) >= 3:
+					out.append(p)
+				break
+	return out
+
 ## a storm begins: its bolts are made once (from the clouds to where they strike, jagged, with branches)
 func _start_storm(kind: String) -> void:
 	var sd: Dictionary = J.storm
@@ -1064,8 +1084,7 @@ func _storm_live(c: CanvasItem) -> void:
 		var ek := clampf((s - e0) / 0.6, 0.0, 1.0) * clampf((len_ - s) / 1.0, 0.0, 1.0)
 		if ek > 0.0:
 			var i := 0
-			for e in sd.elmo:
-				var p := Vector2(float(e[0]), float(e[1]))
+			for p: Vector2 in _elmo_points():
 				var fl := ek * (0.6 + 0.4 * sin(t * 23.0 + i * 1.9) * sin(t * 7.0 + i))
 				_light(c, p, 90, Color(0.5, 0.55, 1.0, 0.5 * fl))
 				_light(c, p, 34, Color(0.8, 0.85, 1.0, 0.7 * fl))
