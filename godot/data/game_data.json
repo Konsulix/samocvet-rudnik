@@ -1049,66 +1049,82 @@
    }
   },
   {
-   "n": "Fire Horizon",
-   "sub": "Kamchatka, by the volcano",
+   "n": "Whalebone Cove",
+   "sub": "And\u00f8ya, Norwegian coast",
    "pool": {
-    "garnet": 16,
-    "pyrite": 10,
-    "gypsum": 8,
-    "opal": 8,
-    "quartz": 8,
-    "gold": 4,
-    "sapphire": 3,
-    "ruby": 1.5,
-    "diamond": 0.5,
-    "petrified_wood": 5,
-    "fulgurite": 4,
-    "flower_quartz": 1.5,
-    "amber": 1
+    "ammonite": 16,
+    "pyrite": 12,
+    "calcite": 12,
+    "quartz": 10,
+    "gypsum": 6,
+    "fluorite": 6,
+    "aquamarine": 6,
+    "opal": 5,
+    "amber": 5,
+    "petrified_wood": 4,
+    "sapphire": 1,
+    "flower_quartz": 1
    },
+   "steps": 3,
    "tasks": [
     [
-     "rubble",
-     "Clear the cooled lava",
+     "landing",
+     "Cave landing",
+     40
+    ],
+    [
+     "tryworks",
+     "Engine house",
+     41
+    ],
+    [
+     "crane",
+     "Steam crane",
+     42
+    ],
+    [
+     "bulkhead",
+     "Sea door",
+     43
+    ],
+    [
+     "arch",
+     "Whalebone stair",
      44
     ],
     [
-     "timber",
-     "Heat-proof supports",
+     "chapel",
+     "Seamen's chapel",
+     45
+    ],
+    [
+     "lighthouse",
+     "Lighthouse",
      46
     ],
     [
-     "rails",
-     "Rails through the ash",
+     "skeleton",
+     "Free the sea dragon",
+     48
+    ],
+    [
+     "grotto",
+     "Sea grotto",
      50
-    ],
-    [
-     "lamps",
-     "Floodlights",
-     52
-    ],
-    [
-     "cart",
-     "A cart for rubies",
-     56
-    ],
-    [
-     "headframe",
-     "Fire headframe",
-     58
     ]
    ],
    "ore": {
-    "n": "Sulfur",
+    "n": "Jet",
     "iron": 0,
     "local": 3,
-    "c": "#cfc23a"
+    "c": "#7d8ca6",
+    "hot": "#7fe0ff"
    },
    "depths": [
     {
      "m": 50,
-     "fe": 76,
-     "au": 76,
+     "fe": 61,
+     "au": 61,
      "tool": "",
      "machine": "",
      "drill": [
@@ -1118,57 +1134,90 @@
     },
     {
      "m": 100,
-     "fe": 82,
-     "au": 82,
+     "fe": 65,
+     "au": 65,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
-      46,
-      1000
+      39,
+      1200
      ]
     },
     {
      "m": 150,
-     "fe": 87,
-     "au": 87,
-     "tool": "Rock drill",
+     "fe": 67,
+     "au": 67,
+     "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
-      50,
-      1250
+      40,
+      1320
      ]
     },
     {
      "m": 200,
-     "fe": 93,
-     "au": 93,
-     "tool": "Drilling rig",
-     "machine": "rig",
+     "fe": 70,
+     "au": 70,
+     "tool": "Rock drill",
+     "machine": "hammer",
      "drill": [
-      52,
+      42,
       1500
      ]
     },
     {
      "m": 250,
-     "fe": 98,
-     "au": 98,
-     "tool": "Tunnel borer",
-     "machine": "tbm",
+     "fe": 72,
+     "au": 72,
+     "tool": "Drilling rig",
+     "machine": "rig",
      "drill": [
-      56,
-      1900
+      44,
+      1680
      ]
     },
     {
      "m": 300,
-     "fe": 104,
-     "au": 104,
+     "fe": 74,
+     "au": 74,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      45,
+      1860
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 77,
+     "au": 77,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      46,
+      2040
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 79,
+     "au": 79,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
-      58,
-      2250
+      48,
+      2280
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 83,
+     "au": 83,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      50,
+      2520
      ]
     }
    ]

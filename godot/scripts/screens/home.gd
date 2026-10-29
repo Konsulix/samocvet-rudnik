@@ -11,6 +11,7 @@ var scene: MineScene
 var scene_holder: Node2D
 var ui_root: VBoxContainer
 const COPPER_VIEW := "res://scripts/screens/mine_view_copper.gd"
+const SEA_VIEW := "res://scripts/screens/mine_view_sea.gd"
 var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
@@ -46,6 +47,13 @@ func _ready() -> void:
 			_views[1] = cv
 		else:
 			cv.free()
+	# Whalebone Cove (SeaView in mine_view_sea.gd, the same way)
+	if ResourceLoader.exists(SEA_VIEW):
+		var sv: MineView = (load(SEA_VIEW) as GDScript).new()
+		if sv.has_method("available_here") and sv.call("available_here"):
+			_views[2] = sv
+		else:
+			sv.free()
 	for a in _views:
 		var mv: MineView = _views[a]
 		mv.visible = false

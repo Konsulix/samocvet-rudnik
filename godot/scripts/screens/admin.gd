@@ -146,7 +146,10 @@ static func open() -> void:
 	v.add_child(_head("Mine screen"))
 	var ms := _row()
 	ms.add_child(_btn("All animations on", false, func(): _alive()))
-	for ev in (["lizard", "reflection", "window", "hotcrack"] if a == 1 else ["hole", "coil", "eyes", "bat", "lizard"]):
+	var evs: Array = ["hole", "coil", "eyes", "bat", "lizard"]
+	if a == 1: evs = ["lizard", "reflection", "window", "hotcrack"]
+	elif a == 2: evs = ["tentacle", "ink", "bubbles", "tip", "compass", "frost"]
+	for ev in evs:
 		ms.add_child(_btn("Event: " + ev, false, func():
 			MineView.force_event = ev
 			Ov.close()
