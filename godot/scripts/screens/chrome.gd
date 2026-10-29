@@ -72,8 +72,6 @@ static func _portrait() -> Control:
 	# the Mistress's 1-pt pixel frame is stored ×3 so it scales down evenly (unscaled, its cells came out uneven)
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	w.add_child(frame)
-	# the mine's boss alive on it: the Poloz' tail, a lizard of the Mistress', the Kraken's arm (under the heart)
-	w.add_child(PortraitLife.make(id, F))
 	var mins := Save.minutes_to_life()
 	# the lives: a heart on the frame's lower right corner with their number on it; while one is coming back,
 	# the minutes left in small print under the portrait
@@ -87,6 +85,8 @@ static func _portrait() -> Control:
 	hn.size = Vector2(32, 28)
 	hn.position = heart.position
 	w.add_child(hn)
+	# the mine's boss alive on it: the Poloz' tail, a lizard of the Mistress', the Kraken's arm (over the heart too)
+	w.add_child(PortraitLife.make(id, F))
 	if mins:
 		var tl := Kit.label("+1 in %dm" % mins, 11, UI.body_bold, Kit.DIM)
 		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -81,9 +81,12 @@ func _lizard() -> void:
 ## his arm along the whole top bar - its cut root end on the frame's left edge, as if it comes round from behind -
 ## over the upper right corner and down the right bar, reaching and drawing back there, its tip groping
 func _arm() -> void:
-	var m := f * 0.13
-	var ctrl := PackedVector2Array([Vector2(0.0, m), Vector2(f * 0.45, m - 1.0), Vector2(f - m * 1.2, m),
-		Vector2(f - m + 1.0, f * 0.35), Vector2(f - m + 2.0, f * 0.62), Vector2(f + m * 0.4, f * 0.82)])
+	# the frame picture (kraken_frame.py avatar): 108 pt with 30 of room round a 48-pt window, its bars 14 thick
+	# (AVATAR_BAR) - the outer edge 16 pt in, the bars' middle 23 pt in
+	var edge := f * 16.0 / 108.0
+	var mid := f * 23.0 / 108.0
+	var ctrl := PackedVector2Array([Vector2(edge, mid), Vector2(f * 0.45, mid), Vector2(f - mid * 1.3, mid),
+		Vector2(f - mid, f * 0.35), Vector2(f - mid, f * 0.62), Vector2(f - edge * 0.5, f * 0.82)])
 	var line := Bend.smooth(ctrl, 8)
 	var full := Bend.length(line)
 	# the root stays at the edge; only the hanging end reaches and draws back
