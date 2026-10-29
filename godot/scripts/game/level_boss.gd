@@ -436,7 +436,9 @@ static func defeat(lv: Level) -> void:
 	frame(lv).swaying = false
 	# its theme dies with it, gone before the win jingle
 	Sfx.music_fade(3.5)
-	if sea(lv): get_tree_timer(lv, 1.1, sea(lv).drown)
+	if sea(lv):
+		get_tree_timer(lv, 1.1, sea(lv).drown)
+		get_tree_timer(lv, 1.2, func(): sound(lv, "drown"))
 	await v.defeat()
 
 ## the show for screenshots and checks on a phone: hits, a flinch, its turn, a lost board, the defeat

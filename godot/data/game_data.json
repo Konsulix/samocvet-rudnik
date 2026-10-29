@@ -1282,7 +1282,19 @@
      "drag": "Into the deep with it.",
      "eye": "My eye! You'll pay for that."
     },
-    "sfx": {},
+    "sfx": {
+     "hurt": "kr_roar",
+     "phase": "kr_phase",
+     "rise": "kr_rise",
+     "tentacle": "kr_tentacle",
+     "cut": "kr_cut",
+     "drag": "kr_drag",
+     "ink": "kr_ink",
+     "tide": "kr_tide",
+     "maelstrom": "kr_maelstrom",
+     "eye": "kr_eye",
+     "drown": "kr_drown"
+    },
     "stages": [
      {
       "name": "The island",

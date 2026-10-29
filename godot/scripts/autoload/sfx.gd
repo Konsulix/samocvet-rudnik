@@ -50,6 +50,20 @@ const SAMPLES := {
 	# the resonator rings like a singing bowl (BigSoundBank #1109); gas gurgles over a muffled hiss (bubbles + steam, CC0)
 	zap = {f = ["bowl_ping"], db = -8.0},
 	gas = {f = ["gas_0", "gas_1", "gas_2"], db = -8.0},
+	# the Kraken (Whalebone Cove): the sea's own recordings (amb/sea, a path with "/" is under assets/audio/) and the
+	# creature roars taken deeper; "all" plays the takes together
+	kr_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -3.0, pitch = 0.62},
+	kr_phase = {f = ["amb/sea/crash_0", "roar_05"], all = true, db = -2.0, pitch = 0.8},
+	kr_rise = {f = ["amb/sea/crash_1", "amb/sea/crash_2"], db = -3.0, pitch = 0.85},
+	kr_tentacle = {f = ["amb/sea/squelch"], db = -3.0, pitch = 0.8},
+	kr_cut = {f = ["amb/sea/squelch"], db = -6.0, pitch = 1.35},
+	kr_drag = {f = ["amb/sea/squelch", "amb/sea/bubble_0"], all = true, db = -4.0, pitch = 0.7},
+	kr_ink = {f = ["gas_0", "gas_1", "gas_2"], db = -5.0, pitch = 0.6},
+	kr_tide = {f = ["amb/sea/crash_0", "amb/sea/crash_1"], db = -7.0, pitch = 1.1},
+	kr_maelstrom = {f = ["amb/sea/bubble_0", "amb/sea/bubble_1", "amb/sea/bubble_2"], db = -8.0, pitch = 0.55},
+	kr_eye = {f = ["weird_08", "weird_09"], db = -3.0, pitch = 0.6},
+	kr_gulls = {f = ["amb/sea/gull_1", "amb/sea/gull_2", "amb/sea/gull_4"], all = true, db = -6.0},
+	kr_drown = {f = ["amb/sea/deep", "amb/sea/bubble_0"], all = true, db = -2.0, pitch = 0.8},
 }
 const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"],
 	# a mine's own: "<track>_<area>" wins over "<track>"
@@ -125,7 +139,7 @@ func _player() -> AudioStreamPlayer:
 
 func _sample(f: String) -> AudioStream:
 	if not _streams.has(f):
-		_streams[f] = load(SFX + f + ".ogg")
+		_streams[f] = load(("res://assets/audio/" if "/" in f else SFX) + f + ".ogg")
 	return _streams[f]
 
 ## background music for "home" or "level": cross-fades to it (levels alternate between their two loops)

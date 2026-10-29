@@ -172,6 +172,7 @@ func gulls_off(from: Vector2) -> void:
 		# each flees to its own side, a beat apart
 		var dir := -1.0 if at.x < view.position.x + view.size.x * 0.45 else 1.0
 		_gulls.append({at = at, t0 = _t + i * 0.12, dir = dir, ph = i * 2})
+	Sfx.play("kr_gulls")
 
 ## his defeat: he sinks (BossView.defeat), his arms (rooted in his sprite) go down with him, the water closes over him
 ## in a slow whirl
