@@ -70,7 +70,8 @@ void fragment() {
 		// the body: deep and soft, lighter where it faces the viewer (light comes back out of the nacre)
 		c = body_col * (0.62 + 0.2 * nv);
 		// overtone: a tint floating over the body, strongest towards the rim, in soft patches
-		float patch = fbm(d * 1.6 + seed);
+		// (drifting slowly over it: the overtone and orient never sit still)
+		float patch = fbm(d * 1.6 + seed + vec3(TIME * 0.04, TIME * 0.025, 0.0));
 		vec3 ov = mix(over_col, over2_col, smoothstep(0.35, 0.65, patch));
 		// (on a dark body the overtone tints it rather than painting over it)
 		float dk = clamp(1.0 - dot(body_col, vec3(0.3, 0.5, 0.2)) * 1.6, 0.0, 1.0);
@@ -78,7 +79,7 @@ void fragment() {
 		c = mix(c, tint, over_k * (0.45 + 0.3 * smoothstep(0.1, 0.8, fr)) * (0.5 + 0.7 * patch));
 		// orient: a faint rainbow that slides with the angle
 		// (in patches over the face, not a ring at the rim: a ring reads as a soap bubble)
-		vec3 orc = hue(fr * 0.8 + fbm(d * 4.0 + seed + 3.0) * 1.2 + seed);
+		vec3 orc = hue(fr * 0.8 + fbm(d * 4.0 + seed + 3.0 + vec3(0.0, TIME * 0.05, 0.0)) * 1.2 + seed);
 		c *= 1.0 + (orc - 0.5) * orient_k * 0.35 * smoothstep(0.4, 0.7, fbm(d * 3.0 + seed + 8.0)) * (1.0 - fr * 0.7);
 		// flame structure (conch, melo): silky flames that flicker as the pearl turns
 		if (flame_k > 0.0) {

@@ -25,42 +25,16 @@ uniform sampler2D rock_tex : source_color, filter_linear_mipmap, repeat_enable;
 // a scan of stone over the shell (calcite, dark rock…): its lightness mottles the colour and roughens the relief
 uniform sampler2D scan_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float scan_k = 0.5;
+uniform float opal_k = 0.0;        // an opalized shell: precious opal's play of colour
+uniform float opal_h = 0.3;
+
 
 varying vec3 v_op;
 varying vec3 v_no;
+varying vec3 v_cam;
 
-float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float vn(vec3 x) {
-	vec3 i = floor(x), f = fract(x);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-}
-float fbm(vec3 p) { return vn(p) * 0.5 + vn(p * 2.03) * 0.25 + vn(p * 4.01) * 0.125 + vn(p * 8.02) * 0.0625; }
-vec3 hue(float h) {
-	vec3 c = clamp(abs(fract(h + vec3(1.0, 0.6667, 0.3333)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
-	return c * c * (3.0 - 2.0 * c);
-}
-// cells: x = distance to the nearest centre, y = to the edge between cells, z = the cell's own random
-vec3 vor2(vec2 q) {
-	vec2 c = floor(q);
-	float d1 = 9.0, d2 = 9.0, id = 0.0;
-	for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-		vec2 g = c + vec2(float(x), float(y));
-		vec2 pt = g + vec2(h3(vec3(g, 1.0)), h3(vec3(g, 7.0))) * 0.8 + 0.1;
-		float d = distance(pt, q);
-		if (d < d1) { d2 = d1; d1 = d; id = h3(vec3(g, 13.0)); } else if (d < d2) { d2 = d; }
-	}
-	return vec3(d1, d2 - d1, id);
-}
-vec3 bump(vec3 n, vec3 pos, float h, float k) {
-	vec3 dpx = dFdxFine(pos), dpy = dFdyFine(pos);
-	float dhx = dFdxFine(h), dhy = dFdyFine(h);
-	vec3 r1 = cross(dpy, n), r2 = cross(n, dpx);
-	float det = dot(dpx, r1);
-	vec3 g = sign(det) * (dhx * r1 + dhy * r2);
-	return normalize(abs(det) * n - g * k);
-}
+#include "res://shaders/opal.gdshaderinc"
+
 vec4 tri(sampler2D t, vec3 q, vec3 w) {
 	return texture(t, q.yz) * w.x + texture(t, q.xz) * w.y + texture(t, q.xy) * w.z;
 }
@@ -68,6 +42,7 @@ vec4 tri(sampler2D t, vec3 q, vec3 w) {
 void vertex() {
 	v_op = VERTEX;
 	v_no = NORMAL;
+	v_cam = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
 }
 
 void fragment() {
@@ -147,6 +122,13 @@ void fragment() {
 		c = mix(c, rc, dirt);
 		ro = mix(ro, 0.95, dirt);
 		me = mix(me, 0.0, dirt);
+		// opal: the shell gone to precious opal, its fire over a dark body, glossy (the furrows keep their rock)
+		if (opal_k > 0.0) {
+			float glow;
+			vec3 fire = opal_play(p * 3.0, normalize(v_cam - p), normalize(v_no), opal_h, 0.45, seed, 0.0, 2.5, 0.7, 1.0, glow);
+			c = mix(c, c * 0.6 + fire * 0.7, opal_k * (1.0 - dirt));
+			ro = mix(ro, 0.12, opal_k * (1.0 - dirt));
+		}
 		NORMAL = bump(n, VERTEX, h, 1.0);
 	}
 	ALBEDO = c;

@@ -6,6 +6,7 @@ render_mode shadows_disabled, cull_disabled;
 
 uniform vec3 rock_col : source_color = vec3(0.55, 0.53, 0.5);
 uniform float seed = 0.0;
+uniform int mode = 0;        // 0 a carved plate of matrix, 1 rippled sea sand (SpecPearl), 2 a concretion's split face (SpecTrilobite)
 
 varying vec3 v_op;
 
@@ -51,6 +52,32 @@ void fragment() {
 	float scoop = smoothstep(0.0, 0.55, cv.x);
 	float h = (ridge * 0.7 - scoop * 0.4) * 0.004 + vn(v_op * 160.0) * 0.0005;
 	vec3 c = rock_col * (0.55 + 0.6 * ridge + 0.1 * cv.z - 0.12 * scoop) * (0.88 + 0.2 * fbm(v_op * 8.0));
+	if (mode == 1) {
+		// sea sand: long soft ripples, a scatter of grains and bits of shell
+		float rp = sin(UV.x * 24.0 + UV.y * 6.0 + fbm(vec3(UV * 1.5, seed)) * 4.0);
+		rp = rp * 0.5 + 0.5;
+		rp = rp * rp - 0.5;
+		float gr = vn(v_op * 260.0);
+		float shell = smoothstep(0.9, 0.95, vn(v_op * 40.0 + seed));
+		h = rp * 0.0012 + gr * 0.0005;
+		c = rock_col * (0.92 + 0.08 * rp + 0.14 * gr) * (0.9 + 0.18 * fbm(v_op * 5.0));
+		c = mix(c, vec3(0.92, 0.88, 0.82), shell * 0.7);
+	} else if (mode == 2) {
+		// a concretion's split face: rings of iron-stained mud round its middle, and septarian veins of yellow calcite
+		float r = length(UV * vec2(1.0, 1.35));
+		float band = sin(r * 38.0 + fbm(vec3(UV * 4.0, seed)) * 4.0) * 0.5 + 0.5;
+		vec3 vq = vor2(UV * 7.0 + (vec2(fbm(vec3(UV * 3.0, seed + 2.0)), fbm(vec3(UV * 3.0, seed + 5.0))) - 0.5) * 1.5);
+		float vein = (1.0 - smoothstep(0.0, 0.05, vq.y)) * smoothstep(0.55, 0.15, r);
+		c = rock_col * (0.55 + 0.5 * band) * (0.85 + 0.3 * fbm(v_op * 30.0));
+		c = mix(c, c * vec3(0.55, 0.42, 0.32), smoothstep(0.75, 0.95, band) * 0.7);   // dark iron rings
+		c = mix(c, c * vec3(1.15, 1.0, 0.85), smoothstep(0.2, 0.0, r) * 0.3);
+		c = mix(c, vec3(0.86, 0.66, 0.28), vein * 0.85);
+		h = band * 0.0008 + vn(v_op * 200.0) * 0.0004 - vein * 0.001;
+		// the mould: where the trilobite lay (COLOR.g), the impression darker in its hollows
+		c = mix(c, c * 0.42, COLOR.g);
+		// the mould's rim: a fine pale line where the shell parted from the rock
+		c = mix(c, vec3(0.8, 0.72, 0.6), smoothstep(0.05, 0.3, COLOR.g) * (1.0 - smoothstep(0.3, 0.6, COLOR.g)) * 0.5);
+	}
 	// the contact shadow under and round the body
 	c *= 1.0 - 0.6 * COLOR.r;
 	NORMAL = bump(n, VERTEX, h, 1.0);

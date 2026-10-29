@@ -70,6 +70,7 @@ static func accents(g: Dictionary) -> Array:
 	if g.get("seeds", false): out.append("seeds")
 	if g.get("barnacles", false): out.append("barnacles")
 	if int(g.get("count", 1)) > 1 and g.get("show", "") != "valve": out.append("twins")
+	if g.get("show", "") == "shell": out.append("mantle")
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
@@ -86,6 +87,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"seeds": return "seed pearls"
 		"barnacles": return "barnacles"
 		"twins": return "%d pearls" % int(g.count)
+		"mantle": return "living mantle"
 	return ""
 
 # ---------------------------------------------------------------- shapes
@@ -216,11 +218,14 @@ static func mat(f: Dictionary, part: int) -> ShaderMaterial:
 static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var f: Dictionary = gene.fossil
 	var rng := Rng32.new(int(f.seed) * 5 + 9)
+	var lrng := Rng32.new(int(f.seed) * 11 + 3)   # the sea life's own stream
 	var root: Node3D = b.root
 	var gs: float = gene.scale
 	var pm := mat(f, 0)
 	var holder := Node3D.new()
 	root.add_child(holder)
+	root.set_meta("face", true)
+	root.set_meta("sea", true)
 	var main: MeshInstance3D = null
 	var marks := {}
 	var pearls: Array = []
@@ -228,45 +233,59 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var pg := pearl_geo(String(f.shape), int(f.seed))
 	var moon: bool = gene.fx == "moon"
 	if moon: pm.set_shader_parameter("moon_k", 1.0)
+	# everything in one frame on a patch of sea floor: the oyster (or the pearls) on rippled sand, with what lives round it
+	var oy := Node3D.new()
+	holder.add_child(oy)
+	root.set_meta("sea_floor", oy)
+	var floor_y := -DEPTH * 0.92 if show != "loose" else 0.0
+	var sand := U.mesh(_sand(f, 1.75 if show != "loose" else 1.25, floor_y), _sand_mat(f), oy)
+	sand.set_meta("sea_light", true)
+	var breath: Breath = null
+	var gap := []    # where bubbles rise from
 	if show == "loose":
-		# the pearl alone; its twins beside it
+		# the pearls on the sand, the first the biggest
 		var n := int(f.count)
 		for k in n:
-			var s := gs * (0.62 if n == 1 else 0.48 - 0.08 * k)
-			var at := Vector3((float(k) - (n - 1) * 0.5) * gs * 1.0, -0.06 * k * gs, 0.1 * k * gs)
-			var mi := U.mesh(pg if k == 0 else pearl_geo(String(f.shape), int(f.seed) + k), pm, holder, at,
-				Basis(Vector3.BACK, (rng.next() - 0.5) * 0.5) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s))
+			var s := 0.5 if n == 1 else 0.4 - 0.06 * k
+			var at := Vector3((float(k) - (n - 1) * 0.5) * 0.75, floor_y + s * 0.9, 0.12 * float(k % 2))
+			var mi := U.mesh(pg if k == 0 else pearl_geo(String(f.shape), int(f.seed) + k), pm, oy, at,
+				Basis(Vector3.BACK, (rng.next() - 0.5) * 0.5 + (PI * 0.5 if f.shape == "drop" else 0.0)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s))
 			mi.set_meta("col", true)
+			mi.set_meta("sea_light", true)
 			pearls.append(mi)
+			gap.append(at + Vector3(s * 1.1, -s * 0.6, 0))
 		main = pearls[0]
 	else:
-		root.set_meta("face", true)
 		var sm := mat(f, 1)
 		var vg := valve_geo(f, int(f.seed))
-		var oy := Node3D.new()
-		holder.add_child(oy)
 		# the lower valve lies cupped, its nacre up (turned over on the hinge's own line)
 		var low := U.mesh(vg, sm, oy, Vector3.ZERO, Basis(Vector3.BACK, PI))
 		low.set_meta("col", true)
+		low.set_meta("sea_light", true)
 		main = low
 		marks.nacre = Vector3(-0.35, -_inner_y(0.35, -0.55) + 0.01, -0.55)
 		var lip_at := Vector3(-0.8, -_inner_y(0.8, -0.3), -0.3)
-		# pearls lying in it
-		var spots := [Vector2(0.08, -0.35), Vector2(-0.3, -0.2), Vector2(0.32, -0.15)]
+		# the living oyster's mantle: a frill of flesh round the inside of its rim, rippling
+		var mm := SpecSea.life_mat(1, 1.0, 0.02, 1.0, 0.45, 0.25)
+		U.mesh(_mantle(f, true), mm, low).set_meta("col", true)
+		marks.mantle = Vector3(0.75, -_inner_y(-0.75, -0.55) + 0.02, -0.55)
+		# pearls lying in it, bigger than life: they are the find
+		var spots := [Vector2(0.08, -0.35), Vector2(-0.32, -0.18), Vector2(0.34, -0.12)]
 		var n := int(f.count) if show == "shell" else 0
 		for k in n:
 			var sp: Vector2 = spots[k]
-			sp += Vector2(rng.next() - 0.5, rng.next() - 0.5) * 0.12
-			var s := (0.27 if k == 0 else 0.2) * (1.0 if f.shape != "drop" else 0.85)
+			sp += Vector2(rng.next() - 0.5, rng.next() - 0.5) * 0.1
+			var s := (0.34 if k == 0 else 0.24) * (1.0 if f.shape != "drop" else 0.85)
 			var at := Vector3(-sp.x, -_inner_y(sp.x, sp.y) + s * 0.82, sp.y)
 			var mi := U.mesh(pg if k == 0 else pearl_geo(String(f.shape), int(f.seed) + k), pm, oy, at,
 				Basis(Vector3.BACK, (rng.next() - 0.5) * 0.6 + (PI * 0.5 if f.shape == "drop" else 0.0)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s))
 			mi.set_meta("col", true)
+			mi.set_meta("sea_light", true)
 			pearls.append(mi)
 		# a blister pearl grown into the nacre: a dome rising out of it
 		if f.get("blister", false):
 			var sp := Vector2(-0.2, -0.55) if show == "shell" else Vector2(0.0, -0.4)
-			var s := 0.2 if show == "valve" else 0.15
+			var s := 0.26 if show == "valve" else 0.17
 			var bg := Geo.sphere(1.0, 28, 12, 0.0, TAU, 0.0, PI * 0.55)
 			for i in bg.v.size():
 				bg.v[i].y *= 0.7
@@ -275,6 +294,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			bm.set_shader_parameter("blister_k", 1.0)
 			var bl := U.mesh(bg, bm, oy, Vector3(-sp.x, -_inner_y(sp.x, sp.y) - s * 0.12, sp.y), Basis.from_scale(Vector3.ONE * s))
 			bl.set_meta("col", true)
+			bl.set_meta("sea_light", true)
 			marks.blister = Vector3(-sp.x, -_inner_y(sp.x, sp.y) + s * 0.5, sp.y)
 			if show == "valve": pearls.append(bl)
 		# seed pearls along the nacre's edge
@@ -285,7 +305,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 				var rho := 0.62 + rng.next() * 0.2
 				var x := cos(beta) * rho * 1.5
 				var z := ZH - sin(beta) * rho * 1.5
-				var s := 0.012 + rng.next() * 0.018
+				var s := 0.014 + rng.next() * 0.02
 				var mi := U.mesh(sg, pm, oy, Vector3(-x, -_inner_y(x, z) + s * 0.7, z), Basis.from_scale(Vector3(s, s * 0.85, s)))
 				mi.set_meta("col", true)
 				if k == 0: marks.seeds = Vector3(-x, -_inner_y(x, z) + s, z)
@@ -296,28 +316,64 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			oy.add_child(hinge)
 			var up := U.mesh(vg, sm, hinge, Vector3(0, 0, -ZH), Basis.IDENTITY)
 			up.set_meta("col", true)
+			up.set_meta("sea_light", true)
+			U.mesh(_mantle(f, false), mm, up).set_meta("col", true)
 			var open := 1.4 + rng.next() * 0.15
 			hinge.basis = Basis(Vector3.RIGHT, open)
-			var br := Breath.new()
-			br.hinge = hinge
-			br.open = open
-			br.phase = rng.next() * TAU
-			oy.add_child(br)
+			breath = Breath.new()
+			breath.hinge = hinge
+			breath.open = open
+			breath.phase = rng.next() * TAU
+			oy.add_child(breath)
 			marks.lip = U.rel_xform(up, oy) * Vector3(0.7, _outer_y(0.7, -0.3) - 0.06, -0.3)
 			if f.get("barnacles", false):
 				_barnacles(up, rng)
 				marks.barnacles = U.rel_xform(up, oy) * Vector3(0.1, _outer_y(0.1, -0.2) + 0.03, -0.2)
+			for k in 3:
+				gap.append(Vector3(-0.5 + 0.5 * float(k), 0.0, -0.75 + 0.1 * float(k % 2)))
 		elif f.get("barnacles", false):
-			# a single valve shows its nacre: barnacles round its rim only
 			_barnacles(low, rng, 0.78)
+		if gap.is_empty():
+			gap.append(Vector3(0, -_inner_y(0, -0.4) + 0.1, -0.4))
 		if not marks.has("lip"): marks.lip = lip_at
-		# hinge to the back, the cupped valve tipped up to the viewer
-		oy.transform = Transform3D(Basis(Vector3.RIGHT, 0.7 if show == "shell" else 0.9) * Basis(Vector3.UP, PI) * Basis.from_scale(Vector3.ONE * gs * 1.25), Vector3(0, -0.1 * gs, 0))
-		for id: String in marks:
-			if id != "lip":
-				marks[id] = U.rel_xform(oy, root) * (marks[id] as Vector3)
-		marks.lip = U.rel_xform(oy, root) * (marks.lip as Vector3)
-	# the legendary moon pearl: a light inside it, its shell lit by it, the room darkened
+	# life on the sand round it: weed behind, an anemone at one side, its tentacles waving
+	var wm := SpecSea.life_mat(0, 1.1, 0.12, 0.7, 0.6, 0.45)
+	for k in 1 + int(lrng.next() * 2.0):
+		var at := Vector3((1.0 if k == 0 else -1.0) * (0.95 + lrng.next() * 0.35), floor_y, 0.55 + lrng.next() * 0.3)
+		var w := U.mesh(SpecSea.weed(lrng, 1.0 + lrng.next() * 0.5), wm, oy, at, Basis(Vector3.UP, lrng.next() * TAU))
+		w.set_meta("col", true)
+		if k == 0: marks.weed = at + Vector3(0, 0.7, 0)
+	if lrng.next() < 0.75:
+		var am := SpecSea.life_mat(0, 0.45, 0.05, 1.2, 0.55, 0.6)
+		var side := -1.0 if lrng.next() < 0.5 else 1.0
+		var at := Vector3(side * (1.05 + lrng.next() * 0.2), floor_y, -0.55 - lrng.next() * 0.3)
+		var an := U.mesh(SpecSea.anemone(lrng, 0.6 + lrng.next() * 0.2), am, oy, at, Basis(Vector3.UP, lrng.next() * TAU))
+		an.set_meta("col", true)
+		marks.anemone = at + Vector3(0, 0.35, 0)
+	# a starfish come to see, on the sand in front (the hinge is at the back: front is -z here)
+	if lrng.next() < 0.75:
+		var sx := (0.55 + lrng.next() * 0.4) * (1.0 if lrng.next() < 0.5 else -1.0)
+		var st := U.mesh(SpecSea.starfish(lrng, 0.26 + lrng.next() * 0.08), SpecSea.life_mat(2, 1.0, 0.0, 1.0, 0.7, 0.15), oy,
+			Vector3(sx, floor_y - 0.01, -1.15), Basis(Vector3.UP, lrng.next() * TAU))
+		st.set_meta("col", true)
+	# bubbles rising from the gap between the valves (or from the sand)
+	SpecSea.bubbles(oy, gap, Vector3.UP, 2.2, 0.035, 7)
+	# hinge to the back, the cupped valve tipped up to the viewer
+	oy.transform = Transform3D(Basis(Vector3.RIGHT, 0.62 if show == "shell" else 0.8) * Basis(Vector3.UP, PI) * Basis.from_scale(Vector3.ONE * gs * 1.1), Vector3(0, -0.1 * gs, 0))
+	# a shaft of light down onto the pearl, brighter as the valve opens
+	if pearls.size() and not moon:
+		var sl := SpotLight3D.new()
+		var pp := (pearls[0] as Node3D).position
+		oy.add_child(sl)
+		sl.transform = Transform3D(Basis.looking_at(Vector3(-0.2, -2.2, -0.6).normalized(), Vector3.FORWARD), pp + Vector3(0.2, 2.2, 0.6))
+		sl.spot_range = 3.5
+		sl.spot_angle = 9.0
+		sl.light_color = Color(0.85, 0.95, 1.0)
+		sl.light_energy = 2.2
+		if breath: breath.beam = sl
+	for id: String in marks:
+		marks[id] = U.rel_xform(oy, root) * (marks[id] as Vector3)
+	# the legendary moon pearl: a light inside it, its shell lit by it, the room darkened; glowing plankton drifting up
 	if moon and pearls.size():
 		root.set_meta("dark", true)
 		var lamp := OmniLight3D.new()
@@ -325,6 +381,12 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		lamp.light_energy = 0.3
 		lamp.omni_range = gs * 1.6
 		(pearls[0] as Node3D).add_child(lamp)
+		var pc: Vector3 = (pearls[0] as Node3D).position
+		var pk := SpecSea.bubbles(oy, [pc + Vector3(0.4, -0.2, 0.2), pc + Vector3(-0.5, -0.2, 0.1), pc + Vector3(0.1, -0.1, -0.4)], Vector3.UP, 2.6, 0.016, 14)
+		for it: Array in pk.items:
+			var bm2 := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+			bm2.set_shader_parameter("tint", Color(0.9, 1.0, 1.0) * 2.2)
+			(it[0] as MeshInstance3D).material_override = bm2
 	# callouts
 	if pearls.size():
 		var p0 := pearls[0] as MeshInstance3D
@@ -337,9 +399,74 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		if "twins" in gene.accents and pearls.size() > 1:
 			var p1 := pearls[1] as MeshInstance3D
 			b._mark("twins", U.rel_xform(p1, root) * Vector3(0, 0.9, 0.3), Vector3.UP)
-	for id: String in ["nacre", "blister", "seeds", "barnacles"]:
+	for id: String in ["nacre", "blister", "seeds", "barnacles", "mantle"]:
 		if marks.has(id) and id in gene.accents: b._mark(id, marks[id] as Vector3, Vector3.BACK)
 	return main
+
+## the sea floor: a low rippled mound of sand (radius r), its rim rolling under; COLOR.r the shade under the find
+static func _sand(f: Dictionary, r: float, y0: float) -> Geo:
+	var g := Geo.new()
+	var nz := FastNoiseLite.new()
+	nz.seed = int(f.seed) + 21
+	nz.frequency = 1.2
+	var na := 64
+	var nr := 20
+	for i in nr + 1:
+		var t := float(i) / nr
+		for j in na + 1:
+			var a := TAU * float(j) / na
+			var rr := r * t * (1.0 + 0.12 * nz.get_noise_1d(a * 3.0))
+			var x := cos(a) * rr
+			var z := sin(a) * rr
+			var y := y0 + 0.03 * nz.get_noise_2d(x * 2.0, z * 2.0) - 0.25 * pow(smoothstep(0.7, 1.0, t), 1.5)
+			g.v.append(Vector3(x, y, z))
+			g.rp.append(Vector3(x, z, 0.0))
+			g.col.append(Color(1.0 - smoothstep(0.0, 0.55, t), 0, 0, 1))
+	for i in nr:
+		for j in na:
+			var a := i * (na + 1) + j
+			var c := a + na + 1
+			g.idx.append_array([a, c, a + 1, a + 1, c, c + 1])
+	return g
+
+static func _sand_mat(f: Dictionary) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = SpecTrilobite.PLATE
+	m.set_shader_parameter("mode", 1)
+	m.set_shader_parameter("rock_col", Color.hex(0x8e7a5cff))
+	m.set_shader_parameter("seed", float(int(f.seed) % 97))
+	return m
+
+## the mantle: a frill of flesh round the inside of a valve's rim (valve space), hanging into the shell; UV.x along
+## it, UV.y 0 where it grows from the shell .. 1 at its free, rippling edge (dark-edged, as a black-lip's is)
+static func _mantle(f: Dictionary, lower: bool) -> Geo:
+	var g := Geo.new()
+	var b: Dictionary = BODY[f.body]
+	var lip: Array = LIP[String(b.lip)]
+	var c0 := Color.hex(int(lip[2]) << 8 | 0xff).lerp(Color(0.62, 0.55, 0.48), 0.6)
+	var c1 := Color.hex(int(lip[1]) << 8 | 0xff).darkened(0.55)
+	var nz := FastNoiseLite.new()
+	nz.seed = int(f.seed)
+	nz.frequency = 0.6
+	var n := 70
+	for j in n + 1:
+		var beta := 0.12 + (PI - 0.24) * float(j) / n
+		var t := _reach(beta, nz)
+		var d := Vector2(cos(beta), -sin(beta))
+		for k in 3:
+			var rho := 0.9 - 0.05 * float(k)
+			var p := Vector2(0, ZH) + d * rho * t
+			var y := _outer_y(p.x, p.y) - _thick(rho) - 0.012 - 0.025 * float(k)
+			g.v.append(Vector3(p.x, y, p.y))
+			g.rp.append(Vector3(beta / PI, float(k) / 2.0, 0.0))
+			var c := c0.lerp(c1, float(k) / 2.0)
+			c.a = 0.0 if lower else 0.5
+			g.col.append(c)
+	for j in n:
+		for k in 2:
+			var a := j * 3 + k
+			g.idx.append_array([a, a + 3, a + 1, a + 1, a + 3, a + 4])
+	return g
 
 ## barnacles on a valve's back (outside, +y in valve space): chalky cones each with its crater
 static func _barnacles(v: MeshInstance3D, rng: Rng32, rim := 0.0) -> void:
@@ -363,10 +490,14 @@ static func _barnacles(v: MeshInstance3D, rng: Rng32, rim := 0.0) -> void:
 ## the oyster breathing: the upper valve eases open and shut on its hinge, slowly, a pause when shut
 class Breath extends Node3D:
 	var hinge: Node3D
+	var beam: SpotLight3D
 	var open := 1.8
 	var phase := 0.0
 	var t := 0.0
 	func _process(dt: float) -> void:
 		t += dt
 		var c := sin(t * TAU / 7.0 + phase)
-		hinge.basis = Basis(Vector3.RIGHT, open - 0.09 * (0.5 + 0.5 * c * absf(c)))
+		var shut := 0.5 + 0.5 * c * absf(c)
+		hinge.basis = Basis(Vector3.RIGHT, open - 0.12 * shut)
+		# the shaft of light on the pearl brightens as the valve lifts
+		if beam: beam.light_energy = 2.4 * (1.0 - 0.6 * shut)

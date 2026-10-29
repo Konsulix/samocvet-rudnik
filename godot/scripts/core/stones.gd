@@ -67,6 +67,8 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			if fg.get("moult", false): kind_m *= 1.4
 			if fg.get("bite", false): kind_m *= 1.3
 			if fg.get("show", "") == "mass": kind_m *= 1.0 + 0.2 * int(fg.get("mass", 1))
+			if fg.get("show", "") == "nodule": kind_m *= 1.5
+			if int(fg.get("pal", 0)) == 6: kind_m *= 5.0
 		# pearls: the body (conch and melo are the rarest), roundness, luster, more than one
 		if sid == "pearl":
 			kind_m *= {tahitian = 1.5, golden = 1.4, south_sea = 1.3, conch = 3.0, melo = 2.5}.get(fg.get("body", ""), 1.0)

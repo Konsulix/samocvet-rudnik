@@ -212,7 +212,8 @@ const SETS := [
 	{seed = 715, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", moult = false, bite = false, soft = true, legend = true, fx = "awaken"},
 	{seed = 716, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "phacops", show = "mass", mass = 3, pal = 3, moult = false, bite = false, soft = false},
 	{seed = 717, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "asaphus", show = "matrix", moult = false, bite = false, soft = false},
-	{seed = 718, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "walliserops", show = "matrix", pal = 4, moult = false, bite = false, soft = false}],
+	{seed = 718, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "walliserops", show = "matrix", pal = 4, moult = false, bite = false, soft = false}]
+,
 	# set 33: pearls in their oyster: akoya, Tahitian, golden, south sea; on a valve with a blister; loose
 	[{seed = 721, sid = "pearl", kind = "fossil", gi = 2, traits = [], body = "akoya", shape = "round", show = "shell", count = 1, barnacles = true},
 	{seed = 722, sid = "pearl", kind = "fossil", gi = 2, traits = [], body = "tahitian", shape = "near", show = "shell", count = 1, tone = 0},
@@ -230,7 +231,16 @@ const SETS := [
 	{seed = 735, sid = "pearl", kind = "fossil", gi = 2, traits = [], body = "conch", shape = "near", show = "loose", count = 1},
 	{seed = 736, sid = "pearl", kind = "fossil", gi = 2, traits = [], body = "melo", shape = "near", show = "loose", count = 1},
 	{seed = 737, sid = "pearl", kind = "fossil", gi = 2, traits = [], body = "south_sea", shape = "baroque", show = "loose", count = 3},
-	{seed = 738, sid = "pearl", kind = "fossil", gi = 3, traits = [], body = "tahitian", shape = "round", show = "loose", count = 1, legend = true, fx = "moon"}]
+	{seed = 738, sid = "pearl", kind = "fossil", gi = 3, traits = [], body = "tahitian", shape = "round", show = "loose", count = 1, legend = true, fx = "moon"}],
+	# set 35: trilobites at sea: split nodules, opal, gold pyrite, sea lilies, the awakening crawling
+	[{seed = 741, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "phacops", show = "nodule", pal = 2, moult = false, bite = false, soft = false},
+	{seed = 742, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "elrathia", show = "nodule", pal = 0, moult = false, bite = false, soft = false},
+	{seed = 743, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "isotelus", show = "nodule", pal = 6, moult = false, bite = false, soft = false},
+	{seed = 744, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "phacops", show = "prepared", pal = 6, moult = false, bite = false, soft = false},
+	{seed = 745, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "asaphus", show = "matrix", pal = 4, moult = false, bite = false, soft = false},
+	{seed = 746, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "elrathia", show = "matrix", pal = 0, moult = false, bite = false, soft = false},
+	{seed = 747, sid = "trilobite", kind = "fossil", gi = 2, traits = [], genus = "isotelus", show = "mass", mass = 3, pal = 1, moult = false, bite = false, soft = false},
+	{seed = 748, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", moult = false, bite = false, soft = true, legend = true, fx = "awaken"}]
 ]
 
 func _ready() -> void:

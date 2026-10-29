@@ -550,6 +550,9 @@ func _specimen(o: Dictionary) -> Node3D:
 	if layout == "trilobite":
 		SpecTrilobite.lean(self, gene)
 	_finish()
+	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
+	if root.has_meta("sea"):
+		SpecSea.caustics(root)
 	if legend:
 		root.set_meta("glow", U.raw(0xe4ae39))
 	return root

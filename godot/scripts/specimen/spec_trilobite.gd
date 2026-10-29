@@ -41,8 +41,10 @@ const PAL := [
 	{n = "tan calcite", base = 0x8f6e4e, dark = 0x2c1d12, metal = 0.0, rough = 0.55, film = 0.0, scan = "marble_rock_03", scan_k = 0.7},
 	{n = "grey calcite", base = 0x7a756e, dark = 0x262320, metal = 0.0, rough = 0.6, film = 0.0, scan = "rock_surface", scan_k = 0.7},
 	{n = "honey calcite", base = 0x86552f, dark = 0x221006, metal = 0.05, rough = 0.36, film = 0.0, scan = "marble_rock_03", scan_k = 0.55},
-	{n = "pyrite", base = 0xa88c50, dark = 0x2e220e, metal = 0.85, rough = 0.27, film = 0.25, scan = "rock_surface", scan_k = 0.3},
+	{n = "pyrite", base = 0xc8a050, dark = 0x3a2a10, metal = 0.9, rough = 0.22, film = 0.45, scan = "rock_surface", scan_k = 0.25},
 	{n = "cream limestone", base = 0xbcae96, dark = 0x4a3e30, metal = 0.0, rough = 0.7, film = 0.0, scan = "marble_rock_02", scan_k = 0.75},
+	# opal: the shell replaced by precious opal, its play of colour over a dark body (rare)
+	{n = "opal", base = 0x26304a, dark = 0x0a0e1a, metal = 0.0, rough = 0.16, film = 0.0, scan = "dark_rock", scan_k = 0.15, opal = 1.0},
 ]
 ## the host rock's colour where it clings in the furrows and makes a pedestal
 const ROCK_COL := {limestone = 0x9a9284, slate = 0x55555a, ironstone = 0x6e4a36}
@@ -63,6 +65,10 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.show = Stones.pick_w([["matrix", 5.0], ["prepared", 6.0 if spiny or g.genus == "asaphus" else 2.0],
 		["enrolled", 0.0 if spiny or g.genus == "asaphus" else 4.0 if g.genus == "phacops" else 0.8],
 		["mass", 3.0 if g.genus == "elrathia" else 0.0 if spiny else 0.8]], rng)
+	# split out of a concretion: a nodule broken open on it, the trilobite in one half, its mould in the other
+	var rng2 := Rng32.new((seed_v * 2246822519 + 13) % 4294967296)
+	if not spiny and rng2.next() < 0.28: g.show = "nodule"
+	if rng2.next() < 0.04: g.pal = 6
 	g.seg = int(c.seg) + int(floorf(rng.next() * 3.0)) - 1
 	g.spines = 0.8 + rng.next() * 0.5        # how long its spines grew
 	g.seed = int(rng.next() * 100000.0)
@@ -83,6 +89,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 		g.moult = false
 		g.bite = false
 	if g.show != "matrix": g.moult = false
+	if g.show == "nodule": g.bite = false
 	# black shell lies in pale shale (Utah); pyrite legs in black shale (New York)
 	if int(g.pal) == 0: g.rock = "limestone"
 	if g.soft: g.rock = "slate"
@@ -97,6 +104,9 @@ static func accents(g: Dictionary) -> Array:
 	if c.has("horns"): out.append("horns")
 	elif c.has("pspine"): out.append("spines")
 	if int(g.pal) == 4: out.append("pyrite")
+	if int(g.pal) == 6: out.append("opal")
+	if g.get("show", "") == "nodule": out.append("nodule")
+	if g.get("show", "") in ["matrix", "mass"]: out.append("lilies")
 	if g.get("moult", false): out.append("moult")
 	if g.get("bite", false): out.append("bite")
 	if g.get("soft", false): out.append("soft")
@@ -117,6 +127,9 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"soft": return "legs and antennae"
 		"mass": return "a plate of %d" % int(g.mass)
 		"enrolled": return "rolled up"
+		"opal": return "opalized"
+		"nodule": return "split nodule"
+		"lilies": return "sea lilies"
 	return ""
 
 static func _lens_count(g: Dictionary) -> int:
@@ -349,6 +362,8 @@ static func mat(f: Dictionary, part: int, rock: String) -> ShaderMaterial:
 	m.set_shader_parameter("metal_k", pal.metal)
 	m.set_shader_parameter("rough_k", pal.rough)
 	m.set_shader_parameter("film_k", pal.film)
+	m.set_shader_parameter("opal_k", pal.get("opal", 0.0))
+	m.set_shader_parameter("opal_h", float(int(f.seed) % 7) / 7.0)
 	m.set_shader_parameter("tub_k", c.tub)
 	m.set_shader_parameter("lens_on", 1.0 if c.eye in ["lens", "tower"] else 0.0)
 	m.set_shader_parameter("lens_n", Vector2(19.0, 8.0) if c.eye in ["lens", "tower"] else Vector2(1, 1))
@@ -371,6 +386,7 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	var out := {}
 	var body := U.mesh(body_geo(f, c, u0, u1, k), sm, parent)
 	body.set_meta("col", true)
+	body.set_meta("sea_light", true)
 	out.body = body
 	if u0 > 0.0:
 		return out
@@ -545,6 +561,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 	match show:
 		"matrix", "mass":
 			var rk: MeshInstance3D = use_rock.call("slab")
+			rk.set_meta("sea_light", true)
 			var rb: AABB = rk.transform * (rk.get_meta("geo") as Geo).aabb()
 			var top := rb.end.y - rb.size.y * 0.1
 			var span := minf(rb.size.x, rb.size.z)
@@ -595,6 +612,26 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				hd.transform = Transform3D(Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * ms), Vector3(rb.get_center().x + span * 0.3, top, rb.get_center().z - span * 0.22))
 				animal(fm, hd, sm, em, 0.0, 0.0, float(c.ceph) - 0.03)
 				marks.moult = md
+			# the sea floor it lay on: sea lilies swaying on their stalks round it, bubbles from the rock
+			var lrng := Rng32.new(int(f.seed) * 17 + 5)
+			var lm := SpecSea.life_mat(0, span * 0.45, span * 0.03, 0.8, 0.55, 0.4)
+			var spots := []
+			for k in 2 + int(lrng.next() * 3.0):
+				for tries in 12:
+					var a := lrng.next() * TAU
+					var at := Vector3(rb.get_center().x + cos(a) * rb.size.x * (0.3 + lrng.next() * 0.12), 0, rb.get_center().z + sin(a) * rb.size.z * (0.3 + lrng.next() * 0.12))
+					var clear := true
+					for p: Array in placed:
+						if Vector2(at.x - (p[0] as Vector3).x, at.z - (p[0] as Vector3).z).length() < float(p[1]) * 0.42: clear = false
+					if not clear: continue
+					at.y = _ground(rk, at, span * 0.05) - span * 0.01
+					var li := U.mesh(SpecSea.lily(lrng, span * (0.35 + lrng.next() * 0.2)), lm, holder, at, Basis(Vector3.UP, lrng.next() * TAU))
+					li.set_meta("col", true)
+					spots.append(at)
+					if k == 0: marks.lilies = li
+					break
+			if spots.size():
+				SpecSea.bubbles(holder, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
 		"prepared":
 			# prepared the Moroccan way: standing proud on an oval of its matrix, the matrix round it carved down
 			# with an air-pen — a pale plate covered in wormy tool marks
@@ -610,6 +647,38 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			pm.set_shader_parameter("seed", float(int(f.seed) % 97))
 			var pi := U.mesh(_plate(f), pm, nd)
 			pi.set_meta("col", true)
+		"nodule":
+			# a concretion split open: the trilobite in one half, its mould in the other, both faces showing the
+			# rings of the nodule and its septarian veins; calcite crystals grown in a pocket of the mould half
+			var s := gs * 1.25
+			var c: Dictionary = GENUS[f.genus]
+			var rx: float = float(c.half) + 0.22
+			var rz := 0.68
+			var fm := ShaderMaterial.new()
+			fm.shader = PLATE
+			fm.set_shader_parameter("mode", 2)
+			fm.set_shader_parameter("rock_col", Color.hex(0x8a6c4cff))
+			fm.set_shader_parameter("seed", float(int(f.seed) % 97))
+			var dm := mat(f, 2, "ironstone")
+			for half in 2:
+				var hn := Node3D.new()
+				holder.add_child(hn)
+				var side := -1.0 if half == 0 else 1.0
+				hn.transform = Transform3D(Basis(Vector3.UP, PI + side * 0.1) * Basis(Vector3.BACK, -side * 0.12) * Basis.from_scale(Vector3.ONE * s), Vector3(side * s * (rx + 0.06), 0, 0))
+				var face := U.mesh(_nodule_face(f, c, rx, rz, half == 1), fm, hn)
+				face.set_meta("col", true)
+				face.set_meta("sea_light", true)
+				var dome := U.mesh(_nodule_dome(f, rx, rz), dm, hn)
+				dome.set_meta("col", true)
+				if half == 0:
+					var nd := Node3D.new()
+					hn.add_child(nd)
+					nd.position = Vector3(0, 0.004, 0)
+					main = animal(f, nd, sm, em, 0.0)
+					main.node = nd
+				else:
+					_pocket(b, f, hn, Vector3(rx * 0.35, 0.0, -rz * 0.62))
+					marks.nodule = hn
 		"enrolled":
 			var nd := Node3D.new()
 			holder.add_child(nd)
@@ -626,6 +695,10 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 		var wk := Walker.new()
 		wk.pivots = walkers
 		holder.add_child(wk)
+		# and it crawls: to and fro across its rock, turning a little as it goes
+		if show in ["matrix", "mass", "prepared"]:
+			wk.body = main.node
+			wk.base = (main.node as Node3D).transform
 	var nd0: Node3D = main.node
 	var xf := U.rel_xform(nd0, root)
 	for p: Vector3 in main.get("eyes", []):
@@ -641,7 +714,12 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 		var c: Dictionary = GENUS[f.genus]
 		var u := float(c.ceph) + (1.0 - float(c.ceph) - float(c.pyg)) * 0.39
 		b._mark("bite", xf * Vector3(_w(f, c, u, 1.0), 0.02, 0.5 - u), (xf.basis * Vector3(1, 1, 0)).normalized())
-	for id: String in ["moult", "mass", "enrolled", "soft"]:
+	if marks.has("lilies") and "lilies" in gene.accents:
+		var lx := U.rel_xform(marks.lilies as Node3D, root)
+		b._mark("lilies", lx * Vector3(0, 0.3, 0), (lx.basis * Vector3.UP).normalized())
+	marks.erase("lilies")
+	if "opal" in gene.accents: b._mark("opal", xf * Vector3(0.12, 0.1, -0.05), (xf.basis * Vector3.UP).normalized())
+	for id: String in ["moult", "mass", "enrolled", "soft", "nodule"]:
 		if marks.has(id):
 			var mx := U.rel_xform(marks[id] as Node3D, root)
 			var p := Vector3(0, 0.12, 0) if id != "soft" else Vector3(0.45, 0.0, 0.1)
@@ -665,15 +743,18 @@ static func _ground(rk: MeshInstance3D, at: Vector3, r: float) -> float:
 ## (its rock, what grew on it, the callouts' points) like a plate on a stand
 static func lean(b: RefCounted, gene: Dictionary) -> void:
 	var f: Dictionary = gene.fossil
-	var a: float = {matrix = 0.95, mass = 1.0, prepared = 0.85}.get(f.show, 0.0)
+	var a: float = {matrix = 0.95, mass = 1.0, prepared = 0.85, nodule = 0.85}.get(f.show, 0.0)
 	if a == 0.0:
+		b.root.set_meta("sea", true)
 		return
 	var root: Node3D = b.root
 	root.set_meta("face", true)
+	root.set_meta("sea", true)
 	var pv := Node3D.new()
 	var kids := root.get_children()
 	root.add_child(pv)
 	pv.basis = Basis(Vector3.RIGHT, a)
+	root.set_meta("sea_floor", pv)
 	for k: Node in kids:
 		k.reparent(pv, false)
 	var grown: Dictionary = b.grown
@@ -719,6 +800,84 @@ static func _plate(f: Dictionary) -> Geo:
 	_grid(g, 0, nr, na)
 	return g
 
+## a split face of the nodule (ellipse rx by rz, face up at y 0): its mould half pressed with the trilobite's
+## impression (the body's own heights, sunk in); COLOR.r the shade under the body, COLOR.g the mould
+static func _nodule_face(f: Dictionary, c: Dictionary, rx: float, rz: float, mould: bool) -> Geo:
+	var g := Geo.new()
+	var nz := FastNoiseLite.new()
+	nz.seed = int(f.seed) + 77
+	nz.frequency = 4.0
+	var nx := 72
+	var nzn := 90
+	for i in nzn + 1:
+		for j in nx + 1:
+			var x := lerpf(-rx, rx, float(j) / nx)
+			var z := lerpf(-rz, rz, float(i) / nzn)
+			var e := sqrt(pow(x / rx, 2.0) + pow(z / rz, 2.0))
+			if e > 1.0:
+				x /= e
+				z /= e
+			var y := 0.004 * nz.get_noise_2d(x, z)
+			var u := 0.5 - z
+			var on := 0.0
+			if u > 0.0 and u < 1.0:
+				var w := _w(f, c, u, signf(x) if x != 0.0 else 1.0)
+				if absf(x) < w * 1.04:
+					on = 1.0 - smoothstep(0.92, 1.04, absf(x) / maxf(w, 0.001))
+					if mould:
+						var hh := _h(f, c, u, -x, w)
+						y -= (float(hh[0]) * 1.4 + THICK) * on
+			g.v.append(Vector3(x, y, z))
+			g.rp.append(Vector3(x, z, 0.0))
+			g.col.append(Color(0.0 if mould else on, on * 0.7 if mould else 0.0, 0, 1))
+	for i in nzn:
+		for j in nx:
+			var a := i * (nx + 1) + j
+			var d := a + nx + 1
+			g.idx.append_array([a, d, a + 1, a + 1, d, d + 1])
+	return g
+
+## the outside of a half nodule: a rough dome under the face's ellipse
+static func _nodule_dome(f: Dictionary, rx: float, rz: float) -> Geo:
+	var g := Geo.new()
+	var nz := FastNoiseLite.new()
+	nz.seed = int(f.seed) + 78
+	nz.frequency = 3.0
+	var na := 64
+	var nr := 14
+	for i in nr + 1:
+		var ph := PI * 0.5 * float(i) / nr
+		for j in na + 1:
+			var a := TAU * float(j) / na
+			var k := 1.0 + 0.05 * nz.get_noise_2d(a * 2.0, ph * 3.0) * sin(ph * 2.0)
+			var p := Vector3(sin(a) * rx * cos(ph) * k, -0.36 * sin(ph) * k - 0.002, cos(a) * rz * cos(ph) * k)
+			g.v.append(p)
+			g.rp.append(Vector3(p.x, p.z, 0.0))
+			g.col.append(Color(0, 0, 0, 1))
+	for i in nr:
+		for j in na:
+			var a := i * (na + 1) + j
+			var d := a + na + 1
+			g.idx.append_array([a, d, a + 1, a + 1, d, d + 1])
+	return g
+
+## a pocket in the mould half of a nodule lined with honey calcite: dogtooth crystals from the generator's own maker
+static func _pocket(b: RefCounted, f: Dictionary, parent: Node3D, at: Vector3) -> void:
+	var rng := Rng32.new(int(f.seed) * 29 + 7)
+	var gl := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.07, rf = 0.3, holo = 0.2, frost = 0.1, thick = 1.3, seed = 5.0})
+	var col := SpecMat.lin(0xe8b070)
+	var dark := Geo.sphere(1.0, 16, 8, 0.0, TAU, PI * 0.5, PI * 0.5)
+	var hole := U.mesh(dark, SpecMat.make({col = SpecMat.lin(0x2a2018), rough = 0.9}), parent, at + Vector3(0, 0.006, 0), Basis.from_scale(Vector3(0.2, 0.08, 0.15)))
+	hole.set_meta("col", true)
+	for k in 15:
+		var p := at + Vector3((rng.next() - 0.5) * 0.26, -0.02, (rng.next() - 0.5) * 0.2)
+		var d := (Vector3.UP + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 1.2).normalized()
+		var s := 0.08 + pow(rng.next(), 2.0) * 0.09
+		var geo := RockKit.crystal("scaleno", rng, {h = 0.8 + rng.next() * 0.5, detail = 1, cA = col.lerp(Color(1, 1, 1), 0.3), cB = col, zk = 0.6})
+		var cm := U.mesh(geo, gl, parent, p, Basis(U.quat_to(Vector3.UP, d)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * s))
+		cm.set_meta("col", true)
+	b._mark("crystals", U.rel_xform(parent, b.root) * (at + Vector3(0, 0.08, 0)), Vector3.UP)
+
 ## a pedestal of rock under a prepared trilobite: its outline drawn in and roughened, carried down into the block
 static func _pedestal(f: Dictionary, h: float) -> Geo:
 	var c: Dictionary = GENUS[f.genus]
@@ -749,9 +908,15 @@ static func _pedestal(f: Dictionary, h: float) -> Geo:
 ## the legendary awakening: swings each leg on its pivot, a wave running down the body; the antennae sweep slowly
 class Walker extends Node3D:
 	var pivots: Array = []
+	var body: Node3D
+	var base := Transform3D.IDENTITY
 	var t := 0.0
 	func _process(dt: float) -> void:
 		t += dt
+		if body:
+			var go := sin(t * 0.32)
+			var fwd := base.basis.z
+			body.transform = Transform3D(base.basis.rotated(base.basis.y.normalized(), 0.12 * sin(t * 0.32 + 1.1)), base.origin + fwd * go * 0.16)
 		for p: Array in pivots:
 			var nd: Node3D = p[0]
 			var i: float = p[1]

@@ -66,7 +66,7 @@ func _warm() -> void:
 		var gm := ShaderMaterial.new()
 		gm.shader = ShaderFiles.get_shader(nm, src[nm])
 		mats.append(gm)
-	for sh: Shader in [SpecBranch.SHADER, SpecWood.STONE, SpecFlower.PETAL, SpecFlower.WING, SpecFlower.AMBER, SpecTrilobite.SHADER, SpecTrilobite.PLATE, SpecPearl.SHADER]:
+	for sh: Shader in [SpecBranch.SHADER, SpecWood.STONE, SpecFlower.PETAL, SpecFlower.WING, SpecFlower.AMBER, SpecTrilobite.SHADER, SpecTrilobite.PLATE, SpecPearl.SHADER, SpecSea.CAUSTIC, SpecSea.LIFE, SpecSea.BUBBLE]:
 		var xm := ShaderMaterial.new()
 		xm.shader = sh
 		mats.append(xm)
