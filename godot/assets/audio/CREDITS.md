@@ -25,6 +25,8 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
   Зациклена `prototype/tools/music_loop.py`: вступление один раз, петля с 11,7 с (`Sfx.LOOP_AT`), концовка срезана.
 - `music/home_copper.ogg` — «Spirit of the Deep», главный экран рудника 2 (Copper Mountain); сделана владельцем проекта (Suno).
   Петля с 19,3 с, так же.
+- `music/home_cove.ogg` — «Buoy Call», главный экран и уровни рудника 3 (Whalebone Cove); сделана владельцем проекта (Suno).
+  Петля с 48,25 с, конец на 162,7 с.
 
 ## Звуки рудника 2 и Хозяйки (`sfx/`, CC0, OpenGameArt)
 

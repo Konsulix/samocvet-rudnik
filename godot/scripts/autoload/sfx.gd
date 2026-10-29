@@ -56,11 +56,12 @@ const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://as
 	# for now one theme per mine, at home and in its levels
 	home_0 = ["res://assets/audio/music/home_adit.ogg"], level_0 = ["res://assets/audio/music/home_adit.ogg"],
 	home_1 = ["res://assets/audio/music/home_copper.ogg"], level_1 = ["res://assets/audio/music/home_copper.ogg"],
+	home_2 = ["res://assets/audio/music/home_cove.ogg"], level_2 = ["res://assets/audio/music/home_cove.ogg"],
 	# a boss's own theme: "boss_<id>"
 	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"],
 	boss_mistress = ["res://assets/audio/music/boss_mistress.mp3"]}
 ## where a Suno track's loop starts (s): its intro plays once (prototype/tools/music_loop.py finds the cut)
-const LOOP_AT := {"res://assets/audio/music/home_adit.ogg": 11.7, "res://assets/audio/music/home_copper.ogg": 19.3}
+const LOOP_AT := {"res://assets/audio/music/home_adit.ogg": 11.7, "res://assets/audio/music/home_copper.ogg": 19.3, "res://assets/audio/music/home_cove.ogg": 48.25}
 const MUSIC_DB := -14.0
 ## the home screen's ambience (MineAmb): far off and behind rock — muffled, a little cave reverb, well under the music
 const AMB_BUS := "Amb"
