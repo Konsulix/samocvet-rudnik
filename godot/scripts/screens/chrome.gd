@@ -59,6 +59,8 @@ static func _portrait() -> Control:
 	back.position = Vector2(o - 1, o - 1)
 	back.size = Vector2(n + 2, n + 2)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the Poloz' tail comes out from under the frame: under everything of the portrait
+	if id == "poloz": w.add_child(PortraitLife.make(id, F))
 	w.add_child(back)
 	var face := Kit.icon("equipment", n * 0.86)
 	face.size = Vector2(n, n) * 0.86
@@ -85,8 +87,8 @@ static func _portrait() -> Control:
 	hn.size = Vector2(32, 28)
 	hn.position = heart.position
 	w.add_child(hn)
-	# the mine's boss alive on it: the Poloz' tail, a lizard of the Mistress', the Kraken's arm (over the heart too)
-	w.add_child(PortraitLife.make(id, F))
+	# the mine's boss alive on it: a lizard of the Mistress', the Kraken's arm (over the heart too)
+	if id != "poloz": w.add_child(PortraitLife.make(id, F))
 	if mins:
 		var tl := Kit.label("+1 in %dm" % mins, 11, UI.body_bold, Kit.DIM)
 		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

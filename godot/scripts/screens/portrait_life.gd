@@ -1,7 +1,7 @@
 class_name PortraitLife
 extends Node2D
 ## The live touch on the top bar's portrait frame, the mine's boss in small, as on his fight's own frame: the Poloz'
-## tail hangs out from under the frame's lower left corner, its tip curling; one of the Mistress' lizards runs round
+## tail hangs out from under the frame's bottom bar (drawn under the frame, its root hidden), its tip curling; one of the Mistress' lizards runs round
 ## the frame, stops, looks about and runs on; the Kraken's arm lies along the top bar from the frame's left edge and
 ## hangs down the right bar, groping. Each is its boss' own drawing bent live (Bend), gentle bends only.
 
@@ -44,13 +44,15 @@ func _loop(s: float) -> Array:
 	var dirs := [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]
 	return [corners[k] + dirs[k] * e, dirs[k]]
 
-## the serpent's tail: out from under the lower left corner, hanging down below the frame and swaying, its tip
+## the serpent's tail: out from under the bottom bar near the left corner, hanging below the frame and swaying, its tip
 ## curling in under it and uncurling (outside the frame: on it, it would melt into the serpent the frame is made of)
 func _tail() -> void:
 	var m := f * 0.13
 	var ph := _t * 0.8
 	var curl := 0.5 + 0.5 * sin(ph)
-	var pts := Bend.chain(Vector2(m * 1.3, f - m * 1.3), f * 0.55, 24, func(q: float) -> float:
+	# its root under the bottom bar (the tail is drawn under the frame: Chrome adds it so), out from under the bar's
+	# lower edge
+	var pts := Bend.chain(Vector2(f * 0.32, f - m * 1.6), f * 0.62, 24, func(q: float) -> float:
 		return PI * 0.58 + 0.15 * sin(ph * 0.6) - pow(q, 1.5) * (1.0 + 2.0 * curl) + 0.1 * q * sin(ph * 2.3 - q * 4.0))
 	# the kit's bar has its body in the middle of its height: only those rows, so the width is the body's
 	var hw := f * 0.1
@@ -101,6 +103,17 @@ func _arm() -> void:
 		var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
 		var hang := smoothstep(0.55, 1.0, q)
 		pts[i] += d.orthogonal() * (sin(q * 7.0 - _t * 2.0) * f * 0.012 * hang + pow(q, 3.0) * f * 0.05 * sin(_t * 1.1))
+	# now and then its tip winds up into a spiral, in towards the frame, holds a moment and unwinds
+	var c := fposmod(_t, 7.0)
+	var wind := smoothstep(0.0, 1.0, clampf(c / 1.2, 0.0, 1.0)) * (1.0 - smoothstep(0.0, 1.0, clampf((c - 2.6) / 1.4, 0.0, 1.0)))
+	if wind > 0.0:
+		var k0 := int(n * 0.6)
+		var rest := 0.0
+		for i in range(k0, n - 1): rest += pts[i].distance_to(pts[i + 1])
+		var a0 := (pts[k0] - pts[k0 - 1]).angle()
+		var tail := Bend.chain(pts[k0], rest, n - 1 - k0, func(q: float) -> float:
+			return a0 + wind * pow(q, 1.4) * 7.5)
+		for i in range(k0, n): pts[i] = tail[i - k0]
 	# his arm's own drawing, laid on the grid at this size (art/boss/export_kraken.py: arm_xs), stretched along the bar
 	var hw := float(strip.get_height()) * 0.5 * f / 72.0
 	Bend.draw(self, pts, func(_q: float) -> float: return hw, strip, 0.0, out / full)
