@@ -45,7 +45,16 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		m.gas_spread()
 		m.nodule_grow()
 		if m.boss_on():
+			# the sea's own move (the Kraken): the maelstrom's ring turns, and what it lines up goes
+			if not m.sea_turn().turned.is_empty():
+				_resolve(m, [], [], broken)
+				if m.boss_stage_clear():
+					m.next_stage()
+					continue
 			var bt := m.boss_turn()
+			if not bt.get("drag", []).is_empty():
+				m.collapse()
+				_resolve(m, [], [], broken)
 			if bt.get("act", "") == "lizards":
 				# the raid: the marked greens go, the holes fill with anything but green, what that matches goes
 				for p: Vector2i in bt.cells: m.G[p.x][p.y] = null
@@ -117,6 +126,7 @@ static func _worth(m: BoardModel) -> float:
 			if g.sp != "": v += 2.5 if g.sp in ["bomb", "orb"] else 1.8
 			if g.item == "nug": v += 3.0 * r / float(m.R)
 			if m.GAS[r][c]: v -= 0.3
+			if m.LOCK[r][c] == 3: v -= 0.6
 	return v
 
 ## the board as it is between moves, to try a move on: every field, the stones copied, its own dice

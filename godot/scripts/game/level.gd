@@ -725,6 +725,19 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				tw.tween_property(box, "scale", Vector2(1.08, 1.08), 0.07)
 				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("coin"))
+		"tentacle_cut":
+			board.sea_over.queue_redraw()
+			for p: Vector2i in e.cells: fx.debris(p.x, p.y, Color("#8a6a7a"), 7)
+			LevelBoss.sound(self, "cut", "crust")
+		"ink":
+			board.sea_over.queue_redraw()
+		"eye_hit":
+			board.eye_at = Time.get_ticks_msec() / 1000.0
+			fx.flash(e.r + 0.5, e.c + 0.5, Color(0.8, 1.8, 2.4), 2.0)
+			LevelBoss.sound(self, "eye", "boom")
+			if not has_meta("eye_told"):
+				set_meta("eye_told", true)
+				LevelBoss.line(self, "eye")
 		"boss_hit":
 			LevelBoss.on_hit(self, e)
 			if int(e.dmg) >= 25: fx.pop_text(e.r, e.c, "−%d" % int(e.dmg), Color("#ffd27a"))

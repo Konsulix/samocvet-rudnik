@@ -37,13 +37,27 @@ var ROCK := []
 var ROCK_MAX := []   # how hard each rock started: a granite (2) stays granite, cracked, once hit
 var MUD := []
 var GAS := []
-var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too)
+var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too), 3: a tentacle's grip
 var NOD := []       # a malachite nodule's layers, 0 = none (Copper Mountain): cut off, it gives its layers as ore
 var NOD_T := []     # moves until it grows its next layer
 var FLW := []       # the cells of the Mistress' stone flower (2x2, "F" on her board's map: its top left)
 ## her stone flower: {r, c, st (rings out, 1..3)}; a match beside it or a hit tears its outer ring off, her turn grows
 ## one back, and in full bloom it heals her and crusts the stones round it
 var flower := {}
+## the Kraken (Whalebone Cove): ink hides stones, still playable (moves left before it thins away); the tide floods the
+## bottom rows (moves left: its stones can't move, match or be hit); SEA: 1 the maelstrom's water in the middle of its
+## ring (3x3, "O" on the map: its top left), 2 his eye (3x3, "E")
+var INK := []
+var TIDE := []
+var SEA := []
+## his tentacles: [{id, cells: from the rim to the tip}], their stones gripped (LOCK 3); a hit cuts one there, a match
+## beside its tip cuts the tip; left on the board, each drags the stone at its tip into the deep when he acts, and heals him
+var tentacles := []
+var _tid := 0
+## the maelstrom's ring round its water, clockwise: its stones go round a cell after every move
+var ring := []
+## his eye on the last board: {r, c, shut (moves it stays shut after a hit)}
+var eye := {}
 var GEOC := []
 var VOID := []
 var FIND := []
@@ -210,7 +224,79 @@ func boss_plan() -> void:
 		cells = lizard_marks()
 	if act == "flower" and not flower.is_empty():
 		cells = cells_of(flower) if int(flower.st) >= 3 else []
+	if act == "tentacle":
+		cells = _tentacle_path(A) if tentacles.size() < int(A.get("max", 3)) else []
+	if act == "ink":
+		cells = _ink_cells()
+	if act == "tide":
+		cells = _tide_cells(int(A.get("rows", 2)))
 	boss.intent = {act = act, cells = cells}
+
+## a stone a tentacle can take hold of
+func _grip_ok(r: int, c: int) -> bool:
+	if not open(r, c) or LOCK[r][c] or Vector2i(r, c) in ring: return false
+	var g: Gem = G[r][c]
+	return g != null and g.sp == "" and g.item == ""
+
+## a tentacle's way onto the board: from a cell on the rim inwards, mostly straight, now and then turning;
+## its length from the act's "len" [min, max]. [] when none fits
+func _tentacle_path(A: Dictionary) -> Array:
+	var L: Array = A.get("len", [3, 5])
+	var starts := []
+	for r in R:
+		for c in C:
+			if not _grip_ok(r, c): continue
+			for d: Vector2i in DIRS4:
+				if not playable(r - d.x, c - d.y): starts.append([Vector2i(r, c), d])
+	for k in mini(30, starts.size()):
+		var s: Array = starts.pop_at(rng.randi_range(0, starts.size() - 1))
+		var want := rng.randi_range(int(L[0]), int(L[1]))
+		var path: Array = [s[0]]
+		var dir: Vector2i = s[1]
+		while path.size() < want:
+			var opts := []
+			for nd: Vector2i in [dir, dir, dir, Vector2i(dir.y, dir.x), Vector2i(-dir.y, -dir.x)]:
+				var q: Vector2i = path[-1] + nd
+				if _grip_ok(q.x, q.y) and q not in path: opts.append(nd)
+			if opts.is_empty(): break
+			dir = opts[rng.randi_range(0, opts.size() - 1)]
+			path.append(path[-1] + dir)
+		if path.size() >= int(L[0]): return path
+	return []
+
+## a 3x3 patch of the board for the ink, away from the clouds already there
+func _ink_cells() -> Array:
+	var best := []
+	var best_v := -INF
+	for k in 24:
+		var r := rng.randi_range(1, R - 2)
+		var c := rng.randi_range(1, C - 2)
+		var cells := []
+		var inked := 0
+		for dr in range(-1, 2):
+			for dc in range(-1, 2):
+				if playable(r + dr, c + dc) and not SEA[r + dr][c + dc]:
+					cells.append(Vector2i(r + dr, c + dc))
+					if INK[r + dr][c + dc]: inked += 1
+		var v := cells.size() - inked * 2.0 + rng.randf()
+		if v > best_v:
+			best_v = v
+			best = cells
+	return best
+
+## the lowest rows of the board that have cells
+func _tide_cells(rows: int) -> Array:
+	var out := []
+	var got := 0
+	for r in range(R - 1, -1, -1):
+		var any := false
+		for c in C:
+			if playable(r, c) and not SEA[r][c]:
+				out.append(Vector2i(r, c))
+				any = true
+		if any: got += 1
+		if got >= rows: break
+	return out
 
 ## the greens the lizards will take: a share of the boss' weak colour on the board, at random
 func lizard_marks(prefer: Array = []) -> Array:
@@ -238,8 +324,30 @@ func boss_turn() -> Dictionary:
 	boss.timer = int(boss.timer) - 1
 	if boss.timer > 0: return {}
 	var it: Dictionary = boss.intent
-	var out := {act = it.act, cells = [], removed = [], heal = 0}
+	var out := {act = it.act, cells = [], removed = [], heal = 0, drag = []}
 	var A: Dictionary = boss.B.act.get(it.act, {})
+	# whatever he does, the tentacles left on the board first drag the stones at their tips into the deep
+	if not tentacles.is_empty(): _drag(out, boss.B.act.get("tentacle", {}))
+	if it.act == "tentacle":
+		var path: Array = it.cells
+		if path.is_empty() or not path.all(func(p: Vector2i) -> bool: return _grip_ok(p.x, p.y)):
+			path = _tentacle_path(A)
+		if tentacles.size() < int(A.get("max", 3)) and path.size():
+			_tid += 1
+			for p: Vector2i in path: LOCK[p.x][p.y] = 3
+			tentacles.append({id = _tid, cells = path})
+			out.cells = path
+			out.tid = _tid
+		boss_plan()
+		return out
+	if it.act in ["ink", "tide"]:
+		var grid: Array = INK if it.act == "ink" else TIDE
+		for p: Vector2i in it.cells:
+			if not playable(p.x, p.y) or SEA[p.x][p.y]: continue
+			grid[p.x][p.y] = int(A.get("moves", 3 if it.act == "ink" else 2))
+			out.cells.append(p)
+		boss_plan()
+		return out
 	if it.act == "lizards":
 		# the stones moved since the cells were marked: the share of the greens there are now, the marked ones first.
 		# They are left on the board for the show to carry off; the level removes them, refills without green
@@ -284,6 +392,71 @@ func boss_turn() -> Dictionary:
 		goals[gi].left = mini(boss_top(), before + mini(int(A.cap), cnt * int(A.per)))
 		out.heal = int(goals[gi].left) - before
 	boss_plan()
+	return out
+
+## every tentacle on the board takes the stone at its tip down into the deep: he heals (never past this board's share).
+## The cell stays gripped, empty; out.drag gets {tid, r, c, id}
+func _drag(out: Dictionary, A: Dictionary) -> void:
+	var gi := goal_index("boss")
+	var before := int(goals[gi].left)
+	for tn: Dictionary in tentacles:
+		var p: Vector2i = tn.cells[-1]
+		var g: Gem = G[p.x][p.y]
+		if g == null or g.item != "": continue
+		out.drag.append({tid = tn.id, r = p.x, c = p.y, id = g.id})
+		G[p.x][p.y] = null
+		goals[gi].left = mini(boss_top(), int(goals[gi].left) + int(A.get("drag", 20)))
+	out.heal = int(out.heal) + int(goals[gi].left) - before
+
+## cut the tentacle gripping (r, c) there: the cell and all of it out to the tip let go. A match beside it cuts only
+## its tip (tip_only). Each cell cut hurts him a little. Returns whether anything was cut
+func _cut_tentacle(r: int, c: int, t: float, tip_only: bool) -> bool:
+	var p := Vector2i(r, c)
+	for i in tentacles.size():
+		var tn: Dictionary = tentacles[i]
+		var j: int = tn.cells.find(p)
+		if j < 0: continue
+		if tip_only and j != tn.cells.size() - 1: return false
+		var cut: Array = tn.cells.slice(j)
+		tn.cells = tn.cells.slice(0, j)
+		for q: Vector2i in cut: LOCK[q.x][q.y] = 0
+		_fx(t, "tentacle_cut", {tid = tn.id, r = r, c = c, cells = cut, left = tn.cells.size()})
+		if tn.cells.is_empty(): tentacles.remove_at(i)
+		var A: Dictionary = boss.B.act.get("tentacle", {}) if boss_on() else {}
+		if int(A.get("cut", 0)): _boss_damage(int(A.cut) * cut.size(), r, c, t)
+		return true
+	LOCK[r][c] = 0
+	return true
+
+## the sea's own move after each of the player's (the Kraken's boards): the maelstrom turns its ring a cell
+## clockwise, stones and all; ink thins, the tide ebbs, the eye opens. Returns {turned: [[id, from, to]]}
+func sea_turn() -> Dictionary:
+	var out := {turned = []}
+	for r in R:
+		for c in C:
+			if INK[r][c]: INK[r][c] -= 1
+			if TIDE[r][c]: TIDE[r][c] -= 1
+	if not eye.is_empty(): eye.shut = maxi(0, int(eye.shut) - 1)
+	if ring.size():
+		var gs := []
+		for p: Vector2i in ring: gs.append(G[p.x][p.y])
+		for i in ring.size():
+			var to: Vector2i = ring[(i + 1) % ring.size()]
+			G[to.x][to.y] = gs[i]
+			if gs[i]: out.turned.append([(gs[i] as Gem).id, ring[i], to])
+	return out
+
+## the ring of cells round a w x h block at (r, c), clockwise from its top-left corner
+func _ring_round(r: int, c: int, w: int, h: int) -> Array:
+	var out := []
+	var r0 := r - 1
+	var c0 := c - 1
+	var r1 := r + h
+	var c1 := c + w
+	for x in range(c0, c1): out.append(Vector2i(r0, x))
+	for y in range(r0, r1): out.append(Vector2i(y, c1))
+	for x in range(c1, c0, -1): out.append(Vector2i(r1, x))
+	for y in range(r1, r0, -1): out.append(Vector2i(y, c0))
 	return out
 
 ## her flower grows a ring back; already full, it blooms: heals her (never past this board's share), crusts the stones
@@ -348,6 +521,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	geos = []
 	find = {}
 	flower = {}
+	tentacles = []
+	ring = []
+	eye = {}
 	var rows: PackedStringArray = String(def.get("map", "")).split("|") if def.get("map", "") != "" else PackedStringArray()
 	R = 9
 	C = 8
@@ -359,7 +535,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	# them less often ore (a generated level; the boss' gold and the hand-made levels stay as they were)
 	if gen and boss.is_empty():
 		for k in ore_p: ore_p[k] = float(ore_p[k]) * minf(1.0, 72.0 / (R * C)) * minf(1.0, 26.0 / maxi(1, moves))
-	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
+	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
 		var row: String = rows[r] if r < rows.size() else ""
@@ -390,6 +566,11 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					flower = {r = r, c = c, st = 1}
 					for d in QUAD:
 						FLW[r + d.x][c + d.y] = true
+				"O", "E":
+					for dr in 3:
+						for dc in 3: SEA[r + dr][c + dc] = 1 if ch == "O" else 2
+					if ch == "O": ring = _ring_round(r, c, 3, 3)
+					else: eye = {r = r, c = c, shut = 0}
 				"k":
 					NOD[r][c] = 1
 					NOD_T[r][c] = NOD_EVERY - (r + c) % 2   # neighbours a move apart, not all in step
@@ -517,13 +698,13 @@ func playable(r: int, c: int) -> bool:
 	return r >= 0 and c >= 0 and r < R and c < C and not VOID[r][c]
 
 func open(r: int, c: int) -> bool:
-	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c]
+	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not SEA[r][c] and not TIDE[r][c]
 
 ## the colour a cell counts as for matching, -1 if it can't match
 func col(r: int, c: int) -> int:
 	if r < 0 or c < 0 or r >= R or c >= C: return -1
 	var g: Gem = G[r][c]
-	if g == null or g.sp != "" or g.item != "" or not g.alive(): return -1
+	if g == null or g.sp != "" or g.item != "" or not g.alive() or TIDE[r][c]: return -1
 	return g.t
 
 func gem_at(r: int, c: int) -> Gem:
@@ -685,6 +866,16 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 	if not playable(r, c): return
 	_max_t = maxf(_max_t, t)
 	var k := r * C + c
+	if TIDE[r][c]: return   # under water: out of reach
+	if SEA[r][c]:    # the maelstrom's water takes nothing; his eye, open, takes a hit hard and shuts
+		if SEA[r][c] == 2 and not eye.is_empty() and not _rock_hit.has(-2):
+			_rock_hit[-2] = true
+			if int(eye.shut) <= 0 and boss_on():
+				var A: Dictionary = boss.B.act.get("eye", {})
+				eye.shut = int(A.get("shut", 2)) + 1
+				_fx(t, "eye_hit", {r = int(eye.r) + 1, c = int(eye.c) + 1})
+				_boss_damage(int(A.get("dmg", 60)), int(eye.r) + 1, int(eye.c) + 1, t)
+		return
 	if ROCK[r][c]:   # rocks soak a hit
 		if kind == "adj" and _rock_hit.has(k): return
 		_rock_hit[k] = true
@@ -747,6 +938,11 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 			_goal_hit("find", -1, find.r + (find.h - 1) * 0.5, find.c + (find.w - 1) * 0.5, t)
 			_fx(t, "find_done", {r = find.r + (find.h - 2) * 0.5, c = find.c + (find.w - 2) * 0.5})
 		return
+	if LOCK[r][c] == 3:   # a tentacle is cut where it is hit; from beside, only at its tip
+		if _rock_hit.has(k) or not _cut_tentacle(r, c, t, kind == "adj"): return
+		_rock_hit[k] = true
+		_cleared[k] = true
+		return
 	if LOCK[r][c]:   # the timber breaks, the stone under it stays; a crust also cracks off from a match beside it
 		var crust: bool = LOCK[r][c] == 2
 		if kind == "adj" and (not crust or _rock_hit.has(k)): return
@@ -768,6 +964,9 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		var D: Dictionary = boss.B.dmg
 		var dmg := int(D.special) if g.sp != "" else (int(D.ore) if g.ore == "ore" else int(D.weak)) if g.t == int(boss.B.weak) else 0
 		if dmg: _boss_damage(dmg, r, c, t)
+	if INK[r][c]:
+		INK[r][c] = 0
+		_fx(t, "ink", {r = r, c = c})
 	if MUD[r][c]:
 		MUD[r][c] = 0
 		_goal_hit("mud", -1, r, c, t)
@@ -780,7 +979,7 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		for d in DIRS4:
 			var rr: int = r + d.x
 			var cc: int = c + d.y
-			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] == 2 or FLW[rr][cc]):
+			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] >= 2 or FLW[rr][cc] or SEA[rr][cc] == 2):
 				hit(rr, cc, t, "adj")
 
 func activate(sp: String, r: int, c: int, t: float, g: Gem = null) -> void:
@@ -887,6 +1086,8 @@ func drill_target(r: int, c: int) -> Vector2i:
 			elif ROCK[rr][cc] and need.has("rock"): w = 6
 			elif MUD[rr][cc] and need.has("mud"): w = 5
 			elif col(rr, cc) >= 0 and need.has("c%d" % col(rr, cc)): w = 4
+			elif SEA[rr][cc] == 2 and int(eye.get("shut", 1)) <= 0: w = 6
+			elif LOCK[rr][cc] == 3: w = 4
 			elif NOD[rr][cc] >= 3: w = 3
 			elif G[rr][cc] != null and G[rr][cc].item == "": w = 1
 			if w:
@@ -1052,7 +1253,7 @@ func shuffle() -> void:
 	for r in R:
 		for c in C:
 			var g: Gem = G[r][c]
-			if g and g.sp == "" and g.item == "" and not LOCK[r][c]:
+			if g and g.sp == "" and g.item == "" and not LOCK[r][c] and not TIDE[r][c]:
 				cells.append(Vector2i(r, c))
 				gems.append(g)
 	for tries in 60:

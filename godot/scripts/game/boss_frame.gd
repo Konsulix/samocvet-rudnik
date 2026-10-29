@@ -26,6 +26,8 @@ var _t := 0.0
 ## bar it lies on (so where it lies it is the bar, without a seam), whose tip lifts off and curls and uncurls; the baked
 ## frames only tell where it is: their used rect (`_tail_rect`, in the frame picture's px)
 var live_tail := true
+## built from the kit pieces only (a boss borrowing another's frame: the whole frames were baked for the other's boards)
+var kit_only := false
 var _tail_rect := Rect2i()
 
 static func load_for(id: String) -> BossFrame:
@@ -52,7 +54,7 @@ func use_stage(i: int) -> void:
 	whole = null
 	whole_tails.clear()
 	var js := dir + "stage%d.json" % i
-	if not FileAccess.file_exists(js): return
+	if kit_only or not FileAccess.file_exists(js): return
 	whole_meta = JSON.parse_string(FileAccess.get_file_as_string(js))
 	whole = load(dir + "stage%d.png" % i)
 	for f in int(whole_meta.tail_frames):

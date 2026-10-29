@@ -30,6 +30,13 @@ var nod_grow := {}            # cell key -> {from, t0}: a nodule growing its nex
 var flower_layer: Node2D      # the Mistress' stone flower: pixel art (art/boss/stone_flower.py), drawn sharp
 var flower_at := -10.0        # when it last grew or bloomed: a flash
 const NOD_GROW_S := 0.6
+## the Kraken's board (Whalebone Cove): the maelstrom's water and his eye lie under the stones, his tentacles, ink and
+## the tide over them; all drawn in code. A tentacle is one straight drawing bent along its cells (Bend)
+var sea_under: Node2D
+var sea_over: Node2D
+var tent_at := {}             # tentacle id -> when it reached out (it slides onto the board tip first)
+var eye_at := -10.0           # when the eye was last hit: it flinches shut
+const TENT_IN := 0.55
 var _down := {}
 
 func _init() -> void:
@@ -49,12 +56,14 @@ func _ready() -> void:
 	live = _layer(_draw_live)
 	flower_layer = _layer(_draw_flower)
 	flower_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sea_under = _layer(_draw_sea_under)
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
 	over = _layer(_draw_over)
 	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
 	over.material = BoardSprites.plain_material()
+	sea_over = _layer(_draw_sea_over)
 
 func _layer(fn: Callable) -> Node2D:
 	var n := Node2D.new()
@@ -435,7 +444,7 @@ func _draw_over(ci: Node2D) -> void:
 		for c in C:
 			if model.playable(r, c) and model.LOCK[r][c] == 2:
 				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
-			elif model.playable(r, c) and model.LOCK[r][c]:
+			elif model.playable(r, c) and model.LOCK[r][c] == 1:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	for p: Vector2i in marks:
@@ -515,6 +524,9 @@ func _process(_dt: float) -> void:
 		live.queue_redraw()
 	if model and not model.flower.is_empty():
 		flower_layer.queue_redraw()
+	if model and model.boss_on():
+		sea_under.queue_redraw()
+		sea_over.queue_redraw()
 	# a grown nodule stays drawn as its new stage
 	var now := Time.get_ticks_msec() / 1000.0
 	for key in nod_grow.keys():
@@ -544,3 +556,140 @@ func _gui_input(e: InputEvent) -> void:
 			_down.moved = true
 			var step := Vector2i(0, signi(int(d.x))) if absf(d.x) > absf(d.y) else Vector2i(signi(int(d.y)), 0)
 			swiped.emit(_down.cell.x, _down.cell.y, _down.cell.x + step.x, _down.cell.y + step.y)
+
+# ---------------------------------------------------------------- the Kraken's board
+
+## the middle of the 3x3 block of SEA cells of kind k, or (-1, -1)
+func _sea_mid(k: int) -> Vector2:
+	for r in R:
+		for c in C:
+			if model.SEA[r][c] == k: return cell_center(r + 1, c + 1)
+	return Vector2(-1, -1)
+
+## the maelstrom's water turning in the middle of its ring; his eye, open (watching the board) or shut
+func _draw_sea_under(ci: Node2D) -> void:
+	if model == null: return
+	var now := Time.get_ticks_msec() / 1000.0
+	var w := _sea_mid(1)
+	if w.x >= 0.0:
+		var rad := TS * 1.45
+		ci.draw_circle(w, rad, Color("#0b2233"))
+		ci.draw_circle(w, rad * 0.62, Color("#071722"))
+		ci.draw_circle(w, rad * 0.22, Color("#02080d"))
+		for arm in 5:
+			var pts := PackedVector2Array()
+			for i in 24:
+				var q := i / 23.0
+				var a := now * 1.6 + arm * TAU / 5.0 + q * 4.2
+				pts.append(w + Vector2(cos(a), sin(a)) * rad * (0.95 - q * 0.75))
+			ci.draw_polyline(pts, Color(0.62, 0.82, 0.88, 0.5), maxf(1.5, TS * 0.05), true)
+	var e := _sea_mid(2)
+	if e.x >= 0.0 and not model.eye.is_empty():
+		var rad := TS * 1.4
+		var shut := int(model.eye.shut) > 0
+		ci.draw_circle(e, rad, Color("#2c2028"))
+		ci.draw_circle(e, rad * 0.9, Color("#4a3640"))
+		if shut:
+			# the lids drawn together: a fold of hide with the eye's glow leaking along the seam
+			var seam := PackedVector2Array()
+			for i in 17:
+				var x := -1.0 + i / 8.0
+				seam.append(e + Vector2(x * rad * 0.85, sin(x * PI) * 2.0 - (1.0 - x * x) * rad * 0.12))
+			ci.draw_polyline(seam, Color(0.5, 0.88, 1.0, 0.55), maxf(2.0, TS * 0.07), true)
+			ci.draw_polyline(seam, Color("#1a1218"), maxf(1.0, TS * 0.03), true)
+		else:
+			var look := Vector2(sin(now * 0.7) * 0.18, sin(now * 0.43) * 0.1) * rad
+			var glow := 0.55 + 0.25 * sin(now * 2.2)
+			GemArt.radial_disc(ci, e + look, rad * 0.95, Color(0.5, 0.9, 1.0, 0.35 * glow), Color(0.4, 0.85, 1.0, 0.12), Color(0.4, 0.85, 1.0, 0))
+			ci.draw_circle(e + look, rad * 0.62, Color("#7fe0ff"))
+			ci.draw_circle(e + look, rad * 0.5, Color("#4fb6d6"))
+			# the slit pupil of a cephalopod, lying flat
+			var slit := PackedVector2Array()
+			for i in 16:
+				var a := i / 16.0 * TAU
+				slit.append(e + look + Vector2(cos(a) * rad * 0.42, sin(a) * rad * 0.09))
+			ci.draw_colored_polygon(slit, Color("#05080b"))
+			ci.draw_circle(e + look + Vector2(-rad * 0.22, -rad * 0.24), rad * 0.08, Color(1, 1, 1, 0.8))
+		var since := now - eye_at
+		if since < 0.4:
+			ci.draw_circle(e, rad * (1.0 + since), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since / 0.4)), false, 3.0)
+
+## the tide over the bottom rows, the ink clouds, the tentacles gripping their stones
+func _draw_sea_over(ci: Node2D) -> void:
+	if model == null: return
+	var now := Time.get_ticks_msec() / 1000.0
+	for r in R:
+		for c in C:
+			if not model.playable(r, c): continue
+			var p := Vector2(PAD + c * TS, PAD + r * TS)
+			if model.TIDE[r][c]:
+				ci.draw_rect(Rect2(p, Vector2(TS, TS)), Color(0.08, 0.3, 0.42, 0.62))
+				if r == 0 or not model.TIDE[r - 1][c]:
+					var wave := PackedVector2Array()
+					for i in 9:
+						var x := i / 8.0
+						wave.append(p + Vector2(x * TS, sin(now * 3.0 + (c + x) * 2.4) * TS * 0.05))
+					ci.draw_polyline(wave, Color(0.7, 0.9, 0.95, 0.85), maxf(1.5, TS * 0.05), true)
+	for r in R:
+		for c in C:
+			if not model.playable(r, c) or not model.INK[r][c]: continue
+			var ctr := cell_center(r, c)
+			var a := 0.92 if int(model.INK[r][c]) > 1 else 0.7
+			for k in 4:
+				var o := Vector2(sin(now * 0.9 + k * 1.7 + r), cos(now * 0.7 + k * 2.3 + c)) * TS * 0.14
+				ci.draw_circle(ctr + o, TS * (0.54 - k * 0.04), Color(0.03, 0.03, 0.07, a * 0.7))
+	for tn: Dictionary in model.tentacles: _draw_tentacle(ci, tn, now)
+
+## where a tentacle comes over the rim: a cell's length out from its first cell, away from the board
+func tentacle_root(tn: Dictionary) -> Vector2:
+	var b: Vector2i = tn.cells[0] if not tn.cells.is_empty() else Vector2i.ZERO
+	var into := Vector2i(1, 0)
+	for d: Vector2i in BoardModel.DIRS4:
+		if not model.playable(b.x - d.x, b.y - d.y):
+			into = d
+			break
+	return cell_center(b.x, b.y) - Vector2(into.y, into.x) * TS * 1.1
+
+## one tentacle: from beyond the rim through its cells' middles to its tip, swaying a little; it slides in tip first
+func _draw_tentacle(ci: Node2D, tn: Dictionary, now: float) -> void:
+	var cells: Array = tn.cells
+	if cells.is_empty(): return
+	var ctrl := PackedVector2Array([tentacle_root(tn)])
+	for i in cells.size():
+		var p: Vector2i = cells[i]
+		var sway := sin(now * 2.1 + i * 1.3 + int(tn.id)) * TS * 0.07 * (i + 1) / cells.size()
+		ctrl.append(cell_center(p.x, p.y) + Vector2(sway, -sway * 0.6))
+	var line := Bend.smooth(ctrl, 8)
+	var L := Bend.length(line)
+	var k := clampf((now - float(tent_at.get(int(tn.id), -10.0))) / TENT_IN, 0.0, 1.0)
+	k = 1.0 - pow(1.0 - k, 3.0)
+	# it slides in tip first: the part out on the board is the end of the whole arm
+	var pts := Bend.sample(line, 0.0, L * maxf(k, 0.02), 40)
+	tentacle_body(ci, pts, lerpf(TS * 0.1, TS * 0.36, k), TS * 0.1)
+
+## a tentacle's body along pts (root first): a dark hide tapering from w0 to w1 (half widths), a pale belly with a row
+## of suckers along it, a wet glint on its back. Drawn in code until its own picture is made
+static func tentacle_body(ci: CanvasItem, pts: PackedVector2Array, w0: float, w1: float) -> void:
+	var n := pts.size()
+	if n < 2: return
+	var wd := func(i: int) -> float: return lerpf(w0, w1, float(i) / float(n - 1))
+	var side := func(i: int) -> Vector2:
+		var d := (pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		return Vector2(-d.y, d.x)
+	for i in n: ci.draw_circle(pts[i], float(wd.call(i)) + 1.5, Color("#1a0f16"))
+	for i in n: ci.draw_circle(pts[i], float(wd.call(i)), Color("#5b3446"))
+	var belly := PackedVector2Array()
+	var back := PackedVector2Array()
+	for i in n:
+		var s: Vector2 = side.call(i)
+		belly.append(pts[i] + s * float(wd.call(i)) * 0.45)
+		back.append(pts[i] - s * float(wd.call(i)) * 0.45)
+	ci.draw_polyline(belly, Color("#a7787f"), maxf(1.5, w0 * 0.55), true)
+	ci.draw_polyline(back, Color(0.85, 0.75, 0.85, 0.35), maxf(1.0, w0 * 0.12), true)
+	var i := 2
+	while i < n - 1:
+		var s: Vector2 = side.call(i)
+		var w: float = wd.call(i)
+		ci.draw_circle(pts[i] + s * w * 0.5, w * 0.32, Color("#e2c9c0"))
+		ci.draw_circle(pts[i] + s * w * 0.5, w * 0.14, Color("#4a2632"))
+		i += 3

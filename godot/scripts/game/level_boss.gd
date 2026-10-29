@@ -7,7 +7,8 @@ extends RefCounted
 
 ## what the boss's actions are called on screen
 const ACTS := {coils = "Coils: timber on stones", rockfall = "Rockfall", breath = "Poison breath", hoard = "Hoard: heals on gold",
-	lizards = "Lizards: steal the greens", crust = "Malachite crust", flower = "Stone flower: blooms and heals"}
+	lizards = "Lizards: steal the greens", crust = "Malachite crust", flower = "Stone flower: blooms and heals",
+	tentacle = "Tentacle: grips stones", ink = "Ink: hides stones", tide = "Tide: floods the bottom"}
 ## the stage over the board, pt; how far the boss' bottom tucks behind the frame; its sprite's left edge
 const STAGE := 190.0
 const SINK := 26.0
@@ -63,13 +64,16 @@ static func mount(lv: Level) -> void:
 	var id: String = B.get("id", "poloz")
 	if view(lv): return
 	if Sfx.MUSIC.has("boss_" + id): Sfx.music("boss_" + id)
-	lv.bg.texture = load("res://assets/boss/%s/bg.png" % id)
+	# a boss whose pictures aren't made yet borrows the first one's (its baked whole frames don't fit other boards)
+	var look := id if FileAccess.file_exists("res://assets/boss/%s/boss.json" % id) else "poloz"
+	lv.bg.texture = load("res://assets/boss/%s/bg.png" % look)
 	lv.bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var v := BossView.load_for(id)
+	var v := BossView.load_for(look)
 	v.name = "BossView"
 	lv.add_child(v)
 	lv.move_child(v, lv.holder.get_index())
-	var f := BossFrame.load_for(id)
+	var f := BossFrame.load_for(look)
+	f.kit_only = look != id
 	f.name = "BossFrame"
 	lv.shaker.add_child(f)
 	lv.shaker.move_child(f, lv.board.get_index() + 1)
@@ -202,12 +206,21 @@ static func after_turn(lv: Level) -> void:
 	if m.boss_stage_clear():
 		await next_board(lv)
 		return
+	# the sea's own move (the Kraken's boards): the maelstrom turns, ink thins, the tide ebbs
+	await _sea(lv)
+	if m.boss_stage_clear():
+		await next_board(lv)
+		return
 	var acting := int(m.boss.timer) <= 1
 	if acting and view(lv):
 		view(lv).cast()
 		await lv._wait(0.35)
 	var res := m.boss_turn()
-	if not res.is_empty() and res.act == "lizards":
+	if not res.is_empty() and not res.drag.is_empty():
+		await _drag(lv, res)
+	if not res.is_empty() and res.act in ["tentacle", "ink", "tide"]:
+		await _sea_act(lv, res)
+	elif not res.is_empty() and res.act == "lizards":
 		await _lizard_raid(lv, res)
 	elif not res.is_empty() and res.act == "flower":
 		await _flower(lv, res)
@@ -271,6 +284,82 @@ static func _flower(lv: Level, res: Dictionary) -> void:
 		sound(lv, "grow")
 	lv.board.refresh()
 	await lv._wait(0.5)
+	if not m.has_moves():
+		m.shuffle()
+		await lv.board.animate_shuffle()
+
+## the maelstrom carries the stones of its ring round a cell; what that lines up goes as usual
+static func _sea(lv: Level) -> void:
+	var m: BoardModel = lv.model
+	var res := m.sea_turn()
+	lv.board.sea_over.queue_redraw()
+	if res.turned.is_empty(): return
+	var tw := lv.create_tween().set_parallel(true)
+	var any := false
+	for t: Array in res.turned:
+		var n: GemNode = lv.board.nodes.get(int(t[0]))
+		if n == null: continue
+		var to: Vector2i = t[2]
+		tw.tween_property(n, "position", lv.board.cell_center(to.x, to.y), 0.34).set_trans(Tween.TRANS_SINE)
+		any = true
+	if not any:
+		tw.kill()
+		return
+	sound(lv, "maelstrom")
+	await tw.finished
+	await lv._resolve([], [])
+
+## the tentacles left on the board drag the stones at their tips over the rim into the deep: he heals
+static func _drag(lv: Level, res: Dictionary) -> void:
+	var m: BoardModel = lv.model
+	lv.board.marks = []
+	sound(lv, "drag")
+	var tw := lv.create_tween().set_parallel(true)
+	var any := false
+	for d: Dictionary in res.drag:
+		var n: GemNode = lv.board.nodes.get(int(d.id))
+		if n == null: continue
+		lv.board.nodes.erase(int(d.id))
+		var root := lv.board.cell_center(int(d.r), int(d.c))
+		for tn: Dictionary in m.tentacles:
+			if int(tn.id) == int(d.tid): root = lv.board.tentacle_root(tn)
+		tw.tween_property(n, "position", root, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tw.tween_property(n, "scale", Vector2(0.35, 0.35), 0.55)
+		tw.tween_property(n, "modulate:a", 0.0, 0.35).set_delay(0.2)
+		lv.get_tree().create_timer(0.6).timeout.connect(n.queue_free)
+		lv.fx.debris(int(d.r), int(d.c), Color("#6a8a9a"), 8)
+		any = true
+	if any: await tw.finished
+	else: tw.kill()
+	refresh_hp(lv)
+	var h := hud(lv)
+	if h and int(res.heal): h.say("+%d" % int(res.heal), 1.6)
+	if not lv.has_meta("drag_told"):
+		lv.set_meta("drag_told", true)
+		line(lv, "drag")
+	lv.board.refresh()
+	await lv.board.animate_collapse(m.collapse())
+	await lv._resolve([], [])
+
+## a tentacle reaches onto the board, ink spreads, the tide comes in
+static func _sea_act(lv: Level, res: Dictionary) -> void:
+	var m: BoardModel = lv.model
+	lv.board.marks = []
+	var now := Time.get_ticks_msec() / 1000.0
+	match String(res.act):
+		"tentacle":
+			if res.has("tid"): lv.board.tent_at[int(res.tid)] = now
+			var tw := lv.create_tween()
+			for k in 4:
+				tw.tween_property(lv.shaker, "position", Vector2(randf_range(-4, 4), randf_range(-3, 3)), 0.04)
+			tw.tween_property(lv.shaker, "position", Vector2.ZERO, 0.05)
+		"ink":
+			for p: Vector2i in res.cells: lv.fx.debris(p.x, p.y, Color("#10141c"), 4)
+		"tide":
+			for p: Vector2i in res.cells: lv.fx.sparkle(p.x, p.y, Color("#9fd8ea"), 4)
+	sound(lv, String(res.act), "rock")
+	lv.board.refresh()
+	await lv._wait(0.6)
 	if not m.has_moves():
 		m.shuffle()
 		await lv.board.animate_shuffle()

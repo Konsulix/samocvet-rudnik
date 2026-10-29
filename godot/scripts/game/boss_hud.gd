@@ -170,7 +170,8 @@ const SAY_FS := 12
 const PLAN_H := 46.0
 const ACT_NAMES := {coils = ["Coils", "locks stones"], rockfall = ["Rockfall", "drops rock"],
 	breath = ["Breath", "spreads gas"], hoard = ["Hoard", "heals on gold"], lizards = ["Lizards", "steal greens"],
-	crust = ["Crust", "locks stones"], flower = ["Flower", "blooms: heals"]}
+	crust = ["Crust", "locks stones"], flower = ["Flower", "blooms: heals"],
+	tentacle = ["Tentacle", "grips stones"], ink = ["Ink", "hides stones"], tide = ["Tide", "floods the bottom"]}
 
 func bubble_rect() -> Rect2:
 	var vp := lv.get_viewport_rect().size
@@ -238,6 +239,24 @@ func _draw_act(act: String, c: Vector2) -> void:
 	var t: Texture2D = _icons.get(act)
 	if t:
 		bubble.draw_texture_rect(t, Rect2(c - Vector2(15, 15), Vector2(30, 30)), false)
+		return
+	# the Kraken's: drawn here, in his sea's colours
+	if act == "tentacle":
+		var pts := Bend.chain(c + Vector2(-12, 11), 34.0, 20, func(q: float) -> float: return -0.6 - q * q * 4.2)
+		BoardView.tentacle_body(bubble, pts, 5.0, 1.5)
+		return
+	if act == "ink":
+		for o in [Vector2(-5, 2), Vector2(5, -3), Vector2(2, 6), Vector2(-3, -6)]:
+			bubble.draw_circle(c + o, 8.0, Color(0.04, 0.04, 0.08, 0.85))
+		bubble.draw_circle(c + Vector2(-4, -4), 2.0, Color(0.6, 0.8, 1.0, 0.6))
+		return
+	if act == "tide":
+		for k in 3:
+			var wave := PackedVector2Array()
+			for i in 13:
+				var x := -13.0 + i * 26.0 / 12.0
+				wave.append(c + Vector2(x, -6.0 + k * 7.0 + sin(x * 0.45 + k) * 2.5))
+			bubble.draw_polyline(wave, Color("#7fc8e0").darkened(k * 0.2), 2.4, true)
 		return
 	# the hoard: three gold ingots
 	for o in [Vector2(-9, 6), Vector2(9, 6), Vector2(0, -4)]:

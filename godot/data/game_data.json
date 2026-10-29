@@ -1220,7 +1220,89 @@
       2520
      ]
     }
-   ]
+   ],
+   "boss": {
+    "id": "kraken",
+    "n": "The Kraken",
+    "sub": "Whalebone Cove",
+    "m": 500,
+    "hp": 1998,
+    "weak": 1,
+    "dmg": {
+     "weak": 10,
+     "ore": 25,
+     "special": 15
+    },
+    "moves": 30,
+    "stage_moves": 5,
+    "act": {
+     "tentacle": {
+      "len": [
+       3,
+       5
+      ],
+      "max": 3,
+      "drag": 20,
+      "cut": 5
+     },
+     "ink": {
+      "moves": 3
+     },
+     "tide": {
+      "rows": 2,
+      "moves": 2
+     },
+     "eye": {
+      "dmg": 60,
+      "shut": 2
+     }
+    },
+    "lines": {
+     "start": "Sailors took me for an island. So will you.",
+     "stage": [
+      "The island wakes. Mind the water.",
+      "Look me in the eye, digger. If you dare."
+     ],
+     "combo": "The sea remembers every cut.",
+     "win": "Take your jet. The deep keeps the rest.",
+     "lose": "Down you go, with the others.",
+     "drag": "Into the deep with it.",
+     "eye": "My eye! You'll pay for that."
+    },
+    "sfx": {},
+    "stages": [
+     {
+      "name": "The island",
+      "every": 3,
+      "acts": [
+       "tentacle",
+       "ink"
+      ],
+      "map": "###...###|#.......#|.........|.........|..m...m..|.........|.........|..m...m..|#.......#|###...###"
+     },
+     {
+      "name": "The maelstrom",
+      "every": 3,
+      "acts": [
+       "tentacle",
+       "ink",
+       "tentacle"
+      ],
+      "map": "#.......#|.........|.........|...O.....|.........|.........|.........|.........|.........|#.......#"
+     },
+     {
+      "name": "The eye",
+      "every": 2,
+      "acts": [
+       "tentacle",
+       "tide",
+       "ink",
+       "tentacle"
+      ],
+      "map": "##.....##|#.......#|.........|...E.....|.........|.........|.........|.........|#.......#|##.....##"
+     }
+    ]
+   }
   }
  ],
  "CHEST": [
