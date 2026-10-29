@@ -115,7 +115,10 @@ static func of(o: Dictionary) -> Dictionary:
 		# a fulgurite's own: the lightning that made it runs through it still
 		if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
 		# a trilobite's pyrite legs walk again; a pearl glows like the moon
-		if sid == "trilobite": fpool = ["awaken", "jellyfish"] + (["moon", "moon"] if int(fossil.get("oysters", 0)) > 0 else [])
+		if sid == "trilobite":
+			fpool = ["awaken", "jellyfish", "watch", "glow"] + (["moon", "moon"] if int(fossil.get("oysters", 0)) > 0 else [])
+			# a hunter circles only a trilobite lying out on its rock
+			if fossil.get("show", "") in ["matrix", "mass", "prepared"]: fpool.append_array(["hunter", "hunter"])
 		if sid == "pearl": fpool = ["moon", "jellyfish"]
 		if lustre == "glass" and not (form in ["geode", "botryoid", "vein", "nugget"]):
 			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])

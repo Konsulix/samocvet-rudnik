@@ -258,7 +258,16 @@ const SETS := [
 	{seed = 761, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "elrathia", show = "matrix", pal = 0, oysters = 2, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
 	{seed = 762, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", pal = 1, oysters = 1, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
 	{seed = 763, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "isotelus", show = "mass", mass = 3, pal = 5, oysters = 3, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
-	{seed = 434, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", crushed = true, brood = 0, hetero = "", pal = 4}]
+	{seed = 434, sid = "ammonite", kind = "fossil", gi = 2, traits = [], show = "matrix", crushed = true, brood = 0, hetero = "", pal = 4}],
+	# set 38: the trilobite's new legendaries: the hunter (Anomalocaris circling, the trilobite rolling up), watching eyes, deep-sea glow
+	[{seed = 771, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "elrathia", show = "matrix", pal = 0, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "hunter"},
+	{seed = 772, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "prepared", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "hunter"},
+	{seed = 773, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "matrix", pal = 2, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "watch"},
+	{seed = 774, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "asaphus", show = "prepared", pal = 3, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "watch"},
+	{seed = 775, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "isotelus", show = "matrix", pal = 5, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
+	{seed = 776, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "walliserops", show = "prepared", pal = 2, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
+	{seed = 777, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "enrolled", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
+	{seed = 778, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "dicranurus", show = "prepared", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "watch"}]
 ]
 
 func _ready() -> void:

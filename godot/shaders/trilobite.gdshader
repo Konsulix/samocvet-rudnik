@@ -27,6 +27,12 @@ uniform sampler2D scan_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float scan_k = 0.5;
 uniform float opal_k = 0.0;        // an opalized shell: precious opal's play of colour
 uniform float opal_h = 0.3;
+// legendary: roll (0 lying flat .. 1 rolled into a ball, bent here in the vertex shader so it can roll up live);
+// glow_k a deep-sea glow running in waves down the body; eye_glow lit lenses; glow_col their colour
+uniform float roll = 0.0;
+uniform float glow_k = 0.0;
+uniform float eye_glow = 0.0;
+uniform vec3 glow_col : source_color = vec3(0.3, 0.7, 1.0);
 
 
 varying vec3 v_op;
@@ -43,6 +49,24 @@ void vertex() {
 	v_op = VERTEX;
 	v_no = NORMAL;
 	v_cam = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
+	// rolling up, as SpecTrilobite._bend does it on the CPU: the pleurae curl down round the sides, the body round a
+	// circle below it (written so it stays exact as the curl goes to nothing), the ball lifted to sit on the rock
+	if (roll > 0.001) {
+		float k = roll * 1.08;
+		float R = 1.0 / (6.2832 * k * 0.93);
+		float rs = R / 0.55;
+		vec3 v = VERTEX;
+		float ph = v.x / rs;
+		float sp = sin(ph), cp = cos(ph), shp = sin(ph * 0.5);
+		vec3 q = vec3(v.x * (abs(ph) > 1e-4 ? sp / ph : 1.0) + v.y * sp, v.y * cp - 2.0 * rs * shp * shp, v.z);
+		float a = q.z / R;
+		float sa = sin(a), ca = cos(a), sha = sin(a * 0.5);
+		VERTEX = vec3(q.x, q.y * ca - 2.0 * R * sha * sha, q.z * (abs(a) > 1e-4 ? sa / a : 1.0) + q.y * sa);
+		VERTEX.y += roll * 0.17;
+		vec3 n = NORMAL;
+		n = vec3(n.x * cp + n.y * sp, -n.x * sp + n.y * cp, n.z);
+		NORMAL = vec3(n.x, n.y * ca - n.z * sa, n.y * sa + n.z * ca);
+	}
 }
 
 void fragment() {
@@ -147,6 +171,15 @@ void fragment() {
 			ro = mix(ro, 0.12, opal_k * (1.0 - dirt));
 		}
 		NORMAL = bump(n, VERTEX, h, 1.0);
+		// the deep-sea glow: waves of cold light running down the rings, the axis brightest, a faint glow all over
+		if (glow_k > 0.0) {
+			float wave = pow(max(0.0, sin(UV2.x * 28.0 - TIME * 3.2)), 6.0) * (0.35 + 0.65 * axis) + 0.12 + 0.25 * furrow;
+			EMISSION = glow_col * glow_k * wave * (1.0 - step(0.3, 1.0 - COLOR.a));
+			c *= 1.0 - 0.5 * glow_k;
+		}
+	}
+	if (part == 1 && eye_glow > 0.0) {
+		EMISSION = glow_col * eye_glow * (0.35 + 0.65 * smoothstep(0.2, 0.9, 1.0 - h * 280.0)) * (0.75 + 0.25 * sin(TIME * 2.3));
 	}
 	ALBEDO = c;
 	ROUGHNESS = clamp(ro, 0.04, 1.0);

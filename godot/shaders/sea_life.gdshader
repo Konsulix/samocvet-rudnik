@@ -35,6 +35,11 @@ void vertex() {
 		VERTEX.z += cos(TIME * speed * 0.8 + ph * 1.3 + VERTEX.y * 2.0) * amp * 0.6 * k;
 	} else if (mode == 1) {
 		VERTEX += NORMAL * sin(UV.x * 34.0 + TIME * speed * 2.0 + ph) * amp * UV.y;
+	} else if (mode == 3) {
+		// a swimmer (UV.x along it, head 0 .. tail 1; UV.y out along a flap): its flaps beat in a wave running back,
+		// the body sways a little behind the head
+		VERTEX.y += sin(TIME * speed * 5.0 - UV.x * 11.0) * amp * UV.y;
+		VERTEX.x += sin(TIME * speed * 2.5 - UV.x * 4.0) * amp * 0.35 * UV.x;
 	}
 	v_op = VERTEX;
 }

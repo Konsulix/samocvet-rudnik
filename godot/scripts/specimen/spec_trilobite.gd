@@ -12,7 +12,9 @@ extends RefCounted
 ## eyes are domes of lenses (shaders/trilobite.gdshader part 1) that glint one by one as the find turns.
 ## Shown lying on its slab, prepared out standing on a pedestal of its rock, rolled up, or as a plate of several
 ## that died together. Kept as black shell, calcite (tan, grey, honey), cream, or pyrite. Rare: its moult beside it,
-## a healed bite out of its side, its legs and antennae kept in pyrite. Legendary "awakened": the pyrite legs walk.
+## a healed bite out of its side, its legs and antennae kept in pyrite. Legendary: "awakened" (its legs walk, it
+## crawls), "the hunter" (Anomalocaris circles; the trilobite rolls up as it passes), "watching eyes" (the eyes turn
+## to the viewer, lit amber), "deep-sea glow" (cold light in waves down its rings), the moon pearl (with oysters).
 
 const U := preload("res://scripts/specimen/spec_util.gd")
 const SHADER := preload("res://shaders/trilobite.gdshader")
@@ -89,9 +91,8 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.wear_seed = int(rng3.next() * 100000.0) + 1
 	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep"]:
 		if o.has(k): g[k] = o[k]
-	# a legendary one keeps its legs and antennae (the awakening walks them)
+	# a legendary one kept well (the awakening grows its own legs, whatever it is kept in)
 	if o.get("legend", false):
-		g.soft = true
 		g.keep = maxf(float(g.keep), 0.85)
 	if g.soft:
 		g.pal = 4
@@ -462,7 +463,7 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	var out := {}
 	var body := U.mesh(body_geo(f, c, u0, u1, k), sm, parent)
 	body.set_meta("col", true)
-	body.set_meta("sea_light", true)
+	if f.get("fx", "") != "hunter": body.set_meta("sea_light", true)
 	# an unseen block under it, down into the rock: what the builder grows on the rock afterwards (puffs, lichen,
 	# flowers) keeps out of the crystals' boxes, and this makes the trilobite one
 	if u0 <= 0.0 and k <= 0.0:
@@ -483,6 +484,8 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 	# the eyes, at the sides of the glabella
 	var ue := ce * 0.55
 	var eye_pts := []
+	var eyes := []
+	var watch: bool = f.get("fx", "") == "watch" and k <= 0.0
 	for s: float in [-1.0, 1.0]:
 		var xe := s * minf(ax * 1.45 + float(c.eye_r) * 0.5, _w(f, c, ue, s) * 0.7)
 		var hh := _h(f, c, ue, xe, _w(f, c, ue, s))
@@ -498,13 +501,16 @@ static func animal(f: Dictionary, parent: Node3D, sm: ShaderMaterial, em: Shader
 				pts.insert(0, at - Vector3(0, float(c.eye_r) * 0.8, 0))
 				spines.append(spine_geo(pts, float(c.eye_r) * 0.75, float(c.eye_r) * 0.4, 8))
 				var top: Vector3 = pts[pts.size() - 1]
-				var e := eye_geo(c, top + Vector3(0, float(c.eye_r) * 0.35, 0), s, "lens" if c.eye == "tower" else "bulb")
+				var ec := top + Vector3(0, float(c.eye_r) * 0.35, 0)
 				eye_pts.append(top)
-				_add_bent(e, em, parent, k)
+				if watch: eyes.append([_eye_node(c, ec, s, "lens" if c.eye == "tower" else "bulb", em, parent), s])
+				else: _add_bent(eye_geo(c, ec, s, "lens" if c.eye == "tower" else "bulb"), em, parent, k)
 			_:
-				_add_bent(eye_geo(c, at, s, String(c.eye)), em, parent, k)
+				if watch: eyes.append([_eye_node(c, at, s, String(c.eye), em, parent), s])
+				else: _add_bent(eye_geo(c, at, s, String(c.eye)), em, parent, k)
 				eye_pts.append(at + Vector3(s * float(c.eye_r) * 0.6, float(c.eye_r) * 0.6, 0))
 	out.eyes = eye_pts
+	out.eye_nodes = eyes
 	var tips := []
 	# genal spines from the head's back corners, swept back along the sides
 	if float(c.gspine) > 0.0:
@@ -636,6 +642,7 @@ static func legs(f: Dictionary, parent: Node3D, sm: ShaderMaterial) -> Array:
 
 static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshInstance3D:
 	var f: Dictionary = gene.fossil
+	f.fx = gene.fx
 	var rng := Rng32.new(int(f.seed) * 7 + 3)
 	var root: Node3D = b.root
 	var gs: float = gene.scale
@@ -853,6 +860,50 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			wk.body = main.node
 			wk.base = (main.node as Node3D).transform
 	var nd0: Node3D = main.node
+	match String(gene.fx):
+		"watch":
+			# the eyes turn to whoever looks at it, their lenses lit amber
+			em.set_shader_parameter("eye_glow", 1.6)
+			em.set_shader_parameter("glow_col", Color(1.0, 0.62, 0.18))
+			var wt := Watcher.new()
+			wt.eyes = main.get("eye_nodes", [])
+			holder.add_child(wt)
+		"glow":
+			# the room goes dark; cold light runs in waves down its rings, its eyes lit, plankton glinting round it
+			root.set_meta("dark", true)
+			var gc := Color(0.25, 0.75, 1.0)
+			for m: ShaderMaterial in [sm, em]:
+				m.set_shader_parameter("glow_k", 2.2)
+				m.set_shader_parameter("glow_col", gc)
+			em.set_shader_parameter("eye_glow", 2.0)
+			var lamp := OmniLight3D.new()
+			lamp.light_color = gc
+			lamp.light_energy = 0.8
+			lamp.omni_range = 1.4
+			lamp.position = Vector3(0, 0.25, 0.3)
+			nd0.add_child(lamp)
+			var pc := nd0.position
+			var sz: float = nd0.transform.basis.get_scale().x
+			var pk := SpecSea.bubbles(holder, [pc + Vector3(sz * 0.5, 0, 0.1 * sz), pc + Vector3(-sz * 0.5, 0, -0.1 * sz), pc + Vector3(0, 0, sz * 0.55)], Vector3.UP, sz * 1.1, sz * 0.012, 14)
+			for it: Array in pk.items:
+				var bm := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+				bm.set_shader_parameter("tint", Color(0.5, 1.2, 2.2))
+				(it[0] as MeshInstance3D).material_override = bm
+		"hunter":
+			# Anomalocaris circles over the slab; as it passes over, the trilobite rolls up, then slowly uncurls
+			var sz: float = nd0.transform.basis.get_scale().x
+			var hn := Hunter.new()
+			holder.add_child(hn)
+			var hm := MeshInstance3D.new()
+			hm.mesh = hunter_geo(Rng32.new(int(f.seed) + 77)).to_mesh()
+			hm.material_override = SpecSea.life_mat(3, 1.0, 0.035, 1.0, 0.55, 0.3)
+			hn.add_child(hm)
+			hn.body = hm
+			hn.sc = sz * 0.85
+			hn.target = nd0.position
+			hn.radius = sz * 0.55
+			hn.height = sz * 0.32
+			hn.mats = [sm, em]
 	var xf := U.rel_xform(nd0, root)
 	for p: Vector3 in main.get("eyes", []):
 		if "eyes" in gene.accents: b._mark("eyes", xf * p, (xf.basis * Vector3(signf(p.x), 1, 0)).normalized())
@@ -1017,11 +1068,13 @@ static func _plate(f: Dictionary) -> Geo:
 				g.col.append(Color(near, 0, 0, 1))
 			elif i <= nr + ns:
 				# the side: broken stone, bulging and stepping in and out as it goes down, a little wider at the foot
-				var t := float(i - nr) / ns
+				# (its first ring sits exactly on the top's edge: the switch from carved top to broken side happens on a
+				# strip of no width — a strip with width showed as a dashed band)
+				var t := float(i - nr - 1) / (ns - 1)
 				var k := 1.03 + (0.05 + 0.07 * nb.get_noise_2d(a * 4.0, t * 3.0) + 0.04 * nb.get_noise_2d(a * 13.0, t * 9.0)) * t
 				x = sin(a) * rb * wob * k
 				z = cos(a) * ra * wob * k
-				var y0 := -THICK * 1.1 - 0.035 + 0.01 * nz.get_noise_2d(sin(a) * rb * wob * 1.03 * 6.0, cos(a) * ra * wob * 1.03 * 6.0) - 0.05
+				var y0 := -THICK * 1.1 - 0.035 + 0.01 * nz.get_noise_2d(sin(a) * rb * wob * 6.0, cos(a) * ra * wob * 6.0) - 0.05
 				y = y0 - t * (depth - 0.085) + 0.02 * nb.get_noise_2d(a * 6.0, 7.0) * t
 				rough = 1.0
 				g.col.append(Color(0, 0, 1, 1))
@@ -1142,6 +1195,176 @@ static func _pedestal(f: Dictionary, h: float) -> Geo:
 			var a := ri * (na + 1) + i
 			g.idx.append_array([a, a + 1, a + na + 1, a + na + 1, a + 1, a + na + 2])
 	return g
+
+## a watching eye: the eye built round its own centre on a node at `at` (so it can turn); returns the node
+static func _eye_node(c: Dictionary, at: Vector3, s: float, kind: String, em: ShaderMaterial, parent: Node3D) -> MeshInstance3D:
+	var mi := U.mesh(eye_geo(c, Vector3.ZERO, s, kind), em, parent, at)
+	mi.set_meta("col", true)
+	return mi
+
+## the legendary watching eyes: each turns towards the camera, as far as an eye can, easing after it
+class Watcher extends Node3D:
+	var eyes: Array = []
+	func _process(dt: float) -> void:
+		var cam := get_viewport().get_camera_3d()
+		if cam == null:
+			return
+		for e: Array in eyes:
+			var mi: MeshInstance3D = e[0]
+			var s: float = e[1]
+			var par := mi.get_parent() as Node3D
+			var d := par.global_transform.affine_inverse() * cam.global_position - mi.position
+			if d.length_squared() < 1e-8: continue
+			var out := Vector3(s, 0.25, 0).normalized()
+			var to := d.normalized()
+			# no further than ~50 degrees from where the eye looks at rest
+			var ang := out.angle_to(to)
+			if ang > 0.9: to = out.slerp(to, 0.9 / ang)
+			var want := Basis(U.quat_to(out, to))
+			mi.basis = mi.basis.slerp(want, minf(1.0, dt * 3.0)).orthonormalized()
+
+## Anomalocaris (body length 1, head towards +z, y up): an oval head shield, eyes on stalks, two long jointed grasping
+## arms curling down under the head with spines on their inner side, a tapering body edged with eleven overlapping
+## flaps a side (smaller towards the tail), a tail fan of three pairs of blades. UV.x: along it (0 head .. 1 tail),
+## UV.y: out along a flap (the shader beats the flaps in a wave). Reddish, spotted darker, as the reconstructions are.
+static func hunter_geo(rng: Rng32) -> Geo:
+	var g := Geo.new()
+	var base := Color(0.5, 0.2, 0.12)
+	var pale := Color(0.74, 0.42, 0.2)
+	var nz := FastNoiseLite.new()
+	nz.seed = int(rng.next() * 9999.0)
+	nz.frequency = 9.0
+	var spot := func(p: Vector3, c: Color) -> Color:
+		var k := smoothstep(0.15, 0.4, nz.get_noise_3dv(p))
+		return c.lerp(Color(0.16, 0.06, 0.04), k * 0.8)
+	var pad := func(u: float) -> void:
+		while g.rp.size() < g.v.size():
+			g.rp.append(Vector3(u, 0.0, 0.0))
+	# the body: elliptical rings from the head back to the tail
+	var nr := 28
+	var m := 14
+	var b0 := g.v.size()
+	for i in nr + 1:
+		var t := float(i) / nr
+		var z := 0.48 - t * 0.9
+		var hw := 0.075 + 0.07 * sin(PI * minf(1.0, (t + 0.15) * 0.95)) - 0.03 * t
+		var hh := 0.045 * (1.0 - 0.6 * t) + 0.01
+		if t < 0.12: hw *= 0.8 + 1.6 * t   # the head shield, rounded in front
+		for j in m + 1:
+			var a := TAU * float(j) / m
+			var p := Vector3(cos(a) * hw, sin(a) * hh, z)
+			g.v.append(p)
+			# its segments: a darker band at each joint
+			var seg := 0.25 if i % 3 == 0 and i > 3 else 0.0
+			g.col.append(spot.call(p, base.lerp(pale, 0.3 * maxf(0.0, -sin(a))).darkened(seg)))
+			g.rp.append(Vector3(t, 0.0, 0.0))
+	for i in nr:
+		for j in m:
+			var a := b0 + i * (m + 1) + j
+			g.idx.append_array([a, a + m + 1, a + 1, a + 1, a + m + 1, a + m + 2])
+	# the flaps: eleven a side, overlapping, drooping a little, shorter towards the tail
+	for i in 11:
+		var t := 0.16 + 0.062 * float(i)
+		var z := 0.48 - t * 0.9
+		var ln := 0.22 - 0.012 * float(i)
+		var wd := 0.075   # wide enough that each overlaps the next
+		for s: float in [-1.0, 1.0]:
+			var f0 := g.v.size()
+			var na := 6
+			for q in na + 1:
+				var o := float(q) / na
+				for r in 3:
+					# a rounded lobe: widest a third of the way out, its tip round, swept back a little
+					var w := (float(r) - 1.0) * wd * (0.7 + 0.5 * sin(PI * minf(1.0, o * 1.4))) * (1.0 - 0.6 * o * o)
+					var p := Vector3(s * (0.1 + o * ln), -0.01 - 0.025 * o * o, z + w - o * 0.07)
+					g.v.append(p)
+					# the body's red, its edge a little paler, a dark vein down the middle
+					var vein := 0.35 if r == 1 and o > 0.15 else 0.0
+					g.col.append(spot.call(p, base.lerp(pale, 0.1 + 0.25 * o).darkened(vein)))
+					g.rp.append(Vector3(t, o, 0.0))
+			for q in na:
+				for r in 2:
+					var a := f0 + q * 3 + r
+					g.idx.append_array([a, a + 3, a + 1, a + 1, a + 3, a + 4])
+	# the tail fan: three pairs of long blades, splayed back and up
+	for k in 3:
+		for s: float in [-1.0, 1.0]:
+			var f0 := g.v.size()
+			var ang := 0.25 + 0.3 * float(k)
+			var dir := Vector3(s * sin(ang) * 0.6, 0.25 + 0.15 * float(k), -cos(ang)).normalized()
+			for q in 6:
+				var o := float(q) / 5.0
+				for r in 2:
+					var side := Vector3(-dir.z, 0, dir.x).normalized() * (float(r) - 0.5) * 0.035 * (1.0 - o * 0.6)
+					var p := Vector3(0, 0.01, -0.42) + dir * o * 0.22 + side
+					g.v.append(p)
+					g.col.append(base.lerp(pale, 0.5 * o))
+					g.rp.append(Vector3(1.0, o * 0.5, 0.0))
+			for q in 5:
+				var a := f0 + q * 2
+				g.idx.append_array([a, a + 2, a + 1, a + 1, a + 2, a + 3])
+	# the grasping arms: jointed, out in front, curling down and back under the head, spines on their inner side
+	for s: float in [-1.0, 1.0]:
+		var pts := []
+		for q in 14:
+			var o := float(q) / 13.0
+			var ph := o * PI * 1.25
+			pts.append(Vector3(s * (0.04 + 0.03 * o), -0.02 - 0.12 * (1.0 - cos(ph)) * 0.8, 0.48 + 0.16 * sin(ph)))
+		var a0 := g.v.size()
+		SpecSea.tube(g, pts, 0.026, 0.008, base.darkened(0.2), pale, 0.0, 6)
+		# the joints: darker bands
+		for i in range(a0, g.v.size()):
+			var ring := int(float(i - a0) / 7.0)
+			if ring % 2 == 0: g.col[i] = g.col[i].darkened(0.3)
+		pad.call(0.0)
+		for q in range(2, 13):
+			var p: Vector3 = pts[q]
+			var nxt: Vector3 = pts[q + 1]
+			var inward := (Vector3(0, 0.48 - 0.12, 0.48) - p)
+			inward.x = 0.0
+			inward = inward.normalized()
+			SpecSea.tube(g, [p, p + inward * 0.03 + (nxt - p) * 0.3], 0.006, 0.001, pale, pale.lightened(0.3), 0.0, 3)
+		pad.call(0.0)
+	# the eyes on their stalks
+	for s: float in [-1.0, 1.0]:
+		var root := Vector3(s * 0.06, 0.03, 0.42)
+		var tip := root + Vector3(s * 0.06, 0.05, 0.02)
+		SpecSea.tube(g, [root, tip], 0.012, 0.01, base, base, 0.0, 6)
+		pad.call(0.0)
+		var e := Geo.sphere(1.0, 10, 8)
+		var e0 := g.v.size()
+		for v in e.v:
+			g.v.append(tip + Vector3(v.x * 0.03, v.y * 0.022, v.z * 0.026))
+			g.col.append(Color(0.04, 0.03, 0.03))
+			g.rp.append(Vector3(0.0, 0.0, 0.0))
+		for i in e.idx:
+			g.idx.append(e0 + i)
+	return g
+
+## the legendary hunter: Anomalocaris swims a loop over the slab that passes right over the trilobite; while it is
+## near, the trilobite rolls up (fast), and when it has gone uncurls (slowly)
+class Hunter extends Node3D:
+	var body: Node3D
+	var sc := 1.0
+	var target := Vector3.ZERO
+	var radius := 0.5
+	var height := 0.3
+	var mats: Array = []
+	var a := 0.0
+	var rolled := 0.0
+	func _process(dt: float) -> void:
+		a += dt * TAU / 13.0
+		# an oval loop, its far end over the trilobite
+		var c := target + Vector3(radius * 0.95, 0, 0)
+		var p := c + Vector3(cos(a) * radius, height + sin(a * 2.0) * radius * 0.08, sin(a) * radius * 0.7)
+		var tan := Vector3(-sin(a) * radius, cos(a * 2.0) * radius * 0.16, cos(a) * radius * 0.7).normalized()
+		body.position = p
+		body.basis = Basis.looking_at(-tan, Vector3.UP) * Basis(Vector3.BACK, -0.25 * cos(a)) * Basis.from_scale(Vector3.ONE * sc)
+		var near := Vector2(p.x - target.x, p.z - target.z).length() < radius * 0.55
+		rolled = move_toward(rolled, 1.0 if near else 0.0, dt * (1.6 if near else 0.35))
+		var r := smoothstep(0.0, 1.0, rolled)
+		for m: ShaderMaterial in mats:
+			m.set_shader_parameter("roll", r)
 
 ## the legendary awakening: swings each leg on its pivot, a wave running down the body; the antennae sweep slowly
 class Walker extends Node3D:

@@ -146,7 +146,8 @@ func _ready() -> void:
 		want.append(func(g: Dictionary) -> bool: return g.moult)
 		want.append(func(g: Dictionary) -> bool: return g.bite)
 		var sd := 70000
-		for i in want.size() + 2:
+		var fxs := ["awaken", "moon", "hunter", "watch", "glow"]
+		for i in want.size() + fxs.size():
 			var legend := i >= want.size()
 			var st := {}
 			while true:
@@ -157,8 +158,8 @@ func _ready() -> void:
 				st.legend = legend
 				sd += 1
 				if legend:
-					# the legendary ones: a seed whose living effect is the awakening, then one with the moon pearl
-					if SpecGenome.of(Spec.of_stone(st)).fx == ("awaken" if i == want.size() else "moon"): break
+					# the legendary ones: a seed for each living effect a trilobite can have
+					if SpecGenome.of(Spec.of_stone(st)).fx == fxs[i - want.size()]: break
 				elif (want[i] as Callable).call(SpecFossil.genes(int(st.id), "trilobite", [])): break
 			st.tier = Stones.tier_of(st.sid, int(st.gi), legend)
 			st.area = 2
