@@ -335,6 +335,17 @@ void fragment() {
 			ro = 0.55 + 0.3 * gi.z;
 			nb = bump(n, VERTEX, (gi.z + fbm(p * 20.0)) * 0.004, 1.0);
 		}
+		// a sawn half: the outside of an inner turn is covered by the polished face, and shows only through a hollow
+		// chamber of the turn round it — where, in a real one, it is the chamber's wall, crusted with crystals like its
+		// floor (drawn as bare shell, its film and metal mirrored the dark studio: dark blue plates)
+		if (body <= 0.0 && !inside && th < t_end - 6.2) {
+			vec3 fc = fill == 2 ? lin(vec3(0.78, 0.66, 0.34)) : fill == 3 ? lin(vec3(0.7, 0.74, 0.8))
+				: fill == 1 ? lin(vec3(0.86, 0.82, 0.74)) : lin(vec3(0.86, 0.6, 0.3));
+			c = fc * 0.75;
+			nb = druse(p, n, c, 0.3);
+			m = fill == 2 ? 0.8 : 0.0;
+			ro = 0.3;
+		}
 		ALBEDO = c;
 		METALLIC = m;
 		ROUGHNESS = clamp(ro, 0.05, 1.0);
