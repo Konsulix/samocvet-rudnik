@@ -647,18 +647,18 @@ static func release() -> void:
 class SlateBg extends Control:
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-		texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		# one big slate picture over the whole screen (GPT, art/ui_kit/gen_slate_big.sh; its colour matched to the tile's):
+		# the 200 px tile repeated every 55 pt read as rows of stripes
+		var pic := TextureRect.new()
+		pic.texture = load("res://assets/ui/kit/slate_big.png")
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		pic.set_anchors_preset(Control.PRESET_FULL_RECT)
+		pic.modulate = Color(0.8, 0.78, 0.76)
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.show_behind_parent = true
+		add_child(pic)
 	func _draw() -> void:
-		# the slate tile (200 px) twice, at two sizes, the second turned and offset, half through: one layer of it
-		# repeated every 55 pt across the whole screen read as rows of stripes
-		var tx := Kit.tex("slate")
-		for L in [[1.6, 0.45, Vector2.ZERO, 1.0], [2.3, -0.8, Vector2(37, 91), 0.55]]:
-			var k: float = L[0]
-			draw_set_transform(L[2], float(L[1]), Vector2.ONE / k)
-			var big := size.length() * k
-			draw_texture_rect(tx, Rect2(-Vector2(big, big), Vector2(big, big) * 2.0), true, Color(0.8, 0.78, 0.76, float(L[3])))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		var e := Color(0, 0, 0, 0.55)
 		var m := Color(0, 0, 0, 0)
 		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(size.x * 0.18, 0), Vector2(size.x * 0.18, size.y), Vector2(0, size.y)]), PackedColorArray([e, m, m, e]))
