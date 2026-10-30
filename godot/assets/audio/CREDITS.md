@@ -95,3 +95,16 @@ MintoDog, серия «For Puzzle Game», [OpenGameArt](https://opengameart.org/
 - `thunder_near_0..1`, `thunder_far_0..2` — гром: Joseph Sardin, BigSoundBank (CC0), одиночные удары без дождя
   [#1](https://bigsoundbank.com/thunder-s2718.html), #3, #4, [#5](https://bigsoundbank.com/thunder-5-s3116.html), [#7](https://bigsoundbank.com/thunder-7-s3180.html)
   (`prototype/tools/amb_storm_rec.py`, у близкого удара сверху короткий синтезированный треск); огни святого Эльма `elmo` — синтез `amb_storm.py`.
+
+## Звуки экрана рудника 4 Fire Horizon — записи (`amb/fire/`)
+
+Нарезаны `prototype/tools/amb_fire_rec.py` (вместо синтеза `amb_fire.py`; синтезом остался только холодный ветер `wind`).
+Joseph Sardin и Pablo Bergel, BigSoundBank (CC0):
+
+- `hammer_0..2`, `ring` — наковальня [Anvil #1](https://bigsoundbank.com/anvil-1-s3589.html), [Anvil #2](https://bigsoundbank.com/anvil-2-s3590.html), замедлены ×0,45 / ×0,62 (молот великана, ворота кузни).
+- `cicadas` — [Cicada 1, long](https://bigsoundbank.com/detail-2397-cicada-1-long.html).
+- `stream` — [Forest and stream #2](https://bigsoundbank.com/sound-2714-forest-and-stream-2.html); `drip` — [Drops of water #1](https://bigsoundbank.com/drops-of-water-1-s1384.html).
+- `donkey_0..1` — [Donkeys, braying](https://bigsoundbank.com/sound-1548-donkeys-braying.html), Donkey braying #3 (#1551).
+- `goat_0..1` — [Bleating Goat #1](https://bigsoundbank.com/detail-0279-bleating-goat-1.html), [#2](https://bigsoundbank.com/detail-0280-bleating-goat-2.html).
+- `burn`, `sparks` — огонь PagDev ([Fireplace sound loop](https://opengameart.org/content/fireplace-sound-loop)) + синтезированный гул; `river` — пузыри rubberduck замедленные + гул;
+  `steam` — bart, [Steam release sounds](https://opengameart.org/content/steam-release-sounds).

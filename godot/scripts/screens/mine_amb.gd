@@ -101,12 +101,15 @@ func _shot(st: AudioStream, db: float, pitch := 1.0, bus := Sfx.AMB_BUS) -> void
 
 ## a place's loop (a mine's own file, "copper/falls") held at `db` from now on - the screen calls it every frame with
 ## the level for how far the place is from the middle of the screen; -80 or below lets it fall silent
-func hum(n: String, db: float) -> void:
+## clear: past the bus's low-pass and reverb (at the bus's level) - for a loop that is nearly all highs (cicadas)
+func hum(n: String, db: float, clear := false) -> void:
+	if clear:
+		db = -80.0 if Save.d.get("mute", false) else db + Sfx.AMB_DB
 	if not _hums.has(n):
 		if db <= -60.0:
 			return
 		var p := AudioStreamPlayer.new()
-		p.bus = Sfx.AMB_BUS
+		p.bus = "Master" if clear else Sfx.AMB_BUS
 		var st: AudioStream = _stream(n)
 		st.set("loop", true)
 		p.stream = st
