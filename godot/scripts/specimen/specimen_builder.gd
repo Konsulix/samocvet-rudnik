@@ -768,27 +768,45 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 				bd = d
 				best = k
 		return best
-	for c in 3 + int(rng.next() * 2):
+	# the cracks run over the side the viewer sees (every find is shown turned 0.6 about y) and over the top
+	var view := Basis(UP, -0.6) * Vector3.BACK
+	var seen := func(vi: int) -> bool: return qn[vi].dot(view) > 0.25 or qn[vi].y > 0.6
+	# the crack itself: a dark seam (sulphides) the metal sits in
+	var seam := SpecMat.make({col = SpecMat.lin(0x2a2622), rough = 0.6, metal = 0.3})
+	for c in 3 + int(rng.next() * 3):
 		var vi := int(rng.next() * qg.v.size())
-		for t in 30:
-			if qg.v[vi].y > -0.05: break
+		for t in 60:
+			if qg.v[vi].y > -0.1 and seen.call(vi): break
 			vi = int(rng.next() * qg.v.size())
 		var p := qg.v[vi]
 		var d := qn[vi].cross(Vector3.UP if absf(qn[vi].y) < 0.9 else Vector3.RIGHT).normalized().rotated(qn[vi], rng.next() * TAU)
-		var w := 0.07 + rng.next() * 0.06
+		var w := 0.08 + rng.next() * 0.07
 		for k in 10 + int(rng.next() * 10):
 			var nv: Vector3 = qn[vi]
 			var sz := w * (0.5 + rng.next() * 0.9)
 			var bs := Basis(U.quat_to(UP, nv)) * Basis(UP, rng.next() * TAU)
-			U.mesh(RockKit.crumble(rng, sz, Vector3(1.6, 0.3, 1.0)), mm, root, qg.v[vi] - nv * sz * 0.08, bs)
+			U.mesh(RockKit.crumble(rng, sz * 0.9, Vector3(1.3, 0.1, 0.32)), seam, root, qg.v[vi] - nv * sz * 0.05, bs)
+			if rng.next() < 0.7:
+				U.mesh(RockKit.crumble(rng, sz, Vector3(1.6, 0.4, 1.1)), mm, root, qg.v[vi] + nv * sz * 0.04, bs)
 			# along the crack: a step forward, wandering, back onto the stone
 			d = (d + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 0.7).normalized()
 			d = (d - nv * d.dot(nv)).normalized()
 			vi = near.call(qg.v[vi] + d * sz * 1.3)
-	# loose specks
-	for k in 6 + int(rng.next() * 8):
+	# a nest or two of metal grown into the stone, half out of it
+	for k in 1 + int(rng.next() * 2):
 		var vi := int(rng.next() * qg.v.size())
-		var sz := 0.02 + rng.next() * 0.035
+		for t in 60:
+			if seen.call(vi): break
+			vi = int(rng.next() * qg.v.size())
+		var sz := 0.14 + rng.next() * 0.08
+		U.mesh(RockKit.crumble(rng, sz, Vector3(1.4, 0.75, 1.1)), mm, root, qg.v[vi] - qn[vi] * sz * 0.35, Basis(U.quat_to(UP, qn[vi])) * Basis(UP, rng.next() * TAU))
+	# loose specks, most where they are seen
+	for k in 12 + int(rng.next() * 10):
+		var vi := int(rng.next() * qg.v.size())
+		for t in 8:
+			if seen.call(vi): break
+			vi = int(rng.next() * qg.v.size())
+		var sz := 0.025 + rng.next() * 0.045
 		U.mesh(RockKit.crumble(rng, sz, Vector3(1.3, 0.4, 1.0)), mm, root, qg.v[vi] - qn[vi] * sz * 0.1, Basis(U.quat_to(UP, qn[vi])))
 	return main
 
