@@ -124,6 +124,10 @@ static func of(o: Dictionary) -> Dictionary:
 			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
 		fx = fpool[int(rng.next() * fpool.size())]
 	fx = o.get("fx", fx)
+	# an effect that lives inside clear glass (opal fire, a star heart, a night sky...) makes the stone glassy: a dark
+	# opaque body would hide it (a find keeps the effect it was given, whatever lustre its seed rolls)
+	if fx in ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"] and lustre == "dark" and not o.has("lustre"):
+		lustre = "glass"
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
