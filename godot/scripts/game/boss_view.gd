@@ -22,7 +22,7 @@ var stones: Node2D           # the pebbles off the neck, while it sags
 ## by the generator, sinking into the dark at its foot): hung under the sprite, moving and shaking with it. Where the
 ## board's cut-away corners leave no frame bar over the sprite's bottom, it is seen instead of the cut
 var below: TextureRect
-var below_tex := {}          # phase -> texture
+var below_tex := {}          # "<phase prefix>below[_<mood>]" -> texture: a mood whose picture's bottom differs has its own
 var mood := "idle"
 var phase := 0               # the board of the fight: which phase's pictures
 var _shown := ""             # the pictures on screen: the mood with its phase's prefix
@@ -67,11 +67,13 @@ func _ready() -> void:
 	spr.material = m
 	add_child(spr)
 	for ph in int(meta.get("phases", 1)):
-		var bp := dir + ("" if ph == 0 else "p%d_" % (ph + 1)) + "below.png"
-		if ResourceLoader.exists(bp): below_tex[ph] = load(bp)
+		var pre := "" if ph == 0 else "p%d_" % (ph + 1)
+		for mk in [""] + Array(meta.moods.keys()):
+			var key := pre + "below" + ("" if mk == "" else "_" + String(mk).trim_prefix(pre))
+			if not below_tex.has(key) and ResourceLoader.exists(dir + key + ".png"): below_tex[key] = load(dir + key + ".png")
 	if not below_tex.is_empty():
 		below = TextureRect.new()
-		below.texture = below_tex.get(0, below_tex.values()[0])
+		below.texture = below_tex.get("below", below_tex.values()[0])
 		# it starts a little up over the sprite's bottom, covering the picture's own dark cut edge (export_below.py UP)
 		below.position = Vector2(0, sz.y - float(meta.get("below_up", 8)))
 		below.size = below.texture.get_size()
@@ -127,18 +129,25 @@ func _go(m: String) -> void:
 		tw.tween_method(func(v: float): sm.set_shader_parameter("fade", snappedf(v, 0.25)), 0.0, 1.0, DISSOLVE)
 	mood = m
 	_shown = k
+	_below_for(m)
 	_boil_t = 999.0
+
+## its body below goes with the picture: the mood's own strip in this phase, else the phase's, else the nearest phase's
+## before
+func _below_for(m: String) -> void:
+	if below == null: return
+	for ph in range(phase, -1, -1):
+		var pre := "" if ph == 0 else "p%d_" % (ph + 1)
+		for key in [pre + "below_" + m, pre + "below"]:
+			if below_tex.has(key):
+				below.texture = below_tex[key]
+				return
 
 ## the fight's board `i`: that phase's pictures, dissolving in
 func set_phase(i: int) -> void:
 	if i == phase: return
 	phase = i
-	# its body below goes with the phase's picture: its own, else the nearest phase before that has one
-	if below:
-		for ph in range(i, -1, -1):
-			if below_tex.has(ph):
-				below.texture = below_tex[ph]
-				break
+	_below_for(mood)
 	if not _lock: _go(mood)
 
 ## show a mood for a while, then back to rest

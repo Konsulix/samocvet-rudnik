@@ -34,6 +34,7 @@ const NOD_GROW_S := 0.6
 ## the tide over them; all drawn in code. A tentacle is one straight drawing bent along its cells (Bend)
 var sea_under: Node2D
 var sea_over: Node2D
+var ink_layer: Node2D         # the Kraken's ink, one shader over all its cells (shaders/ink.gdshader), like the gas
 var tent_at := {}             # tentacle id -> when it reached out (it slides onto the board tip first)
 var _arm_tex: Texture2D
 var eye_at := -10.0           # when the eye was last hit: it flinches shut
@@ -73,6 +74,10 @@ func _ready() -> void:
 	over = _layer(_draw_over)
 	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
 	over.material = BoardSprites.plain_material()
+	ink_layer = _layer(_draw_ink)
+	var im := ShaderMaterial.new()
+	im.shader = preload("res://shaders/ink.gdshader")
+	ink_layer.material = im
 	sea_over = _layer(_draw_sea_over)
 	sea_over.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
@@ -554,6 +559,7 @@ func _process(dt: float) -> void:
 	if model and model.boss_on():
 		sea_under.queue_redraw()
 		sea_over.queue_redraw()
+		ink_layer.queue_redraw()
 	if _whirl:
 		var kick := clampf(1.0 - (Time.get_ticks_msec() / 1000.0 - _whirl_kick) / 0.8, 0.0, 1.0)
 		_whirl_a += dt * (1.0 + 3.0 * kick)
@@ -660,7 +666,34 @@ func _draw_eye(ci: Node2D, now: float) -> void:
 	if since < 0.4:
 		ci.draw_circle(e, TS * (1.0 + since), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since / 0.4)), false, 3.0)
 
-## the tide over the bottom rows, the ink clouds, the tentacles gripping their stones
+## the ink as one cloud over the grid (shaders/ink.gdshader): the board's ink goes in as a small mask, a texel a cell
+## with a cell of margin (1 just spilled, 0.55 on its last move), and the shader smooths and frays it into one blot
+var _ink_mask: ImageTexture
+func _draw_ink(ci: Node2D) -> void:
+	if model == null or not model.boss_on(): return
+	var any := false
+	var img := Image.create(C + 2, R + 2, false, Image.FORMAT_L8)
+	for r in R:
+		for c in C:
+			if model.playable(r, c) and model.INK[r][c] > 0:
+				any = true
+				var v := 1.0 if int(model.INK[r][c]) > 1 else 0.55
+				img.set_pixel(c + 1, r + 1, Color(v, v, v))
+	if not any: return
+	if _ink_mask == null or _ink_mask.get_width() != C + 2 or _ink_mask.get_height() != R + 2:
+		_ink_mask = ImageTexture.create_from_image(img)
+	else:
+		_ink_mask.update(img)
+	var sm := ci.material as ShaderMaterial
+	sm.set_shader_parameter("mask", _ink_mask)
+	sm.set_shader_parameter("cells", Vector2(C + 2, R + 2))
+	if _white == null:
+		var wi := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		wi.fill(Color.WHITE)
+		_white = ImageTexture.create_from_image(wi)
+	ci.draw_texture_rect(_white, Rect2(Vector2(PAD - TS, PAD - TS), Vector2(C + 2, R + 2) * TS), false)
+
+## the tide over the bottom rows, the tentacles gripping their stones
 func _draw_sea_over(ci: Node2D) -> void:
 	if model == null: return
 	var now := Time.get_ticks_msec() / 1000.0
@@ -677,14 +710,6 @@ func _draw_sea_over(ci: Node2D) -> void:
 						var x := i / 8.0
 						wave.append(p + Vector2(x * TS, sin(now * 3.0 + (c + x) * 2.4) * TS * 0.05))
 					ci.draw_polyline(wave, Color(0.7, 0.9, 0.95, 0.85), maxf(1.5, TS * 0.05), true)
-	for r in R:
-		for c in C:
-			if not model.playable(r, c) or not model.INK[r][c]: continue
-			var ctr := cell_center(r, c)
-			var a := 0.92 if int(model.INK[r][c]) > 1 else 0.7
-			for k in 4:
-				var o := Vector2(sin(now * 0.9 + k * 1.7 + r), cos(now * 0.7 + k * 2.3 + c)) * TS * 0.14
-				ci.draw_circle(ctr + o, TS * (0.54 - k * 0.04), Color(0.03, 0.03, 0.07, a * 0.7))
 	for tn: Dictionary in model.tentacles: _draw_tentacle(ci, tn, now)
 
 ## where a tentacle comes over the rim: a cell's length out from its first cell, away from the board
