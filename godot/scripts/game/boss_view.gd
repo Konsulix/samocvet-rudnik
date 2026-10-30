@@ -18,6 +18,11 @@ var tex := {}                # mood -> [variants]
 var spr: TextureRect
 var dust: ColorRect
 var stones: Node2D           # the pebbles off the neck, while it sags
+## its body going on below the picture's flat-cut bottom (art/boss/export_below.py: `<phase prefix>below.png`, drawn on
+## by the generator, sinking into the dark at its foot): hung under the sprite, moving and shaking with it. Where the
+## board's cut-away corners leave no frame bar over the sprite's bottom, it is seen instead of the cut
+var below: TextureRect
+var below_tex := {}          # phase -> texture
 var mood := "idle"
 var phase := 0               # the board of the fight: which phase's pictures
 var _shown := ""             # the pictures on screen: the mood with its phase's prefix
@@ -61,6 +66,17 @@ func _ready() -> void:
 	m.set_shader_parameter("from_tex", spr.texture)
 	spr.material = m
 	add_child(spr)
+	for ph in int(meta.get("phases", 1)):
+		var bp := dir + ("" if ph == 0 else "p%d_" % (ph + 1)) + "below.png"
+		if ResourceLoader.exists(bp): below_tex[ph] = load(bp)
+	if not below_tex.is_empty():
+		below = TextureRect.new()
+		below.texture = below_tex.get(0, below_tex.values()[0])
+		below.position = Vector2(0, sz.y)
+		below.size = below.texture.get_size()
+		below.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		below.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		spr.add_child(below)
 	stones = Node2D.new()
 	stones.draw.connect(_draw_stones)
 	add_child(stones)
@@ -116,6 +132,12 @@ func _go(m: String) -> void:
 func set_phase(i: int) -> void:
 	if i == phase: return
 	phase = i
+	# its body below goes with the phase's picture: its own, else the nearest phase before that has one
+	if below:
+		for ph in range(i, -1, -1):
+			if below_tex.has(ph):
+				below.texture = below_tex[ph]
+				break
 	if not _lock: _go(mood)
 
 ## show a mood for a while, then back to rest

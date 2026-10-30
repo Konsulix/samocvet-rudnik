@@ -130,6 +130,9 @@ static func place(lv: Level) -> void:
 		# no flat-cut bottom to hide: it goes on under his water
 		v.set_exposed(PackedFloat32Array([0.0]), SINK_BAND)
 		s.fit()
+	elif v.below:
+		# its body goes on below the picture: nothing to sink into the dark
+		v.set_exposed(PackedFloat32Array([0.0]), SINK_BAND)
 	else:
 		_expose(lv, v, f)
 	var h := hud(lv)
