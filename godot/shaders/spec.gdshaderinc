@@ -247,18 +247,31 @@ void fragment() {
 	vec3 absorb = mix(vec3(1.0), tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b))), clamp(0.35 + edge_k * 0.75, 0.0, 1.0));
 	vec3 body = refr * absorb * mix(1.0, 0.75, edge_k);
 	if (star_k > 0.0) {
-		// a night sky trapped inside: deep blue body, nebula drifting, stars twinkling at two depths
-		body = mix(body, body * vec3(0.05, 0.06, 0.14), star_k * 0.85);
+		// a night sky trapped inside: a deep blue-black body, nebulae drifting, stars twinkling at three depths (the
+		// near ones big, with a soft glow, a few with a cross of light) — strong enough to read on a phone card
+		body = mix(body, body * vec3(0.03, 0.035, 0.09) + vec3(0.004, 0.006, 0.02), star_k * 0.92);
 		vec3 sp = v_op + (INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz * 0.15;
 		float neb = fbm(sp * 2.2 + vec3(TIME * 0.02, 0.0, TIME * 0.015));
-		body += mix(vec3(0.25, 0.05, 0.45), vec3(0.05, 0.35, 0.6), fbm(sp * 1.3)) * smoothstep(0.45, 0.8, neb) * star_k * 0.9;
-		for (int L = 0; L < 2; L++) {
-			vec3 q = sp * (28.0 + float(L) * 19.0) + float(L) * 7.0;
+		float neb2 = fbm(sp * 3.7 + vec3(-TIME * 0.015, TIME * 0.01, 4.0));
+		body += mix(vec3(0.35, 0.06, 0.6), vec3(0.05, 0.4, 0.75), fbm(sp * 1.3)) * smoothstep(0.48, 0.85, neb) * star_k * 0.9;
+		body += vec3(0.6, 0.12, 0.35) * smoothstep(0.62, 0.88, neb2) * star_k * 0.4;
+		for (int L = 0; L < 3; L++) {
+			float fl = float(L);
+			vec3 q = sp * (11.0 + fl * 9.0) + fl * 7.0;
 			vec3 cell = floor(q);
 			float h = h3(cell);
-			float d = length(fract(q) - 0.5);
-			float tw = 0.5 + 0.5 * sin(TIME * (2.0 + h * 5.0) + h * 40.0);
-			body += vec3(1.6, 1.5, 1.3) * step(0.93, h) * (1.0 - smoothstep(0.05, 0.16, d)) * tw * star_k * 2.5;
+			vec3 off = vec3(h3(cell + 3.1), h3(cell + 5.7), h3(cell + 9.3)) * 0.5 + 0.25;
+			vec3 dv = fract(q) - off;
+			float d = length(dv);
+			float tw = 0.6 + 0.4 * sin(TIME * (1.5 + h * 4.0) + h * 40.0);
+			float on = step(0.8 + fl * 0.04, h);
+			float sz = (0.21 - fl * 0.05) * (0.7 + 0.6 * h3(cell + 1.7));
+			float core = 1.0 - smoothstep(sz * 0.3, sz, d);
+			float glow = exp(-d / (sz * 1.6)) * 0.35;
+			// the brightest near stars throw a cross of light
+			float cross = L == 0 && h > 0.95 ? exp(-abs(dv.x) / 0.02) * exp(-abs(dv.y) / 0.25) + exp(-abs(dv.y) / 0.02) * exp(-abs(dv.x) / 0.25) : 0.0;
+			vec3 sc = mix(vec3(1.0, 0.92, 0.8), vec3(0.75, 0.85, 1.0), h3(cell + 2.3));
+			body += sc * on * (core * 4.0 + glow + cross) * tw * star_k;
 		}
 	}
 	if (opal_k > 0.0) {
@@ -270,6 +283,8 @@ void fragment() {
 		vec3 sc = 0.5 + 0.5 * cos(6.2832 * (h * 3.0 + edge_k + TIME * 0.05 + vec3(0.0, 0.33, 0.67)));
 		body += sc * fl * opal_k * 1.6 * (1.0 - smoothstep(0.35, 0.5, length(fract(q) - 0.5)));
 	}
+	// (a night sky inside clears the milk: it would wash the stars out)
+	milk *= 1.0 - 0.85 * star_k;
 	body = mix(body, tint0 * 0.5 + vec3(0.22), milk * 0.75);
 	body = mix(body, body * smoke_col * 2.0, smoke);
 	// silver rims: the edges frost over into a bright, ragged, slightly metallic band
@@ -288,7 +303,7 @@ void fragment() {
 		float hh = dot(v_op, vec3(0.7, 1.1, 0.4)) * 0.9 + fr2 * 0.9 + vn(v_op * 0.9 + g_seed) * 1.4;
 		vec3 holo = 0.5 + 0.5 * cos(6.2832 * (hh + vec3(0.0, 0.33, 0.67)));
 		float hm = smoothstep(0.35, 0.7, vn(v_op * 1.2 + g_seed + 5.0) * 0.7 + vn(v_op * 2.3 + g_seed) * 0.3);
-		body += holo * holo_k * hm * (0.35 + 0.65 * fr2) * (1.0 - milk * 0.5) * (1.0 - dirt);
+		body += holo * holo_k * hm * (0.35 + 0.65 * fr2) * (1.0 - milk * 0.5) * (1.0 - dirt) * (1.0 - 0.75 * star_k);
 	}
 	vec3 pitc = tint0 * 0.035 + vec3(0.004, 0.003, 0.006);
 	float hollow = smoothstep(0.3, 0.7, pit) * (1.0 - dirt);
@@ -370,7 +385,10 @@ void fragment() {
 	body = mix(body, uvc, uvk);
 	ALBEDO *= 1.0 - uvk * 0.9;
 	SPECULAR *= 1.0 - uvk * 0.7;
-	EMISSION = body * (1.0 - dirt) + (e + e_ir * film * 0.25) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
+	// a night sky inside: the faces' white studio glare and lit surface would grey it out, so they dim to a glint
+	ALBEDO *= 1.0 - 0.85 * star_k * (1.0 - dirt);
+	SPECULAR *= 1.0 - 0.7 * star_k * (1.0 - dirt);
+	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
 	NORMAL = n;
 	ALPHA = 1.0;
 #elif defined(UNSHADED)

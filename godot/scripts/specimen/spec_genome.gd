@@ -108,26 +108,34 @@ static func of(o: Dictionary) -> Dictionary:
 	lustre = o.get("lustre", lustre)
 	# a legendary find always carries one living effect, one that suits its body
 	var fx := ""
+	var fpool := ["fluor", "levitate", "jellyfish"]
+	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
+	if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
+	# a fulgurite's own: the lightning that made it runs through it still
+	if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
+	# a trilobite's pyrite legs walk again; a pearl glows like the moon
+	if sid == "trilobite":
+		fpool = ["awaken", "jellyfish", "glow"] + (["moon", "moon"] if int(fossil.get("oysters", 0)) > 0 else [])
+		# a hunter circles only a trilobite lying out on its rock
+		if fossil.get("show", "") in ["matrix", "mass", "prepared"]: fpool.append_array(["hunter", "hunter"])
+	if sid == "pearl": fpool = ["moon", "jellyfish"]
+	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
+	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
+	var glassy := not metal and habit != "fossil" and not (form in ["geode", "botryoid", "vein", "nugget"])
+	if lustre == "glass" and glassy:
+		fpool.append_array(in_glass)
 	if o.get("legend", false):
-		var fpool := ["fluor", "levitate", "jellyfish"]
-		if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
-		if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
-		# a fulgurite's own: the lightning that made it runs through it still
-		if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
-		# a trilobite's pyrite legs walk again; a pearl glows like the moon
-		if sid == "trilobite":
-			fpool = ["awaken", "jellyfish", "glow"] + (["moon", "moon"] if int(fossil.get("oysters", 0)) > 0 else [])
-			# a hunter circles only a trilobite lying out on its rock
-			if fossil.get("show", "") in ["matrix", "mass", "prepared"]: fpool.append_array(["hunter", "hunter"])
-		if sid == "pearl": fpool = ["moon", "jellyfish"]
-		if lustre == "glass" and not (form in ["geode", "botryoid", "vein", "nugget"]):
-			fpool.append_array(["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"])
 		fx = fpool[int(rng.next() * fpool.size())]
-	fx = o.get("fx", fx)
-	# an effect that lives inside clear glass (opal fire, a star heart, a night sky...) makes the stone glassy: a dark
-	# opaque body would hide it (a find keeps the effect it was given, whatever lustre its seed rolls)
-	if fx in ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"] and lustre == "dark" and not o.has("lustre"):
-		lustre = "glass"
+	# an effect given from outside (the admin's finds, tests) is kept when the body can show it — a glass effect on a
+	# stone that rolled the dark opaque lustre makes it glassy — and otherwise swapped for one of its own: starry sky
+	# on a gold nugget or dragon fire on a crystal would show nothing at all
+	var want: String = o.get("fx", "")
+	if want != "":
+		if want in in_glass and glassy and not o.has("lustre"):
+			lustre = "glass"
+			fx = want
+		elif want in fpool or o.has("lustre"):
+			fx = want
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
