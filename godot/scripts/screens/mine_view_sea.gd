@@ -922,7 +922,7 @@ func _tick_events() -> void:
 	# the moray only while the wreck is on the screen (it is above the first gallery and was mostly missed): the first
 	# event there is always it, then often
 	var eel_y := EEL_AT.y + _sea_top()
-	if ResourceLoader.exists(dir + "eel_strip.png") and eel_y > _seen.x and eel_y - EEL_BODY < _seen.y \n			and (not _eel_shown or _rng.randf() < 0.4):
+	if ResourceLoader.exists(dir + "eel_strip.png") and eel_y > _seen.x and eel_y - EEL_BODY < _seen.y and (not _eel_shown or _rng.randf() < 0.4):
 		_eel_shown = true
 		_events["eel"] = t
 		return
@@ -992,7 +992,6 @@ func _tentacle(c: CanvasItem, cr: Dictionary, s: float) -> void:
 ## slid out along a path from the gap - the body keeps to the path, a slow swimming wave runs down it while it hangs in the
 ## current, the head sways and gapes, it snaps forward once and pours back into the dark.
 const EEL_LEN := 8.0
-const EEL_AT := Vector2(341, 905)      # a broken hatch in the wreck's deck, source px from the sea's top: it rises into the open water
 var _eel_shown := false
 const EEL_AT := Vector2(341, 905)      # a broken hatch in the wreck's deck, source px from the sea's top: it rises into the open water
 const EEL_BODY := 340.0
