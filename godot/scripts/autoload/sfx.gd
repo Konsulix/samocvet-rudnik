@@ -79,7 +79,7 @@ const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://as
 	boss_kraken = ["res://assets/audio/music/boss_kraken.ogg"]}
 ## where a Suno track's loop starts (s): its intro plays once (prototype/tools/music_loop.py finds the cut)
 const LOOP_AT := {"res://assets/audio/music/home_adit.ogg": 11.7, "res://assets/audio/music/home_copper.ogg": 19.3, "res://assets/audio/music/home_cove.ogg": 48.25,
-	"res://assets/audio/music/boss_kraken.ogg": 57.65, "res://assets/audio/music/home_fire.ogg": 52.1}
+	"res://assets/audio/music/boss_kraken.ogg": 57.65, "res://assets/audio/music/home_fire.ogg": 49.35}
 const MUSIC_DB := -14.0
 ## the home screen's ambience (MineAmb): far off and behind rock — muffled, a little cave reverb, well under the music
 const AMB_BUS := "Amb"
