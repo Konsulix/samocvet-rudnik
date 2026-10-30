@@ -994,6 +994,7 @@ func _tentacle(c: CanvasItem, cr: Dictionary, s: float) -> void:
 const EEL_LEN := 8.0
 const EEL_AT := Vector2(341, 905)      # a broken hatch in the wreck's deck, source px from the sea's top: it rises into the open water
 var _eel_shown := false
+const EEL_AT := Vector2(341, 905)      # a broken hatch in the wreck's deck, source px from the sea's top: it rises into the open water
 const EEL_BODY := 340.0
 func _eel(c: CanvasItem, s: float) -> void:
 	var at := EEL_AT + Vector2(0, _sea_top())
