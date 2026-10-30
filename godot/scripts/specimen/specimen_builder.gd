@@ -726,7 +726,7 @@ func _nugget(sid: String, col: Color) -> MeshInstance3D:
 	if not copper and rng.next() < 0.45:
 		# gold set in a lump of milky vein quartz
 		var Q := RockKit.lump(rng, {r = 0.55, sx = 1.25, sy = 0.85, sz = 1.0, wave = 0.22, bumps = [[8, 0.6, 0.12]], pits = [20, 0.15, 0.06], seg = 64})
-		var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xd8d0c0), fr = 0.0, scan = 0}})
+		var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xd2d6dc), fr = 0.0}})
 		var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.5)
 		first = U.mesh(qg, qm, root)
 		var n := 3 + int(floor(rng.next() * 4))
@@ -758,8 +758,11 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 	var Q := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.0, wave = 0.3, bumps = [[5, 0.9, 0.2], [12, 0.4, 0.07]], pits = [10, 0.15, 0.05], seg = 20})
 	# milky vein quartz: cold white, a little glossy
 	var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.32, coat = 0.4, coat_r = 0.2, grain = 0.2, ao = 1.0, flat = true,
-		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xdcdee2 if copper else 0xeef0f2), fr = 0.0, scan = 0}})
+		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xc4c8ce if copper else 0xccd2da), fr = 0.0}})
 	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.35)
+	# the haze behind it: the quartz is most of the find, so a cool grey with only a hint of the metal's colour
+	# (in the metal's own colour it tinted the white stone yellow)
+	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(Color(0.2, 0.24, 0.3), 0.75))
 	var main := U.mesh(qg, qm, root)
 	var qn := qg.normals()
 	var near := func(p: Vector3) -> int:
