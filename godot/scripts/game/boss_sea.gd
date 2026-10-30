@@ -412,3 +412,27 @@ func _draw_arms(ci: Node2D) -> void:
 		# the drawing tapers by itself: laid whole along the arm, as thick as its length keeps its proportions
 		var half := L / aspect * 0.5
 		Bend.draw(ci, pts, func(_q: float) -> float: return half, arm_tex, 0.0, 0.96, i == 1)
+		# the thick end goes on down behind the board (its drawing stopped just under the water, a stump in the open
+		# water past the board's corners): the drawing's thick part laid again and again, mirrored so it has no seam
+		var dir := (pts[0] - pts[1]).normalized()
+		if dir.y <= 0.1: continue
+		var piece := ARM_PIECE * L / 0.96
+		var deep := _behind_board(pts[0].x) - pts[0].y
+		var k := 0
+		while k * piece * dir.y < deep:
+			var a := pts[0] + dir * piece * k
+			var b := pts[0] + dir * piece * (k + 1)
+			var seg := PackedVector2Array([b, b.lerp(a, 0.5), a])
+			Bend.draw(ci, seg, func(_q: float) -> float: return half, arm_tex, ARM_PIECE if k % 2 == 0 else 0.0,
+				0.0 if k % 2 == 0 else ARM_PIECE, i == 1)
+			k += 1
+
+const ARM_PIECE := 0.12       # the share of the arm's drawing at its thick end, laid on under the water
+## a little below where the board's frame begins in the column at x (the level's coordinates): an arm ending there is hidden
+func _behind_board(x: float) -> float:
+	var b := lv.board
+	var m := lv.model
+	var c := clampi(int((x - lv.holder.position.x - b.PAD) / b.TS), 0, m.C - 1)
+	for r in m.R:
+		if m.playable(r, c): return lv.holder.position.y + b.PAD + (r + 0.6) * b.TS
+	return lv.holder.position.y + b.PAD + m.R * b.TS
