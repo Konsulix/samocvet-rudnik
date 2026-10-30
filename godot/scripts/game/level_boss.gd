@@ -392,8 +392,10 @@ static func _eye_swim(lv: Level) -> void:
 		sw.tween_property(n, "modulate", Color(0.3, 0.6, 0.7, 0.0), 0.4)
 		lv.get_tree().create_timer(0.45).timeout.connect(n.queue_free)
 	sw.tween_property(b, "eye_show", 1.0, 0.55).set_delay(0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	await sw.finished
+	# the stones above its old place fall in while it comes up (waiting, the place stood a hole)
+	await lv.get_tree().create_timer(0.25).timeout
 	await b.animate_collapse(m.collapse())
+	if sw.is_running(): await sw.finished
 	await lv._resolve([], [])
 
 ## the tentacles left on the board drag the stones at their tips over the rim into the deep: he heals

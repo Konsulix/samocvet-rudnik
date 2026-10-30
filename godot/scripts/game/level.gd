@@ -1184,6 +1184,14 @@ func _boss_next() -> void:
 	await LevelBoss.next_board(self)
 	busy = false
 
+## `-- area=2 level=1 gen depth=9 boss_stage=2 ui=eye_swim`: his eye sinks and comes up elsewhere right away
+func _eye_swim() -> void:
+	if not model.boss_on() or model.eye.is_empty(): return
+	busy = true
+	model.eye.wait = 0
+	await LevelBoss._eye_swim(self)
+	busy = false
+
 ## `-- area=1 level=1 gen depth=6 ui=boss_raid`: the Mistress' lizards come for the greens right away
 func _boss_raid() -> void:
 	if not model.boss_on() or not model.boss.B.act.has("lizards"): return
