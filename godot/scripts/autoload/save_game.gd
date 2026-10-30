@@ -25,7 +25,17 @@ func blank() -> Dictionary:
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
+	_pad_areas(b)
 	return b
+
+## the lists kept per mine grow with the mines in the data (a save made before a mine was added gets its entries)
+static func _pad_areas(x: Dictionary) -> void:
+	var n := Data.AREAS.size()
+	while x.built.size() < n: x.built.append([])
+	while x.boss_tries.size() < n: x.boss_tries.append(0)
+	while x.boss_won.size() < n: x.boss_won.append(false)
+	while x.depth.size() < n: x.depth.append(0)
+	while x.depth_sel.size() < n: x.depth_sel.append(0)
 
 func _init() -> void:
 	d = blank()
@@ -58,8 +68,7 @@ func _init() -> void:
 	for v in d.vein:
 		for i in v.size():
 			v[i] = int(v[i])
-	while d.built.size() < 3:
-		d.built.append([])
+	_pad_areas(d)
 	# a mine that has grown deeper since the save was made: its new depths start with full veins
 	var fv := fresh_veins(area())
 	while d.vein.size() < fv.size(): d.vein.append(fv[d.vein.size()])

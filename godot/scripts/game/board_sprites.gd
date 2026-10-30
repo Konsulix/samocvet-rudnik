@@ -52,11 +52,21 @@ static func tex(name: String) -> Texture2D:
 ## ore-bearing stones (BoardModel.Gem.ore) hold the mine's own ore ("ore": glowing veins) or iron ("iron": steel cubes);
 ## gem_kit.py renders <name>_<kind>.png and <name>_<kind>_glow.png
 
+## a mine whose own ore looks its own way (the data's ore "look": Fire Horizon's sulphur crystals in the yellow stone)
+## has <name>_<look>.png rendered for the stone that carries it; any other stone keeps the common "ore"
 static func gem_ore(t: int, kind: String) -> Texture2D:
-	return tex(GEMS[t % GEMS.size()] + "_" + kind)
+	return tex(GEMS[t % GEMS.size()] + "_" + _ore_look(t, kind))
 
 static func gem_ore_glow(t: int, kind: String) -> Texture2D:
-	return tex(GEMS[t % GEMS.size()] + "_" + kind + "_glow")
+	return tex(GEMS[t % GEMS.size()] + "_" + _ore_look(t, kind) + "_glow")
+
+static func _ore_look(t: int, kind: String) -> String:
+	if kind != "ore":
+		return kind
+	var lk := String(Data.ore(Save.area()).get("look", ""))
+	if lk != "" and ResourceLoader.exists(gem_path(GEMS[t % GEMS.size()] + "_" + lk)):
+		return lk
+	return kind
 
 ## the two-hit rock of a mine, by Data.AREAS order: Copper Mountain's is serpentine with malachite and copper
 ## (art/malachite/block_cut.py), the others granite

@@ -1320,7 +1320,179 @@
       "map": "##.....##|#.......#|.........|.........|...E.....|.........|.........|.........|#.......#|##.....##"
      }
     ]
-   }
+   },
+   "next": [
+    100,
+    5000
+   ]
+  },
+  {
+   "n": "Fire Horizon",
+   "sub": "Sulphur mines, Sicily",
+   "pool": {
+    "fulgurite": 24,
+    "flower_quartz": 10,
+    "ruby": 6,
+    "sapphire": 6,
+    "diamond": 1.2
+   },
+   "steps": 3,
+   "tasks": [
+    [
+     "kiln",
+     "Sulphur kilns",
+     52
+    ],
+    [
+     "stair",
+     "The stair",
+     53
+    ],
+    [
+     "draught",
+     "Air chimney",
+     54
+    ],
+    [
+     "chapel",
+     "Saint Barbara",
+     55
+    ],
+    [
+     "mules",
+     "Sorting shed",
+     56
+    ],
+    [
+     "winder",
+     "Steam winder",
+     57
+    ],
+    [
+     "wall",
+     "Shore the giants' wall",
+     58
+    ],
+    [
+     "bridge",
+     "Bridge the sulphur river",
+     60
+    ],
+    [
+     "gate",
+     "The forge gate",
+     62
+    ]
+   ],
+   "ore": {
+    "n": "Sulphur",
+    "iron": 0,
+    "local": 3,
+    "c": "#e3c23a",
+    "hot": "#fff27a",
+    "look": "sulphur"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 70,
+     "au": 70,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 74,
+     "au": 74,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      52,
+      1400
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 77,
+     "au": 77,
+     "tool": "Steam drill",
+     "machine": "hammer",
+     "drill": [
+      53,
+      1550
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 80,
+     "au": 80,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      54,
+      1700
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 83,
+     "au": 83,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      55,
+      1900
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 86,
+     "au": 86,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      56,
+      2100
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 89,
+     "au": 89,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      57,
+      2300
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 92,
+     "au": 92,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      58,
+      2550
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 96,
+     "au": 96,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      60,
+      2800
+     ]
+    }
+   ]
   }
  ],
  "CHEST": [

@@ -436,6 +436,10 @@ ORE_LOOK = dict(
 COPPER_LOOK = dict(core=(0.95, 0.27, 0.07), rim=(0.035, 0.012, 0.006), halo=(0.95, 0.25, 0.06), burn=0.9)
 GOLD_LOOK = dict(ORE_LOOK)
 ORE_BY_GEM = {"emerald": COPPER_LOOK}
+# Fire Horizon's sulphur (its own kind "sulphur", rendered for the yellow stone only): pale lemon-green burning veins
+# with a dark seam, and instead of lumps of metal two or three sharp glassy sulphur crystals (double pyramids)
+SULPHUR_LOOK = dict(core=(0.86, 1.0, 0.62), rim=(0.02, 0.025, 0.01), halo=(0.35, 0.6, 0.18), burn=1.9, crystal=True)
+OWN_KINDS = {"citrine": ["sulphur"]}
 
 def flat_emit(name, strength):
     """a plain light (or, at 0, plain black) for the glow mask"""
@@ -453,7 +457,7 @@ def metal_mat(mask=False):
     p = n.nodes["Principled BSDF"]
     tc = nd("ShaderNodeTexCoord")
     p.inputs["Base Color"].default_value = (*ORE_LOOK["core"], 1)
-    p.inputs["Metallic"].default_value = 0.8
+    p.inputs["Metallic"].default_value = 0.0 if ORE_LOOK.get("crystal") else 0.8
     rn = nd("ShaderNodeTexNoise"); rn.inputs["Scale"].default_value = 30.0
     L.new(tc.outputs["Object"], rn.inputs["Vector"])
     rr = nd("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = 0.2; rr.inputs["To Max"].default_value = 0.45
@@ -487,6 +491,23 @@ def nuggets(o, seed, mask=False):
         made.append(c)
         r = rnd.uniform(0.065, 0.085)
         nrm = Vector(f.normal)
+        if ORE_LOOK.get("crystal"):
+            # a dark socket, and out of it a sharp double pyramid of sulphur leaning outwards
+            bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=r * 0.9, location=c - nrm * r * 0.75)
+            sk = bpy.context.object; sk.scale = (1.0, 0.7, 0.85); sk.data.materials.append(dark)
+            axis = (nrm * 0.6 + Vector((rnd.uniform(-0.6, 0.6), 0, rnd.uniform(0.3, 0.9)))).normalized()
+            for k_ in range(2 if seed % 3 else 1):
+                ax = (axis + Vector((rnd.uniform(-0.4, 0.4), 0, rnd.uniform(-0.2, 0.2))) * k_).normalized()
+                rr = r * (1.35 if k_ == 0 else 0.9)
+                for sgn in (1, -1):
+                    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=rr * 0.7, radius2=0, depth=rr * 1.9 * (1.0 if sgn > 0 else 0.6),
+                                                    location=(0, 0, 0))
+                    cn = bpy.context.object
+                    cn.rotation_mode = 'QUATERNION'
+                    cn.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(ax * sgn) @ Quaternion(Vector((0, 0, 1)), 0.6 + k_)
+                    cn.location = c + nrm * r * 0.15 + ax * sgn * rr * 0.95 * (1.0 if sgn > 0 else 0.6)
+                    cn.data.materials.append(mm)
+            continue
         for mat, rr, sink in ((dark, r * 1.25, 0.55), (mm, r, 0.3)):
             bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=rr, location=c - nrm * rr * sink)
             nug = bpy.context.object
@@ -595,7 +616,9 @@ def render(style, name, dark, mid, light, ore=None, mask=False):
     """<style>/<name>.png; <name>_ore.png: holding the mine's own ore (veins), <name>_iron.png: holding iron (cubes);
     and <name>_<ore>_glow.png: the light of the ore alone, white on black, for the game to shimmer"""
     global ORE_LOOK
-    ORE_LOOK = ORE_BY_GEM.get(name, GOLD_LOOK)
+    ORE_LOOK = SULPHUR_LOOK if ore == "sulphur" else ORE_BY_GEM.get(name, GOLD_LOOK)
+    own = ore == "sulphur"
+    if own: ore = "ore"
     sc = setup()
     o = SHAPES[style][name]()
     fit(o, ASPECT[style][name])
@@ -610,7 +633,7 @@ def render(style, name, dark, mid, light, ore=None, mask=False):
     elif ore == "iron":
         iron_crystals(o, o["seed"], mask)
     if ore and not mask: bloom(sc)
-    tag = name + ("_" + ore if ore else "") + ("_glow" if mask else "")
+    tag = name + ("_" + ("sulphur" if own else ore) if ore else "") + ("_glow" if mask else "")
     sc.render.filepath = os.path.join(OUT, style, tag + ".png")
     bpy.ops.render.render(write_still=True)
     print("GEM", style, tag)
@@ -684,7 +707,7 @@ if not ONLY or "items/gold" in ONLY:
 
 for style in ("natural", "faceted"):
     for name, dark, mid, light in GEMS:
-        for ore in (None, "ore", "iron"):
+        for ore in [None, "ore", "iron"] + OWN_KINDS.get(name, []):
             tag = style + "/" + name + ("_" + ore if ore else "")
             if ONLY and tag not in ONLY and style + "/" + name not in ONLY: continue
             os.makedirs(os.path.join(OUT, style), exist_ok=True)
