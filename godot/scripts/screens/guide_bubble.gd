@@ -11,6 +11,7 @@ signal closed
 ## see-through slate with his name; "card" - the kit's framed card. `-- bubble=<style>` picks one for a shot
 static var style := "parchment"
 const INK := Color("#2b2218")
+const FELL := "res://assets/fonts/IMFellEnglish.ttf"
 const PAPER := Color("#efe3c6")
 const R := 10.0          # corner radius
 const TAIL := 9.0        # half the tail's root
@@ -52,8 +53,14 @@ func _init(v: MineView, text: String) -> void:
 		l.custom_minimum_size = Vector2(250, 0)
 	else:
 		l = Kit.label(text, 15, UI.body_bold if style == "slate" else UI.body, INK if style in ["paper", "parchment"] else Kit.CREAM)
+		# the parchment speaks in old print (IM Fell English, OFL), as if from an old book
+		if style == "parchment":
+			l.add_theme_font_override("font", load(FELL) as Font)
+			l.add_theme_font_size_override("font_size", 17)
 		l.custom_minimum_size = Vector2(220, 0)
 		l.add_theme_constant_override("line_spacing", -2)
+		# ink on a light note: no dark outline (kit labels have one to read over pictures; here it blotted the letters)
+		if style in ["paper", "parchment"]: l.add_theme_constant_override("outline_size", 0)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.visible_ratio = 0.0
 	col.add_child(l)
