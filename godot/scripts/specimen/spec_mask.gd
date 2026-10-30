@@ -95,16 +95,39 @@ static func spots(meshes: Array, root: Node3D, score: Callable, n := 3, budget :
 	var total := 0
 	for mi: MeshInstance3D in meshes:
 		if mi.mesh: total += mi.mesh.surface_get_array_len(0)
+		elif mi.has_meta("geo"): total += (mi.get_meta("geo") as Geo).v.size()
 	var step := maxi(1, total / budget)
 	for mi: MeshInstance3D in meshes:
-		if not mi.mesh: continue
-		var arr := mi.mesh.surface_get_arrays(0)
-		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-		var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
-		var uvs: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV] if arr[Mesh.ARRAY_TEX_UV] != null else PackedVector2Array()
-		var uv2s: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV2] if arr[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()
-		var cols: PackedColorArray = arr[Mesh.ARRAY_COLOR] if arr[Mesh.ARRAY_COLOR] != null else PackedColorArray()
 		var xf := U.rel_xform(mi, root)
+		var vs: PackedVector3Array
+		var ns: PackedVector3Array
+		var uvs := PackedVector2Array()
+		var uv2s := PackedVector2Array()
+		var cols := PackedColorArray()
+		if mi.mesh:
+			var arr := mi.mesh.surface_get_arrays(0)
+			vs = arr[Mesh.ARRAY_VERTEX]
+			ns = arr[Mesh.ARRAY_NORMAL]
+			if arr[Mesh.ARRAY_TEX_UV] != null: uvs = arr[Mesh.ARRAY_TEX_UV]
+			if arr[Mesh.ARRAY_TEX_UV2] != null: uv2s = arr[Mesh.ARRAY_TEX_UV2]
+			if arr[Mesh.ARRAY_COLOR] != null: cols = arr[Mesh.ARRAY_COLOR]
+		elif mi.has_meta("geo"):
+			# a mesh the builder only makes at the end (rock under the dirt shader): its geometry, and the rock-line
+			# coordinates SpecimenBuilder._finish will give it (the specimen-space position, or 0..1 up a "local" one)
+			var g: Geo = mi.get_meta("geo")
+			vs = g.v
+			ns = g.own_n if g.own_n.size() == g.v.size() else g.normals()
+			cols = g.col
+			var bb := g.aabb()
+			var local: bool = mi.get_meta("local", false)
+			uvs.resize(vs.size())
+			uv2s.resize(vs.size())
+			for i in range(0, vs.size(), step):
+				var rp: Vector3 = (vs[i] - bb.position) / maxf(0.001, bb.size.y) if local else xf * vs[i]
+				uvs[i] = Vector2(rp.x, rp.y)
+				uv2s[i] = Vector2(rp.z, 0.0)
+		else:
+			continue
 		for i in range(0, vs.size(), step):
 			var nw := (xf.basis * ns[i]).normalized()
 			var face := nw.dot(view)

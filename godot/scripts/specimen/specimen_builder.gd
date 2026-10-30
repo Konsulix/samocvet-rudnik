@@ -494,7 +494,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		# on the silver itself: spec.gdshaderinc lays it along one contour of the rock's ridge height (vertex green),
 		# broken by a noise over the rock's coordinates (UV, UV2.x)
 		var sv := func(_p: Vector3, uv: Vector2, uv2: Vector2, c: Color) -> float:
-			return (1.0 - smoothstep(0.03, 0.08, absf(c.g - 0.82))) * smoothstep(0.38, 0.48, SpecMask.vn(Vector3(uv.x, uv.y, uv2.x) * 2.2 + Vector3(2, 2, 2)))
+			return (1.0 - smoothstep(0.05, 0.09, absf(c.g - 0.82))) * smoothstep(0.3, 0.4, SpecMask.vn(Vector3(uv.x, uv.y, uv2.x) * 2.2 + Vector3(2, 2, 2)))
 		var at: Array = SpecMask.spots([st.rock], root, sv, 3) if st.rock else []
 		for q: Array in at: _mark("silver", q[0], q[1])
 		if at.is_empty(): _mark_on("silver", st.rock if st.rock else main)

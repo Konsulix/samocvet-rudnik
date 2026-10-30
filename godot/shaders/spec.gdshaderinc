@@ -119,6 +119,7 @@ void fragment() {
 	vec3 lava_e = vec3(0.0);
 	// ultraviolet flash: a few seconds of ordinary light, then the lamps dim and the crystal glows
 	float uvk = fluor_k * fluor_uv;
+	vec3 s_glow = vec3(0.0);   // the silver rim's glint (set inside DIRT, added to the emission below)
 #ifdef DIRT
 	// below a ragged line the crystal turns into the rock it grew from; just above it, milky and etched
 	float edge = v_rp.y - (d_h + (fbm(v_rp * 4.0) - 0.47) * d_a + (fbm(v_rp * 1.7 + 3.0) - 0.5) * d_a * 0.9);
@@ -179,7 +180,8 @@ void fragment() {
 		// silver along the rock's ridges: vertex green carries how high a ridge stands, its contour is the rim;
 		// ragged, broken in places, the worked-silver texture laid on from three sides
 		float cr = COLOR.g + (fbm(v_rp * 9.0 + 4.0) - 0.5) * 0.06;
-		float sv = (1.0 - smoothstep(0.02, 0.05, abs(cr - 0.82))) * smoothstep(0.38, 0.48, vn(v_rp * 2.2 + 2.0));
+		// (wide enough and whole enough to read on a phone card)
+		float sv = (1.0 - smoothstep(0.05, 0.09, abs(cr - 0.82))) * smoothstep(0.3, 0.4, vn(v_rp * 2.2 + 2.0));
 		sv *= dirt * silv_k;
 		if (sv > 0.0) {
 			vec3 tp = v_rp * 4.0;
@@ -188,9 +190,11 @@ void fragment() {
 			vec3 sd = texture(silver_diff, tp.zy).rgb * w.x + texture(silver_diff, tp.xz).rgb * w.y + texture(silver_diff, tp.xy).rgb * w.z;
 			float sr = texture(silver_rough, tp.zy).r * w.x + texture(silver_rough, tp.xz).r * w.y + texture(silver_rough, tp.xy).r * w.z;
 			vec3 tn = (texture(silver_nrm, tp.zy).xyz * w.x + texture(silver_nrm, tp.xz).xyz * w.y + texture(silver_nrm, tp.xy).xyz * w.z) * 2.0 - 1.0;
-			base = mix(base, sd * 0.8, sv);
+			base = mix(base, sd * 1.05 + vec3(0.12), sv);
 			m = mix(m, 1.0, sv);
-			r = mix(r, clamp(sr * 0.9, 0.08, 0.55), sv);
+			r = mix(r, clamp(sr * 0.6, 0.06, 0.35), sv);
+			// a cold glint of bright metal that the dark studio cannot swallow
+			s_glow = vec3(0.16, 0.17, 0.19) * sv * (0.5 + 0.5 * vn(v_rp * 30.0));
 			n = normalize(mix(n, normalize(n + (VIEW_MATRIX * MODEL_MATRIX * vec4(tn.x, tn.y, 0.0, 0.0)).xyz * 0.5), sv));
 		}
 	}
@@ -202,7 +206,7 @@ void fragment() {
 		vec3 gq = v_op * 60.0;
 		n = normalize(n + grain * (vec3(vn(gq), vn(gq + 3.1), vn(gq + 5.7)) - 0.5));
 	}
-	vec3 e = emis;
+	vec3 e = emis + s_glow;
 	vec3 e_ir = vec3(0.0);
 #ifdef IRID
 	float stb = sin(v_op.y * 70.0 + sin(v_op.x * 9.0 + v_op.z * 7.0) * 3.0) * sin(v_op.y * 23.0 + v_op.x * 5.0);
