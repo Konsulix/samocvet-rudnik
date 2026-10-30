@@ -208,7 +208,7 @@ func _picture_box(a: int, h: float, dark: float) -> PanelContainer:
 	box.add_child(hole)
 	var pic := Control.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tx: Texture2D = load("res://assets/atlas/banner_%d.png" % clampi(a, 0, 2)) if a >= 0 else load("res://assets/atlas/banner_unknown.png")
+	var tx: Texture2D = load("res://assets/atlas/banner_%d.png" % a) if a >= 0 and ResourceLoader.exists("res://assets/atlas/banner_%d.png" % a) else load("res://assets/atlas/banner_unknown.png")
 	pic.draw.connect(func():
 		var s := pic.size
 		var src := _cover(tx.get_size(), s)
