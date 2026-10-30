@@ -321,6 +321,7 @@ static func _sea(lv: Level) -> void:
 	var m: BoardModel = lv.model
 	var res := m.sea_turn()
 	lv.board.sea_over.queue_redraw()
+	await _eye_swim(lv)
 	if res.turned.is_empty(): return
 	var b := lv.board
 	var mid := b.whirl_mid()
@@ -366,6 +367,33 @@ static func _sea(lv: Level) -> void:
 			lv.set_meta("suck_told", true)
 			lv._toast("The maelstrom swallows blue stones and specials beside it")
 		await b.animate_collapse(m.collapse())
+	await lv._resolve([], [])
+
+## his eye swims (the last board, every few moves): it sinks, comes up over four stones elsewhere - they go under -
+## and the stones above its old place fall into it
+static func _eye_swim(lv: Level) -> void:
+	var m: BoardModel = lv.model
+	var b := lv.board
+	var to := m.eye_spot()
+	if to.x < 0: return
+	sound(lv, "rise", "kr_rise")
+	var tw := lv.create_tween()
+	tw.tween_property(b, "eye_show", 0.0, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await tw.finished
+	var gone := m.eye_move(to)
+	b.sea_under.queue_redraw()
+	b.sea_over.queue_redraw()
+	var sw := lv.create_tween().set_parallel(true)
+	for id: int in gone:
+		var n: GemNode = b.nodes.get(id)
+		if n == null: continue
+		b.nodes.erase(id)
+		sw.tween_property(n, "scale", Vector2.ONE * 0.4, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		sw.tween_property(n, "modulate", Color(0.3, 0.6, 0.7, 0.0), 0.4)
+		lv.get_tree().create_timer(0.45).timeout.connect(n.queue_free)
+	sw.tween_property(b, "eye_show", 1.0, 0.55).set_delay(0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await sw.finished
+	await b.animate_collapse(m.collapse())
 	await lv._resolve([], [])
 
 ## the tentacles left on the board drag the stones at their tips over the rim into the deep: he heals

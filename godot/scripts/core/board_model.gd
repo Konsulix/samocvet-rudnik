@@ -284,6 +284,49 @@ func _ink_cells() -> Array:
 			best = cells
 	return best
 
+## his eye swims: every EYE_EVERY moves (while open) it sinks and comes up somewhere else on the board, over four plain
+## stones (no specials, ink, tide, grips or blocks), away from where it was. Returns the new top left, or (-1, -1)
+const EYE_EVERY := 3
+func eye_spot() -> Vector2i:
+	if eye.is_empty() or int(eye.get("wait", EYE_EVERY)) > 0 or int(eye.shut) > 0: return Vector2i(-1, -1)
+	var best := Vector2i(-1, -1)
+	var best_v := -INF
+	for r in R - 1:
+		for c in C - 1:
+			var ok := true
+			for d in QUAD:
+				var rr: int = r + d.x
+				var cc: int = c + d.y
+				var g: Gem = G[rr][cc] if playable(rr, cc) else null
+				if not open(rr, cc) or g == null or g.sp != "" or g.item != "" or LOCK[rr][cc] or INK[rr][cc] \
+						or (rr >= int(eye.r) and rr <= int(eye.r) + 1 and cc >= int(eye.c) and cc <= int(eye.c) + 1):
+					ok = false
+					break
+			if not ok: continue
+			# far from where it was, not hard against the board's edge, a little chance
+			var v := Vector2(r - int(eye.r), c - int(eye.c)).length() * 0.6 + rng.randf() * 2.5
+			if r == 0 or c == 0 or r == R - 2 or c == C - 2: v -= 1.0
+			if v > best_v:
+				best_v = v
+				best = Vector2i(r, c)
+	return best
+
+## the eye moves to `to` (top left): its old cells are free for stones to fall into (the caller lets them), the four
+## stones where it comes up go under. Returns the ids of those stones
+func eye_move(to: Vector2i) -> Array:
+	var gone := []
+	for d in QUAD:
+		SEA[int(eye.r) + d.x][int(eye.c) + d.y] = 0
+	for d in QUAD:
+		var g: Gem = G[to.x + d.x][to.y + d.y]
+		if g: gone.append(g.id)
+		G[to.x + d.x][to.y + d.y] = null
+		SEA[to.x + d.x][to.y + d.y] = 2
+	eye.r = to.x
+	eye.c = to.y
+	eye.wait = EYE_EVERY
+	return gone
+
 ## the lowest rows of the board that have cells
 func _tide_cells(rows: int) -> Array:
 	var out := []
@@ -438,7 +481,9 @@ func sea_turn() -> Dictionary:
 		for c in C:
 			if INK[r][c]: INK[r][c] -= 1
 			if TIDE[r][c]: TIDE[r][c] -= 1
-	if not eye.is_empty(): eye.shut = maxi(0, int(eye.shut) - 1)
+	if not eye.is_empty():
+		eye.shut = maxi(0, int(eye.shut) - 1)
+		eye.wait = int(eye.get("wait", EYE_EVERY)) - 1
 	if ring.size():
 		var gs := []
 		for p: Vector2i in ring: gs.append(G[p.x][p.y])

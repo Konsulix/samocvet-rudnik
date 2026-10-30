@@ -681,16 +681,18 @@ func _draw_whirl(ci: Node2D) -> void:
 
 ## his eye (2x2, art/boss/export_kraken.py, on the boss' 1-pt grid): drawn over the stones - it bulges up out of the
 ## board, its torn edge over the cells round it, its shadow on them; open (watching the board) or shut after a hit
+## how much of his eye is up (LevelBoss._eye_swim: it sinks to 0, moves, comes up to 1)
+var eye_show := 1.0
 func _draw_eye(ci: Node2D, now: float) -> void:
 	var e := _sea_mid(2)
-	if e.x < 0.0 or model == null or model.eye.is_empty() or _eye_tex.is_empty(): return
+	if e.x < 0.0 or model == null or model.eye.is_empty() or _eye_tex.is_empty() or eye_show <= 0.01: return
 	var live: bool = _eye_tex.has("blank")
 	var shut := int(model.eye.shut) > 0
 	var tx: Texture2D = _eye_tex.blank if live else (_eye_tex.shut if shut else _eye_tex.open)
 	var glow := 0.55 + 0.25 * sin(now * 2.2)
 	if _lid < 0.8:
 		GemArt.radial_disc(ci, e, TS * 1.3, Color(0.5, 0.9, 1.0, 0.25 * glow * (1.0 - _lid)), Color(0.4, 0.85, 1.0, 0.08), Color(0.4, 0.85, 1.0, 0))
-	var k := TS / 37.0 * (1.0 + 0.018 * sin(now * 1.7))
+	var k := TS / 37.0 * (1.0 + 0.018 * sin(now * 1.7)) * (0.35 + 0.65 * eye_show)
 	var sz := (Vector2(tx.get_size()) * k).round()
 	# a shudder now and then, a hard one when hit
 	var since := now - eye_at
@@ -706,9 +708,10 @@ func _draw_eye(ci: Node2D, now: float) -> void:
 		em.set_shader_parameter("lid", _lid)
 		em.set_shader_parameter("glow", 0.95 + 0.12 * sin(now * 3.1))
 	# its own shape as a shadow cast down-right
-	ci.draw_texture_rect(tx, Rect2(at + (Vector2(6, 8) * k).round(), sz), false, Color(0, 0, 0, 0.28))
-	ci.draw_texture_rect(tx, Rect2(at + (Vector2(3, 4) * k).round(), sz), false, Color(0, 0, 0, 0.45))
-	ci.draw_texture_rect(tx, Rect2(at, sz), false)
+	var fade := Color(1, 1, 1, eye_show)
+	ci.draw_texture_rect(tx, Rect2(at + (Vector2(6, 8) * k).round(), sz), false, Color(0, 0, 0, 0.28 * eye_show))
+	ci.draw_texture_rect(tx, Rect2(at + (Vector2(3, 4) * k).round(), sz), false, Color(0, 0, 0, 0.45 * eye_show))
+	ci.draw_texture_rect(tx, Rect2(at, sz), false, fade)
 	if since < 0.4:
 		ci.draw_circle(e, TS * (1.0 + since), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since / 0.4)), false, 3.0)
 
