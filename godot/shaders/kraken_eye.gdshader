@@ -1,7 +1,7 @@
 shader_type canvas_item;
 // The Kraken's eye on his last board, alive: the picture with its pupil painted out (eye_blank.png,
-// art/boss/eye_parts.py), and over it, on the picture's own pixel grid, a pupil drawn here - a cephalopod's dark slit in
-// a darker ring - that darts about inside the eyeball (`look`), grows a little when hit (`slit`), and lids of his hide that
+// art/boss/eye_parts.py), and over it, on the picture's own pixel grid, a pupil drawn here - round, dark, in a ring of
+// darker iris, seen edge on near the eyeball's rim - that darts about inside the eyeball (`look`), grows a little when hit (`slit`), and lids of his hide that
 // close over the eyeball (`lid`: 0 open .. 1 shut). The slit and the lids lie along the eye's own tilt (`tilt`, as the
 // picture's pupil was drawn); the lids' edges are curved like the eyeball's, the upper one comes down further than the
 // lower comes up, they are shaded (lighter away from the edge, a dark crease on it) and the upper casts a shadow on the
@@ -13,7 +13,7 @@ uniform vec2 ball_c = vec2(46.5, 37.0);
 uniform vec2 ball_h = vec2(19.5, 17.0);
 uniform float tilt = 0.3;                  // the eye's tilt, radians (down to the right)
 uniform vec2 look = vec2(0.0);             // the pupil's offset from the middle, px, along / across the tilt
-uniform vec2 slit = vec2(11.0, 3.0);       // the pupil's half width and half height, px
+uniform vec2 slit = vec2(5.5, 3.5);        // the pupil's radius and the width of the darker iris ring round it, px
 uniform float lid = 0.0;
 uniform float glow = 1.0;                  // the iris' brightness
 uniform vec3 pupil_col : source_color = vec3(0.02, 0.05, 0.06);
@@ -37,11 +37,23 @@ void fragment() {
 		// along the eye (u) and across it (v), turned with its tilt
 		vec2 d = px - ball_c;
 		vec2 uv = vec2(cos(tilt) * d.x + sin(tilt) * d.y, -sin(tilt) * d.x + cos(tilt) * d.y);
-		vec2 q = (uv - look) / slit;
-		float e = dot(q, q);
-		// the pupil and a ring of darker iris round it, pixel-sharp
-		if (e < 1.0) c.rgb = pupil_col;
-		else if (e < 1.0 + 3.2 / max(slit.y, 1.0)) c.rgb = mix(c.rgb, ring_col, 0.7);
+		// a round pupil in a ring of darker iris, on a ball: the further it looks to a side, the more it is seen edge on
+		// (squeezed towards that side)
+		vec2 lk = look / max(ball_h, vec2(1.0));
+		float r = slit.x;
+		vec2 dd = uv - look;
+		float ll = length(lk);
+		if (ll > 0.001) {
+			vec2 dir = lk / ll;
+			float along = dot(dd, dir);
+			dd += dir * along * (1.0 / max(1.0 - 0.45 * ll * ll, 0.4) - 1.0);
+		}
+		float e = length(dd);
+		if (e < r) c.rgb = mix(pupil_col, pupil_col * 2.5, smoothstep(r * 0.6, r, e));
+		else if (e < r + slit.y) c.rgb = mix(ring_col, c.rgb, smoothstep(r, r + slit.y, e) * 0.6);
+		// the wet glint stays where the light is, the pupil runs under it
+		vec2 g = uv - vec2(-ball_h.x * 0.32, -ball_h.y * 0.38);
+		if (dot(g, g) < 3.0) c.rgb = mix(c.rgb, vec3(0.92, 1.0, 1.0), 0.85);
 		if (lid > 0.005) {
 			// the eyeball's own half height at this point along it, a little more so an open lid is out of sight
 			float half_u = max(ball_h.x, ball_h.y) * 1.08;

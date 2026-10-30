@@ -64,7 +64,7 @@ var _blink_at := 2.0             # the next blink starts then
 var _squint_until := -1.0
 var _twitch_at := -10.0
 var _lid := 0.0
-var _slit := Vector2(11, 3)
+var _slit := Vector2(5.5, 3.5)
 var _down := {}
 
 func _init() -> void:
@@ -724,8 +724,8 @@ func eye_watch(r: int, c: int) -> void:
 
 ## where the pupil may go: its slit stays inside the eyeball
 func _clamp_look(v: Vector2) -> Vector2:
-	var hx := float(_eye_meta.ball[2]) - _slit.x - 1.0
-	var hy := float(_eye_meta.ball[3]) - _slit.y - 2.0
+	var hx := float(_eye_meta.ball[2]) - _slit.x - 3.0
+	var hy := float(_eye_meta.ball[3]) - _slit.x - 3.0
 	var q := Vector2(v.x / maxf(hx, 1.0), v.y / maxf(hy, 1.0))
 	if q.length() > 1.0: q = q.normalized()
 	return Vector2(q.x * hx, q.y * hy)
@@ -757,8 +757,8 @@ func _eye_live(dt: float) -> void:
 		_look_to = _clamp_look(Vector2(cos(_roll_a), sin(_roll_a)) * half)
 	# a dart is fast, then it holds still
 	_look = _look.lerp(_look_to, 1.0 - exp(-dt * 28.0))
-	# the slit keeps its drawn shape; hit, it grows a little all over and settles back
-	var want := Vector2(11, 3) * (1.0 + 0.25 * clampf(1.0 - hit / 1.2, 0.0, 1.0))
+	# the pupil keeps its round shape; hit, it widens a little and settles back
+	var want := Vector2(5.5 * (1.0 + 0.35 * clampf(1.0 - hit / 1.2, 0.0, 1.0)), 3.5)
 	_slit = _slit.lerp(want, 1.0 - exp(-dt * 14.0))
 	# the lids: shut while he is hurt, a blink every few seconds (now and then a double one), a suspicious squint
 	if now >= _blink_at + 0.18:
