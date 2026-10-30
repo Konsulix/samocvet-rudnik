@@ -92,6 +92,7 @@ func _ready() -> void:
 			# the unseen speaker: his lantern hangs into the dark from above
 			var lamp := KitLantern.new(96.0)
 			lamp.position = lamp_at if lamp_at.x >= 0.0 else Vector2(vp.x / 2, vp.y * 0.2)
+			lamp.reach_top(0.0)
 			add_child(lamp)
 			continue
 		var fig := TextureRect.new()

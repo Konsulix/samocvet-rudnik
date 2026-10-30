@@ -120,7 +120,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	if prologue:
 		_light_up()
 		# someone up there, unseen: only a voice and his lantern
-		await StoryScene.play(self, "prologue_voice", _lamp.get_global_transform_with_canvas().origin).finished
+		await StoryScene.play(self, "prologue_voice", holder.get_global_transform_with_canvas() * Vector2(board.size.x / 2, -78.0)).finished
 	busy = false
 	idle = 0.0
 	_coach_next()
@@ -1477,6 +1477,8 @@ func _light_up() -> void:
 	_lamp = KitLantern.new(64.0)
 	_lamp.position = Vector2(board.size.x / 2, -78.0)
 	holder.add_child(_lamp)
+	# its chain runs up out of the screen: from the edge, not from nowhere
+	_lamp.reach_top((holder.get_global_transform_with_canvas().affine_inverse() * Vector2.ZERO).y)
 	_light_tick()
 
 ## nearer and brighter as the rubble goes; it flickers like a flame

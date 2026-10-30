@@ -7,6 +7,7 @@ extends Control
 const LINKS := 4
 const LINK := 5.0          # one chain link, points
 var height := 60.0
+var links := LINKS         # a longer chain: `reach_top`
 var _t := randf() * 10.0
 var _tex: Texture2D
 var _glow: Texture2D
@@ -29,6 +30,13 @@ func _init(h := 60.0) -> void:
 	gt.height = 128
 	_glow = gt
 
+## hangs from `top_y` (parent's y, e.g. the screen's edge) on a longer chain; the lantern stays where it hung
+func reach_top(top_y: float) -> void:
+	var low := position.y + LINKS * LINK
+	# the hook stays on the screen (just past its edge the whole lantern dropped out of the picture)
+	links = maxi(LINKS, floori((low - top_y) / LINK))
+	position.y = low - links * LINK
+
 func _process(dt: float) -> void:
 	_t += dt
 	queue_redraw()
@@ -44,7 +52,9 @@ func _draw() -> void:
 	var a := 0.075 * sin(_t * 1.7) + 0.03 * sin(_t * 2.9 + 0.7)
 	var f := _flame()
 	var w := height * _tex.get_width() / _tex.get_height()
-	var chain := LINKS * LINK
+	var chain := links * LINK
+	# a long chain swings through a smaller angle (the lantern moves about as far)
+	a *= minf(1.0, (LINKS * LINK + height * 0.5) / (chain + height * 0.5))
 	var rot := Transform2D(a, Vector2.ZERO)
 	# the lantern's ring sits at 0.66 of its width; its glass and flame at (0.60, 0.56)
 	var top := Vector2(-w * 0.66, chain)
@@ -56,7 +66,7 @@ func _draw() -> void:
 	draw_arc(Vector2(0, -1), 3.2, PI * 0.05, PI * 0.95, 10, dark, 2.6, true)
 	draw_arc(Vector2(0, -1), 3.2, PI * 0.05, PI * 0.95, 10, brass, 1.4, true)
 	draw_set_transform_matrix(rot)
-	for i in LINKS:
+	for i in links:
 		var c := Vector2(0, i * LINK + LINK * 0.5)
 		var r := Vector2(1.6, LINK * 0.62) if i % 2 == 0 else Vector2(0.7, LINK * 0.62)
 		_ellipse(c, r + Vector2(0.8, 0.8), dark, 1.6)
