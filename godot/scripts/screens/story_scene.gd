@@ -48,8 +48,8 @@ const SCENES := {
 		["sister", "calm", "Water in the cracks. Rock settling after the drill. There's always a dull explanation."],
 		["guide", "sad", "My apprentice said the same. Heard the knocking a week before the collapse, and laughed."],
 		["sister", "sad", "He laughed at everything. Even at me, when I begged him not to come up here."],
-		["guide", "surprise", "You're his sister. I should've known by that scarf - he wore one just like it."],
-		["sister", "resolve", "Rock settles. That's all. Let's keep digging."],
+		["guide", "surprise", "...You knew him."],
+		["sister", "resolve", "He was my brother. Rock settles - that's all it is. Let's keep digging."],
 	],
 	# 200 m opened: the drill breaks into the old gallery where he was buried
 	notebook = [
