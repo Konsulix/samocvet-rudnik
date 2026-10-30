@@ -490,7 +490,14 @@ func _specimen(o: Dictionary) -> Node3D:
 	if "eroded" in tr and crystals and layout != "geode": _mark_on("eroded", main)
 	for ti in ["irid", "aurora"]:
 		if ti in tr and ((mat and gene.lustre != "dark") or layout == "botryoid"): _mark_on(ti, main)
-	if "silver" in tr and st.rocky: _mark_on("silver", st.rock if st.rock else main)
+	if "silver" in tr and st.rocky:
+		# on the silver itself: spec.gdshaderinc lays it along one contour of the rock's ridge height (vertex green),
+		# broken by a noise over the rock's coordinates (UV, UV2.x)
+		var sv := func(_p: Vector3, uv: Vector2, uv2: Vector2, c: Color) -> float:
+			return (1.0 - smoothstep(0.03, 0.08, absf(c.g - 0.82))) * smoothstep(0.38, 0.48, SpecMask.vn(Vector3(uv.x, uv.y, uv2.x) * 2.2 + Vector3(2, 2, 2)))
+		var at: Array = SpecMask.spots([st.rock], root, sv, 3) if st.rock else []
+		for q: Array in at: _mark("silver", q[0], q[1])
+		if at.is_empty(): _mark_on("silver", st.rock if st.rock else main)
 	if "anomaly" in tr: _mark_on("anomaly", main)
 	if String(gene.fx) != "": _mark("fx", _mid(main, 0.65))
 
