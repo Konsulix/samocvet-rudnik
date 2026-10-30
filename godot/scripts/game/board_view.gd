@@ -155,6 +155,7 @@ func rebuild(m: BoardModel) -> void:
 			em.set_shader_parameter("size", Vector2(_eye_meta.size[0], _eye_meta.size[1]))
 			em.set_shader_parameter("ball_c", Vector2(_eye_meta.ball[0], _eye_meta.ball[1]))
 			em.set_shader_parameter("ball_h", Vector2(_eye_meta.ball[2], _eye_meta.ball[3]))
+			em.set_shader_parameter("tilt", deg_to_rad(float(_eye_meta.get("tilt", 17.0))))
 	for n in gems.get_children(): n.queue_free()
 	nodes.clear()
 	for r in R:
@@ -714,7 +715,7 @@ func _draw_eye(ci: Node2D, now: float) -> void:
 ## the player touched the board at (r, c): he stares there a moment
 func eye_watch(r: int, c: int) -> void:
 	if _eye_meta.is_empty(): return
-	var d := cell_center(r, c) - _sea_mid(2)
+	var d := (cell_center(r, c) - _sea_mid(2)).rotated(-deg_to_rad(float(_eye_meta.get("tilt", 17.0))))
 	var half := Vector2(_eye_meta.ball[2], _eye_meta.ball[3])
 	_look_to = _clamp_look(d.normalized() * half * minf(1.0, d.length() / (TS * 2.0)))
 	_stare_until = Time.get_ticks_msec() / 1000.0 + randf_range(0.6, 1.1)
