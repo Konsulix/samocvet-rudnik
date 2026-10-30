@@ -12,6 +12,8 @@ const CAST := {
 	guide = {n = "Old Miner", faces = "left"},
 	sister = {n = "The Scholar", faces = "right"},
 	rival = {n = "The Apprentice", faces = "right"},
+	# Proval: him again, the four shards grown into him (art/story/rival5, mirrored on export to face her)
+	brother = {n = "The Apprentice", faces = "left"},
 	# someone not yet seen: no picture, his lantern swinging over the dark (the prologue)
 	voice = {n = "???", faces = "none"},
 }
@@ -75,6 +77,39 @@ const SCENES := {
 		["guide", "surprise", "Lord help us. The lad's alive."],
 		["sister", "resolve", "Then I'm going after him. Wherever these lead."],
 	],
+	# Proval (docs/mine5-proval.md §8): the end of the first arc. She is the guide here
+	proval_arrive = [
+		["sister", "calm", "Pyramid mountain. The miners left twenty winters ago - and someone walked here this week.", "prop:bootprints"],
+		["sister", "worry", "Hobnails, a nailed heel. Straight to the edge of that hole... and down."],
+		["sister", "resolve", "The settlement can still be woken. Warmth first, then a way down. I won't lose him twice.", "prop:-"],
+	],
+	proval_letter = [
+		["sister", "shock", "In the ice - a letter. It has my name on it.", "prop:letter"],
+		["sister", "worry", "'Don't follow me. I've found what it wants: its heart. Four pieces, and the mountains stop killing.'"],
+		["sister", "sad", "He signed it with a little pick. Like he did when we were children."],
+		["sister", "resolve", "The Serpent, the Mistress, the Kraken, the Smith... He's been walking behind us all the way.", "prop:-"],
+	],
+	proval_heart = [
+		["sister", "shock", "The light down there - gold, then green, then blue, then fire.", "rumble"],
+		["sister", "worry", "Not firedamp. Not phosphorescence. I've run out of dull explanations."],
+	],
+	proval_dwarf = [
+		["sister", "curious", "There's a face in the ice lens. A man - no, too small. A beard like frozen rope.", "prop:rune"],
+		["sister", "worry", "A medallion on his chest: a heart-shaped hollow, empty. Runes older than any I know."],
+		["sister", "resolve", "Whoever cut the gate below made this. Leave him be - we'll come back for him.", "prop:-"],
+	],
+	proval_voice = [
+		["voice", "", "Closer, little digger... You carry my pieces home for me.", "knock"],
+		["sister", "shock", "That voice. It's the one in his notebook. It's real - all of it is real."],
+		["sister", "resolve", "Whoever you are down there, you can't have him."],
+	],
+	proval_gate = [
+		["brother", "calm", "Sister. All this way in the dark. You never could leave a stone unturned."],
+		["sister", "sad", "Come home. Look at your arm. Your eye. It's eating you alive."],
+		["brother", "offer", "It's mending me. One more step and the mountains are quiet for ever. No more three days in the dark."],
+		["sister", "resolve", "That isn't a heart. It's a key. Whatever's under the ice wants out."],
+		["brother", "angry", "Then stand aside. Both of you.", "rumble"],
+	],
 }
 
 ## the story so far (settings → Story): [scene id, title, what marks it told (Save.told)], in the order they come
@@ -87,6 +122,12 @@ const JOURNAL := [
 	["notebook", "His notebook", "s_notebook"],
 	["poloz_before", "The Serpent breathes", "s_poloz_before"],
 	["poloz_after", "Boot prints", "s_poloz_after"],
+	["proval_arrive", "The Proval", "s_proval_arrive"],
+	["proval_letter", "A letter in the ice", "s_proval_letter"],
+	["proval_heart", "Four colours", "s_proval_heart"],
+	["proval_dwarf", "The face in the ice", "s_proval_dwarf"],
+	["proval_voice", "The voice", "s_proval_voice"],
+	["proval_gate", "At the gate", "s_proval_gate"],
 ]
 
 ## test runs (-- story_auto): the lines go on by themselves, for screenshots

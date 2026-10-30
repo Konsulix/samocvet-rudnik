@@ -28,7 +28,13 @@ PICS = {
     "sister_resolve": "friend/emo_resolve.png",
     "sister_sad": "friend/emo_sad.png",
     "sister_curious": "friend/emo_curious.png",
+    # Proval: him with the four shards grown into him (rival5/), mirrored so he faces her across the screen
+    "brother_calm": "rival5/s3_base.png",
+    "brother_angry": "rival5/emo_angry.png",
+    "brother_offer": "rival5/emo_offer.png",
+    "brother_haunted": "rival5/emo_haunted.png",
 }
+FLIP = {"brother"}
 
 def cut(path, box=None):
     a = np.asarray(Image.open(path).convert("RGB")).astype(np.float32) / 255
@@ -47,6 +53,7 @@ def cut(path, box=None):
 os.makedirs(OUT, exist_ok=True)
 # one crop for all the moods of a character, so they swap in place
 boxes = {}
+PICS = {k: v for k, v in PICS.items() if os.path.exists(os.path.join(HERE, v))}
 for name, src in PICS.items():
     who = name.split("_")[0]
     b = cut(os.path.join(HERE, src))
@@ -54,11 +61,12 @@ for name, src in PICS.items():
     boxes[who] = (min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3]))
 for name, src in PICS.items():
     im = cut(os.path.join(HERE, src), boxes[name.split("_")[0]])
+    if name.split("_")[0] in FLIP: im = im.transpose(Image.FLIP_LEFT_RIGHT)
     im.save(os.path.join(OUT, name + ".png"))
     print(name, im.size)
 
 # objects shown in the scenes (StoryScene "prop:<name>", gen_prop.sh): trimmed to the object, at most 640 px
-PROPS = ["notebook", "scale", "bootprints"]
+PROPS = ["notebook", "scale", "bootprints", "letter", "rune"]
 for name in PROPS:
     a = np.asarray(Image.open(os.path.join(HERE, "props", name + ".png")).convert("RGB")).astype(np.float32) / 255
     # cut() keeps the bottom for portraits; a prop is trimmed on every side

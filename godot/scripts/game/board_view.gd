@@ -401,7 +401,7 @@ func _draw_gas(ci: Node2D) -> void:
 func _rock_look(r: int, c: int) -> String:
 	if model.ROCK_MAX[r][c] >= 2:
 		return BoardSprites.granite() + ("" if model.ROCK[r][c] >= 2 else "_cracked")
-	return "sand"
+	return BoardSprites.sand()
 
 func _draw_live(ci: Node2D) -> void:
 	if model == null: return
@@ -509,11 +509,48 @@ func _draw_over(ci: Node2D) -> void:
 				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
 			elif model.playable(r, c) and model.LOCK[r][c] == 1:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
+			elif model.playable(r, c) and model.LOCK[r][c] >= 4:
+				ice(ci, cell_center(r, c), TS, model.LOCK[r][c] == 4, r * 31 + c)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	for p: Vector2i in marks:
 		var at := cell_center(p.x, p.y) - Vector2(TS, TS) * 0.46
 		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(1.0, 0.25, 0.15, 0.22))
 		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(1.0, 0.35, 0.2, 0.95), false, maxf(2.0, TS * 0.06))
+
+## Proval's ice over a frozen stone (BoardModel LOCK 4 thick, 5 cracked), drawn here: a block of clear blue-white ice
+## with chamfered edges, the light from the upper left on its top facet and rim, frost in its corners; once hit, cracks
+## run through it from a white star
+static func ice(ci: CanvasItem, ctr: Vector2, ts: float, thick: bool, seed_v: int) -> void:
+	var h := ts * 0.48
+	var ch := ts * 0.13
+	var poly := PackedVector2Array([ctr + Vector2(-h + ch, -h), ctr + Vector2(h - ch, -h), ctr + Vector2(h, -h + ch),
+		ctr + Vector2(h, h - ch), ctr + Vector2(h - ch, h), ctr + Vector2(-h + ch, h), ctr + Vector2(-h, h - ch), ctr + Vector2(-h, -h + ch)])
+	ci.draw_colored_polygon(poly, Color(0.62, 0.82, 1.0, 0.46 if thick else 0.3))
+	# the lit top-left facet and the shaded lower right
+	ci.draw_colored_polygon(PackedVector2Array([poly[0], poly[1], ctr + Vector2(h * 0.35, -h * 0.55), ctr + Vector2(-h * 0.55, h * 0.35), poly[6], poly[7]]),
+		Color(0.92, 0.97, 1.0, 0.26 if thick else 0.16))
+	ci.draw_colored_polygon(PackedVector2Array([poly[3], poly[4], poly[5], ctr + Vector2(-h * 0.2, h * 0.62), ctr + Vector2(h * 0.62, -h * 0.2), poly[2]]),
+		Color(0.18, 0.36, 0.62, 0.22))
+	poly.append(poly[0])
+	ci.draw_polyline(poly, Color(0.06, 0.12, 0.22, 0.75), maxf(2.0, ts * 0.06), true)
+	ci.draw_polyline(poly, Color(0.85, 0.95, 1.0, 0.9 if thick else 0.6), maxf(1.0, ts * 0.025), true)
+	# a glint
+	ci.draw_line(ctr + Vector2(-h * 0.62, -h * 0.25), ctr + Vector2(-h * 0.25, -h * 0.62), Color(1, 1, 1, 0.85), maxf(1.5, ts * 0.05))
+	ci.draw_line(ctr + Vector2(-h * 0.5, 0.0), ctr + Vector2(0.0, -h * 0.5), Color(1, 1, 1, 0.45), maxf(1.0, ts * 0.025))
+	# frost in the corners
+	for k in 4:
+		var d := Vector2(-1 if k % 2 == 0 else 1, -1 if k < 2 else 1)
+		var cn := ctr + d * h * 0.78
+		for j in 3:
+			var a := d.angle() + PI + (j - 1) * 0.55
+			ci.draw_line(cn, cn + Vector2.from_angle(a) * ts * 0.1, Color(0.95, 0.98, 1.0, 0.7), maxf(1.0, ts * 0.02))
+	if not thick:
+		var k := ts / 100.0
+		for line: PackedVector2Array in crack_paths(seed_v, 4):
+			var pts := PackedVector2Array()
+			for p in line: pts.append(ctr + (p - Vector2(50, 50)) * k * 0.95)
+			ci.draw_polyline(pts, Color(0.1, 0.2, 0.35, 0.6), maxf(1.6, ts * 0.04))
+			ci.draw_polyline(pts, Color(1.0, 1.0, 1.0, 0.9), maxf(1.0, ts * 0.018))
 
 static func crack_paths(seed_v: int, count: int) -> Array:
 	var rand := Rng32.new(seed_v)

@@ -35,6 +35,8 @@ const SAMPLES := {
 	# magic spell sfx): a malachite crust and a nodule breaking, rock dropped on the board, her lizards, her hiss,
 	# a new phase, the stone flower in bloom
 	crust = {f = ["bfh1_glass_breaking_02", "bfh1_glass_breaking_05"], db = -8.0},
+	# Proval's ice over a stone cracking (the same glass, higher and brighter)
+	ice = {f = ["bfh1_glass_breaking_02", "bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -7.0, pitch = 1.3},
 	nodule = {f = ["bfh1_rock_breaking_03", "bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -5.0, step = 0.08},
 	rockfall = {f = ["bfh1_rock_falling_04", "bfh1_rock_falling_06", "bfh1_rock_falling_07", "bfh1_rock_falling_08"], db = -4.0},
 	lizards = {f = ["bug_05", "bug_08", "bug_09", "bug_12", "bug_13"], db = -10.0},

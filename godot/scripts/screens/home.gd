@@ -13,6 +13,7 @@ var ui_root: VBoxContainer
 const COPPER_VIEW := "res://scripts/screens/mine_view_copper.gd"
 const SEA_VIEW := "res://scripts/screens/mine_view_sea.gd"
 const FIRE_VIEW := "res://scripts/screens/mine_view_fire.gd"
+const ICE_VIEW := "res://scripts/screens/mine_view_ice.gd"
 var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
@@ -66,6 +67,13 @@ func _ready() -> void:
 			_views[3] = fv
 		else:
 			fv.free()
+	# Proval (IceView in mine_view_ice.gd, the same way)
+	if ResourceLoader.exists(ICE_VIEW):
+		var iv: MineView = (load(ICE_VIEW) as GDScript).new()
+		if iv.has_method("available_here") and iv.call("available_here"):
+			_views[4] = iv
+		else:
+			iv.free()
 	for a in _views:
 		var mv: MineView = _views[a]
 		mv.visible = false
@@ -960,6 +968,7 @@ const HELLO := {
 	1: "The Mountain lets us dig, so long as we mind our manners. Cut the green buds before they crust over.",
 	2: "Mind the sea here, it has long arms. Under the cove the old shells have turned to pyrite - that's our ore.",
 	3: "Hear that? The mountain breathes like a forge. Work to its beat and it won't burn you.",
+	4: "Coal pays here. Warm the barracks first - in the polar night nothing else gets done.",
 }
 ## before the first level with a new kind of rock in it
 const ROCK_LINE := {
@@ -967,6 +976,7 @@ const ROCK_LINE := {
 	gas = "Smell that? Firedamp. It creeps a little every turn - clear it before it spreads.",
 	lock = "They shored this level with timber. Knock the pinned stones loose.",
 	crust = "Malachite crust down here - it locks a stone. Match right beside it to crack it off.",
+	ice = "The stones are frozen in from here down. Two knocks beside each, and the ice lets go.",
 }
 var _bubble: GuideBubble
 var _guide_waits := false
@@ -1047,6 +1057,15 @@ func _story_beat() -> String:
 	var st := next_step()
 	if a == 0 and _boss_waits() and st.last and st.job_done and not Save.told("s_poloz_before"):
 		return "poloz_before"
+	# Proval, the end of the first arc (docs/mine5-proval.md §8): his prints at the rim, his letter in the ice at 100 m,
+	# the four-coloured light from below at 250 m, the frozen dwarf at 350 m, the voice at 400 m, him at the gate
+	if a == 4:
+		var dp := int(Save.d.depth[4])
+		for e: Array in [["proval_arrive", 0], ["proval_letter", 1], ["proval_heart", 4], ["proval_dwarf", 6], ["proval_voice", 7]]:
+			if dp >= int(e[1]) and not Save.told("s_" + String(e[0])):
+				return String(e[0])
+		if "gate" in Save.d.built[4] and not Save.told("s_proval_gate"):
+			return "proval_gate"
 	return ""
 
 ## a stone of his own in the atlas: anything but the old man's pyrite

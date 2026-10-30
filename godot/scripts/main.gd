@@ -27,9 +27,9 @@ func _ready() -> void:
 	if args.has("glow"): _setup_glow()
 	if args.has("uv"): Spec.force_uv = float(args.uv)
 	# the tutorial: `tut` shows it from the start; test runs (shots, autoplay, sims) go without it
-	# (`tut=swap,goals` starts as if those tips were already shown, to see the next ones)
+	# (`tut=swap,goals` starts as if those tips were already shown, to see the next ones; `quiet` - none, for recordings)
 	if args.has("tut"): Save.d.tut = [] if args.tut == "1" else Array(String(args.tut).split(","))
-	elif args.has("shot") or args.has("autoplay") or args.keys().any(func(k): return String(k).begins_with("sim")):
+	elif args.has("shot") or args.has("quiet") or args.has("autoplay") or args.keys().any(func(k): return String(k).begins_with("sim")):
 		Coach.off = true
 	if args.has("boot_seed"): Boot.seed_v = int(args.boot_seed)
 	if args.has("notch"):
@@ -52,7 +52,9 @@ func _ready() -> void:
 	if args.has("beaten"): Save.d.boss_won[Save.area()] = true   # the mine's boss beaten (its flags fly)
 	if args.has("wins"):   # wins per depth, e.g. wins=3,2,0 (the drawn mine fills a depth with people after two)
 		var ws: PackedStringArray = String(args.wins).split(",")
-		for i in ws.size(): Save.d.dwins[i] = int(ws[i])
+		for i in ws.size():
+			while Save.d.dwins.size() <= i: Save.d.dwins.append(0)   # a new save is sized for the first mine
+			Save.d.dwins[i] = int(ws[i])
 	if args.has("steps"):  # job steps paid, e.g. steps=camp:2,chamber:1
 		for kv in String(args.steps).split(","):
 			var p: PackedStringArray = kv.split(":")

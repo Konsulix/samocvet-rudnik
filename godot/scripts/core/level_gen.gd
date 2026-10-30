@@ -39,20 +39,35 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 14},
 	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 15},
 	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 17},
+],
+## Proval (9 depths) - the exam before the brother: snow and frozen mud, permafrost from 100 m, its own ice from 150 m,
+## then the depths bring back what the four mines taught, one at a time (docs/mine5-proval.md §6): the Serpent's nuggets
+## to bring down at 200 m, the Mistress's nodules at 250 m, methane at 300 m, her crust at 350 m, timber at 400 m; all
+## of it at 450 m
+4: [
+	{kinds = ["sand", "mud"], load = 10},
+	{kinds = ["sand", "mud", "granite"], load = 12},
+	{kinds = ["sand", "mud", "granite", "ice"], load = 13},
+	{kinds = ["sand", "mud", "granite", "ice"], load = 11, nug = 0.5},
+	{kinds = ["sand", "mud", "granite", "ice"], load = 12, nod = true},
+	{kinds = ["sand", "mud", "granite", "ice", "gas"], load = 14},
+	{kinds = ["sand", "mud", "granite", "ice", "gas", "crust"], load = 15},
+	{kinds = ["sand", "mud", "granite", "ice", "gas", "crust", "lock"], load = 16},
+	{kinds = ["sand", "mud", "granite", "ice", "gas", "crust", "lock"], load = 17, nug = 0.4, nod = true},
 ]}
-const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c"}
+const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i"}
 ## gas spreads and timber pins stones: a little of either goes a long way
-const CAP := {gas = 6, lock = 10, crust = 10}
+const CAP := {gas = 6, lock = 10, crust = 10, ice = 14}
 ## Copper Mountain's malachite nodules (mine -> how many at the first depth, one more every other depth, at most):
 ## the mine's own ore grows in them, so its boards carry less of the other obstacles (NOD_LOAD)
-const NODULES := {1: Vector2i(2, 4)}
+const NODULES := {1: Vector2i(2, 4), 4: Vector2i(2, 3)}
 const NOD_LOAD := 0.7
 ## the moves a level needs: BASE + WORK of each obstacle cell (a nugget, the geode, a stone of a colour goal),
 ## fitted 26.10 on the smart autoplayer (`-- sim_gen=30 sim_rows sim_free smart`: it looks a move ahead for its goals,
 ## as a player who plays the level's goals would) by the moves it needs with no limit, 270 levels of both mines,
 ## the shafts left out. A level gets MARGIN more than that: the smart player then wins ~80% and uses most of its moves
 ## (the random one of the economy runs loses most). What a level asks for is kept within NEED_MAX
-const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, crust = 0.3, nod = 0.45, nug = 1.2, geo = 3.0, colour = 0.07}
+const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, crust = 0.3, ice = 0.7, nod = 0.45, nug = 1.2, geo = 3.0, colour = 0.07}
 const BASE := 5.1
 ## a shape that is slower to work through than its cells say: shafts dug from the top, a lower tier behind a throat
 const SCHEME_WORK := {shafts = 6.0, tiers = 4.0}
@@ -132,7 +147,8 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	var big := float(R * C) / 72.0 * (LOAD_K if scheme != "hand" else 1.0)
 	var load: int = roundi((int(T.load) + mini(wins, 4) + rng.randi_range(-2, 2)) * big)
 	if intro: load = roundi(T.load * 0.6 * big)
-	if NODULES.has(area): load = roundi(load * NOD_LOAD)
+	var nods := NODULES.has(area) and bool(T.get("nod", area == 1))   # Proval: only the depths that bring them
+	if nods: load = roundi(load * NOD_LOAD)
 	var want := {a = ka, b = kb}
 	for g in ["a", "b"]:
 		var cap: int = roundi(int(CAP.get(want[g], 99)) * big)
@@ -150,7 +166,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 			total += added
 	# a mine with nodules keeps room for them in the work a level may ask for
 	var nod_want := 0
-	if NODULES.has(area):
+	if nods:
 		var nn: Vector2i = NODULES[area]
 		nod_want = mini(nn.x + dl / 2, nn.y)
 	var reserve := nod_want * float(WORK.nod) + float(SCHEME_WORK.get(scheme, 0.0))
@@ -178,10 +194,10 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 			count[kind] = int(count.get(kind, 0)) + 1
 	var goals := []
 	if used.has("sand") or used.has("granite"): goals.append(["rock"])
-	for k in ["mud", "gas", "lock", "crust"]:
+	for k in ["mud", "gas", "lock", "crust", "ice"]:
 		if used.has(k): goals.append([k])
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new
-	if not intro and rng.randf() < 0.25 and BASE + work + WORK.nug <= NEED_MAX:
+	if not intro and rng.randf() < float(T.get("nug", 0.25)) and BASE + work + WORK.nug <= NEED_MAX:
 		if nugs.is_empty(): nugs = [Vector2i(0, 2), Vector2i(0, C - 3)]
 		var put := 0
 		for p: Vector2i in nugs:

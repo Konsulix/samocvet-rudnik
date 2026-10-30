@@ -37,7 +37,8 @@ var ROCK := []
 var ROCK_MAX := []   # how hard each rock started: a granite (2) stays granite, cracked, once hit
 var MUD := []
 var GAS := []
-var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too), 3: a tentacle's grip
+var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too), 3: a tentacle's grip,
+                    # 4/5: ice (Proval: a stone frozen in, thick then cracked; a hit or a match beside it takes a layer)
 var NOD := []       # a malachite nodule's layers, 0 = none (Copper Mountain): cut off, it gives its layers as ore
 var NOD_T := []     # moves until it grows its next layer
 var FLW := []       # the cells of the Mistress' stone flower (2x2, "F" on her board's map: its top left)
@@ -630,6 +631,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					locks += 1
 				"c":
 					LOCK[r][c] = 2
+				"i":
+					LOCK[r][c] = 4
 				"F":
 					flower = {r = r, c = c, st = 1}
 					for d in QUAD:
@@ -715,6 +718,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"gas": goals.append({k = "gas", t = -1, left = gas})
 			"lock": goals.append({k = "lock", t = -1, left = locks})
 			"crust": goals.append({k = "crust", t = -1, left = _count_lock(2)})
+			"ice": goals.append({k = "ice", t = -1, left = _count_lock(4) + _count_lock(5)})
 			"geo": goals.append({k = "geo", t = -1, left = geos.size()})
 			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
 	# fill without ready-made matches, and make sure a move exists
@@ -1018,6 +1022,14 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_rock_hit[k] = true
 		_cleared[k] = true
 		return
+	if LOCK[r][c] >= 4:   # ice: one layer a hit, from beside too; the stone stays frozen in till the last one goes
+		if _rock_hit.has(k): return
+		_rock_hit[k] = true
+		_cleared[k] = true
+		LOCK[r][c] = 5 if LOCK[r][c] == 4 else 0
+		if LOCK[r][c] == 0: _goal_hit("ice", -1, r, c, t)
+		_fx(t, "ice", {r = r, c = c, left = LOCK[r][c]})
+		return
 	if LOCK[r][c]:   # the timber breaks, the stone under it stays; a crust also cracks off from a match beside it
 		var crust: bool = LOCK[r][c] == 2
 		if kind == "adj" and (not crust or _rock_hit.has(k)): return
@@ -1158,6 +1170,7 @@ func drill_target(r: int, c: int) -> Vector2i:
 			elif GEOC[rr][cc] >= 0 and not geos[GEOC[rr][cc]].done and need.has("geo"): w = 6
 			elif LOCK[rr][cc] == 1 and need.has("lock"): w = 5
 			elif LOCK[rr][cc] == 2 and need.has("crust"): w = 5
+			elif LOCK[rr][cc] >= 4 and need.has("ice"): w = 5
 			elif ROCK[rr][cc] and need.has("rock"): w = 6
 			elif MUD[rr][cc] and need.has("mud"): w = 5
 			elif col(rr, cc) >= 0 and need.has("c%d" % col(rr, cc)): w = 4

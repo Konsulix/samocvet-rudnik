@@ -53,6 +53,10 @@ ROCKS = {
                        edge=(0.5, 0.5, 0.47), grime=(0.008, 0.009, 0.008), vein=((0.03, 0.62, 0.42), 0.0, 1.0), speck=None,
                        vein_sharp=(0.35, 0.75), cu=((1.0, 0.56, 0.3), 0.3), facets=(11.0, 0.55), sharp=0.53, tile_h=0.1, tile_bevel=0.07,
                        tile=0.975, tile_chip=1.4, blocks=-0.004, bed_k=0.9, tile_k=1.0, chip=0.025),
+    # Proval: black coal shale under rime - blue-grey, white frost on the edges, pale ice in every crack
+    "coalfrost": dict(scan="rock_face_04", scale=0.55, dark=(0.02, 0.022, 0.03), mid=(0.07, 0.078, 0.095), light=(0.2, 0.22, 0.27),
+                      edge=(0.78, 0.86, 0.95), grime=(0.008, 0.009, 0.012), vein=((0.55, 0.78, 1.0), 0.0, 1.0), speck=None,
+                      vein_sharp=(0.35, 0.75), vein_all=True, sharp=0.53, tile_k=0.85, chip=0.025),
     # boss frame: the Great Poloz' brown-grey stone with gold in the cracks
     "poloz": dict(scan="rock_face_03", scale=0.5, dark=(0.05, 0.04, 0.03), mid=(0.16, 0.13, 0.1), light=(0.36, 0.3, 0.24),
                   edge=(0.6, 0.5, 0.38), grime=(0.015, 0.012, 0.01), vein=((1.0, 0.68, 0.22), 1.0, 0.9), speck=None,

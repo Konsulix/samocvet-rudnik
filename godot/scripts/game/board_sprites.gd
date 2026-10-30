@@ -69,10 +69,16 @@ static func _ore_look(t: int, kind: String) -> String:
 	return kind
 
 ## the two-hit rock of a mine, by Data.AREAS order: Copper Mountain's is serpentine with malachite and copper
-## (art/malachite/block_cut.py), the others granite
-const AREA_GRANITE := {1: "serpentine"}
+## (art/malachite/block_cut.py), Proval's permafrost - frozen black earth with ice (art/ice_kit/), the others granite
+const AREA_GRANITE := {1: "serpentine", 4: "permafrost"}
 static func granite() -> String:
 	return AREA_GRANITE.get(Save.area(), "granite")
+
+## the one-hit rock of a mine: Proval's is a drift of hard snow (art/ice_kit/), the others sandstone
+const AREA_SAND := {4: "snow"}
+static func sand() -> String:
+	var s: String = AREA_SAND.get(Save.area(), "sand")
+	return s if ResourceLoader.exists("res://assets/board/blockers_kit/%s.png" % s) else "sand"
 
 ## the light of this mine's ore, for its shimmer and its painted veins: the data's "hot", or gold's
 static func ore_hot() -> Vector3:

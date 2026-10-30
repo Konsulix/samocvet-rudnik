@@ -129,6 +129,7 @@ static func _worth(m: BoardModel) -> float:
 			if g.item == "nug": v += 3.0 * r / float(m.R)
 			if m.GAS[r][c]: v -= 0.3
 			if m.LOCK[r][c] == 3: v -= 0.6
+			if m.LOCK[r][c] == 4: v -= 0.5      # thick ice: each layer is a hit (the goal counts only the last)
 	return v
 
 ## the board as it is between moves, to try a move on: every field, the stones copied, its own dice

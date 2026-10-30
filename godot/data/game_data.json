@@ -1538,6 +1538,177 @@
       2800
      ]
     }
+   ],
+   "next": [
+    115,
+    6000
+   ]
+  },
+  {
+   "n": "Proval",
+   "sub": "Coal settlement, Svalbard",
+   "pool": {
+    "flower_quartz": 24,
+    "sapphire": 18,
+    "ruby": 12,
+    "diamond": 2
+   },
+   "steps": 3,
+   "tasks": [
+    [
+     "barracks",
+     "Warm barracks",
+     64
+    ],
+    [
+     "gantry",
+     "The gantry",
+     65
+    ],
+    [
+     "power",
+     "Power station",
+     66
+    ],
+    [
+     "searchlight",
+     "Searchlight tower",
+     67
+    ],
+    [
+     "chute",
+     "Coal chute",
+     68
+    ],
+    [
+     "palace",
+     "Culture palace",
+     69
+    ],
+    [
+     "thaw",
+     "Thaw the ice lens",
+     70
+    ],
+    [
+     "icestair",
+     "Ice stair",
+     72
+    ],
+    [
+     "gate",
+     "The dwarven gate",
+     74
+    ]
+   ],
+   "ore": {
+    "n": "Coal",
+    "iron": 0,
+    "local": 0,
+    "c": "#4a3a36",
+    "hot": "#ff7a42",
+    "look": "coal"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 100,
+     "au": 100,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 104,
+     "au": 104,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      64,
+      1600
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 108,
+     "au": 108,
+     "tool": "Steam drill",
+     "machine": "hammer",
+     "drill": [
+      65,
+      1750
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 112,
+     "au": 112,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      66,
+      1900
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 116,
+     "au": 116,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      67,
+      2100
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 120,
+     "au": 120,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      68,
+      2300
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 124,
+     "au": 124,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      69,
+      2550
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 128,
+     "au": 128,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      70,
+      2800
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 132,
+     "au": 132,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      72,
+      3100
+     ]
+    }
    ]
   }
  ],
@@ -1945,6 +2116,13 @@
   "#f0b43a"
  ],
  "HABIT": {
+  "sulphur": "dipyr",
+  "aragonite": "prism",
+  "obsidian": "obsidian",
+  "olivine": "grain",
+  "realgar": "prism",
+  "hematite": "blade",
+  "simetite": "fossil",
   "ammonite": "fossil",
   "petrified_wood": "fossil",
   "fulgurite": "fossil",
@@ -2054,10 +2232,4 @@
    "m": 3
   }
  ]
-}  "sulphur": "dipyr",
-  "aragonite": "prism",
-  "obsidian": "obsidian",
-  "olivine": "grain",
-  "realgar": "prism",
-  "hematite": "blade",
-  "simetite": "fossil",
+}

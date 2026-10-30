@@ -109,3 +109,14 @@ Joseph Sardin и Pablo Bergel, BigSoundBank (CC0):
 - `goat_0..1` — [Bleating Goat #1](https://bigsoundbank.com/detail-0279-bleating-goat-1.html), [#2](https://bigsoundbank.com/detail-0280-bleating-goat-2.html).
 - `burn`, `sparks` — огонь PagDev ([Fireplace sound loop](https://opengameart.org/content/fireplace-sound-loop)) + синтезированный гул; `river` — пузыри rubberduck замедленные + гул;
   `steam` — bart, [Steam release sounds](https://opengameart.org/content/steam-release-sounds).
+
+## Звуки экрана рудника 5 Proval (`amb/ice/`)
+
+Нарезаны `prototype/tools/amb_proval.py` из записей Wikimedia Commons:
+
+- `wind`, `gust_0..2` — [Howling wind.ogg](https://commons.wikimedia.org/wiki/File:Howling_wind.ogg) (CC0).
+- `howl_0..1` — [Jem howls.ogg](https://commons.wikimedia.org/wiki/File:Jem_howls.ogg) (public domain).
+- `piano` — Шопен, ноктюрн op. 27 № 1, [Chopin Nocturne Op.27 No.1.oga](https://commons.wikimedia.org/wiki/File:Chopin_Nocturne_Op.27_No.1.oga) (public domain), приглушён «сквозь стены».
+- `accordion` — [Accordion registers.ogg](https://commons.wikimedia.org/wiki/File:Accordion_registers.ogg) (public domain).
+- `crack_0..2` — [Bones breaking wood fire ice crackling.ogg](https://commons.wikimedia.org/wiki/File:Bones_breaking_wood_fire_ice_crackling.ogg) (public domain).
+- `hum` (генератор ТЭЦ), `heart` (двойной удар сердца снизу), `gate` (стон гномьих врат) — синтез.

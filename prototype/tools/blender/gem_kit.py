@@ -442,8 +442,11 @@ SULPHUR_LOOK = dict(core=(0.86, 1.0, 0.62), rim=(0.02, 0.025, 0.01), halo=(0.35,
 # Whalebone Cove's pyritized ammonites (its own kind "ammonite", for the blue stone): brassy pyrite veins, and instead
 # of lumps of metal a coiled ammonite of pyrite grown into the stone's front, its ribs catching the light, with a small one
 AMMONITE_LOOK = dict(core=(0.98, 0.7, 0.26), rim=(0.025, 0.02, 0.012), halo=(0.85, 0.6, 0.22), burn=1.0, ammonite=True)
-OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK}
-OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite"]}
+# Proval's coal (its own kind "coal", for the red stone): ember-red veins in a black seam, and instead of lumps of metal
+# two or three angular lumps of glossy black coal grown into the stone, each in a socket that smoulders orange
+COAL_LOOK = dict(core=(0.95, 0.2, 0.03), rim=(0.012, 0.01, 0.01), halo=(0.9, 0.18, 0.03), burn=0.95, coal=True)
+OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK, "coal": COAL_LOOK}
+OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite"], "ruby": ["coal"]}
 
 def flat_emit(name, strength):
     """a plain light (or, at 0, plain black) for the glow mask"""
@@ -490,6 +493,9 @@ def nuggets(o, seed, mask=False):
     if ORE_LOOK.get("ammonite"):
         ammonites(o, faces, rnd, mm, dark)
         return
+    if ORE_LOOK.get("coal"):
+        coal_lumps(o, faces, rnd, mm, mask)
+        return
     made = []
     for f in faces:
         if len(made) >= 2 + (seed % 2): break
@@ -523,6 +529,38 @@ def nuggets(o, seed, mask=False):
             d = nug.modifiers.new("lumps", 'DISPLACE'); d.texture = tx; d.strength = rr * 0.3
             nug.data.materials.append(mat)
             for poly in nug.data.polygons: poly.use_smooth = True
+
+def coal_lumps(o, faces, rnd, ember, mask):
+    """lumps of coal grown into the stone's front: angular black chunks with flat glossy faces (anthracite breaks
+    conchoidal, its faces shine like glass), each sitting in a socket that glows like embers"""
+    if mask:
+        coal = flat_emit("coal_mask", 0.0)
+    else:
+        coal = bpy.data.materials.new("coal"); coal.use_nodes = True
+        cp = coal.node_tree.nodes["Principled BSDF"]
+        cp.inputs["Base Color"].default_value = (0.012, 0.011, 0.012, 1)
+        cp.inputs["Roughness"].default_value = 0.16
+        cp.inputs["Specular IOR Level"].default_value = 0.9
+        cp.inputs["Coat Weight"].default_value = 0.6
+    made = []
+    for f in faces:
+        if len(made) >= 2 + (o["seed"] % 2): break
+        c = Vector(f.center)
+        if any((c - q).length < 0.26 for q in made): continue
+        made.append(c)
+        r = rnd.uniform(0.105, 0.13)
+        nrm = Vector(f.normal)
+        # the smouldering socket: a flat ring of ember round the lump
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=r * 1.18, location=c - nrm * r * 0.6)
+        sk = bpy.context.object; sk.scale = (1.0, 0.65, 0.85); sk.data.materials.append(ember)
+        # the lump: a coarse broken ball, flat faces, proud of the stone
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=r, location=c - nrm * r * 0.15)
+        lp = bpy.context.object
+        lp.scale = (rnd.uniform(0.85, 1.2), rnd.uniform(0.6, 0.8), rnd.uniform(0.8, 1.15))
+        lp.rotation_euler = (rnd.uniform(0, 3), rnd.uniform(0, 3), rnd.uniform(0, 3))
+        for v in lp.data.vertices:
+            v.co *= rnd.uniform(0.82, 1.12)
+        lp.data.materials.append(coal)
 
 def ammonite_mesh(name, c, u, v, nrm, size, turns, rnd):
     """a coiled ammonite shell lying in the plane (u, v) round c, its flat side to `nrm`: a tube along a logarithmic

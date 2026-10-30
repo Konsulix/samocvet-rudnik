@@ -47,7 +47,9 @@ const BG_N := 3
 static var last_bg := -1
 
 static func bg_path(area: int, i: int) -> String:
-	return "res://assets/ui/level_bg/%d_%d.png" % [clampi(area, 0, 3), i + 1]
+	var a := clampi(area, 0, 4)
+	while a > 0 and not ResourceLoader.exists("res://assets/ui/level_bg/%d_%d.png" % [a, i + 1]): a -= 1
+	return "res://assets/ui/level_bg/%d_%d.png" % [a, i + 1]
 
 ## a different background of this mine from the last level; `-- bg=N` (0..2) picks one for a shot
 static func _pick_bg() -> String:
@@ -670,7 +672,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"rock":
 			board.redraw_under()
 			if BoardSprites.gem_style != "" and e.left == 0:
-				fx.shards(e.r, e.c, BoardSprites.granite() if e.get("granite", false) else "sand", Color("#c89a62"))
+				fx.shards(e.r, e.c, BoardSprites.granite() if e.get("granite", false) else BoardSprites.sand(), Color("#c89a62"))
 			else:
 				fx.debris(e.r, e.c, Color("#c89a62") if e.left == 0 else Color("#8a919c"), 10)
 			Sfx.play("rock")
@@ -691,6 +693,11 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			board.over.queue_redraw()
 			fx.plates(e.r, e.c, BoardSprites.malachite_look(e.r, e.c))
 			Sfx.play("crust")
+		"ice":
+			board.over.queue_redraw()
+			fx.debris(e.r, e.c, Color("#d8efff"), 12 if int(e.left) == 0 else 7)
+			fx.sparkle(e.r, e.c, Color("#bfe6ff"), 8 if int(e.left) == 0 else 4)
+			Sfx.play("ice")
 		"flower_tear":
 			board.flower_layer.queue_redraw()
 			fx.petals(e.r, e.c, ["", "buds", "middle", "outer"][int(e.st) + 1])
@@ -874,6 +881,7 @@ const TIP := {
 	granite = "Granite takes two hits beside it",
 	gas = "Gas creeps every move. Match beside it to clear it",
 	lock = "Timber pins a stone. Match that stone to knock it loose",
+	ice = "Ice holds a stone fast. Match beside it twice to break it",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
 
@@ -903,7 +911,7 @@ func _coach_next() -> void:
 				var p := _cell_screen(r, c)
 				coach.hand(p, p)
 				return
-	for id in ["sand", "mud", "granite", "gas", "lock"]:
+	for id in ["sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
 		var cells := _obstacle_cells(id)
 		if cells.is_empty(): continue
@@ -977,6 +985,7 @@ func _obstacle_cells(id: String) -> Array:
 				"mud": on = model.MUD[r][c] > 0
 				"gas": on = model.GAS[r][c] > 0
 				"lock": on = model.LOCK[r][c] == 1
+				"ice": on = model.LOCK[r][c] >= 4
 			if on: out.append(Vector2i(r, c))
 	return out
 

@@ -20,11 +20,11 @@ const LEGEND := [
 	"Where the Great Poloz crawls, the gold lies after him",
 	"The Mistress of the Copper Mountain wears a dress of malachite",
 	"Something vast sleeps under the whalers' bones",
+	"Under Etna a giant still keeps his forge",
+	"The ground opened in the polar night, and someone went down",
 ]
 ## one real line about each species
 const FACTS := {
-	quartz = "SiO₂ · hardness 7 · the Urals' miners took clear crystals for ice that never melts",
-	calcite = "CaCO₃ · hardness 3 · fizzes in acid and doubles whatever you look at through it",
 	sulphur = "S · hardness 2 · Sicily's sulphur crystals crackle in a warm hand: the heat splits them",
 	aragonite = "CaCO₃ · hardness 3.5 · in Sicily three crystals grow as one, a six-sided twin",
 	obsidian = "volcanic glass · hardness 5.5 · its edge is sharper than a surgeon's steel",
@@ -32,6 +32,8 @@ const FACTS := {
 	realgar = "As₄S₄ · hardness 1.5 · light turns it slowly to yellow dust: keep it in the dark",
 	hematite = "Fe₂O₃ · hardness 6 · black as iron, yet its streak on stone is blood-red",
 	simetite = "Sicilian amber · from the Simeto river · glows blue under the sun, red against it",
+	quartz = "SiO₂ · hardness 7 · the Urals' miners took clear crystals for ice that never melts",
+	calcite = "CaCO₃ · hardness 3 · fizzes in acid and doubles whatever you look at through it",
 	pyrite = "FeS₂ · hardness 6–6.5 · fool's gold: it strikes sparks off steel, real gold never does",
 	fluorite = "CaF₂ · hardness 4 · gave its name to fluorescence: it glows under ultraviolet",
 	amethyst = "SiO₂ with iron · hardness 7 · the Greeks drank from it so as not to get drunk",
@@ -259,7 +261,7 @@ static func _cover(ts: Vector2, s: Vector2, fy := 0.5) -> Rect2:
 	return Rect2(0, (ts.y - h) * fy, ts.x, h)
 
 static func _mine_dir(a: int) -> String:
-	return ["old_adit", "copper_mountain", "whalebone_cove"][clampi(a, 0, 2)]
+	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval"][clampi(a, 0, 4)]
 
 ## the banner's emblem: the beaten boss's sign, an empty socket while the boss stands, a lock on a mine not reached
 static func _sign(a: int, open: bool) -> String:
@@ -270,8 +272,12 @@ static func _sign(a: int, open: bool) -> String:
 
 ## the boss's sign tapped: fight a beaten boss again (no hoard this time), or a word on where it waits
 func _boss_card(a: int) -> void:
-	var B: Dictionary = Data.AREAS[a].boss
+	var B: Dictionary = Data.AREAS[a].get("boss", {})
 	Sfx.play("open")
+	if B.is_empty():
+		# a mine whose fight is not made yet (Fire Horizon's Cyclops, Proval's apprentice)
+		Ov.toast("Someone waits below %s" % Data.AREAS[a].n)
+		return
 	if not bool(Save.d.boss_won[a]):
 		Ov.toast("%s waits below %s" % [B.n, Data.AREAS[a].n])
 		return
