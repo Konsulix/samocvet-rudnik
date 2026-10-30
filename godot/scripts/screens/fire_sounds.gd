@@ -11,7 +11,9 @@ extends RefCounted
 ##   into its puddle at 50 m, the goat's bleat. Cicadas, the goat and the steam are nearly all highs: they go past the
 ##   bus's low-pass (MineAmb.hum/shot_clear), else it took them away.
 
-const CICADA_DB := -20.0
+const CICADA_DB := -16.0
+## the cicadas are quieter while the surface itself is on screen (heard from the galleries they were right)
+const CICADA_TOP := -4.0
 const BURN_DB := -18.0
 const RIVER_DB := -14.0
 const STREAM_DB := -16.0
@@ -81,7 +83,8 @@ func tick(v: FireView) -> void:
 		_cic_on = not _cic_on
 		_cic_until = v.t + (randf_range(12.0, 40.0) if _cic_on else randf_range(6.0, 25.0))
 	_cic = move_toward(_cic, 1.0 if _cic_on else 0.0, v.get_process_delta_time() / (2.0 if _cic_on else 3.5))
-	a.hum("fire/cicadas", CICADA_DB + v._far(sky + 700.0) + linear_to_db(maxf(_cic, 0.001)), true)
+	var cf := v._far(sky + 700.0)
+	a.hum("fire/cicadas", CICADA_DB + cf + CICADA_TOP * clampf(1.0 + cf / 14.0, 0.0, 1.0) + linear_to_db(maxf(_cic, 0.001)), true)
 	# the acid stream down the gorge (and on down the section once the stair is built)
 	if J.has("stream"):
 		var sa: Array = J.stream.at
