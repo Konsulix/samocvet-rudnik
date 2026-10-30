@@ -122,7 +122,10 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	if prologue:
 		_light_up()
 		# someone up there, unseen: only a voice and his lantern
+		# the scene hangs its own lantern in the same place; this one waits unseen (two swinging out of step showed double)
+		_lamp.visible = false
 		await StoryScene.play(self, "prologue_voice", holder.get_global_transform_with_canvas() * Vector2(board.size.x / 2, -78.0)).finished
+		_lamp.visible = true
 	busy = false
 	idle = 0.0
 	_coach_next()
