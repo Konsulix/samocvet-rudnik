@@ -510,7 +510,11 @@ func _draw_over(ci: Node2D) -> void:
 			elif model.playable(r, c) and model.LOCK[r][c] == 1:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
 			elif model.playable(r, c) and model.LOCK[r][c] >= 4:
-				ice(ci, cell_center(r, c), TS, model.LOCK[r][c] == 4, r * 31 + c)
+				if BoardSprites.gem_style != "":
+					# the ice block rendered in Blender (prototype/tools/blender/ice_kit.py): see-through, the stone under it shows
+					BoardSprites.draw(ci, BoardSprites.blocker("ice" if model.LOCK[r][c] == 4 else "ice_cracked"), cell_center(r, c), TS)
+				else:
+					ice(ci, cell_center(r, c), TS, model.LOCK[r][c] == 4, r * 31 + c)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	for p: Vector2i in marks:
 		var at := cell_center(p.x, p.y) - Vector2(TS, TS) * 0.46

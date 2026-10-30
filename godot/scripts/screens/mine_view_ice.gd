@@ -33,7 +33,7 @@ var _kib_sw := 0.0
 var _kib_swv := 0.0
 var _kib_up := false        # on its way up (heaped with coal)
 var _flare_at := -100.0     # the watchman's flare
-var _ic_sel_seen := -1
+var _howl_prev := -1
 
 const KIB_V := 260.0        # source px a second along the cable
 const KIB_WAIT := 2.6       # at a landing, and at the top
@@ -219,7 +219,7 @@ func _draw_still() -> void:
 	c.draw_texture_rect(_glow, Rect2(cx - w, top, w * 2.0, H - top), false, Color(0.0, 0.01, 0.03, 0.35))
 	# where two bands meet in the abyss their drawn air does not quite match: a drift of dark mist over each seam
 	for b in _bands:
-		c.draw_texture_rect(_glow, Rect2(float(ab[0]) - 60.0, float(b.y) - 70.0, w * 2.0 + 120.0, 140.0), false, Color(0.01, 0.02, 0.05, 0.9))
+		c.draw_texture_rect(_glow, Rect2(float(ab[0]) - 20.0, float(b.y) - 50.0, w * 2.0 + 40.0, 100.0), false, Color(0.01, 0.02, 0.05, 0.45))
 	_draw_bedrock(c)
 
 func _draw_shaft(_c: CanvasItem) -> void:
@@ -394,7 +394,7 @@ func _cable_top() -> Vector2:
 ## the kibble goes down to the depth being dug, waits at its landing, comes up, waits at the top; now and then it serves
 ## another open landing on the way
 func _kibble_move() -> void:
-	var top := _cable_top().y + 120.0
+	var top := _cable_top().y + 270.0     # at rest just under the deck (the cable runs down through it)
 	var to_y := band_y(_kib_to) + floor_of(_kib_to + 1) - 30.0
 	var down := (to_y - top) / KIB_V
 	var s := t - _kib_from
@@ -422,6 +422,11 @@ func _gantry(c: CanvasItem) -> void:
 	var at := Vector2(float(wh[0]), float(wh[1]))
 	var r := float(wh[2])
 	_ic_wheel(c, at, r, -_kib_y / r)
+	# what of the frame stands in front of the sheave in the picture (its crossbeam), cut out of s_nowheel
+	for f_ in g.get("front", []):
+		var fe: Array = f_
+		var fa: Array = fe[1]
+		_put(c, String(fe[0]), Vector2(float(fa[0]), float(fa[1])))
 	var ct := _cable_top()
 	var kb := Vector2(ct.x + _kib_sw * clampf((_kib_y - ct.y) / 2400.0, 0.1, 1.0), _kib_y)
 	var ink := Color(0.03, 0.035, 0.05)
@@ -573,8 +578,12 @@ func _surface_live(c: CanvasItem) -> void:
 		if nm == "guide24":
 			# her jar: the glowing crystal lights her and the snow round her
 			_light(c, pos + Vector2(fs.x * (0.3 if flip else 0.7), fs.y * 0.35), 60, Color(0.7, 0.95, 1.0, 0.35 + 0.08 * sin(t * 1.7)))
-		if nm == "husky" and _passed("howl", u, float(n), 6.0) and randf() < 0.3:
-			IceSounds.howl(self, _far(sky + float(spec.y)))
+		if nm == "husky":
+			# it howls as its head goes up (drawing 5 of its loop)
+			var di := _drawing_at(spec, u) if spec.has("play") else int(u) % n
+			if di == 5 and _howl_prev != 5:
+				IceSounds.howl(self, _far(sky + float(spec.y)))
+			_howl_prev = di
 	_gantry(c)
 
 ## the coal chute: once rebuilt, a little lamp-lit car rides down its gallery from the adit to the bunker now and then
@@ -806,8 +815,17 @@ func _events_live(c: CanvasItem) -> void:
 						for b in _bands:
 							if int(b.k) > open: continue
 							var f := exp(-q * 3.0) * (0.4 + 0.6 * float(b.k) / maxf(1.0, float(open)))
-							_light(c, Vector2(cx, float(b.y) + 300), 380, Color(col, 0.18 * f))
-						_light(c, Vector2(cx, yb), 260, Color(col, 0.5 * exp(-q * 2.0)))
+							_light(c, Vector2(cx, float(b.y) + 300), 460, Color(col, 0.5 * f))
+							_light(c, Vector2(cx, float(b.y) + 300), 170, Color(col, 0.55 * f))
+						# a beat of light running up the abyss from below, the colour of the shard
+						var top_y := band_y(0) - 200.0
+						var run := clampf(q / 0.55, 0.0, 1.0)
+						var head := lerpf(yb, top_y, run)
+						var fade := 1.0 - smoothstep(0.55, 1.0, q)
+						for k2 in 12:
+							var py := lerpf(head, yb, k2 / 11.0)
+							_light(c, Vector2(cx + 10.0 * sin(py * 0.01 + s), py), 110.0 - k2 * 4.0, Color(col.lightened(0.2), 0.35 * fade * (1.0 - k2 / 14.0)))
+						_light(c, Vector2(cx, yb), 340, Color(col, 0.8 * exp(-q * 2.0)))
 					if J.has("crack"):
 						var cr: Dictionary = J.crack
 						var y0 := band_y(int(cr.d) - 1)
@@ -826,18 +844,42 @@ func _events_live(c: CanvasItem) -> void:
 				if sg.is_empty() or s > 3.5: done = true
 				else: _sign(c, sg, s)
 			"dwarf":
-				# the frozen dwarf's eyes open in the ice lens, glow pale blue a moment, and close; frost cracks round them
-				if s > 4.5 or not J.has("dwarf"): done = true
+				# the frozen dwarf wakes for a moment: his eyes open as two cold blue sparks, the empty heart on his medallion
+				# glows the four colours in turn, frost cracks run out over the lens - then it all goes still again
+				if s > 5.5 or not J.has("dwarf"): done = true
 				else:
 					var dw: Dictionary = J.dwarf
 					var y := band_y(int(dw.d) - 1)
-					var al := clampf(s / 0.6, 0.0, 1.0) * clampf((4.5 - s) / 0.8, 0.0, 1.0)
-					var ea: Array = dw.at
-					_put(c, "dwarf_eye.png", Vector2(float(ea[0]), y + float(ea[1])), false, al)
-					var ey: Array = dw.eyes
-					for e_ in ey:
+					var al := clampf((s - 0.4) / 0.5, 0.0, 1.0) * clampf((5.5 - s) / 1.0, 0.0, 1.0)
+					var blink := 1.0 if fmod(s, 2.2) < 2.05 else 0.15
+					for e_ in dw.eyes:
 						var e: Array = e_
-						_light(c, Vector2(float(e[0]), y + float(e[1])), 30, Color(0.6, 0.85, 1.0, 0.6 * al))
+						var ep := Vector2(float(e[0]), y + float(e[1]))
+						_light(c, ep, 46, Color(0.5, 0.85, 1.0, 0.55 * al))
+						c.draw_set_transform(ep, 0, Vector2(1.0, 0.45 * blink))
+						c.draw_circle(Vector2.ZERO, 4.5, Color(0.85, 0.97, 1.0, al))
+						c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+					if dw.has("medal"):
+						var md: Array = dw.medal
+						var mp := Vector2(float(md[0]), y + float(md[1]))
+						var col: Color = HEART_COLS[int(s / 0.9) % 4]
+						_light(c, mp, 60, Color(col, 0.6 * al))
+						c.draw_circle(mp, 6.0, Color(col.lightened(0.4), 0.9 * al))
+					var rng := RandomNumberGenerator.new()
+					rng.seed = 77
+					var cen := Vector2(float(dw.eyes[0][0]) + 6.0, y + float(dw.eyes[0][1]))
+					var grow := clampf((s - 0.6) / 1.4, 0.0, 1.0)
+					for j in 7:
+						var a := rng.randf_range(0, TAU)
+						var p := cen
+						var pts := PackedVector2Array([p])
+						for k in 4:
+							a += rng.randf_range(-0.6, 0.6)
+							p += Vector2.from_angle(a) * rng.randf_range(14.0, 24.0) * grow
+							pts.append(p)
+						c.draw_polyline(pts, Color(0.92, 0.98, 1.0, 0.75 * al), 2.0)
+					if _passed("dwarf_crk", s, 100.0, 0.6):
+						IceSounds.crack(self, _far(y + 300))
 			"bear":
 				# a polar bear at the settlement's edge, sniffing; with the searchlight built the beam finds it, the
 				# watchman's red flare goes up and the bear goes off into the dark

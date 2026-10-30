@@ -918,7 +918,10 @@ func _build(tid: String, i: int) -> void:
 				Ov.close()
 				render(), Save.d.fe >= int(cost[0]) and Save.d.coins >= int(cost[1])])
 		btns.append(["Later", "glass", func(): Ov.close()])
-		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and a rock drill." + ("" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."), btns)
+		var tail := "" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."
+		# Proval ends the first arc: the gate is open and the apprentice waits beyond it (his fight is still to come)
+		if a == 4 and not A.has("boss"): tail = " The dwarven gate stands open. He is waiting beyond it."
+		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and a rock drill." + tail, btns)
 
 ## a price in ore: the round badge and the number
 static func ore_tag(kind: String, n: int, fs: int) -> HBoxContainer:

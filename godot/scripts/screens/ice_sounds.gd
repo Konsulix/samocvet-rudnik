@@ -32,7 +32,7 @@ static func gust(v: IceView, k: float) -> void:
 	v.amb.shot("ice/gust_%d" % (randi() % 3), -12.0 + 6.0 * (k - 1.0), randf_range(0.92, 1.06))
 
 static func howl(v: IceView, db: float) -> void:
-	if db > -10.0 and v.t > float(v.get_meta("howl_at", -100.0)) + 20.0:
+	if db > -14.0 and v.t > float(v.get_meta("howl_at", -100.0)) + 12.0:
 		v.set_meta("howl_at", v.t)
 		v.amb.shot("ice/howl_%d" % (randi() % 2), db - 12.0, randf_range(0.95, 1.05))
 

@@ -695,7 +695,8 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			Sfx.play("crust")
 		"ice":
 			board.over.queue_redraw()
-			fx.debris(e.r, e.c, Color("#d8efff"), 12 if int(e.left) == 0 else 7)
+			if BoardSprites.gem_style != "" and int(e.left) == 0: fx.shards(e.r, e.c, "ice", Color("#d8efff"))
+			else: fx.debris(e.r, e.c, Color("#d8efff"), 12 if int(e.left) == 0 else 7)
 			fx.sparkle(e.r, e.c, Color("#bfe6ff"), 8 if int(e.left) == 0 else 4)
 			Sfx.play("ice")
 		"flower_tear":
