@@ -216,9 +216,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	if gene.lustre == "dark":
 		ero = maxf(ero, 0.3)
 	var scan: int = RockKit.SCAN_OF[rtype]
-	# (white gypsum rock takes no scan: every scanned rock is brown or dark, and tinted it stays sandy)
-	if not rtype in ["gypsum", "lava"]:
-		dt.scan = scan
+	dt.scan = scan
 	# a species whose crystals do not frost over at the foot (SpecLooks foot_frost false)
 	if not look.get("foot_frost", true):
 		dt.fr = 0.0
@@ -234,7 +232,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (hematite: dark steel — SpecLooks metal_col)
 			if look.has("metal_col"):
 				# hematite's steel: darker, less mirror, its tarnish a rainbow in patches
-				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = 0.2, coat = 0.4, flat = true, env = 2.0, oil = 0.45, st = 0.4, dirt = dt, prio = 2}
+				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = 0.3, coat = 0.6, coat_r = 0.08, flat = true, env = 2.6, oil = 0.5, st = 0.4, dirt = dt, prio = 2}
 			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		# an opaque species (SpecLooks opaque: aragonite's wax, realgar's resin): no glass, a lit surface of its colour
@@ -258,7 +256,6 @@ func _specimen(o: Dictionary) -> Node3D:
 		return m
 	var rock_mat := func(c: Color) -> ShaderMaterial:
 		var rd := {col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = c, fr = 0.0, scan = scan}, silv = gene.silv}
-		if rtype in ["gypsum", "lava"]: (rd.dirt as Dictionary).erase("scan")
 		if gene.fx == "lava": rd.lava = 1.0
 		var rm := SpecMat.make(rd)
 		rm.set_meta("rock", true)   # ultraviolet lights the crystals, never the rock
@@ -338,13 +335,14 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (sulphur's mound sits down on the rock, its foot hidden in it)
 			var mid: Vector3 = c0 + Vector3(0, (0.05 if habit == "prism" else -0.12) * gs, 0)
 			var gaps := []
-			for k in 90 + int(rng.next() * 40):
+			var nn := 90 + int(rng.next() * 40) if habit != "prism" else 150 + int(rng.next() * 50)
+			for k in nn:
 				var u := Vector3(rng.next() - 0.5, rng.next() * 0.9 - 0.15, rng.next() - 0.5).normalized()
-				var p: Vector3 = mid + Vector3(u.x * 0.55, u.y * 0.4, u.z * 0.5) * gs * (0.5 + rng.next() * 0.45)
+				var p: Vector3 = mid + Vector3(u.x * 0.55, u.y * 0.4, u.z * 0.5) * gs * (0.5 + rng.next() * 0.45 if habit != "prism" else 0.62 + rng.next() * 0.2)
 				gaps.append([p, u])
 				var dir := (u + _rv() * 0.5).normalized()
-				var w := (0.05 + pow(rng.next(), 1.3) * 0.06) * gs
-				var h := w * (1.4 + rng.next() * 1.6)
+				var w := (0.05 + pow(rng.next(), 1.3) * 0.06) * gs * (1.25 if habit == "prism" else 1.0)
+				var h := w * ((0.8 + rng.next() * 0.9) if habit == "prism" else (1.4 + rng.next() * 1.6))
 				var c: MeshInstance3D
 				if habit == "prism":
 					var g := RockKit.prism(rng, {sides = 6, w = w, d = w * (0.85 + rng.next() * 0.2), h = h, point = false, slope = 0.0, taper = 0.96, y0 = -w * 1.2, detail = 1, erode = ero * 0.5}, zcfg)
@@ -426,7 +424,7 @@ func _specimen(o: Dictionary) -> Node3D:
 				var dome := sqrt(maxf(0.0, 1.0 - (rr / R) * (rr / R))) * R * 0.35
 				# (packed: the nest's floor is grains too, no rock showing through)
 				# a broken-open nest: the grains lie a little sunk in the face of the break
-				var at := c0 + (t1 * cos(a) + t2 * sin(a)) * rr + n0 * (dome * 0.9 + R * 0.06 - s * 0.3)
+				var at := c0 + (t1 * cos(a) + t2 * sin(a)) * rr + n0 * (dome * 0.7 + R * 0.05 - s * 0.3)
 				var cc: Color = (cols[int(Stones.pick_w([[0, 4.0], [1, 3.0], [2, 2.0], [3, 1.5], [4, 0.8], [5, 0.4], [6, 0.9]], rng))] as Color) * (0.45 + rng.next() * 0.35)
 				for v in g.v:
 					nod.v.append(at + bs * (v * sq))
@@ -798,7 +796,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	# the species' companions (SpecLooks with): another mineral grown on the same rock
 	if st.rocky and main:
 		for w: Array in look.get("with", []):
-			if String(w[3]) in gene.accents:
+			# (the spray puts its sulphur in its own gaps)
+			if String(w[3]) in gene.accents and not (layout == "spray" and String(w[3]) == "sulphur"):
 				_companion(String(w[0]), SpecMat.lin(int(w[1])), String(w[3]), st)
 	# fluorite's phantom cubes (SpecLooks core): a cube of another colour inside every crystal, seen through the glass
 	if look.has("core") and main and layout != "geode":

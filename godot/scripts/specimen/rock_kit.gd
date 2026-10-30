@@ -48,7 +48,16 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = Geo.octa(0.32).translate(0, 0.3, 0)
 	elif habit == "dipyr":
 		# sulphur's rhombic bipyramid: four-sided, sharp at both ends, a rhombus across, its foot sunk in
-		g = Geo.octa(0.3).scale(0.85 * float(cfg.get("wk", 1.0)), 1.35 * float(cfg.get("hk", 1.0)), 1.15 * float(cfg.get("wk", 1.0))).translate(0, 0.3 * float(cfg.get("hk", 1.0)), 0)
+		# its edges softened, as Sicily's sulphur grows: the bipyramid pulled a third of the way to an ellipsoid
+		var sx := 0.85 * float(cfg.get("wk", 1.0))
+		var sy := 1.35 * float(cfg.get("hk", 1.0))
+		var sz := 1.15 * float(cfg.get("wk", 1.0))
+		g = Geo.octa(0.3).subdivide(2)
+		for i in g.v.size():
+			var p := g.v[i]
+			var l1 := absf(p.x) + absf(p.y) + absf(p.z)
+			g.v[i] = p.lerp(p.normalized() * 0.3 * (l1 / 0.3) * 0.82, 0.32)
+		g.scale(sx, sy, sz).translate(0, 0.3 * float(cfg.get("hk", 1.0)), 0)
 	elif habit == "grain":
 		# a rounded grain (olivine in basalt): a lump with soft facets
 		g = Geo.icosa(0.26, 1).scale(1.0, 0.85, 0.95).translate(0, 0.2, 0)
@@ -210,7 +219,7 @@ const ROCKS := {
 	"slate": {h = [0.56, 0.08], s = [0.06, 0.08], l = [0.07, 0.05], crust = [0.6, 0.05, 0.4], rust = 0x3a3028},
 	# Sicily's sulphur country: the white gypsum and limestone the sulphur grew in; Etna's grey vesicular lava
 	"gypsum": {h = [0.58, 0.04], s = [0.06, 0.04], l = [0.8, 0.06], crust = [0.12, 0.05, 0.88], rust = 0xb09a6a},
-	"lava": {h = [0.6, 0.06], s = [0.03, 0.03], l = [0.3, 0.06], crust = [0.08, 0.05, 0.45], rust = 0x6a4a3a},
+	"lava": {h = [0.6, 0.06], s = [0.02, 0.02], l = [0.42, 0.06], crust = [0.08, 0.05, 0.45], rust = 0x6a4a3a},
 }
 const ROCK_SHAPES := {slab = [1.35, 0.42, 1.05], chunk = [1.05, 0.72, 0.95], long = [1.55, 0.5, 0.75], small = [0.8, 0.55, 0.75]}
 
@@ -280,7 +289,7 @@ static var _sphere_cache := {}
 static var _disp := {}
 
 ## which photo scan dresses which rock
-const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, slate = 3, quartzite = 3, gypsum = 3, lava = 2}
+const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, slate = 3, quartzite = 3, gypsum = 4, lava = 5}
 
 ## height map of a scan, for pressing its relief into the geometry
 static func disp_img(i: int) -> Image:

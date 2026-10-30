@@ -49,3 +49,4 @@ Poly Haven (polyhaven.com), CC0: `bark_willow_02`, `pine_bark` (кора спи�
 ambientCG (ambientcg.com), CC0: `tree_end/` — TreeEnd001–004 (торцы брёвен: кольца, лучи, трещины на грани спила,
 берётся только яркость), `onyx/` — Onyx006/010/013/015 (полосы халцедона, агатовых линз, каймы и разводы яшмы),
 `weathered_wood/wood_040.jpg` — Wood040 (выветренное волокно коряги).
+- `marble_cliff_05/`, `rock_04/` — Poly Haven (CC0), https://polyhaven.com/a/marble_cliff_05, https://polyhaven.com/a/rock_04 — white gypsum rock and Etna lava of the Fire Horizon finds.

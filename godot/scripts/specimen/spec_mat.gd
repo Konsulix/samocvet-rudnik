@@ -156,7 +156,7 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 	return m
 
 ## photo-scanned rocks (Poly Haven, CC0): pitted sandstone, cracked boulder, dark cliff, lichen-covered stone
-const SCANS := ["rock_pitted_mossy", "rock_boulder_cracked", "rock_face_03", "lichen_rock"]
+const SCANS := ["rock_pitted_mossy", "rock_boulder_cracked", "rock_face_03", "lichen_rock", "marble_cliff_05", "rock_04"]
 static var _scan_tex := {}
 
 static func scan_tex(i: int, kind: String) -> Texture2D:
