@@ -15,7 +15,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
 	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
-	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
+	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", barite = "barite blades", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
 	ob_mahogany = "mahogany obsidian", ob_rainbow = "rainbow sheen", ob_tears = "Apache tears",
 	heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
@@ -36,7 +36,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var kind: String = o.get("kind", "crystal")
 	var tr: Array = o.get("traits", [])
-	var metal := habit == "nugget" or sid in ["pyrite", "hematite"]
+	var metal := habit == "nugget" or sid in ["pyrite", "hematite", "galena"]
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""

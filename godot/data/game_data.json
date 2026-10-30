@@ -215,6 +215,36 @@
    "c": "#9fd0ff",
    "v": 50,
    "r": 1
+  },
+  "siderite": {
+   "n": "Siderite",
+   "c": "#6e4a2a",
+   "v": 20,
+   "r": 0
+  },
+  "barite": {
+   "n": "Barite",
+   "c": "#e6d6b4",
+   "v": 25,
+   "r": 0
+  },
+  "galena": {
+   "n": "Galena",
+   "c": "#7c8090",
+   "v": 35,
+   "r": 1
+  },
+  "sphalerite": {
+   "n": "Sphalerite",
+   "c": "#8a3a12",
+   "v": 45,
+   "r": 1
+  },
+  "chalcedony": {
+   "n": "Svalbard Agate",
+   "c": "#a9c2dc",
+   "v": 80,
+   "r": 2
   }
  },
  "GR": [
@@ -1548,10 +1578,13 @@
    "n": "Proval",
    "sub": "Coal settlement, Svalbard",
    "pool": {
-    "flower_quartz": 24,
-    "sapphire": 18,
-    "ruby": 12,
-    "diamond": 2
+    "siderite": 24,
+    "barite": 18,
+    "galena": 12,
+    "sphalerite": 10,
+    "chalcedony": 6,
+    "flower_quartz": 4,
+    "diamond": 1.2
    },
    "steps": 3,
    "tasks": [
@@ -2156,7 +2189,12 @@
   "celestine": "blade",
   "anhydrite": "blade",
   "pyrope": "dodeca",
-  "chrysolite": "prism"
+  "chrysolite": "prism",
+  "siderite": "cube",
+  "barite": "blade",
+  "galena": "cube",
+  "sphalerite": "dodeca",
+  "chalcedony": "botryoid"
  },
  "TRAITS": [
   {

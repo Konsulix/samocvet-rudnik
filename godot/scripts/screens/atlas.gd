@@ -25,6 +25,11 @@ const LEGEND := [
 ]
 ## one real line about each species
 const FACTS := {
+	siderite = "FeCO₃ · hardness 4 · the iron ore of coal measures: its rhombs grow saddle-curved",
+	barite = "BaSO₄ · hardness 3 · so heavy for its size that miners call it heavy spar",
+	galena = "PbS · hardness 2.5 · breaks into perfect cubes; the first radio sets listened through it",
+	sphalerite = "ZnS · hardness 3.5 · ruby-red or black as coal, and it glows under a spark",
+	chalcedony = "SiO₂ · hardness 7 · the old Svalbard lavas hold banded blue agate in their gas bubbles",
 	sulphur = "S · hardness 2 · Sicily's sulphur crystals crackle in a warm hand: the heat splits them",
 	aragonite = "CaCO₃ · hardness 3.5 · in Sicily three crystals grow as one, a six-sided twin",
 	obsidian = "volcanic glass · hardness 5.5 · its edge is sharper than a surgeon's steel",
