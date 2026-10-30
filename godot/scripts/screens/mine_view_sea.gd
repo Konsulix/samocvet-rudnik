@@ -919,7 +919,13 @@ func _tick_events() -> void:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
 	var pool := ["ink", "bubbles"]
-	if ResourceLoader.exists(dir + "eel_strip.png"): pool.append("eel")
+	# the moray only while the wreck is on the screen (it is above the first gallery and was mostly missed): the first
+	# event there is always it, then often
+	var eel_y := EEL_AT.y + _sea_top()
+	if ResourceLoader.exists(dir + "eel_strip.png") and eel_y > _seen.x and eel_y - EEL_BODY < _seen.y \n			and (not _eel_shown or _rng.randf() < 0.4):
+		_eel_shown = true
+		_events["eel"] = t
+		return
 	for cr in J.cracks:
 		var k := int(cr.d) - 1
 		if k <= open and String(_shown_bands.get(k, "closed")) != "closed":
@@ -987,6 +993,7 @@ func _tentacle(c: CanvasItem, cr: Dictionary, s: float) -> void:
 ## current, the head sways and gapes, it snaps forward once and pours back into the dark.
 const EEL_LEN := 8.0
 const EEL_AT := Vector2(341, 905)      # a broken hatch in the wreck's deck, source px from the sea's top: it rises into the open water
+var _eel_shown := false
 const EEL_BODY := 340.0
 func _eel(c: CanvasItem, s: float) -> void:
 	var at := EEL_AT + Vector2(0, _sea_top())
