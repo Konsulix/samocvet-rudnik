@@ -73,9 +73,10 @@ static func play(at: Node, id: String, lamp := Vector2(-1, -1)) -> StoryScene:
 	return s
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var vp := get_viewport_rect().size
+	# sized by hand: under a CanvasLayer the full-rect anchors left it 0×0, and a tap fell through to the board
+	size = vp
 	_shade = ColorRect.new()
 	_shade.color = Color(0.02, 0.02, 0.03, 0.0)
 	_shade.size = vp

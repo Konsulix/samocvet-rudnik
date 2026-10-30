@@ -1462,8 +1462,10 @@ func _light_up() -> void:
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
-	gt.fill_from = Vector2(0.5, 0.0)
-	gt.fill_to = Vector2(0.5, 1.0)
+	# from the middle out to the edge's midpoints: the corners and edges are clear (from the top edge they were not -
+	# its bright cut showed as a rectangle behind the lantern)
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(0.5, 0.0)
 	gt.width = 256
 	gt.height = 256
 	_rubble = maxi(1, _rubble_left())
@@ -1480,10 +1482,11 @@ func _light_up() -> void:
 ## nearer and brighter as the rubble goes; it flickers like a flame
 func _light_tick() -> void:
 	var done := 1.0 - clampf(float(_rubble_left()) / float(_rubble), 0.0, 1.0)
-	var w := board.size.x * (0.7 + 0.6 * done)
-	var h := board.size.y * (0.35 + 0.55 * done)
+	var w := board.size.x * (1.0 + 0.6 * done)
+	var h := board.size.y * (0.8 + 0.9 * done)
 	_light.size = Vector2(w, h)
-	_light.position = Vector2((board.size.x - w) / 2, -h * (0.25 - 0.2 * done))
+	# the glow's middle under the lantern, sinking into the board as the way clears
+	_light.position = Vector2((board.size.x - w) / 2, -40.0 + 0.25 * board.size.y * done - h / 2)
 	var flick := 0.92 + 0.08 * sin(Time.get_ticks_msec() / 1000.0 * 9.0) * sin(Time.get_ticks_msec() / 1000.0 * 3.7)
 	_light.modulate.a = (0.55 + 0.45 * done) * flick
 

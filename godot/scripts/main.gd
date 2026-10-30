@@ -231,6 +231,16 @@ func _ready() -> void:
 		get_tree().create_timer(0.8).timeout.connect(func():
 			var s := StoryScene.play(self, args.story)
 			for i in int(args.get("story_at", "0")): s.call_deferred("_next"))
+	if args.has("taps"):   # taps=S1,S2,...: a tap at the middle of the screen at those seconds, as a finger would
+		for t in args.taps.split(","):
+			get_tree().create_timer(float(t)).timeout.connect(func():
+				var at := get_viewport().get_visible_rect().size / 2
+				for down in [true, false]:
+					var e := InputEventScreenTouch.new()
+					e.position = at
+					e.pressed = down
+					Input.parse_input_event(e)
+				print("tap ", t))
 	if args.has("shot"):
 		_take_shot()
 	if args.has("enter"):
