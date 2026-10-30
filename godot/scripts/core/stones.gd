@@ -34,13 +34,20 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	for s in pool:
 		entries.append([s, pool[s] * pow(1.0 + luck * 0.8, Data.SP[s].r)])
 	var sid: String = pick_w(entries, rng)
-	var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else pick_w([["crystal", 5.0], ["druse", 4.0], ["geode", 1.4]], rng)
+	var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else pick_w(SpecLooks.kinds(sid), rng)
 	var ge := []
 	for k in Data.GR.size():
 		ge.append([k, Data.GR[k].w * pow(1.0 + luck * 0.5, k * 0.6)])
 	var gi: int = pick_w(ge, rng)
 	var legend := rng.next() < 0.02 * (1.0 + luck)
 	var traits := roll_traits(seed_id, legend, gi)
+	# the traits a species rolls more often (amethyst's sceptres, rock crystal's phantoms): their own stream
+	var more: Dictionary = SpecLooks.of(sid).get("more", {})
+	if more.size():
+		var mr := Rng32.new((seed_id * 3266489917 + 101) % 4294967296)
+		for t: String in more:
+			if mr.next() < float(more[t]) and not t in traits and traits.size() < 4:
+				traits.append(t)
 	var tm := 1.0
 	for t in traits:
 		tm *= Data.TR[t].m

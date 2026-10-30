@@ -24,9 +24,11 @@ static func warp(g: Geo, rng: Rng32, amt: float, freq := 1.0) -> Geo:
 
 ## cfg: {h, tip, scepter, dt (both ends), cA, cB, zk (colour zoning)}
 static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
-	var r := 0.32
-	var h: float = cfg.get("h", 1.1)
+	var r := 0.32 * float(cfg.get("wk", 1.0))
+	var h: float = float(cfg.get("h", 1.1)) * float(cfg.get("hk", 1.0))
 	var tip: float = cfg.tip if cfg.get("tip") != null else 1.1 + rng.next() * 0.8
+	# the beryls end flat
+	if cfg.get("blunt", false) and habit == "prism": tip = 0.02
 	var scep: bool = cfg.get("scepter", false)
 	var dt: bool = cfg.get("dt", false)
 	var sc := 1.45 if scep else 1.0
@@ -90,9 +92,9 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 ## o: {sides, w, d, h, point, slope, taper, y0}; zc: colour zoning as in crystal()
 static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 	var n: int = o.sides
-	var w: float = o.w
-	var d: float = o.d
-	var h: float = o.h
+	var w: float = float(o.w) * float(zc.get("wk", 1.0))
+	var d: float = float(o.d) * float(zc.get("wk", 1.0))
+	var h: float = float(o.h) * float(zc.get("hk", 1.0))
 	var a0 := 0.785 + (rng.next() - 0.5) * 0.2 if n == 4 else rng.next() * 6.28
 	var ring := []
 	for k in n:
@@ -105,7 +107,7 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 	var sz := sin(b) * slope
 	var tp: float = o.taper if o.get("taper") != null else 0.9 + rng.next() * 0.12
 	var y0: float = o.get("y0", -0.3)
-	var point: bool = o.get("point", false)
+	var point: bool = o.get("point", false) and not zc.get("blunt", false)
 	var bot := []
 	var top := []
 	for q: Vector2 in ring:

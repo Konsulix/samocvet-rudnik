@@ -124,6 +124,13 @@ func _specimen(o: Dictionary) -> Node3D:
 		col = col.lerp(SpecMat.lin(0xb8b4ac), 0.25 - gi * 0.1)
 	var gene := SpecGenome.of(o)
 	gene_m = gene
+	# the traits the species always has (amethyst and fluorite are zoned): its look, on top of what it rolled
+	var look := SpecLooks.of(sid)
+	if (gene.sig as Array).size():
+		tr = tr.duplicate()
+		for t: String in gene.sig:
+			if not t in tr: tr.append(t)
+		trs = tr
 	root.set_meta("genome", gene)
 	root.set_meta("grown", grown)
 	if gene.anomaly:
@@ -142,11 +149,19 @@ func _specimen(o: Dictionary) -> Node3D:
 	# colour zoning along the crystals
 	var zone := 1.0 if "zoned" in tr else 0.45 if rng.next() < 0.35 else 0.0
 	var zmode := int(floor(rng.next() * 3))
+	var zhue := 0.45
+	if look.has("zone"):
+		var zl: Array = look.zone
+		zmode = int(zl[0])
+		zone = float(zl[1])
+		zhue = float(zl[2])
 	var cA := col
 	if zone > 0.0:
-		cA = Color(1, 1, 1).lerp(col, 0.25) if zmode == 0 else col * 0.45 if zmode == 1 else SpecMat.offset_hsl(col, 0.45, 0, 0)
+		cA = Color(1, 1, 1).lerp(col, 0.25) if zmode == 0 else col * 0.45 if zmode == 1 else SpecMat.offset_hsl(col, zhue, 0, 0)
 	var cB := col
-	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone}
+	# with the species' proportions (SpecLooks: hk, wk, blunt), which every crystal and column takes
+	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
+		blunt = bool(look.get("blunt", false))}
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
 	var kind: String = o.get("kind", "crystal")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
@@ -172,7 +187,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5, rf = 0.3, st = stria, dirt = dt, prio = 2,
 			holo = gene.holo, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
 			lava = 1.0 if gene.fx == "lava" else 0.0,
-			frost = 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25, thick = 1.0 + op * 0.4, seed = float(seed_v % 97)}
+			frost = 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25, thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
+			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0))}
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
 		var m := SpecMat.make(d)
@@ -268,7 +284,8 @@ func _specimen(o: Dictionary) -> Node3D:
 			dt.h = 0.1 + rng.next() * 0.14
 			dt.a = 0.3
 			var cubic := habit == "cube"
-			var prismy := elongated or cubic
+			# (calcite's dogtooth scalenohedra keep their own shape: as columns they read as quartz)
+			var prismy := (elongated or cubic) and habit != "scaleno"
 			var cm: ShaderMaterial = any_cmat.call()
 			var sides := 4 if cubic or habit == "blade" else 6
 			var top_pick := func() -> Vector3:
@@ -440,6 +457,10 @@ func _specimen(o: Dictionary) -> Node3D:
 					at += nn * hs * 0.5
 				var shape := rng.next()
 				var g: Geo
+				# a species with its own crystal shape heaps that (garnet's dodecahedra, cuprite's octahedra)
+				if habit == "dodeca": shape = 0.6
+				elif habit == "octa": shape = 0.9
+				elif habit == "cube": shape = 0.1
 				if shape < 0.5: g = Geo.box(hs * 2, hs * (1.6 + rng.next() * 0.8), hs * (1.6 + rng.next() * 0.6))
 				elif shape < 0.8: g = Geo.dodeca(hs * 1.2).scale(1.0, 0.8 + rng.next() * 0.5, 1.0)
 				else: g = Geo.octa(hs * 1.3).scale(1.0, 1.2 + rng.next() * 0.6, 1.0)
@@ -481,6 +502,34 @@ func _specimen(o: Dictionary) -> Node3D:
 				crystal.call(0.35 + rng.next() * 0.3, 0.45, Vector3((rng.next() - 0.5) * 0.3, 0.3 + rng.next() * 0.5, (rng.next() - 0.5) * 0.2), d, {dt = true})
 		"geode":
 			main = _geode(sp, col, rtype, habit, elongated, metal, cmat_spec, make_cmat, crystal, st)
+		"dendrite":
+			# native copper grown as a little tree: branching twigs of metal out of a piece of rock, beaded with crystals
+			var rk: MeshInstance3D = use_rock.call("small")
+			rk.scale = Vector3(0.75, 0.75, 0.75)
+			var cu := SpecMat.make({col = SpecMat.lin(0xd2703a), metal = 1.0, rough = 0.32, coat = 0.2, env = 1.8, grain = 0.35, rough_var = 0.3})
+			var holder := Node3D.new()
+			root.add_child(holder)
+			var base: Vector3 = (st.pick.call() as Vector3) * 0.75
+			for k in 4:
+				var q: Vector3 = (st.pick.call() as Vector3) * 0.75
+				if q.y > base.y: base = q
+			holder.position = base - Vector3(0, 0.02, 0)
+			holder.rotation.y = rng.next() * TAU
+			var sk := SpecBranch.skeleton(rng, {r0 = 0.075 * gs, len0 = 1.05 * gs, levels = 3, kids = [3, 4], kids2 = [2, 3], kid_r = 0.7,
+				kid_len = 0.62, spread = 0.75, gnarl = 0.9, up = 0.9, taper = 0.45})
+			var ms := SpecBranch.build(holder, sk, {m = 7, sub = 2, lump = 0.45, ridge = 0.0, flat = 0.85, seed = seed_v}, cu)
+			for mi: MeshInstance3D in ms: mi.set_meta("col", true)
+			# little octahedral crystals beading the twigs
+			var nub := Geo.octa(1.0)
+			for br: Dictionary in sk:
+				var pts: Array = br.pts
+				var rad: Array = br.rad
+				for i in range(2, pts.size(), 3):
+					if rng.next() < 0.55:
+						var s := float(rad[i]) * (1.1 + rng.next() * 0.9)
+						var c := U.mesh(nub, cu, holder, (pts[i] as Vector3) + _rv() * float(rad[i]) * 0.6, U.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3.ONE * s))
+						c.set_meta("col", true)
+			main = ms[0]
 
 	# genes that shape or colour the crystals themselves: there only if crystals grew
 	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid"])

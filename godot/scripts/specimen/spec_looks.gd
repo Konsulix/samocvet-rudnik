@@ -1,0 +1,59 @@
+class_name SpecLooks
+extends RefCounted
+## Each species' own look, so a new species feels new (docs/species-looks.md): the layouts it grows in and the kinds
+## of find it comes as, its proportions, the rock it likes, how often it rolls the dark lustre, and the one detail it
+## always has. Whatever is not set here is as before; the common layer (growths, mushrooms, moss, rare traits,
+## legendary effects) still comes to any species. A layout the real mineral never takes is sometimes allowed, so
+## nothing the generator can do is lost (hopper cubes on fluorite, hex plates on aquamarine).
+##
+## forms   [[layout, weight]] for crystal and druse finds (a druse weighs "cluster" up)
+## kinds   [[crystal | druse | geode, weight]]
+## rock    [[rock, weight]]
+## dark    the chance of the dark opaque lustre (5% when not set)
+## hk, wk  height and thickness of the crystals; short ones, like amethyst's points, are low hk
+## blunt   flat-ended prisms (the beryls), no point
+## zone    always zoned: [mode, strength, hue shift] — mode 0 pale base, coloured tip; 1 dark base; 2 two colours
+## sig     traits it always has (not named on the card: they are what the species is)
+## more    traits it rolls more often: {trait: extra chance}
+## glass   {dark: how dark the glass body is (smoky quartz), tint: how much the body glows in the species' own colour
+##         rather than showing the room through it (garnet, azurite), 0..1}
+
+const LOOK := {
+	# Old Adit
+	quartz = {forms = [["single", 3.0], ["cluster", 4.0], ["floater", 0.6], ["columnar", 0.8]], kinds = [["crystal", 5.0], ["druse", 4.0], ["geode", 0.4]],
+		rock = [["quartzite", 4.0], ["basalt", 1.0], ["slate", 1.0]], hk = 1.25, wk = 0.85, more = {phantom = 0.12}},
+	amethyst = {forms = [["cluster", 5.0], ["single", 0.6]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 0.8]],
+		rock = [["basalt", 5.0], ["ironstone", 1.0]], hk = 0.4, wk = 1.15, zone = [0, 1.0, 0.0], sig = ["zoned"], more = {scepter = 0.08}},
+	smoky = {forms = [["single", 4.0], ["columnar", 3.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
+		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 1.05, wk = 1.35, dark = 0.3, glass = {dark = 0.7}},
+	calcite = {forms = [["cluster", 5.0], ["single", 2.0], ["pile", 0.6]], kinds = [["druse", 5.0], ["crystal", 3.0]],
+		rock = [["limestone", 5.0], ["basalt", 1.0]]},
+	fluorite = {forms = [["cluster", 5.0], ["single", 2.0], ["hopper", 0.7]], kinds = [["druse", 5.0], ["crystal", 3.0]],
+		zone = [2, 1.0, -0.3], sig = ["zoned"]},
+	pyrite = {forms = [["cluster", 4.0], ["single", 2.0], ["pile", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
+		rock = [["slate", 5.0], ["ironstone", 1.0]]},
+	garnet = {forms = [["pile", 4.0], ["single", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
+		rock = [["slate", 6.0], ["quartzite", 1.0]], dark = 0.0, glass = {tint = 0.65}},
+	# Copper Mountain
+	azurite = {forms = [["radial", 6.0], ["cluster", 1.0]], kinds = [["crystal", 5.0], ["druse", 2.0]],
+		rock = [["ironstone", 3.0], ["limestone", 1.0]], hk = 0.6, wk = 1.1, dark = 0.0, glass = {dark = 0.35, tint = 0.8}},
+	beryl = {forms = [["single", 3.0], ["columnar", 4.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["quartzite", 2.0], ["slate", 1.0]],
+		blunt = true, wk = 1.2},
+	cuprite = {forms = [["pile", 4.0], ["cluster", 3.0]], kinds = [["druse", 4.0], ["crystal", 4.0]], rock = [["ironstone", 4.0], ["basalt", 1.0]], dark = 0.35,
+		glass = {tint = 0.6}},
+	aquamarine = {forms = [["single", 4.0], ["columnar", 3.0], ["hexplates", 0.6]], kinds = [["crystal", 6.0], ["druse", 1.0]],
+		rock = [["quartzite", 3.0], ["slate", 1.0]], blunt = true, hk = 1.3, wk = 0.9, dark = 0.0},
+	emerald = {forms = [["single", 5.0], ["columnar", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["slate", 6.0]], blunt = true, dark = 0.0},
+	# Whalebone Cove
+	gypsum = {forms = [["slabs", 4.0], ["rosette", 3.0], ["radial", 1.0], ["single", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
+		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 1.3, dark = 0.0},
+	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
+		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
+}
+
+static func of(sid: String) -> Dictionary:
+	return LOOK.get(sid, {})
+
+## the kind of find for a species (Stones.roll): its own weights, or the old ones
+static func kinds(sid: String) -> Array:
+	return of(sid).get("kinds", [["crystal", 5.0], ["druse", 4.0], ["geode", 1.4]])

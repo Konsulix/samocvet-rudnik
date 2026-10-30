@@ -277,6 +277,18 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var list: Array = SETS[int(args.get("set", "0"))]
 	if args.has("only"): list = [list[int(args.only)]]  # one specimen, e.g. for the app icon: -- set=11 only=1 clean
+	# area=N: three of each species in that mine's pool, a row each, the kind rolled as the game rolls it (SpecLooks) —
+	# to see that every species looks like itself. base=S moves the seeds
+	if args.has("area"):
+		list = []
+		var pool: Dictionary = Data.AREAS[int(args.area)].pool
+		for sid: String in pool:
+			if Data.HABIT.get(sid, "") == "fossil": continue
+			for k in 3:
+				var sd := int(args.get("base", "500")) + list.size() * 7 + 1
+				var kind: String = "nugget" if sid in Data.NUGGETY else Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977))
+				list.append({seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []})
+		args.cols = args.get("cols", "3")
 	var cols := int(args.get("cols", "4"))
 	var px := int(args.get("px", "280"))
 	var t0 := Time.get_ticks_msec()

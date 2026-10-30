@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", dendrite = "copper tree", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -39,6 +39,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
+	var look := SpecLooks.of(sid)
 	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else {}
 	if habit == "fossil": form = sid
 	elif kind == "geode": form = "geode"
@@ -47,19 +48,24 @@ static func of(o: Dictionary) -> Dictionary:
 	elif "floater" in tr and elongated: form = "floater"
 	else:
 		var opts := []
-		match habit:
-			"prism", "barrel":
-				opts = [["single", 2.0], ["columnar", 3.0], ["cluster", 5.0 if druse else 1.0], ["slabs", 2.0], ["radial", 1.0 if druse else 0.4],
-					["hexplates", 2.0 if habit == "barrel" else 0.6], ["pile", 1.0]]
-			"blade":
-				opts = [["rosette", 3.0], ["slabs", 3.0], ["cluster", 4.0 if druse else 0.5], ["single", 1.0], ["hexplates", 0.8]]
-			"scaleno":
-				opts = [["single", 2.0], ["cluster", 4.0 if druse else 0.8], ["columnar", 1.0], ["pile", 2.0], ["slabs", 1.0]]
-			"cube":
-				if metal: opts = [["cluster", 3.0], ["single", 2.0], ["columnar", 1.0], ["pile", 1.0]]
-				else: opts = [["hopper", 3.0], ["cluster", 3.0 if druse else 0.8], ["single", 1.5], ["pile", 2.0]]
-			_:
-				opts = [["single", 3.0], ["cluster", 4.0 if druse else 1.0], ["pile", 3.0]]
+		if look.has("forms"):
+			# the species' own layouts (a druse leans to the crowded ones)
+			for f: Array in look.forms:
+				opts.append([f[0], float(f[1]) * (2.5 if druse and f[0] == "cluster" else 1.0)])
+		else:
+			match habit:
+				"prism", "barrel":
+					opts = [["single", 2.0], ["columnar", 3.0], ["cluster", 5.0 if druse else 1.0], ["slabs", 2.0], ["radial", 1.0 if druse else 0.4],
+						["hexplates", 2.0 if habit == "barrel" else 0.6], ["pile", 1.0]]
+				"blade":
+					opts = [["rosette", 3.0], ["slabs", 3.0], ["cluster", 4.0 if druse else 0.5], ["single", 1.0], ["hexplates", 0.8]]
+				"scaleno":
+					opts = [["single", 2.0], ["cluster", 4.0 if druse else 0.8], ["columnar", 1.0], ["pile", 2.0], ["slabs", 1.0]]
+				"cube":
+					if metal: opts = [["cluster", 3.0], ["single", 2.0], ["columnar", 1.0], ["pile", 1.0]]
+					else: opts = [["hopper", 3.0], ["cluster", 3.0 if druse else 0.8], ["single", 1.5], ["pile", 2.0]]
+				_:
+					opts = [["single", 3.0], ["cluster", 4.0 if druse else 1.0], ["pile", 3.0]]
 		form = Stones.pick_w(opts, rng)
 	if ("moss" in tr or "coral" in tr) and form in ["floater", "radial"]:
 		form = "cluster" if druse else "single"
@@ -67,15 +73,18 @@ static func of(o: Dictionary) -> Dictionary:
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
 	elif habit == "fossil" and fossil.has("rock"): rock = fossil.rock
 	elif habit == "fossil": rock = "slate" if fossil.get("crushed", false) else Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
-	else: rock = Stones.pick_w([["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]], rng)
+	else: rock = Stones.pick_w(look.get("rock", [["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]]), rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
 	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
-	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < 0.2 and habit != "fossil":
+	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < float(look.get("dark", 0.05)) and habit != "fossil":
 		lustre = "dark"
 	var dark_cols := [Color(0.012, 0.045, 0.045), Color(0.015, 0.035, 0.02), Color(0.012, 0.018, 0.045), Color(0.04, 0.026, 0.018), Color(0.02, 0.02, 0.022)]
 	var dark_col: Color = dark_cols[int(rng.next() * dark_cols.size())]
 	if form == "nugget" and rng.next() < 0.7:
 		form = "vein"
+	# native copper also grows as a little tree of twigs (its own stream: no other gene moves)
+	if sid == "nativecu" and form in ["nugget", "vein"] and Rng32.new((seed_v * 2654435761 + 57) % 4294967296).next() < 0.45:
+		form = "dendrite"
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
@@ -169,6 +178,8 @@ static func of(o: Dictionary) -> Dictionary:
 		gold = "goldfleck" in tr,
 		anomaly = anomaly,
 		hue = (0.25 + rng.next() * 0.5) * (1.0 if rng.next() < 0.5 else -1.0) if anomaly else 0.0,
+		# the traits the species always has (its look, not named on the card)
+		sig = look.get("sig", []),
 		holo = 1.6 if "aurora" in tr else 0.9 if "irid" in tr else 1.0 if anomaly else 0.15 + rng.next() * 0.25,
 	}
 
