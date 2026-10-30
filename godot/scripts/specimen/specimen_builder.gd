@@ -754,9 +754,12 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 	var crust := SpecMat.lin(0x2f8a62) if copper else SpecMat.lin(0x7a2a10)
 	var mm := SpecMat.make({col = metal_c, metal = 1.0, rough = 0.26, coat = 0.25, env = 1.8, grain = 0.5, rough_var = 0.4,
 		dirt = {h = -99.0, a = 0.3, col = crust, fr = 0.0, isl = 0.4 if copper else 0.3, fb = 0.0}})
-	var Q := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.0, wave = 0.24, bumps = [[6, 0.7, 0.14], [18, 0.3, 0.05]], pits = [20, 0.15, 0.06], seg = 64})
-	var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.55, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xc8c4bc if copper else 0xd8d0c0), fr = 0.0, scan = 0}})
-	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.5)
+	# broken, not water-worn: few segments and flat faces give it the angular look of quarried quartz
+	var Q := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.0, wave = 0.3, bumps = [[5, 0.9, 0.2], [12, 0.4, 0.07]], pits = [10, 0.15, 0.05], seg = 20})
+	# milky vein quartz: cold white, a little glossy
+	var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.32, coat = 0.4, coat_r = 0.2, grain = 0.2, ao = 1.0, flat = true,
+		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xdcdee2 if copper else 0xeef0f2), fr = 0.0, scan = 0}})
+	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.35)
 	var main := U.mesh(qg, qm, root)
 	var qn := qg.normals()
 	var near := func(p: Vector3) -> int:
