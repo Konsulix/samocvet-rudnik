@@ -68,6 +68,19 @@ const SAMPLES := {
 	kr_eye = {f = ["weird_08", "weird_09"], db = -3.0, pitch = 0.6},
 	kr_gulls = {f = ["amb/sea/gull_1", "amb/sea/gull_2", "amb/sea/gull_4"], all = true, db = -6.0},
 	kr_drown = {f = ["amb/sea/deep", "amb/sea/bubble_0"], all = true, db = -2.0, pitch = 0.8},
+	# Brontes (Fire Horizon): the mine's own forge recordings (amb/fire: his hammer, the anvil's ring, burning sulphur,
+	# steam), the storm's thunder for his bolt, the creature roars taken low for a giant
+	br_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -3.0, pitch = 0.5},
+	br_phase = {f = ["amb/fire/hammer_1", "roar_05"], all = true, db = -1.0, pitch = 0.6},
+	br_hammer = {f = ["amb/fire/hammer_0", "amb/fire/hammer_2", "impactPunch_heavy_000"], all = true, db = 0.0, pitch = 0.9},
+	br_clang = {f = ["amb/fire/ring"], db = -6.0, pitch = 1.25, step = 0.1},
+	br_anvil = {f = ["amb/fire/ring", "impactMining_001"], all = true, db = -4.0, pitch = 0.8},
+	br_bellows = {f = ["amb/fire/steam", "breath_02"], all = true, db = -5.0, pitch = 0.7},
+	br_pour = {f = ["amb/fire/burn", "gas_1"], all = true, db = -5.0, pitch = 0.8},
+	br_run = {f = ["gas_0", "gas_2"], db = -9.0, pitch = 0.7},
+	br_take = {f = ["amb/fire/ring", "amb/fire/sparks"], all = true, db = -7.0, pitch = 0.6},
+	br_bolt = {f = ["amb/sea/thunder_near_0", "amb/sea/thunder_near_1"], db = 0.0},
+	br_daze = {f = ["amb/fire/ring", "magical_5"], all = true, db = -3.0, pitch = 0.55},
 }
 const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://assets/audio/music/level1.ogg", "res://assets/audio/music/level2.ogg"],
 	# a mine's own: "<track>_<area>" wins over "<track>"

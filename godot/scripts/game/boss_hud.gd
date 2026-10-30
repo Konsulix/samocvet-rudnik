@@ -105,6 +105,10 @@ func _ready() -> void:
 		flower = BoardSprites.flower("flower_s3")}
 	if ResourceLoader.exists("res://assets/boss/kraken/arm_xs.png"):
 		_icons.arm = load("res://assets/boss/kraken/arm_xs.png")
+	if ResourceLoader.exists("res://assets/boss/brontes/billet_4.png"):
+		_icons.bellows = load("res://assets/boss/brontes/billet_4.png")
+	if ResourceLoader.exists("res://assets/boss/brontes/hammer_icon.png"):
+		_icons.hammer = load("res://assets/boss/brontes/hammer_icon.png")
 	if ResourceLoader.exists("res://assets/boss/mistress/lizard_0.png"):
 		_icons.lizards = load("res://assets/boss/mistress/lizard_0.png")
 
@@ -177,7 +181,8 @@ const PLAN_H := 46.0
 const ACT_NAMES := {coils = ["Coils", "locks stones"], rockfall = ["Rockfall", "drops rock"],
 	breath = ["Breath", "spreads gas"], hoard = ["Hoard", "heals on gold"], lizards = ["Lizards", "steal greens"],
 	crust = ["Crust", "locks stones"], flower = ["Flower", "blooms: heals"],
-	tentacle = ["Tentacle", "grips stones"], ink = ["Ink", "hides stones"], tide = ["Tide", "floods the bottom"]}
+	tentacle = ["Tentacle", "grips stones"], ink = ["Ink", "hides stones"], tide = ["Tide", "floods the bottom"],
+	hammer = ["Hammer", "scales stones"], bellows = ["Bellows", "heats billets"], pour = ["Sulphur", "pours, spreads"]}
 
 func bubble_rect() -> Rect2:
 	var vp := lv.get_viewport_rect().size
@@ -256,6 +261,26 @@ func _draw_act(act: String, c: Vector2) -> void:
 		for o in [Vector2(-5, 2), Vector2(5, -3), Vector2(2, 6), Vector2(-3, -6)]:
 			bubble.draw_circle(c + o, 8.0, Color(0.04, 0.04, 0.08, 0.85))
 		bubble.draw_circle(c + Vector2(-4, -4), 2.0, Color(0.6, 0.8, 1.0, 0.6))
+		return
+	if act == "hammer":
+		# a sledgehammer coming down: haft, head, a spark under it
+		var hd := c + Vector2(4, -2)
+		bubble.draw_line(c + Vector2(-12, 12), hd, Color8(120, 82, 48), 4.0, true)
+		var head := PackedVector2Array([hd + Vector2(-9, -2), hd + Vector2(3, -12), hd + Vector2(10, -4), hd + Vector2(-2, 6)])
+		bubble.draw_colored_polygon(head, Color8(40, 38, 40))
+		head.append(head[0])
+		bubble.draw_polyline(head, Color8(150, 140, 130), 1.5, true)
+		bubble.draw_circle(c + Vector2(12, 9), 2.5, Color8(255, 190, 80))
+		return
+	if act == "pour":
+		var blob := PackedVector2Array()
+		for i in 16:
+			var a := i * TAU / 16.0
+			blob.append(c + Vector2(cos(a) * 12.0, sin(a) * 8.0 + 4.0) * (1.0 + 0.12 * sin(a * 3.0)))
+		bubble.draw_colored_polygon(blob, Color8(214, 110, 20))
+		bubble.draw_line(c + Vector2(0, -13), c + Vector2(0, -2), Color8(240, 150, 30), 5.0, true)
+		bubble.draw_circle(c + Vector2(-4, 5), 3.0, Color8(255, 220, 90))
+		bubble.draw_circle(c + Vector2(6, 2), 2.0, Color8(110, 150, 255))
 		return
 	if act == "tide":
 		for k in 3:

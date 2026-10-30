@@ -46,7 +46,7 @@ func _draw() -> void:
 		GemArt.radial_disc(self, f.pos, f.r * (0.6 + k * 0.6), Color(f.col, 1.0 - k), Color(f.col, (1.0 - k) * 0.4), Color(f.col, 0))
 	for i in range(_zaps.size() - 1, -1, -1):
 		var z: Dictionary = _zaps[i]
-		var k: float = (now - z.t0) / 0.28
+		var k: float = (now - z.t0) / float(z.get("dur", 0.28))
 		if k >= 1.0:
 			_zaps.remove_at(i)
 			continue
@@ -57,8 +57,10 @@ func _draw() -> void:
 			if s > 0 and s < segs:
 				p += Vector2(randf() - 0.5, randf() - 0.5) * board.TS * 0.35
 			pts.append(p)
-		draw_polyline(pts, (Color(0.6, 2.2, 3.0, 1.0 - k) if BoardSprites.gem_style != "" else Color(2.2, 1.6, 3.0, 1.0 - k)), 3.0, true)
-		draw_polyline(pts, Color(1, 1, 1, 1.0 - k), 1.2, true)
+		var zc: Color = z.get("col", Color(0.6, 2.2, 3.0) if BoardSprites.gem_style != "" else Color(2.2, 1.6, 3.0))
+		var zw: float = z.get("w", 3.0)
+		draw_polyline(pts, Color(zc, 1.0 - k), zw, true)
+		draw_polyline(pts, Color(1, 1, 1, 1.0 - k), zw * 0.4, true)
 
 # ---------------------------------------------------------------- particles
 
@@ -583,3 +585,16 @@ func fly_icon(r: float, c: float, target: Vector2, k: String, colour: int, glow:
 	tw.finished.connect(func():
 		n.queue_free()
 		on_land.call())
+
+## Brontes' thunderbolt down a column, from above the board to its bottom: thick violet-white, flickering, three
+## strokes; sparks where it hits
+func thunder(c: int, r0: int, r1: int) -> void:
+	var a := cell(r0 - 1.5, c)
+	var b := cell(r1 + 0.3, c)
+	var t0 := Time.get_ticks_msec() / 1000.0
+	for i in 3:
+		_zaps.append({a = a + Vector2(randf_range(-6, 6), 0), b = b, t0 = t0 + i * 0.06, col = Color(1.6, 0.9, 2.6), w = 7.0 - i * 2.0, dur = 0.5})
+	for r in range(r0, r1 + 1):
+		burst(cell(r, c), Color(1.4, 1.0, 2.4), 4, 200.0, 300.0, 3.0, true)
+	flash(r1, c, Color(1.8, 1.2, 2.6), 2.2)
+	shake = maxf(shake, 14.0)

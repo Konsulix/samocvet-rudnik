@@ -768,6 +768,42 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				tw.tween_property(box, "scale", Vector2(1.08, 1.08), 0.07)
 				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("coin"))
+		"billet":
+			board.redraw_under()
+			var hc: Color = BoardView.HEAT_COL[int(e.heat)]
+			if int(e.heat) >= 2:
+				fx.flash(e.r, e.c, Color(hc.r * 2.2, hc.g * 2.0, hc.b * 1.6), 1.5)
+				fx.burst(board.cell_center(e.r, e.c), Color(hc.r * 2.0, hc.g * 1.8, hc.b * 1.4), 10 + int(e.heat) * 6, 300.0, 420.0, 3.5, true)
+				LevelBoss.sound(self, "clang", "crack")
+			else:
+				fx.debris(e.r, e.c, Color("#4a4a52"), 8)
+				Sfx.play("rock")
+			fx.debris(e.r, e.c, Color("#2c2a2a"), 6)
+			Sfx.buzz(20 + int(e.heat) * 10)
+		"melt":
+			board.redraw_under()
+			fx.debris(e.r, e.c, Color("#e3c23a"), 9)
+			fx.sparkle(e.r, e.c, Color(1.6, 1.2, 0.3), 6)
+			Sfx.play("crust")
+		"scale":
+			board.over.queue_redraw()
+			fx.debris(e.r, e.c, Color("#1e1a18"), 8)
+			fx.burst(board.cell_center(e.r, e.c), Color(2.0, 1.1, 0.4), 3, 180.0, 400.0, 2.5, true)
+			Sfx.play("crust")
+		"bolt_hit":
+			board.anvil_at = Time.get_ticks_msec() / 1000.0
+			fx.flash(e.r, e.c, Color(1.6, 1.0, 2.6), 2.2)
+			fx.burst(board.cell_center(e.r, e.c), Color(1.4, 1.0, 2.4), 14, 260.0, 300.0, 3.0, true)
+			LevelBoss.sound(self, "anvil", "crack")
+			board.bolt_marks = model.bolt_cells()
+			board.over.queue_redraw()
+		"daze":
+			fx.ring(e.r, e.c, 2.4, Color(1.6, 1.2, 2.6))
+			var bv := LevelBoss.view(self)
+			if bv: bv.hit(true)
+			LevelBoss.line(self, "daze")
+			LevelBoss.sound(self, "daze", "boom")
+			_cheer("Dazed! Double damage")
 		"tentacle_cut":
 			board.sea_over.queue_redraw()
 			for p: Vector2i in e.cells: fx.debris(p.x, p.y, Color("#8a6a7a"), 7)
@@ -833,6 +869,12 @@ func _after_turn() -> void:
 		await LevelBoss.after_turn(self)
 		if int(model.boss.stage) != stage_was:
 			busy = false
+			return
+		# his own turn can finish him (Brontes: a special left under his hammer goes off)
+		if model.goals_done():
+			model.over = true
+			await _finale()
+			_win()
 			return
 	var p := model.gas_spread()
 	if p.x >= 0:
@@ -1202,6 +1244,37 @@ func _eye_swim() -> void:
 	busy = true
 	model.eye.wait = 0
 	await LevelBoss._eye_swim(self)
+	busy = false
+
+## `-- area=3 level=1 gen depth=9 [boss_stage=N] ui=forge_act act=hammer|bellows|pour|bolt|daze`: Brontes acts right away
+## (the bolt: charged to one short of full, it strikes after this move; daze: its last charge knocked off)
+func _forge_act() -> void:
+	if not model.boss_on() or not model.boss.B.act.has("bellows"): return
+	var act := "hammer"
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("act="): act = arg.get_slice("=", 1)
+	if act == "daze":
+		# the last charge knocked off the bolt: he reels
+		if model.bolt.is_empty(): return
+		model.bolt.ch = 1
+		await _wait(1.0)
+		model.fx = []
+		model.run_blast([{t = 0.0, r = int(model.bolt.r), c = int(model.bolt.c), kind = "fx"}])
+		_play_fx(model.fx.duplicate(), {})
+		return
+	if act == "bolt":
+		if model.bolt.is_empty(): return
+		model.bolt.ch = int(model.boss.B.act.bolt.get("max", 6)) - 1
+		model.bolt.cols = model._bolt_cols()
+	else:
+		model.boss.k = 0
+		model.boss.B.stages[model.boss.stage].acts = [act]
+		model.boss_plan()
+		model.boss.timer = 1
+	LevelBoss.show_intent(self)
+	await _wait(1.0)
+	busy = true
+	await LevelBoss.after_turn(self)
 	busy = false
 
 ## `-- area=1 level=1 gen depth=6 ui=boss_raid`: the Mistress' lizards come for the greens right away
