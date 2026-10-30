@@ -11,7 +11,7 @@ extends RefCounted
 ##   into its puddle at 50 m, the goat's bleat. Cicadas, the goat and the steam are nearly all highs: they go past the
 ##   bus's low-pass (MineAmb.hum/shot_clear), else it took them away.
 
-const CICADA_DB := -16.0
+const CICADA_DB := -20.0
 const BURN_DB := -18.0
 const RIVER_DB := -14.0
 const STREAM_DB := -16.0
