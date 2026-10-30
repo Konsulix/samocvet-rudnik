@@ -586,16 +586,21 @@ func _lighthouse(c: CanvasItem) -> void:
 		var k := 1.0 if dirx < 0 else 0.3
 		var bk := k * (0.4 + 0.6 * absf(bm.x))
 		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-		# the cone as a fan of light: narrow and bright at the lantern, wide and gone at its end (a halo, then the core)
+		# the cone as a fan of light: narrow and bright at the lantern, wide and gone at its end; a grid of quads with a
+		# smooth profile across (a wide halo, then the core) and along — no hard edges between layers
 		var wd := float(lh.width) * (0.75 + 0.25 * (1.0 - absf(bm.x)))
-		for layer in 3:
-			var w0: float = [34.0, 20.0, 9.0][layer]
-			var w1: float = wd * [1.45, 1.0, 0.5][layer]
-			var a0: float = [0.08, 0.16, 0.42][layer] * bk
-			var end := at + Vector2(dirx * ln, 0)
-			var poly := PackedVector2Array([at + Vector2(0, -w0), end + Vector2(0, -w1), end + Vector2(0, w1), at + Vector2(0, w0)])
-			var cols := PackedColorArray([Color(1.0, 0.93, 0.72, a0), Color(1.0, 0.93, 0.72, 0.0), Color(1.0, 0.93, 0.72, 0.0), Color(1.0, 0.93, 0.72, a0)])
-			c.draw_polygon(poly, cols)
+		const NA := 6
+		const NU := 24
+		for i in NA:
+			var s0 := float(i) / NA
+			var s1 := float(i + 1) / NA
+			for j in NU:
+				var u0 := -1.0 + 2.0 * float(j) / NU
+				var u1 := -1.0 + 2.0 * float(j + 1) / NU
+				var poly := PackedVector2Array([_beam_pt(at, dirx, ln, wd, s0, u0), _beam_pt(at, dirx, ln, wd, s1, u0),
+					_beam_pt(at, dirx, ln, wd, s1, u1), _beam_pt(at, dirx, ln, wd, s0, u1)])
+				var cols := PackedColorArray([_beam_col(s0, u0, bk), _beam_col(s1, u0, bk), _beam_col(s1, u1, bk), _beam_col(s0, u1, bk)])
+				c.draw_polygon(poly, cols)
 		# rain lit up inside the beam: short slanting streaks falling through it
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 5
@@ -613,6 +618,16 @@ func _lighthouse(c: CanvasItem) -> void:
 		if dirx < 0.0:
 			_light(c, at + Vector2(dirx * ln * 0.8, -40.0), 160.0 + 120.0 * absf(bm.x), Color(0.95, 0.9, 0.75, 0.16 * bk))
 	_light(c, at, 60 + 140 * bm.y, Color(1.0, 0.88, 0.6, 0.35 + 0.5 * bm.y))
+
+## a point of the beam: s along it (0 at the lantern, 1 at its end), u across it (-1..1 of the halo's half-width)
+func _beam_pt(at: Vector2, dirx: float, ln: float, wd: float, s: float, u: float) -> Vector2:
+	return at + Vector2(dirx * ln * s, u * lerpf(34.0, wd * 1.45, s))
+
+## its light there: a soft halo, a brighter band and a narrow core, all fading smoothly across and along
+func _beam_col(s: float, u: float, bk: float) -> Color:
+	var h := 1.0 - u * u
+	var a := 0.10 * h * h + 0.16 * exp(-5.0 * u * u) + 0.40 * exp(-28.0 * u * u)
+	return Color(1.0, 0.93, 0.72, a * pow(1.0 - s, 1.2) * bk)
 
 ## the chapel: its windows glow; every 31 s its bell strikes three times (rings of light from the belfry)
 const CHAPEL_CYCLE := 31.0
