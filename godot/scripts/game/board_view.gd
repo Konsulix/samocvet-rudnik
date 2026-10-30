@@ -48,6 +48,23 @@ var _whirl_a := 0.0
 var _whirl_kick := -10.0
 var _eye_tex := {}            # his drawn eye, open and shut: loaded with the board (a texture first drawn the frame it
                               # loads shows white)
+## his eye alive (shaders/kraken_eye.gdshader on its own layer, over the stones): the pupil darts about in jerks -
+## now a burst of quick darts, now a roll round the eyeball, now a stare at where the player touched the board -
+## narrows and widens, the lids blink, squint and flinch shut, the whole eye shudders now and then
+var eye_layer: Node2D
+var _eye_meta := {}
+var _look := Vector2.ZERO        # the pupil's offset now, px of the eye picture
+var _look_to := Vector2.ZERO
+var _look_next := 0.0
+var _burst := 0                  # quick darts left in a burst
+var _roll_until := -1.0
+var _roll_a := 0.0
+var _stare_until := -1.0
+var _blink_at := 2.0             # the next blink starts then
+var _squint_until := -1.0
+var _twitch_at := -10.0
+var _lid := 0.0
+var _slit := Vector2(11, 3)
 var _down := {}
 
 func _init() -> void:
@@ -80,6 +97,11 @@ func _ready() -> void:
 	ink_layer.material = im
 	sea_over = _layer(_draw_sea_over)
 	sea_over.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	eye_layer = _layer(func(ci: Node2D): _draw_eye(ci, Time.get_ticks_msec() / 1000.0))
+	eye_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var eym := ShaderMaterial.new()
+	eym.shader = preload("res://shaders/kraken_eye.gdshader")
+	eye_layer.material = eym
 
 func _layer(fn: Callable) -> Node2D:
 	var n := Node2D.new()
@@ -125,6 +147,14 @@ func rebuild(m: BoardModel) -> void:
 		move_child(_whirl, gems.get_index())
 	if dir != "" and not m.eye.is_empty() and ResourceLoader.exists(dir + "eye_open.png"):
 		_eye_tex = {open = load(dir + "eye_open.png"), shut = load(dir + "eye_shut.png")}
+		if ResourceLoader.exists(dir + "eye_blank.png"):
+			_eye_tex.blank = load(dir + "eye_blank.png")
+			_eye_meta = JSON.parse_string(FileAccess.get_file_as_string(dir + "eye.json"))
+			var em := eye_layer.material as ShaderMaterial
+			em.set_shader_parameter("ball", load(dir + "eye_ball.png"))
+			em.set_shader_parameter("size", Vector2(_eye_meta.size[0], _eye_meta.size[1]))
+			em.set_shader_parameter("ball_c", Vector2(_eye_meta.ball[0], _eye_meta.ball[1]))
+			em.set_shader_parameter("ball_h", Vector2(_eye_meta.ball[2], _eye_meta.ball[3]))
 	for n in gems.get_children(): n.queue_free()
 	nodes.clear()
 	for r in R:
@@ -560,6 +590,9 @@ func _process(dt: float) -> void:
 		sea_under.queue_redraw()
 		sea_over.queue_redraw()
 		ink_layer.queue_redraw()
+		if not model.eye.is_empty():
+			_eye_live(dt)
+			eye_layer.queue_redraw()
 	if _whirl:
 		var kick := clampf(1.0 - (Time.get_ticks_msec() / 1000.0 - _whirl_kick) / 0.8, 0.0, 1.0)
 		_whirl_a += dt * (1.0 + 3.0 * kick)
@@ -584,6 +617,7 @@ func _gui_input(e: InputEvent) -> void:
 		var cell := cell_at(e.position)
 		if model and model.playable(cell.x, cell.y):
 			_down = {cell = cell, pos = e.position, moved = false}
+			eye_watch(cell.x, cell.y)
 	elif press and not e.pressed:
 		if not _down.is_empty() and not _down.moved:
 			tapped.emit(_down.cell.x, _down.cell.y)
@@ -648,23 +682,99 @@ func _draw_whirl(ci: Node2D) -> void:
 ## board, its torn edge over the cells round it, its shadow on them; open (watching the board) or shut after a hit
 func _draw_eye(ci: Node2D, now: float) -> void:
 	var e := _sea_mid(2)
-	if e.x < 0.0 or model.eye.is_empty() or _eye_tex.is_empty(): return
-	# shut after a hit; open, it blinks now and then (two rhythms, so not like a clock) and breathes a little
-	var shut := int(model.eye.shut) > 0 or fposmod(now + 1.3, 4.7) < 0.15 or fposmod(now + 3.1, 6.3) < 0.12
-	var tx: Texture2D = _eye_tex.shut if shut else _eye_tex.open
-	if not shut:
-		var glow := 0.55 + 0.25 * sin(now * 2.2)
-		GemArt.radial_disc(ci, e, TS * 1.3, Color(0.5, 0.9, 1.0, 0.25 * glow), Color(0.4, 0.85, 1.0, 0.08), Color(0.4, 0.85, 1.0, 0))
+	if e.x < 0.0 or model == null or model.eye.is_empty() or _eye_tex.is_empty(): return
+	var live: bool = _eye_tex.has("blank")
+	var shut := int(model.eye.shut) > 0
+	var tx: Texture2D = _eye_tex.blank if live else (_eye_tex.shut if shut else _eye_tex.open)
+	var glow := 0.55 + 0.25 * sin(now * 2.2)
+	if _lid < 0.8:
+		GemArt.radial_disc(ci, e, TS * 1.3, Color(0.5, 0.9, 1.0, 0.25 * glow * (1.0 - _lid)), Color(0.4, 0.85, 1.0, 0.08), Color(0.4, 0.85, 1.0, 0))
 	var k := TS / 37.0 * (1.0 + 0.018 * sin(now * 1.7))
 	var sz := (Vector2(tx.get_size()) * k).round()
-	var at := (e - sz * 0.5).round()
+	# a shudder now and then, a hard one when hit
+	var since := now - eye_at
+	var shake := Vector2.ZERO
+	var tw := now - _twitch_at
+	if tw < 0.25: shake = Vector2(sin(tw * 90.0), cos(tw * 70.0)) * 1.5 * k
+	if since < 0.35: shake += Vector2(sin(since * 80.0), cos(since * 65.0)) * 3.0 * k * (1.0 - since / 0.35)
+	var at := (e - sz * 0.5 + shake).round()
+	if live:
+		var em := ci.material as ShaderMaterial
+		em.set_shader_parameter("look", _look.round())
+		em.set_shader_parameter("slit", _slit)
+		em.set_shader_parameter("lid", _lid)
+		em.set_shader_parameter("glow", 0.95 + 0.12 * sin(now * 3.1))
 	# its own shape as a shadow cast down-right
 	ci.draw_texture_rect(tx, Rect2(at + (Vector2(6, 8) * k).round(), sz), false, Color(0, 0, 0, 0.28))
 	ci.draw_texture_rect(tx, Rect2(at + (Vector2(3, 4) * k).round(), sz), false, Color(0, 0, 0, 0.45))
 	ci.draw_texture_rect(tx, Rect2(at, sz), false)
-	var since := now - eye_at
 	if since < 0.4:
 		ci.draw_circle(e, TS * (1.0 + since), Color(1.0, 0.95, 0.8, 0.5 * (1.0 - since / 0.4)), false, 3.0)
+
+## the player touched the board at (r, c): he stares there a moment
+func eye_watch(r: int, c: int) -> void:
+	if _eye_meta.is_empty(): return
+	var d := cell_center(r, c) - _sea_mid(2)
+	var half := Vector2(_eye_meta.ball[2], _eye_meta.ball[3])
+	_look_to = _clamp_look(d.normalized() * half * minf(1.0, d.length() / (TS * 2.0)))
+	_stare_until = Time.get_ticks_msec() / 1000.0 + randf_range(0.6, 1.1)
+	_roll_until = -1.0
+	_burst = 0
+
+## where the pupil may go: its slit stays inside the eyeball
+func _clamp_look(v: Vector2) -> Vector2:
+	var hx := float(_eye_meta.ball[2]) - _slit.x - 1.0
+	var hy := float(_eye_meta.ball[3]) - _slit.y - 2.0
+	var q := Vector2(v.x / maxf(hx, 1.0), v.y / maxf(hy, 1.0))
+	if q.length() > 1.0: q = q.normalized()
+	return Vector2(q.x * hx, q.y * hy)
+
+## the eye's restless life, a frame at a time
+func _eye_live(dt: float) -> void:
+	if _eye_meta.is_empty(): return
+	var now := Time.get_ticks_msec() / 1000.0
+	var hit := now - eye_at
+	var half := Vector2(_eye_meta.ball[2], _eye_meta.ball[3])
+	# where the pupil goes next: jerky darts, bursts of quick ones, a roll round the eyeball; a stare holds it
+	if now >= _roll_until and now >= _stare_until and now >= _look_next:
+		var pick := randf()
+		if _burst > 0:
+			_burst -= 1
+			_look_next = now + randf_range(0.07, 0.16)
+		elif pick < 0.12:
+			_roll_until = now + randf_range(0.7, 1.3)
+			_roll_a = randf() * TAU
+			_look_next = _roll_until
+		elif pick < 0.38:
+			_burst = randi_range(2, 4)
+			_look_next = now + 0.1
+		else:
+			_look_next = now + randf_range(0.25, 1.3)
+		_look_to = _clamp_look(Vector2(randf_range(-1, 1), randf_range(-0.8, 0.8)) * half)
+	if now < _roll_until:
+		_roll_a += dt * 9.0
+		_look_to = _clamp_look(Vector2(cos(_roll_a), sin(_roll_a)) * half)
+	# a dart is fast, then it holds still
+	_look = _look.lerp(_look_to, 1.0 - exp(-dt * 28.0))
+	# the slit: narrow, flicking narrower or rounder now and then; hit, it blows wide and round and settles back
+	var want := Vector2(11, 3)
+	if hit < 1.2: want = Vector2(8, 8).lerp(want, clampf(hit / 1.2, 0.0, 1.0))
+	elif fposmod(now * 0.37, 1.0) < 0.12: want = Vector2(12, 1.5)
+	elif fposmod(now * 0.23 + 0.5, 1.0) < 0.1: want = Vector2(8, 6)
+	_slit = _slit.lerp(want, 1.0 - exp(-dt * 14.0))
+	# the lids: shut while he is hurt, a blink every few seconds (now and then a double one), a suspicious squint
+	if now >= _blink_at + 0.18:
+		_blink_at = now + (0.25 if randf() < 0.2 else randf_range(1.6, 4.5))
+	if now >= _squint_until + 3.0 and randf() < dt * 0.2:
+		_squint_until = now + randf_range(0.6, 1.4)
+	if now >= _twitch_at + 1.0 and randf() < dt * 0.35:
+		_twitch_at = now
+	var to := 0.0
+	if int(model.eye.shut) > 0: to = 1.0
+	elif now < _squint_until: to = 0.5
+	var b := now - _blink_at
+	if b >= 0.0 and b < 0.18: to = maxf(to, 1.0 - absf(b - 0.08) / 0.1)
+	_lid = lerpf(_lid, to, 1.0 - exp(-dt * (40.0 if to > _lid else 14.0)))
 
 ## the ink as one cloud over the grid (shaders/ink.gdshader): the board's ink goes in as a small mask, a texel a cell
 ## with a cell of margin (1 just spilled, 0.55 on its last move), and the shader smooths and frays it into one blot
@@ -697,7 +807,6 @@ func _draw_ink(ci: Node2D) -> void:
 func _draw_sea_over(ci: Node2D) -> void:
 	if model == null: return
 	var now := Time.get_ticks_msec() / 1000.0
-	_draw_eye(ci, now)
 	for r in R:
 		for c in C:
 			if not model.playable(r, c): continue
