@@ -10,6 +10,7 @@ const FRAMES := {
 	tab_on = [50, 50, 50, 50, 3.4], btn_green = [66, 44, 66, 44, 3.0], btn_slate = [66, 44, 66, 44, 3.0], btn_gold = [56, 44, 56, 44, 3.0],
 	btn_dark = [46, 38, 46, 38, 3.0], title = [56, 36, 56, 36, 3.0], capsule = [72, 44, 72, 44, 3.2],
 	sq_gold = [36, 36, 36, 36, 3.0], sq_dark = [36, 36, 36, 36, 3.0],
+	bubble = [46, 46, 46, 46, 3.0],   # the guide's parchment note (GuideBubble; art/ui_kit/bubble/cut.py)
 }
 ## plates whose round ends must keep their shape: scaled to the height, stretched only sideways (KitBox.fit_h)
 const FIT_H := ["capsule"]
