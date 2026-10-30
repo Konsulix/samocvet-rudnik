@@ -72,7 +72,9 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 			# on a slab: young ones beside it (a brood), or the shell crushed flat in shale
 			g.brood = 1 + int(rng.next() * 3) if rng.next() < 0.3 else 0
 			g.crushed = rng.next() < 0.15
-			for k in ["show", "nacre", "fire", "pal", "fill", "hetero", "pair", "hollow", "brood", "crushed"]:
+			# sea lilies behind it on the slab: some have them, some not (their own stream)
+			g.lilies = Rng32.new((seed_v * 2246822519 + 29) % 4294967296).next() < 0.5
+			for k in ["show", "nacre", "fire", "pal", "fill", "hetero", "pair", "hollow", "brood", "crushed", "lilies"]:
 				if o.has(k): g[k] = o[k]
 			if g.hetero != "" and g.show == "split": g.show = "loose"
 			if g.show != "split":
@@ -111,7 +113,7 @@ static func accents(g: Dictionary) -> Array:
 		if int(g.get("brood", 0)) > 0: out.append("brood")
 		if g.get("crushed", false): out.append("crushed")
 		if String(g.get("hetero", "")) != "": out.append("hetero")
-		if g.show == "matrix": out.append("lilies")
+		if g.show == "matrix" and g.get("lilies", false): out.append("lilies")
 		if int(g.get("pal", 0)) == 3: out.append("pyrite_sh")
 	return out
 
@@ -608,11 +610,16 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 				if spot == null: break
 				var lp: Vector3 = spot
 				lp.y = SpecTrilobite._ground(rk, lp, span * 0.05) - span * 0.01
-				var li := U.mesh(SpecSea.lily(lrng, span * (0.35 + lrng.next() * 0.2)), lm, root, lp, Basis(Vector3.UP, (lrng.next() - 0.5) * 0.8))
-				li.set_meta("col", true)
-				occ.append([Vector2(lp.x, lp.z), span * 0.06])
+				var lh := span * (0.35 + lrng.next() * 0.2)
+				var lg := SpecSea.lily(lrng, lh)
+				var turn := Basis(Vector3.UP, (lrng.next() - 0.5) * 0.8)
+				# (without lilies the same spots still let out bubbles: the draws are kept so nothing else moves)
+				if f.get("lilies", false):
+					var li := U.mesh(lg, lm, root, lp, turn)
+					li.set_meta("col", true)
+					occ.append([Vector2(lp.x, lp.z), span * 0.06])
+					if k == 0: b._mark("lilies", lp + turn * Vector3(0, lh * 0.9, 0), Vector3.ZERO)
 				spots.append(lp)
-				if k == 0: b._mark("lilies", lp + Vector3(0, span * 0.3, 0), Vector3.UP)
 			if spots.size():
 				SpecSea.bubbles(root, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
 		"loose":

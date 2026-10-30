@@ -130,7 +130,7 @@ static func accents(g: Dictionary) -> Array:
 		if float(g.get("lichen", 0.0)) > 0.0: d.append("lichen")
 		if float(g.get("moss", 0.0)) > 0.0: d.append("moss")
 		if float(g.get("galleries", 0.0)) > 0.0: d.append("galleries")
-		if g.get("sea", false): d.append_array(["shipworm", "barnacles"])
+		if g.get("sea", false): d.append("sea")
 		if g.get("foxfire", false): d.append("foxfire")
 		if g.get("staple", false): d.append("staple")
 		if String(g.get("pebble", "")) != "": d.append("pebble")
@@ -138,7 +138,7 @@ static func accents(g: Dictionary) -> Array:
 	var out := ["rings"]
 	if float(g.opal) >= 0.03: out.append("opal")
 	if float(g.bark) > 0.0: out.append("bark")
-	if int(g.checks) > 0: out.append("checks_" + String(g.ck_fill))
+	if int(g.checks) > 0: out.append("checks")
 	if String(g.heart) != "": out.append("heart_" + String(g.heart))
 	return out
 
@@ -147,9 +147,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"opal": return "opalized %d%%" % roundi(float(g.opal) * 100.0) if float(g.opal) >= 0.5 else "opal %d%%" % roundi(float(g.opal) * 100.0)
 		"rings": return "%d growth rings" % int(g.rings)
 		"bark": return "bark"
-		"checks_quartz": return "quartz-healed cracks"
-		"checks_opal": return "opal-healed cracks"
-		"checks_empty": return "open cracks"
+		"checks": return "open cracks" if g.ck_fill == "empty" else "%s-healed cracks" % String(g.ck_fill)
 		"heart_amethyst": return "amethyst heart"
 		"heart_quartz": return "quartz heart"
 		"heart_citrine": return "citrine heart"
@@ -159,8 +157,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"lichen": return "lichen"
 		"moss": return "moss"
 		"galleries": return "bark beetle galleries"
-		"shipworm": return "shipworm borings"
-		"barnacles": return "barnacles"
+		"sea": return "sea-worn"
 		"foxfire": return "foxfire"
 		"staple": return "iron staple"
 		"pebble": return "ingrown %s pebble" % String(g.pebble)
@@ -468,11 +465,42 @@ static func _marks(b: RefCounted, f: Dictionary, nz: Dictionary, ck: Array, hold
 	for k in ck.size():
 		var c: Array = ck[k]
 		var rel := 1.0 - float(c[1]) * 0.3
-		mk.call("checks_" + String(f.ck_fill), on_face.call(float(c[0]), rel), nrm)
+		mk.call("checks", on_face.call(float(c[0]), rel), nrm)
 		if f.ck_fill == "opal": mk.call("opal", on_face.call(float(c[0]), rel - 0.04), nrm)
-	if float(f.opal) >= 0.4:
-		for k in 3:
-			mk.call("opal", on_face.call(1.3 + k * 2.1, 0.35 + 0.15 * k), nrm)
+	if float(f.opal) > 0.0:
+		# opal where wood.gdshader puts it: the middles of the rot pockets, halfway out along the star's cracks, and the
+		# deepest of the pools on the side it lay wet (the shader's own noise, SpecMask)
+		var sd := float(int(f.seed) % 997) * 0.37
+		var zo: float = zf if f.show == "log" else 0.0
+		var ops := []
+		for k in int(f.get("pockets", 0)):
+			var ak := SpecMask.h3x(Vector3(k, sd, 31.0)) * TAU
+			var rk := 0.2 + 0.6 * SpecMask.h3x(Vector3(k, sd, 32.0))
+			ops.append(Vector3(ecc.x, ecc.y, 0) + Vector3(cos(ak), sin(ak), 0) * rk * _outline(f, nz, ak, zo).x + fz)
+		var sn := int(f.get("star", 0))
+		if f.get("star_fill", "") == "opal":
+			for k in sn:
+				var ak := (k + 0.5 * SpecMask.h3x(Vector3(k, sd, 21.0))) * TAU / sn
+				var u := (0.35 + 0.6 * SpecMask.h3x(Vector3(k, sd, 22.0))) * 0.5
+				ops.append(Vector3(ecc.x, ecc.y, 0) * (1.0 - u) + Vector3(cos(ak), sin(ak), 0) * u * _outline(f, nz, ak, zo).x + fz)
+		if float(f.opal) >= 0.45:
+			var side := Vector2(cos(sd * 3.7), sin(sd * 3.7))
+			var th := 0.82 - float(f.opal) * 0.26
+			var best := -1.0
+			var at := Vector3.ZERO
+			for i in 32:
+				var phi := TAU * i / 32.0
+				var rr: float = _outline(f, nz, phi, zo).x
+				for j in range(2, 10):
+					var xy := Vector2(cos(phi), sin(phi)) * _rim(f, nz, ck, phi, zo) * j / 10.0
+					var q := xy - ecc * (1.0 - clampf(xy.length() / rr, 0.0, 1.0))
+					var pn := SpecMask.fbm(Vector3(xy.x * 2.2 / rr, xy.y * 2.2 / rr, sd + 40.0)) + q.normalized().dot(side) * q.length() / rr * 0.35
+					if pn > th + 0.03 and pn > best:
+						best = pn
+						at = Vector3(xy.x, xy.y, 0) + fz
+			if best > 0.0: ops.append(at)
+		for o in ops.slice(0, 6):
+			mk.call("opal", o, nrm)
 	if String(f.heart) != "":
 		mk.call("heart_" + String(f.heart), Vector3(ecc.x, ecc.y, zf - float(f.thick) * 0.3), nrm)
 	if float(f.bark) > 0.0:
@@ -524,17 +552,31 @@ static func _twig(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var gs: float = gene.scale
 	holder.transform = Transform3D(Basis(Vector3.UP, b.rng.next() * TAU) * Basis(Vector3.BACK, (b.rng.next() - 0.5) * 0.3) * Basis.from_scale(Vector3.ONE * gs), Vector3(0, -0.6 * gs, 0))
 	var ms := SpecBranch.build(holder, sk, {m = 18, sub = 3, lump = 0.2, ridge = 0.1, flat = 0.62, seed = int(f.seed)}, m)
-	# callouts: along the trunk and a branch (plates are everywhere on it; opal on most stretches)
-	var xf := U.rel_xform(holder, b.root)
-	for k in mini(3, sk.size()):
-		var br: Dictionary = sk[k]
-		var pts: Array = br.pts
-		var i := int(pts.size() * 0.5)
-		var d: Vector3 = (pts[mini(i + 1, pts.size() - 1)] - pts[i]).normalized()
-		var side := d.cross(Vector3.UP).normalized() if absf(d.y) < 0.95 else Vector3.RIGHT
-		var p: Vector3 = pts[i] + side * float(br.rad[i])
-		b._mark("opal" if k != 1 else "bark", xf * p, (xf.basis * side).normalized())
+	# callouts: on the very plates branch.gdshader (mode 0) paints opal, and on plain bark plates
+	var sd := float(int(f.seed) % 997) * 0.37
+	var ok := float(f.opal)
+	for id in ["opal", "bark"]:
+		var score := func(_p: Vector3, uv: Vector2, _uv2: Vector2, c: Color) -> float:
+			var o := _twig_opal(uv, c, sd, ok)
+			return o if id == "opal" else (1.0 - o) * float(c.r < 0.5) * float(o >= 0.0)
+		for at: Array in SpecMask.spots(ms, b.root, score, 3):
+			b._mark(id, at[0], at[1])
 	return ms[0]
+
+## 1 on an opal plate of the twig (branch.gdshader mode 0, the plate's middle), 0 on a bark plate, -1 on a ridge
+static func _twig_opal(uv: Vector2, c: Color, sd: float, ok: float) -> float:
+	if c.r > 0.5: return -1.0
+	var u := uv.x
+	var a := uv.y
+	var rid := c.g * 37.0 + sd
+	var cs := Vector2(cos(a * TAU), sin(a * TAU))
+	var q := Vector2(u * 0.62 + rid, a * 6.0)
+	q += Vector2(SpecMask.fbm(Vector3(cs.x * 1.5, cs.y * 1.5, u * 0.3 + rid)) - 0.5, SpecMask.fbm(Vector3(cs.x * 1.5, cs.y * 1.5, u * 0.3 + rid + 7.0)) - 0.5) * Vector2(0.45, 0.5)
+	var cl := SpecMask.vor2w(q, 6.0)
+	var wr := 0.07 + 0.12 * SpecMask.vn(Vector3(q.x * 2.0, q.y * 2.0, rid))
+	if cl.y < wr + 0.12: return -1.0
+	var stretch := smoothstep(0.38, 0.55, SpecMask.fbm(Vector3(u * 0.12, rid, 3.0)))
+	return 1.0 if cl.z < ok * lerpf(0.35, 1.3, stretch) else 0.0
 
 ## driftwood: a gnarled, weathered stump with curling arms, a hollow worn into its trunk holding chunks of opal or a
 ## crystal that glows from inside; honey fungus on it sometimes
@@ -719,7 +761,7 @@ static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMateria
 		for c in 2 + int(rng.next() * 3):
 			var at: Array = front[int(rng.next() * front.size())]
 			var p0: Vector3 = at[0]
-			if c == 0: marks.barnacles = at
+			if c == 0: marks.sea = at
 			var near := spots.filter(func(sp: Array) -> bool: return (sp[0] as Vector3).distance_to(p0) < r0 * 0.7)
 			for k in 8 + int(rng.next() * 10):
 				var q: Array = near[int(rng.next() * near.size())]
@@ -728,7 +770,7 @@ static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMateria
 				var mi := U.mesh(bg, bm, holder, (q[0] as Vector3) - nrm * sz * 0.1,
 					Basis(U.quat_to(Vector3.UP, nrm)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(sz, sz * (0.6 + rng.next() * 0.5), sz)))
 				mi.set_meta("col", true)
-		marks.shipworm = spots[int(rng.next() * spots.size())]
+		rng.next()   # (was the shipworm's callout spot; kept so the staple and pebble stay where they were)
 	if f.get("staple", false):
 		# a hand-forged staple: a flat bridge standing a little off the wood, its two legs driven in
 		var at: Array = front[int(rng.next() * front.size())]
@@ -773,10 +815,54 @@ static func _life(b: RefCounted, f: Dictionary, holder: Node3D, m: ShaderMateria
 	for id: String in marks:
 		var at: Array = marks[id]
 		b._mark(id, xf * (at[0] as Vector3), (xf.basis * (at[1] as Vector3)).normalized())
-	for id in ["lichen", "moss", "galleries", "foxfire"]:
-		if (id == "foxfire" and f.get("foxfire", false)) or (id != "foxfire" and float(f.get(id, 0.0)) > 0.0):
-			var at: Array = spots[int(rng.next() * spots.size())]
-			b._mark(id, xf * (at[0] as Vector3), (xf.basis * (at[1] as Vector3)).normalized())
+	# what the shader paints: point at the very rosette, cushion, gallery, boring or glow (the same noise, SpecMask)
+	var wood := holder.get_children().filter(func(c: Node) -> bool: return c is MeshInstance3D and (c as MeshInstance3D).material_override == m)
+	var sd := float(int(f.seed) % 997) * 0.37
+	for id in ["lichen", "moss", "galleries", "foxfire", "sea"]:
+		var k: float = (1.0 if f.get(id, false) else 0.0) if id in ["foxfire", "sea"] else float(f.get(id, 0.0))
+		if k <= 0.0: continue
+		var score := func(_p: Vector3, uv: Vector2, _uv2: Vector2, c: Color) -> float: return _life_at(id, k, uv, c, sd)
+		for at: Array in SpecMask.spots(wood, b.root, score, 3):
+			b._mark(id, at[0], at[1])
+
+## how strongly branch.gdshader (mode 1) paints a gene of driftwood's life at a vertex: its uv and colour
+static func _life_at(id: String, k: float, uv: Vector2, c: Color, sd: float) -> float:
+	if c.r > 0.5: return 0.0
+	var u := uv.x
+	var a := uv.y
+	var rid := c.g * 37.0 + sd
+	var cs := Vector2(cos(a * TAU), sin(a * TAU))
+	var crest := c.a
+	var hol := c.b
+	var outer := 1.0 - smoothstep(0.05, 0.25, hol)
+	if outer <= 0.0 and id != "foxfire": return 0.0
+	match id:
+		"lichen":
+			if crest < 0.4: return 0.0
+			var lc := SpecMask.vor2(Vector2(u * 0.6, a * 7.0) + Vector2(rid, rid) * 7.0)
+			if SpecMask.h3x(Vector3(lc.z * 91.0, rid, 4.0)) < 1.0 - k * 0.7: return 0.0
+			var rr := 0.22 + 0.25 * SpecMask.h3x(Vector3(lc.z * 37.0, rid, 5.0))
+			return (1.0 - smoothstep(rr * 0.5, rr * 0.9, lc.x)) * smoothstep(0.3, 0.55, crest) * outer
+		"moss":
+			return smoothstep(0.5, 0.7, SpecMask.fbm(Vector3(u * 0.5, cs.x * 1.5 + rid + 30.0, cs.y * 1.5 + rid + 30.0)) + (0.5 - crest) * 0.6) * outer
+		"galleries":
+			# a gallery's whole patch: the mother gallery along the middle, the larvae's out to either side
+			var gq := Vector2(u * 0.55, a * 5.0 + rid)
+			var gc := gq.floor()
+			var gf := gq - gc
+			if gf.x < 0.15 or gf.x > 0.85: return 0.0
+			if SpecMask.h3x(Vector3(gc.x, gc.y, rid + 3.0)) < 1.0 - k * 0.6: return 0.0
+			return (1.0 - smoothstep(0.2, 0.3, absf(gf.y - 0.5))) * outer
+		"foxfire":
+			# in the grooves, where it glows patchily (its glow in the hollow is the hollow's own callout)
+			var low := 1.0 - smoothstep(0.3, 0.7, crest)
+			if low <= 0.0: return 0.0
+			return low * smoothstep(0.3, 0.6, SpecMask.fbm(Vector3(u * 0.4, cs.x * 2.0 + rid + 50.0, cs.y * 2.0 + rid + 50.0))) * outer
+		"sea":
+			var sw := SpecMask.vor2(Vector2(u * 2.6, a * 26.0) + Vector2(rid, rid) * 3.0)
+			if sw.z < 1.0 - k * 0.45: return 0.0
+			return (1.0 - smoothstep(0.12, 0.25, sw.x)) * outer
+	return 0.0
 
 ## mushrooms on the wood: tufts of honey fungus, and now and then a lump of jelly fungus
 static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float, kind := 4) -> void:

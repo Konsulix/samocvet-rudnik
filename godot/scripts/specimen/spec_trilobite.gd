@@ -88,7 +88,9 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng3 := Rng32.new((seed_v * 3266489917 + 71) % 4294967296)
 	g.keep = clampf(0.42 + 0.58 * pow(rng3.next(), 0.75), 0.42, 1.0)
 	g.wear_seed = int(rng3.next() * 100000.0) + 1
-	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep"]:
+	# sea lilies by it on its slab: some slabs have them, some not (their own stream, like the mushrooms)
+	g.lilies = Rng32.new((seed_v * 2246822519 + 13) % 4294967296).next() < 0.5
+	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep", "lilies"]:
 		if o.has(k): g[k] = o[k]
 	# a legendary one kept well (the awakening grows its own legs, whatever it is kept in)
 	if o.get("legend", false):
@@ -126,7 +128,7 @@ static func accents(g: Dictionary) -> Array:
 	if int(g.pal) == 4: out.append("pyrite")
 	if int(g.pal) == 6: out.append("opal")
 	if g.get("show", "") == "nodule": out.append("nodule")
-	if g.get("show", "") in ["matrix", "mass"]: out.append("lilies")
+	if g.get("show", "") in ["matrix", "mass"] and g.get("lilies", false): out.append("lilies")
 	if int(g.get("oysters", 0)) > 0: out.append("oyster")
 	if g.get("moult", false): out.append("moult")
 	if g.get("bite", false): out.append("bite")
@@ -779,11 +781,16 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				if spot == null: break
 				var at: Vector3 = spot
 				at.y = _ground(rk, at, span * 0.05) - span * 0.01
-				var li := U.mesh(SpecSea.lily(lrng, span * (0.35 + lrng.next() * 0.2)), lm, holder, at, Basis(Vector3.UP, (lrng.next() - 0.5) * 0.8))
-				li.set_meta("col", true)
-				occ.append([Vector2(at.x, at.z), span * 0.06])
+				var lh := span * (0.35 + lrng.next() * 0.2)
+				var lg := SpecSea.lily(lrng, lh)
+				var turn := Basis(Vector3.UP, (lrng.next() - 0.5) * 0.8)
+				# (without lilies the same spots still let out bubbles: the draws are kept so nothing else moves)
+				if f.get("lilies", false):
+					var li := U.mesh(lg, lm, holder, at, turn)
+					li.set_meta("col", true)
+					occ.append([Vector2(at.x, at.z), span * 0.06])
+					if k == 0: marks.lilies = [li, lh]
 				spots.append(at)
-				if k == 0: marks.lilies = li
 			if spots.size():
 				SpecSea.bubbles(holder, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
 		"prepared":
@@ -911,24 +918,47 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 		if "trident" in gene.accents and main.has("trident"): b._mark("trident", xf * (main.trident as Vector3), (xf.basis * Vector3.UP).normalized())
 		if "horns" in gene.accents and main.has("horns"): b._mark("horns", xf * (main.horns as Vector3), (xf.basis * Vector3.UP).normalized())
 	if "pyrite" in gene.accents: b._mark("pyrite", xf * Vector3(0, 0.1, 0.0), (xf.basis * Vector3.UP).normalized())
+	# how well it kept: at its worst break along the edge, or on the shield of a perfect one
+	if "keep" in gene.accents:
+		var c: Dictionary = GENUS[f.genus]
+		var worst: Array = []
+		for ch: Array in _chips(f, 1.0 - float(f.get("keep", 1.0))):
+			if worst.is_empty() or float(ch[3]) * float(ch[2]) > float(worst[3]) * float(worst[2]): worst = ch
+		if worst.is_empty():
+			b._mark("keep", xf * Vector3(0, 0.1, 0.1), (xf.basis * Vector3.UP).normalized())
+		else:
+			var u := float(worst[0])
+			var sd := float(worst[1])
+			b._mark("keep", xf * Vector3(sd * _w(f, c, u, sd) * (1.0 - float(worst[3])), 0.02, 0.5 - u), (xf.basis * Vector3(sd, 1, 0)).normalized())
 	if "bite" in gene.accents:
 		var c: Dictionary = GENUS[f.genus]
 		var u := float(c.ceph) + (1.0 - float(c.ceph) - float(c.pyg)) * 0.39
 		b._mark("bite", xf * Vector3(_w(f, c, u, 1.0), 0.02, 0.5 - u), (xf.basis * Vector3(1, 1, 0)).normalized())
 	if marks.has("lilies") and "lilies" in gene.accents:
-		var lx := U.rel_xform(marks.lilies as Node3D, root)
-		b._mark("lilies", lx * Vector3(0, 0.3, 0), (lx.basis * Vector3.UP).normalized())
+		var lx := U.rel_xform(marks.lilies[0] as Node3D, root)
+		b._mark("lilies", lx * Vector3(0, float(marks.lilies[1]) * 0.9, 0), Vector3.ZERO)
 	marks.erase("lilies")
 	if marks.has("oyster") and "oyster" in gene.accents:
 		var ox := U.rel_xform(marks.oyster as Node3D, root)
 		b._mark("oyster", ox * Vector3(0, 0.8, 0.4), (ox.basis * Vector3.UP).normalized())
 	marks.erase("oyster")
 	if "opal" in gene.accents: b._mark("opal", xf * Vector3(0.12, 0.1, -0.05), (xf.basis * Vector3.UP).normalized())
-	for id: String in ["moult", "mass", "enrolled", "soft", "nodule"]:
+	for id: String in ["moult", "mass", "enrolled", "nodule"]:
 		if marks.has(id):
 			var mx := U.rel_xform(marks[id] as Node3D, root)
-			var p := Vector3(0, 0.12, 0) if id != "soft" else Vector3(0.45, 0.0, 0.1)
-			b._mark(id, mx * p, (mx.basis * Vector3.UP).normalized())
+			b._mark(id, mx * Vector3(0, 0.12, 0), (mx.basis * Vector3.UP).normalized())
+	# legs and antennae: the tips that stick out from under the shield (legs() draws them so)
+	if marks.has("soft") and "soft" in gene.accents:
+		var mid := 0.0
+		for wk: Array in walkers: mid = maxf(mid, float(wk[1]) * 0.5)
+		for wk: Array in walkers:
+			var piv := wk[0] as Node3D
+			var sd: float = wk[2]
+			# the antennae's tips, and the middle pair of legs
+			if not wk[3] and float(wk[1]) != roundf(mid): continue
+			var tip := Vector3(sd * 0.2, -0.01, 0.42) if wk[3] else Vector3(sd * (absf(piv.position.x) + 0.05), -0.028, -0.05)
+			var px := U.rel_xform(piv, root)
+			b._mark("soft", px * tip, Vector3.ZERO)
 	return main.body
 
 ## the height of the rock's top round (at.x, at.z) within r: high, but not its highest knob

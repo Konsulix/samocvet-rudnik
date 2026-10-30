@@ -223,10 +223,15 @@ static func _flower(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
 		lm.set_shader_parameter("seed", float(int(f.seed) % 89))
 		for k in int(f.leaves):
 			var ang := rng.next() * TAU
-			var pg := _petal(rng, 0.55 + rng.next() * 0.2, 0.17, {tip = "point", cup = 0.3, bend = -0.15, wave = 0.04})
+			var ln := 0.55 + rng.next() * 0.2
+			var pg := _petal(rng, ln, 0.17, {tip = "point", cup = 0.3, bend = -0.15, wave = 0.04})
 			var bs := Basis(Vector3.BACK, ang) * Basis(Vector3.RIGHT, -0.2 - rng.next() * 0.3)
 			var mi := U.mesh(pg, lm, parent, Vector3(0, 0, -0.06), bs)
 			mi.set_meta("col", true)
+			# the callout's spot: out along the leaf, past the flower
+			var la: Array = parent.get_meta("leaf_at", [])
+			la.append(mi.transform * Vector3(0, ln * 0.75, 0))
+			parent.set_meta("leaf_at", la)
 		var stem := SpecMat.make({col = SpecMat.lin(0x4a5a2a), rough = 0.6})
 		U.mesh(Geo.cylinder(1, 1, 1, 6).translate(0, 0.5, 0), stem, parent, Vector3(0, 0, -0.02),
 			Basis(Vector3.RIGHT, -PI / 2 - 0.6) * Basis.from_scale(Vector3(0.018, 0.4, 0.018)))
@@ -508,15 +513,16 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		inner.transform = Transform3D(face * Basis(Vector3.UP, (rng.next() - 0.5) * 0.7) * Basis(Vector3.RIGHT, -0.25 + (rng.next() - 0.5) * 0.4) * Basis.from_scale(Vector3.ONE * (0.9 if resin else 1.15)), at + Vector3(0, 0.05, 0))
 		marks = _flower(inner, rng, f)
 	# gold dust settled under it
+	var flakes := []
 	if f.gold:
 		var gm := SpecMat.make({col = SpecMat.lin(0xe8b84a), metal = 1.0, rough = 0.25, flat = true})
 		var flake := Geo.icosa(1.0, 0)
 		var place := func(k: int) -> Array:
 			var p := Vector3((rng.next() - 0.5) * 0.9, -0.35 - rng.next() * 0.35, (rng.next() - 0.5) * 0.6)
 			var s := 0.006 + pow(rng.next(), 3.0) * 0.025
+			flakes.append([p, s])
 			return [Transform3D(Basis(Vector3(rng.next(), rng.next(), rng.next()).normalized(), rng.next() * TAU) * Basis.from_scale(Vector3(s, s * 0.3, s)), p), Color(1, 1, 1)]
 		U.inst(flake, gm, 90, place, holder)
-		b._mark("gold_dust", U.rel_xform(holder, root) * Vector3(0, -0.5, 0.2), Vector3.BACK)
 	# every host a smooth tumbled pebble: amber, or clear / smoky quartz (shaders/amber.gdshader for both)
 	var sg := _resin(rng, f)
 	var stone := U.mesh(sg, amber_mat(f, sg), holder)
@@ -526,9 +532,22 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var turn := Basis(Vector3.UP, -0.6 + 0.35 + (rng.next() - 0.5) * 0.3) * Basis(Vector3.RIGHT, -0.2 + (rng.next() - 0.5) * 0.3) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) if resin else Basis.IDENTITY
 	holder.transform = Transform3D(turn * Basis.from_scale(Vector3.ONE * gs * (0.85 if resin else 0.75)), Vector3.ZERO)
 	var ix := U.rel_xform(inner, root)
+	# the biggest flakes of gold (marked once the holder is turned and scaled)
+	flakes.sort_custom(func(x: Array, y: Array) -> bool: return float(x[1]) > float(y[1]))
+	for fl: Array in flakes.slice(0, 3):
+		b._mark("gold_dust", U.rel_xform(holder, root) * (fl[0] as Vector3), Vector3.ZERO)
 	for p in marks:
 		b._mark({flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(f.content, "insect"), ix * (p as Vector3), Vector3.BACK)
-	if f.content == "flower" and int(f.leaves) > 0:
-		b._mark("leaves", ix * Vector3(0.35, -0.3, -0.06), Vector3.BACK)
+	for p: Vector3 in _leaves_at(inner):
+		b._mark("leaves", ix * p, Vector3.BACK)
 	b._mark("stone", U.rel_xform(holder, root) * Vector3(0.5, 0.6, 0.4), Vector3(0.5, 0.6, 0.6).normalized())
 	return stone
+
+## where the flower's leaves reach out (set by _flower on whichever node holds them, inner's space)
+static func _leaves_at(inner: Node3D) -> Array:
+	var out := []
+	for n: Node in [inner] + inner.find_children("*", "Node3D", true, false):
+		var nd := n as Node3D
+		for p: Vector3 in nd.get_meta("leaf_at", []):
+			out.append(U.rel_xform(nd, inner) * p if nd != inner else p)
+	return out

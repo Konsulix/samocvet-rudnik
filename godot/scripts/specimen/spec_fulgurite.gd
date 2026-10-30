@@ -113,6 +113,8 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var first: MeshInstance3D = null
 	var glass_at := []
 	var surf := PackedVector3Array()
+	var tubes := []
+	var beads := []
 	# the throat and the thick roots open on their bore where they broke; the thin roots run out to points
 	var ends := {tip = "hollow", root = "hollow", kid_tip = "taper"}
 	for k in sk.size():
@@ -134,6 +136,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		var tg := SpecBranch.tube(br, {m = 16, sub = 3, lump = 0.3, ridge = 0.1, flat = 0.9, seed = int(f.seed) + k, glass = cuts, ends = e}, k == 0)
 		var mi := U.mesh(tg, sm, holder)
 		mi.set_meta("col", true)
+		tubes.append(mi)
 		if first == null: first = mi
 		for q in range(0, tg.v.size(), 23): surf.append(tg.v[q])
 		# the glass inside: a thinner smooth rod over each open stretch, a little longer than it
@@ -174,6 +177,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			var s := 0.006 + pow(rng.next(), 2.0) * 0.016
 			var bi := U.mesh(bead, im, holder, p, Basis.from_scale(Vector3.ONE * s))
 			bi.set_meta("col", true)
+			beads.append([p, s])
 	# dug out still in its sand: it stands, its roots going down into a heap of sand
 	var sand_mi: MeshInstance3D = null
 	if f.get("show", "loose") == "sand":
@@ -216,13 +220,23 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		b._mark("glass", xf * (glass_at[k][0] as Vector3), Vector3.BACK)
 	var top: Array = sk[0].pts
 	b._mark("bore", xf * (top[0] as Vector3), (xf.basis * Vector3.UP).normalized())
-	for k in 2:
-		var br: Dictionary = sk[mini(k + 1, sk.size() - 1)]
-		var pts: Array = br.pts
-		var p: Vector3 = pts[int(pts.size() * 0.4)]
-		b._mark("sand", xf * (p + Vector3(0, 0, float(br.rad[0]))), Vector3.BACK)
-		if float(f.get("froth", 0.0)) > 0.0: b._mark("froth", xf * (p + Vector3(0, float(br.rad[0]), 0)), Vector3.UP)
-	if f.get("iron", false) and surf.size(): b._mark("iron", xf * surf[surf.size() / 2], Vector3.BACK)
+	# the crust and its froth where branch.gdshader (mode 2) paints them: on the tubes themselves, the froth in its pits
+	var sd := float(int(f.seed) % 997) * 0.37
+	var fk := float(f.get("froth", 0.0))
+	var crust := func(_p: Vector3, _uv: Vector2, _uv2: Vector2, c: Color) -> float: return float(c.r < 0.5 and c.a < 0.9)
+	for at: Array in SpecMask.spots(tubes, root, crust, 2):
+		b._mark("sand", at[0], at[1])
+	if fk > 0.0:
+		var pits := func(_p: Vector3, uv: Vector2, _uv2: Vector2, c: Color) -> float:
+			if c.r > 0.5 or c.a > 0.9: return 0.0
+			var vc := SpecMask.vor2(Vector2(uv.x * 2.2, uv.y * 26.0) + Vector2.ONE * (c.g * 37.0 + sd))
+			return (1.0 - smoothstep(0.1, 0.3, vc.x)) * float(vc.z >= 1.0 - fk * 0.8)
+		for at: Array in SpecMask.spots(tubes, root, pits, 3):
+			b._mark("froth", at[0], at[1])
+	# the biggest beads of iron
+	beads.sort_custom(func(x: Array, y: Array) -> bool: return float(x[1]) > float(y[1]))
+	for bd: Array in beads.slice(0, 3):
+		b._mark("iron", xf * (bd[0] as Vector3), Vector3.ZERO)
 	if hot and glass_at.size(): b._mark("hot", xf * (glass_at[0][0] as Vector3), Vector3.BACK)
 	return first
 

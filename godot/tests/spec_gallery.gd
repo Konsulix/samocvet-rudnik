@@ -299,6 +299,24 @@ func _ready() -> void:
 		print("built ", list[i].get("sid", list[i].get("machine", "jewel")), " in ", Time.get_ticks_msec() - t1, " ms")
 		if v.live and list[i].has("sid"):
 			print("  grown: ", ", ".join((v.live.get_meta("grown", {}) as Dictionary).keys()))
+			# marks=1 (or marks=moss,lichen): a red dot on every spot a callout may point at, to see they sit on the thing
+			if args.has("marks"):
+				var g := v.live.get_child(0) as Node3D if v.live.get_child_count() else v.live
+				var dm := StandardMaterial3D.new()
+				dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				dm.albedo_color = Color(1, 0.1, 0.1)
+				var sph := SphereMesh.new()
+				sph.radius = 0.035
+				sph.height = 0.07
+				var gr: Dictionary = v.live.get_meta("grown", {})
+				for id: String in gr:
+					if args.marks != "1" and not id in String(args.marks).split(","): continue
+					for m: Array in gr[id]:
+						var dot := MeshInstance3D.new()
+						dot.mesh = sph
+						dot.material_override = dm
+						dot.position = m[0]
+						g.add_child(dot)
 	print("total ", Time.get_ticks_msec() - t0, " ms")
 	if args.has("shot"):
 		await get_tree().create_timer(float(args.get("after", "3"))).timeout

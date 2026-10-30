@@ -15,8 +15,8 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
 	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
-	rings = "growth rings", opal = "opal", bark = "bark", checks_quartz = "quartz-healed cracks", checks_opal = "opal-healed cracks",
-	checks_empty = "open cracks", heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
+	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn",
+	heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
 	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
