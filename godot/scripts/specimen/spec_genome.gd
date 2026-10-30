@@ -9,13 +9,14 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", dendrite = "metal tree", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
 	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
-	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn",
+	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
+	ob_mahogany = "mahogany obsidian", ob_rainbow = "rainbow sheen", ob_tears = "Apache tears",
 	heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
 	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
@@ -35,13 +36,14 @@ static func of(o: Dictionary) -> Dictionary:
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var kind: String = o.get("kind", "crystal")
 	var tr: Array = o.get("traits", [])
-	var metal := habit == "nugget" or sid == "pyrite"
+	var metal := habit == "nugget" or sid in ["pyrite", "hematite"]
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
 	var look := SpecLooks.of(sid)
-	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else {}
+	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else SpecObsidian.genes(seed_v, o) if habit == "obsidian" else {}
 	if habit == "fossil": form = sid
+	elif habit == "obsidian": form = "obsidian"
 	elif kind == "geode": form = "geode"
 	elif habit == "nugget": form = "nugget"
 	elif habit == "botryoid": form = "botryoid"
@@ -96,6 +98,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# a fossil without its slab of rock has nowhere for things to grow
 	if habit == "fossil" and fossil.get("show", "") != "matrix":
 		apool = []
+	# nor on a lump of glass
+	if habit == "obsidian":
+		apool = []
 	# a trilobite's slab holds the sea's own life: big puffs and sprays would bury the animal
 	if sid == "trilobite":
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["pompom", "straw", "needles"]))
@@ -104,6 +109,14 @@ static func of(o: Dictionary) -> Dictionary:
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
 	acc.append_array(SpecFossil.accents(fossil))
+	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
+	# own stream, so no other gene moves
+	var withs: Array = look.get("with", [])
+	for wi in withs.size():
+		var w: Array = withs[wi]
+		if Rng32.new((seed_v * 2654435761 + 211 + wi * 97) % 4294967296).next() < float(w[2]):
+			acc.append(String(w[3]))
+	if habit == "obsidian": acc.append_array(SpecObsidian.accents(seed_v, o))
 	var palette := {
 		pompom = int(rng.next() * SpecAccents.POMPOM.size()),
 		straw = int(rng.next() * SpecAccents.STRAW.size()),
@@ -129,9 +142,11 @@ static func of(o: Dictionary) -> Dictionary:
 		# a hunter circles only a trilobite lying out on its rock
 		if fossil.get("show", "") in ["matrix", "mass", "prepared"]: fpool.append_array(["hunter", "hunter"])
 	if sid == "pearl": fpool = ["moon", "jellyfish"]
+	# obsidian is its own glass, opaque: only what lives outside it, or lights its skin
+	if habit == "obsidian": fpool = ["jellyfish", "fluor"]
 	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
 	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
-	var glassy := not metal and habit != "fossil" and not (form in ["geode", "botryoid", "vein", "nugget"])
+	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget"])
 	if lustre == "glass" and glassy:
 		fpool.append_array(in_glass)
 	if o.get("legend", false):
@@ -149,7 +164,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
-	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and fossil.get("show", "") != "matrix"):
 		acc.append("mushrooms")
 	else:

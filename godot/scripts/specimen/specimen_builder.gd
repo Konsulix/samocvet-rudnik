@@ -84,6 +84,40 @@ func _mark_on(id: String, m: Node3D) -> void:
 	else:
 		_mark(id, pts[0][0], pts[0][1])
 
+## another mineral on the same rock (SpecLooks with): "blades" — pale glassy tablets standing on it (celestine on
+## sulphur); "crust" — a matte crust of small grains spread in patches over it (sulphur on aragonite, orpiment)
+func _companion(what: String, c: Color, id: String, st: Dictionary) -> void:
+	var r2 := Rng32.new(int(rng.next() * 100000.0) + 7)
+	var top := func() -> Vector3:
+		var b: Vector3 = st.pick.call()
+		for k in 3:
+			var q: Vector3 = st.pick.call()
+			if q.y > b.y: b = q
+		return b
+	if what == "blades":
+		var m := SpecMat.make({col = c, flat = true, glass = true, thick = 1.2, frost = 0.25, holo = 0.1, seed = r2.next() * 40.0, prio = 2, tint_body = 0.6})
+		for k in 4 + int(r2.next() * 5):
+			var p: Vector3 = top.call()
+			var w := 0.07 + r2.next() * 0.07
+			var g := RockKit.prism(r2, {sides = 4, w = w, d = w * 0.32, h = w * (2.2 + r2.next() * 2.0), point = false, slope = 0.9, y0 = -w * 0.6, detail = 1},
+				{cA = c, cB = c, zk = 0.0})
+			var mi := U.mesh(g, m, root)
+			_place(mi, p, ((st.nrm.call(p) as Vector3).lerp(UP, 0.4) + _rv() * 0.6).normalized(), 1.0, r2.next() * TAU)
+			mi.set_meta("col", true)
+			if k == 0: _mark(id, _mid(mi, 0.6))
+	else:
+		var m := SpecMat.make({col = c, rough = 0.85, grain = 0.6, flat = true})
+		var grain := Geo.icosa(1.0, 1)
+		for patch in 3 + int(r2.next() * 3):
+			var p0: Vector3 = st.pick.call()
+			var n0: Vector3 = st.nrm.call(p0)
+			if patch == 0: _mark(id, p0, n0)
+			var place := func(k: int) -> Array:
+				var off := (_rv() - n0 * _rv().dot(n0)) * 0.22
+				var s := 0.012 + pow(r2.next(), 2.0) * 0.03
+				return [Transform3D(Basis.from_scale(Vector3(s, s * 0.7, s)), p0 + off), Color(1, 1, 1)]
+			U.inst(grain, m, 70 + int(r2.next() * 60), place, root)
+
 ## each crystal's box in its own axes (a leaning column's world box would cover the empty rock round its foot),
 ## a little bigger for the crust its foot still gets
 func _crystal_boxes(main: MeshInstance3D, mat: ShaderMaterial) -> Array:
@@ -147,7 +181,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		col = SpecMat.offset_hsl(col, gene.hue, 0.3, 0.04)
 	root.set_meta("glow", col)
 	var irk := 1.9 if "aurora" in tr else 1.0 if "irid" in tr else 0.45 if legend else 0.14
-	var metal := habit == "nugget" or sid == "pyrite"
+	var metal := habit == "nugget" or sid in ["pyrite", "hematite"]
 	var cut: String = o.get("cut", "")
 	# a cut stone floats alone, tilted to show its table and pavilion
 	if cut != "" and cut != "broken":
@@ -191,13 +225,23 @@ func _specimen(o: Dictionary) -> Node3D:
 		var irk2: float = st.irk
 		if metal:
 			# brassy metal crystals: striated faces, a rainbow tarnish here and there, sunk into the rock
-			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
+			# (hematite: dark steel — SpecLooks metal_col)
+			var mc := SpecMat.lin(int(look.metal_col)) if look.has("metal_col") else Color(1, 1, 1)
+			return {col = mc, metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
-		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5, rf = 0.3, st = stria, dirt = dt, prio = 2,
-			holo = gene.holo, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
+		# an opaque species (SpecLooks opaque: aragonite's wax, realgar's resin): no glass, a lit surface of its colour
+		if look.has("opaque"):
+			var oq: Dictionary = look.opaque
+			return {col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, st = stria,
+				dirt = dt, prio = 2, env = 1.3, grain = float(oq.get("grain", 0.1)), lava = 1.0 if gene.fx == "lava" else 0.0}
+		# (SpecLooks ir: how much rainbow film and sheen the species takes — none on realgar's red or aragonite's milk)
+		var irm := float(look.get("ir", 1.0))
+		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, dirt = dt, prio = 2,
+			holo = float(gene.holo) * irm, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
 			lava = 1.0 if gene.fx == "lava" else 0.0,
-			frost = 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25, thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
-			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0))}
+			frost = float((look.get("glass", {}) as Dictionary).get("frost", 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25)), thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
+			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0)),
+			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06))}
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
 		var m := SpecMat.make(d)
@@ -261,12 +305,46 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = SpecWood.build(self, gene)
 		"fulgurite":
 			main = SpecFulgurite.build(self, gene)
-		"flower_quartz", "amber":
+		"flower_quartz", "amber", "simetite":
 			main = SpecFlower.build(self, gene)
 		"trilobite":
 			main = SpecTrilobite.build(self, gene, use_rock)
 		"pearl":
 			main = SpecPearl.build(self, gene)
+		"obsidian":
+			main = SpecObsidian.build(self, gene)
+		"xenolith":
+			# olivine brought up in a lava bomb: a dark lump of basalt broken open on a nodule packed with green grains,
+			# olive to bottle-green to honey, a few gone rusty brown; the grains one mesh
+			use_rock.call("chunk")
+			var view := Basis(UP, -0.6) * Vector3.BACK
+			var c0: Vector3 = st.pick.call()
+			for k in 12:
+				var q: Vector3 = st.pick.call()
+				if (st.nrm.call(q) as Vector3).dot(view) + q.y > (st.nrm.call(c0) as Vector3).dot(view) + c0.y: c0 = q
+			var n0: Vector3 = st.nrm.call(c0)
+			var t1 := n0.cross(UP if absf(n0.y) < 0.9 else Vector3.RIGHT).normalized()
+			var t2 := n0.cross(t1)
+			var cols := [SpecMat.lin(0x6a8a22), SpecMat.lin(0x4e6e16), SpecMat.lin(0x86a02e), SpecMat.lin(0x3e5410), SpecMat.lin(0x9a8a2a), SpecMat.lin(0x6a4018)]
+			var nod := Geo.new()
+			var R := (0.3 + rng.next() * 0.1) * gs
+			for k in 90 + int(rng.next() * 50):
+				var a := rng.next() * TAU
+				var rr := sqrt(rng.next()) * R
+				var s := (0.04 + rng.next() * 0.035) * gs
+				var g := Geo.icosa(s, 1).to_soup()
+				var sq := Vector3(1.0 + rng.next() * 0.4, 0.75 + rng.next() * 0.3, 1.0 + rng.next() * 0.3)
+				var bs := Basis(U.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6))
+				var dome := sqrt(maxf(0.0, 1.0 - (rr / R) * (rr / R))) * R * 0.35
+				var at := c0 + (t1 * cos(a) + t2 * sin(a)) * rr + n0 * (dome - s * 0.3)
+				var cc: Color = cols[int(Stones.pick_w([[0, 4.0], [1, 3.0], [2, 2.0], [3, 1.5], [4, 0.8], [5, 0.4]], rng))]
+				for v in g.v:
+					nod.v.append(at + bs * (v * sq))
+					nod.col.append(cc)
+			var nm: ShaderMaterial = any_cmat.call()
+			main = U.mesh(nod, nm, root)
+			main.set_meta("col", true)
+			dt.h = -99.0
 		"nugget":
 			main = _nugget(sid, col)
 		"vein":
@@ -391,6 +469,9 @@ func _specimen(o: Dictionary) -> Node3D:
 				var ca: Color = rx.cA
 				var cb: Color = rx.cB
 				var sand := SpecMat.make({col = Color(1, 1, 1), rough = 0.92, grain = 0.7, ao = 1.0, prio = 2})
+				if look.get("rose_metal", false):
+					# an iron rose: the same ball of blades in bright, dark steel
+					sand = SpecMat.make({col = Color(1, 1, 1), metal = 0.85, rough = 0.32, coat = 0.15, env = 1.1, prio = 2})
 				var balls := [[Vector3(0, 0.05, 0), 0.55 * gs]]
 				for b_i in (0 if rng.next() < 0.55 else 1 + int(rng.next() * 2)):
 					var dir := Vector3(cos(rng.next() * TAU), -0.2 - rng.next() * 0.3, sin(rng.next() * TAU)).normalized()
@@ -427,7 +508,7 @@ func _specimen(o: Dictionary) -> Node3D:
 							return out
 						var c_mid := ca
 						var c_half := ca.lerp(cb, 0.6)
-						var c_rim := cb.lerp(Color(0.9, 0.88, 0.84), 0.75)
+						var c_rim := cb if look.get("rose_metal", false) else cb.lerp(Color(0.9, 0.88, 0.84), 0.75)
 						for side: float in [1.0, -1.0]:
 							var mid: Vector3 = bs * Vector3(0, side * pr * 0.025, 0) + at
 							var r1: Array = ring.call(0.6, side)
@@ -539,9 +620,12 @@ func _specimen(o: Dictionary) -> Node3D:
 				var g: Geo
 				# a species with its own crystal shape heaps that (garnet's dodecahedra, cuprite's octahedra)
 				if habit == "dodeca": shape = 0.6
-				elif habit == "octa": shape = 0.9
+				elif habit == "octa" or habit == "dipyr": shape = 0.9
+				elif habit == "grain": shape = 0.95
 				elif habit == "cube": shape = 0.1
-				if shape < 0.5: g = Geo.box(hs * 2, hs * (1.6 + rng.next() * 0.8), hs * (1.6 + rng.next() * 0.6))
+				hs *= float(zcfg.wk)
+				if shape > 0.92: g = Geo.icosa(hs * 1.1, 1).scale(1.0, 0.75 + rng.next() * 0.3, 0.9 + rng.next() * 0.2)
+				elif shape < 0.5: g = Geo.box(hs * 2, hs * (1.6 + rng.next() * 0.8), hs * (1.6 + rng.next() * 0.6))
 				elif shape < 0.8: g = Geo.dodeca(hs * 1.2).scale(1.0, 0.8 + rng.next() * 0.5, 1.0)
 				else: g = Geo.octa(hs * 1.3).scale(1.0, 1.2 + rng.next() * 0.6, 1.0)
 				g.fill_color(zcfg.cB)
@@ -618,6 +702,11 @@ func _specimen(o: Dictionary) -> Node3D:
 						c.set_meta("col", true)
 			main = ms[0]
 
+	# the species' companions (SpecLooks with): another mineral grown on the same rock
+	if st.rocky and main:
+		for w: Array in look.get("with", []):
+			if String(w[3]) in gene.accents:
+				_companion(String(w[0]), SpecMat.lin(int(w[1])), String(w[3]), st)
 	# fluorite's phantom cubes (SpecLooks core): a cube of another colour inside every crystal, seen through the glass
 	if look.has("core") and main and layout != "geode":
 		var cc: Array = look.core

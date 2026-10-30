@@ -19,7 +19,12 @@ extends RefCounted
 ## palette the species' colours, picked per find on its own stream: [[body hex, core hex, weight], ...] (the core colour
 ##         replaces core's)
 ## rose    the rosette as a desert rose: frosted, sand-coloured petals, [hex colour from, hex colour to]
-## glass   {dark: how dark the glass body is (smoky quartz), tint: how much the body glows in the species' own colour
+## with    companions: [[blades | crust, hex colour, chance, gene id], ...] — another mineral on the same rock
+## opaque  no glass: a waxy or resinous lit surface {rough, coat, grain}
+## ir      how much rainbow film / holographic sheen the species takes (1 as before)
+## metal_col  a metal species' own colour (hematite's dark steel)
+## rose_metal  the rosette's blades in steel (hematite's iron rose)
+## glass   {frost: a milky body, 0..1; dark: how dark the glass body is (smoky quartz), tint: how much the body glows in the species' own colour
 ##         rather than showing the room through it (garnet, azurite), 0..1}
 
 const LOOK := {
@@ -52,6 +57,18 @@ const LOOK := {
 	# Whalebone Cove
 	gypsum = {forms = [["slabs", 3.0], ["rosette", 4.0], ["radial", 1.0], ["single", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
 		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 1.3, wk = 0.7, dark = 0.0, rose = [0x7a5a3c, 0xa4865e], more = {twin = 0.12}},
+	# Fire Horizon (Sicily's sulphur mines and Etna)
+	sulphur = {zone = [0, 0.0, 0.0], forms = [["cluster", 6.0], ["single", 1.5], ["pile", 1.0]], kinds = [["druse", 6.0], ["crystal", 3.0]],
+		rock = [["limestone", 4.0], ["quartzite", 1.0]], dark = 0.0, glass = {tint = 0.9, frost = 0.4, glow = 0.32}, ir = 0.05, hk = 0.85, wk = 1.3, with = [["blades", 0xa8c8ec, 0.18, "celestine"]]},
+	aragonite = {zone = [0, 0.0, 0.0], forms = [["cluster", 6.0], ["columnar", 2.0]], opaque = {rough = 0.5, coat = 0.1, grain = 0.15}, kinds = [["druse", 5.0], ["crystal", 3.0]],
+		rock = [["limestone", 3.0], ["slate", 1.0]], blunt = true, hk = 0.55, wk = 1.4, dark = 0.0, glass = {frost = 1.0, tint = 0.85, dark = 0.15}, ir = 0.05,
+		with = [["crust", 0xf0d020, 0.35, "sulphur"]]},
+	realgar = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["single", 3.0], ["columnar", 1.0]], kinds = [["crystal", 5.0], ["druse", 3.0]],
+		rock = [["basalt", 3.0], ["slate", 2.0]], hk = 0.85, wk = 0.9, dark = 0.0, glass = {tint = 1.0, dark = 0.35, frost = 0.1}, ir = 0.0, blunt = true, with = [["crust", 0xf0a020, 0.4, "orpiment"]]},
+	hematite = {forms = [["rosette", 4.0], ["hexplates", 4.0]], kinds = [["crystal", 5.0], ["druse", 2.0]], rock = [["quartzite", 2.0], ["basalt", 1.0]],
+		rose = [0x141518, 0x34363c], rose_metal = true, metal_col = 0x3c3e46, with = [["blades", 0xeef2f6, 0.2, "rockcrystal"]]},
+	olivine = {zone = [0, 0.0, 0.0], forms = [["xenolith", 1.0]], kinds = [["crystal", 1.0]], rock = [["basalt", 3.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 0.9, frost = 0.4, dark = 0.25}, ir = 0.05},
+	obsidian = {kinds = [["crystal", 1.0]]},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
 }

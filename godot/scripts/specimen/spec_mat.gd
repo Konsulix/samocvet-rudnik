@@ -91,6 +91,7 @@ static func make(o: Dictionary) -> ShaderMaterial:
 		g.set_shader_parameter("holo_k", o.get("holo", 0.0))
 		g.set_shader_parameter("dark_k", o.get("dark_body", 0.0))
 		g.set_shader_parameter("tint_k", o.get("tint_body", 0.0))
+		g.set_shader_parameter("tint_glow", o.get("tint_glow", 0.06))
 		if o.get("kin", 0.0) > 0.0:
 			g.set_shader_parameter("gold_diff", load("res://assets/textures/gold/gold_diff.png"))
 			g.set_shader_parameter("gold_nrm", load("res://assets/textures/gold/gold_nrm.png"))

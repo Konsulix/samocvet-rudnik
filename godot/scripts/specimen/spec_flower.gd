@@ -35,12 +35,17 @@ const LOOKS := [
 const FORMS := [["star", 3.0], ["rose", 2.0], ["daisy", 2.0], ["bell", 1.5], ["blossom", 2.0], ["poppy", 1.5]]
 const INSECTS := [["ant", 3.0], ["beetle", 2.0], ["fly", 2.5], ["mosquito", 2.0], ["spider", 1.5]]
 ## hosts: [name, tint (linear), absorb, fractures, veils, bubbles, flow, debris, frost, inner glow]
-const HOSTS := {quartz = "clear quartz", smoky = "smoky quartz", amber = "Baltic amber", copal = "copal"}
+const HOSTS := {quartz = "clear quartz", smoky = "smoky quartz", amber = "Baltic amber", copal = "copal", simetite = "Sicilian simetite"}
+## simetite, Sicily's amber: deep wine-red to garnet (it swallows green and blue fast), glowing blue on its skin
+const SIMETITE := Vector3(0.22, 2.6, 4.6)
 
 static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng := Rng32.new((seed_v * 2246822519 + 77) % 4294967296)
 	var g := {kind = sid}
-	if sid == "amber":
+	if sid == "simetite":
+		g.host = "simetite"
+		g.content = Stones.pick_w([["insect", 6.0], ["flower", 1.0], ["fern", 1.0], ["feather", 0.6]], rng)
+	elif sid == "amber":
 		g.host = Stones.pick_w([["amber", 4.0], ["copal", 1.5]], rng)
 		g.content = Stones.pick_w([["insect", 7.0], ["flower", 2.0], ["fern", 1.2], ["feather", 1.0]], rng)
 	else:
@@ -51,7 +56,7 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	g.insect = Stones.pick_w(INSECTS, rng)
 	g.petals = 5 + int(rng.next() * 3)
 	g.leaves = int(Stones.pick_w([[0, 2.0], [1, 2.0], [2, 2.0], [3, 1.0]], rng))
-	g.gold = (rng.next() < 0.3 or "goldfleck" in tr) and g.host != "amber" and g.host != "copal"
+	g.gold = (rng.next() < 0.3 or "goldfleck" in tr) and not g.host in ["amber", "copal", "simetite"]
 	g.seed = int(rng.next() * 100000.0)
 	g.bare = false   # showcases: what it holds, without its stone
 	# resin: its colour, sun spangles (disc cracks that flash gold), a weathered crust left on, a polished window,
@@ -73,7 +78,8 @@ static func accents(g: Dictionary) -> Array:
 	var out := [{flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(g.content, "insect"), "stone"]
 	if g.content == "flower" and int(g.leaves) > 0: out.append("leaves")
 	if g.gold: out.append("gold_dust")
-	if g.host in ["amber", "copal"] and g.get("spangle", false): out.append("spangles")
+	if g.host in ["amber", "copal", "simetite"] and g.get("spangle", false): out.append("spangles")
+	if g.host == "simetite": out.append("blue_glow")
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
@@ -83,6 +89,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"insect": return {ant = "ant", beetle = "beetle", fly = "fly", mosquito = "mosquito", spider = "spider"}.get(g.insect, "insect")
 		"stone": return String(HOSTS[g.host]) if not g.host == "amber" else "%s Baltic amber" % g.get("tone", "honey")
 		"spangles": return "sun spangles"
+		"blue_glow": return "blue fluorescence"
 		"leaves": return "leaves"
 		"fern": return "fern frond"
 		"feather": return "feather"
@@ -447,8 +454,8 @@ static func _smooth(g: Geo, keep: float) -> void:
 static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = AMBER
-	var resin: bool = f.host in ["amber", "copal"]
-	m.set_shader_parameter("sigma", TONES[f.get("tone", "honey")][0] if resin else (Vector3(0.015, 0.012, 0.01) if f.host == "quartz" else Vector3(0.25, 0.32, 0.45)))
+	var resin: bool = f.host in ["amber", "copal", "simetite"]
+	m.set_shader_parameter("sigma", SIMETITE if f.host == "simetite" else TONES[f.get("tone", "honey")][0] if resin else (Vector3(0.015, 0.012, 0.01) if f.host == "quartz" else Vector3(0.25, 0.32, 0.45)))
 	if not resin:
 		# quartz: white light through it, its cracks flashing white like ice, no flow lines, no dirt
 		m.set_shader_parameter("light_col", Vector3(0.95, 0.97, 1.0))
@@ -475,6 +482,9 @@ static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
 	m.set_shader_parameter("cloud_k", f.get("cloud", 0.0))
 	m.set_shader_parameter("dirt_k", 0.3 + float(int(f.seed) % 7) / 7.0 * 0.7)
 	m.set_shader_parameter("flow_k", 0.6 if f.host == "amber" else 0.35)
+	if f.host == "simetite":
+		m.set_shader_parameter("blue_k", 0.5)
+		m.set_shader_parameter("light_col", Vector3(1.0, 0.55, 0.32))
 	m.set_shader_parameter("seed", float(int(f.seed) % 97) * 0.7)
 	return m
 
@@ -541,6 +551,9 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	for p: Vector3 in _leaves_at(inner):
 		b._mark("leaves", ix * p, Vector3.BACK)
 	b._mark("stone", U.rel_xform(holder, root) * Vector3(0.5, 0.6, 0.4), Vector3(0.5, 0.6, 0.6).normalized())
+	# simetite's blue glow is strongest at its rim
+	if f.host == "simetite":
+		b._mark("blue_glow", U.rel_xform(holder, root) * Vector3(-0.75, 0.15, 0.2), Vector3(-0.8, 0.1, 0.6).normalized())
 	return stone
 
 ## where the flower's leaves reach out (set by _flower on whichever node holds them, inner's space)

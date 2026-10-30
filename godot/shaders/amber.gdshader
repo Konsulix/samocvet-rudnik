@@ -29,6 +29,7 @@ uniform vec3 spangle_col = vec3(1.0, 0.55, 0.12); // what the disc cracks shine 
 uniform float seed = 0.0;
 uniform sampler2D crack_tex : source_color, filter_linear_mipmap, repeat_enable;   // a scan of crazed dry crust
 uniform float crack_k = 0.0;
+uniform float blue_k = 0.0;     // simetite: a blue glow on its skin, strongest at the grazing edges, drifting in patches
 
 varying vec3 v_op;
 varying vec3 v_cam;
@@ -226,6 +227,10 @@ void fragment() {
 	}
 	ALBEDO = crust_c * crust;
 	EMISSION = (body + refl * fr * 1.1) * (1.0 - crust) + body * crust * 0.12;
+	if (blue_k > 0.0) {
+		float bp = 0.55 + 0.45 * fbm(v_op / rad * 1.6 + seed + vec3(0.0, TIME * 0.04, 0.0));
+		EMISSION += vec3(0.05, 0.3, 0.8) * blue_k * (0.03 + 0.9 * pow(1.0 - cv, 3.0)) * bp * (1.0 - crust);
+	}
 	ROUGHNESS = mix(0.04, 0.8, crust);
 	SPECULAR = mix(0.5, 0.2, crust);
 }

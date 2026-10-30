@@ -34,7 +34,8 @@ uniform vec3 cham_col = vec3(0.6, 0.05, 0.15);
 uniform float opal_k = 0.0;     // spectral flakes flashing in the body
 uniform float star_k = 0.0;
 uniform float dark_k = 0.0;
-uniform float tint_k = 0.0;     // the body glows in its own colour rather than showing the room through it (garnet)     // a dark glass body (smoky quartz): darker where the light goes through more of it     // a night sky inside: twinkling stars, drifting nebula
+uniform float tint_k = 0.0;
+uniform float tint_glow = 0.06; // with tint: the body's own light in its colour (sulphur's lemon glow)     // the body glows in its own colour rather than showing the room through it (garnet)     // a dark glass body (smoky quartz): darker where the light goes through more of it     // a night sky inside: twinkling stars, drifting nebula
 uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
 uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
@@ -255,7 +256,7 @@ void fragment() {
 	body *= 1.0 - dark_k * (0.5 + 0.45 * edge_k);
 	if (tint_k > 0.0) {
 		vec3 tb = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
-		body = mix(body, dot(body, vec3(0.3, 0.5, 0.2)) * tb * 1.6 + tb * 0.06, tint_k);
+		body = mix(body, dot(body, vec3(0.3, 0.5, 0.2)) * tb * 1.6 + tb * tint_glow, tint_k);
 	}
 	if (cham_k > 0.0) {
 		// the shifting colour has to carry the whole stone, not just tint what is seen through it: the body glows in

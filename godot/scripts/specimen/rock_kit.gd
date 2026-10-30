@@ -46,6 +46,12 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = Geo.box(s, s * (0.9 + rng.next() * 0.3), s).translate(0, s * 0.5, 0)
 	elif habit == "octa":
 		g = Geo.octa(0.32).translate(0, 0.3, 0)
+	elif habit == "dipyr":
+		# sulphur's rhombic bipyramid: four-sided, sharp at both ends, a rhombus across, its foot sunk in
+		g = Geo.octa(0.3).scale(0.78 * float(cfg.get("wk", 1.0)), 1.9 * float(cfg.get("hk", 1.0)), 1.15 * float(cfg.get("wk", 1.0))).translate(0, 0.42 * float(cfg.get("hk", 1.0)), 0)
+	elif habit == "grain":
+		# a rounded grain (olivine in basalt): a lump with soft facets
+		g = Geo.icosa(0.26, 1).scale(1.0, 0.85, 0.95).translate(0, 0.2, 0)
 	elif habit == "dodeca":
 		g = Geo.dodeca(0.3).translate(0, 0.28, 0)
 	else:

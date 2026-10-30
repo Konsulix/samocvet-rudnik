@@ -1,5 +1,47 @@
 {
  "SP": {
+  "sulphur": {
+   "n": "Sulphur",
+   "c": "#f4d81c",
+   "v": 15,
+   "r": 0
+  },
+  "aragonite": {
+   "n": "Aragonite",
+   "c": "#74756e",
+   "v": 15,
+   "r": 0
+  },
+  "obsidian": {
+   "n": "Obsidian",
+   "c": "#16151a",
+   "v": 20,
+   "r": 0
+  },
+  "olivine": {
+   "n": "Olivine",
+   "c": "#8cb428",
+   "v": 60,
+   "r": 1
+  },
+  "realgar": {
+   "n": "Realgar",
+   "c": "#c8261a",
+   "v": 80,
+   "r": 2
+  },
+  "hematite": {
+   "n": "Hematite",
+   "c": "#5c5e66",
+   "v": 45,
+   "r": 1
+  },
+  "simetite": {
+   "n": "Simetite",
+   "c": "#a82a14",
+   "v": 400,
+   "r": 3
+  },
   "ammonite": {
    "n": "Ammonite",
    "c": "#c49a6c",
@@ -1331,11 +1373,14 @@
    "n": "Fire Horizon",
    "sub": "Sulphur mines, Sicily",
    "pool": {
-    "fulgurite": 24,
-    "flower_quartz": 10,
-    "ruby": 6,
-    "sapphire": 6,
-    "diamond": 1.2
+    "sulphur": 24,
+    "aragonite": 16,
+    "obsidian": 14,
+    "fulgurite": 12,
+    "olivine": 8,
+    "realgar": 6,
+    "hematite": 5,
+    "simetite": 1.2
    },
    "steps": 3,
    "tasks": [
@@ -2009,4 +2054,10 @@
    "m": 3
   }
  ]
-}
+}  "sulphur": "dipyr",
+  "aragonite": "prism",
+  "obsidian": "obsidian",
+  "olivine": "grain",
+  "realgar": "prism",
+  "hematite": "blade",
+  "simetite": "fossil",

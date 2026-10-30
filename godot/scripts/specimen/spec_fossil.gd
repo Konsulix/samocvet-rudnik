@@ -35,7 +35,7 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 		return SpecWood.genes(seed_v, tr, o)
 	if sid == "fulgurite":
 		return SpecFulgurite.genes(seed_v, tr, o)
-	if sid in ["flower_quartz", "amber"]:
+	if sid in ["flower_quartz", "amber", "simetite"]:
 		return SpecFlower.genes(seed_v, sid, tr, o)
 	if sid == "trilobite":
 		return SpecTrilobite.genes(seed_v, tr, o)
@@ -97,7 +97,7 @@ static func accents(g: Dictionary) -> Array:
 		return SpecWood.accents(g)
 	if g.get("kind", "") == "fulgurite":
 		return SpecFulgurite.accents(g)
-	if g.get("kind", "") in ["flower_quartz", "amber"]:
+	if g.get("kind", "") in ["flower_quartz", "amber", "simetite"]:
 		return SpecFlower.accents(g)
 	if g.get("kind", "") == "trilobite":
 		return SpecTrilobite.accents(g)
@@ -123,7 +123,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		return SpecWood.gene_name(id, g)
 	if g.get("kind", "") == "fulgurite":
 		return SpecFulgurite.gene_name(id, g)
-	if g.get("kind", "") in ["flower_quartz", "amber"]:
+	if g.get("kind", "") in ["flower_quartz", "amber", "simetite"]:
 		return SpecFlower.gene_name(id, g)
 	if g.get("kind", "") == "trilobite":
 		return SpecTrilobite.gene_name(id, g)
