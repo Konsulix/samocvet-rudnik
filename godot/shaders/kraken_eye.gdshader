@@ -14,6 +14,7 @@ uniform vec2 ball_h = vec2(19.5, 17.0);
 uniform float tilt = 0.3;                  // the eye's tilt, radians (down to the right)
 uniform vec2 look = vec2(0.0);             // the pupil's offset from the middle, px, along / across the tilt
 uniform vec2 slit = vec2(5.5, 3.5);        // the pupil's radius and the width of the darker iris ring round it, px
+uniform float squash = 0.78;                // the pupil's height over its width
 uniform float lid = 0.0;
 uniform float glow = 1.0;                  // the iris' brightness
 uniform vec3 pupil_col : source_color = vec3(0.02, 0.05, 0.06);
@@ -48,7 +49,8 @@ void fragment() {
 			float along = dot(dd, dir);
 			dd += dir * along * (1.0 / max(1.0 - 0.45 * ll * ll, 0.4) - 1.0);
 		}
-		float e = length(dd);
+		// a little flattened across the eye
+		float e = length(dd * vec2(1.0, 1.0 / squash));
 		if (e < r) c.rgb = mix(pupil_col, pupil_col * 2.5, smoothstep(r * 0.6, r, e));
 		else if (e < r + slit.y) c.rgb = mix(ring_col, c.rgb, smoothstep(r, r + slit.y, e) * 0.6);
 		// the wet glint stays where the light is, the pupil runs under it
