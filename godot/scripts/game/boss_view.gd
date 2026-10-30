@@ -72,7 +72,8 @@ func _ready() -> void:
 	if not below_tex.is_empty():
 		below = TextureRect.new()
 		below.texture = below_tex.get(0, below_tex.values()[0])
-		below.position = Vector2(0, sz.y)
+		# it starts a little up over the sprite's bottom, covering the picture's own dark cut edge (export_below.py UP)
+		below.position = Vector2(0, sz.y - float(meta.get("below_up", 8)))
 		below.size = below.texture.get_size()
 		below.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		below.mouse_filter = Control.MOUSE_FILTER_IGNORE
