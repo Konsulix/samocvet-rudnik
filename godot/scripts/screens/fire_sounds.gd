@@ -17,6 +17,10 @@ const RIVER_DB := -14.0
 const STREAM_DB := -16.0
 
 var _goat_at := 12.0
+# the cicadas sing in spells: a chorus of 12-40 s, then a hush of 6-25 s; _cic eases 0..1 between them over a few seconds
+var _cic := 1.0
+var _cic_on := true
+var _cic_until := randf_range(12.0, 40.0)
 
 static func of(v: FireView) -> FireSounds:
 	if not v.has_meta("fire_sounds"):
@@ -71,8 +75,13 @@ func tick(v: FireView) -> void:
 	var J := v.J
 	var sp := v._shown_places
 	var sky := float(J.sky)
-	# cicadas over the hot hill (a day without them only while the mine is a ruin is still a day: always on)
-	a.hum("fire/cicadas", CICADA_DB + v._far(sky + 700.0), true)
+	# cicadas over the hot hill (a day without them only while the mine is a ruin is still a day), in spells of song
+	# and hush; the dying out and the starting up take a few seconds, like a real chorus
+	if v.t > _cic_until:
+		_cic_on = not _cic_on
+		_cic_until = v.t + (randf_range(12.0, 40.0) if _cic_on else randf_range(6.0, 25.0))
+	_cic = move_toward(_cic, 1.0 if _cic_on else 0.0, v.get_process_delta_time() / (2.0 if _cic_on else 3.5))
+	a.hum("fire/cicadas", CICADA_DB + v._far(sky + 700.0) + linear_to_db(maxf(_cic, 0.001)), true)
 	# the acid stream down the gorge (and on down the section once the stair is built)
 	if J.has("stream"):
 		var sa: Array = J.stream.at
