@@ -71,6 +71,7 @@ func _ready() -> void:
 	bg.size = size
 	add_child(bg)
 	render()
+	Coach.note(self, "c_atlas", "The Scholar's atlas. Every kind of stone you find gets a page - your best one, the records, where it lies. Grey shapes are still to find.")
 
 func render() -> void:
 	for ch in get_children():

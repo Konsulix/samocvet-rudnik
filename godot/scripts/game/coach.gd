@@ -50,6 +50,32 @@ func hand(from: Vector2, to: Vector2) -> void:
 	_hand_on = true
 	_t = 0.0
 
+## a first-time note, once (Save.told(id)): the screen dims but for `hole` (if any), `text` on a card; a touch on the
+## hole goes through to it, with no hole any touch closes it. Over everything but the windows (layer 19)
+static func note(at: Node, id: String, text: String, hole := Rect2()) -> void:
+	if off or Save.told(id) or not at.is_inside_tree(): return
+	Save.tell(id)
+	var layer := CanvasLayer.new()
+	layer.layer = 19
+	at.add_child(layer)
+	var c := Coach.new()
+	layer.add_child(c)
+	c.open([hole] if hole.has_area() else [], text, not hole.has_area())
+	c.close_on_hole = true
+	c.dismissed.connect(layer.queue_free)
+
+## a note's hole touched: the touch goes on to what is under it, the note goes
+var close_on_hole := false
+func _input(e: InputEvent) -> void:
+	if not close_on_hole or not visible: return
+	var pressed: bool = (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed)
+	if not pressed: return
+	for h in holes:
+		if h.has_point(e.position):
+			close()
+			dismissed.emit()
+			return
+
 func close() -> void:
 	if not visible: return
 	for b in _blocks: b.queue_free()
@@ -151,6 +177,7 @@ func _place_card(text: String) -> void:
 		if not is_instance_valid(_card): return
 		var h := _card.size.y
 		var y := top - h - 18.0 if above else bottom + 18.0
+		if holes.is_empty(): y = (vp.y - h) / 2
 		_card.position = Vector2((vp.x - w) / 2, clampf(y, UI.safe_top() + 8.0, vp.y - h - UI.safe_bottom() - 8.0))
 	_card.resized.connect(place)
 	place.call()

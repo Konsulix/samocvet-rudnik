@@ -145,9 +145,32 @@ static func settings() -> void:
 		Sfx.apply_mute()
 		snd.text = "Sound: on" if not Save.d.mute else "Sound: off")
 	v.add_child(snd)
+	v.add_child(Ov.btn("Story so far", "glass", func(): story_card()))
+	var tips := Ov.btn("Show tips again", "glass", func(): pass)
+	tips.pressed.connect(func():
+		# the board's and the guide's tips start over; the story stays told
+		Save.d.tut = Save.d.tut.filter(func(t: String) -> bool: return t == "prologue" or t.begins_with("s_"))
+		Save.persist()
+		tips.text = "Tips will show again")
+	v.add_child(tips)
 	# for testing: the diagnostics log (errors, slow frames, FPS; Copy) and the tester's panel (any depth, the boss…)
 	v.add_child(Ov.btn("Logs", "glass", func(): Diag.show_card()))
 	v.add_child(Ov.btn("Admin", "glass", func(): Admin.open()))
+	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
+
+## the story so far: every scene already seen, to see again
+static func story_card() -> void:
+	var v := Ov.card(300)
+	v.add_child(UI.title("Story so far", 22))
+	var any := false
+	for e: Array in StoryScene.JOURNAL:
+		if not Save.told(String(e[2])): continue
+		any = true
+		var id := String(e[0])
+		v.add_child(Ov.btn(String(e[1]), "glass", func():
+			StoryScene.play(Ov.holder(), id)
+			Ov.close()))
+	if not any: v.add_child(Kit.label("Nothing yet.", 15, UI.body, Kit.DIM))
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
 ## one resource plate: a dark rounded bar with its round badge sitting over the left end

@@ -57,6 +57,7 @@ func _ready() -> void:
 	root.add_child(room)
 	root.add_child(Chrome.nav_bar("museum", func(id: String): go.emit(id)))
 	_build()
+	Coach.note(self, "c_cabinet", "Your cabinet. The stones you keep wait in the drawers and the chest; at the workbench they become jewels. The niches are for artifacts, later.")
 
 ## the picture's size in the room and how far it is shifted left and up
 func _fit() -> Array:

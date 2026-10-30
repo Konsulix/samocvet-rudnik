@@ -28,6 +28,7 @@ var _press_scroll := 0.0
 var _dragging := false
 var _down := false
 var _top_shade: TextureRect
+var _tasks: Button         # the Next plate (the first-time note points at it)
 var _row: Control           # the Play / next-depth row: the level window keeps clear of it
 
 func _ready() -> void:
@@ -159,6 +160,7 @@ func render() -> void:
 	play.size_flags_stretch_ratio = 0.9
 	row.add_child(play)
 	var task := _tasks_button()
+	_tasks = task
 	task.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(task)
 	col.add_child(row)
@@ -1024,6 +1026,9 @@ func _guide_later(delay: float) -> void:
 	_bubble.closed.connect(func():
 		Save.tell(String(line.id))
 		_bubble = null
+		# where to build: the Next plate shown, the first time he speaks of it
+		if String(line.id) == "g_build" and _tasks and is_instance_valid(_tasks):
+			Coach.note(self, "c_next", "This plate shows what to build next and what it needs. Tap it.", _tasks.get_global_rect())
 		_guide_later(0.5))
 
 ## the story moment due on this screen (StoryScene.SCENES), once each, or ""

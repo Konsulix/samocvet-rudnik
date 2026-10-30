@@ -57,7 +57,9 @@ func _init(v: MineView, text: String) -> void:
 		if style == "parchment":
 			l.add_theme_font_override("font", load(FELL) as Font)
 			l.add_theme_font_size_override("font_size", 17)
-		l.custom_minimum_size = Vector2(220, 0)
+		# a long line gets a wider note, so it still fits over his head
+		var wide := clampf(220.0 + (text.length() - 80) * 1.4, 220.0, v.get_viewport_rect().size.x - 70.0)
+		l.custom_minimum_size = Vector2(wide, 0)
 		l.add_theme_constant_override("line_spacing", -2)
 		# ink on a light note: no dark outline (kit labels have one to read over pictures; here it blotted the letters)
 		if style in ["paper", "parchment"]: l.add_theme_constant_override("outline_size", 0)

@@ -77,6 +77,18 @@ const SCENES := {
 	],
 }
 
+## the story so far (settings → Story): [scene id, title, what marks it told (Save.told)], in the order they come
+const JOURNAL := [
+	["prologue_voice", "A voice in the dark", "prologue"],
+	["prologue_meet", "The old miner", "prologue"],
+	["fools_gold", "Fool's gold", "prologue"],
+	["sister_meet", "The Scholar", "s_sister_meet"],
+	["knock", "Knocking in the walls", "s_knock"],
+	["notebook", "His notebook", "s_notebook"],
+	["poloz_before", "The Serpent breathes", "s_poloz_before"],
+	["poloz_after", "Boot prints", "s_poloz_after"],
+]
+
 ## test runs (-- story_auto): the lines go on by themselves, for screenshots
 static var auto := false
 var lines: Array = []
@@ -123,11 +135,13 @@ func _ready() -> void:
 		if not whos.has(l[0]): whos.append(l[0])
 	for who in whos:
 		if CAST[who].faces == "none":
-			# the unseen speaker: his lantern hangs into the dark from above
-			var lamp := KitLantern.new(96.0)
-			lamp.position = lamp_at if lamp_at.x >= 0.0 else Vector2(vp.x / 2, vp.y * 0.2)
-			lamp.reach_top(0.0)
-			add_child(lamp)
+			# the unseen speaker: a lantern hanging into the dark - the caller's own lifted over the dark (the
+			# prologue's), or one of the scene's if it has none (lamp_at)
+			if lamp_at.x >= 0.0:
+				var lamp := KitLantern.new(96.0)
+				lamp.position = lamp_at
+				lamp.reach_top(0.0)
+				add_child(lamp)
 			continue
 		var fig := TextureRect.new()
 		fig.texture = _pic(String(who), "calm")
@@ -148,7 +162,25 @@ func _ready() -> void:
 		add_child(fig)
 		_figs[who] = fig
 	_build_card(vp)
+	_skip_button(vp)
 	_next()
+
+## Skip, top right: the rest of the scene goes unread (it is still told)
+func _skip_button(vp: Vector2) -> void:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.text = "Skip  ›"
+	b.add_theme_font_override("font", UI.body_bold)
+	b.add_theme_font_size_override("font_size", 14)
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(c, Color(Kit.CREAM, 0.75))
+	b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	b.add_theme_constant_override("outline_size", 4)
+	b.position = Vector2(vp.x - 96.0, UI.safe_top() + 64.0)
+	b.size = Vector2(84, 40)
+	b.pressed.connect(func(): if not _done: _end())
+	add_child(b)
 
 func _card_h() -> float:
 	return 150.0 + UI.safe_bottom()
