@@ -647,7 +647,7 @@ static func release() -> void:
 class SlateBg extends Control:
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# one big slate picture over the whole screen (GPT, art/ui_kit/gen_slate_big.sh; its colour matched to the tile's):
+		# one big slate picture over the whole screen (GPT, art/ui_kit/gen_slate_big.sh; drawn dark at once, no filtering):
 		# the 200 px tile repeated every 55 pt read as rows of stripes
 		var pic := TextureRect.new()
 		pic.texture = load("res://assets/ui/kit/slate_big.png")
