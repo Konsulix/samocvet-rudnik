@@ -1037,6 +1037,14 @@ func _story_beat() -> String:
 ## out of the cave-in: the whole mine goes by from its dark bottom up to the surface, to the old man with the lantern
 func _rise() -> void:
 	_guide_waits = true
+	# hands off while the camera rides: a tap stopped the ride, and what came after waited for it for ever
+	var hold := CanvasLayer.new()
+	hold.layer = 24
+	var wall := Control.new()
+	wall.mouse_filter = Control.MOUSE_FILTER_STOP
+	wall.size = get_viewport_rect().size
+	hold.add_child(wall)
+	get_tree().root.add_child(hold)
 	await get_tree().process_frame
 	_scroll_to(1e9)
 	await get_tree().create_timer(0.6).timeout
@@ -1044,8 +1052,8 @@ func _rise() -> void:
 	_glide = create_tween()
 	var to := view.guide_head().y * view.scale.y - get_viewport_rect().size.y * 0.42
 	_glide.tween_method(_scroll_to, scroll, to, 4.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await _glide.finished
-	await get_tree().create_timer(0.4).timeout
+	await get_tree().create_timer(4.9).timeout
+	hold.queue_free()
 	if not is_inside_tree(): return
 	await StoryScene.play(self, "prologue_meet").finished
 	Save.tell("g_hello_0")    # he has just said hello

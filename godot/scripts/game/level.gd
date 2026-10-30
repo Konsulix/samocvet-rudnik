@@ -102,6 +102,8 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	model = BoardModel.new()
 	model.rng.randomize()
 	prologue = bool(level.get("prologue", false))
+	# the cave-in has its own picture: the bottom of a collapsed shaft
+	if prologue and ResourceLoader.exists(PROLOGUE_BG): bg.texture = load(PROLOGUE_BG)
 	model.setup(n, pre, dl, eq, Save.area(), not prologue, level)
 	rich = bool(level.get("rich", false))
 	Save.persist()
@@ -1452,6 +1454,8 @@ const PROLOGUE := {
 	prologue = true, gen = true, colors = 4, moves = 40, goals = [["rock"]],
 	map = "##rrrr##|#rrrrrr#|#rr..rr#|#......#|........|........|........|........",
 }
+
+const PROLOGUE_BG := "res://assets/ui/level_bg/prologue.png"
 
 ## the lantern's light over the rubble: a warm glow from above the board
 func _light_up() -> void:
