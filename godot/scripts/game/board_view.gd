@@ -50,7 +50,7 @@ var _eye_tex := {}            # his drawn eye, open and shut: loaded with the bo
                               # loads shows white)
 ## his eye alive (shaders/kraken_eye.gdshader on its own layer, over the stones): the pupil darts about in jerks -
 ## now a burst of quick darts, now a roll round the eyeball, now a stare at where the player touched the board -
-## narrows and widens, the lids blink, squint and flinch shut, the whole eye shudders now and then
+## grows a little when hit (its shape stays), the lids blink, squint and flinch shut, the whole eye shudders now and then
 var eye_layer: Node2D
 var _eye_meta := {}
 var _look := Vector2.ZERO        # the pupil's offset now, px of the eye picture
@@ -757,11 +757,8 @@ func _eye_live(dt: float) -> void:
 		_look_to = _clamp_look(Vector2(cos(_roll_a), sin(_roll_a)) * half)
 	# a dart is fast, then it holds still
 	_look = _look.lerp(_look_to, 1.0 - exp(-dt * 28.0))
-	# the slit: narrow, flicking narrower or rounder now and then; hit, it blows wide and round and settles back
-	var want := Vector2(11, 3)
-	if hit < 1.2: want = Vector2(8, 8).lerp(want, clampf(hit / 1.2, 0.0, 1.0))
-	elif fposmod(now * 0.37, 1.0) < 0.12: want = Vector2(12, 1.5)
-	elif fposmod(now * 0.23 + 0.5, 1.0) < 0.1: want = Vector2(8, 6)
+	# the slit keeps its drawn shape; hit, it grows a little all over and settles back
+	var want := Vector2(11, 3) * (1.0 + 0.25 * clampf(1.0 - hit / 1.2, 0.0, 1.0))
 	_slit = _slit.lerp(want, 1.0 - exp(-dt * 14.0))
 	# the lids: shut while he is hurt, a blink every few seconds (now and then a double one), a suspicious squint
 	if now >= _blink_at + 0.18:

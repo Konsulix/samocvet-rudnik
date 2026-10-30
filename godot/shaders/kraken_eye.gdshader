@@ -1,7 +1,7 @@
 shader_type canvas_item;
 // The Kraken's eye on his last board, alive: the picture with its pupil painted out (eye_blank.png,
 // art/boss/eye_parts.py), and over it, on the picture's own pixel grid, a pupil drawn here - a cephalopod's dark slit in
-// a darker ring - that darts about inside the eyeball (`look`), narrows and widens (`slit`), and lids of his hide that
+// a darker ring - that darts about inside the eyeball (`look`), grows a little when hit (`slit`), and lids of his hide that
 // close over the eyeball (`lid`: 0 open .. 1 shut). The slit and the lids lie along the eye's own tilt (`tilt`, as the
 // picture's pupil was drawn); the lids' edges are curved like the eyeball's, the upper one comes down further than the
 // lower comes up, they are shaded (lighter away from the edge, a dark crease on it) and the upper casts a shadow on the
