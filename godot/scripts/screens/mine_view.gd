@@ -811,6 +811,8 @@ const FLAGS := {
 	1: [{place = "hoist", pole = [118, 26, -38], len = 120.0, fly = 1.0}],
 	2: [{place = "lighthouse", pole = [123, 128, 20], len = 150.0, fly = 1.0}],
 }
+var _flag_ph := {}
+var _flag_t := {}
 func _flags(c: CanvasItem) -> void:
 	if not ResourceLoader.exists(dir + "flag_strip.png"): return
 	if area >= Save.d.boss_won.size() or not bool(Save.d.boss_won[area]): return
@@ -829,13 +831,18 @@ func _flags(c: CanvasItem) -> void:
 		var ln: float = fl.len
 		var fly: float = fl.fly
 		var hw := ln * float(tx.get_height()) / float(tx.get_width()) * 0.5
-		# the wind: two slow swells make the gusts; in a lull the cloth sags along the pole
+		# the wind: two slow swells make the gusts; in a lull the cloth sags along the pole in big lazy waves, in a strong
+		# gust it pulls out straight with small quick ripples. The ripples' phase runs on by the frame (`_flag_ph`): as
+		# time x speed it jumped whenever the wind changed, wilder the longer the screen was open
 		var ph := t + i * 3.7
 		var wind := clampf(0.62 + 0.25 * sin(ph * 0.31) + 0.18 * sin(ph * 0.83 + 1.0), 0.15, 1.0)
 		var sag := (1.0 - wind) * 0.9
-		var fold := func(q: float) -> float: return q * 7.5 - ph * (5.0 + 4.0 * wind)
-		var pts := Bend.chain(top + Vector2(0, hw + 2.0), ln * (0.9 + 0.1 * wind), 24, func(q: float) -> float:
-			var a := (0.18 + 0.32 * wind) * q * sin(fold.call(q)) + 0.06 * sin(ph * 1.7) * q + sag * q
+		var run := float(_flag_ph.get(i, 0.0)) + clampf(t - float(_flag_t.get(i, t)), 0.0, 0.1) * (4.5 + 5.5 * wind)
+		_flag_ph[i] = run
+		_flag_t[i] = t
+		var fold := func(q: float) -> float: return q * (6.0 + 3.0 * wind) - run
+		var pts := Bend.chain(top + Vector2(0, hw + 2.0), ln * (0.88 + 0.12 * wind), 24, func(q: float) -> float:
+			var a := (0.34 - 0.2 * wind) * q * sin(fold.call(q)) + 0.05 * sin(ph * 1.7) * q + sag * q
 			return a if fly > 0.0 else PI - a)
 		Bend.draw(c, pts, func(q: float) -> float: return hw * (1.0 - 0.1 * q * absf(cos(fold.call(q)))), tx, 0.0, 1.0, fly < 0.0,
 			func(q: float) -> Color: var v := 0.82 + 0.2 * q * sin(fold.call(q) + 1.2); return Color(v, v, v))
