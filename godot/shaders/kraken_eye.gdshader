@@ -18,8 +18,14 @@ uniform vec3 ring_col : source_color = vec3(0.12, 0.35, 0.38);
 uniform vec3 lid_col : source_color = vec3(0.36, 0.2, 0.22);
 uniform vec3 lid_line : source_color = vec3(0.12, 0.05, 0.07);
 
+// the draw's own colour (its shadow is drawn black and see-through): from the vertex - COLOR in fragment() already has
+// the texture in it, and multiplying by that squared the picture's colours (it went dark)
+varying vec4 tint;
+void vertex() {
+	tint = COLOR;
+}
+
 void fragment() {
-	vec4 tint = COLOR;      // the draw's own colour (its shadow is drawn black and see-through)
 	vec4 c = texture(TEXTURE, UV);
 	vec2 px = floor(UV * size) + 0.5;
 	if (texture(ball, UV).r > 0.5) {
