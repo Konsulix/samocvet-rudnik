@@ -78,13 +78,13 @@ static func icon(name: String, size: float) -> TextureRect:
 	return t
 
 ## the icon of a resource: coins, lives, iron, or the mine's own ore (gold at Old Adit, copper at Copper Mountain,
-## sulphur at Fire Horizon - art/ui_kit/gen_sulphur.sh)
+## pyrite ammonites at Whalebone Cove - gen_ammonite.sh, sulphur at Fire Horizon - art/ui_kit/gen_sulphur.sh)
 static func res_icon(kind: String, size: float) -> TextureRect:
 	match kind:
 		"coin": return icon("coin", size)
 		"heart": return icon("heart", size)
 		"iron": return icon("iron", size)
-	return icon({1: "copper", 3: "sulphur"}.get(Save.area(), "gold"), size)
+	return icon({1: "copper", 2: "ammonite", 3: "sulphur"}.get(Save.area(), "gold"), size)
 
 ## a button in a kit frame: btn_green (the main action), btn_gold, btn_dark, sq_gold, sq_dark, card, tab...
 ## Pressed it sinks a little darker; disabled it greys out.

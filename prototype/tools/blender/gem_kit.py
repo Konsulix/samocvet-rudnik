@@ -439,7 +439,11 @@ ORE_BY_GEM = {"emerald": COPPER_LOOK}
 # Fire Horizon's sulphur (its own kind "sulphur", rendered for the yellow stone only): pale lemon-green burning veins
 # with a dark seam, and instead of lumps of metal two or three sharp glassy sulphur crystals (double pyramids)
 SULPHUR_LOOK = dict(core=(0.86, 1.0, 0.62), rim=(0.02, 0.025, 0.01), halo=(0.35, 0.6, 0.18), burn=1.9, crystal=True)
-OWN_KINDS = {"citrine": ["sulphur"]}
+# Whalebone Cove's pyritized ammonites (its own kind "ammonite", for the blue stone): brassy pyrite veins, and instead
+# of lumps of metal a coiled ammonite of pyrite grown into the stone's front, its ribs catching the light, with a small one
+AMMONITE_LOOK = dict(core=(0.98, 0.7, 0.26), rim=(0.025, 0.02, 0.012), halo=(0.85, 0.6, 0.22), burn=1.0, ammonite=True)
+OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK}
+OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite"]}
 
 def flat_emit(name, strength):
     """a plain light (or, at 0, plain black) for the glow mask"""
@@ -483,6 +487,9 @@ def nuggets(o, seed, mask=False):
         dark = bpy.data.materials.new("socket"); dark.use_nodes = True
         dp = dark.node_tree.nodes["Principled BSDF"]
         dp.inputs["Base Color"].default_value = (*ORE_LOOK["rim"], 1); dp.inputs["Roughness"].default_value = 0.8
+    if ORE_LOOK.get("ammonite"):
+        ammonites(o, faces, rnd, mm, dark)
+        return
     made = []
     for f in faces:
         if len(made) >= 2 + (seed % 2): break
@@ -516,6 +523,58 @@ def nuggets(o, seed, mask=False):
             d = nug.modifiers.new("lumps", 'DISPLACE'); d.texture = tx; d.strength = rr * 0.3
             nug.data.materials.append(mat)
             for poly in nug.data.polygons: poly.use_smooth = True
+
+def ammonite_mesh(name, c, u, v, nrm, size, turns, rnd):
+    """a coiled ammonite shell lying in the plane (u, v) round c, its flat side to `nrm`: a tube along a logarithmic
+    spiral, thickening outwards, ribbed across its whorls, sunk a little into the stone"""
+    verts, faces = [], []
+    seg, ring = int(70 * turns), 10
+    t_end = turns * math.tau
+    b = 0.19                                # growth: each whorl ~3.3x wider than the one inside it
+    a = size / math.exp(b * t_end)
+    for i in range(seg + 1):
+        t = t_end * i / seg
+        r = a * math.exp(b * t)
+        out = u * math.cos(t) + v * math.sin(t)
+        tube = r * 0.42 * (1.0 + 0.16 * max(0.0, math.sin(t * 9.0)) ** 2)   # ribs across the whorl
+        ctr = c + out * r
+        for k in range(ring):
+            ph = k / ring * math.tau
+            verts.append(ctr + out * math.cos(ph) * tube + nrm * math.sin(ph) * tube * 0.8)
+    for i in range(seg):
+        for k in range(ring):
+            q0, q1 = i * ring + k, i * ring + (k + 1) % ring
+            faces.append((q0, q1, q1 + ring, q0 + ring))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(p) for p in verts], [], faces)
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    for poly in me.polygons: poly.use_smooth = True
+    return ob
+
+def ammonites(o, faces, rnd, mm, dark):
+    """a pyrite ammonite grown into the stone's front, in a dark socket, and a smaller one off to its side"""
+    big = [f for f in faces if abs(f.center.x) < 0.12 and -0.15 < f.center.z < 0.12] or faces
+    f = big[0]
+    for k_, (size, turns) in enumerate(((0.12, 2.6), (0.055, 2.2))):
+        if k_:
+            far = [g for g in faces if (Vector(g.center) - Vector(f.center)).length > 0.2]
+            if not far: break
+            f = far[0]
+        c = Vector(f.center)
+        # the plane it lies in: the stone's surface there, turned a little towards the camera so it reads face on
+        nrm = (Vector(f.normal) + Vector((0, -1.0, 0))).normalized()
+        u = (Vector((1, 0, 0)) - nrm * Vector((1, 0, 0)).dot(nrm)).normalized()
+        v = nrm.cross(u).normalized()
+        spin = rnd.uniform(0, math.tau)
+        u, v = u * math.cos(spin) + v * math.sin(spin), v * math.cos(spin) - u * math.sin(spin)
+        # a dark flat socket in the stone's surface, the shell lying on it, half proud of the surface
+        bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=size * 1.12, depth=size * 0.2, location=c + nrm * size * 0.02)
+        sk = bpy.context.object
+        sk.rotation_mode = 'QUATERNION'; sk.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(nrm)
+        sk.data.materials.append(dark)
+        am = ammonite_mesh("ammonite%d" % k_, c + nrm * size * 0.16, u, v, nrm, size, turns, rnd)
+        am.data.materials.append(mm)
 
 # the common ore (iron, the same in every mine): not veins but little cubes of dark steel grown into the stone,
 # their faces catching a cold light. A different shape from the local ore's veins, so the two read apart
@@ -616,8 +675,8 @@ def render(style, name, dark, mid, light, ore=None, mask=False):
     """<style>/<name>.png; <name>_ore.png: holding the mine's own ore (veins), <name>_iron.png: holding iron (cubes);
     and <name>_<ore>_glow.png: the light of the ore alone, white on black, for the game to shimmer"""
     global ORE_LOOK
-    ORE_LOOK = SULPHUR_LOOK if ore == "sulphur" else ORE_BY_GEM.get(name, GOLD_LOOK)
-    own = ore == "sulphur"
+    ORE_LOOK = OWN_LOOKS[ore] if ore in OWN_LOOKS else ORE_BY_GEM.get(name, GOLD_LOOK)
+    own = ore if ore in OWN_LOOKS else ""
     if own: ore = "ore"
     sc = setup()
     o = SHAPES[style][name]()
@@ -633,7 +692,7 @@ def render(style, name, dark, mid, light, ore=None, mask=False):
     elif ore == "iron":
         iron_crystals(o, o["seed"], mask)
     if ore and not mask: bloom(sc)
-    tag = name + ("_" + ("sulphur" if own else ore) if ore else "") + ("_glow" if mask else "")
+    tag = name + ("_" + (own or ore) if ore else "") + ("_glow" if mask else "")
     sc.render.filepath = os.path.join(OUT, style, tag + ".png")
     bpy.ops.render.render(write_still=True)
     print("GEM", style, tag)

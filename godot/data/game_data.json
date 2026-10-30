@@ -1116,11 +1116,12 @@
     ]
    ],
    "ore": {
-    "n": "Jet",
+    "n": "Ammonites",
     "iron": 0,
     "local": 1,
-    "c": "#7d8ca6",
-    "hot": "#7fe0ff"
+    "c": "#c9a24a",
+    "hot": "#ffd77a",
+    "look": "ammonite"
    },
    "depths": [
     {
