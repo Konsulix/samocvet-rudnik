@@ -48,7 +48,7 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = Geo.octa(0.32).translate(0, 0.3, 0)
 	elif habit == "dipyr":
 		# sulphur's rhombic bipyramid: four-sided, sharp at both ends, a rhombus across, its foot sunk in
-		g = Geo.octa(0.3).scale(0.78 * float(cfg.get("wk", 1.0)), 1.9 * float(cfg.get("hk", 1.0)), 1.15 * float(cfg.get("wk", 1.0))).translate(0, 0.42 * float(cfg.get("hk", 1.0)), 0)
+		g = Geo.octa(0.3).scale(0.85 * float(cfg.get("wk", 1.0)), 1.35 * float(cfg.get("hk", 1.0)), 1.15 * float(cfg.get("wk", 1.0))).translate(0, 0.3 * float(cfg.get("hk", 1.0)), 0)
 	elif habit == "grain":
 		# a rounded grain (olivine in basalt): a lump with soft facets
 		g = Geo.icosa(0.26, 1).scale(1.0, 0.85, 0.95).translate(0, 0.2, 0)
@@ -208,6 +208,9 @@ const ROCKS := {
 	"ironstone": {h = [0.03, 0.02], s = [0.4, 0.15], l = [0.22, 0.06], crust = [0.09, 0.5, 0.45], rust = 0x4a2010},
 	"limestone": {h = [0.1, 0.03], s = [0.15, 0.08], l = [0.5, 0.08], crust = [0.12, 0.1, 0.82], rust = 0xa07a40},
 	"slate": {h = [0.56, 0.08], s = [0.06, 0.08], l = [0.07, 0.05], crust = [0.6, 0.05, 0.4], rust = 0x3a3028},
+	# Sicily's sulphur country: the white gypsum and limestone the sulphur grew in; Etna's grey vesicular lava
+	"gypsum": {h = [0.58, 0.04], s = [0.06, 0.04], l = [0.8, 0.06], crust = [0.12, 0.05, 0.88], rust = 0xb09a6a},
+	"lava": {h = [0.6, 0.06], s = [0.03, 0.03], l = [0.3, 0.06], crust = [0.08, 0.05, 0.45], rust = 0x6a4a3a},
 }
 const ROCK_SHAPES := {slab = [1.35, 0.42, 1.05], chunk = [1.05, 0.72, 0.95], long = [1.55, 0.5, 0.75], small = [0.8, 0.55, 0.75]}
 
@@ -277,7 +280,7 @@ static var _sphere_cache := {}
 static var _disp := {}
 
 ## which photo scan dresses which rock
-const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, slate = 3, quartzite = 3}
+const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, slate = 3, quartzite = 3, gypsum = 3, lava = 2}
 
 ## height map of a scan, for pressing its relief into the geometry
 static func disp_img(i: int) -> Image:
@@ -335,7 +338,7 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose :=
 	var where := FastNoiseLite.new()
 	where.seed = sd + 4
 	where.frequency = 1.3
-	var spongy := 0.6 if type == "basalt" else 0.75 if type == "ironstone" else 0.35 if type == "limestone" else 0.2
+	var spongy := 0.85 if type == "lava" else 0.6 if type == "basalt" else 0.75 if type == "ironstone" else 0.35 if type == "limestone" else 0.2
 	var cav := PackedFloat32Array()
 	cav.resize(g.v.size())
 	var crest := PackedFloat32Array()

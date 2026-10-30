@@ -229,7 +229,7 @@ void fragment() {
 	EMISSION = (body + refl * fr * 1.1) * (1.0 - crust) + body * crust * 0.12;
 	if (blue_k > 0.0) {
 		float bp = 0.55 + 0.45 * fbm(v_op / rad * 1.6 + seed + vec3(0.0, TIME * 0.04, 0.0));
-		EMISSION += vec3(0.05, 0.3, 0.8) * blue_k * (0.03 + 0.9 * pow(1.0 - cv, 3.0)) * bp * (1.0 - crust);
+		EMISSION += vec3(0.05, 0.3, 0.8) * blue_k * (0.02 + 1.2 * pow(1.0 - cv, 3.0)) * bp * (1.0 - crust);
 	}
 	ROUGHNESS = mix(0.04, 0.8, crust);
 	SPECULAR = mix(0.5, 0.2, crust);

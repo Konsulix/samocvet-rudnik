@@ -37,7 +37,7 @@ const INSECTS := [["ant", 3.0], ["beetle", 2.0], ["fly", 2.5], ["mosquito", 2.0]
 ## hosts: [name, tint (linear), absorb, fractures, veils, bubbles, flow, debris, frost, inner glow]
 const HOSTS := {quartz = "clear quartz", smoky = "smoky quartz", amber = "Baltic amber", copal = "copal", simetite = "Sicilian simetite"}
 ## simetite, Sicily's amber: deep wine-red to garnet (it swallows green and blue fast), glowing blue on its skin
-const SIMETITE := Vector3(0.22, 2.6, 4.6)
+const SIMETITE := Vector3(0.55, 2.9, 4.6)
 
 static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Dictionary:
 	var rng := Rng32.new((seed_v * 2246822519 + 77) % 4294967296)
@@ -483,8 +483,8 @@ static func amber_mat(f: Dictionary, g: Geo) -> ShaderMaterial:
 	m.set_shader_parameter("dirt_k", 0.3 + float(int(f.seed) % 7) / 7.0 * 0.7)
 	m.set_shader_parameter("flow_k", 0.6 if f.host == "amber" else 0.35)
 	if f.host == "simetite":
-		m.set_shader_parameter("blue_k", 0.5)
-		m.set_shader_parameter("light_col", Vector3(1.0, 0.55, 0.32))
+		m.set_shader_parameter("blue_k", 0.9)
+		m.set_shader_parameter("light_col", Vector3(0.85, 0.5, 0.3))
 	m.set_shader_parameter("seed", float(int(f.seed) % 97) * 0.7)
 	return m
 

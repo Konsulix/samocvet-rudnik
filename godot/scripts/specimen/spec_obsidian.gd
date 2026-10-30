@@ -48,15 +48,19 @@ static func chunk(rng: Rng32, r: float, n_scoops: int, sc: Vector3) -> Geo:
 	for i in base.v.size():
 		owner[i] = -1
 		var p := base.v[i]
+		var r0 := p.length()
 		for k in scoops.size():
 			var c: Vector3 = scoops[k][0]
 			var rs: float = scoops[k][1]
 			if p.distance_to(c) < rs:
 				p = c + (p - c).normalized() * rs
 				owner[i] = k
+		# a scoop only takes away: nothing may stand out past the old surface (it swelled the find's box)
+		if p.length() > r0: p = p.normalized() * r0
 		base.v[i] = p
 	# soup, each triangle with the normals of the surface it belongs to
 	var g := Geo.new()
+	g.set_meta("shape", [nz, scoops, sc, r])
 	var nt := base.idx.size() if base.indexed() else base.v.size()
 	for t in range(0, nt, 3):
 		var ia := base.idx[t] if base.indexed() else t
@@ -72,6 +76,26 @@ static func chunk(rng: Rng32, r: float, n_scoops: int, sc: Vector3) -> Geo:
 				g.own_n.append((p / (sc * sc)).normalized())
 	return g
 
+## the chunk's surface in the direction d (the same as chunk() makes it): [point, outward normal]
+static func surf(g: Geo, d: Vector3) -> Array:
+	var sh: Array = g.get_meta("shape")
+	var nz: FastNoiseLite = sh[0]
+	var scoops: Array = sh[1]
+	var sc: Vector3 = sh[2]
+	var r: float = sh[3]
+	var u := d.normalized()
+	var p := u * (1.0 + nz.get_noise_3dv(u * 1.5) * 0.18) * sc * r
+	var r0 := p.length()
+	var n := (p / (sc * sc)).normalized()
+	for k in scoops.size():
+		var c: Vector3 = scoops[k][0]
+		var rs: float = scoops[k][1]
+		if p.distance_to(c) < rs:
+			p = c + (p - c).normalized() * rs
+			n = (c - p).normalized()
+	if p.length() > r0: p = p.normalized() * r0
+	return [p, n]
+
 static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var f: Dictionary = gene.fossil
 	var rng := Rng32.new(int(f.seed) * 7 + 3)
@@ -80,51 +104,66 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var kind: String = f.kind
 	if kind == "tears":
 		return _tears(b, rng, gs)
-	var g := chunk(rng, 0.78 * gs, int(f.scoops), Vector3(1.3, 0.85, 1.0))
+	var g := chunk(rng, 1.0 * gs, int(f.scoops), Vector3(1.15, 0.95, 1.0))
 	# its colour, vertex by vertex: black, with snowflakes or mahogany streaks
 	var nz := FastNoiseLite.new()
 	nz.seed = int(f.seed)
+	nz.frequency = 1.3
 	g.col.resize(g.v.size())
 	# snowflakes: blossoms of cristobalite scattered through the glass, each a round grey-white spot with rays
 	var flakes := []
 	var sr := Rng32.new(int(f.seed) + 5)
-	for k in 40:
-		flakes.append([g.v[int(sr.next() * g.v.size())], (0.055 + sr.next() * 0.05) * gs, sr.next() * TAU])
+	for k in 34:
+		flakes.append([g.v[int(sr.next() * g.v.size())], (0.16 + sr.next() * 0.16) * gs, sr.next() * TAU])
 	var black := Color(0.012, 0.012, 0.014)
 	for i in g.v.size():
 		var p := g.v[i]
 		var c := black
 		if kind == "mahogany":
 			var band := nz.get_noise_3d(p.x * 1.2, p.y * 6.0 + nz.get_noise_3dv(p * 2.0) * 2.5, p.z * 1.2)
-			c = black.lerp(Color(0.24, 0.05, 0.02), smoothstep(-0.08, 0.3, band))
+			# mahogany: red-brown clouds and streaks through the black, not all of it
+			var blot := nz.get_noise_3dv(p * 1.4) + band * 0.5
+			c = black.lerp(Color(0.085, 0.016, 0.005), smoothstep(0.0, 0.3, blot))
 		g.col[i] = c
 	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.02, coat = 0.3, coat_r = 0.01, env = 0.55, metal = 0.0,
-		ir = 0.12 if kind == "rainbow" else 0.0, rf = 0.0})
+		ir = 0.07 if kind == "rainbow" else 0.0, rf = 0.0})
 	var mi := U.mesh(g, m, root, Vector3(0, 0.05, 0), Basis(Vector3.UP, rng.next() * TAU) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.5))
 	mi.set_meta("col", true)
 	if kind == "snowflake":
-		# each a flat ragged star lying in the surface: grey-white in the middle, fading out into the black at its rays
+		# each a feathery blossom lying on the glass, following its curve: rays of their own lengths, grey-white in
+		# the middle fading into the black, built on the surface itself (a flat decal sank under the scoops)
 		var sg := Geo.new()
 		for fl: Array in flakes:
 			var at: Vector3 = fl[0]
-			var vi := g.v.find(at)
-			var nn: Vector3 = g.own_n[vi] if vi >= 0 else at.normalized()
-			var t1 := nn.cross(Vector3.UP if absf(nn.y) < 0.9 else Vector3.RIGHT).normalized().rotated(nn, float(fl[2]))
-			var t2 := nn.cross(t1)
-			var rr: float = fl[1]
-			var cen := at + nn * 0.003
-			var pts := []
-			var nr := 14
+			var u0 := at.normalized()
+			var t1 := u0.cross(Vector3.UP if absf(u0.y) < 0.9 else Vector3.RIGHT).normalized().rotated(u0, float(fl[2]))
+			var t2 := u0.cross(t1)
+			var rr: float = float(fl[1]) / maxf(0.2, at.length())
+			var nr := 20
+			var rays := []
 			for q in nr:
-				var a := TAU * q / nr
-				var rad := rr * (1.0 if q % 2 == 0 else 0.55) * (0.8 + sr.next() * 0.4)
-				pts.append(cen + (t1 * cos(a) + t2 * sin(a)) * rad)
-			var mid := Color(0.82, 0.82, 0.79) * (0.8 + sr.next() * 0.25)
+				rays.append((0.6 + 0.4 * sr.next()) if q % 2 == 0 else (0.5 + 0.25 * sr.next()))
+			var mid := Color(0.66, 0.67, 0.68) * (0.8 + sr.next() * 0.25)
+			var pt := func(a: float, f: float) -> Array:
+				var sp: Array = surf(g, u0 + (t1 * cos(a) + t2 * sin(a)) * rr * f)
+				return [(sp[0] as Vector3) + (sp[1] as Vector3) * 0.004, sp[1]]
+			var cen: Array = pt.call(0.0, 0.0)
 			for q in nr:
-				for e: Array in [[cen, mid], [pts[q], black], [pts[(q + 1) % nr], black]]:
-					sg.v.append(e[0])
-					sg.col.append(e[1])
-					sg.own_n.append(nn)
+				var a0 := TAU * q / nr
+				var a1 := TAU * (q + 1) / nr
+				var f0: float = rays[q]
+				var f1: float = rays[(q + 1) % nr]
+				var m0: Array = pt.call(a0, f0 * 0.5)
+				var m1: Array = pt.call(a1, f1 * 0.5)
+				var e0: Array = pt.call(a0, f0)
+				var e1: Array = pt.call(a1, f1)
+				var cm := mid * 0.85
+				for tri: Array in [[cen, mid, m0, cm, m1, cm], [m0, cm, e0, black, e1, black], [m0, cm, e1, black, m1, cm]]:
+					for e in 3:
+						var vv: Array = tri[e * 2]
+						sg.v.append(vv[0])
+						sg.col.append(tri[e * 2 + 1])
+						sg.own_n.append(vv[1])
 		var fm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, side = "double"})
 		var fmi := U.mesh(sg, fm, mi)
 		fmi.set_meta("col", true)

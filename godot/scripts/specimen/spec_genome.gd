@@ -6,10 +6,10 @@ extends RefCounted
 ## The genes are read from the find's seed and traits, so the same find always grows the same way,
 ## and the reveal card can tell the player what they got.
 
-const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
+const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -101,6 +101,16 @@ static func of(o: Dictionary) -> Dictionary:
 	# nor on a lump of glass
 	if habit == "obsidian":
 		apool = []
+	# the species' own say (SpecLooks): accents that do not suit it, and how often anything grows on it at all — or
+	# nothing does where its rock is hidden (the desert and iron roses)
+	var no_acc: Array = look.get("no_acc", [])
+	if no_acc.size():
+		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in no_acc))
+	var bare := form == "rosette" and look.has("rose")
+	if Rng32.new((seed_v * 1103515245 + 13) % 4294967296).next() > float(look.get("growths", 1.0)):
+		bare = true
+	if bare:
+		apool = []
 	# a trilobite's slab holds the sea's own life: big puffs and sprays would bury the animal
 	if sid == "trilobite":
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["pompom", "straw", "needles"]))
@@ -164,7 +174,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
-	if shroom >= 0 and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and fossil.get("show", "") != "matrix"):
 		acc.append("mushrooms")
 	else:
