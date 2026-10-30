@@ -16,6 +16,8 @@ extends RefCounted
 ## sig     traits it always has (not named on the card: they are what the species is)
 ## more    traits it rolls more often: {trait: extra chance}
 ## core    a cube of another colour inside each crystal (fluorite's phantom cubes), [hex colour, size 0..1]
+## palette the species' colours, picked per find on its own stream: [[body hex, core hex, weight], ...] (the core colour
+##         replaces core's)
 ## rose    the rosette as a desert rose: frosted, sand-coloured petals, [hex colour from, hex colour to]
 ## glass   {dark: how dark the glass body is (smoky quartz), tint: how much the body glows in the species' own colour
 ##         rather than showing the room through it (garnet, azurite), 0..1}
@@ -31,7 +33,8 @@ const LOOK := {
 	calcite = {forms = [["cluster", 5.0], ["single", 2.0], ["pile", 0.6]], kinds = [["druse", 5.0], ["crystal", 3.0]],
 		rock = [["limestone", 5.0], ["basalt", 1.0]]},
 	fluorite = {forms = [["cluster", 5.0], ["single", 2.0], ["hopper", 0.7]], kinds = [["druse", 5.0], ["crystal", 3.0]],
-		core = [0x5a2e9a, 0.62]},
+		core = [0x5a2e9a, 0.42], palette = [[0x4fae6a, 0x5a2e9a, 4.0], [0x8a5ad0, 0x3a1a6a, 4.0], [0x5aa8d8, 0x2a3a8a, 2.0],
+			[0xe0c040, 0x6a3aa0, 2.0], [0xdcdcd8, 0x7a4ab8, 1.5], [0xe8a0b8, 0x9a4a8a, 0.8]], glass = {tint = 0.55}},
 	pyrite = {forms = [["cluster", 4.0], ["single", 2.0], ["pile", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
 		rock = [["slate", 5.0], ["ironstone", 1.0]]},
 	garnet = {forms = [["pile", 4.0], ["single", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
@@ -48,7 +51,7 @@ const LOOK := {
 	emerald = {forms = [["single", 5.0], ["columnar", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["slate", 6.0]], blunt = true, dark = 0.0},
 	# Whalebone Cove
 	gypsum = {forms = [["slabs", 3.0], ["rosette", 4.0], ["radial", 1.0], ["single", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
-		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 1.3, wk = 0.7, dark = 0.0, rose = [0xb8915e, 0xdcc49a], more = {twin = 0.12}},
+		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 1.3, wk = 0.7, dark = 0.0, rose = [0x7a5a3c, 0xa4865e], more = {twin = 0.12}},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
 }

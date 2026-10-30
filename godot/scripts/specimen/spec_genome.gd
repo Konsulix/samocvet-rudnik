@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", dendrite = "copper tree", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", dendrite = "metal tree", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -83,7 +83,8 @@ static func of(o: Dictionary) -> Dictionary:
 	if form == "nugget" and rng.next() < 0.7:
 		form = "vein"
 	# native copper also grows as a little tree of twigs (its own stream: no other gene moves)
-	if sid == "nativecu" and form in ["nugget", "vein"] and Rng32.new((seed_v * 2654435761 + 57) % 4294967296).next() < 0.45:
+	# (and gold as crystalline gold: twigs set with bright platelets)
+	if sid in ["nativecu", "gold"] and form in ["nugget", "vein"] and Rng32.new((seed_v * 2654435761 + 57) % 4294967296).next() < (0.45 if sid == "nativecu" else 0.3):
 		form = "dendrite"
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
