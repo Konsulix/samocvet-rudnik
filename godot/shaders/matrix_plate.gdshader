@@ -37,7 +37,9 @@ vec3 bump(vec3 n, vec3 pos, float h, float k) {
 	vec3 r1 = cross(dpy, n), r2 = cross(n, dpx);
 	float det = dot(dpx, r1);
 	vec3 g = sign(det) * (dhx * r1 + dhy * r2);
-	return normalize(abs(det) * n - g * k);
+	// (on a degenerate triangle — a spine's point — this is zero: normalising it gives NaN, garbage on a phone)
+	vec3 r = abs(det) * n - g * k;
+	return dot(r, r) > 1e-20 ? normalize(r) : n;
 }
 
 void vertex() {
@@ -45,7 +47,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 n = normalize(NORMAL);
+	vec3 n = dot(NORMAL, NORMAL) > 1e-12 ? normalize(NORMAL) : VIEW;
 	if (!FRONT_FACING) n = -n;
 	vec2 q = vec2(UV.x * 26.0, UV.y * 16.0) + (vec2(fbm(vec3(UV * 9.0, seed)), fbm(vec3(UV * 9.0, seed + 4.0))) - 0.5) * 3.2;
 	vec3 cv = vor2(q);

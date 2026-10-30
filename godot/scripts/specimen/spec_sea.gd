@@ -44,7 +44,8 @@ static func life_mat(mode: int, h: float, amp: float, speed := 1.0, rough := 0.6
 	return m
 
 ## a tapering tube along pts into g, its colour running c0 -> c1, its phase in the alpha
-static func tube(g: Geo, pts: Array, r0: float, r1: float, c0: Color, c1: Color, ph: float, m := 6) -> void:
+## radii: a radius per point (overrides r0 .. r1)
+static func tube(g: Geo, pts: Array, r0: float, r1: float, c0: Color, c1: Color, ph: float, m := 6, radii: Array = []) -> void:
 	var base := g.v.size()
 	var n := pts.size()
 	var side := Vector3.RIGHT
@@ -56,7 +57,7 @@ static func tube(g: Geo, pts: Array, r0: float, r1: float, c0: Color, c1: Color,
 		side = s2.normalized()
 		var up := t.cross(side)
 		var f := float(i) / float(n - 1)
-		var r := lerpf(r0, r1, f)
+		var r: float = float(radii[i]) if radii.size() == n else lerpf(r0, r1, f)
 		var c := c0.lerp(c1, f)
 		c.a = ph
 		for j in m + 1:
@@ -68,42 +69,88 @@ static func tube(g: Geo, pts: Array, r0: float, r1: float, c0: Color, c1: Color,
 			var a := base + i * (m + 1) + j
 			g.idx.append_array([a, a + m + 1, a + 1, a + 1, a + m + 1, a + m + 2])
 
-## a sea lily: a jointed stalk, a cup, feathery arms opening from it (height h, base at the origin)
-const LILY := [[0xd8c2a8, 0xb07a8a], [0xc8b090, 0x8a5a9a], [0xe0d0b8, 0xc89058], [0xb8a088, 0x6a8a7a]]
+## a sea lily (a crinoid): a thin jointed stalk — a string of beads, whorls of little cirri at its nodes — a plated cup,
+## and ten arms forking into twenty, each a feather of pinnules, the crown open like a hand with its fingertips curled
+## in (height h, base at the origin)
+const LILY := [[0xc8b49a, 0xb87a86, 0xe8c8c0], [0xbca888, 0x8a5a9a, 0xd8b8e0], [0xd0c0a4, 0xc89058, 0xf0d8a8],
+	[0xb09a80, 0x5a8a7a, 0xb8e0d0], [0xc4aa90, 0xb04a3a, 0xf0a890]]
 static func lily(rng: Rng32, h: float) -> Geo:
 	var g := Geo.new()
 	var pal: Array = LILY[int(rng.next() * LILY.size())]
 	var cs := Color.hex(int(pal[0]) << 8 | 0xff)
 	var ca := Color.hex(int(pal[1]) << 8 | 0xff)
+	var ct := Color.hex(int(pal[2]) << 8 | 0xff)
 	var ph := rng.next()
-	# leaning back, away from the viewer (the caller turns it only a little)
+	# the stalk: leaning back, away from the viewer (the caller turns it only a little), a gentle S
 	var bend := Vector3((rng.next() - 0.5) * 0.3, 0, -0.2 - rng.next() * 0.2) * h
+	var sh := h * 0.6
 	var stalk := []
-	for i in 16:
-		var t := float(i) / 15.0
-		stalk.append(Vector3(0, t * h * 0.62, 0) + bend * t * t)
-	tube(g, stalk, h * 0.022, h * 0.018, cs.darkened(0.15), cs, ph, 6)
+	var rads := []
+	var nn := 44
+	for i in nn + 1:
+		var t := float(i) / nn
+		stalk.append(Vector3(sin(t * PI) * h * 0.03, t * sh, 0) + bend * t * t)
+		# columnals: a bead at every joint, thinning upwards
+		rads.append(h * (0.011 - 0.003 * t) * (1.0 + 0.35 * pow(absf(sin(float(i) * PI * 0.5)), 4.0)))
+	var c0 := g.v.size()
+	tube(g, stalk, 0.0, 0.0, cs.darkened(0.2), cs, ph, 7, rads)
+	# the joints a shade darker
+	for i in range(c0, g.v.size()):
+		if int(float(i - c0) / 8.0) % 2 == 1: g.col[i] = g.col[i].darkened(0.12)
+	# whorls of cirri at a few nodes: five little hooked threads
+	for i in [10, 20, 30]:
+		var p: Vector3 = stalk[i]
+		for k in 5:
+			var a := TAU * float(k) / 5.0 + float(i)
+			var o := Vector3(cos(a), 0, sin(a))
+			tube(g, [p, p + o * h * 0.035 + Vector3(0, -h * 0.005, 0), p + o * h * 0.055 + Vector3(0, -h * 0.025, 0)], h * 0.004, h * 0.0015, cs, cs.lightened(0.2), ph, 3)
+	# the cup: a little plated cone widening upwards
 	var top: Vector3 = stalk[stalk.size() - 1]
-	# the cup
-	tube(g, [top, top + Vector3(0, h * 0.06, 0)], h * 0.03, h * 0.05, cs, ca, ph, 8)
-	var cup := top + Vector3(0, h * 0.06, 0)
-	var na := 5 + int(rng.next() * 2.0) * 5
-	for k in na:
-		var a := TAU * float(k) / na + rng.next() * 0.2
-		var out := Vector3(cos(a), 0, sin(a))
-		var arm := []
-		for i in 10:
-			var t := float(i) / 9.0
-			# up and out, the tip curling back in
-			arm.append(cup + out * h * 0.3 * sin(t * 2.2) + Vector3(0, h * 0.38 * t - h * 0.08 * t * t * t, 0))
-		tube(g, arm, h * 0.012, h * 0.004, ca, ca.lightened(0.35), ph, 4)
-		# pinnules: little side branches down the arm
-		for i in range(2, 9):
-			var p: Vector3 = arm[i]
-			var dir := ((arm[i + 1] as Vector3) - (arm[i - 1] as Vector3)).normalized()
-			var sd := dir.cross(Vector3.UP).normalized()
-			for s: float in [-1.0, 1.0]:
-				tube(g, [p, p + (sd * s + dir * 0.4).normalized() * h * 0.06], h * 0.004, h * 0.0015, ca, ca.lightened(0.4), ph, 3)
+	var cup_h := h * 0.06
+	var cup := []
+	var cr := []
+	for i in 6:
+		var t := float(i) / 5.0
+		cup.append(top + Vector3(0, t * cup_h, 0))
+		cr.append(h * (0.012 + 0.03 * pow(t, 0.8)))
+	var k0 := g.v.size()
+	tube(g, cup, 0.0, 0.0, cs, ca, ph, 10, cr)
+	# its plates: pentagonal panels, the seams darker
+	for i in range(k0, g.v.size()):
+		if (i - k0) % 11 % 2 == 0: g.col[i] = g.col[i].darkened(0.15)
+	var rim: Vector3 = cup[cup.size() - 1]
+	var rim_r: float = cr[cr.size() - 1]
+	# ten arms, each forking once just above the cup: twenty feathers
+	var open := 0.7 + rng.next() * 0.4
+	for k in 10:
+		var a := TAU * float(k) / 10.0 + rng.next() * 0.1
+		for fork: float in [-1.0, 1.0]:
+			var af := a + fork * 0.13
+			var out := Vector3(cos(af), 0, sin(af))
+			var base := rim + Vector3(cos(a), 0, sin(a)) * rim_r * 0.9
+			var arm := []
+			var ar := []
+			var na := 18
+			var ln := h * (0.36 + rng.next() * 0.06)
+			for i in na + 1:
+				var t := float(i) / na
+				# up and out, opening like a hand; the last third curls back in and down
+				var curl := smoothstep(0.6, 1.0, t)
+				var up := sin(t * PI * 0.5) * (1.0 - curl * 0.55)
+				var outk := sin(t * PI * 0.62) * open + curl * 0.15
+				arm.append(base + out * ln * 0.55 * outk + Vector3(0, ln * up, 0) - out * ln * 0.18 * curl * curl)
+				ar.append(h * 0.007 * (1.0 - 0.65 * t))
+			tube(g, arm, 0.0, 0.0, ca, ca.lerp(ct, 0.6), ph, 5, ar)
+			# pinnules: thin, alternating sides, angled up along the arm — the feather
+			var sd0 := out.cross(Vector3.UP).normalized()
+			for i in range(1, na):
+				var p: Vector3 = arm[i]
+				var dir := ((arm[i + 1] as Vector3) - (arm[i - 1] as Vector3)).normalized()
+				var t := float(i) / na
+				var s := 1.0 if i % 2 == 0 else -1.0
+				var pl := h * 0.075 * (1.0 - 0.6 * t) * (0.8 + 0.4 * rng.next())
+				var pd := (sd0 * s * 0.75 + dir * 0.55 + Vector3(0, 0.15, 0)).normalized()
+				tube(g, [p, p + pd * pl * 0.55 + dir * pl * 0.05, p + pd * pl + dir * pl * 0.2], h * 0.0028, h * 0.0008, ca.lerp(ct, 0.4), ct, ph, 3)
 	return g
 
 ## an anemone: a short column, a crown of tentacles waving

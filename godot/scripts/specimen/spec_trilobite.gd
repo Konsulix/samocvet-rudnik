@@ -96,6 +96,8 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	if g.soft:
 		g.pal = 4
 		if g.show == "enrolled" or g.show == "mass": g.show = "matrix"
+	# (a legendary one lies open: the awakening's legs and the hunter's roll need a flat body)
+	if o.get("legend", false) and g.show == "enrolled": g.show = "matrix"
 	if g.show == "enrolled":
 		g.moult = false
 		g.bite = false

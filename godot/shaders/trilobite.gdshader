@@ -73,7 +73,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 n = normalize(NORMAL);
+	vec3 n = dot(NORMAL, NORMAL) > 1e-12 ? normalize(NORMAL) : VIEW;
 	if (!FRONT_FACING) n = -n;
 	vec3 p = v_op;
 	vec3 c;

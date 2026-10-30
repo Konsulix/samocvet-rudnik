@@ -18,7 +18,7 @@ const PAL := [
 	{base = 0xbcae96, dark = 0x4e4234, metal = 0.0, rough = 0.62, film = 0.0, scan = "marble_rock_02", scan_k = 0.85},  # limestone, cream with fine veins
 	{base = 0x94694a, dark = 0x34200f, metal = 0.12, rough = 0.36, film = 0.0, scan = "marble_rock_03", scan_k = 0.85}, # brown calcite shell
 	{base = 0x857c72, dark = 0x2a2522, metal = 0.08, rough = 0.7, film = 0.0, scan = "rock_surface", scan_k = 0.8},     # grey, from shale
-	{base = 0x8c6b4c, dark = 0x2e2216, metal = 0.75, rough = 0.32, film = 0.6, scan = "rock_surface", scan_k = 0.25},   # pyrite, bronze with a sheen
+	{base = 0x8c6b4c, dark = 0x2e2216, metal = 0.75, rough = 0.32, film = 0.2, scan = "rock_surface", scan_k = 0.25},   # pyrite, bronze with a sheen
 	{base = 0x5a554e, dark = 0x1a1612, metal = 0.08, rough = 0.58, film = 0.06, scan = "dark_rock", scan_k = 0.85},     # dark, from black shale
 ]
 const FILL_I := {calcite = 0, white = 1, pyrite = 2, agate = 3, ammolite = 4}
@@ -112,6 +112,7 @@ static func accents(g: Dictionary) -> Array:
 		if g.get("crushed", false): out.append("crushed")
 		if String(g.get("hetero", "")) != "": out.append("hetero")
 		if g.show == "matrix": out.append("lilies")
+		if int(g.get("pal", 0)) == 3: out.append("pyrite_sh")
 	return out
 
 ## the card's name for a fossil gene that carries a number (the nacre's share)
@@ -134,6 +135,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"crushed": return "crushed in shale"
 		"hetero": return {open = "open coil", helix = "turreted coil", hook = "hooked shell"}.get(g.hetero, "uncoiled")
 		"lilies": return "sea lilies"
+		"pyrite_sh": return "pyritized shell"
 	return ""
 
 # ---------------------------------------------------------------- ammonite
@@ -627,10 +629,10 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 			var at := Vector3.ZERO
 			if pair:
 				# its matched pair: the other half, mirrored, beside it — both cut faces to the viewer, turned a little apart
-				at = Vector3(-gs * 0.82, 0, 0)
+				at = Vector3(-gs * 1.12, 0, 0)
 				var bs2 := Basis(Vector3.UP, -0.3) * Basis(Vector3.RIGHT, -0.25) * Basis(Vector3.BACK, -spin) * Basis.from_scale(Vector3(-gs, gs, gs))
 				bs = Basis(Vector3.UP, 0.3) * bs
-				var other := U.mesh(sg, sm, root, Vector3(gs * 0.82, 0, 0), bs2)
+				var other := U.mesh(sg, sm, root, Vector3(gs * 1.12, 0, 0), bs2)
 				other.set_meta("col", true)
 				U.mesh(fg, fm, other)
 				b._mark("pair", U.rel_xform(other, root) * Vector3(0.3, 0.3, 0.0), Vector3.BACK)

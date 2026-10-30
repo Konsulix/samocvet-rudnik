@@ -71,7 +71,7 @@ void fragment() {
 		float kb = smoothstep(0.55, 0.8, vn(v_op * 220.0));
 		c *= 0.8 + 0.45 * kb;
 	}
-	vec3 n = normalize(NORMAL);
+	vec3 n = dot(NORMAL, NORMAL) > 1e-12 ? normalize(NORMAL) : VIEW;
 	if (!FRONT_FACING) n = -n;
 	float ro = rough;
 	if (mode == 3) {
@@ -85,7 +85,8 @@ void fragment() {
 		float hgt = lines * 0.0008 - pits * 0.0012 + vn(v_op * 90.0) * 0.0006;
 		vec3 r1 = cross(dy, n), r2 = cross(n, dx);
 		float det = dot(dx, r1);
-		n = normalize(abs(det) * n - sign(det) * (dFdx(hgt) * r1 + dFdy(hgt) * r2));
+		vec3 rb = abs(det) * n - sign(det) * (dFdx(hgt) * r1 + dFdy(hgt) * r2);
+		if (dot(rb, rb) > 1e-20) n = normalize(rb);
 		ro = mix(0.22, 0.45, pits + (1.0 - mott) * 0.3);
 		c += c * vec3(0.6, 0.35, 0.2) * smoothstep(0.3, 0.9, UV.y) * 0.5;
 		SPECULAR = 0.6;
