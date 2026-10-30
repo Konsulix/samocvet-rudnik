@@ -364,15 +364,50 @@ func _specimen(o: Dictionary) -> Node3D:
 			st.pick = func() -> Vector3: return (raw_pick.call() as Vector3) * 0.7
 			st.nrm = func(w: Vector3) -> Vector3: return raw_nrm.call(w / 0.7)
 			st.hollows = (st.hollows as Array).map(func(h: Array) -> Array: return [(h[0] as Vector3) * 0.7, h[1]])
-			for tier in 3:
-				var n := 6 + int(floor(rng.next() * 4))
-				for k in n:
-					var a := float(k) / n * 6.28 + tier * 0.5 + rng.next() * 0.3
-					var tilt := 0.55 + tier * 0.25 + rng.next() * 0.2
-					var d := Vector3(cos(a) * sin(tilt), cos(tilt), sin(a) * sin(tilt))
-					var c: MeshInstance3D = crystal.call(0.35 + rng.next() * 0.25, 0.7 + rng.next() * 0.3 - tier * 0.12, Vector3(0, 0.12 + tier * 0.1, 0), d)
-					c.rotation.y += a
-					if not main: main = c
+			# a desert rose (SpecLooks rose): frosted petals full of sand; its petals keep their own length
+			var rose_m: ShaderMaterial = null
+			var rx := {hk = 1.0, wk = 1.0}
+			if look.has("rose"):
+				var rd: Dictionary = cmat_spec.call()
+				rd.merge({frost = 1.0, holo = 0.0, ir = 0.04}, true)
+				rd.merge(SpecLegend.shader_params(gene.fx, gene.fx_v), true)
+				rose_m = make_cmat.call(rd)
+				var rc: Array = look.rose
+				rx.merge({cA = SpecMat.lin(int(rc[0])), cB = SpecMat.lin(int(rc[1])), zk = 1.0}, true)
+			if rose_m:
+				# a few roses grown together: each of round, thin, ragged petals standing edge-out like a flower's,
+				# in tiers that open wider towards the bottom
+				var ca: Color = rx.cA
+				var cb: Color = rx.cB
+				for r_i in 3 + int(rng.next() * 3):
+					var rr := (0.13 + rng.next() * 0.08) * gs * (1.15 if r_i == 0 else 1.0)
+					var cen: Vector3 = (st.pick.call() as Vector3) + Vector3(0, rr * 0.3, 0)
+					for tier in 3:
+						var n := 7 + int(rng.next() * 4)
+						for k in n:
+							var a := float(k) / n * TAU + tier * 0.45 + (rng.next() - 0.5) * 0.3
+							var up := 0.25 + tier * 0.35 + (rng.next() - 0.5) * 0.2
+							var dr := Vector3(cos(a), 0, sin(a)).rotated(Vector3(-sin(a), 0, cos(a)), -up).normalized()
+							var tg := Vector3(-sin(a), 0, cos(a)).rotated(dr, (rng.next() - 0.5) * 1.1)
+							var pr := rr * (0.75 + rng.next() * 0.4) * (1.0 - tier * 0.18)
+							var g := Geo.cylinder(pr, pr, pr * 0.05, 14)
+							g.fill_color(ca.lerp(cb, rng.next()))
+							g.mark_edges()
+							g.subdivide(1).jitter(pr * 0.06, 9.0 / pr, int(rng.next() * 100000))
+							var c := U.mesh(g, rose_m, root)
+							c.transform = Transform3D(Basis(dr, tg.normalized(), dr.cross(tg).normalized()), cen + dr * pr * (0.55 + tier * 0.1) - Vector3(0, tier * rr * 0.12, 0))
+							c.set_meta("col", true)
+							if not main: main = c
+			else:
+				for tier in 3:
+					var n := 6 + int(floor(rng.next() * 4))
+					for k in n:
+						var a := float(k) / n * 6.28 + tier * 0.5 + rng.next() * 0.3
+						var tilt := 0.55 + tier * 0.25 + rng.next() * 0.2
+						var d := Vector3(cos(a) * sin(tilt), cos(tilt), sin(a) * sin(tilt))
+						var c: MeshInstance3D = crystal.call(0.35 + rng.next() * 0.25, 0.7 + rng.next() * 0.3 - tier * 0.12, Vector3(0, 0.12 + tier * 0.1, 0), d, rx, rose_m)
+						c.rotation.y += a
+						if not main: main = c
 		"slabs":
 			# a stack of thick tabular plates fanning out of the rock, their tops broken off at a slant
 			var rk: MeshInstance3D = use_rock.call("chunk" if rng.next() < 0.5 else "small")
@@ -518,7 +553,13 @@ func _specimen(o: Dictionary) -> Node3D:
 			var sk := SpecBranch.skeleton(rng, {r0 = 0.075 * gs, len0 = 1.05 * gs, levels = 3, kids = [3, 4], kids2 = [2, 3], kid_r = 0.7,
 				kid_len = 0.62, spread = 0.75, gnarl = 0.9, up = 0.9, taper = 0.45})
 			var ms := SpecBranch.build(holder, sk, {m = 7, sub = 2, lump = 0.45, ridge = 0.0, flat = 0.85, seed = seed_v}, cu)
-			for mi: MeshInstance3D in ms: mi.set_meta("col", true)
+			for mi: MeshInstance3D in ms:
+				mi.set_meta("col", true)
+				# (the tubes carry the wood shader's data in their vertex colours, which would tint the metal)
+				var tg: Geo = mi.get_meta("geo")
+				tg.fill_color(Color(1, 1, 1))
+				tg._mesh = null
+				mi.mesh = tg.to_mesh()
 			# little octahedral crystals beading the twigs
 			var nub := Geo.octa(1.0)
 			for br: Dictionary in sk:
@@ -531,6 +572,17 @@ func _specimen(o: Dictionary) -> Node3D:
 						c.set_meta("col", true)
 			main = ms[0]
 
+	# fluorite's phantom cubes (SpecLooks core): a cube of another colour inside every crystal, seen through the glass
+	if look.has("core") and main and layout != "geode":
+		var cc: Array = look.core
+		var core_m := SpecMat.make({col = SpecMat.lin(int(cc[0])), rough = 0.35, flat = true, emis = SpecMat.lin(int(cc[0])) * 0.15})
+		for n in root.find_children("*", "MeshInstance3D", true, false):
+			var cm := (n as MeshInstance3D).material_override
+			if not n.has_meta("geo") or n.has_meta("lying") or not (cm == mat or cm in dt_mats): continue
+			var g: Geo = n.get_meta("geo")
+			var bb := g.aabb()
+			var inner := Geo.box(bb.size.x * float(cc[1]), bb.size.y * float(cc[1]), bb.size.z * float(cc[1]))
+			U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
 	# genes that shape or colour the crystals themselves: there only if crystals grew
 	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid"])
 	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))

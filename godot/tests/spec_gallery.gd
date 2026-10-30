@@ -282,12 +282,16 @@ func _ready() -> void:
 	if args.has("area"):
 		list = []
 		var pool: Dictionary = Data.AREAS[int(args.area)].pool
-		for sid: String in pool:
+		# sp=<species> n=<how many>: only that one; form=<layout>: every one in that layout
+		var sids: Array = [args.sp] if args.has("sp") else pool.keys()
+		for sid: String in sids:
 			if Data.HABIT.get(sid, "") == "fossil": continue
-			for k in 3:
+			for k in int(args.get("n", "3")):
 				var sd := int(args.get("base", "500")) + list.size() * 7 + 1
 				var kind: String = "nugget" if sid in Data.NUGGETY else Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977))
-				list.append({seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []})
+				var e := {seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []}
+				if args.has("form"): e.form = args.form
+				list.append(e)
 		args.cols = args.get("cols", "3")
 	var cols := int(args.get("cols", "4"))
 	var px := int(args.get("px", "280"))
