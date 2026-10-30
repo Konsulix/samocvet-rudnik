@@ -956,7 +956,7 @@ func _build_pop() -> void:
 const HELLO := {
 	0: "Gold's still in this old adit, if you've the patience for it. Go on, press Play - I'll watch.",
 	1: "The Mountain lets us dig, so long as we mind our manners. Cut the green buds before they crust over.",
-	2: "Mind the sea here, it has long arms. The jet lies under the cove, deep and black.",
+	2: "Mind the sea here, it has long arms. Under the cove the old shells have turned to pyrite - that's our ore.",
 	3: "Hear that? The mountain breathes like a forge. Work to its beat and it won't burn you.",
 }
 ## before the first level with a new kind of rock in it
@@ -1009,6 +1009,8 @@ func _guide_later(delay: float) -> void:
 		_bubble.queue_free()
 		_bubble = null
 		Save.tell("s_" + beat)
+		# her atlas: the tab lit up, a touch on it opens it
+		if beat == "sister_meet": _show_atlas_tab()
 		_guide_later(0.5)
 		return
 	var line := _guide_line()
@@ -1029,10 +1031,37 @@ func _story_beat() -> String:
 	var a := ai()
 	if a == 0 and bool(Save.d.boss_won[0]) and not Save.told("s_poloz_after"):
 		return "poloz_after"
+	# Old Adit, in order (docs/story.md): she comes for the first stone he digs up himself (the gift was pyrite),
+	# the knocking at 100 m, his notebook at 200 m
+	if a == 0 and not Save.told("s_sister_meet") and _own_find():
+		return "sister_meet"
+	if a == 0 and Save.told("s_sister_meet") and int(Save.d.depth[0]) >= 1 and not Save.told("s_knock"):
+		return "knock"
+	if a == 0 and Save.told("s_knock") and int(Save.d.depth[0]) >= 3 and not Save.told("s_notebook"):
+		return "notebook"
 	var st := next_step()
 	if a == 0 and _boss_waits() and st.last and st.job_done and not Save.told("s_poloz_before"):
 		return "poloz_before"
 	return ""
+
+## a stone of his own in the atlas: anything but the old man's pyrite
+func _own_find() -> bool:
+	for sid: String in Save.d.atlas:
+		if sid != "pyrite": return true
+	return false
+
+## after she is met: the Atlas tab shown with the coach's dark round it
+func _show_atlas_tab() -> void:
+	var tab := ui_root.find_child("tab_atlas", true, false) as Control
+	if tab == null or Coach.off: return
+	var layer := CanvasLayer.new()
+	layer.layer = 3
+	add_child(layer)
+	var coach := Coach.new()
+	layer.add_child(coach)
+	coach.open([tab.get_global_rect()], "Her atlas: every kind of stone you find. Have a look.")
+	await coach.dismissed
+	layer.queue_free()
 
 ## out of the cave-in: the whole mine goes by from its dark bottom up to the surface, to the old man with the lantern
 func _rise() -> void:

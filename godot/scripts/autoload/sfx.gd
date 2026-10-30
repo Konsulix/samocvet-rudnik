@@ -41,6 +41,9 @@ const SAMPLES := {
 	hiss = {f = ["breath_02", "weird_08", "weird_09"], db = -6.0},
 	phase = {f = ["roar_04", "roar_05", "roar_06"], db = -4.0},
 	bloom = {f = ["magical_1", "magical_5", "magical_6"], db = -5.0},
+	# story scenes (StoryScene): knocking somewhere in the rock, far off; the mountain's breath rumbling under the boots
+	knock = {f = ["impactMining_000", "impactMining_002"], db = -6.0, pitch = 0.55},
+	rumble = {f = ["bfh1_rock_falling_04", "bfh1_rock_falling_07"], db = -2.0, pitch = 0.45},
 	# the gold pan: gravel rattling round it
 	pan = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -8.0, pitch = 1.5},
 	# buttons and windows: a book set down, a page turned (Kenney RPG Audio) — the old digital clicks were out of place

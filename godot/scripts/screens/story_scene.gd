@@ -15,7 +15,10 @@ const CAST := {
 	# someone not yet seen: no picture, his lantern swinging over the dark (the prologue)
 	voice = {n = "???", faces = "none"},
 }
-## the scenes: [who, mood, line]; a mood without a picture falls back to calm
+## the scenes: [who, mood, line, fx]; a mood without a picture falls back to calm. fx (optional), as the line starts:
+## "knock" - three knocks somewhere in the rock, the screen jolts with each; "rumble" - the ground shakes a long
+## moment, dust sifts down; "prop:<name>" - an object (assets/story/prop_<name>.png) comes up between the speakers
+## and stays, "prop:-" puts it away. Old Adit's story, in order: docs/story.md
 const SCENES := {
 	prologue_voice = [
 		["voice", "", "Hey! Anyone alive down there?"],
@@ -32,18 +35,45 @@ const SCENES := {
 		["guide", "laugh", "Ha-ha-ha! Me, give away gold? That's fool's gold, lad - pyrite!"],
 		["guide", "calm", "Took me in too, forty years back. The real thing lies deeper. Let's go and find it."],
 	],
+	# the first stone the newcomer digs up himself (never pyrite: BoardModel): she turns up for it - and her atlas
+	sister_meet = [
+		["sister", "curious", "Hold it up to the light - no, don't wipe it! The dust is half the story."],
+		["sister", "smile", "Sorry. I write these mountains down - every kind of stone they give up goes in my atlas."],
+		["guide", "calm", "She's been about the adit since spring. Doesn't believe a word I say about the mountain."],
+		["sister", "calm", "Mountains don't think. They weather. Bring me what you dig up, and I'll tell you what it is."],
+	],
+	# 100 m opened: the knocking in the walls, and who she is
+	knock = [
+		["guide", "worry", "There - hear it? Three knocks. Then nothing.", "knock"],
+		["sister", "calm", "Water in the cracks. Rock settling after the drill. There's always a dull explanation."],
+		["guide", "sad", "My apprentice said the same. Heard the knocking a week before the collapse, and laughed."],
+		["sister", "sad", "He laughed at everything. Even at me, when I begged him not to come up here."],
+		["guide", "surprise", "You're his sister. I should've known by that scarf - he wore one just like it."],
+		["sister", "resolve", "Rock settles. That's all. Let's keep digging."],
+	],
+	# 200 m opened: the drill breaks into the old gallery where he was buried
+	notebook = [
+		["guide", "surprise", "The drill broke into the old gallery. Look - a miner's notebook, dry as a bone.", "prop:notebook"],
+		["sister", "shock", "That's his hand."],
+		["sister", "worry", "'Third day. The others have gone quiet. Something under the rock is talking to me.'"],
+		["guide", "worry", "And this, pressed between the pages. Gold, and still warm - like it's on the beast yet.", "prop:scale"],
+		["sister", "resolve", "Gold doesn't grow scales. Pyrite on mica, a freak crystal. ...It goes in the atlas.", "prop:-"],
+	],
+	# the mine fitted out to its last level: the Serpent wakes under it
 	poloz_before = [
-		["guide", "worry", "Hear that? Under the last level. That's no rockfall - that's him breathing."],
-		["guide", "calm", "The Great Serpent. Gold in his scales, and a stone in his heart that was never his."],
-		["guide", "point", "Knock that stone out of him and he'll sleep. Mind his coils - they crush."],
+		["guide", "worry", "Feel that through your boots? That's no rockfall. That's breathing.", "rumble"],
+		["guide", "calm", "The Great Serpent sleeps under the last level. My grandfather saw one coil of him - never went down again."],
+		["sister", "worry", "Then I want to see this serpent. I'll measure him myself."],
+		["guide", "point", "Look for the light in his chest - a stone that was never his. Knock it out, and he'll sleep. Mind the coils."],
 	],
 	poloz_after = [
 		["guide", "laugh", "He's asleep! Curled up in his vein like a cat by the stove."],
-		["sister", "worry", "Excuse me. You're the one who went down to the Serpent?"],
-		["sister", "calm", "I'm looking for my brother. He worked this adit. They all say he died in the collapse."],
-		["guide", "sad", "...He did. I dug for him three days."],
-		["sister", "resolve", "Then who took the stone the Serpent spat out? There are fresh boot prints in its lair."],
+		["sister", "shock", "It was real. All of it."],
+		["sister", "worry", "The stone you knocked out of him - it fell right here. Where is it?"],
+		["guide", "worry", "Boot prints. Fresh. And going down, not up.", "prop:bootprints"],
+		["sister", "resolve", "Hobnails, and a nailed heel - the old cut. He had a pair just like them."],
 		["guide", "surprise", "Lord help us. The lad's alive."],
+		["sister", "resolve", "Then I'm going after him. Wherever these lead."],
 	],
 }
 
@@ -59,6 +89,10 @@ var _name: Label
 var _text: Label
 var _typing: Tween
 var _done := false
+var _prop: TextureRect
+var _shake := 0.0          # seconds of shaking left, and how hard
+var _shake_k := 0.0
+var _dust: Array = []      # [position, speed, size] of the dust sifting down
 
 ## plays a scene over everything; await the returned scene's `finished`
 static func play(at: Node, id: String, lamp := Vector2(-1, -1)) -> StoryScene:
@@ -193,6 +227,7 @@ func _next() -> void:
 	(func():
 		plate.position = Vector2(_card.position.x + (22.0 if left else _card.size.x - plate.size.x - 22.0), _card.position.y - plate.size.y * 0.5)
 	).call_deferred()
+	if l.size() > 3: _fx(String(l[3]))
 	_text.text = String(l[2])
 	_text.visible_ratio = 0.0
 	if _typing: _typing.kill()
@@ -212,11 +247,69 @@ func _gui_input(e: InputEvent) -> void:
 		return
 	_next()
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
+	_shake = maxf(0.0, _shake - dt)
+	position = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake_k * minf(1.0, _shake * 4.0) if _shake > 0.0 else Vector2.ZERO
+	if _dust.size():
+		var vp := get_viewport_rect().size
+		for d: Array in _dust:
+			d[1] = float(d[1]) + 140.0 * dt
+			var at: Vector2 = d[0]
+			d[0] = at + Vector2(sin(at.y * 0.03) * 8.0 * dt, float(d[1]) * dt)
+		_dust = _dust.filter(func(d: Array) -> bool: return (d[0] as Vector2).y < vp.y)
+		queue_redraw()
+	if _prop: _prop.position.y = float(_prop.get_meta("y")) + 4.0 * sin(Time.get_ticks_msec() / 1000.0 * 1.4)
 	# the one speaking breathes
 	if _i < 0 or _i >= lines.size(): return
 	var fig: TextureRect = _figs.get(String(lines[_i][0]))
 	if fig: fig.scale.y = 1.0 + 0.006 * sin(Time.get_ticks_msec() / 1000.0 * 2.2)
+
+## what happens as a line starts (SCENES): knocking, the ground shaking, an object shown
+func _fx(fx: String) -> void:
+	if fx == "knock":
+		for k in 3:
+			get_tree().create_timer(0.15 + k * 0.42).timeout.connect(func():
+				Sfx.play("knock")
+				_shake = 0.12
+				_shake_k = 5.0)
+	elif fx == "rumble":
+		Sfx.play("rumble")
+		_shake = 1.6
+		_shake_k = 7.0
+		var vp := get_viewport_rect().size
+		for k in 70:
+			_dust.append([Vector2(randf() * vp.x, -randf() * vp.y * 0.6), randf_range(10.0, 60.0), randf_range(1.0, 2.6)])
+	elif fx.begins_with("prop:"):
+		var id := fx.substr(5)
+		if _prop:
+			var old := _prop
+			create_tween().tween_property(old, "modulate:a", 0.0, 0.25).finished.connect(old.queue_free)
+			_prop = null
+		if id == "-" or not ResourceLoader.exists(DIR + "prop_%s.png" % id): return
+		var vp := get_viewport_rect().size
+		_prop = TextureRect.new()
+		_prop.texture = Kit.tex_at(DIR + "prop_%s.png" % id)
+		_prop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_prop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_prop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var w := minf(vp.x * 0.5, 210.0)
+		_prop.size = Vector2(w, w)
+		_prop.pivot_offset = _prop.size / 2
+		var y := vp.y - _card_h() - w - 30.0
+		_prop.position = Vector2((vp.x - w) / 2, y)
+		_prop.set_meta("y", y)
+		_prop.modulate.a = 0.0
+		_prop.scale = Vector2(0.6, 0.6)
+		add_child(_prop)
+		# in front of the speakers, behind the card
+		move_child(_prop, _card.get_index())
+		var tw := create_tween().set_parallel()
+		tw.tween_property(_prop, "modulate:a", 1.0, 0.3)
+		tw.tween_property(_prop, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _draw() -> void:
+	for d: Array in _dust:
+		draw_circle(d[0], d[2], Color(0.75, 0.68, 0.58, 0.55))
 
 func _end() -> void:
 	_done = true

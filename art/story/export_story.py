@@ -27,6 +27,7 @@ PICS = {
     "sister_shock": "friend/emo_shock.png",
     "sister_resolve": "friend/emo_resolve.png",
     "sister_sad": "friend/emo_sad.png",
+    "sister_curious": "friend/emo_curious.png",
 }
 
 def cut(path, box=None):
@@ -55,3 +56,20 @@ for name, src in PICS.items():
     im = cut(os.path.join(HERE, src), boxes[name.split("_")[0]])
     im.save(os.path.join(OUT, name + ".png"))
     print(name, im.size)
+
+# objects shown in the scenes (StoryScene "prop:<name>", gen_prop.sh): trimmed to the object, at most 640 px
+PROPS = ["notebook", "scale", "bootprints"]
+for name in PROPS:
+    a = np.asarray(Image.open(os.path.join(HERE, "props", name + ".png")).convert("RGB")).astype(np.float32) / 255
+    # cut() keeps the bottom for portraits; a prop is trimmed on every side
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    m = np.clip((np.minimum(r, b) - g - 0.25) / 0.35, 0, 1)
+    spill = np.clip(np.minimum(r, b) - g, 0, None) * m
+    a[..., 0] -= spill * 0.6
+    a[..., 2] -= spill * 0.9
+    rgba = Image.fromarray((np.dstack([np.clip(a, 0, 1), 1 - m]) * 255).astype(np.uint8), "RGBA")
+    rgba = rgba.crop(rgba.getchannel("A").point(lambda v: 255 if v > 20 else 0).getbbox())
+    k = 640 / max(rgba.size)
+    if k < 1: rgba = rgba.resize((round(rgba.width * k), round(rgba.height * k)), Image.LANCZOS)
+    rgba.save(os.path.join(OUT, "prop_" + name + ".png"))
+    print("prop", name, rgba.size)

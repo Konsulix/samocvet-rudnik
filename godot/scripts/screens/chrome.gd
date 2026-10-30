@@ -265,6 +265,7 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 		var id: String = tab[0]
 		var on := id == active
 		var b := Button.new()
+		b.name = "tab_" + id     # (found by the tutorial: Home._show_atlas_tab)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 66)
 		for s in ["normal", "hover", "focus"]:
