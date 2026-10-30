@@ -4,6 +4,9 @@ extends Node
 signal changed
 
 const PATH := "user://save.json"
+## where this run keeps its progress: `-- save=NAME` plays on user://NAME.json instead (a fresh game, e.g. to walk
+## through the start, leaves the real save alone)
+var path := PATH
 const LIFE_MS := 8 * 60 * 1000
 const MAX_LIVES := 5
 ## the save's format; a save of another one is dropped
@@ -22,6 +25,7 @@ func blank() -> Dictionary:
 		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
 		jewels = [], seen = [], coll = [], sets = [], atlas = {}, area_back = -1, uid = 1000, lab = 0, mute = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
+		tut = [],
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
@@ -39,8 +43,10 @@ static func _pad_areas(x: Dictionary) -> void:
 
 func _init() -> void:
 	d = blank()
-	if FileAccess.file_exists(PATH):
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string(PATH))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("save="): path = "user://%s.json" % a.substr(5)
+	if FileAccess.file_exists(path):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
 		# a save from before ore replaced stars starts over: there are no players yet to keep it for
 		if parsed is Dictionary and int(parsed.get("ver", 0)) == VER:
 			for k in parsed:
@@ -99,6 +105,15 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 		e.best = b
 	d.atlas[s.sid] = e
 
+## the tutorial (docs/onboarding.md): has this tip been shown
+func told(id: String) -> bool:
+	return d.tut.has(id)
+
+func tell(id: String) -> void:
+	if not d.tut.has(id):
+		d.tut.append(id)
+		persist()
+
 ## the board's looks from the save (the level's look panel writes them back)
 func looks_to_board() -> void:
 	BoardSprites.gem_style = d.gem_style if BoardSprites.GEM_STYLES.has(d.gem_style) else "natural"
@@ -107,7 +122,7 @@ func looks_to_board() -> void:
 	BoardSprites.zone_style = d.zone_style if BoardSprites.ZONE_STYLES.has(d.zone_style) else "hewn"
 
 func persist() -> void:
-	var f := FileAccess.open(PATH, FileAccess.WRITE)
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
 	changed.emit()

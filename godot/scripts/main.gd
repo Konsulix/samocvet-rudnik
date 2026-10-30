@@ -26,6 +26,11 @@ func _ready() -> void:
 	# blur every frame; `glow` turns it back on to compare
 	if args.has("glow"): _setup_glow()
 	if args.has("uv"): Spec.force_uv = float(args.uv)
+	# the tutorial: `tut` shows it from the start; test runs (shots, autoplay, sims) go without it
+	# (`tut=swap,goals` starts as if those tips were already shown, to see the next ones)
+	if args.has("tut"): Save.d.tut = [] if args.tut == "1" else Array(String(args.tut).split(","))
+	elif args.has("shot") or args.has("autoplay") or args.keys().any(func(k): return String(k).begins_with("sim")):
+		Coach.off = true
 	if args.has("boot_seed"): Boot.seed_v = int(args.boot_seed)
 	if args.has("notch"):
 		var ins: PackedStringArray = String(args.notch).split(",")
@@ -53,6 +58,8 @@ func _ready() -> void:
 			var p: PackedStringArray = kv.split(":")
 			Save.d.jstep["%d:%s" % [Save.area(), p[0]]] = int(p[1])
 	if args.has("scroll"): Home.start_scroll = float(args.scroll)
+	if args.has("rise"): Home.rise = true
+	if args.has("story_auto"): StoryScene.auto = true   # the home screen as after the prologue: up from the bottom to the guide
 	if args.has("mine_event"): MineView.force_event = args.mine_event
 	if args.has("mine_result"):   # mine_result=win|lose[,depth[,ore[,iron]]]: the home screen plays the level's reaction
 		var r: PackedStringArray = String(args.mine_result).split(",")
@@ -197,6 +204,13 @@ func _ready() -> void:
 	if args.has("hoard"):
 		# a look at the boss's reward: `-- screen=home hoard lens=2` (not awaited: the other keys go on)
 		_hoard_demo()
+	if args.has("find_seeds"):   # find_seeds=pyrite,400: the seeds whose stone (as `reveal` rolls it) is that species
+		var fs := String(args.find_seeds).split(",")
+		for sd in range(1, int(fs[1]) + 1):
+			var st := Stones.roll(sd, Save.area(), 0.8, 1)
+			if st.sid == fs[0]: print("seed ", sd, " tier ", st.tier, " value ", st.value, " traits ", st.get("traits", []))
+		get_tree().quit()
+		return
 	if args.has("reveal"):
 		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
 		st.integ = 86
@@ -213,6 +227,10 @@ func _ready() -> void:
 		if args.has("callouts_at"): SpecCallouts.freeze = float(args.callouts_at)
 		if args.has("crack"): Reveal.new().crack(st)
 		else: Reveal.new().show_stone(st)
+	if args.has("story"):   # story=poloz_after [story_at=N]: a story scene over the screen, N lines on (StoryScene.SCENES)
+		get_tree().create_timer(0.8).timeout.connect(func():
+			var s := StoryScene.play(self, args.story)
+			for i in int(args.get("story_at", "0")): s.call_deferred("_next"))
 	if args.has("shot"):
 		_take_shot()
 	if args.has("enter"):
@@ -328,6 +346,10 @@ func _boot() -> void:
 	b.tree_exited.connect(layer.queue_free)
 
 func show_home() -> void:
+	# a newcomer does not start on the empty mine: the prologue's cave-in first (docs/onboarding.md)
+	if _prologue_due():
+		show_level(0, [], 0, Level.PROLOGUE)
+		return
 	var h := Home.new()
 	_swap(h)
 	h.play.connect(func(n: int, pre: Array, dl: int): show_level(n, pre, dl, LevelGen.current(dl)))
@@ -408,7 +430,22 @@ func _replay_boss(a: int) -> void:
 	Save.persist()
 	show_level(Save.d.level, [], Data.depths(a).size(), LevelGen.boss_fight(a))
 
+## the prologue plays once, for a new game in the first mine (`prologue` shows it anyway; test runs go without it)
+func _prologue_due() -> bool:
+	if args.has("prologue") and not Save.told("prologue"): return true
+	if Coach.off or Save.told("prologue") or Save.area() != 0 or int(Save.d.level) > 1: return false
+	for w in Save.d.dwins:
+		if int(w) > 0: return false
+	return true
+
 func _on_level_finished(res: Dictionary) -> void:
+	if res.get("prologue", false):
+		# dug out: the camera rises through the mine to the one with the lantern (Home.rise)
+		Save.tell("prologue")
+		# (lost - hardly possible with its moves - the mine opens plainly)
+		Home.rise = res.won
+		show_home()
+		return
 	if _replay >= 0:
 		await _replay_done(res)
 		return

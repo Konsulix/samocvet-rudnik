@@ -17,6 +17,9 @@ var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
 static var start_scroll := -1.0   # a test key puts the first view here (-- scroll=N)
+## the prologue's gift: pyrites picked by eye (`-- find_seeds=pyrite,1500`, then `reveal=<seed>`), each as `reveal` rolls it
+const GIFTS := [164]
+static var rise := false    # just dug out of the prologue's cave-in: the mine is seen from its bottom up to the guide
 var _vel := 0.0             # the drawn mine's fling after the finger lets go, screen units a second
 var _track: Array = []      # the last few [time, y] of the finger, for the fling speed
 var _glide: Tween
@@ -167,6 +170,12 @@ func render() -> void:
 	if drawn:
 		# the scroll's floor depends on where the Play row ends up: settle it again once the row is laid out
 		(func(): _scroll_to(scroll)).call_deferred()
+		if rise:
+			rise = false
+			_rise()
+		else:
+			# the guide has his say once what changed has played out
+			_guide_later(3.6 if view.focus_y >= 0.0 or not MineView.last_result.is_empty() else 1.0)
 
 ## what stands between the shaft and its next depth: the job of the deepest open depth (paid in the mine's own ore),
 ## then the drill (iron + coins). At the last depth only its job is left, then the next mine.
@@ -940,3 +949,132 @@ func _build_pop() -> void:
 	add_child(p)
 	p.emitting = true
 	get_tree().create_timer(1.6).timeout.connect(p.queue_free)
+
+# ---------------------------------------------------------------- the guide talks (docs/onboarding.md)
+
+## his first words in each mine
+const HELLO := {
+	0: "Gold's still in this old adit, if you've the patience for it. Go on, press Play - I'll watch.",
+	1: "The Mountain lets us dig, so long as we mind our manners. Cut the green buds before they crust over.",
+	2: "Mind the sea here, it has long arms. The jet lies under the cove, deep and black.",
+	3: "Hear that? The mountain breathes like a forge. Work to its beat and it won't burn you.",
+}
+## before the first level with a new kind of rock in it
+const ROCK_LINE := {
+	granite = "Granite from here down. It won't give at the first knock - hit it twice.",
+	gas = "Smell that? Firedamp. It creeps a little every turn - clear it before it spreads.",
+	lock = "They shored this level with timber. Knock the pinned stones loose.",
+	crust = "Malachite crust down here - it locks a stone. Match right beside it to crack it off.",
+}
+var _bubble: GuideBubble
+var _guide_waits := false
+
+## what the guide has to say now, once each (Save.told): {id, text}, or empty
+func _guide_line() -> Dictionary:
+	var a := ai()
+	if not Save.told("g_hello_%d" % a) and HELLO.has(a):
+		return {id = "g_hello_%d" % a, text = HELLO[a]}
+	if not Save.told("g_ore") and (int(Save.d.ore) > 0 or int(Save.d.fe) > 0):
+		return {id = "g_ore", text = "See the ore come in? Every lump you break on the board goes to the mine. Ore builds it."}
+	var st := next_step()
+	if not st.job_done and not Save.told("g_build"):
+		var cost := MineView.step_cost(a, String(st.job[0]), int(st.job[2]))
+		if int(Save.d.ore) >= cost:
+			return {id = "g_build", text = "That's ore enough to start on it: %s. The plate by Play shows what's next." % String(st.job[1]).to_lower()}
+	if st.job_done and not st.last and not Save.told("g_drill"):
+		return {id = "g_drill", text = "That's this level fitted out. Iron and coin for the drill, and we go deeper."}
+	if int(Save.d.depth[a]) > 0 and not Save.told("g_deeper"):
+		return {id = "g_deeper", text = "Deeper rock, better stones. Tap a level of the mine to dig there."}
+	var kind := LevelGen.new_kind(dl_sel(), a)
+	if ROCK_LINE.has(kind) and not Save.told("g_rock_" + kind):
+		return {id = "g_rock_" + kind, text = ROCK_LINE[kind]}
+	if bool(LevelGen.current(dl_sel()).get("rich", false)) and not Save.told("g_rich"):
+		return {id = "g_rich", text = "A rich seam this time! Twice the ore on the board - don't waste it."}
+	return {}
+
+## let the guide say his next line, once the screen has settled (`delay`: what was built or dug plays first)
+func _guide_later(delay: float) -> void:
+	if _guide_waits or _bubble or Coach.off: return
+	_guide_waits = true
+	await get_tree().create_timer(delay).timeout
+	_guide_waits = false
+	if not is_inside_tree() or not uses_view() or _bubble or Ov.is_open():
+		return
+	# a story moment comes before his everyday words
+	var beat := _story_beat()
+	if beat != "":
+		_bubble = GuideBubble.new(view, "")   # (holds the place: nothing else talks meanwhile)
+		var s := StoryScene.play(self, beat)
+		await s.finished
+		_bubble.queue_free()
+		_bubble = null
+		Save.tell("s_" + beat)
+		_guide_later(0.5)
+		return
+	var line := _guide_line()
+	if line.is_empty(): return
+	# the mine rides to him first
+	_glide_to(view.guide_head().y * view.scale.y - get_viewport_rect().size.y * 0.42)
+	await get_tree().create_timer(0.7).timeout
+	if not is_inside_tree() or _bubble: return
+	_bubble = GuideBubble.new(view, String(line.text))
+	add_child(_bubble)
+	_bubble.closed.connect(func():
+		Save.tell(String(line.id))
+		_bubble = null
+		_guide_later(0.5))
+
+## the story moment due on this screen (StoryScene.SCENES), once each, or ""
+func _story_beat() -> String:
+	var a := ai()
+	if a == 0 and bool(Save.d.boss_won[0]) and not Save.told("s_poloz_after"):
+		return "poloz_after"
+	var st := next_step()
+	if a == 0 and _boss_waits() and st.last and st.job_done and not Save.told("s_poloz_before"):
+		return "poloz_before"
+	return ""
+
+## out of the cave-in: the whole mine goes by from its dark bottom up to the surface, to the old man with the lantern
+func _rise() -> void:
+	_guide_waits = true
+	await get_tree().process_frame
+	_scroll_to(1e9)
+	await get_tree().create_timer(0.6).timeout
+	if _glide: _glide.kill()
+	_glide = create_tween()
+	var to := view.guide_head().y * view.scale.y - get_viewport_rect().size.y * 0.42
+	_glide.tween_method(_scroll_to, scroll, to, 4.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await _glide.finished
+	await get_tree().create_timer(0.4).timeout
+	if not is_inside_tree(): return
+	await StoryScene.play(self, "prologue_meet").finished
+	Save.tell("g_hello_0")    # he has just said hello
+	# his gift: "gold" - a handpicked pyrite (GIFTS). The newcomer thanks him on the card's one button, he laughs
+	var gift := Stones.roll(GIFTS[randi() % GIFTS.size()], 0, 0.8, 1)
+	var rv := Reveal.new()
+	rv.name_as = "Gold?"
+	rv.reply = "Gold! Thank you!"
+	rv.show_stone(gift)
+	await rv.replied
+	await StoryScene.play(self, "fools_gold").finished
+	rv.unmask(gift)
+	await rv.finished
+	# and the first beams of the headframe, on him: the mine changes under the newcomer's hand straight away
+	var nx := next_step()
+	if not nx.job_done and is_inside_tree():
+		var tid := String(nx.job[0])
+		await _say("Now - help me raise the headframe. I've put by the ore for the first beams.")
+		Save.d.ore += MineView.step_cost(ai(), tid, int(nx.job[2]))
+		_build(tid, int(nx.k))
+		await get_tree().create_timer(3.4).timeout
+	_guide_waits = false
+	_guide_later(0.6)
+
+## the guide says one line now (the mine rides to him), whatever else is due
+func _say(text: String) -> void:
+	_glide_to(view.guide_head().y * view.scale.y - get_viewport_rect().size.y * 0.42)
+	await get_tree().create_timer(0.7).timeout
+	_bubble = GuideBubble.new(view, text)
+	add_child(_bubble)
+	await _bubble.closed
+	_bubble = null

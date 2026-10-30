@@ -490,7 +490,8 @@ func _surface_live(c: CanvasItem) -> void:
 	var first_gull := true
 	for a in J.life:
 		var spec: Dictionary = a
-		if (spec.has("place") and int(_shown_places.get(String(spec.place), 0)) < 3) or not _crew_ok(String(spec.name)):
+		# the guide is always there (he talks to a newcomer); the others come with their places
+		if (spec.has("place") and String(spec.name) != "guide24" and int(_shown_places.get(String(spec.place), 0)) < 3) or not _crew_ok(String(spec.name)):
 			continue
 		if String(spec.name) == "gull" and first_gull:
 			# the first gull now and then flies off its post and another comes back to it (_gull_trip)
@@ -918,7 +919,6 @@ func _tick_events() -> void:
 	if t < _next_event:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
-	var pool := ["ink", "bubbles"]
 	# the moray only while the wreck is on the screen (it is above the first gallery and was mostly missed): the first
 	# event there is always it, then often
 	var eel_y := EEL_AT.y + _sea_top()
@@ -926,6 +926,7 @@ func _tick_events() -> void:
 		_eel_shown = true
 		_events["eel"] = t
 		return
+	var pool := ["ink", "bubbles"]
 	for cr in J.cracks:
 		var k := int(cr.d) - 1
 		if k <= open and String(_shown_bands.get(k, "closed")) != "closed":
@@ -1349,7 +1350,7 @@ func _compass(c: CanvasItem, s: float) -> void:
 	var spec: Dictionary = {}
 	for e in J.life:
 		if String(e.name) == "guide24": spec = e
-	if spec.is_empty() or not J.has("compass") or int(_shown_places.get(String(spec.get("place", "")), 3)) < 3:
+	if spec.is_empty() or not J.has("compass"):
 		return
 	var u := (t + float(spec.get("ph", 0))) * float(spec.get("fps", 8))
 	var fi := _drawing_at(spec, u) if spec.has("play") else int(u) % int(J.crew_n.guide24)

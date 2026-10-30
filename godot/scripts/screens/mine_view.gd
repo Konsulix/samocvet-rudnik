@@ -328,6 +328,18 @@ func job_pos(id: String) -> Vector2:
 	if id == "pump": return Vector2(700, band_y(3) + 300)
 	return Vector2(768, float(J.sky) + 520)
 
+## the mine's guide, who is always there (the first one a newcomer meets, docs/onboarding.md): the top of his head,
+## source px. Old Adit keeps him in `guide`, the other mines in their `life` as guide24
+func guide_head() -> Vector2:
+	if J.has("guide"):
+		var g: Array = J.guide
+		return Vector2(float(g[0]), float(g[1]) - _size("guide/00.png").y)
+	for e in J.get("life", []):
+		if String(e.name) == "guide24":
+			var fs := _size("guide24/00.png") * float(e.get("s", 1.0))
+			return Vector2(float(e.x), float(J.sky) + float(e.y) - fs.y)
+	return Vector2(768, float(J.sky) + 520)
+
 ## a cloud of dust and stones over a spot: the change of picture under it is not seen as a jump
 func burst(at: Vector2) -> void:
 	_bursts.append([at, t])
@@ -917,7 +929,8 @@ func _surface_live(c: CanvasItem) -> void:
 			var off: Array = [[0, 0, 0], [-70, 34, 3], [-120, -22, 7]][i]
 			var x := -100 + v * 360 + float(off[0])
 			_put(c, "crow/%d.png" % ((int(t * 12) + int(off[2])) % 6), Vector2(x, sky + 110 + float(off[1]) + 12 * sin(t * 2.2 + i)), true)
-	# the camp: chimney smoke once it has a roof and a fire, the old guide on his bench when it is done
+	# the camp: chimney smoke once it has a roof and a fire; the old guide on his bench always (he is the one who
+	# talks to a newcomer, before anything is built)
 	var camp := int(steps.get("camp", 0))
 	if camp >= 2:
 		var ch: Array = J.chimney
@@ -929,7 +942,7 @@ func _surface_live(c: CanvasItem) -> void:
 			var a := 0.85 * pow(1.0 - age, 1.3)
 			var pos := Vector2(float(ch[0]) + 60 * age + 10 * sin(age * 5 + p), float(ch[1]) - 190 * age)
 			c.draw_texture_rect(tex("puff.png"), Rect2(pos - ps * s / 2, ps * s), false, Color(1, 1, 1, a))
-	if camp >= 3:
+	if J.has("guide"):
 		var g: Array = J.guide
 		var gp := "guide/%02d.png" % (_drawing_at(J.guide_play, t * 8.0) if J.has("guide_play") else int(t * 8) % 24)
 		var gs := _size(gp)

@@ -30,6 +30,15 @@ var _flights := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
+var prologue := false    # the very first board: the newcomer digs out of a cave-in towards a lantern (PROLOGUE)
+var _light: TextureRect  # the prologue's lantern light from above, nearer as the rubble goes
+var _rubble := 1         # how much rubble the prologue started with
+var _lamp: KitLantern    # his lantern, hanging into the shaft over the rubble
+var coach: Coach                # the tutorial's show on the board, over everything
+var goals_line: Control         # the goals plate and the moves token: what the goals tip points at
+var _coach_move: Array = []     # the one swap the tutorial lets through, while it shows it
+var _coach_cell := Vector2i(-1, -1)   # the one special it lets the player set off
+var _coach_tip := ""
 var find_studio: SpecStudio     # the sealed specimen, turning slowly inside its block
 var find_spec: Node3D
 
@@ -79,6 +88,11 @@ func _ready() -> void:
 	hud.layer = 2
 	add_child(hud)
 	_build_hud()
+	var coach_layer := CanvasLayer.new()
+	coach_layer.layer = 3
+	add_child(coach_layer)
+	coach = Coach.new()
+	coach_layer.add_child(coach)
 
 # ---------------------------------------------------------------- start
 
@@ -87,7 +101,8 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	var eq: Dictionary = Save.d.eq
 	model = BoardModel.new()
 	model.rng.randomize()
-	model.setup(n, pre, dl, eq, Save.area(), true, level)
+	prologue = bool(level.get("prologue", false))
+	model.setup(n, pre, dl, eq, Save.area(), not prologue, level)
 	rich = bool(level.get("rich", false))
 	Save.persist()
 	var vp := get_viewport_rect().size
@@ -102,8 +117,13 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	hint_label.text = ""
 	await board.drop_in()
 	if model.boss_on(): LevelBoss.start(self)
+	if prologue:
+		_light_up()
+		# someone up there, unseen: only a voice and his lantern
+		await StoryScene.play(self, "prologue_voice", _lamp.get_global_transform_with_canvas().origin).finished
 	busy = false
 	idle = 0.0
+	_coach_next()
 
 ## one studio for the sealed find, kept for the whole session and moved from level to level: a fresh
 ## viewport, world and render targets every level were part of the hitch on entering one. Same
@@ -260,6 +280,7 @@ func _build_hud() -> void:
 		ore_chips[kind] = {root = h, icon = ic, count = count, vein = vein}
 	plate.add_child(ores)
 	line.add_child(goals_panel)
+	goals_line = line
 	moves_token = PanelContainer.new()
 	moves_token.custom_minimum_size = Vector2(80, 80)
 	moves_token.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -312,6 +333,7 @@ func _build_hud() -> void:
 
 func _render_hud() -> void:
 	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · hard" if model.hard else ""]
+	if prologue: title_label.text = "Cave-in"
 	if model.boss_on():
 		title_label.text = "%s · %d m" % [model.boss.B.n, int(model.boss.B.m)]
 	# no ore is mined at the boss
@@ -497,13 +519,14 @@ var _find_since := 0.0
 func _process(dt: float) -> void:
 	if find_spec:
 		find_spec.rotation.y += dt * 0.5
+	if _light: _light_tick()
 	if find_studio:
 		# 30 renders a second by the clock, whatever the screen's refresh rate
 		_find_since += dt
 		if _find_since >= 1.0 / 30.0 - 0.002 or not find_spec:
 			_find_since = 0.0
 			find_studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
-	if busy or model.over: return
+	if busy or model.over or coach.visible: return
 	idle += dt
 	if idle > 5.0 and not _hinted:
 		_hinted = true
@@ -518,12 +541,16 @@ func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
 	var a: BoardModel.Gem = model.gem_at(r1, c1)
 	var b: BoardModel.Gem = model.gem_at(r2, c2)
 	if a == null or b == null: return
+	if not _coach_allows(r1, c1, r2, c2):
+		Sfx.play("bad")
+		return
 	var a_id := a.id
 	var b_id := b.id
 	var res = model.swap(r1, c1, r2, c2)
 	if res == null:
 		Sfx.play("bad")
 		return
+	if not res.get("undone", false): _coach_done()
 	busy = true
 	Sfx.play("swap")
 	if res.get("undone", false):
@@ -543,8 +570,10 @@ func _on_tap(r: int, c: int) -> void:
 	if booster != "":
 		await _use_booster(r, c)
 		return
+	if not _coach_move.is_empty() or (_coach_cell.x >= 0 and Vector2i(r, c) != _coach_cell): return
 	var g: BoardModel.Gem = model.gem_at(r, c)
 	if g and g.sp != "" and not model.LOCK[r][c]:
+		_coach_done()
 		busy = true
 		model.use_move()
 		_render_moves()
@@ -815,6 +844,143 @@ func _after_turn() -> void:
 	busy = false
 	idle = 0.0
 	_hinted = false
+	_coach_next()
+
+# ---------------------------------------------------------------- the tutorial (docs/onboarding.md)
+
+const TIP := {
+	swap = "Swap two stones to make a row of three",
+	goals = "These are the level's goals. Clear them before the moves run out",
+	sp_rocket = "Four in a row make a stick of dynamite. Tap it!",
+	sp_bomb = "An L or a T makes a dynamite bundle. Tap it!",
+	sp_drill = "A square of four makes a drill. Tap it!",
+	sp_orb = "Five in a row make a resonator. Tap it!",
+	sand = "Sand crumbles when you match right beside it",
+	mud = "Mud lies under a stone: break that stone to wash it off",
+	granite = "Granite takes two hits beside it",
+	gas = "Gas creeps every move. Match beside it to clear it",
+	lock = "Timber pins a stone. Match that stone to knock it loose",
+}
+const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
+
+## the next tip this board has for the player, if any: whenever the player may move. One at a time, each once
+## (Save.told): the first swap (only that one goes through), the goals, a special the first time one stands on
+## the board (only it can be set off), an obstacle the first time the board has it
+func _coach_next() -> void:
+	if Coach.off or model.boss_on() or model.over or busy or coach.visible: return
+	if not Save.told("swap"):
+		var mv := model.find_move()
+		if mv.size() < 4 or (mv[0] == mv[2] and mv[1] == mv[3]): return
+		_coach_move = mv
+		_coach_tip = "swap"
+		coach.open([_cells_rect(_match_cells(mv))], TIP.swap)
+		coach.hand(_cell_screen(mv[0], mv[1]), _cell_screen(mv[2], mv[3]))
+		return
+	if not Save.told("goals"):
+		_coach_tap("goals", [goals_line.get_global_rect()])
+		return
+	for r in model.R:
+		for c in model.C:
+			var g: BoardModel.Gem = model.G[r][c]
+			if g and TIP_SP.has(g.sp) and not Save.told(TIP_SP[g.sp]) and not model.LOCK[r][c]:
+				_coach_cell = Vector2i(r, c)
+				_coach_tip = TIP_SP[g.sp]
+				coach.open([_cells_rect([_coach_cell])], TIP[_coach_tip])
+				var p := _cell_screen(r, c)
+				coach.hand(p, p)
+				return
+	for id in ["sand", "mud", "granite", "gas", "lock"]:
+		if Save.told(id): continue
+		var cells := _obstacle_cells(id)
+		if cells.is_empty(): continue
+		# a few that lie together: the first and its nearest
+		var first: Vector2i = cells[0]
+		cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return (a - first).length_squared() < (b - first).length_squared())
+		var rects := []
+		for p in cells.slice(0, 3): rects.append(_cells_rect([p]))
+		_coach_tap(id, rects)
+		return
+
+## a tip read and closed with a touch anywhere; the next one follows
+func _coach_tap(id: String, rects: Array) -> void:
+	busy = true
+	coach.open(rects, TIP[id], true)
+	await coach.dismissed
+	Save.tell(id)
+	busy = false
+	_coach_next()
+
+func _coach_allows(r1: int, c1: int, r2: int, c2: int) -> bool:
+	if not _coach_move.is_empty():
+		var m := _coach_move
+		return (r1 == m[0] and c1 == m[1] and r2 == m[2] and c2 == m[3]) or (r1 == m[2] and c1 == m[3] and r2 == m[0] and c2 == m[1])
+	if _coach_cell.x >= 0:
+		return Vector2i(r1, c1) == _coach_cell or Vector2i(r2, c2) == _coach_cell
+	return true
+
+## the shown move was made: the tip is learnt
+func _coach_done() -> void:
+	if _coach_tip == "": return
+	Save.tell(_coach_tip)
+	_coach_tip = ""
+	_coach_move = []
+	_coach_cell = Vector2i(-1, -1)
+	coach.close()
+
+## the cells a swap lines up, the two swapped among them
+func _match_cells(mv: Array) -> Array:
+	var a := Vector2i(mv[0], mv[1])
+	var b := Vector2i(mv[2], mv[3])
+	var col := func(p: Vector2i) -> int:
+		var q := b if p == a else (a if p == b else p)
+		if q.x < 0 or q.y < 0 or q.x >= model.R or q.y >= model.C: return -1
+		var g: BoardModel.Gem = model.G[q.x][q.y]
+		return g.t if g and g.sp == "" else -1
+	var out := [a, b]
+	for p in [a, b]:
+		var t: int = col.call(p)
+		if t < 0: continue
+		for d in [Vector2i(0, 1), Vector2i(1, 0)]:
+			var run := [p]
+			for s in [1, -1]:
+				var q: Vector2i = p + d * s
+				while col.call(q) == t:
+					run.append(q)
+					q += d * s
+			if run.size() >= 3:
+				for q in run:
+					if not out.has(q): out.append(q)
+	return out
+
+func _obstacle_cells(id: String) -> Array:
+	var out := []
+	for r in model.R:
+		for c in model.C:
+			var on := false
+			match id:
+				"sand": on = model.ROCK[r][c] > 0 and model.ROCK_MAX[r][c] < 2
+				"granite": on = model.ROCK[r][c] > 0 and model.ROCK_MAX[r][c] >= 2
+				"mud": on = model.MUD[r][c] > 0
+				"gas": on = model.GAS[r][c] > 0
+				"lock": on = model.LOCK[r][c] == 1
+			if on: out.append(Vector2i(r, c))
+	return out
+
+## a cell's middle on the screen (the coach's layer has no transform of its own)
+func _cell_screen(r: int, c: int) -> Vector2:
+	return board.get_global_transform_with_canvas() * board.cell_center(r, c)
+
+## the screen rect round some cells
+func _cells_rect(cells: Array) -> Rect2:
+	var xf := board.get_global_transform_with_canvas()
+	var out := Rect2()
+	for i in cells.size():
+		var p: Vector2i = cells[i]
+		var lo := xf * (board.cell_center(p.x, p.y) - Vector2.ONE * board.TS * 0.5)
+		var hi := xf * (board.cell_center(p.x, p.y) + Vector2.ONE * board.TS * 0.5)
+		var r := Rect2(lo, hi - lo)
+		out = r if i == 0 else out.merge(r)
+	return out
 
 ## Copper Mountain: the malachite nodules grow; a full one overgrows and crusts the stones round it
 func _grow_nodules() -> void:
@@ -959,7 +1125,7 @@ func _win() -> void:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
 	_victory_fx()
 	await _wait(0.6)
-	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate(), boss = model.boss_on()})
+	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate(), boss = model.boss_on(), prologue = prologue})
 
 func _out_of_moves() -> void:
 	Sfx.play("lose")
@@ -1277,3 +1443,51 @@ func _ramp(cols: Array[Color]) -> Gradient:
 	for i in range(1, cols.size() - 1):
 		g.add_point(i / float(cols.size() - 1), cols[i])
 	return g
+
+# ---------------------------------------------------------------- the prologue (docs/onboarding.md, first entry)
+
+## the very first board: a cave-in at the mouth of a shaft, sand rubble overhead, a lantern beyond it. Easy, a few
+## colours, moves to spare; no find, no boss. Won, the camera rises through the mine to the one holding the lantern
+const PROLOGUE := {
+	prologue = true, gen = true, colors = 4, moves = 40, goals = [["rock"]],
+	map = "##rrrr##|#rrrrrr#|#rr..rr#|#......#|........|........|........|........",
+}
+
+## the lantern's light over the rubble: a warm glow from above the board
+func _light_up() -> void:
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.85, 0.5, 1.0))
+	g.add_point(0.4, Color(1.0, 0.72, 0.32, 0.45))
+	g.set_color(g.get_point_count() - 1, Color(1.0, 0.6, 0.2, 0.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.0)
+	gt.fill_to = Vector2(0.5, 1.0)
+	gt.width = 256
+	gt.height = 256
+	_rubble = maxi(1, _rubble_left())
+	_light = TextureRect.new()
+	_light.texture = gt
+	_light.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(_light)
+	_lamp = KitLantern.new(64.0)
+	_lamp.position = Vector2(board.size.x / 2, -78.0)
+	holder.add_child(_lamp)
+	_light_tick()
+
+## nearer and brighter as the rubble goes; it flickers like a flame
+func _light_tick() -> void:
+	var done := 1.0 - clampf(float(_rubble_left()) / float(_rubble), 0.0, 1.0)
+	var w := board.size.x * (0.7 + 0.6 * done)
+	var h := board.size.y * (0.35 + 0.55 * done)
+	_light.size = Vector2(w, h)
+	_light.position = Vector2((board.size.x - w) / 2, -h * (0.25 - 0.2 * done))
+	var flick := 0.92 + 0.08 * sin(Time.get_ticks_msec() / 1000.0 * 9.0) * sin(Time.get_ticks_msec() / 1000.0 * 3.7)
+	_light.modulate.a = (0.55 + 0.45 * done) * flick
+
+func _rubble_left() -> int:
+	for gl in model.goals:
+		if String(gl.k) == "rock": return int(gl.left)
+	return 0

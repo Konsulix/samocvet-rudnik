@@ -581,7 +581,8 @@ func _surface_live(c: CanvasItem) -> void:
 	# people and animals of the finished places
 	for a in J.life:
 		var spec: Dictionary = a
-		if int(_shown_places.get(String(spec.place), 0)) < 3 or not _crew_ok(String(spec.name)):
+		# the guide is always there (he talks to a newcomer); the others come with their places
+		if (String(spec.name) != "guide24" and int(_shown_places.get(String(spec.place), 0)) < 3) or not _crew_ok(String(spec.name)):
 			continue
 		var nm := String(spec.name)
 		var n := int(J.crew_n[nm])

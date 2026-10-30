@@ -4,6 +4,16 @@ extends RefCounted
 ## and decide whether to sell it or keep it. Both steps are awaited:  await Reveal.new().crack(s, title)
 
 signal finished
+signal replied    # the reply button was pressed (see `reply`)
+
+## a joke the guide plays (the prologue's gift, docs/onboarding.md): the card first shows `name_as` instead of the stone's
+## name and one button, `reply` - the player's own words; pressed, it emits `replied` and waits for unmask(), which
+## types the real name in and brings the usual Sell / Keep
+var name_as := ""
+var reply := ""
+var _btn_row: Control
+var _row_make: Callable
+static var _name_l: Label   # the last card's name, for unmask()
 
 ## a bonus stone from a geode: tap it open first
 func crack(s: Dictionary, title := "Crack the stone") -> void:
@@ -80,7 +90,9 @@ func show_stone(s: Dictionary, others := []) -> void:
 	Save.persist()
 	var v := Ov.card(350, Data.rarity_color(tier))
 	var traits: Array = s.get("traits", [])
-	stone_card(v, s, 400 if others.is_empty() else 360)
+	var shown := s.duplicate()
+	if name_as != "": shown.name_as = name_as
+	stone_card(v, shown, 400 if others.is_empty() else 360)
 	if others.size():
 		var names := []
 		for o in others: names.append(Data.SP[o.sid].n)
@@ -100,7 +112,31 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.close()
 		Ov.toast("Added to the inventory")
 		finished.emit()
-	v.add_child(action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep))
+	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)
+	if reply != "":
+		var b := Kit.button(reply, "btn_gold", 17, 4.0)
+		b.custom_minimum_size = Vector2(0, 48)
+		b.pressed.connect(func():
+			b.disabled = true
+			replied.emit())
+		_btn_row = b
+	else:
+		_btn_row = _row_make.call()
+	v.add_child(_btn_row)
+
+## the joke is over: the stone's own name types in over `name_as`, and the usual buttons come
+func unmask(s: Dictionary) -> void:
+	if is_instance_valid(_name_l):
+		_name_l.text = Data.SP[s.sid].n
+		_name_l.visible_ratio = 0.0
+		_name_l.create_tween().tween_property(_name_l, "visible_ratio", 1.0, 0.6)
+	if is_instance_valid(_btn_row):
+		var parent := _btn_row.get_parent()
+		var at := _btn_row.get_index()
+		_btn_row.queue_free()
+		_btn_row = _row_make.call()
+		parent.add_child(_btn_row)
+		parent.move_child(_btn_row, at)
 
 ## the stone is the star: the live specimen fills the whole card under the frame (drag it anywhere above the info),
 ## its name in the top left corner over a soft shade, a thin ✕ in the top right; below, an info panel with rounded
@@ -161,7 +197,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	head.position = Vector2(18, 14)
 	head.add_theme_constant_override("separation", 2)
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var name_l := Kit.label(Data.SP[s.sid].n, 30, UI.display, Kit.CREAM)
+	var name_l := Kit.label(String(s.get("name_as", Data.SP[s.sid].n)), 30, UI.display, Kit.CREAM)
+	_name_l = name_l
 	name_l.add_theme_constant_override("outline_size", 0)
 	name_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
 	name_l.add_theme_constant_override("shadow_offset_y", 2)
