@@ -449,7 +449,7 @@ func _swipe_between(v: VBoxContainer, s: Dictionary, group: Array, from: int) ->
 				var step := -1 if d.x > 0.0 else 1
 				var j := clampi(i + step, 0, group.size() - 1)
 				if j != i:
-					Sfx.play("tab")
+					# the new card's own page turn (Ov.card) is the swipe's sound
 					_open_stone(group[j], group, step))
 	# the new card slides in from the side it was swiped from
 	# (the holder itself is placed by its CenterContainer, so the card and its halo inside it are moved, not the holder)
