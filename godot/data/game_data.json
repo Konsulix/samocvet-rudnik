@@ -1129,7 +1129,7 @@
   },
   {
    "n": "Whalebone Cove",
-   "sub": "And\u00f8ya, Norwegian coast",
+   "sub": "Andøya, Norwegian coast",
    "pool": {
     "ammonite": 20,
     "gypsum": 14,
@@ -1572,7 +1572,109 @@
    "next": [
     115,
     6000
-   ]
+   ],
+   "boss": {
+    "id": "brontes",
+    "n": "Brontes",
+    "sub": "The Smith of Etna",
+    "m": 500,
+    "hp": 2760,
+    "weak": 4,
+    "dmg": {
+     "weak": 10,
+     "ore": 25,
+     "special": 15
+    },
+    "moves": 30,
+    "stage_moves": 5,
+    "act": {
+     "hammer": {},
+     "bellows": {
+      "n": 2,
+      "take": 30,
+      "dmg": [
+       0,
+       0,
+       15,
+       30,
+       50
+      ]
+     },
+     "pour": {
+      "n": 3,
+      "run": 1,
+      "cut": 5
+     },
+     "bolt": {
+      "dmg": 25,
+      "max": 6,
+      "reset": 2,
+      "heal": 120,
+      "daze": 2,
+      "delay": 2
+     }
+    },
+    "lines": {
+     "start": "Another digger in my forge. Hold still. I'll shape you.",
+     "stage": [
+      "The sulphur runs for me. Mind your feet.",
+      "Now I forge what I forged for Zeus. Watch the sky."
+     ],
+     "combo": "Hah! You strike like a smith.",
+     "win": "Enough. The forge goes cold. Take your sulphur and let me sleep.",
+     "lose": "Into the slag with you.",
+     "billet": "Strike while it's hot. If you can.",
+     "take": "Cold iron comes home to me.",
+     "hammer": "Hah?! What did you hide under my hammer?",
+     "daze": "My bolt... my head rings...",
+     "bolt": "Thunder!"
+    },
+    "sfx": {
+     "hurt": "br_roar",
+     "phase": "br_phase",
+     "hammer": "br_hammer",
+     "clang": "br_clang",
+     "anvil": "br_anvil",
+     "bellows": "br_bellows",
+     "pour": "br_pour",
+     "run": "br_run",
+     "take": "br_take",
+     "bolt": "br_bolt",
+     "daze": "br_daze"
+    },
+    "stages": [
+     {
+      "name": "The forge",
+      "every": 3,
+      "acts": [
+       "hammer",
+       "bellows"
+      ],
+      "map": "##.....##|#.......#|..b...b..|.........|.........|.........|.........|.........|#.......#|###...###"
+     },
+     {
+      "name": "The sulphur river",
+      "every": 3,
+      "acts": [
+       "pour",
+       "bellows",
+       "hammer",
+       "pour"
+      ],
+      "map": "##.u.u.##|#.......#|.........|.b.....b.|.........|.........|.........|.........|#.......#|##.....##"
+     },
+     {
+      "name": "The thunderbolt",
+      "every": 3,
+      "acts": [
+       "hammer",
+       "bellows",
+       "pour"
+      ],
+      "map": "#.......#|.........|..b...b..|.........|...A.....|.........|.........|.........|#.......#|##.....##"
+     }
+    ]
+   }
   },
   {
    "n": "Proval",

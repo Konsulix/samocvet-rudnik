@@ -40,7 +40,7 @@ static func top_bar() -> HBoxContainer:
 
 ## the miner in his round iron frame, the player's level on a brass badge, the lives on a small plate under him
 ## the portrait frames' windows: [offset, size] as shares of the frame (from the bosses' avatar .json)
-const PORTRAIT_INNER := {poloz = [0.25, 0.5], mistress = [0.2778, 0.4444], kraken = [0.2778, 0.4444]}
+const PORTRAIT_INNER := {poloz = [0.25, 0.5], mistress = [0.2778, 0.4444], kraken = [0.2778, 0.4444], brontes = [0.2778, 0.4444]}
 
 static func _portrait() -> Control:
 	const F := 72.0
@@ -48,9 +48,9 @@ static func _portrait() -> Control:
 	w.custom_minimum_size = Vector2(F, F)
 	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# a square frame from the mine's boss board (the serpent at Old Adit, malachite and copper at Copper Mountain,
-	# shipwreck planks, rope and whale bone at Whalebone Cove),
+	# shipwreck planks, rope and whale bone at Whalebone Cove, forged iron at Fire Horizon),
 	# its window a dark slate with the miner in it (for now the helmet and pick; a portrait is to be drawn)
-	var id: String = ["poloz", "mistress", "kraken"][clampi(Save.area(), 0, 2)]
+	var id: String = ["poloz", "mistress", "kraken", "brontes"][clampi(Save.area(), 0, 3)]
 	var inner: Array = PORTRAIT_INNER[id]
 	var o := F * float(inner[0])
 	var n := F * float(inner[1])

@@ -58,7 +58,18 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 				if m.boss_stage_clear():
 					m.next_stage()
 					continue
+			# the forge's own move (Brontes): billets cool, sulphur runs, the thunderbolt charges or strikes
+			var ft := m.forge_turn()
+			if not ft.ran.is_empty() or not ft.bolt.is_empty(): _resolve(m, [], [], broken)
 			var bt := m.boss_turn()
+			if not bt.get("blast", []).is_empty():
+				_resolve(m, bt.blast.map(func(q: Vector2i) -> Dictionary: return {t = 0.0, r = q.x, c = q.y, kind = "fx"}), [], broken)
+			if bt.get("act", "") in ["bellows", "pour"] or not bt.get("taken", []).is_empty():
+				m.collapse()
+				_resolve(m, [], [], broken)
+			if m.boss_stage_clear():
+				m.next_stage()
+				continue
 			if not bt.get("drag", []).is_empty():
 				m.collapse()
 				_resolve(m, [], [], broken)
@@ -144,7 +155,16 @@ static func _worth(m: BoardModel) -> float:
 			if m.GAS[r][c]: v -= 0.3
 			if m.LOCK[r][c] == 3: v -= 0.6
 			if m.LOCK[r][c] == 4: v -= 0.5      # thick ice: each layer is a hit (the goal counts only the last)
+			if m.LOCK[r][c] == 6: v -= 0.25     # forge scale
 			if kegs_goal and m.KEG[r][c]: v -= float(m.KEG[r][c]) * 0.4
+	# Brontes: a cold billet heals him when he acts, molten sulphur spreads, a charged thunderbolt is near
+	if m.boss_on():
+		for r in m.R:
+			for c in m.C:
+				if m.BIL[r][c] == 1: v -= 1.5
+				elif m.BIL[r][c]: v -= 0.3
+				if m.MELT[r][c]: v -= 0.4
+		if not m.bolt.is_empty(): v -= float(m.bolt.ch) * 0.8
 	return v
 
 ## the board as it is between moves, to try a move on: every field, the stones copied, its own dice

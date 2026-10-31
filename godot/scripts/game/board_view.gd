@@ -80,6 +80,17 @@ var bucket_hit := {}           # cell key -> when it tipped
 var lit_at := {}               # cell key -> when the dark there was lit
 var dark_any := false
 var _dark_mask: ImageTexture
+## Brontes' board (Fire Horizon): the molten sulphur as one pool over its cells (shaders/melt.gdshader, like the gas),
+## his billets glowing by their heat and his anvil with the thunderbolt on it (pixel pieces, art/boss/export_brontes.py;
+## the bolt itself drawn here in code), the scale his hammer leaves on stones (code, over the stones)
+var melt_layer: Node2D
+var forge_layer: Node2D
+var bolt_marks: Array = []    # the columns his thunderbolt will strike next, outlined in violet
+var _forge_tex := {}
+var bil_at := {}              # cell key -> when a billet there was struck or heated: a flash
+var anvil_at := -10.0         # when the anvil was struck (a charge knocked off the bolt)
+var bolt_flash_at := -10.0    # when the bolt struck
+var hammer_over := Vector2(-1, -1)   # his raised hammer's shadow over this point of the grid (r, c), the move before it falls
 
 func _init() -> void:
 	clip_contents = true
@@ -101,6 +112,12 @@ func _ready() -> void:
 	flower_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sea_under = _layer(_draw_sea_under)
 	mech_layer = _layer(func(ci: Node2D): if model: BoardMech.draw_mech(self, ci, Time.get_ticks_msec() / 1000.0))
+	melt_layer = _layer(_draw_melt)
+	var mm := ShaderMaterial.new()
+	mm.shader = preload("res://shaders/melt.gdshader")
+	melt_layer.material = mm
+	forge_layer = _layer(_draw_forge)
+	forge_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
@@ -191,6 +208,11 @@ func rebuild(m: BoardModel) -> void:
 	for r in m.R:
 		for c in m.C:
 			if m.playable(r, c) and (m.KEG[r][c] or m.BUCKET[r][c] or m.LAMP[r][c]): _has_mech = true
+	_forge_tex = {}
+	if dir != "" and ResourceLoader.exists(dir + "billet_1.png"):
+		for k in range(1, 5): _forge_tex[k] = load(dir + "billet_%d.png" % k)
+		if ResourceLoader.exists(dir + "anvil.png"): _forge_tex.anvil = load(dir + "anvil.png")
+	bolt_marks = []
 	for n in gems.get_children(): n.queue_free()
 	nodes.clear()
 	for r in R:
@@ -420,6 +442,8 @@ func redraw_under() -> void:
 	under.queue_redraw()
 	gas_layer.queue_redraw()
 	live.queue_redraw()
+	melt_layer.queue_redraw()
+	forge_layer.queue_redraw()
 
 func _draw_under(ci: Node2D) -> void:
 	if model == null: return
@@ -573,13 +597,27 @@ func _draw_over(ci: Node2D) -> void:
 				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
 			elif model.playable(r, c) and model.LOCK[r][c] == 1:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
-			elif model.playable(r, c) and model.LOCK[r][c] >= 4:
+			elif model.playable(r, c) and (model.LOCK[r][c] == 4 or model.LOCK[r][c] == 5):
 				if BoardSprites.gem_style != "":
 					# the ice block rendered in Blender (prototype/tools/blender/ice_kit.py): see-through, the stone under it shows
 					BoardSprites.draw(ci, BoardSprites.blocker("ice" if model.LOCK[r][c] == 4 else "ice_cracked"), cell_center(r, c), TS)
 				else:
 					ice(ci, cell_center(r, c), TS, model.LOCK[r][c] == 4, r * 31 + c)
+			elif model.playable(r, c) and model.LOCK[r][c] == 6:
+				_draw_scale(ci, r, c)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	if hammer_over.x >= 0.0:
+		# the shadow of his hammer hanging over the cells: a dark blot that swells and shrinks as he weighs the blow
+		var hc := cell_center(hammer_over.x, hammer_over.y)
+		var sw := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.0)
+		var rad := TS * (1.15 + 0.12 * sw)
+		ci.draw_set_transform(hc, 0, Vector2(1.0, 0.72))
+		GemArt.radial_disc(ci, Vector2.ZERO, rad, Color(0, 0, 0, 0.42 + 0.1 * sw), Color(0, 0, 0, 0.25), Color(0, 0, 0, 0))
+		ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	for p: Vector2i in bolt_marks:
+		var at := cell_center(p.x, p.y) - Vector2(TS, TS) * 0.46
+		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(0.7, 0.4, 1.0, 0.2))
+		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(0.85, 0.6, 1.0, 0.95), false, maxf(2.0, TS * 0.05))
 	for p: Vector2i in marks:
 		var at := cell_center(p.x, p.y) - Vector2(TS, TS) * 0.46
 		ci.draw_rect(Rect2(at, Vector2(TS, TS) * 0.92), Color(1.0, 0.25, 0.15, 0.22))
@@ -723,6 +761,8 @@ func _process(dt: float) -> void:
 	if model and not model.flower.is_empty():
 		flower_layer.queue_redraw()
 	if model and model.boss_on():
+		forge_layer.queue_redraw()
+		if hammer_over.x >= 0.0: over.queue_redraw()
 		sea_under.queue_redraw()
 		sea_over.queue_redraw()
 		ink_layer.queue_redraw()
@@ -988,3 +1028,152 @@ func _draw_tentacle(ci: Node2D, tn: Dictionary, now: float) -> void:
 	var hw := float(_arm_tex.get_height()) * 0.65 * TS / 37.0
 	Bend.draw(ci, pts, func(_q: float) -> float: return hw, _arm_tex, 1.0 - maxf(k, 0.02), 1.0)
 
+
+# ---------------------------------------------------------------- Brontes' board
+
+## every molten sulphur cell as a quad a little larger than the cell, its colour telling the shader which neighbours
+## are sulphur too, so they run together into one pool (as the gas does)
+func _draw_melt(ci: Node2D) -> void:
+	if model == null or not model.boss_on(): return
+	if _white == null:
+		var im := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		im.fill(Color.WHITE)
+		_white = ImageTexture.create_from_image(im)
+	var over_k := 1.25
+	(ci.material as ShaderMaterial).set_shader_parameter("cell_px", TS)
+	(ci.material as ShaderMaterial).set_shader_parameter("overhang", over_k)
+	var melt := func(r: int, c: int) -> bool: return model.playable(r, c) and model.MELT[r][c] > 0
+	for r in R:
+		for c in C:
+			if not melt.call(r, c): continue
+			var m := (1 if melt.call(r, c - 1) else 0) + (2 if melt.call(r, c + 1) else 0) + (4 if melt.call(r - 1, c) else 0) + (8 if melt.call(r + 1, c) else 0)
+			var half := TS * 0.5 * over_k
+			ci.draw_texture_rect(_white, Rect2(cell_center(r, c) - Vector2(half, half), Vector2(half, half) * 2.0), false, Color(m / 15.0, 0, 0, 1))
+
+const HEAT_COL := [Color(0, 0, 0, 0), Color(0.5, 0.55, 0.62), Color(1.0, 0.18, 0.05), Color(1.0, 0.55, 0.1), Color(1.0, 0.95, 0.7)]
+
+## the billets glowing by their heat (the forge's breath swells their glow), the anvil and the thunderbolt on it
+func _draw_forge(ci: Node2D) -> void:
+	if model == null or not model.boss_on(): return
+	var now := Time.get_ticks_msec() / 1000.0
+	var k := TS / 37.0
+	var kb := k             # a billet is baked a cell wide (export_brontes.py BILLET_PT)
+	for r in R:
+		for c in C:
+			var heat: int = model.BIL[r][c] if model.playable(r, c) else 0
+			if heat <= 0: continue
+			var ctr := cell_center(r, c)
+			var since := now - float(bil_at.get(r * C + c, -10.0))
+			var breath := 0.5 + 0.5 * sin(now * 2.6 + r * 0.7 + c * 1.3)
+			if heat >= 2:
+				var hc: Color = HEAT_COL[heat]
+				var a: float = [0.0, 0.0, 0.4, 0.55, 0.75][heat] * (0.75 + 0.25 * breath) + clampf(1.0 - since / 0.5, 0.0, 1.0) * 0.4
+				GemArt.radial_disc(ci, ctr, TS * (0.66 + 0.1 * heat), Color(hc, a), Color(hc, a * 0.35), Color(hc, 0.0))
+			var shake := Vector2(sin(since * 60.0), 0) * TS * 0.05 if since < 0.25 else Vector2.ZERO
+			var tx: Texture2D = _forge_tex.get(heat)
+			if tx:
+				var sz := (Vector2(tx.get_size()) * kb).round()
+				ci.draw_texture_rect(tx, Rect2((ctr - sz * 0.5 + shake).round(), sz), false)
+			else:
+				var hw := Vector2(TS * 0.36, TS * 0.2)
+				ci.draw_rect(Rect2(ctr - hw + shake, hw * 2.0), HEAT_COL[heat].darkened(0.2 if heat > 1 else 0.6))
+				ci.draw_rect(Rect2(ctr - hw + shake, hw * 2.0), Color(0.08, 0.05, 0.04), false, 2.0)
+			# white-hot: a spark or two jumping off it
+			if heat == 4:
+				for i in 2:
+					var ph := fmod(now * 1.4 + i * 0.5 + (r * 7 + c * 3) * 0.13, 1.0)
+					var dir := Vector2(cos(i * 2.4 + r + c) * 0.6, -1.0)
+					ci.draw_circle(ctr + dir * ph * TS * 0.55, maxf(1.0, TS * 0.035) * (1.0 - ph), Color(1.0, 0.9, 0.5, 1.0 - ph))
+	if model.bolt.is_empty(): return
+	var B: Dictionary = model.bolt
+	var mid := Vector2(PAD + (float(B.c) + 1.0) * TS, PAD + (float(B.r) + 1.0) * TS)
+	var TA: Dictionary = model.boss.B.act.get("bolt", {})
+	var mx := int(TA.get("max", 6))
+	var ch := int(B.ch)
+	var dazed := int(B.daze) > 0
+	var full := clampf(float(ch) / float(mx - 1), 0.0, 1.0)
+	var hit := clampf(1.0 - (now - anvil_at) / 0.35, 0.0, 1.0)
+	# the anvil's own glow under it, violet as the bolt charges
+	GemArt.radial_disc(ci, mid, TS * 1.35, Color(0.7, 0.45, 1.0, 0.12 + 0.3 * full * (0.8 + 0.2 * sin(now * 7.0))), Color(0.6, 0.35, 1.0, 0.1 * full), Color(0.6, 0.35, 1.0, 0))
+	var at: Texture2D = _forge_tex.get("anvil")
+	var shake := Vector2(sin(now * 70.0), cos(now * 53.0)) * TS * 0.04 * hit
+	if at:
+		var sz := (Vector2(at.get_size()) * k).round()
+		# a soot-black floor under it fills its 2 x 2, the anvil standing on it low in the square
+		ci.draw_set_transform(mid + Vector2(0, TS * 0.5), 0, Vector2(1.0, 0.45))
+		GemArt.radial_disc(ci, Vector2.ZERO, TS * 1.1, Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.3), Color(0, 0, 0, 0))
+		ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+		ci.draw_texture_rect(at, Rect2((mid - sz * 0.5 + shake + Vector2(0, TS * 0.22)).round(), sz), false)
+	else:
+		var top := Rect2(mid + Vector2(-TS * 0.95, -TS * 0.25), Vector2(TS * 1.9, TS * 0.4))
+		ci.draw_rect(top, Color(0.2, 0.2, 0.22))
+		ci.draw_rect(Rect2(mid + Vector2(-TS * 0.45, TS * 0.15), Vector2(TS * 0.9, TS * 0.65)), Color(0.12, 0.12, 0.13))
+	# the thunderbolt laid on its face: a jagged line of violet-white light, wilder and brighter the fuller its charge;
+	# dazed, it lies dark and fizzles
+	var seed_t := floorf(now * (6.0 + 14.0 * full))
+	var pts := PackedVector2Array()
+	var n := 7
+	for i in n:
+		var q := float(i) / float(n - 1)
+		var x := lerpf(-TS * 0.85, TS * 0.85, q)
+		var y := (-1.0 if i % 2 == 0 else 1.0) * TS * 0.12 + (fmod(sin(seed_t * 12.9898 + i * 78.233) * 43758.5453, 1.0) - 0.5) * TS * 0.16 * (0.4 + full)
+		pts.append(mid + Vector2(x, y - TS * 0.42) + shake)
+	if dazed:
+		ci.draw_polyline(pts, Color(0.3, 0.22, 0.38), maxf(2.0, TS * 0.09))
+		# stars round it: he is seeing them
+		for i in 3:
+			var a := now * 3.0 + i * TAU / 3.0
+			var sp := mid + Vector2(cos(a) * TS * 0.9, sin(a) * TS * 0.3 - TS * 0.75)
+			_star(ci, sp, TS * 0.11, Color(1.0, 0.92, 0.5))
+	else:
+		var glow := Color(0.72, 0.45, 1.0, 0.25 + 0.45 * full)
+		ci.draw_polyline(pts, glow, maxf(4.0, TS * (0.14 + 0.12 * full)))
+		ci.draw_polyline(pts, Color(0.85, 0.7, 1.0, 0.6 + 0.4 * full), maxf(2.0, TS * 0.07))
+		ci.draw_polyline(pts, Color(1, 1, 1, 0.5 + 0.5 * full), maxf(1.0, TS * 0.03))
+	# its charge: a pip per step under the anvil, lit violet; the last one red - when it lights, he throws it
+	var pw := TS * 0.24
+	var x0 := mid.x - (mx - 1) * pw * 0.5
+	for i in mx - 1:
+		var on := i < ch
+		var pc := Vector2(x0 + i * pw, mid.y + TS * 0.9)
+		var last := i == mx - 2
+		ci.draw_circle(pc, pw * 0.36, Color(0.05, 0.04, 0.06, 0.9))
+		if on: ci.draw_circle(pc, pw * 0.26, Color(1.0, 0.35, 0.3) if last else Color(0.8, 0.6, 1.0))
+
+static func _star(ci: Node2D, c: Vector2, r: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 10:
+		var a := -PI / 2 + i * PI / 5
+		pts.append(c + Vector2(cos(a), sin(a)) * (r if i % 2 == 0 else r * 0.45))
+	ci.draw_colored_polygon(pts, col)
+
+## the scale his hammer left on a stone: dark hammered iron plates over its four corners, an ember glowing in the seams,
+## a cooled crust line across; the stone's colour shows in the middle (it still matches where it lies)
+func _draw_scale(ci: Node2D, r: int, c: int) -> void:
+	var ctr := cell_center(r, c)
+	var h := TS * 0.47
+	var rnd := Rng32.new(r * 131 + c * 17 + 5)
+	var now := Time.get_ticks_msec() / 1000.0
+	var w := maxf(1.0, TS * 0.03)
+	for i in 4:
+		var sx := -1.0 if i % 2 == 0 else 1.0
+		var sy := -1.0 if i < 2 else 1.0
+		var corner := ctr + Vector2(sx, sy) * h
+		# a plate over the corner: the corner, along both edges, a ragged inner edge
+		var a := 0.5 + rnd.next() * 0.22
+		var b := 0.5 + rnd.next() * 0.22
+		var pts := PackedVector2Array([corner, corner - Vector2(sx * h * 2.0 * a, 0)])
+		pts.append(corner + Vector2(-sx * h * a * 1.2, -sy * h * 0.42 * (0.8 + rnd.next() * 0.4)))
+		pts.append(corner + Vector2(-sx * h * 0.5 * (0.8 + rnd.next() * 0.4), -sy * h * 0.5 * (0.8 + rnd.next() * 0.4)))
+		pts.append(corner + Vector2(-sx * h * 0.42 * (0.8 + rnd.next() * 0.4), -sy * h * b * 1.2))
+		pts.append(corner - Vector2(0, sy * h * 2.0 * b))
+		ci.draw_colored_polygon(pts, Color(0.16, 0.14, 0.13, 0.95))
+		var edge := pts.duplicate()
+		edge.append(pts[0])
+		ci.draw_polyline(edge, Color(0.03, 0.02, 0.02), w * 1.3)
+		# the lamp at the top left catches its ragged inner edge on the plates facing it
+		if i == 0: ci.draw_polyline(PackedVector2Array([pts[2], pts[3], pts[4]]), Color(0.6, 0.55, 0.5, 0.8), w)
+		# a dimple from the hammer, an ember in the seam
+		ci.draw_circle(corner + Vector2(-sx, -sy) * h * 0.26, h * 0.07, Color(0.07, 0.06, 0.06))
+		var glow := 0.5 + 0.5 * sin(now * 2.0 + i * 1.7 + r * 1.3 + c)
+		ci.draw_line(pts[3], pts[3].lerp(corner, 0.45), Color(1.0, 0.42 + 0.2 * glow, 0.1, 0.3 + 0.45 * glow), w * 1.2)

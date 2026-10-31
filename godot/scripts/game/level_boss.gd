@@ -8,7 +8,8 @@ extends RefCounted
 ## what the boss's actions are called on screen
 const ACTS := {coils = "Coils: timber on stones", rockfall = "Rockfall", breath = "Poison breath", hoard = "Hoard: heals on gold",
 	lizards = "Lizards: steal the greens", crust = "Malachite crust", flower = "Stone flower: blooms and heals",
-	tentacle = "Tentacle: grips stones", ink = "Ink: hides stones", tide = "Tide: floods the bottom"}
+	tentacle = "Tentacle: grips stones", ink = "Ink: hides stones", tide = "Tide: floods the bottom",
+	hammer = "Hammer: scales stones", bellows = "Bellows: heats billets", pour = "Molten sulphur"}
 ## the stage over the board, pt; how far the boss' bottom tucks behind the frame; its sprite's left edge
 const STAGE := 190.0
 const SINK := 26.0
@@ -212,6 +213,12 @@ static func show_intent(lv: Level) -> void:
 	if h: h.set_intent(String(it.act), left)
 	else: lv.hint_label.text = "%s · %s in %d %s" % [b.B.n, ACTS.get(it.act, it.act), left, "move" if left == 1 else "moves"]
 	lv.board.marks = it.cells if left <= 1 else []
+	lv.board.bolt_marks = lv.model.bolt_cells()
+	lv.board.hammer_over = Vector2(-1, -1)
+	if it.act == "hammer" and left <= 1 and not (it.cells as Array).is_empty():
+		var mid := Vector2.ZERO
+		for p: Vector2i in it.cells: mid += Vector2(p)
+		lv.board.hammer_over = mid / (it.cells as Array).size()
 	lv.board.over.queue_redraw()
 
 ## a hit landed (the model's "boss_hit" effect): the health bar, a flash, a flinch when it hurt
@@ -238,6 +245,11 @@ static func after_turn(lv: Level) -> void:
 	if m.boss_stage_clear():
 		await next_board(lv)
 		return
+	# the forge's own (Brontes'): billets cool, sulphur runs, the thunderbolt charges or strikes
+	await _forge(lv)
+	if m.boss_stage_clear():
+		await next_board(lv)
+		return
 	var acting := int(m.boss.timer) <= 1
 	if acting and view(lv):
 		view(lv).cast()
@@ -245,7 +257,14 @@ static func after_turn(lv: Level) -> void:
 	var res := m.boss_turn()
 	if not res.is_empty() and not res.drag.is_empty():
 		await _drag(lv, res)
-	if not res.is_empty() and res.act in ["tentacle", "ink", "tide"]:
+	if not res.is_empty() and not res.get("taken", []).is_empty():
+		await _take(lv, res)
+	if not res.is_empty() and res.act in ["hammer", "bellows", "pour"]:
+		await _forge_act(lv, res)
+		if m.boss_stage_clear():
+			await next_board(lv)
+			return
+	elif not res.is_empty() and res.act in ["tentacle", "ink", "tide"]:
 		await _sea_act(lv, res)
 	elif not res.is_empty() and res.act == "lizards":
 		await _lizard_raid(lv, res)
@@ -453,6 +472,155 @@ static func _sea_act(lv: Level, res: Dictionary) -> void:
 		m.shuffle()
 		await lv.board.animate_shuffle()
 
+## once per fight: a short word on a piece of his the first time it matters
+static func tip(lv: Level, key: String, text: String) -> void:
+	if lv.has_meta(key): return
+	lv.set_meta(key, true)
+	lv._toast(text)
+
+## the forge's own move after the player's (Brontes' boards): billets cool a step, molten sulphur nobody touched runs
+## onto a stone, the thunderbolt charges - full, it strikes its two columns
+static func _forge(lv: Level) -> void:
+	var m: BoardModel = lv.model
+	if m.BIL.is_empty() or not m.boss.B.act.has("bellows"): return
+	var res := m.forge_turn()
+	var b := lv.board
+	b.redraw_under()
+	b.bolt_marks = m.bolt_cells()
+	b.over.queue_redraw()
+	if not res.ran.is_empty():
+		b.sync(true)
+		for p: Vector2i in res.ran:
+			lv.fx.sparkle(p.x, p.y, Color(1.8, 1.0, 0.3), 10)
+		sound(lv, "run", "gas")
+		tip(lv, "run_told", "Molten sulphur runs on every move you leave it - break stones beside it")
+		await lv._wait(0.3)
+	if not res.bolt.is_empty():
+		await _thunder(lv, res.bolt)
+	elif not b.bolt_marks.is_empty():
+		tip(lv, "bolt_told", "The thunderbolt is charged! Strike beside the anvil, or it hits the violet columns")
+
+## the thunderbolt strikes: he hurls it down two columns, their stones fuse with scale, he heals
+static func _thunder(lv: Level, res: Dictionary) -> void:
+	var m: BoardModel = lv.model
+	var v := view(lv)
+	# the scale it leaves shows when it lands, not while he winds up
+	for p: Vector2i in res.cells: m.LOCK[p.x][p.y] = 0
+	lv.board.over.queue_redraw()
+	if v: v.cast()
+	line(lv, "bolt")
+	await lv._wait(0.35)
+	for p: Vector2i in res.cells: m.LOCK[p.x][p.y] = 6
+	lv.board.bolt_flash_at = Time.get_ticks_msec() / 1000.0
+	for c: int in res.cols:
+		var r0 := 0
+		var r1 := m.R - 1
+		while r0 < m.R and not m.playable(r0, c): r0 += 1
+		while r1 > 0 and not m.playable(r1, c): r1 -= 1
+		lv.fx.thunder(c, r0, r1)
+	sound(lv, "bolt", "boom")
+	Sfx.buzz(80)
+	lv.board.bolt_marks = []
+	lv.board.over.queue_redraw()
+	refresh_hp(lv)
+	var h := hud(lv)
+	if h and int(res.heal): h.say("+%d" % int(res.heal), 1.6)
+	await lv._wait(0.7)
+	if not m.has_moves():
+		m.shuffle()
+		await lv.board.animate_shuffle()
+
+## he takes back the billets left to go cold: each flies up to him glowing, he heals; the stones above fall in
+static func _take(lv: Level, res: Dictionary) -> void:
+	var m: BoardModel = lv.model
+	var v := view(lv)
+	var to := lv.board.get_global_transform().affine_inverse() * (v.head_global() if v else Vector2(200, 0))
+	var b := lv.board
+	for p: Vector2i in res.taken:
+		var n := Node2D.new()
+		var from := b.cell_center(p.x, p.y)
+		n.position = from
+		var tx: Texture2D = b._forge_tex.get(1)
+		n.draw.connect(func():
+			if tx:
+				var sz := Vector2(tx.get_size()) * b.TS / 37.0
+				n.draw_texture_rect(tx, Rect2(-sz * 0.5, sz), false)
+			else:
+				n.draw_rect(Rect2(-12, -6, 24, 12), Color(0.4, 0.4, 0.45)))
+		lv.fx.add_child(n)
+		var tw := lv.create_tween().set_parallel(true)
+		tw.tween_property(n, "position", to, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tw.tween_property(n, "scale", Vector2(0.5, 0.5), 0.6)
+		tw.tween_property(n, "modulate:a", 0.0, 0.25).set_delay(0.4)
+		tw.chain().tween_callback(n.queue_free)
+		lv.fx.debris(p.x, p.y, Color("#4a4a52"), 6)
+	b.redraw_under()
+	sound(lv, "take", "rock")
+	await lv._wait(0.6)
+	refresh_hp(lv)
+	var h := hud(lv)
+	if h and int(res.heal): h.say("+%d" % int(res.heal), 1.6)
+	if not lv.has_meta("take_told"):
+		lv.set_meta("take_told", true)
+		line(lv, "take")
+	await lv.board.animate_collapse(m.collapse())
+	await lv._resolve([], [])
+
+## his hammer comes down (stones scale over, billets glow white again, the player's specials there go off), the bellows
+## blow (billets glow white, new ones come in), molten sulphur pours from the top
+static func _forge_act(lv: Level, res: Dictionary) -> void:
+	var m: BoardModel = lv.model
+	var b := lv.board
+	b.marks = []
+	var now := Time.get_ticks_msec() / 1000.0
+	b.hammer_over = Vector2(-1, -1)
+	match String(res.act):
+		"hammer":
+			if not res.cells.is_empty():
+				var mid := Vector2.ZERO
+				for p: Vector2i in res.cells: mid += Vector2(p)
+				mid /= res.cells.size()
+				lv.fx.flash(mid.x, mid.y, Color(2.2, 1.4, 0.6), 2.6)
+				lv.fx.ring(mid.x, mid.y, 1.6, Color(2.0, 1.2, 0.5))
+				lv.fx.shake = maxf(lv.fx.shake, 16.0)
+				for p: Vector2i in res.cells:
+					lv.fx.burst(b.cell_center(p.x, p.y), Color(2.2, 1.3, 0.4), 4, 260.0, 500.0, 3.0, true)
+					lv.fx.debris(p.x, p.y, Color("#2a2522"), 4)
+			for p: Vector2i in res.get("hot", []): b.bil_at[p.x * m.C + p.y] = now
+			sound(lv, "hammer", "boom")
+			Sfx.buzz(90)
+			b.refresh()
+			tip(lv, "scale_told", "Scale: a match beside it knocks it off. Leave a special under his hammer - it goes off for you")
+			await lv._wait(0.45)
+			if not res.blast.is_empty():
+				line(lv, "hammer")
+				await lv._resolve(res.blast.map(func(q: Vector2i) -> Dictionary: return {t = 0.0, r = q.x, c = q.y, kind = "fx"}), [])
+		"bellows":
+			for id in res.removed: b.remove_node(id)
+			for r in m.R:
+				for c in m.C:
+					if m.BIL[r][c]: b.bil_at[r * m.C + c] = now
+			for p: Vector2i in res.cells:
+				lv.fx.flash(p.x, p.y, Color(2.4, 1.6, 0.6), 1.4)
+				lv.fx.sparkle(p.x, p.y, Color(2.0, 1.3, 0.4), 12)
+			sound(lv, "bellows", "rocket")
+			b.refresh()
+			if not lv.has_meta("billet_told"):
+				lv.set_meta("billet_told", true)
+				line(lv, "billet")
+			tip(lv, "billet_tip", "Billets: break them while white-hot - the hotter, the harder he's hurt. Cold, he takes them back")
+			await lv._wait(0.5)
+		"pour":
+			for id in res.removed: b.remove_node(id)
+			for p: Vector2i in res.cells: lv.fx.sparkle(p.x, p.y, Color(1.8, 1.0, 0.3), 12)
+			sound(lv, "pour", "gas")
+			b.refresh()
+			tip(lv, "pour_told", "Molten sulphur: a match beside it cools it off")
+			await lv._wait(0.5)
+	if not m.has_moves():
+		m.shuffle()
+		await b.animate_shuffle()
+
 static func get_tree_timer(lv: Level, sec: float, fn: Callable) -> void:
 	lv.get_tree().create_timer(sec).timeout.connect(fn)
 
@@ -466,6 +634,7 @@ static func next_board(lv: Level) -> void:
 	await lv._wait(1.0)
 	m.next_stage()
 	lv.board.marks = []
+	lv.board.hammer_over = Vector2(-1, -1)
 	lv.board.rebuild(m)
 	lv._render_hud()
 	if v:
@@ -494,6 +663,8 @@ static func defeat(lv: Level) -> void:
 	var v := view(lv)
 	if not v: return
 	lv.board.marks = []
+	lv.board.bolt_marks = []
+	lv.board.hammer_over = Vector2(-1, -1)
 	lv.board.over.queue_redraw()
 	var h := hud(lv)
 	h.clear_intent()
