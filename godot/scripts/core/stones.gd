@@ -3,8 +3,18 @@ extends RefCounted
 ## Rolling a mineral find: species from the mine's pool, kind, quality, rare traits, weight and price.
 ## Same formulas and seeds as the prototype.
 
-const LEGEND_V := 900.0  # a living effect's own worth, before grade and depth
+const LEGEND_V := 1300.0 # a living effect's own worth, before depth
 const LEGEND_K := 1.5    # and the stone under it counts this much more
+const LEGEND_P := 0.002  # how often a find is legendary, × (1 + luck): a jackpot, kept, but rare (was 0.02, playtest 31.10)
+const VALUE_K := 1.9     # the grade's old average worth, folded into every price when the grade went (playtest 31.10)
+
+## how well it came out of the rock (BoardModel.find.integ, 0..100): the only quality there is now - the old random
+## grade is gone (it was a letter nobody could read). [least integrity, name, worth]
+const CONDITION := [[100, "Pristine", 1.15], [80, "Fine", 1.0], [50, "Chipped", 0.7], [0, "Damaged", 0.45]]
+static func condition(integ: int) -> Array:
+	for c: Array in CONDITION:
+		if integ >= int(c[0]): return c
+	return CONDITION[-1]
 
 static func pick_w(entries: Array, rng: Rng32) -> Variant:
 	var total := 0.0
@@ -20,26 +30,63 @@ static func pick_w(entries: Array, rng: Rng32) -> Variant:
 ## rare traits: each one changes the look and the price
 static func roll_traits(id: int, legend: bool, gi: int) -> Array:
 	var rng := Rng32.new(id * 7919 + 13)
-	var luck: float = 1.0 + gi * 0.15 + Save.d.lab * 0.1 + (1.2 if legend else 0.0)
+	var luck: float = 1.3 + Save.d.lab * 0.1 + (1.2 if legend else 0.0)
 	var out := []
 	for t in Data.TRAITS:
 		if rng.next() < t.p * luck:
 			out.append(t.id)
 	return out.slice(0, 4)
 
+## a find's price above a mine's ceiling grows slowly (a soft cap): the jackpot stays, but one stone no longer buys a
+## whole mine (playtest 31.10: 14 602 for an emerald when a drill cost 1–2 thousand)
+const CAP := 2500.0       # the first mine's; each next one ×(1 + CAP_AREA × mine)
+const CAP_AREA := 0.6
+static func capped(v: float, area: int) -> float:
+	var c := CAP * (1.0 + CAP_AREA * area)
+	return v if v <= c else c * (1.0 + log(v / c))
+
+## the depth each species of a mine starts to turn up at (playtest 31.10: every species from the first level filled the
+## atlas in two depths): the commonest three from the top, then one more each depth, the rarest (r 2+) not before the
+## last two; they add up, the old ones stay
+static func opens_at(area: int) -> Dictionary:
+	var A: Dictionary = Data.AREAS[mini(area, Data.AREAS.size() - 1)]
+	var pool: Dictionary = A.pool
+	var ids: Array = pool.keys()
+	ids.sort_custom(func(x, y): return int(Data.SP[x].r) < int(Data.SP[y].r) or (int(Data.SP[x].r) == int(Data.SP[y].r) and float(pool[x]) > float(pool[y])))
+	var last := maxi(0, Data.depths(area).size() - 1)
+	var out := {}
+	var mid := ids.size() - 4          # between the first three and the rarest: spread over depths 1 .. last-2
+	for i in ids.size():
+		var d := 0
+		if i == ids.size() - 1 and ids.size() > 3: d = maxi(1, last - 1)
+		elif i >= 3: d = 1 + (roundi(float(i - 3) * float(maxi(0, last - 3)) / float(maxi(1, mid - 1))) if mid > 1 else 0)
+		out[ids[i]] = mini(d, last)
+	return out
+
+## a mine's species that can turn up at depth dl, [id, weight]: the one new here twice as often, so it is met
+static func pool_at(area: int, dl: int) -> Array:
+	var pool: Dictionary = Data.AREAS[mini(area, Data.AREAS.size() - 1)].pool
+	var at := opens_at(area)
+	var out := []
+	for s in pool:
+		if int(at[s]) <= dl:
+			out.append([s, float(pool[s]) * (2.0 if int(at[s]) == dl and dl > 0 else 1.0)])
+	return out
+
 static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
-	var pool: Dictionary = Data.AREAS[mini(area, Data.AREAS.size() - 1)].pool
 	var entries := []
-	for s in pool:
-		entries.append([s, pool[s] * pow(1.0 + luck * 0.8, Data.SP[s].r)])
+	for e: Array in pool_at(area, dl):
+		entries.append([e[0], float(e[1]) * pow(1.0 + luck * 0.8, Data.SP[e[0]].r)])
 	var sid: String = pick_w(entries, rng)
 	var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else pick_w(SpecLooks.kinds(sid), rng)
 	var ge := []
 	for k in Data.GR.size():
 		ge.append([k, Data.GR[k].w * pow(1.0 + luck * 0.5, k * 0.6)])
 	var gi: int = pick_w(ge, rng)
-	var legend := rng.next() < 0.02 * (1.0 + luck)
+	# `gi` is now only how clear the stone is (SpecimenBuilder: milkier below 2), rolled as the grade was so the
+	# stones look as they did; it no longer touches the price or the rarity
+	var legend := rng.next() < LEGEND_P * (1.0 + luck)
 	var traits := roll_traits(seed_id, legend, gi)
 	# the traits a species rolls more often (amethyst's sceptres, rock crystal's phantoms): their own stream
 	var more: Dictionary = SpecLooks.of(sid).get("more", {})
@@ -48,9 +95,10 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		for t: String in more:
 			if mr.next() < float(more[t]) and not t in traits and traits.size() < 4:
 				traits.append(t)
+	# the traits add up (multiplied, three rare ones made a jackpot of a common stone)
 	var tm := 1.0
 	for t in traits:
-		tm *= Data.TR[t].m
+		tm += float(Data.TR[t].m) - 1.0
 	var base_g := 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 250.0 if kind == "fossil" else 60.0
 	if sid == "pearl": base_g = 30.0   # its oyster, mostly
 	var g := roundi(base_g * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * 0.35))
@@ -88,19 +136,20 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			kind_m *= {round = 1.3, baroque = 0.8, circled = 0.8}.get(fg.get("shape", ""), 1.0)
 			kind_m *= 0.6 + float(fg.get("luster", 0.5))
 			if int(fg.get("count", 1)) > 1: kind_m *= 1.5
-	var value: float = float(Data.SP[sid].v) * float(Data.GR[gi].m) * tm * kind_m
+	var value: float = float(Data.SP[sid].v) * VALUE_K * tm * kind_m
 	# a living effect is worth the same on any body: added, not multiplied, so a legendary pyrite
 	# outprices a plain emerald (it is about as rare); the stone itself still counts a little more
 	if legend:
-		value = value * LEGEND_K + LEGEND_V * sqrt(float(Data.GR[gi].m))
+		value = value * LEGEND_K + LEGEND_V
 	value *= 1.3 * (1.0 + dl * 0.25)
+	value = capped(value, area)
 	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = roundi(value), tier = tier_of(sid, gi, legend)}
 
 ## a legendary find is always the top tier, whatever its body
 static func tier_of(sid: String, gi: int, legend: bool) -> int:
 	if legend:
 		return 4
-	return mini(4, int(Data.SP[sid].r) + (1 if gi >= 3 else 0))
+	return mini(4, int(Data.SP[sid].r))
 
 static func fmt_weight(g: int) -> String:
 	if g >= 1000:

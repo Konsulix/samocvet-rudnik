@@ -81,10 +81,14 @@ const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, 
 const BASE := 5.1
 ## a shape that is slower to work through than its cells say: shafts dug from the top, a lower tier behind a throat
 const SCHEME_WORK := {shafts = 6.0, tiers = 4.0}
-const MARGIN := 4.5
-const TIGHT := 0.0
+## moves over what the smart bot needs WITH the win streak's gifts (a player mostly has them, Data.streak_free), tighter
+## by TIGHT a depth; the first depth forgives a little more. Tuned 31.10 (playtest: three mines without a loss): the bot
+## with the gifts wins ~85%, without them ~60%
+const MARGIN := -1.5
+const TIGHT := 1.0
+const FIRST_EASE := 2.0
 const NEED_MAX := 28.0
-const MOVES := Vector2i(12, 34)
+const MOVES := Vector2i(10, 34)
 
 static func tier(dl: int, area := 0) -> Dictionary:
 	var T: Array = AREA_TIERS.get(area, TIERS)
@@ -120,6 +124,10 @@ static func _veins_poor(dl: int) -> bool:
 	var D: Dictionary = Data.depth(Save.area(), dl)
 	var v: Array = Save.d.vein[dl]
 	return int(v[0]) <= BoardModel.vein_floor(int(D.fe)) and int(v[1]) <= BoardModel.vein_floor(int(D.au))
+
+## how often a level has a find sealed in it (always the first level of a depth and a rich one): a find in every level
+## filled a mine's atlas in two depths (playtest 31.10)
+const FIND_P := 0.6
 
 static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
@@ -252,9 +260,10 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		rows.append("".join(grid[r]).replace("+", ".").replace("=", "."))
 	for f: String in feats: count[f] = fdef.get("n_" + f, 1)
 	# two works at once ask for more thought than their sum: a couple of moves more
-	var moves := clampi(roundi(BASE + work + MARGIN - TIGHT * dl) + (3 if intro or feat_intro else 0) + (2 if feats.size() > 1 else 0) + (2 if area > 0 and not feats.is_empty() else 0), MOVES.x, MOVES.y)
+	var moves := clampi(roundi(BASE + work + MARGIN - TIGHT * dl + (FIRST_EASE if dl == 0 else 0.0)) + (3 if intro or feat_intro else 0) + (2 if feats.size() > 1 else 0) + (2 if area > 0 and not feats.is_empty() else 0), MOVES.x, MOVES.y)
 	var out := {map = "|".join(rows), goals = goals, moves = moves, hard = false, gen = true, colors = 5,
-		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme, feats = feats, feat_intro = feat_intro}
+		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme, feats = feats, feat_intro = feat_intro,
+		find = wins == 0 or rich or rng.randf() < FIND_P}
 	for k in ["carts", "dark", "belts", "bucket"]:
 		if fdef.has(k): out[k] = fdef[k]
 	return out

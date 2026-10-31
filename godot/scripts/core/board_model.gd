@@ -101,6 +101,7 @@ var colors := 5
 var goals := []      # {k, t, left}
 var over := false
 var coins_won := 0
+var continues := 0   # times "five more moves" was bought in this level
 var bonus := []      # stones freed from geodes, opened after the level
 var geos := []       # {r, c, w, h, hp, hp_max, done}: a done geode stays on the board, an empty shell of rock
 var gas_hit := false
@@ -844,6 +845,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	goals = []
 	over = false
 	coins_won = 0
+	continues = 0
 	mined = {iron = 0, ore = 0}
 	bonus = []
 	geos = []
@@ -947,8 +949,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		loop = loop.filter(func(p: Vector2i) -> bool: return playable(p.x, p.y))
 		for p: Vector2i in loop: BELT[p.x][p.y] = true
 		belts.append(loop)
-	# the find: a specimen sealed in a 2x2 block of rock, somewhere in the lower half
-	if roll_find:
+	# the find: a specimen sealed in a 2x2 block of rock, somewhere in the lower half (not in every level: LevelGen.FIND_P)
+	if roll_find and bool(def.get("find", true)):
 		var shape: Array = Stones.pick_w(FIND_SHAPES.map(func(sh): return [sh, sh[2]]), Rng32.new(rng.randi()))
 		var fw: int = shape[0]
 		var fh: int = shape[1]
@@ -1047,6 +1049,22 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		g.t = -1
 		g.ore = ""
 	if boss_on(): boss_plan()
+
+## a special handed in mid-level (the second "five more moves" brings dynamite): on a plain stone away from the edges
+func give_special(sp: String) -> Vector2i:
+	var cand := []
+	for r in range(1, R - 1):
+		for c in C:
+			var g: Gem = G[r][c]
+			if g and g.t >= 0 and g.sp == "" and not LOCK[r][c] and not DARK[r][c]:
+				cand.append(Vector2i(r, c))
+	if cand.is_empty(): return Vector2i(-1, -1)
+	var p: Vector2i = cand[rng.randi_range(0, cand.size() - 1)]
+	var g: Gem = G[p.x][p.y]
+	g.sp = sp
+	g.t = -1
+	g.ore = ""
+	return p
 
 func _free_cells() -> Array:
 	var a := []
@@ -1950,13 +1968,9 @@ func _bore_at(t: float, id: String, r: int, c: int) -> void:
 const BORE_IN := 340.0     # ms until the tip reaches the first cell (the drill comes up to the rim and revs first)
 const BORE_STEP := 55.0    # ms a cell
 
-## the find as it comes out of the rock: quality drops a step for every 20% chipped off
+## the find as it comes out of the rock: its condition by how much was chipped off, and its price with it
 func extracted_stone(diadem := false) -> Dictionary:
 	var s: Dictionary = find.stone.duplicate(true)
-	var loss: int = (100 - find.integ) / 20
-	var gi := maxi(0, int(s.gi) - loss)
-	s.value = roundi(s.value * Data.GR[gi].m / Data.GR[s.gi].m * (1.1 if diadem else 1.0))
-	s.gi = gi
+	s.value = roundi(float(s.value) * float(Stones.condition(int(find.integ))[2]) * (1.1 if diadem else 1.0))
 	s.integ = find.integ
-	s.tier = Stones.tier_of(s.sid, gi, s.legend)
 	return s

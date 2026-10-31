@@ -45,6 +45,7 @@ func _ready() -> void:
 	if args.has("zones"): BoardSprites.zone_style = args.zones
 	if args.has("area"): Save.d.area = int(args.area)
 	if args.has("rich"): Save.d.lrich = true
+	if args.has("streak"): Save.d.streak = int(args.streak)
 	if args.has("lseed"): Save.d.lseed = int(args.lseed)
 	# feat=cart,dark: a generated level with exactly these works (LevelGen.FEATURES)
 	if args.has("feat"): LevelGen.force_feats = Array(String(args.feat).split(","))
@@ -219,6 +220,9 @@ func _ready() -> void:
 	if args.has("ui"):
 		await get_tree().create_timer(float(args.get("ui_after", "0"))).timeout
 		if screen.has_method("_" + args.ui): screen.call("_" + args.ui)
+		# the end-of-level card and a toast, without playing (playtest 31.10)
+		elif args.ui == "win_card": _win_card({n = Save.d.level, coins = 152, mined = {iron = 11, ore = 9}})
+		elif args.ui == "kit_toast": Ov.toast("Added to the inventory")
 	if args.has("lens"): Save.d.eq.lens = int(args.lens)
 	if args.has("alive"):
 		# the admin's "All animations on" for the current mine: `-- screen=home area=1 alive`
@@ -253,8 +257,20 @@ func _ready() -> void:
 		# open the callouts as soon as the stone is built: `callouts` (all) or `callouts=<gene id>` (that one picked)
 		if args.has("callouts"): Reveal.auto_callouts = args.callouts
 		if args.has("callouts_at"): SpecCallouts.freeze = float(args.callouts_at)
-		if args.has("crack"): Reveal.new().crack(st)
+		if args.has("crack"): GeodeOpen.run([st])
 		else: Reveal.new().show_stone(st)
+	if args.has("geodes"):   # geodes=N [tiers=0,2,4] [auto] [short]: the opening of N geodes (GeodeOpen), `auto` plays it through
+		GeodeOpen.auto = args.has("auto")
+		var opts := {short = true, title = "Your find"} if args.has("short") else {}
+		var tiers := Array(String(args.get("tiers", "")).split(",", false))
+		var list := []
+		for i in int(args.geodes):
+			var st := Stones.roll(Save.next_uid(), Save.area(), 0.6, 1)
+			if i < tiers.size():
+				st.tier = int(tiers[i])
+				if st.tier >= 4: st.legend = true
+			list.append(st)
+		get_tree().create_timer(0.6).timeout.connect(func(): GeodeOpen.run(list, opts))
 	if args.has("story"):   # story=poloz_after [story_at=N]: a story scene over the screen, N lines on (StoryScene.SCENES)
 		get_tree().create_timer(0.8).timeout.connect(func():
 			var s := StoryScene.play(self, args.story)
@@ -500,15 +516,12 @@ func _on_level_finished(res: Dictionary) -> void:
 		if res.get("boss", false):
 			# the boss's hoard: nine geodes, one to keep
 			var hs := await Hoard.pick(Save.area())
-			var hr := Reveal.new()
-			hr.show_stone(hs)
-			await hr.finished
+			Ov.close(false)
+			await GeodeOpen.run([hs], {title = "From the hoard of %s" % String(Data.AREAS[Save.area()].boss.n), short = true})
 		if not res.stone.is_empty():
-			var rv := Reveal.new()
-			rv.show_stone(res.stone)
-			await rv.finished
-		for s in res.bonus:
-			await Reveal.new().crack(s, "A stone from a geode on the board")
+			# the find dug out on the board: the same opening as a geode's, one tap
+			await GeodeOpen.run([res.stone], {title = "Your find", short = true})
+		await GeodeOpen.run(res.bonus)
 		await _win_card(res)
 	show_home()
 
@@ -521,38 +534,80 @@ func _replay_done(res: Dictionary) -> void:
 	if res.won:
 		var v := Ov.card()
 		v.add_child(UI.title("%s is beaten again" % Data.AREAS[a].boss.n, 22))
-		v.add_child(Reveal.chip("$ +%s" % UI.fmt(int(res.coins)), true))
+		var got := HBoxContainer.new()
+		got.alignment = BoxContainer.ALIGNMENT_CENTER
+		got.add_child(_res_chip("coin", int(res.coins)))
+		v.add_child(got)
 		v.add_child(Ov.btn("Continue", "green", func(): Ov.close()))
 		await Ov.closed
 	Atlas.start_area = -1
 	go("atlas")
 
-## the end-of-level card: coins, the win streak
+## the end-of-level card: coins, iron and ore as the kit's badges, the win streak with the specials it gives
 func _win_card(res: Dictionary) -> void:
 	var v := Ov.card()
-	var badge := UI.icon(56, func(ci: Control): Chrome.coin_icon(ci, "coin", Vector2(28, 28), 26))
+	var badge := Kit.res_icon("coin", 56)
 	badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(badge)
 	v.add_child(UI.title("Level %d complete!" % res.n, 22))
 	if res.get("boss", false):
 		v.add_child(Ov.text("%s is beaten. The way to the next mine is open." % Data.AREAS[Save.area()].boss.n))
-	elif res.depth:
-		v.add_child(Ov.text("Depth %d m: coins ×%s" % [Data.depth_m(Save.area(), res.depth), str(Data.depth_pay(res.depth))]))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 10)
-	line.add_child(Reveal.chip("$ +%s" % UI.fmt(res.coins), true))
+	line.add_theme_constant_override("separation", 18)
+	line.add_child(_res_chip("coin", int(res.coins)))
 	var mined: Dictionary = res.get("mined", {})
-	if int(mined.get("iron", 0)): line.add_child(Reveal.chip("+%d iron" % int(mined.iron), true))
-	if int(mined.get("ore", 0)): line.add_child(Reveal.chip("+%d %s" % [int(mined.ore), String(Data.ore(Save.area()).n).to_lower()], true))
+	if int(mined.get("iron", 0)): line.add_child(_res_chip("iron", int(mined.iron)))
+	if int(mined.get("ore", 0)): line.add_child(_res_chip("ore", int(mined.ore)))
 	v.add_child(line)
-	if Save.d.streak >= 2:
-		v.add_child(Ov.text("Win streak: %d. %s" % [Save.d.streak, Data.streak_text(Save.d.streak)]))
+	if Save.d.streak >= 1:
+		v.add_child(Kit.rule(200))
+		v.add_child(streak_row(Save.d.streak))
 	else:
 		v.add_child(Ov.text("Iron sinks the shaft deeper, %s fits out the mine." % String(Data.ore(Save.area()).n).to_lower()))
 	var go := Ov.btn("Continue", "green", func(): Ov.close())
 	v.add_child(go)
 	await Ov.closed
+
+## "+N" after a resource's badge, as in the top bar
+static func _res_chip(kind: String, n: int) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 4)
+	var ic := Kit.res_icon(kind, 30)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	h.add_child(Kit.label("+" + UI.fmt(n), 20, UI.display, Kit.AMBER))
+	return h
+
+## the win streak in one short line: the count, then the specials the next level starts with as the board draws
+## them; before the first gift, how many wins are left for it
+static func streak_row(streak: int) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	var t := Kit.label("Win streak %d" % streak, 17, UI.display, Kit.AMBER)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 6)
+	v.add_child(h)
+	var free := Data.streak_free(streak)
+	var sps := []
+	var say := ""
+	if free.is_empty():
+		var left := int(Data.STREAK_AT.rocket) - streak
+		say = "%s more and the level starts with" % ("1 win" if left == 1 else "%d wins" % left)
+		sps = ["rh"]
+	else:
+		say = "The next level starts with"
+		for p in Data.PRE:
+			if p.id in free: sps.append(String(p.sp[0]))
+	h.add_child(Kit.label(say, 13, UI.body, Kit.CREAM))
+	for sp: String in sps:
+		var ic := UI.icon(34, func(ci: Control): BoardSprites.draw(ci, BoardSprites.tex(sp), Vector2(17, 17), 34))
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
+	return v
 
 ## hitch=SECONDS: watch every frame for that long, log the slow ones (wall time and script time), then quit
 func _hitch(secs: float) -> void:

@@ -378,23 +378,15 @@ func _pick(at: Vector2) -> void:
 	Sfx.buzz(10)
 	selected.emit(sel)
 
-## the chosen one cracks: it shakes three times and bursts; the stone inside is the reward
+## the chosen one is drawn out of the hoard: it lifts towards you, then GeodeOpen cracks it on its own dark screen
 func crack() -> void:
 	if sel < 0 or _busy: return
 	_busy = true
 	var g := geodes[sel]
-	var base := g.position
-	for k in 3:
-		Sfx.play("crack", k + 1)
-		Sfx.buzz(20)
-		var tw := create_tween()
-		for q in 3:
-			tw.tween_property(g, "position", base + Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.03, 0.035)
-		tw.tween_property(g, "position", base, 0.04)
-		await tw.finished
-		await get_tree().create_timer(0.18).timeout
-	var tw2 := create_tween()
-	tw2.tween_property(g, "scale", Vector3.ONE * 1.6, 0.12)
-	tw2.tween_property(g, "scale", Vector3.ONE * 0.01, 0.1)
-	await tw2.finished
+	Sfx.play("crack", 1)
+	Sfx.buzz(20)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(g, "scale", Vector3.ONE * 1.5, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(g, "position", g.position * 1.15, 0.3)
+	await tw.finished
 	picked.emit(stones[sel])

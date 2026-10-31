@@ -8,6 +8,9 @@ var root: Control
 var _card: PanelContainer
 var _dim: ColorRect
 var _center: CenterContainer
+## the next card grows out of this point on the screen (GeodeOpen: the stone's light rising out of the split geode),
+## over a lighter dim so what it came out of stays in sight; used once
+var born_at := Vector2.INF
 
 func _ready() -> void:
 	layer = 20
@@ -32,7 +35,9 @@ func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 	dim.color = Color(0.01, 0.02, 0.04, 0.0)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(dim)
-	create_tween().tween_property(dim, "color:a", 0.62, 0.2)
+	var born := born_at
+	born_at = Vector2.INF
+	create_tween().tween_property(dim, "color:a", 0.42 if born.is_finite() else 0.62, 0.2)
 	var center := CenterContainer.new()
 	_center = center
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -52,12 +57,15 @@ func card(width := 340.0, glow := Color.TRANSPARENT) -> VBoxContainer:
 		holder.add_child(_halo(glow, _card))
 	holder.add_child(_card)
 	center.add_child(holder)
-	_card.scale = Vector2(0.86, 0.86)
-	_card.modulate.a = 0.0
-	_card.resized.connect(func(): _card.pivot_offset = _card.size / 2)
-	var tw := create_tween().set_parallel(true)
-	tw.tween_property(_card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(_card, "modulate:a", 1.0, 0.16)
+	if born.is_finite():
+		_grow_from(holder, born)
+	else:
+		_card.scale = Vector2(0.86, 0.86)
+		_card.modulate.a = 0.0
+		_card.resized.connect(func(): _card.pivot_offset = _card.size / 2)
+		var tw := create_tween().set_parallel(true)
+		tw.tween_property(_card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_card, "modulate:a", 1.0, 0.16)
 	return v
 
 ## a card with a title, text and buttons [[label, kind, callable, enabled], ...]
@@ -134,6 +142,18 @@ func _halo(glow: Color, card: Control) -> Control:
 			br.tween_property(box, "modulate:a", 1.0, 2.4).set_trans(Tween.TRANS_SINE)
 	return box
 
+## the card (with its halo) unfolds from a point: scaled up round that point, so it ends where it belongs
+func _grow_from(holder: Control, at: Vector2) -> void:
+	holder.modulate.a = 0.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(holder): return
+	holder.pivot_offset = at - holder.global_position
+	holder.scale = Vector2(0.05, 0.05)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(holder, "modulate:a", 1.0, 0.1)
+	tw.tween_property(holder, "scale", Vector2.ONE, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 func close(emit := true) -> void:
 	for n in [_dim, _center]:
 		if n:
@@ -146,23 +166,27 @@ func close(emit := true) -> void:
 	if emit and was:
 		closed.emit()
 
+## a short note on a slate card of the kit, low on the screen (over the boosters / the Play row, never over the
+## level's goals at the top), rising in and fading out
 func toast(s: String) -> void:
-	var l := UI.label(s, 14, UI.body_bold)
+	var l := Kit.label(s, 15, UI.body_bold)
 	var p := PanelContainer.new()
-	var st := UI.glass(14, 0.92)
-	st.border_color = UI.GOLD
-	p.add_theme_stylebox_override("panel", st)
+	p.add_theme_stylebox_override("panel", Kit.box("btn_dark", 12.0))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.custom_minimum_size = Vector2(300, 0)
+	l.custom_minimum_size = Vector2(280, 0)
 	p.add_child(l)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(p)
 	var vp := root.get_viewport_rect().size
-	p.position = Vector2((vp.x - 324) / 2, 96 + UI.safe_top())
+	p.reset_size()
+	var y := vp.y * 0.72 - p.size.y / 2
+	p.position = Vector2((vp.x - p.size.x) / 2, y + 12)
 	p.modulate.a = 0
 	var tw := create_tween()
+	tw.set_parallel()
 	tw.tween_property(p, "modulate:a", 1.0, 0.2)
-	tw.tween_interval(2.0)
-	tw.tween_property(p, "modulate:a", 0.0, 0.3)
-	tw.tween_callback(p.queue_free)
+	tw.tween_property(p, "position:y", y, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.chain().tween_interval(2.0)
+	tw.chain().tween_property(p, "modulate:a", 0.0, 0.3)
+	tw.chain().tween_callback(p.queue_free)

@@ -437,7 +437,7 @@ func _render_hud() -> void:
 		if gic.material == null: gic.material = BoardSprites.plain_material()
 		gic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		box.add_child(gic)
-		var l := UI.label("", 15, UI.display)
+		var l := UI.label("", 13 if k == "find" else 15, UI.display)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(l)
 		row.add_child(box)
@@ -482,6 +482,9 @@ static func vein_after(dl: int, i: int, taken: int) -> int:
 	var fl := BoardModel.vein_floor(stock)
 	return left if left <= fl else maxi(fl, left - taken)
 
+## the find's condition in the header: Pristine, Fine, Chipped, Damaged
+const COND_COL := [Color("#9fe08a"), Color("#efe2c4"), Color("#f0a85a"), Color("#e8604c")]
+
 func _render_goal(i: int) -> void:
 	var gb: Dictionary = goal_boxes[i]
 	var g: Dictionary = model.goals[i]
@@ -489,8 +492,10 @@ func _render_goal(i: int) -> void:
 		gb.label.text = "%d" % int(g.left)
 		gb.label.add_theme_color_override("font_color", Color("#b0242c"))
 	elif g.k == "find":
-		gb.label.text = ("✓ %d%%" if model.find.done else "%d%%") % model.find.integ
-		gb.label.add_theme_color_override("font_color", UI.GOOD if model.find.done else UI.INK)
+		# not a bare percent: the find's condition by name, the way its card will call it (playtest 31.10, task 2)
+		var cond: Array = Stones.condition(int(model.find.integ))
+		gb.label.text = ("✓ " if model.find.done else "") + str(cond[1])
+		gb.label.add_theme_color_override("font_color", COND_COL[Stones.CONDITION.find(cond)])
 	else:
 		gb.label.text = str(gb.shown) if gb.shown > 0 else "✓"
 		gb.label.add_theme_color_override("font_color", UI.GOOD if gb.shown <= 0 else UI.INK)
@@ -822,7 +827,15 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				Sfx.play("crack", 3)
 				Sfx.buzz(35)
 				fx.debris(fr + 0.5, fc + 0.5, Color("#ffb090"), 16)
-				fx.pop_text(fr + 0.5, fc + 0.5, "chip −%d%%" % e.chip)
+				fx.pop_text(fr + 0.5, fc + 0.5, "chipped −%d%%" % e.chip)
+				# the header's condition jolts red: the blast cost the find something
+				var gj := model.goal_index("find")
+				if gj >= 0:
+					var lb: Label = goal_boxes[gj].label
+					lb.pivot_offset = lb.size / 2.0
+					var tw := lb.create_tween()
+					tw.tween_property(lb, "scale", Vector2(1.35, 1.35), 0.08)
+					tw.tween_property(lb, "scale", Vector2.ONE, 0.25)
 			else:
 				Sfx.play("rock")
 				fx.debris(fr + 0.5, fc + 0.5, Color("#9a8a78"), 9)
@@ -836,7 +849,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			fx.flash(e.r + 0.5, e.c + 0.5, Color(col.r * 2, col.g * 2, col.b * 2), 2.0)
 			Sfx.play("reveal", model.find.stone.tier)
 			Sfx.buzz(60)
-			_toast("Specimen extracted · soundness %d%%" % model.find.integ)
+			_toast("Specimen extracted · %s" % Stones.condition(int(model.find.integ))[1])
 		"goal":
 			_flights += 1
 			var gi: int = e.gi
@@ -1079,6 +1092,7 @@ const TIP := {
 	bucket = "Knock the ore bucket: a nugget tips out. Bring every nugget down to the bottom",
 	nod = "A malachite nodule: it grows every few moves. Hit it or match right beside it to cut its copper",
 	crust = "Malachite crust holds a stone. Match beside it or that stone to crack it off",
+	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
 
@@ -1108,6 +1122,16 @@ func _coach_next() -> void:
 				var p := _cell_screen(r, c)
 				coach.hand(p, p)
 				return
+	if not model.find.is_empty() and not model.find.done and not Save.told("find"):
+		var F: Dictionary = model.find
+		var fc := []
+		for r in range(int(F.r), int(F.r) + int(F.h)):
+			for c in range(int(F.c), int(F.c) + int(F.w)): fc.append(Vector2i(r, c))
+		var rects := [_cells_rect(fc)]
+		var gi := model.goal_index("find")
+		if gi >= 0: rects.append((goal_boxes[gi].root as Control).get_global_rect())
+		_coach_tap("find", rects)
+		return
 	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
 		var cells := _obstacle_cells(id)
@@ -1382,18 +1406,26 @@ func _out_of_moves() -> void:
 	var left := 0
 	for g in model.goals:
 		if g.left > 0: left += 1
+	var price := Data.continue_price(model.continues, Save.area())
 	var msg := "Goals left: %d.%s Five more moves?" % [left, " The specimen will stay in the rock." if not model.find.is_empty() and not model.find.done else ""]
 	_panel("Out of moves", msg, [
-		["+5 moves · 300 coins", "gold", func():
-			if Save.d.coins < 300: return
-			Save.d.coins -= 300
+		["+5 moves%s · %s coins" % [" + dynamite" if model.continues >= 1 else "", UI.fmt(price)], "gold", func():
+			if Save.d.coins < price: return
+			Save.d.coins -= price
 			Save.persist()
 			model.moves += 5
 			model.over = false
+			var gift := model.continues >= 1
+			model.continues += 1
 			_render_moves()
 			_close_panel()
 			Sfx.play("coin")
-			busy = false, Save.d.coins >= 300],
+			if gift:
+				var at := model.give_special("rh" if model.rng.randf() < 0.5 else "rv")
+				if at.x >= 0:
+					board.refresh()
+					fx.flash(at.x, at.y, Color(2.2, 1.6, 0.8), 1.6)
+			busy = false, Save.d.coins >= price],
 		["Give up (−1 life)", "glass", func():
 			Save.tick_lives()
 			Save.d.streak = 0
@@ -1626,24 +1658,9 @@ func _close_panel() -> void:
 	overlay.visible = false
 	for ch in overlay.get_children(): ch.queue_free()
 
+## a short note: the overlay's kit toast, low on the screen (it was a glass plate over the goals)
 func _toast(text: String) -> void:
-	var l := UI.label(text, 14, UI.body_bold)
-	var p := PanelContainer.new()
-	var st := UI.glass(14, 0.9)
-	st.border_color = UI.GOLD
-	p.add_theme_stylebox_override("panel", st)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.custom_minimum_size = Vector2(300, 0)
-	p.add_child(l)
-	hud.add_child(p)
-	p.position = Vector2((get_viewport_rect().size.x - 330) / 2, 120)
-	p.modulate.a = 0
-	var tw := create_tween()
-	tw.tween_property(p, "modulate:a", 1.0, 0.2)
-	tw.tween_interval(2.0)
-	tw.tween_property(p, "modulate:a", 0.0, 0.3)
-	tw.tween_callback(p.queue_free)
+	Ov.toast(text)
 
 func _cheer(text: String) -> void:
 	var l := UI.title(text, 34)

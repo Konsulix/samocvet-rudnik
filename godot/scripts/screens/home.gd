@@ -510,16 +510,24 @@ func _level_panel(dl: int, sel: Array) -> void:
 	v.add_child(Kit.rule(220))
 	if def.get("rich", false):
 		# the rich vein: said before the start, and plain to see on the board
-		var rc := UI.label("Rich vein! Twice the ore stones this time", 14, UI.body_bold, Color("#ffd27a"))
-		rc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var rs := StyleBoxFlat.new()
-		rs.bg_color = Color(0.25, 0.16, 0.02, 0.85)
-		rs.border_color = Color("#e3a51e")
-		rs.set_border_width_all(1)
-		rs.set_corner_radius_all(12)
-		rs.content_margin_top = 6
-		rs.content_margin_bottom = 6
-		rc.add_theme_stylebox_override("normal", rs)
+		var rc := HBoxContainer.new()
+		rc.alignment = BoxContainer.ALIGNMENT_CENTER
+		rc.add_theme_constant_override("separation", 8)
+		var rt := VBoxContainer.new()
+		rt.add_theme_constant_override("separation", -2)
+		var rn := Kit.label("Rich vein", 20, UI.display, Kit.AMBER)
+		rn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rt.add_child(rn)
+		var rd := Kit.label("twice the ore stones this time", 12, UI.body, Kit.CREAM)
+		rd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rt.add_child(rd)
+		for i in 3:
+			if i == 1:
+				rc.add_child(rt)
+				continue
+			var ri := Kit.res_icon("ore", 30)
+			ri.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			rc.add_child(ri)
 		v.add_child(rc)
 	if def.get("intro", false):
 		var nk := LevelGen.new_kind(dl, ai())
@@ -530,7 +538,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 	var goals := HBoxContainer.new()
 	goals.alignment = BoxContainer.ALIGNMENT_CENTER
 	goals.add_theme_constant_override("separation", 12)
-	goals.add_child(_goal_chip("find", 0, "specimen"))
+	if bool(def.get("find", true)): goals.add_child(_goal_chip("find", 0, "specimen"))
 	# the goals as the level will count them: a board set up from the same map (no find rolled - it would take a stone id)
 	var m := BoardModel.new()
 	m.setup(n, [], dl, {}, Save.area(), false, def)
@@ -646,14 +654,15 @@ func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 0)
 	var glow := Color("#c8b0ff")
-	var ic := UI.icon(34, func(ci: Control):
+	# the same icons as the level's own header (Level: gas is its live shader there too)
+	var ic: Control = Level.gas_icon(34) if k == "gas" and BoardSprites.gem_style != "" else UI.icon(34, func(ci: Control):
 		GemArt.begin(ci, Transform2D.IDENTITY)
 		GemArt.goal_icon(ci, k, colour, 34, glow)
 		GemArt.end(ci))
-	ic.material = BoardSprites.plain_material()   # the stock shader draws no textures on iPhone (see Level)
+	if not ic.material: ic.material = BoardSprites.plain_material()   # the stock shader draws no textures on iPhone (see Level)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	var l := UI.label(text, 12, UI.body_bold)
+	var l := Kit.label(text, 13, UI.body_bold)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 	return v
@@ -709,7 +718,7 @@ func _open_tasks() -> void:
 		h.add_child(b)
 		row.add_child(h)
 		v.add_child(row)
-	if all_done and a < Data.AREAS.size() - 1:
+	if all_done and a < Data.AREAS.size() - 1 and not _boss_waits():
 		v.add_child(_next_mine_btn(a))
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
 
@@ -833,26 +842,17 @@ func _dig() -> void:
 	Ov.toast("%s broke through: %d m" % [st.tool, Data.depth_m(a, k)])
 
 ## the way on to the next mine: iron and coins; the ore of this one left over is sold
+## the way on to the next mine, open once its boss is beaten: no price (playtest 31.10 - saving up for the next mine
+## after beating the boss felt silly; `next` in the data is no longer asked for)
 func _next_mine_btn(a: int) -> Button:
-	var cost: Array = Data.AREAS[a].next
-	var fe: int = cost[0]
-	var cn: int = cost[1]
-	var ok: bool = Save.d.fe >= fe and Save.d.coins >= cn
 	var nm := String(Data.AREAS[a + 1].n)
-	# two lines, the mine over its price: on one line the button widened the card past the screen
-	var b := Ov.btn("%s
-%d iron + %s" % [nm, fe, UI.coins(cn)] if ok else "%s
-need %d iron, %s" % [nm, fe, UI.coins(cn)], "green" if ok else "glass", func():
-		if Save.d.fe < fe or Save.d.coins < cn: return
-		Save.d.fe -= fe
-		Save.d.coins -= cn
+	var b := Ov.btn("Go to %s ›" % nm, "green", func():
 		var sold := Save.open_mine(a + 1)
 		Save.persist()
 		Ov.close()
 		render()
 		Ov.toast("Welcome to %s" % nm + (" · leftover ore sold for %s" % UI.coins(sold) if sold else "")))
-	b.disabled = not ok
-	b.custom_minimum_size.y = 76
+	b.custom_minimum_size.y = 60
 	return b
 
 ## " · step 2/3" for a job paid in steps, "" otherwise
@@ -914,15 +914,11 @@ func _build(tid: String, i: int) -> void:
 		if _boss_waits():
 			btns.append(["Fight · %s" % A.boss.n, "red", func(): _fight_boss()])
 		elif a < Data.AREAS.size() - 1:
-			var cost: Array = A.next
-			btns.append(["Open: %s · %d iron + %s" % [Data.AREAS[a + 1].n, int(cost[0]), UI.coins(int(cost[1]))], "green", func():
-				if Save.d.fe < int(cost[0]) or Save.d.coins < int(cost[1]): return
-				Save.d.fe -= int(cost[0])
-				Save.d.coins -= int(cost[1])
+			btns.append(["Go to %s ›" % Data.AREAS[a + 1].n, "green", func():
 				Save.open_mine(a + 1)
 				Save.persist()
 				Ov.close()
-				render(), Save.d.fe >= int(cost[0]) and Save.d.coins >= int(cost[1])])
+				render(), true])
 		btns.append(["Later", "glass", func(): Ov.close()])
 		var tail := "" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."
 		# Proval ends the first arc: the gate is open and the apprentice waits beyond it (his fight is still to come)

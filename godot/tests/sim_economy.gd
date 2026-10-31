@@ -6,10 +6,21 @@ extends RefCounted
 ## The player: fires a special when it has one (70%), otherwise a random legal swap — a weak player, the one the
 ## ore economy and LevelGen.WORK were tuned on. With `-- smart`: one that looks a move ahead for its goals (_choose_smart).
 
+## the specials a win streak puts on the board at the start (`-- streak=N`: as after N wins in a row, Data.streak_free):
+## the living player mostly plays with them, so the levels are tuned with them (playtest 31.10)
+static func streak_pre() -> Array:
+	var out := []
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("streak="):
+			for id in Data.streak_free(int(a.substr(7))):
+				for p in Data.PRE:
+					if p.id == id: out.append_array(p.sp)
+	return out
+
 static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0) -> Dictionary:
 	var m := BoardModel.new()
 	m.rng.seed = seed_v
-	m.setup(n, [], dl, Save.d.eq, area, true, level)
+	m.setup(n, streak_pre(), dl, Save.d.eq, area, true, level)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 7 + 1
 	var broken := [0, 0, 0, 0, 0, 0]
@@ -285,11 +296,12 @@ static func gen_report(per_depth: int, area := 0) -> String:
 		for i in per_depth:
 			var def := LevelGen.make(area, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0)
 			# sim_free: moves without end, so `used` is what the level really needs (for fitting LevelGen.WORK)
+			var given0 := int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_free"): def.moves = 120
 			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def, area)
 			given += int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_rows"):
-				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
+				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, given = given0, feats = def.get("feats", []), count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
 			used += int(r.used)
 			if def.intro:
 				ii += 1

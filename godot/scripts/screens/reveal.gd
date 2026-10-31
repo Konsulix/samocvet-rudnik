@@ -1,7 +1,7 @@
 class_name Reveal
 extends RefCounted
-## Finding out what you dug up: crack a nodule open with three taps, then turn the specimen in your hand
-## and decide whether to sell it or keep it. Both steps are awaited:  await Reveal.new().crack(s, title)
+## Finding out what you dug up: turn the specimen in your hand and decide whether to sell it or keep it
+## (a geode is cracked open first by GeodeOpen). Awaited:  var r := Reveal.new(); r.show_stone(s); await r.finished
 
 signal finished
 signal replied    # the reply button was pressed (see `reply`)
@@ -14,69 +14,6 @@ var reply := ""
 var _btn_row: Control
 var _row_make: Callable
 static var _name_l: Label   # the last card's name, for unmask()
-
-## a bonus stone from a geode: tap it open first
-func crack(s: Dictionary, title := "Crack the stone") -> void:
-	var v := Ov.card()
-	v.add_child(UI.title(title, 22))
-	var hits := [0]
-	var nod := Control.new()
-	nod.custom_minimum_size = Vector2(240, 240)
-	nod.mouse_filter = Control.MOUSE_FILTER_STOP
-	nod.pivot_offset = Vector2(120, 120)
-	nod.material = BoardSprites.plain_material()   # the stock shader draws no textures on iPhone (see Level)
-	nod.draw.connect(func():
-		GemArt.radial_disc(nod, Vector2(120, 120), 120, Color(0.78, 0.59, 1, 0.28), Color(0.78, 0.59, 1, 0.1), Color(0.78, 0.59, 1, 0))
-		nod.draw_texture_rect(GemArt.NODULE, Rect2(20, 20, 200, 200), false)
-		for line in BoardView.crack_paths(int(s.id), hits[0] * 2 + 1 if hits[0] else 0):
-			var pts := PackedVector2Array()
-			for q in line: pts.append(Vector2(30, 30) + q * 1.8)
-			nod.draw_polyline(pts, Color(0.08, 0.05, 0.03), 4.0, true)
-			nod.draw_polyline(pts, Color(1, 0.86, 0.6), 1.6, true))
-	var hint := Ov.text("Tap the stone")
-	var wrap := CenterContainer.new()
-	wrap.add_child(nod)
-	v.add_child(wrap)
-	v.add_child(hint)
-	nod.gui_input.connect(func(e: InputEvent):
-		var tap: bool = (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed)
-		if not tap or hits[0] >= 3: return
-		hits[0] += 1
-		Sfx.play("crack", hits[0])
-		Sfx.buzz(20)
-		nod.queue_redraw()
-		var tw := nod.create_tween()
-		tw.tween_property(nod, "scale", Vector2(0.93, 0.93), 0.05)
-		tw.tween_property(nod, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		_chips(nod, 10 + hits[0] * 6)
-		if hits[0] >= 3:
-			nod.get_tree().create_timer(0.3).timeout.connect(func(): show_stone(s)))
-	await finished
-
-func _chips(at: Control, n: int) -> void:
-	var p := CPUParticles2D.new()
-	p.position = Vector2(120, 120)
-	p.one_shot = true
-	p.explosiveness = 0.95
-	p.amount = n
-	p.lifetime = 0.8
-	p.direction = Vector2(0, -1)
-	p.spread = 180
-	p.initial_velocity_min = 120
-	p.initial_velocity_max = 320
-	p.gravity = Vector2(0, 900)
-	p.scale_amount_min = 4
-	p.scale_amount_max = 9
-	p.angular_velocity_min = -400
-	p.angular_velocity_max = 400
-	var g := Gradient.new()
-	g.set_color(0, Color("#8a7660"))
-	g.add_point(0.5, Color("#5e4e3e"))
-	g.set_color(g.get_point_count() - 1, Color("#b09a80"))
-	p.color_initial_ramp = g
-	at.add_child(p)
-	p.emitting = true
-	at.get_tree().create_timer(1.2).timeout.connect(p.queue_free)
 
 ## the reveal: a live specimen, its label, sell or keep. `others` were the stones not chosen.
 func show_stone(s: Dictionary, others := []) -> void:
@@ -262,12 +199,12 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)
 	_stat(stats, "Weight", Stones.fmt_weight(int(s.g)))
-	_stat(stats, "Grade", String(Data.GR[int(s.gi)].n))
-	if s.has("integ"):
-		var ig := int(s.integ)
-		_stat(stats, "Soundness", "%d%%" % ig, UI.GOOD if ig >= 90 else Color("#f0b040") if ig >= 60 else Color("#ff6a5a"))
-	else:
-		_stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
+	# the condition: how carefully it was dug out (the old grade letter is gone). A stone from a geode or a reward
+	# was never blasted: pristine
+	var cond := Stones.condition(int(s.get("integ", 100)))
+	var ci := int(cond[0])
+	_stat(stats, "Condition", String(cond[1]), UI.GOOD if ci >= 100 else Kit.CREAM if ci >= 80 else Color("#f0b040") if ci >= 50 else Color("#ff6a5a"))
+	_stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
 	v.add_child(stats)
 	var gene := SpecGenome.of(so)
 	var flow := HFlowContainer.new()

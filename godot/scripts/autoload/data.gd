@@ -81,19 +81,19 @@ func minable() -> Array:
 				break
 	return out
 
-## pre-boosters a win streak gives for free
+## five more moves when they run out, the k-th time in this level (k from 0): dearer every time and in every mine;
+## from the second on it brings a stick of dynamite too, as in Royal Match. To be tuned by playing (playtest 31.10)
+const CONTINUE_BASE := 400        # coins, the first time, in the first mine
+const CONTINUE_STEP := 2.5        # each next time in the same level costs this much more
+const CONTINUE_AREA := 0.5        # each next mine: the base × (1 + this × mine)
+func continue_price(k: int, area: int) -> int:
+	return roundi(CONTINUE_BASE * (1.0 + CONTINUE_AREA * area) * pow(CONTINUE_STEP, k) / 50.0) * 50
+
+## pre-boosters a win streak gives for free, as Royal Match's Butler's Gift: from the third win in a row, a step more
+## every two wins, kept till a level is lost (the levels are tuned with them: SimEconomy's smart bot gets them too)
+const STREAK_AT := {rocket = 3, bomb = 5, orb = 7}
 func streak_free(streak: int) -> Array:
 	var out := []
-	if streak >= 2: out.append("rocket")
-	if streak >= 4: out.append("bomb")
-	if streak >= 6: out.append("orb")
+	for k in ["rocket", "bomb", "orb"]:
+		if streak >= int(STREAK_AT[k]): out.append(k)
 	return out
-
-func streak_text(streak: int) -> String:
-	var f := streak_free(streak)
-	if f.is_empty():
-		return "One more win and dynamite at the start is free."
-	var names := []
-	for p in PRE:
-		if p.id in f: names.append(String(p.n).to_lower())
-	return "Free at the start: %s." % ", ".join(names)
