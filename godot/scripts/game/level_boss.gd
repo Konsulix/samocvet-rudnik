@@ -382,8 +382,8 @@ static func _sea(lv: Level) -> void:
 		sound(lv, "suck", "kr_maelstrom")
 		b.whirl_kick()
 		await sw.finished
-		if not lv.has_meta("suck_told"):
-			lv.set_meta("suck_told", true)
+		if not Save.told("maelstrom_suck"):
+			Save.tell("maelstrom_suck")
 			lv._toast("The maelstrom swallows blue stones and specials beside it")
 		await b.animate_collapse(m.collapse())
 	await lv._resolve([], [])

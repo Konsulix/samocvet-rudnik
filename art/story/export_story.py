@@ -2,7 +2,7 @@
 # Usage: python export_story.py <godot dir>
 import sys, os
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(sys.argv[1], "assets", "story")
@@ -36,19 +36,40 @@ PICS = {
 }
 FLIP = {"brother"}
 
-def cut(path, box=None):
+BG = np.array([0.984, 0.016, 0.984], np.float32)   # GPT's magenta
+
+def unmix(path):
+    """the figure off the magenta, alpha and colour: an edge pixel is figure and magenta mixed, so its alpha is how
+    much more magenta it is than green, and the magenta is taken back out of its colour (no purple rim)"""
     a = np.asarray(Image.open(path).convert("RGB")).astype(np.float32) / 255
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    m = np.clip((np.minimum(r, b) - g - 0.25) / 0.35, 0, 1)      # how magenta
-    spill = np.clip(np.minimum(r, b) - g, 0, None) * m
-    a[..., 0] -= spill * 0.6
-    a[..., 2] -= spill * 0.9
-    img = Image.fromarray((np.dstack([np.clip(a, 0, 1), 1 - m]) * 255).astype(np.uint8), "RGBA")
+    bg = np.clip((np.minimum(r, b) - g) / float(min(BG[0], BG[2]) - BG[1]), 0, 1)
+    al = np.clip((1 - bg - 0.06) / 0.94, 0, 1)            # a hair tighter: the last faint ring goes
+    keep = np.maximum(al, 1e-3)[..., None]
+    col = np.clip((a - (1 - keep) * BG) / keep, 0, 1)
+    # what magenta tint is left on the rim, gone: the figure itself has none (its own reds and violets aren't both
+    # over the green by much where it is solid)
+    rim = (al < 0.98)[..., None]
+    lo = np.minimum(col[..., 0], col[..., 2]) - col[..., 1]
+    fix = np.clip(lo, 0, None)[..., None] * np.array([1.0, 0.0, 1.0], np.float32)
+    col = np.where(rim, col - fix, col)
+    # lone specks in the magenta (noise of the picture) out: they would widen the crop and float by the figure
+    solid = Image.fromarray(((al > 0.08) * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(9))
+    al = al * (np.asarray(solid) > 0)
+    img =Image.fromarray((np.dstack([np.clip(col, 0, 1), al]) * 255 + 0.5).astype(np.uint8), "RGBA")
+    return img
+
+def shrink(img, size):
+    """scaled with the colour premultiplied: the clear pixels' colour never bleeds into the edge"""
+    return img.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
+
+def cut(path, box=None):
+    img = unmix(path)
     if box is None:
         return img.getchannel("A").point(lambda v: 255 if v > 20 else 0).getbbox()
     # trimmed at the sides and top only: the bottom edge is where the figure is cut off, kept
     img = img.crop((box[0], box[1], box[2], img.height))
-    return img.resize((round(img.width * H / img.height), H), Image.LANCZOS)
+    return shrink(img, (round(img.width * H / img.height), H))
 
 os.makedirs(OUT, exist_ok=True)
 # one crop for all the moods of a character, so they swap in place
@@ -68,16 +89,10 @@ for name, src in PICS.items():
 # objects shown in the scenes (StoryScene "prop:<name>", gen_prop.sh): trimmed to the object, at most 640 px
 PROPS = ["notebook", "scale", "bootprints", "letter", "rune"]
 for name in PROPS:
-    a = np.asarray(Image.open(os.path.join(HERE, "props", name + ".png")).convert("RGB")).astype(np.float32) / 255
     # cut() keeps the bottom for portraits; a prop is trimmed on every side
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    m = np.clip((np.minimum(r, b) - g - 0.25) / 0.35, 0, 1)
-    spill = np.clip(np.minimum(r, b) - g, 0, None) * m
-    a[..., 0] -= spill * 0.6
-    a[..., 2] -= spill * 0.9
-    rgba = Image.fromarray((np.dstack([np.clip(a, 0, 1), 1 - m]) * 255).astype(np.uint8), "RGBA")
+    rgba = unmix(os.path.join(HERE, "props", name + ".png"))
     rgba = rgba.crop(rgba.getchannel("A").point(lambda v: 255 if v > 20 else 0).getbbox())
     k = 640 / max(rgba.size)
-    if k < 1: rgba = rgba.resize((round(rgba.width * k), round(rgba.height * k)), Image.LANCZOS)
+    if k < 1: rgba = shrink(rgba, (round(rgba.width * k), round(rgba.height * k)))
     rgba.save(os.path.join(OUT, "prop_" + name + ".png"))
     print("prop", name, rgba.size)

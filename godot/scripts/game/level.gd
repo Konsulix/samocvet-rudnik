@@ -1034,8 +1034,8 @@ func _after_turn() -> void:
 		if gi >= 0:
 			goal_boxes[gi].shown += 1
 			_render_goal(gi)
-		if not has_meta("gas_told"):
-			set_meta("gas_told", true)
+		if not Save.told("gas_spread"):
+			Save.tell("gas_spread")
 			_toast("Gas is spreading — hit it every move")
 		await _wait(0.26)
 	await _grow_nodules()
@@ -1077,6 +1077,8 @@ const TIP := {
 	dark = "The gallery is dark. Match next to the light to carry it further",
 	belt = "A belt! After every move its stones ride a step along. Plan for where they will be",
 	bucket = "Knock the ore bucket: a nugget tips out. Bring every nugget down to the bottom",
+	nod = "A malachite nodule: it grows every few moves. Hit it or match right beside it to cut its copper",
+	crust = "Malachite crust holds a stone. Match beside it or that stone to crack it off",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
 
@@ -1106,7 +1108,7 @@ func _coach_next() -> void:
 				var p := _cell_screen(r, c)
 				coach.hand(p, p)
 				return
-	for id in ["cart", "keg", "dark", "belt", "bucket", "sand", "mud", "granite", "gas", "lock", "ice"]:
+	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
 		var cells := _obstacle_cells(id)
 		if cells.is_empty(): continue
@@ -1186,6 +1188,8 @@ func _obstacle_cells(id: String) -> Array:
 				"dark": on = model.DARK[r][c] > 0 and _beside_light(r, c)
 				"belt": on = model.BELT[r][c]
 				"bucket": on = model.BUCKET[r][c] > 0
+				"nod": on = model.NOD[r][c] > 0
+				"crust": on = model.LOCK[r][c] == 2
 			if on: out.append(Vector2i(r, c))
 	return out
 
@@ -1241,11 +1245,11 @@ func _grow_nodules() -> void:
 		if e.crust.size(): fx.debris(e.r, e.c, Color("#2f8a62"), 8)
 	board.over.queue_redraw()
 	Sfx.play("pop", 2)
-	if crusted and not has_meta("crust_told"):
-		set_meta("crust_told", true)
+	if crusted and not Save.told("crust_grow"):
+		Save.tell("crust_grow")
 		_toast("Overgrown! Malachite crusted the stones round it")
-	elif not has_meta("nodule_told"):
-		set_meta("nodule_told", true)
+	elif not Save.told("nodule_grow"):
+		Save.tell("nodule_grow")
 		_toast("Malachite grows: the bigger it is, the more copper it gives — cut it off from beside")
 	await _wait(NOD_WAIT)
 	if not model.has_moves():

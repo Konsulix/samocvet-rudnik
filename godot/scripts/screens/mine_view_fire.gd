@@ -149,7 +149,7 @@ func _changes() -> void:
 		_shown_places[p] = was
 		var at: Array = J.places[p]
 		_reveal("place/%s_%d.png" % [p, now], Vector2(float(at[0]), float(at[1])), wait, func(): _shown_places[p] = now,
-			"place/%s_%d.png" % [p, was] if was > 0 else "surface.png")
+			"place/%s_%d.png" % [p, was] if was > 0 else "surface.png", p, FPLACES)
 	for k in bands:
 		var was := String(last.bands.get(k, bands[k]))
 		var now := String(bands[k])

@@ -135,7 +135,7 @@ func _changes() -> void:
 		_shown_places[p] = was
 		var at: Array = J.places[p]
 		_reveal("place/%s_%d.png" % [p, now], Vector2(float(at[0]), float(at[1])), wait, func(): _shown_places[p] = now,
-			"place/%s_%d.png" % [p, was] if was > 0 else "surface.png")
+			"place/%s_%d.png" % [p, was] if was > 0 else "surface.png", p, CPLACES)
 		if p == "wheel" and now >= 3:
 			_mill_on = t + wait + 2.0
 	for k in bands:

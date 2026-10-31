@@ -42,7 +42,8 @@ var _shown_places := {}   # what the still layer draws (may lag behind the save 
 var _shown_bands := {}
 var _appear := {}         # depth -> when its people came (they fade in)
 var _power_on := -100.0   # when the electric line came on (its bulbs light one after another)
-var _water := {}          # depth -> when its water started to go down
+var _water := {}          # depth -> [when its water starts to go down, from, to (water_cut), the pump's step after]
+var _shown_drain := {}    # depth -> the pump's step its still picture shows; -1 while the water is going down
 var _drill_in := {}       # depth -> when the drill came through into it
 var _glow: Texture2D
 var _shade: Texture2D
@@ -200,7 +201,8 @@ func setup(a: int) -> void:
 		elif d == 4 and int(steps.get("pump", 0)) < 3:
 			st = "flooded"
 		var lived: bool = k <= open and d <= 5 and k < wins.size() and int(wins[k]) >= 2
-		_bands.append({y = y0 + k * float(J.band), state = st, d = d, lived = lived, k = k})
+		var drain := int(steps.get("pump", 0)) if st == "flooded" else 0
+		_bands.append({y = y0 + k * float(J.band), state = st, d = d, lived = lived, k = k, drain = drain})
 	H = y0 + _bands.size() * float(J.band)
 	if _set_area != a:
 		_events = {}
@@ -237,14 +239,18 @@ func _changes() -> void:
 	for p in PLACES: places[p] = int(steps.get(p, 0))
 	var bands := {}
 	var lived := {}
+	var drains := {}
 	for b in _bands:
 		bands[int(b.k)] = String(b.state)
 		lived[int(b.k)] = bool(b.lived)
+		drains[int(b.k)] = int(b.drain)
 	for c in reveals.get_children(): c.queue_free()
 	_shown_places = places.duplicate()
 	_shown_bands = bands.duplicate()
+	_shown_drain = drains.duplicate()
+	_water = {}
 	var last: Dictionary = _last.get(area, {})
-	_last[area] = {places = places, bands = bands, lived = lived}
+	_last[area] = {places = places, bands = bands, lived = lived, drains = drains}
 	focus_y = -1.0
 	if last.is_empty():
 		return
@@ -257,12 +263,20 @@ func _changes() -> void:
 			var at: Array = J.places[p]
 			var now := int(places[p])
 			_reveal("place/%s_%d.png" % [p, now], Vector2(float(at[0]), float(at[1])), wait, func(): _shown_places[p] = now,
-				"place/%s_%d.png" % [p, was] if was > 0 else "surface.png")
+				"place/%s_%d.png" % [p, was] if was > 0 else "surface.png", p, PLACES)
 			if p == "power" and now >= 3:
 				_power_on = t + wait + 1.6
 	for k in bands:
 		var was := String(last.bands.get(k, bands[k]))
 		var now := String(bands[k])
+		var dr_was := int(last.get("drains", {}).get(k, drains[k]))
+		if was == now and now == "flooded" and int(drains[k]) > dr_was:
+			# a step of the pump: the water sinks a little, the rubble above it shows
+			if focus_y < 0: focus_y = band_y(int(k)) + float(J.band) * 0.5
+			_water[k] = [t + wait, water_cut(dr_was), water_cut(int(drains[k])), int(drains[k])]
+			_shown_drain[k] = -1
+			get_tree().create_timer(wait).timeout.connect(func(): amb.shot("pan", -2.0, 0.55))
+			continue
 		if was == now:
 			continue
 		var y := band_y(int(k))
@@ -270,7 +284,7 @@ func _changes() -> void:
 		var d := int(k) + 1
 		if was == "flooded":
 			# the pump: the water goes down, the picture under it was the closed gallery all along
-			_water[k] = t + wait
+			_water[k] = [t + wait, water_cut(dr_was), float(J.band), 0]
 			get_tree().create_timer(wait).timeout.connect(func(): amb.shot("pan", -2.0, 0.55))
 		elif was == "closed":
 			# the drill comes down through the rock, then the gallery shows through the dust
@@ -291,7 +305,7 @@ func _changes() -> void:
 			if focus_y < 0: focus_y = band_y(int(k)) + float(J.band) * 0.5
 
 ## a stage coming in over the old one: ink lines first, then the colour; at the end the still layer takes it over
-func _reveal(path: String, pos: Vector2, delay: float, done: Callable, prev_path := "") -> void:
+func _reveal(path: String, pos: Vector2, delay: float, done: Callable, prev_path := "", place := "", order: Array = []) -> void:
 	var sp := Sprite2D.new()
 	sp.centered = false
 	sp.texture = tex(path)
@@ -311,6 +325,23 @@ func _reveal(path: String, pos: Vector2, delay: float, done: Callable, prev_path
 			m.set_shader_parameter("prev_rect", Vector4(pos.x / ps.x, pos.y / ps.y, sz.x / ps.x, sz.y / ps.y))
 	sp.material = m
 	reveals.add_child(sp)
+	# the places drawn after this one in the still picture stay in front of it while it comes in (a chimney standing
+	# before the incline's new shed was wiped out by the shed's sky, till the still picture took over)
+	var after := order.find(place)
+	if after >= 0:
+		var r := Rect2(pos, tex(path).get_size() / K)
+		for q: String in order.slice(after + 1):
+			var s := int(_shown_places.get(q, 0))
+			if s <= 0: continue
+			var qa: Array = J.places[q]
+			var qp := Vector2(float(qa[0]), float(qa[1]))
+			var qt := tex("place/%s_%d.png" % [q, s])
+			if not r.intersects(Rect2(qp, qt.get_size() / K)): continue
+			var cover := Sprite2D.new()
+			cover.centered = false
+			cover.texture = qt
+			cover.position = (qp - pos) * K
+			sp.add_child(cover)
 	var tw := sp.create_tween()
 	tw.tween_interval(delay)
 	tw.tween_callback(func(): amb.shot("rockfall", -6.0, 0.9))
@@ -415,7 +446,13 @@ func _draw_still() -> void:
 			_put(c, "place/%s_%d.png" % [p, s], Vector2(float(at[0]), float(at[1])))
 	for b in _bands:
 		var st := String(_shown_bands.get(int(b.k), b.state))
-		_put(c, "band/d%d_%s.png" % [int(b.d), st], Vector2(0, float(b.y)))
+		var dr := int(_shown_drain.get(int(b.k), b.drain))
+		if st == "flooded" and dr != 0:
+			# drained part way (or going down now): the dry gallery, its water from the line down
+			_put(c, "band/d%d_closed.png" % int(b.d), Vector2(0, float(b.y)))
+			if dr > 0: _water_at(c, int(b.d), float(b.y), water_cut(dr))
+		else:
+			_put(c, "band/d%d_%s.png" % [int(b.d), st], Vector2(0, float(b.y)))
 	_draw_niches(c)
 	# the seams between the bands: a dark line and the shadow of the band above falling on the next
 	for b in _bands:
@@ -604,13 +641,28 @@ func _render_niche(o: Dictionary, key: String) -> void:
 			st.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 			await RenderingServer.frame_post_draw
 		var img := st.vp.get_texture().get_image()
-		var used := img.get_used_rect()
+		var used := _solid_rect(img)
 		if used.size.x > 2:
 			_niche_tex[key] = ImageTexture.create_from_image(img.get_region(used))
 		st.clear()
 	_niche_busy = false
 	if is_inside_tree():
 		still.queue_redraw()
+
+## the stone itself in its picture: the pixels it covers well, not a faint glow, spark or bubble far off, which
+## would stretch the box and stand the stone beside its pedestal
+static func _solid_rect(img: Image) -> Rect2i:
+	var x0 := img.get_width()
+	var y0 := img.get_height()
+	var x1 := -1
+	var y1 := -1
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.35:
+				x0 = mini(x0, x); x1 = maxi(x1, x)
+				y0 = mini(y0, y); y1 = maxi(y1, y)
+	if x1 < 0: return img.get_used_rect()
+	return Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1)
 
 ## a stone's size on its pedestal (source px)
 func _niche_size(tx: Texture2D) -> Vector2:
@@ -987,6 +1039,43 @@ func _surface_live(c: CanvasItem) -> void:
 			var at: Array = J.sparks.at
 			_put(c, sp, Vector2(float(at[0]), float(at[1])) - ss / 2)
 
+## the water of a flooded depth after `s` steps of the pump: where its picture is cut (band rows from the top);
+## the water in the picture lies from WATER_TOP down to WATER_BOTTOM of the band, the pump takes it a third a step
+const WATER_TOP := 0.31
+const WATER_BOTTOM := 0.86
+func water_cut(s: int) -> float:
+	if s <= 0: return 0.0
+	if s >= 3: return float(J.band)
+	return lerpf(WATER_TOP, WATER_BOTTOM, s / 3.0) * float(J.band)
+
+## the flooded picture from `cut` down, over the dry one, with a faint line where the water stands
+func _water_at(c: CanvasItem, d: int, y: float, cut: float) -> void:
+	if cut >= float(J.band): return
+	var tx := tex("band/d%d_flooded.png" % d)
+	var sz := tx.get_size()
+	c.draw_texture_rect_region(tx, Rect2(0, y + cut, sz.x / K, float(J.band) - cut), Rect2(0, cut * K, sz.x, sz.y - cut * K))
+	if cut > float(J.band) * WATER_TOP * 0.9:
+		var wl := float(J.shaft[0]) - 30.0
+		c.draw_rect(Rect2(0, y + cut, wl, 3), Color(0.62, 0.72, 0.8, 0.28))
+		c.draw_rect(Rect2(0, y + cut + 3, wl, 10), Color(0.0, 0.0, 0.0, 0.25))
+
+## the pump's hose from 150 m down into the water of 200 m, sucking at it (a ripple round its end)
+func _pump_hose(c: CanvasItem, b: Dictionary, y: float) -> void:
+	var cr: Dictionary = J.crews.get(str(int(b.d) - 1), {}) if J.has("crews") else {}
+	if not cr.has("pump"): return
+	var hx := float(cr.pump[0]) + 34.0
+	var cut := water_cut(int(b.drain))
+	if _water.has(int(b.k)):
+		var w: Array = _water[int(b.k)]
+		var q := clampf((t - float(w[0])) / 3.0, 0.0, 1.0)
+		cut = lerpf(float(w[1]), float(w[2]), q * q * (3.0 - 2.0 * q))
+	var end := y + minf(maxf(cut, float(J.band) * WATER_TOP), float(J.band) * WATER_BOTTOM) + 26.0
+	var pts := PackedVector2Array([Vector2(hx, y - 30), Vector2(hx + 6, y + 40), Vector2(hx - 4, end - 30), Vector2(hx + 2, end)])
+	c.draw_polyline(pts, Color(0.05, 0.04, 0.03), 13.0, true)
+	c.draw_polyline(pts, Color(0.22, 0.16, 0.1), 8.0, true)
+	var r := fmod(t * 0.9, 1.0)
+	c.draw_arc(Vector2(hx + 2, end - 20), 10.0 + r * 34.0, PI * 0.05, PI * 0.95, 18, Color(0.7, 0.8, 0.9, 0.35 * (1.0 - r)), 2.0, true)
+
 ## the rails' top of a depth (band rows): each gallery was drawn with its own floor line
 func floor_of(d: int) -> float:
 	if J.has("floors") and J.floors.has(str(d)): return float(J.floors[str(d)])
@@ -1001,15 +1090,19 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 	var floor_y := y + floor_of(int(b.d))
 	var k := int(b.k)
 	if _water.has(k):
-		# the flooded picture is uncovered from the top: its water line sinks to the floor and is gone
-		var q := clampf((t - float(_water[k])) / 3.0, 0.0, 1.0)
-		var tx := tex("band/d%d_flooded.png" % int(b.d))
-		var sz := tx.get_size()
-		var cut := q * float(J.band)
+		# the flooded picture is uncovered from the top: its water line sinks (to the floor and gone, at the last step)
+		var w: Array = _water[k]
+		var q := clampf((t - float(w[0])) / 3.0, 0.0, 1.0)
+		var cut := lerpf(float(w[1]), float(w[2]), q * q * (3.0 - 2.0 * q))
 		if q < 1.0:
-			c.draw_texture_rect_region(tx, Rect2(0, y + cut, sz.x / K, float(J.band) - cut), Rect2(0, cut * K, sz.x, sz.y - cut * K))
+			_water_at(c, int(b.d), y, cut)
 		else:
 			_water.erase(k)
+			if float(w[2]) < float(J.band):
+				_shown_drain[k] = int(w[3])
+				still.queue_redraw()
+	if String(b.state) == "flooded" and int(b.drain) > 0:
+		_pump_hose(c, b, y)
 	if _drill_in.has(k):
 		var s := t - float(_drill_in[k])
 		if s > 1.6:
@@ -1030,6 +1123,8 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 		_put(c, dp, Vector2(cx - ds.x / 2 + _rng.randf_range(-1.5, 1.5), y - ds.y * 0.35 + _rng.randf_range(-1.0, 1.0)))
 	if String(b.state) != "closed" and int(b.d) == 3:
 		_put(c, "snake/skin_%02d.png" % (int(t * 8) % 24), Vector2(float(J.skin[0]) - _size("snake/skin_00.png").x / 2, y + float(J.skin[1])))
+	if int(b.d) == 3 and int(steps.get("pump", 0)) >= 1 and not b.lived and String(b.state) != "closed":
+		_pump_live(c, J.crews.get("3", {}) if J.has("crews") else {}, y)
 	if not b.lived:
 		return
 	var al := 1.0
@@ -1076,6 +1171,14 @@ func _drill_frame(i: int) -> String:
 		3: return "borer/%d.png" % (int(t * 12) % 6)
 	return "drill/%d.png" % clampi(i, 0, 4)
 
+## the pump on its plinth at 150 m, working from the job's first step
+func _pump_live(c: CanvasItem, cr: Dictionary, y: float) -> void:
+	if not cr.has("pump"): return
+	var pi := int(t * 10) % 8
+	var pp := "pump/%d.png" % pi
+	var ps_ := _size(pp)
+	_put(c, pp, Vector2(float(cr.pump[0]) - ps_.x / 2, y + float(cr.pump[1]) - ps_.y + 6))
+
 ## who works at the back of a depth (mine.json "crews"): a pick man at a heap, a shovel man, a man resting on a crate;
 ## the pump on its plinth at 150 m once the pump is built, water dripping, the jackhammer at the face of 250 m
 func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: float, k: int, al: float) -> void:
@@ -1089,10 +1192,7 @@ func _crew_live(c: CanvasItem, cr: Dictionary, y: float, floor_y: float, back: f
 			var h := fy - (y + 40.0)
 			c.draw_texture_rect(tex("drip/%d.png" % di), Rect2(Vector2(dx, fy - h), Vector2(dsz.x, h)), false, Color(1, 1, 1, al * 0.9))
 	if cr.has("pump") and int(steps.get("pump", 0)) >= 1:
-		var pi := int(t * 10) % 8
-		var pp := "pump/%d.png" % pi
-		var ps_ := _size(pp)
-		_put(c, pp, Vector2(float(cr.pump[0]) - ps_.x / 2, y + float(cr.pump[1]) - ps_.y + 6))
+		_pump_live(c, cr, y)
 	if cr.has("pair") and _crew_ok("doublejack24"):
 		var pf := int(t * 11.0 + k * 5.0) % 24
 		var pp := "doublejack24/%02d.png" % pf

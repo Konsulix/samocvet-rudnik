@@ -522,24 +522,30 @@ func _level_panel(dl: int, sel: Array) -> void:
 		rc.add_theme_stylebox_override("normal", rs)
 		v.add_child(rc)
 	if def.get("intro", false):
-		v.add_child(Ov.text("New at this depth: %s" % Data.DMODS[mini(dl, Data.DMODS.size() - 1)], 13, UI.GOLD))
+		var nk := LevelGen.new_kind(dl, ai())
+		var nk_n: String = {sand = "sandstone", granite = "granite", mud = "mud", gas = "firedamp gas", lock = "timbered stones",
+			crust = "malachite crust", ice = "ice"}.get(nk, nk)
+		if nk != "": v.add_child(Ov.text("New at this depth: %s" % nk_n, 13, UI.GOLD))
 	# what the level asks for, read from its map
 	var goals := HBoxContainer.new()
 	goals.alignment = BoxContainer.ALIGNMENT_CENTER
 	goals.add_theme_constant_override("separation", 12)
 	goals.add_child(_goal_chip("find", 0, "specimen"))
-	var map: String = def.get("map", "")
-	var cnt := func(ch: String) -> int: return map.count(ch)
-	for g in def.goals:
-		var k: String = g[0]
-		match k:
-			"c": goals.add_child(_goal_chip("c", int(g[1]), str(int(g[2]))))
-			"rock": goals.add_child(_goal_chip("rock", 0, str(cnt.call("r") + cnt.call("R") * 2)))
-			"mud": goals.add_child(_goal_chip("mud", 0, str(cnt.call("m"))))
-			"nug": goals.add_child(_goal_chip("nug", 0, str(cnt.call("n"))))
-			"gas": goals.add_child(_goal_chip("gas", 0, str(cnt.call("g"))))
-			"lock": goals.add_child(_goal_chip("lock", 0, str(cnt.call("l"))))
-			_: goals.add_child(_goal_chip("geo", 0, str(cnt.call("G"))))
+	# the goals as the level will count them: a board set up from the same map (no find rolled - it would take a stone id)
+	var m := BoardModel.new()
+	m.setup(n, [], dl, {}, Save.area(), false, def)
+	for g: Dictionary in m.goals:
+		var k: String = g.k
+		var colour: int = int(g.t)
+		if k == "rock":
+			var sand := false
+			var granite := false
+			for r in m.R:
+				for c in m.C:
+					if m.ROCK_MAX[r][c] >= 2: granite = true
+					elif m.ROCK_MAX[r][c] == 1: sand = true
+			colour = 2 if sand and granite else 1 if granite else 0
+		goals.add_child(_goal_chip(k, colour, str(int(g.left))))
 	v.add_child(goals)
 	# depth: deeper is harder and pays more
 	var open: int = Save.d.depth[ai()]
@@ -560,7 +566,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 	var dt := UI.label("Depth %d m" % Data.depth_m(ai(), dl), 16, UI.display, UI.GOLD)
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(dt)
-	var mods := ", ".join(Data.DSHORT.slice(1, dl + 1)) + "\ncoins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary board\nordinary rewards"
+	var mods := "coins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary rewards"
 	var ds := Ov.text(mods, 12)
 	mid.add_child(ds)
 	drow.add_child(mid)
