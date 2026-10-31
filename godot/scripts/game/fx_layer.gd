@@ -2,7 +2,8 @@ class_name FxLayer
 extends Node2D
 ## Explosions, sparks, flying dynamite, lightning and goal icons, drawn above the board.
 ## Positions are in the board's local space; this layer sits exactly on top of the board.
-## Colours above 1.0 bloom through the HDR glow pass.
+## The screen's glow pass is off (it cost the phone a full-screen blur): light - flashes, sparks, fire, bolts, streaks -
+## is drawn adding onto what is under it (add_material), so it glows by itself.
 
 var board: BoardView
 var shake := 0.0
@@ -10,9 +11,50 @@ var _rings := []     # {pos, rad, t0, dur, col}
 var _zaps := []      # {a, b, t0, pts}
 var _flash := []     # {pos, r, t0, col}
 var _was_busy := false
+var _streaks := []   # {a, dir, len, speed, t0, col, w}: a lit trail behind something flying along a line
+static var _add: ShaderMaterial
+
+## a soft round puff, white in the middle and gone at its rim: what fire and smoke particles are drawn with
+static var _puff: ImageTexture
+const PUFF_PX := 64.0
+static func puff() -> ImageTexture:
+	if _puff == null:
+		var n := int(PUFF_PX)
+		var im := Image.create(n, n, true, Image.FORMAT_RGBA8)
+		for y in n:
+			for x in n:
+				var d := Vector2(x + 0.5 - n * 0.5, y + 0.5 - n * 0.5).length() / (n * 0.5)
+				var a := clampf(1.0 - d, 0.0, 1.0)
+				im.set_pixel(x, y, Color(1, 1, 1, a * a * (3.0 - 2.0 * a)))
+		im.generate_mipmaps()
+		_puff = ImageTexture.create_from_image(im)
+	return _puff
+
+## the game is closing: the cached puff and material go while the renderer is still up
+static func release() -> void:
+	_puff = null
+	_add = null
+
+static func add_material() -> ShaderMaterial:
+	if _add == null:
+		_add = ShaderMaterial.new()
+		_add.shader = preload("res://shaders/add.gdshader")
+	return _add
+
+func _ready() -> void:
+	material = add_material()   # what this layer draws itself is light
 
 func cell(r: float, c: float) -> Vector2:
 	return board.cell_center(r, c)
+
+## the whole game holds still for a blink: a heavy blast lands harder for it
+static var _stop_until := 0
+func hitstop(sec: float) -> void:
+	var now := Time.get_ticks_msec()
+	if now < _stop_until: return
+	_stop_until = now + int(sec * 1000.0) + 120
+	Engine.time_scale = 0.05
+	get_tree().create_timer(sec, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
 
 func _process(dt: float) -> void:
 	# camera-style shake applied to the board and this layer together; at rest nothing is moved or redrawn
@@ -22,9 +64,9 @@ func _process(dt: float) -> void:
 	elif shake > 0.0:
 		shake = 0.0
 		board.get_parent().position = Vector2.ZERO
-	if _rings.size() or _flash.size() or _zaps.size() or _was_busy:
+	if _rings.size() or _flash.size() or _zaps.size() or _streaks.size() or _was_busy:
 		queue_redraw()
-	_was_busy = _rings.size() > 0 or _flash.size() > 0 or _zaps.size() > 0
+	_was_busy = _rings.size() > 0 or _flash.size() > 0 or _zaps.size() > 0 or _streaks.size() > 0
 
 func _draw() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
@@ -35,15 +77,41 @@ func _draw() -> void:
 			_rings.remove_at(i)
 			continue
 		var r: float = (0.4 + g.rad * 1.15) * board.TS * (1.0 - pow(1.0 - k, 3.0))
-		draw_arc(g.pos, r, 0, TAU, 48, Color(g.col, (1.0 - k) * 0.9), board.TS * 0.18 * (1.0 - k) + 2.0, true)
-		draw_circle(g.pos, r * 0.9, Color(g.col, (1.0 - k) * 0.12))
+		var fade := (1.0 - k) * (1.0 - k)
+		# a shockwave: a bright thin front over a broad soft band behind it
+		draw_arc(g.pos, r * 0.94, 0, TAU, 56, Color(g.col, fade * 0.25), board.TS * 0.5 * (1.0 - k) + 2.0, true)
+		draw_arc(g.pos, r, 0, TAU, 56, Color(g.col, fade * 0.9), board.TS * 0.1 * (1.0 - k) + 1.5, true)
 	for i in range(_flash.size() - 1, -1, -1):
 		var f: Dictionary = _flash[i]
-		var k: float = (now - f.t0) / 0.22
+		var k: float = (now - f.t0) / float(f.get("dur", 0.26))
 		if k >= 1.0:
 			_flash.remove_at(i)
 			continue
-		GemArt.radial_disc(self, f.pos, f.r * (0.6 + k * 0.6), Color(f.col, 1.0 - k), Color(f.col, (1.0 - k) * 0.4), Color(f.col, 0))
+		var a := (1.0 - k) * (1.0 - k)
+		GemArt.radial_disc(self, f.pos, f.r * (0.7 + k * 0.5), Color(f.col, a), Color(f.col, a * 0.35), Color(f.col, 0))
+		# a hot white core, gone in the first third
+		if k < 0.35: GemArt.radial_disc(self, f.pos, f.r * 0.35, Color(1, 1, 1, (1.0 - k / 0.35) * 0.9), Color(1, 0.95, 0.8, (1.0 - k / 0.35) * 0.3), Color(1, 1, 1, 0))
+	for i in range(_streaks.size() - 1, -1, -1):
+		var st: Dictionary = _streaks[i]
+		var age: float = now - float(st.t0)
+		var head: float = minf(float(st.len), age * float(st.speed))
+		var tail_t := age - float(st.len) / float(st.speed)
+		var fade := 1.0 - clampf(tail_t / 0.25, 0.0, 1.0)
+		if fade <= 0.0:
+			_streaks.remove_at(i)
+			continue
+		# the trail: brightest at the head, thinning back towards where it started
+		var a0: Vector2 = st.a
+		var dir: Vector2 = st.dir
+		var n := 10
+		for s in n:
+			var u0 := float(s) / n
+			var u1 := float(s + 1) / n
+			var p0 := a0 + dir * head * u0
+			var p1 := a0 + dir * head * u1
+			var aa := u1 * u1 * fade
+			draw_line(p0, p1, Color(st.col, aa * 0.5), float(st.w) * (0.6 + u1 * 0.9), true)
+			draw_line(p0, p1, Color(1, 1, 1, aa * 0.6), float(st.w) * 0.25 * (0.5 + u1), true)
 	for i in range(_zaps.size() - 1, -1, -1):
 		var z: Dictionary = _zaps[i]
 		var k: float = (now - z.t0) / 0.28
@@ -57,7 +125,8 @@ func _draw() -> void:
 			if s > 0 and s < segs:
 				p += Vector2(randf() - 0.5, randf() - 0.5) * board.TS * 0.35
 			pts.append(p)
-		draw_polyline(pts, (Color(0.6, 2.2, 3.0, 1.0 - k) if BoardSprites.gem_style != "" else Color(2.2, 1.6, 3.0, 1.0 - k)), 3.0, true)
+		draw_polyline(pts, (Color(0.25, 0.75, 1.0, (1.0 - k) * 0.5) if BoardSprites.gem_style != "" else Color(0.8, 0.5, 1.0, (1.0 - k) * 0.5)), board.TS * 0.2, true)
+		draw_polyline(pts, (Color(0.5, 0.95, 1.0, 1.0 - k) if BoardSprites.gem_style != "" else Color(0.9, 0.7, 1.0, 1.0 - k)), 3.0, true)
 		draw_polyline(pts, Color(1, 1, 1, 1.0 - k), 1.2, true)
 
 # ---------------------------------------------------------------- particles
@@ -81,8 +150,14 @@ func burst(pos: Vector2, col: Color, amount: int, speed := 160.0, gravity := 520
 	p.angular_velocity_max = spin
 	var ramp := Gradient.new()
 	if sparkle:
-		ramp.set_color(0, Color(col.r * 2.4, col.g * 2.4, col.b * 2.4, 1))
+		# sparks are light: added onto the board, white-hot as they fly out
+		ramp.set_color(0, Color(minf(1.0, col.r * 1.6), minf(1.0, col.g * 1.6), minf(1.0, col.b * 1.6), 1))
 		ramp.set_color(1, Color(col, 0))
+		p.material = add_material()
+		# a soft glowing dot, not a square
+		p.texture = puff()
+		p.scale_amount_min = size_px * 2.4 / PUFF_PX
+		p.scale_amount_max = size_px * 4.2 / PUFF_PX
 	else:
 		ramp.set_color(0, col)
 		ramp.set_color(1, Color(col, 0))
@@ -431,11 +506,142 @@ func gem_chips(r: float, c: float, col: Color) -> void:
 	burst(cell(r, c), rock, 5, 170.0, 700.0, 3.5, false, 90.0)
 	burst(cell(r, c), Color(col.lightened(0.3), 1.0), 3, 120.0, 200.0, 2.0, true, 0.0)
 
+## a stone going into a cart: a small copy of it hops from its cell into the cart's mouth
+func fly_gem(r: float, c: float, to: Vector2, colour: int) -> void:
+	var n := Node2D.new()
+	var S := board.TS * 0.62
+	var tx := BoardSprites.gem(colour)
+	n.draw.connect(func(): BoardSprites.draw(n, tx, Vector2.ZERO, S))
+	n.material = BoardSprites.plain_material()
+	n.position = cell(r, c)
+	add_child(n)
+	var p0 := n.position
+	var mid := p0.lerp(to, 0.5) + Vector2(0, -board.TS * 0.9)
+	var tw := create_tween()
+	tw.tween_method(func(t: float):
+		n.position = p0.lerp(mid, t).lerp(mid.lerp(to, t), t)
+		n.scale = Vector2.ONE * lerpf(1.0, 0.7, t)
+		n.rotation = t * 2.5, 0.0, 1.0, 0.3).set_trans(Tween.TRANS_SINE)
+	tw.finished.connect(n.queue_free)
+
+## the ore bucket tips a nugget out: it arcs from the bucket onto the stone it lands on, which then is the nugget
+func toss_nugget(r: float, c: float, tr: float, tc: float, on_land: Callable) -> void:
+	var n := Node2D.new()
+	var S := board.TS * 0.8
+	n.draw.connect(func(): BoardSprites.draw(n, BoardSprites.tex("nug"), Vector2.ZERO, S))
+	n.material = BoardSprites.plain_material()
+	n.position = cell(r, c)
+	add_child(n)
+	var p0 := n.position
+	var p1 := cell(tr, tc)
+	var mid := p0.lerp(p1, 0.5) + Vector2((p1.x - p0.x) * 0.2, -board.TS * 1.2)
+	var tw := create_tween()
+	tw.tween_method(func(t: float):
+		n.position = p0.lerp(mid, t).lerp(mid.lerp(p1, t), t)
+		n.rotation = t * 4.0, 0.0, 1.0, 0.42).set_trans(Tween.TRANS_SINE)
+	tw.finished.connect(func():
+		n.queue_free()
+		on_land.call())
+
 func sparkle(r: float, c: float, col: Color, amount := 24) -> void:
 	burst(cell(r, c), col, amount, 230.0, 60.0, 3.0, true)
 
-func flash(r: float, c: float, col: Color, size_cells := 1.6) -> void:
-	_flash.append({pos = cell(r, c), r = board.TS * size_cells, t0 = Time.get_ticks_msec() / 1000.0, col = col})
+func flash(r: float, c: float, col: Color, size_cells := 1.6, dur := 0.26) -> void:
+	_flash.append({pos = cell(r, c), r = board.TS * size_cells, t0 = Time.get_ticks_msec() / 1000.0, col = col, dur = dur})
+
+## a lit trail along a line from a, `len` px long, its head going `speed` px/s
+func streak(a: Vector2, dir: Vector2, len: float, speed: float, col: Color, w := 0.0) -> void:
+	_streaks.append({a = a, dir = dir.normalized(), len = len, speed = speed, t0 = Time.get_ticks_msec() / 1000.0, col = col, w = w if w > 0.0 else board.TS * 0.22})
+
+## a fireball: hot light swelling and rising, going red as it dies, then smoke rolling up slowly
+func fireball(pos: Vector2, size_cells: float) -> void:
+	var ts := board.TS
+	var f := CPUParticles2D.new()
+	f.position = pos
+	f.one_shot = true
+	f.explosiveness = 0.9
+	f.amount = int(14 + size_cells * 8)
+	f.lifetime = 0.55
+	f.spread = 180.0
+	f.direction = Vector2(0, -1)
+	f.initial_velocity_min = ts * 0.6
+	f.initial_velocity_max = ts * (1.4 + size_cells * 0.9)
+	f.damping_min = ts * 2.0
+	f.damping_max = ts * 3.0
+	f.gravity = Vector2(0, -ts * 1.5)
+	f.texture = puff()
+	f.scale_amount_min = ts * 0.55 * (1.0 + size_cells * 0.25) / PUFF_PX
+	f.scale_amount_max = ts * 1.0 * (1.0 + size_cells * 0.25) / PUFF_PX
+	var sc := Curve.new()
+	sc.add_point(Vector2(0, 0.4))
+	sc.add_point(Vector2(0.25, 1.0))
+	sc.add_point(Vector2(1, 0.6))
+	f.scale_amount_curve = sc
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.95, 0.75, 1.0))
+	ramp.add_point(0.3, Color(1.0, 0.6, 0.15, 0.85))
+	ramp.set_color(1, Color(0.6, 0.12, 0.02, 0.0))
+	f.color_ramp = ramp
+	f.material = add_material()
+	add_child(f)
+	f.emitting = true
+	get_tree().create_timer(0.9).timeout.connect(f.queue_free)
+	var s := CPUParticles2D.new()
+	s.position = pos
+	s.one_shot = true
+	s.explosiveness = 0.7
+	s.amount = int(8 + size_cells * 4)
+	s.lifetime = 1.1
+	s.spread = 180.0
+	s.initial_velocity_min = ts * 0.2
+	s.initial_velocity_max = ts * (0.6 + size_cells * 0.4)
+	s.damping_min = ts * 0.8
+	s.damping_max = ts * 1.2
+	s.gravity = Vector2(0, -ts * 0.9)
+	s.texture = puff()
+	s.scale_amount_min = ts * 0.8 / PUFF_PX
+	s.scale_amount_max = ts * 1.3 / PUFF_PX
+	var sc2 := Curve.new()
+	sc2.add_point(Vector2(0, 0.5))
+	sc2.add_point(Vector2(1, 1.3))
+	s.scale_amount_curve = sc2
+	var r2 := Gradient.new()
+	r2.set_color(0, Color(0.25, 0.2, 0.17, 0.0))
+	r2.add_point(0.15, Color(0.22, 0.18, 0.15, 0.55))
+	r2.set_color(1, Color(0.15, 0.13, 0.12, 0.0))
+	s.color_ramp = r2
+	s.material = BoardSprites.plain_material()
+	add_child(s)
+	s.emitting = true
+	get_tree().create_timer(1.4).timeout.connect(s.queue_free)
+
+## a stone pops: a quick soft light of its colour where it was
+func pop_glow(r: float, c: float, col: Color) -> void:
+	flash(r, c, Color(col.lerp(Color.WHITE, 0.35), 0.55), 0.75, 0.2)
+
+## the cascade's count, rising over where the latest match went: larger and warmer the longer it runs
+func chain_text(at: Vector2, n: int) -> void:
+	var l := Label.new()
+	l.text = "x%d" % n
+	var fs := 18 + mini(n, 8) * 3
+	l.add_theme_font_override("font", UI.display)
+	l.add_theme_font_size_override("font_size", fs)
+	l.add_theme_color_override("font_color", Color(1.0, 0.92 - mini(n, 8) * 0.05, 0.6 - mini(n, 8) * 0.06))
+	l.add_theme_color_override("font_outline_color", Color(0.18, 0.08, 0.0, 0.95))
+	l.add_theme_constant_override("outline_size", 7)
+	l.size = Vector2(90, fs + 8)
+	l.position = at - l.size * 0.5
+	l.pivot_offset = l.size * 0.5
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.material = BoardSprites.plain_material()
+	add_child(l)
+	l.scale = Vector2(0.3, 0.3)
+	var tw := create_tween()
+	tw.tween_property(l, "scale", Vector2(1.15, 1.15), 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "scale", Vector2.ONE, 0.08)
+	tw.parallel().tween_property(l, "position:y", l.position.y - board.TS * 0.7, 0.7).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(l.queue_free)
 
 # ---------------------------------------------------------------- big effects
 
@@ -443,15 +649,21 @@ func ring(r: float, c: float, rad: float, col := Color(2.0, 1.4, 0.6)) -> void:
 	_rings.append({pos = cell(r, c), rad = rad, t0 = Time.get_ticks_msec() / 1000.0, dur = 0.45 + rad * 0.05, col = col})
 
 func boom(r: int, c: int, rad: int) -> void:
-	ring(r, c, rad)
-	flash(r, c, Color(2.4, 1.6, 0.7), 1.2 + rad * 0.5)
-	burst(cell(r, c), Color(1.0, 0.75, 0.35), 26 + rad * 6, 300.0 + rad * 40, 300.0, 5.0, true)
-	burst(cell(r, c), Color("#6a5848"), 16, 220.0, 700.0, 5.0)
-	shake = maxf(shake, 10.0 + rad * 2.0)
+	ring(r, c, rad, Color(1.0, 0.75, 0.4))
+	flash(r, c, Color(1.0, 0.7, 0.3), 1.6 + rad * 0.8, 0.34)
+	fireball(cell(r, c), 0.8 + rad * 0.6)
+	burst(cell(r, c), Color(1.0, 0.75, 0.35), 22 + rad * 8, board.TS * (5.0 + rad * 1.2), board.TS * 4.0, 3.5, true)
+	burst(cell(r, c), Color("#6a5848"), 14 + rad * 4, board.TS * (3.5 + rad * 0.8), board.TS * 14.0, 5.0)
+	shake = maxf(shake, 9.0 + rad * 3.0)
+	if rad >= 2: hitstop(0.04 + rad * 0.012)
 
 ## dynamite shoots both ways along a row or column, with a fizzing trail
 func rocket(sp: String, r: int, c: int) -> void:
-	shake = maxf(shake, 4.0)
+	shake = maxf(shake, 5.0)
+	flash(r, c, Color(1.0, 0.75, 0.35), 1.4, 0.22)
+	# a burning line along the row or column, both ways, at the sticks' speed (BoardModel: a cell every 32 ms)
+	for d2 in ([Vector2(1, 0), Vector2(-1, 0)] if sp == "rh" else [Vector2(0, 1), Vector2(0, -1)]):
+		streak(cell(r, c), d2, board.TS * 10.0, board.TS / 0.032, Color(1.0, 0.62, 0.22), board.TS * 0.3)
 	var dirs := [Vector2i(0, 1), Vector2i(0, -1)] if sp == "rh" else [Vector2i(1, 0), Vector2i(-1, 0)]
 	for d in dirs:
 		var n := Node2D.new()
@@ -482,9 +694,13 @@ func rocket(sp: String, r: int, c: int) -> void:
 		trail.scale_amount_min = 2
 		trail.scale_amount_max = 4
 		var ramp := Gradient.new()
-		ramp.set_color(0, Color(3.0, 2.0, 0.6))
+		ramp.set_color(0, Color(1.0, 0.85, 0.45))
 		ramp.set_color(1, Color(1, 0.3, 0.1, 0))
 		trail.color_ramp = ramp
+		trail.material = add_material()
+		trail.texture = puff()
+		trail.scale_amount_min = board.TS * 0.12 / PUFF_PX
+		trail.scale_amount_max = board.TS * 0.26 / PUFF_PX
 		n.add_child(trail)
 		var far := 9.0
 		var target := cell(r + d.x * far, c + d.y * far)
@@ -526,6 +742,7 @@ func drill(r: int, c: int, tr: int, tc: int) -> void:
 
 func zap(r: int, c: int, tr: int, tc: int) -> void:
 	_zaps.append({a = cell(r, c), b = cell(tr, tc), t0 = Time.get_ticks_msec() / 1000.0})
+	flash(tr, tc, Color(0.45, 0.9, 1.0), 0.9, 0.22)
 	sparkle(tr, tc, Color(0.45, 0.95, 1.0) if BoardSprites.gem_style != "" else Color(0.85, 0.65, 1.0), 6)
 
 func pop_text(r: float, c: float, txt: String, col := Color("#ffb090")) -> void:

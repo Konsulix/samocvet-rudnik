@@ -44,6 +44,11 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			continue
 		m.gas_spread()
 		m.nodule_grow()
+		if not m.belts.is_empty() and not m.belt_turn().turned.is_empty():
+			_resolve(m, [], [], broken)
+			if m.goals_done():
+				won = true
+				break
 		if m.boss_on():
 			# the sea's own move (the Kraken): the maelstrom's ring turns and swallows a blue or a special, what it lines up goes
 			var sea := m.sea_turn()
@@ -120,6 +125,15 @@ static func _worth(m: BoardModel) -> float:
 	# the big blocks: every hit counts, not only the last one
 	for b in m.geos:
 		if not b.done: v -= float(b.hp) * 0.8
+	# a cart: every stone of its colour that goes in counts, not only the last; a keg to set off: every fuse
+	for ct in m.carts:
+		if not ct.done: v -= float(ct.left) * 0.5
+	# stones of a cart's colour already lying round it: a player brings them there on purpose
+	if not m.carts.is_empty():
+		for r in m.R:
+			for c in m.C:
+				if m._cart_beside(r, c, m.col(r, c)) >= 0: v += 0.15
+	var kegs_goal := m.goal_index("keg") >= 0
 	if not m.find.is_empty() and not m.find.done: v -= float(m.find.hp) * 0.8
 	for r in m.R:
 		for c in m.C:
@@ -130,6 +144,7 @@ static func _worth(m: BoardModel) -> float:
 			if m.GAS[r][c]: v -= 0.3
 			if m.LOCK[r][c] == 3: v -= 0.6
 			if m.LOCK[r][c] == 4: v -= 0.5      # thick ice: each layer is a hit (the goal counts only the last)
+			if kegs_goal and m.KEG[r][c]: v -= float(m.KEG[r][c]) * 0.4
 	return v
 
 ## the board as it is between moves, to try a move on: every field, the stones copied, its own dice
@@ -235,7 +250,12 @@ static func boss_report(area: int, n: int) -> String:
 ## used, ore per win. The moves formula in LevelGen is tuned on this.
 static func gen_report(per_depth: int, area := 0) -> String:
 	var lines := PackedStringArray(["depth | levels | win% | moves given | moves used | per win: iron, own ore | intro win%"])
+	# sim_depth=D: only that depth (to run the depths side by side in several processes)
+	var only := -1
+	for x in OS.get_cmdline_user_args():
+		if String(x).begins_with("sim_depth="): only = int(String(x).get_slice("=", 1))
 	for dl in Data.depths(area).size():
+		if only >= 0 and dl != only: continue
 		var wins := 0
 		var given := 0
 		var used := 0

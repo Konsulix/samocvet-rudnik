@@ -314,10 +314,18 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 					ci.draw_circle(Vector2(p.x, p.y) * S, p.z * S, Color(0.72, 0.8, 0.32, 0.8), true, -1.0, true)
 		"ice":
 			BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(S / 2, S / 2), S * 0.9)
-			BoardView.ice(ci, Vector2(S / 2, S / 2), S * 0.95, true, 0)
+			if BoardSprites.gem_style != "": BoardSprites.draw(ci, BoardSprites.blocker("ice"), Vector2(S / 2, S / 2), S)
+			else: BoardView.ice(ci, Vector2(S / 2, S / 2), S * 0.95, true, 0)
 		"lock":
 			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
+		"cart", "keg", "dark":
+			var t := BoardMech.tex({cart = "cart_wide", keg = "keg", dark = "lantern"}[k])
+			if t == null: t = BoardMech.tex("cart")
+			if t:
+				var sz := Vector2(t.get_size())
+				var kk := minf(S * 0.98 / sz.x, S * 0.98 / sz.y)
+				ci.draw_texture_rect(t, Rect2(Vector2(S, S) * 0.5 - sz * kk * 0.5, sz * kk), false)
 		"geo":
 			if BoardSprites.zone_style != "classic" and BoardSprites.gem_style != "":
 				ci.draw_texture_rect(BoardSprites.zone_icon("geode_2x2"), Rect2(Vector2(S, S) * 0.025, Vector2(S, S) * 0.95), false)

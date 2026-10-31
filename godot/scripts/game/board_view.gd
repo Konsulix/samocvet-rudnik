@@ -66,6 +66,20 @@ var _twitch_at := -10.0
 var _lid := 0.0
 var _slit := Vector2(5.5, 3.5)
 var _down := {}
+## the gallery's works (BoardMech draws them): belts under the stones, carts, kegs and buckets among them, the dark over
+## them and its lanterns over the dark; what moves them
+var belt_layer: Node2D
+var mech_layer: Node2D
+var dark_layer: Node2D
+var lamp_layer: Node2D
+var belt_phase := 0.0          # cells the belts have run
+var cart_bump := {}            # cart index -> when a stone went in
+var cart_go_at := {}           # cart index -> when it set off, full
+var keg_hit := {}              # cell key -> when a fuse burnt
+var bucket_hit := {}           # cell key -> when it tipped
+var lit_at := {}               # cell key -> when the dark there was lit
+var dark_any := false
+var _dark_mask: ImageTexture
 
 func _init() -> void:
 	clip_contents = true
@@ -77,6 +91,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	under = _layer(_draw_under)
+	belt_layer = _layer(func(ci: Node2D): if model: BoardMech.draw_belts(self, ci))
 	gas_layer = _layer(_draw_gas)
 	var gm := ShaderMaterial.new()
 	gm.shader = preload("res://shaders/gas.gdshader")
@@ -85,12 +100,21 @@ func _ready() -> void:
 	flower_layer = _layer(_draw_flower)
 	flower_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sea_under = _layer(_draw_sea_under)
+	mech_layer = _layer(func(ci: Node2D): if model: BoardMech.draw_mech(self, ci, Time.get_ticks_msec() / 1000.0))
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
 	over = _layer(_draw_over)
 	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
 	over.material = BoardSprites.plain_material()
+	dark_layer = _layer(func(ci: Node2D): if model: BoardMech.draw_dark(self, ci))
+	var dm := ShaderMaterial.new()
+	dm.shader = preload("res://shaders/dark.gdshader")
+	dark_layer.material = dm
+	lamp_layer = _layer(func(ci: Node2D):
+		if model:
+			BoardMech.draw_belt_rails(self, ci)
+			BoardMech.draw_lamps(self, ci, Time.get_ticks_msec() / 1000.0))
 	ink_layer = _layer(_draw_ink)
 	var im := ShaderMaterial.new()
 	im.shader = preload("res://shaders/ink.gdshader")
@@ -156,6 +180,17 @@ func rebuild(m: BoardModel) -> void:
 			em.set_shader_parameter("ball_c", Vector2(_eye_meta.ball[0], _eye_meta.ball[1]))
 			em.set_shader_parameter("ball_h", Vector2(_eye_meta.ball[2], _eye_meta.ball[3]))
 			em.set_shader_parameter("tilt", deg_to_rad(float(_eye_meta.get("tilt", 17.0))))
+	cart_bump = {}
+	cart_go_at = {}
+	keg_hit = {}
+	bucket_hit = {}
+	lit_at = {}
+	belt_phase = 0.0
+	BoardMech.dark_mask(self, 0.0)
+	_has_mech = not m.carts.is_empty()
+	for r in m.R:
+		for c in m.C:
+			if m.playable(r, c) and (m.KEG[r][c] or m.BUCKET[r][c] or m.LAMP[r][c]): _has_mech = true
 	for n in gems.get_children(): n.queue_free()
 	nodes.clear()
 	for r in R:
@@ -174,6 +209,10 @@ func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
 
 func refresh() -> void:
 	queue_redraw()
+	belt_layer.queue_redraw()
+	mech_layer.queue_redraw()
+	dark_layer.queue_redraw()
+	lamp_layer.queue_redraw()
 	redraw_under()
 	flower_layer.queue_redraw()
 	over.queue_redraw()
@@ -209,12 +248,22 @@ func animate_collapse(spawned: Array) -> void:
 			var target := cell_center(r, c)
 			if n.position.distance_to(target) > 0.5:
 				var d := n.position.distance_to(target) / TS
-				tw.tween_property(n, "position", target, 0.12 + sqrt(d) * 0.11).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				var dur := 0.12 + sqrt(d) * 0.11
+				tw.tween_property(n, "position", target, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				# a stone that fell a cell or more lands with a little squash
+				if d >= 0.9: get_tree().create_timer(dur).timeout.connect(_land.bind(n, minf(1.0, d / 4.0)))
 				any = true
 	if any:
 		await tw.finished
 	else:
 		tw.kill()
+
+func _land(n: GemNode, k: float) -> void:
+	if not is_instance_valid(n) or n.is_queued_for_deletion(): return
+	var tw := n.create_tween()
+	tw.tween_property(n, "scale", Vector2(1.0 + 0.1 * k, 1.0 - 0.13 * k), 0.06).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(n, "scale", Vector2(1.0 - 0.03 * k, 1.0 + 0.04 * k), 0.08).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(n, "scale", Vector2.ONE, 0.08).set_trans(Tween.TRANS_SINE)
 
 func animate_swap(a_id: int, b_id: int, back := false) -> void:
 	var na: GemNode = nodes.get(a_id)
@@ -222,15 +271,27 @@ func animate_swap(a_id: int, b_id: int, back := false) -> void:
 	if na == null or nb == null: return
 	var pa := na.position
 	var pb := nb.position
+	# the stone moved lifts a little over the other as they pass
+	na.z_index = 1
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(na, "position", pb, 0.15).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(nb, "position", pa, 0.15).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(k: float): na.scale = Vector2.ONE * (1.0 + 0.16 * sin(k * PI)), 0.0, 1.0, 0.15)
+	tw.tween_method(func(k: float): nb.scale = Vector2.ONE * (1.0 - 0.08 * sin(k * PI)), 0.0, 1.0, 0.15)
 	await tw.finished
 	if back:
+		# no match: they knock against each other and go back, shaking it off
 		var tw2 := create_tween().set_parallel(true)
-		tw2.tween_property(na, "position", pa, 0.16).set_trans(Tween.TRANS_SINE)
-		tw2.tween_property(nb, "position", pb, 0.16).set_trans(Tween.TRANS_SINE)
+		tw2.tween_property(na, "position", pa, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw2.tween_property(nb, "position", pb, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		await tw2.finished
+		var tw3 := create_tween()
+		var side := (pb - pa).normalized().orthogonal() * TS * 0.05
+		for k in 3:
+			tw3.tween_property(na, "position", pa + side * (1 if k % 2 == 0 else -1), 0.035)
+		tw3.tween_property(na, "position", pa, 0.035)
+		await tw3.finished
+	na.z_index = 0
 
 ## a stone dies: slides into the new special it helps make, or pops
 func pop_gem(id: int, merge_to: Vector2i) -> void:
@@ -244,8 +305,11 @@ func pop_gem(id: int, merge_to: Vector2i) -> void:
 		tw.tween_property(n, "scale", Vector2(0.6, 0.6), 0.16)
 		tw.tween_property(n, "modulate:a", 0.0, 0.16)
 	else:
-		tw.tween_property(n, "scale", Vector2(1.22, 1.22), 0.07).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(n, "scale", Vector2(0.0, 0.0), 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		# it flares bright as it swells, then shrinks away
+		tw.set_parallel(true)
+		tw.tween_property(n, "scale", Vector2(1.24, 1.24), 0.07).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(n, "modulate", Color(1.9, 1.9, 1.9, 1.0), 0.07)
+		tw.chain().tween_property(n, "scale", Vector2(0.0, 0.0), 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tw.finished.connect(n.queue_free)
 
 func grow_special(g: BoardModel.Gem, r: int, c: int) -> void:
@@ -622,7 +686,37 @@ func _draw_find(ci: Node2D, now: float) -> void:
 		var x: float = p.x + TS - dots_w / 2 + dots_w * (i + 0.5) / F.hp_max
 		ci.draw_circle(Vector2(x, p.y + TS * 1.75), TS * 0.045, Color.WHITE)
 
+## a white texel, stretched by the layers whose shader draws everything
+func white() -> Texture2D:
+	if _white == null:
+		var im := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		im.fill(Color.WHITE)
+		_white = ImageTexture.create_from_image(im)
+	return _white
+
+## a cell of the dark being lit: its dark fades out (BoardMech.LIGHT_S)
+func light_cell(r: int, c: int) -> void:
+	lit_at[r * C + c] = Time.get_ticks_msec() / 1000.0
+
+## the belts run one cell along, in time with their stones (Level._belts)
+func run_belts(dur: float) -> void:
+	var from := belt_phase
+	var tw := create_tween()
+	tw.tween_method(func(k: float) -> void:
+		belt_phase = from + k
+		belt_layer.queue_redraw()
+		lamp_layer.queue_redraw(), 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE)
+	await tw.finished
+
+var _has_mech := false         # carts, kegs, buckets or lanterns on this board: their layers are live
+var _dark_live := false
 func _process(dt: float) -> void:
+	if model and _has_mech:
+		mech_layer.queue_redraw()
+		lamp_layer.queue_redraw()
+	if model and (dark_any or _dark_live):
+		_dark_live = BoardMech.dark_mask(self, Time.get_ticks_msec() / 1000.0)
+		dark_layer.queue_redraw()
 	# gas breathes, specimens pulse, shaken blocks settle
 	if model and (not model.find.is_empty() and (not model.find.done or Time.get_ticks_msec() / 1000.0 - find_done_at < 0.7) or _has_gas() or not geo_hit_at.is_empty() or not nod_grow.is_empty()):
 		live.queue_redraw()

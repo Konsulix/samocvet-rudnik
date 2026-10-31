@@ -152,6 +152,20 @@ func _exit_tree() -> void:
 		stone.queue_free()
 		stone = null
 
+## a stone the ore bucket tipped a nugget onto: it is that nugget now
+func become_nugget() -> void:
+	item = "nug"
+	t = -1
+	ore = ""
+	_ore_glow("")
+	if stone:
+		stone.queue_free()
+		stone = null
+	set_process(false)
+	scale = Vector2(0.4, 0.4)
+	create_tween().tween_property(self, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	queue_redraw()
+
 func become(new_sp: String) -> void:
 	sp = new_sp
 	_ore_glow("")

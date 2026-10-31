@@ -10,6 +10,8 @@ extends RefCounted
 ## the size of the board being made (make picks it; the helpers below read it)
 static var R := 11
 static var C := 9
+## testing: the works every level gets, instead of its own pick (main: `feat=`)
+static var force_feats: Array = []
 ## the boards' sizes, [rows, cols, weight]: mostly the whole 11 x 9
 const SIZES := [[11, 9, 5.0], [10, 9, 3.0], [11, 8, 2.0], [10, 8, 1.0]]
 ## the parts a board is drawn as (_scheme), [name, weight]; the old patterns (drawn) and hand-made shapes now and then
@@ -67,7 +69,15 @@ const NOD_LOAD := 0.7
 ## as a player who plays the level's goals would) by the moves it needs with no limit, 270 levels of both mines,
 ## the shafts left out. A level gets MARGIN more than that: the smart player then wins ~80% and uses most of its moves
 ## (the random one of the economy runs loses most). What a level asks for is kept within NEED_MAX
-const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, crust = 0.3, ice = 0.7, nod = 0.45, nug = 1.2, geo = 3.0, colour = 0.07}
+## the gallery's works (BoardModel: cart, keg, dark, belt, bucket) - one of them on most levels, two now and then
+## deeper down, so that no two levels play alike. In Old Adit each comes in at its depth (FEATURE_AT: the depth, shown
+## alone on the second level played there); every mine after it has them all from the start
+const FEATURES := ["cart", "keg", "dark", "belt", "bucket"]
+const FEATURE_AT := {cart = 0, keg = 1, dark = 2, belt = 3, bucket = 4}
+const FEATURE_P := 0.8
+## a feature takes over part of a level's work: the plain obstacles shrink to this share of their load
+const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 1.0, bucket = 0.8}
+const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, crust = 0.3, ice = 0.7, nod = 0.45, nug = 1.2, geo = 3.0, colour = 0.07, cart = 0.95, keg = 0.3, kegs = -0.4, dark = 0.04, belt = -1.5, bucket = 1.6}
 const BASE := 5.1
 ## a shape that is slower to work through than its cells say: shafts dug from the top, a lower tier behind a throat
 const SCHEME_WORK := {shafts = 6.0, tiers = 4.0}
@@ -117,6 +127,9 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	var T := tier(dl, area)
 	var nk := new_kind(dl, area)
 	var intro := nk != "" and wins == 0
+	# the works this level gets: the one new at this depth alone on its second level here, else now and then one or two
+	var feats := _features(rng, area, dl, wins, intro)
+	var feat_intro := area == 0 and wins == 1 and feats.size() == 1 and int(FEATURE_AT[feats[0]]) == dl
 	var scheme := String(Stones.pick_w(SCHEMES.map(func(e): return [e[0], e[1]]), Rng32.new(rng.randi())))
 	var size: Array = [9, 8] if scheme == "hand" else Stones.pick_w(SIZES.map(func(e): return [e, e[2]]), Rng32.new(rng.randi()))
 	R = int(size[0])
@@ -147,6 +160,10 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	var big := float(R * C) / 72.0 * (LOAD_K if scheme != "hand" else 1.0)
 	var load: int = roundi((int(T.load) + mini(wins, 4) + rng.randi_range(-2, 2)) * big)
 	if intro: load = roundi(T.load * 0.6 * big)
+	for f: String in feats: load = roundi(load * float(FEATURE_LOAD[f]) * (0.7 if feat_intro else 1.0))
+	# the works go down first, on the shape's free cells, and the block groups give way to them
+	var fdef := {}
+	var fwork := _place_features(rng, grid, groups, feats, dl, scheme, fdef)
 	var nods := NODULES.has(area) and bool(T.get("nod", area == 1))   # Proval: only the depths that bring them
 	if nods: load = roundi(load * NOD_LOAD)
 	var want := {a = ka, b = kb}
@@ -169,7 +186,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	if nods:
 		var nn: Vector2i = NODULES[area]
 		nod_want = mini(nn.x + dl / 2, nn.y)
-	var reserve := nod_want * float(WORK.nod) + float(SCHEME_WORK.get(scheme, 0.0))
+	var reserve := nod_want * float(WORK.nod) + float(SCHEME_WORK.get(scheme, 0.0)) + fwork
 	# no more work than a level may ask for: the heavier group gives up a pair at a time
 	var est := func() -> float:
 		var w := 0.0
@@ -196,8 +213,11 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 	if used.has("sand") or used.has("granite"): goals.append(["rock"])
 	for k in ["mud", "gas", "lock", "crust", "ice"]:
 		if used.has(k): goals.append([k])
+	for k in ["cart", "dark", "keg"]:
+		if fdef.get("goal_" + k, false): goals.push_front([k])
+	if fdef.has("bucket"): goals.append(["nug"])
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new
-	if not intro and rng.randf() < float(T.get("nug", 0.25)) and BASE + work + WORK.nug <= NEED_MAX:
+	if not intro and not fdef.has("bucket") and rng.randf() < float(T.get("nug", 0.25)) and BASE + work + WORK.nug <= NEED_MAX:
 		if nugs.is_empty(): nugs = [Vector2i(0, 2), Vector2i(0, C - 3)]
 		var put := 0
 		for p: Vector2i in nugs:
@@ -208,7 +228,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 			goals.append(["nug"])
 			work += WORK.nug * put
 			count.nug = put
-	if not intro and goals.size() < 3 and rng.randf() < 0.2 and BASE + work + WORK.geo <= NEED_MAX:
+	if not intro and goals.size() < 3 and feats.size() < 2 and rng.randf() < 0.2 and BASE + work + WORK.geo <= NEED_MAX:
 		var spot := _geo_spot(rng, grid, geo_at)
 		if spot.x >= 0:
 			grid[spot.x][spot.y] = "G"
@@ -218,7 +238,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 			work += WORK.geo
 			count.geo = 1
 	# a colour to collect: when the board is bare, or now and then beside one obstacle
-	if goals.is_empty() or (goals.size() == 1 and not intro and rng.randf() < 0.3):
+	if goals.is_empty() or (goals.size() == 1 and not intro and feats.is_empty() and rng.randf() < 0.3):
 		var n := (18 if goals.is_empty() else 12) + dl * 2
 		goals.append(["c", rng.randi_range(0, 4), n])
 		work += n * WORK.colour
@@ -229,10 +249,201 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		work += (int(count.nod) - nod_want) * float(WORK.nod)
 	var rows := PackedStringArray()
 	for r in R:
-		rows.append("".join(grid[r]).replace("+", "."))
-	var moves := clampi(roundi(BASE + work + MARGIN - TIGHT * dl) + (3 if intro else 0), MOVES.x, MOVES.y)
-	return {map = "|".join(rows), goals = goals, moves = moves, hard = false, gen = true, colors = 5,
-		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme}
+		rows.append("".join(grid[r]).replace("+", ".").replace("=", "."))
+	for f: String in feats: count[f] = fdef.get("n_" + f, 1)
+	# two works at once ask for more thought than their sum: a couple of moves more
+	var moves := clampi(roundi(BASE + work + MARGIN - TIGHT * dl) + (3 if intro or feat_intro else 0) + (2 if feats.size() > 1 else 0) + (2 if area > 0 and not feats.is_empty() else 0), MOVES.x, MOVES.y)
+	var out := {map = "|".join(rows), goals = goals, moves = moves, hard = false, gen = true, colors = 5,
+		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme, feats = feats, feat_intro = feat_intro}
+	for k in ["carts", "dark", "belts", "bucket"]:
+		if fdef.has(k): out[k] = fdef[k]
+	return out
+
+## the works a level gets (FEATURES): none on an obstacle's first showing; the one new at this depth alone on the
+## second level played there; otherwise one most of the time, deeper now and then two
+static func _features(rng: RandomNumberGenerator, area: int, dl: int, wins: int, intro: bool) -> Array:
+	if not force_feats.is_empty(): return force_feats.duplicate()
+	if intro: return []
+	var open_f := []
+	for f: String in FEATURES:
+		if area > 0 or int(FEATURE_AT[f]) <= dl: open_f.append(f)
+	if open_f.is_empty(): return []
+	var fresh := ""
+	for f: String in open_f:
+		if area == 0 and int(FEATURE_AT[f]) == dl: fresh = f
+	if fresh != "" and wins == 1: return [fresh]
+	if rng.randf() > FEATURE_P: return []
+	var w := []
+	for f: String in open_f: w.append([f, 2.0 if f == fresh else 1.0])
+	var first := String(Stones.pick_w(w, Rng32.new(rng.randi())))
+	var out := [first]
+	if (dl >= 3 or area > 0) and open_f.size() > 1 and rng.randf() < 0.3:
+		var w2 := []
+		for f: String in open_f:
+			# the dark with another big work is too much at once; the belt goes with anything
+			if f != first and not (f == "dark" and first == "bucket") and not (f == "bucket" and first == "dark"): w2.append([f, 1.0])
+		if not w2.is_empty(): out.append(String(Stones.pick_w(w2, Rng32.new(rng.randi()))))
+	return out
+
+## a cell the works may take: open, not a block cell, not a hole
+static func _free(grid: Array, groups: Dictionary, p: Vector2i) -> bool:
+	return p.x >= 0 and p.y >= 0 and p.x < R and p.y < C and grid[p.x][p.y] == "." and not p in groups.a and not p in groups.b
+
+## put the works on the board (letters in the grid, their settings in fdef); returns the work they ask for
+static func _place_features(rng: RandomNumberGenerator, grid: Array, groups: Dictionary, feats: Array, dl: int, scheme: String, fdef: Dictionary) -> float:
+	var work := 0.0
+	var order := feats.duplicate()
+	order.sort_custom(func(x, y): return x == "belt" and y != "belt")
+	for f: String in order:
+		match f:
+			"belt":
+				# a conveyor two rows high across the board in its open part: its cells cleared of blocks
+				var rows := []
+				for r in range(1, R - 2):
+					var ok := true
+					for c in range(0, C):
+						for rr in [r, r + 1]:
+							if grid[rr][c] == "#": ok = false
+					if ok: rows.append(r)
+				if rows.is_empty(): continue
+				var r0: int = rows[rng.randi_range(0, rows.size() - 1)]
+				var c0 := 0 if rng.randf() < 0.6 else 1
+				for rr in [r0, r0 + 1]:
+					for c in range(c0, C - c0):
+						var q := Vector2i(rr, c)
+						groups.a.erase(q)
+						groups.b.erase(q)
+						grid[rr][c] = "="   # kept clear of everything else; "." again in the map
+				fdef.belts = [[r0, c0, r0 + 1, C - 1 - c0]]
+				work += float(WORK.belt)
+			"cart":
+				# one or two carts, mirrored, each wanting stones of its own colour from beside it
+				var spots := []
+				for r in range(2, R - 1):
+					for c in range(0, C / 2):
+						var a := Vector2i(r, c)
+						var b := Vector2i(r, c + 1)
+						if c + 1 >= C or not _free(grid, groups, a) or not _free(grid, groups, b): continue
+						if not _free(grid, groups, Vector2i(r, C - 2 - c)) or not _free(grid, groups, Vector2i(r, C - 1 - c)): continue
+						var room := 0
+						for q: Vector2i in [a + Vector2i(-1, 0), b + Vector2i(-1, 0), a + Vector2i(1, 0), b + Vector2i(1, 0), a + Vector2i(0, -1), b + Vector2i(0, 1)]:
+							if _free(grid, groups, q): room += 1
+						if room >= 4: spots.append(a)
+				if spots.is_empty(): continue
+				var a: Vector2i = spots[rng.randi_range(0, spots.size() - 1)]
+				var two := rng.randf() < 0.5 and a.y + 1 < C - 2 - a.y
+				var at := [a]
+				if two: at.append(Vector2i(a.x, C - 2 - a.y))
+				var cols := [0, 1, 2, 3, 4]
+				var list := []
+				for p: Vector2i in at:
+					grid[p.x][p.y] = "W"
+					grid[p.x][p.y + 1] = "+"
+					var need := rng.randi_range(5, 7) + dl / 2 + (0 if two else 3)
+					list.append({t = cols.pop_at(rng.randi_range(0, cols.size() - 1)), need = need})
+					work += need * float(WORK.cart)
+				fdef.carts = list
+				fdef.goal_cart = true
+				fdef.n_cart = list.reduce(func(a, x): return a + int(x.need), 0)
+			"keg":
+				# powder kegs beside the blocks (to blow them up with), mirrored; now and then the goal is to set them off
+				var spots := []
+				for r in range(1, R):
+					for c in range(0, (C + 1) / 2):
+						var p := Vector2i(r, c)
+						if not _free(grid, groups, p): continue
+						var near := 0
+						for d: Vector2i in BoardModel.DIRS4:
+							if p + d in groups.a or p + d in groups.b: near += 1
+						spots.append([p, near + rng.randf()])
+				spots.sort_custom(func(x, y): return x[1] > y[1])
+				var want := rng.randi_range(1, 2)
+				var put := 0
+				for sp in spots:
+					if put >= want: break
+					var p: Vector2i = sp[0]
+					var ok := true
+					for dr in range(-1, 2):
+						for dc in range(-1, 2):
+							var q := Vector2i(p.x + dr, p.y + dc)
+							if q.x >= 0 and q.y >= 0 and q.x < R and q.y < C and grid[q.x][q.y] == "K": ok = false
+					if not ok or not _free(grid, groups, p) or not _free(grid, groups, Vector2i(p.x, C - 1 - p.y)): continue
+					grid[p.x][p.y] = "K"
+					grid[p.x][C - 1 - p.y] = "K"
+					put += 1
+				var n := 0
+				for r in R:
+					for c in C:
+						if grid[r][c] == "K": n += 1
+				fdef.n_keg = n
+				if rng.randf() < 0.45:
+					fdef.goal_keg = true
+					work += n * float(WORK.keg)
+				else:
+					work += n * float(WORK.kegs)
+			"dark":
+				# the gallery below is dark: the light comes from above (or from a lantern's pool) and has to be carried down
+				var mask := []
+				for r in R:
+					var row := []
+					row.resize(C)
+					row.fill(".")
+					mask.append(row)
+				var lamps := []
+				if rng.randf() < 0.7:
+					# its edge wanders from column to column, mirrored, like the edge of the light on rough rock
+					var rd := rng.randi_range(R / 2 - 2, R / 2)
+					var edge := []
+					var e := rd
+					for c in (C + 1) / 2:
+						edge.append(e)
+						e = clampi(e + rng.randi_range(-1, 1), R / 2 - 3, R / 2 + 1)
+					for c in C:
+						for r in range(int(edge[mini(c, C - 1 - c)]), R): mask[r][c] = "d"
+				else:
+					# all dark but a lantern's pool, or two, high on the board
+					for r in R:
+						for c in C: mask[r][c] = "d"
+					var lr := rng.randi_range(1, 3)
+					var lc := rng.randi_range(1, C / 2 - 1)
+					var two := rng.randf() < 0.75
+					for p: Vector2i in ([Vector2i(lr, lc), Vector2i(lr, C - 1 - lc)] if two else [Vector2i(lr, C / 2)]):
+						if grid[p.x][p.y] != ".": continue
+						groups.a.erase(p)
+						groups.b.erase(p)
+						grid[p.x][p.y] = "L"
+						lamps.append([p.x, p.y])
+						# its pool: a diamond two cells out
+						for dr in range(-2, 3):
+							for dc in range(-2, 3):
+								var q := Vector2i(p.x + dr, p.y + dc)
+								if absi(dr) + absi(dc) <= 2 and q.x >= 0 and q.y >= 0 and q.x < R and q.y < C: mask[q.x][q.y] = "."
+				# no lantern found room (a belt where it would hang): the light comes from the top rows instead
+				if mask[0][0] == "d" and lamps.is_empty():
+					for r in 2:
+						for c in C: mask[r][c] = "."
+				var n := 0
+				var rows := PackedStringArray()
+				for r in R:
+					for c in C:
+						if mask[r][c] == "d" and grid[r][c] != "#": n += 1
+					rows.append("".join(mask[r]))
+				fdef.dark = "|".join(rows)
+				fdef.lamps = lamps
+				fdef.goal_dark = true
+				fdef.n_dark = n
+				work += n * float(WORK.dark)
+			"bucket":
+				# an ore bucket hung high in the middle: each knock tips a nugget out, to be brought down
+				var c := C / 2 if C % 2 == 1 or rng.randf() < 0.5 else C / 2 - 1
+				var r := rng.randi_range(0, 1)
+				if not _free(grid, groups, Vector2i(r, c)) or not _falls_out(grid, Vector2i(r, c)): continue
+				grid[r][c] = "B"
+				var n := rng.randi_range(2, 3) + (1 if dl >= 3 else 0)
+				fdef.bucket = n
+				fdef.n_bucket = n
+				work += n * float(WORK.bucket)
+	return work
 
 ## the shape as parts. Holes and block cells are mirrored left to right; a group's cells go in the order they matter
 ## (trimming to the level's load takes from the end, so a wall keeps its core and loses its ends)
@@ -338,10 +549,12 @@ static func _put(grid: Array, groups: Dictionary, g: String, r: int, c: int) -> 
 		if q.x >= 0 and q.x < R and grid[q.x][q.y] == "." and not q in groups.a and not q in groups.b:
 			groups[g].append(q)
 
-## a nugget here reaches the bottom: no hole under it with board below the hole (it would sit over it for ever)
+## a nugget here reaches the bottom: no hole under it with board below the hole (it would sit over it for ever), no
+## work standing in its way (a lantern, a keg, a cart, the bucket)
 static func _falls_out(grid: Array, p: Vector2i) -> bool:
 	var gap := false
 	for r in range(p.x + 1, R):
+		if grid[r][p.y] in ["L", "K", "W", "+", "B"]: return false
 		if grid[r][p.y] == "#": gap = true
 		elif gap: return false
 	return true

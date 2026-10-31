@@ -43,6 +43,15 @@ func _blocks(m: BoardModel) -> int:
 func _check(m: BoardModel, def: Dictionary) -> String:
 	for g in m.goals:
 		if int(g.left) <= 0: return "goal %s with nothing to do" % g.k
+	# the dark: some light to start from
+	var dark := 0
+	var light := 0
+	for r in m.R:
+		for c in m.C:
+			if not m.playable(r, c): continue
+			if m.DARK[r][c]: dark += 1
+			elif m.open(r, c): light += 1
+	if dark and not light: return "the dark with no light"
 	var nod_asked: int = int(def.count.get("nod", -1))
 	if def.count.has("nod") and nod_asked < 2: return "%d nodules" % nod_asked
 	# nuggets: straight down to the bottom, blocks aside (they get cleared), never over a hole with board below it
@@ -52,13 +61,15 @@ func _check(m: BoardModel, def: Dictionary) -> String:
 			if g == null or g.item != "nug": continue
 			var gap := false
 			for rr in range(r + 1, m.R):
+				if m.playable(rr, c) and (m.LAMP[rr][c] or m.KEG[rr][c] or m.CART[rr][c] >= 0 or m.BUCKET[rr][c]):
+					return "nugget at %d,%d stuck over a work" % [r, c]
 				if not m.playable(rr, c): gap = true
 				elif gap: return "nugget at %d,%d stuck over a hole" % [r, c]
 	# clear everything, open the geodes, empty the board and refill: no open cell may stay empty
 	for g in m.geos: g.done = true
 	for r in m.R:
 		for c in m.C:
-			m.ROCK[r][c] = 0; m.MUD[r][c] = 0; m.GAS[r][c] = 0; m.LOCK[r][c] = 0; m.NOD[r][c] = 0
+			m.ROCK[r][c] = 0; m.MUD[r][c] = 0; m.GAS[r][c] = 0; m.LOCK[r][c] = 0; m.NOD[r][c] = 0; m.KEG[r][c] = 0; m.BUCKET[r][c] = 0; m.CART[r][c] = -1
 			m.FIND[r][c] = false
 			if m.open(r, c) and m.G[r][c] and m.G[r][c].item == "": m.G[r][c] = null
 	for k in 4: m.collapse()

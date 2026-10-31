@@ -119,6 +119,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	busy = true
 	booster = ""
 	hint_label.text = ""
+	if not prologue and not model.boss_on(): _banner()
 	await board.drop_in()
 	if model.boss_on(): LevelBoss.start(self)
 	if prologue:
@@ -140,6 +141,63 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	busy = false
 	idle = 0.0
 	_coach_next()
+
+## what this board is about, in a few words: its biggest work first ([title, the task])
+func _board_theme() -> Array:
+	var has := func(k: String) -> bool: return model.goal_index(k) >= 0
+	if has.call("dark"): return ["The Dark Gallery", "Carry the light down: match next to it"]
+	if has.call("cart"): return ["Ore Carts" if model.carts.size() > 1 else "The Ore Cart", "Match stones of its colour right beside it"]
+	var bucket := false
+	var kegs := false
+	for r in model.R:
+		for c in model.C:
+			if model.BUCKET[r][c]: bucket = true
+			if model.KEG[r][c]: kegs = true
+	if bucket: return ["The Ore Bucket", "Knock nuggets out of it and bring them down"]
+	if has.call("keg"): return ["Powder Kegs", "Set every keg off"]
+	if not model.belts.is_empty(): return ["The Belt", "Its stones ride a step after every move"]
+	if kegs: return ["Blasting Day", "Kegs blow the rock round them"]
+	if has.call("nug"): return ["Gold Run", "Bring the nuggets down"]
+	if has.call("geo"): return ["The Geode", "Crack it open"]
+	if has.call("gas"): return ["Firedamp", "Gas creeps every move: keep it down"]
+	if has.call("lock"): return ["Timbered Stones", "Knock the timber loose"]
+	if has.call("crust"): return ["Malachite", "Crack the crust off"]
+	if has.call("ice"): return ["Frozen Seam", "Break the ice"]
+	if has.call("mud"): return ["Mudflats", "Wash the mud off"]
+	if has.call("rock"): return ["Rubble", "Clear the rock"]
+	return ["", ""]
+
+## the board's name and task across it as it starts, on a slate band, then gone
+func _banner() -> void:
+	var th := _board_theme()
+	if String(th[0]) == "": return
+	var vp := get_viewport_rect().size
+	var band := PanelContainer.new()
+	var st := Kit.box("card", 0.0)
+	st.content_margin_top = 10
+	st.content_margin_bottom = 12
+	band.add_theme_stylebox_override("panel", st)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	var t := Kit.label(String(th[0]), 26, UI.display, Kit.AMBER)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var s := Kit.label(String(th[1]), 14, UI.body_bold, Kit.CREAM)
+	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(s)
+	band.add_child(v)
+	hud.add_child(band)
+	band.size = Vector2(vp.x - 40, 0)
+	band.reset_size()
+	band.size.x = vp.x - 40
+	var y := holder.position.y + holder.size.y * 0.42 - band.size.y * 0.5
+	band.position = Vector2(-vp.x, y)
+	var tw := create_tween()
+	tw.tween_property(band, "position:x", 20.0, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.0)
+	tw.tween_property(band, "position:x", vp.x + 20.0, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_callback(band.queue_free)
 
 ## one studio for the sealed find, kept for the whole session and moved from level to level: a fresh
 ## viewport, world and render targets every level were part of the hitch on entering one. Same
@@ -437,10 +495,33 @@ func _render_goal(i: int) -> void:
 		gb.label.text = str(gb.shown) if gb.shown > 0 else "✓"
 		gb.label.add_theme_color_override("font_color", UI.GOOD if gb.shown <= 0 else UI.INK)
 
+## a met goal's ring of light and sparks, in the HUD over its icon
+func _goal_burst(box: Control) -> void:
+	var at := box.get_global_rect().get_center()
+	var n := Node2D.new()
+	n.material = FxLayer.add_material()
+	n.position = at
+	hud.add_child(n)
+	var t0 := Time.get_ticks_msec() / 1000.0
+	n.draw.connect(func():
+		var k := clampf((Time.get_ticks_msec() / 1000.0 - t0) / 0.5, 0.0, 1.0)
+		var r := 14.0 + 40.0 * (1.0 - pow(1.0 - k, 3.0))
+		n.draw_arc(Vector2.ZERO, r, 0, TAU, 40, Color(1.0, 0.85, 0.45, (1.0 - k) * 0.9), 5.0 * (1.0 - k) + 1.0, true)
+		GemArt.radial_disc(n, Vector2.ZERO, 30.0, Color(1.0, 0.9, 0.6, (1.0 - k) * 0.6), Color(1.0, 0.8, 0.4, (1.0 - k) * 0.2), Color(1, 0.8, 0.4, 0)))
+	var tw := create_tween()
+	tw.tween_method(func(_k: float): n.queue_redraw(), 0.0, 1.0, 0.5)
+	tw.tween_callback(n.queue_free)
+
 func _render_moves() -> void:
 	moves_label.text = str(model.moves)
 	var low := model.moves <= 5 and not model.over
 	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if low else Kit.AMBER)
+	# the last moves: the count throbs as each one goes
+	if low and model.moves > 0:
+		moves_label.pivot_offset = moves_label.size / 2
+		var tw := create_tween()
+		tw.tween_property(moves_label, "scale", Vector2(1.35, 1.35), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(moves_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_SINE)
 	if model.boss_on(): LevelBoss.moves(self)
 
 func _render_boosters() -> void:
@@ -531,6 +612,8 @@ func rock_mix() -> int:
 # ---------------------------------------------------------------- input
 
 var _find_since := 0.0
+var _light_snd := 0      # the dark's chimes: one at a time, rising while the light runs on
+var _light_n := 0
 
 func _process(dt: float) -> void:
 	if find_spec:
@@ -615,6 +698,11 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 		if groups.is_empty() and ev.is_empty():
 			break
 		cascade += 1
+		# a cascade's count over the stones that fell into place by themselves
+		if cascade >= 2 and not groups.is_empty():
+			var g0: Array = groups[0].cells
+			var k0: int = g0[g0.size() / 2]
+			fx.chain_text(board.cell_center(k0 / model.C, k0 % model.C), cascade)
 		var created := model.groups_to_blast(groups, sw, ev)
 		var merges := {}
 		for r in model.R:
@@ -634,7 +722,8 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 			for s in created:
 				if model.G[s.r][s.c] == g:
 					board.grow_special(g, s.r, s.c)
-					fx.ring(s.r, s.c, 0.3, Color(1.6, 1.3, 2.0))
+					fx.ring(s.r, s.c, 0.4, Color(1.0, 0.85, 0.55))
+					fx.flash(s.r, s.c, Color(1.0, 0.85, 0.55), 1.3, 0.3)
 		if cascade == 3: _cheer("Great!")
 		elif cascade == 5: _cheer("Brilliant!")
 		elif cascade == 7: _cheer("Nugget!")
@@ -669,6 +758,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			board.pop_gem(e.id, merges.get(e.id, Vector2i(-1, -1)))
 			if e.color >= 0 and not merges.has(e.id):
 				fx.gem_chips(e.r, e.c, Color.html(Data.GEMS[e.color].c))
+				fx.pop_glow(e.r, e.c, Color.html(Data.GEMS[e.color].c))
 		"rock":
 			board.redraw_under()
 			if BoardSprites.gem_style != "" and e.left == 0:
@@ -759,8 +849,16 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				var box: Control = gb.root
 				box.pivot_offset = box.size / 2
 				var tw := create_tween()
-				tw.tween_property(box, "scale", Vector2(1.25, 1.25), 0.08)
-				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
+				if gb.shown <= 0 and not gb.get("done", false):
+					# the goal met: its tick pops big, with a ring of light round it
+					gb.done = true
+					tw.tween_property(box, "scale", Vector2(1.6, 1.6), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+					tw.tween_property(box, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_SINE)
+					_goal_burst(box)
+					Sfx.play("special")
+				else:
+					tw.tween_property(box, "scale", Vector2(1.25, 1.25), 0.08)
+					tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("pop", 2))
 		"ore":
 			_flights += 1
@@ -776,6 +874,45 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				tw.tween_property(box, "scale", Vector2(1.08, 1.08), 0.07)
 				tw.tween_property(box, "scale", Vector2.ONE, 0.12)
 				Sfx.play("coin"))
+		"light":
+			board.light_cell(int(e.r), int(e.c))
+			fx.sparkle(e.r, e.c, Color(1.0, 0.8, 0.45), 5)
+			fx.flash(e.r, e.c, Color(1.0, 0.72, 0.35), 1.0, 0.45)
+			var now := Time.get_ticks_msec()
+			if now - _light_snd > 70:
+				_light_n = _light_n + 1 if now - _light_snd < 400 else 0
+				_light_snd = now
+				Sfx.play("light", _light_n)
+		"cart_load":
+			board.cart_bump[int(e.ci)] = Time.get_ticks_msec() / 1000.0
+			var ct: Dictionary = model.carts[int(e.ci)]
+			fx.fly_gem(e.r, e.c, board.cell_center(float(ct.r) - 0.25, float(ct.c) + 0.5), int(e.color))
+			Sfx.play("cart_load", int(ct.need) - int(e.left))
+		"cart_go":
+			board.cart_go_at[int(e.ci)] = Time.get_ticks_msec() / 1000.0
+			fx.debris(e.r, float(e.c) + 0.5, Color("#8a6a48"), 14)
+			fx.sparkle(e.r, float(e.c) + 0.5, Color(1.8, 1.4, 0.6), 18)
+			Sfx.play("cart_go")
+			Sfx.buzz(30)
+		"keg":
+			board.keg_hit[int(e.r) * model.C + int(e.c)] = Time.get_ticks_msec() / 1000.0
+			fx.sparkle(e.r - 0.35, e.c, Color(2.0, 1.4, 0.5), 8)
+			Sfx.play("fuse")
+		"keg_boom":
+			fx.boom(e.r, e.c, 1)
+			fx.debris(e.r, e.c, Color("#7a5434"), 18)
+			fx.hitstop(0.05)
+			fx.shake = maxf(fx.shake, 10.0)
+			Sfx.play("boom")
+			Sfx.play("rockfall")
+			Sfx.buzz(60)
+		"bucket_tip":
+			board.bucket_hit[int(e.r) * model.C + int(e.c)] = Time.get_ticks_msec() / 1000.0
+			fx.toss_nugget(e.r, e.c, e.tr, e.tc, func():
+				var n: GemNode = board.nodes.get(int(e.id))
+				if n: n.become_nugget()
+				fx.sparkle(e.tr, e.tc, Color("#ffd24a"), 10))
+			Sfx.play("coin")
 		"tentacle_cut":
 			board.sea_over.queue_redraw()
 			for p: Vector2i in e.cells: fx.debris(p.x, p.y, Color("#8a6a7a"), 7)
@@ -820,8 +957,11 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"convert":
 			board.convert_gem(e.id, e.sp)
 		"combo":
-			fx.flash(e.r, e.c, Color(2.4, 2.0, 1.2), 2.0)
-			fx.shake = maxf(fx.shake, 8.0)
+			# two specials together: a white-hot burst and the game holding its breath a moment
+			fx.flash(e.r, e.c, Color(1.0, 0.85, 0.5), 3.0, 0.4)
+			fx.ring(e.r, e.c, 2.5, Color(1.0, 0.85, 0.55))
+			fx.shake = maxf(fx.shake, 12.0)
+			fx.hitstop(0.08)
 
 func _flights_done() -> void:
 	var guard := 0
@@ -857,6 +997,13 @@ func _after_turn() -> void:
 			_toast("Gas is spreading — hit it every move")
 		await _wait(0.26)
 	await _grow_nodules()
+	if not model.belts.is_empty():
+		await _belts()
+		if model.goals_done():
+			model.over = true
+			await _finale()
+			_win()
+			return
 	if model.moves <= 0:
 		model.over = true
 		await _wait(0.3)
@@ -883,6 +1030,11 @@ const TIP := {
 	gas = "Gas creeps every move. Match beside it to clear it",
 	lock = "Timber pins a stone. Match that stone to knock it loose",
 	ice = "Ice holds a stone fast. Match beside it twice to break it",
+	cart = "Fill the cart: match stones of its colour right beside it",
+	keg = "A powder keg! Match beside it three times and it blows up everything round it",
+	dark = "The gallery is dark. Match next to the light to carry it further",
+	belt = "A belt! After every move its stones ride a step along. Plan for where they will be",
+	bucket = "Knock the ore bucket: a nugget tips out. Bring every nugget down to the bottom",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
 
@@ -912,7 +1064,7 @@ func _coach_next() -> void:
 				var p := _cell_screen(r, c)
 				coach.hand(p, p)
 				return
-	for id in ["sand", "mud", "granite", "gas", "lock", "ice"]:
+	for id in ["cart", "keg", "dark", "belt", "bucket", "sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
 		var cells := _obstacle_cells(id)
 		if cells.is_empty(): continue
@@ -987,8 +1139,19 @@ func _obstacle_cells(id: String) -> Array:
 				"gas": on = model.GAS[r][c] > 0
 				"lock": on = model.LOCK[r][c] == 1
 				"ice": on = model.LOCK[r][c] >= 4
+				"cart": on = model.CART[r][c] >= 0
+				"keg": on = model.KEG[r][c] > 0
+				"dark": on = model.DARK[r][c] > 0 and _beside_light(r, c)
+				"belt": on = model.BELT[r][c]
+				"bucket": on = model.BUCKET[r][c] > 0
 			if on: out.append(Vector2i(r, c))
 	return out
+
+## a dark cell on the edge of the light: where the tip shows the dark (its middle, where nothing is lit, says less)
+func _beside_light(r: int, c: int) -> bool:
+	for d: Vector2i in BoardModel.DIRS4:
+		if model.playable(r + d.x, c + d.y) and not model.DARK[r + d.x][c + d.y]: return true
+	return false
 
 ## a cell's middle on the screen (the coach's layer has no transform of its own)
 func _cell_screen(r: int, c: int) -> Vector2:
@@ -1005,6 +1168,23 @@ func _cells_rect(cells: Array) -> Rect2:
 		var r := Rect2(lo, hi - lo)
 		out = r if i == 0 else out.merge(r)
 	return out
+
+## the belts run a cell after every move: their stones ride along with them, and whatever lines up goes
+func _belts() -> void:
+	var res := model.belt_turn()
+	if res.turned.is_empty(): return
+	var dur := 0.34
+	var tw := create_tween().set_parallel(true)
+	for t: Array in res.turned:
+		var n: GemNode = board.nodes.get(int(t[0]))
+		if n == null: continue
+		var to: Vector2i = t[2]
+		tw.tween_property(n, "position", board.cell_center(to.x, to.y), dur).set_trans(Tween.TRANS_SINE)
+	board.run_belts(dur)
+	Sfx.play("belt")
+	await tw.finished
+	await _resolve([], [])
+	await _flights_done()
 
 ## Copper Mountain: the malachite nodules grow; a full one overgrows and crusts the stones round it
 func _grow_nodules() -> void:

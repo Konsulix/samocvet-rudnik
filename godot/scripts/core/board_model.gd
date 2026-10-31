@@ -62,6 +62,22 @@ var eye := {}
 var GEOC := []
 var VOID := []
 var FIND := []
+## the gallery's own works (docs/board-mechanics.md): a mine cart to fill with stones of its colour cleared beside it,
+## then it rolls away (CART: index into carts, -1 none); powder kegs, a fuse burnt by each hit or match beside, the last
+## one blowing up the 3x3 round it (KEG: fuses left); the dark (DARK 1: unlit floor - whatever a blast that started in
+## the light clears there is lit); the ore bucket, each knock tipping a nugget onto a stone under it (BUCKET:
+## nuggets left); conveyor belts, their stones riding a cell along after every move (BELT: on a belt)
+var CART := []
+var carts := []      # {r, c, w, h, t (colour), need, left, done}
+var KEG := []
+var DARK := []
+var BUCKET := []
+var BELT := []
+var belts := []      # each a loop of cells in the order its stones ride
+var LAMP := []       # the dark's lanterns, each standing in its cell ("L"), a pool of light round it
+var _to_cart := {}   # cell key -> cart: a match of the cart's colour touching it goes into it whole (groups_to_blast)
+const KEG_FUSES := 3
+const KEG_BANG := 260.0   # ms from the last fuse to the bang
 
 var n := 1
 var depth := 0
@@ -604,6 +620,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	# them less often ore (a generated level; the boss' gold and the hand-made levels stay as they were)
 	if gen and boss.is_empty():
 		for k in ore_p: ore_p[k] = float(ore_p[k]) * minf(1.0, 72.0 / (R * C)) * minf(1.0, 26.0 / maxi(1, moves))
+	CART = _grid(-1); KEG = _grid(0); LAMP = _grid(false); DARK = _grid(0); BUCKET = _grid(0); BELT = _grid(false); carts = []; belts = []
 	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false)
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
@@ -646,12 +663,38 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 				"k":
 					NOD[r][c] = 1
 					NOD_T[r][c] = NOD_EVERY - (r + c) % 2   # neighbours a move apart, not all in step
+				"W":
+					# a mine cart, two cells wide: its colour and load from the level's list, in the order they appear
+					var cl: Array = def.get("carts", [])
+					var cd: Dictionary = cl[carts.size()] if carts.size() < cl.size() else {}
+					var need := int(cd.get("need", 10))
+					carts.append({r = r, c = c, w = 2, h = 1, t = int(cd.get("t", carts.size() % 5)), need = need, left = need, done = false})
+					CART[r][c] = carts.size() - 1
+					if c + 1 < C: CART[r][c + 1] = carts.size() - 1
+				"K":
+					KEG[r][c] = KEG_FUSES
+				"L":
+					LAMP[r][c] = true
+				"B":
+					BUCKET[r][c] = int(def.get("bucket", 3))
+					nugs += BUCKET[r][c]
 				"G":
 					var gi := geos.size()
 					var ghp := block_hp(level_n, dl)
 					geos.append({r = r, c = c, w = 2, h = 2, hp = ghp, hp_max = ghp, done = false})
 					for d in QUAD:
 						GEOC[r + d.x][c + d.y] = gi
+	# the dark: a mask like the map ("d" unlit); the belts: rectangles [r0, c0, r1, c1] whose rim the stones ride round,
+	# clockwise
+	var dk: PackedStringArray = String(def.get("dark", "")).split("|") if def.get("dark", "") != "" else PackedStringArray()
+	for r in mini(R, dk.size()):
+		for c in mini(C, dk[r].length()):
+			if dk[r][c] == "d" and playable(r, c): DARK[r][c] = 1
+	for b: Array in def.get("belts", []):
+		var loop := _ring_round(int(b[0]) + 1, int(b[1]) + 1, int(b[3]) - int(b[1]) - 1, int(b[2]) - int(b[0]) - 1)
+		loop = loop.filter(func(p: Vector2i) -> bool: return playable(p.x, p.y))
+		for p: Vector2i in loop: BELT[p.x][p.y] = true
+		belts.append(loop)
 	# the find: a specimen sealed in a 2x2 block of rock, somewhere in the lower half
 	if roll_find:
 		var shape: Array = Stones.pick_w(FIND_SHAPES.map(func(sh): return [sh, sh[2]]), Rng32.new(rng.randi()))
@@ -664,7 +707,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 				for d in cells_of({r = 0, c = 0, w = fw, h = fh}):
 					var rr: int = r + d.x
 					var cc: int = c + d.y
-					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or NOD[rr][cc] or FLW[rr][cc] or G[rr][cc] != null:
+					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or NOD[rr][cc] or FLW[rr][cc] or G[rr][cc] != null \
+							or CART[rr][cc] >= 0 or KEG[rr][cc] or BUCKET[rr][cc] or BELT[rr][cc] or DARK[rr][cc]:
 						ok = false
 				if ok:
 					spots.append([r, c, absf(r + fh * 0.5 - R * 0.72) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
@@ -720,6 +764,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"crust": goals.append({k = "crust", t = -1, left = _count_lock(2)})
 			"ice": goals.append({k = "ice", t = -1, left = _count_lock(4) + _count_lock(5)})
 			"geo": goals.append({k = "geo", t = -1, left = geos.size()})
+			"cart": goals.append({k = "cart", t = -1, left = carts.size()})
+			"keg": goals.append({k = "keg", t = -1, left = _count(KEG)})
+			"dark": goals.append({k = "dark", t = -1, left = _count(DARK)})
 			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
 	# fill without ready-made matches, and make sure a move exists
 	for tries in 40:
@@ -739,7 +786,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	for r in range(1, R - 1):
 		for c in C:
 			var g: Gem = G[r][c]
-			if g and g.t >= 0 and not LOCK[r][c]:
+			if g and g.t >= 0 and not LOCK[r][c] and not DARK[r][c]:
 				cand.append(g)
 	for sp in pre:
 		if cand.is_empty(): break
@@ -753,9 +800,16 @@ func _free_cells() -> Array:
 	var a := []
 	for r in range(1, R - 1):
 		for c in C:
-			if playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and G[r][c] == null and not LOCK[r][c] and not MUD[r][c] and not NOD[r][c] and not FLW[r][c]:
+			if playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and G[r][c] == null and not LOCK[r][c] and not MUD[r][c] and not NOD[r][c] and not FLW[r][c] and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c]:
 				a.append(Vector2i(r, c))
 	return a
+
+func _count(grid: Array) -> int:
+	var k := 0
+	for r in R:
+		for c in C:
+			if playable(r, c) and grid[r][c]: k += 1
+	return k
 
 func _count_lock(v: int) -> int:
 	var k := 0
@@ -777,7 +831,8 @@ func playable(r: int, c: int) -> bool:
 	return r >= 0 and c >= 0 and r < R and c < C and not VOID[r][c]
 
 func open(r: int, c: int) -> bool:
-	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not SEA[r][c] and not TIDE[r][c]
+	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not SEA[r][c] and not TIDE[r][c] \
+		and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c]
 
 ## the colour a cell counts as for matching, -1 if it can't match
 func col(r: int, c: int) -> int:
@@ -905,8 +960,8 @@ func find_move() -> Array:
 
 # ------------------------------------------------------------------ blasts
 
-func _push(r: int, c: int, t: float, kind := "fx") -> void:
-	_q.append({t = t, r = r, c = c, kind = kind})
+func _push(r: int, c: int, t: float, kind := "fx", lit := false) -> void:
+	_q.append({t = t, r = r, c = c, kind = kind, lit = lit})
 
 func _push_fn(t: float, fn: Callable) -> void:
 	_q.append({t = t, fn = fn})
@@ -930,7 +985,8 @@ func run_blast(events: Array) -> float:
 		if e.has("fn"):
 			e.fn.call(e.t)
 		else:
-			hit(e.r, e.c, e.t, e.kind)
+			hit(e.r, e.c, e.t, e.kind, bool(e.get("lit", false)))
+	_to_cart = {}
 	return _max_t
 
 func _goal_hit(k: String, colour: int, r: float, c: float, at: float) -> void:
@@ -941,11 +997,33 @@ func _goal_hit(k: String, colour: int, r: float, c: float, at: float) -> void:
 			_fx(at, "goal", {gi = i, k = k, color = colour, r = r, c = c})
 			return
 
-func hit(r: int, c: int, t: float, kind: String) -> void:
+## lit: the blast started in the light (a match touching a lit cell, a special set off in the light): the dark
+## it reaches is lit
+func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 	if not playable(r, c): return
 	_max_t = maxf(_max_t, t)
 	var k := r * C + c
 	if TIDE[r][c]: return   # under water: out of reach
+	if lit and DARK[r][c]: _light(r, c, t)   # a rock broken beside a lit match catches the light too
+	if CART[r][c] >= 0 or LAMP[r][c]: return   # the cart takes no harm (it is filled from beside), nor a lantern
+	if KEG[r][c]:    # a fuse burns down with each hit or match beside it; the last one blows the keg up
+		if _rock_hit.has(k): return
+		_rock_hit[k] = true
+		KEG[r][c] -= 1
+		_fx(t, "keg", {r = r, c = c, left = KEG[r][c]})
+		if KEG[r][c] == 0:
+			var lit_here: bool = lit or not DARK[r][c]
+			_goal_hit("keg", -1, r, c, t)
+			_fx(t + KEG_BANG, "keg_boom", {r = r, c = c})
+			for dr in range(-1, 2):
+				for dc in range(-1, 2):
+					if dr or dc: _push(r + dr, c + dc, t + KEG_BANG + 30.0 + (absi(dr) + absi(dc)) * 25.0, "fx", lit_here)
+		return
+	if BUCKET[r][c]:   # a knock tips a nugget out onto a stone under it, once a blast
+		if _rock_hit.has(k): return
+		_rock_hit[k] = true
+		_push_fn(t + 160.0, _tip_bucket.bind(r, c))
+		return
 	if SEA[r][c]:    # the maelstrom's water takes nothing; his eye, open, takes a hit hard and shuts
 		if SEA[r][c] == 2 and not eye.is_empty() and not _rock_hit.has(-2):
 			_rock_hit[-2] = true
@@ -1060,48 +1138,115 @@ func hit(r: int, c: int, t: float, kind: String) -> void:
 		_fx(t, "mud", {r = r, c = c})
 	if g.t >= 0 and g.sp == "":
 		_goal_hit("c", g.t, r, c, t)
+	if g.t >= 0 and g.sp == "" and not carts.is_empty():
+		_load_cart(g, r, c, t)
 	if g.sp != "":
-		activate(g.sp, r, c, t + 70.0, g)
+		activate(g.sp, r, c, t + 70.0, g, lit or not DARK[r][c])
 	if kind == "match":
 		for d in DIRS4:
 			var rr: int = r + d.x
 			var cc: int = c + d.y
-			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] >= 2 or FLW[rr][cc] or SEA[rr][cc] == 2):
-				hit(rr, cc, t, "adj")
+			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] >= 2 or FLW[rr][cc] or SEA[rr][cc] == 2 \
+					or KEG[rr][cc] or BUCKET[rr][cc]):
+				hit(rr, cc, t, "adj", lit)
 
-func activate(sp: String, r: int, c: int, t: float, g: Gem = null) -> void:
+## a cell of the dark is lit
+func _light(r: int, c: int, t: float) -> void:
+	DARK[r][c] = 0
+	_goal_hit("dark", -1, r, c, t)
+	_fx(t, "light", {r = r, c = c})
+
+## the cart beside (r, c), corners too, that takes stones of this colour, or -1
+const DIRS8 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+func _cart_beside(r: int, c: int, colour: int) -> int:
+	if colour < 0: return -1
+	for d in DIRS8:
+		var rr: int = r + d.x
+		var cc: int = c + d.y
+		if not playable(rr, cc) or CART[rr][cc] < 0: continue
+		var cart: Dictionary = carts[CART[rr][cc]]
+		if not cart.done and int(cart.t) == colour and int(cart.left) > 0: return CART[rr][cc]
+	return -1
+
+## a stone of a cart's colour goes into it: cleared beside it, or in a match that touched it; the last one it wanted
+## sends it rolling off the board
+func _load_cart(g: Gem, r: int, c: int, t: float) -> void:
+	var ci := _cart_beside(r, c, g.t)
+	if ci < 0 and _to_cart.has(r * C + c): ci = int(_to_cart[r * C + c])
+	if ci >= 0:
+		var cart: Dictionary = carts[ci]
+		if cart.done or int(cart.left) <= 0: return
+		cart.left = int(cart.left) - 1
+		_fx(t, "cart_load", {ci = ci, id = g.id, r = r, c = c, color = g.t, left = cart.left})
+		if int(cart.left) == 0:
+			cart.done = true
+			for p in cells_of(cart): CART[p.x][p.y] = -1
+			_goal_hit("cart", -1, float(cart.r), float(cart.c) + 0.5, t + 380.0)
+			_fx(t + 380.0, "cart_go", {ci = ci, r = cart.r, c = cart.c})
+
+## a nugget here can come down to the bottom: no work standing under it, no hole with board below the hole
+func _falls_clear(r: int, c: int) -> bool:
+	var gap := false
+	for rr in range(r + 1, R):
+		if playable(rr, c) and (LAMP[rr][c] or KEG[rr][c] or CART[rr][c] >= 0 or BUCKET[rr][c]): return false
+		if not playable(rr, c): gap = true
+		elif gap: return false
+	return true
+
+## the bucket tips a nugget onto a stone: the first plain one under it, else the nearest
+func _tip_bucket(t: float, r: int, c: int) -> void:
+	if BUCKET[r][c] <= 0: return
+	var best := Vector2i(-1, -1)
+	var best_d := INF
+	for rr in R:
+		for cc in C:
+			var g: Gem = G[rr][cc] if playable(rr, cc) else null
+			if g == null or not g.alive() or g.sp != "" or g.item != "" or LOCK[rr][cc] or not open(rr, cc) or not _falls_clear(rr, cc): continue
+			var d := absf(cc - c) * 3.0 + (float(rr - r) if rr > r else (r - rr) * 4.0 + 6.0)
+			if d < best_d:
+				best_d = d
+				best = Vector2i(rr, cc)
+	if best.x < 0: return
+	var g: Gem = G[best.x][best.y]
+	g.item = "nug"
+	g.t = -1
+	g.ore = ""
+	BUCKET[r][c] -= 1
+	_fx(t, "bucket_tip", {r = r, c = c, tr = best.x, tc = best.y, id = g.id, left = BUCKET[r][c]})
+
+func activate(sp: String, r: int, c: int, t: float, g: Gem = null, lit := false) -> void:
 	match sp:
 		"rh", "rv":
 			_fx(t, "rocket", {sp = sp, r = r, c = c})
 			if sp == "rh":
 				for d in range(1, C):
-					_push(r, c - d, t + d * 32)
-					_push(r, c + d, t + d * 32)
+					_push(r, c - d, t + d * 32, "fx", lit)
+					_push(r, c + d, t + d * 32, "fx", lit)
 			else:
 				for d in range(1, R):
-					_push(r - d, c, t + d * 32)
-					_push(r + d, c, t + d * 32)
+					_push(r - d, c, t + d * 32, "fx", lit)
+					_push(r + d, c, t + d * 32, "fx", lit)
 		"bomb":
-			blast_area(r, c, 2, t)
+			blast_area(r, c, 2, t, lit)
 		"drill":
-			for d in DIRS4: _push(r + d.x, c + d.y, t + 20)
+			for d in DIRS4: _push(r + d.x, c + d.y, t + 20, "fx", lit)
 			var tgt := drill_target(r, c)
 			if tgt.x >= 0:
 				_fx(t, "drill", {r = r, c = c, tr = tgt.x, tc = tgt.y})
-				_push(tgt.x, tgt.y, t + 420)
+				_push(tgt.x, tgt.y, t + 420, "fx", lit)
 				if g and g.carry != "":
-					_push_fn(t + 430, _drill_carry.bind(g.carry, tgt.x, tgt.y))
+					_push_fn(t + 430, _drill_carry.bind(g.carry, tgt.x, tgt.y, lit))
 		"orb":
-			orb_color(r, c, most_color(), t)
+			orb_color(r, c, most_color(), t, "", lit)
 
-func blast_area(r: int, c: int, rad: int, t: float) -> void:
+func blast_area(r: int, c: int, rad: int, t: float, lit := false) -> void:
 	_fx(t, "boom", {r = r, c = c, rad = rad})
 	for dr in range(-rad, rad + 1):
 		for dc in range(-rad, rad + 1):
-			_push(r + dr, c + dc, t + maxi(absi(dr), absi(dc)) * 40)
+			_push(r + dr, c + dc, t + maxi(absi(dr), absi(dc)) * 40, "fx", lit)
 
 ## the resonator hits every stone of one colour, or turns them into specials first
-func orb_color(r: int, c: int, colour: int, t: float, make_sp := "") -> void:
+func orb_color(r: int, c: int, colour: int, t: float, make_sp := "", lit := false) -> void:
 	var i := 0
 	_fx(t, "orb", {r = r, c = c})
 	for rr in R:
@@ -1115,14 +1260,14 @@ func orb_color(r: int, c: int, colour: int, t: float, make_sp := "") -> void:
 				g.convert_sp = (("rh" if rng.randf() < 0.5 else "rv") if make_sp == "rocket" else make_sp)
 				g.convert_t = tt
 				_fx(tt, "convert", {id = g.id, sp = g.convert_sp})
-				_push_fn(tt + 260 + i * 20, _fire_converted.bind(g, rr, cc))
+				_push_fn(tt + 260 + i * 20, _fire_converted.bind(g, rr, cc, lit))
 			else:
-				_push(rr, cc, tt + 150)
+				_push(rr, cc, tt + 150, "fx", lit)
 
-func _fire_converted(t: float, g: Gem, r: int, c: int) -> void:
+func _fire_converted(t: float, g: Gem, r: int, c: int, lit := false) -> void:
 	g.sp = g.convert_sp
 	g.t = -1
-	hit(r, c, t, "fx")
+	hit(r, c, t, "fx", lit)
 
 func _start_combo(t: float, a: Gem, b: Gem, r1: int, c1: int, r2: int, c2: int) -> void:
 	_cleared[r1 * C + c1] = true
@@ -1132,16 +1277,16 @@ func _start_combo(t: float, a: Gem, b: Gem, r1: int, c1: int, r2: int, c2: int) 
 	_fx(t, "clear", {id = a.id, r = r2, c = c2, sp = a.sp, color = -1})
 	_fx(t, "clear", {id = b.id, r = r1, c = c1, sp = b.sp, color = -1})
 	_fx(t, "combo", {r = r2, c = c2, a = a.sp, b = b.sp})
-	combo(a, b, r2, c2, t + 60)
+	combo(a, b, r2, c2, t + 60, not DARK[r1][c1] or not DARK[r2][c2])
 
 func _start_orb(t: float, orb: Gem, r: int, c: int, colour: int) -> void:
 	_cleared[r * C + c] = true
 	orb.die_t = t
 	_fx(t, "clear", {id = orb.id, r = r, c = c, sp = "orb", color = -1})
-	orb_color(r, c, colour, t + 40)
+	orb_color(r, c, colour, t + 40, "", not DARK[r][c])
 
-func _drill_carry(t: float, sp: String, r: int, c: int) -> void:
-	activate(sp, r, c, t)
+func _drill_carry(t: float, sp: String, r: int, c: int, lit := false) -> void:
+	activate(sp, r, c, t, null, lit)
 
 func most_color() -> int:
 	var cnt := [0, 0, 0, 0, 0, 0]
@@ -1166,6 +1311,10 @@ func drill_target(r: int, c: int) -> Vector2i:
 			if not playable(rr, cc) or absi(rr - r) + absi(cc - c) <= 1 or _cleared.has(rr * C + cc): continue
 			var w := 0
 			if FIND[rr][cc] and need.has("find"): w = 7
+			elif BUCKET[rr][cc] and need.has("nug"): w = 6
+			elif KEG[rr][cc]: w = 6 if need.has("keg") else 3
+			elif DARK[rr][cc] and need.has("dark") and G[rr][cc] != null: w = 5
+			elif need.has("cart") and _feeds_cart(rr, cc): w = 5
 			elif GAS[rr][cc] and need.has("gas"): w = 6
 			elif GEOC[rr][cc] >= 0 and not geos[GEOC[rr][cc]].done and need.has("geo"): w = 6
 			elif LOCK[rr][cc] == 1 and need.has("lock"): w = 5
@@ -1185,41 +1334,45 @@ func drill_target(r: int, c: int) -> Vector2i:
 	if top.is_empty(): return Vector2i(-1, -1)
 	return top[rng.randi_range(0, top.size() - 1)][0]
 
+## a stone here, cleared, would go into a cart beside it
+func _feeds_cart(r: int, c: int) -> bool:
+	return _cart_beside(r, c, col(r, c)) >= 0
+
 ## two specials swapped together
-func combo(a: Gem, b: Gem, r: int, c: int, t: float) -> void:
+func combo(a: Gem, b: Gem, r: int, c: int, t: float, lit := false) -> void:
 	var s := {a.sp: true, b.sp: true}
 	var rk := func(x: String) -> bool: return x == "rh" or x == "rv"
 	if a.sp == "orb" and b.sp == "orb":
 		_fx(t, "boom", {r = r, c = c, rad = 6})
 		for rr in R:
 			for cc in C:
-				_push(rr, cc, t + (absi(rr - r) + absi(cc - c)) * 25)
+				_push(rr, cc, t + (absi(rr - r) + absi(cc - c)) * 25, "fx", lit)
 		return
 	if s.has("orb"):
 		var other := b.sp if a.sp == "orb" else a.sp
-		orb_color(r, c, most_color(), t, "rocket" if rk.call(other) else other)
+		orb_color(r, c, most_color(), t, "rocket" if rk.call(other) else other, lit)
 		return
 	if rk.call(a.sp) and rk.call(b.sp):
-		activate("rh", r, c, t)
-		activate("rv", r, c, t)
+		activate("rh", r, c, t, null, lit)
+		activate("rv", r, c, t, null, lit)
 		return
 	if s.has("bomb") and (rk.call(a.sp) or rk.call(b.sp)):
 		_fx(t, "boom", {r = r, c = c, rad = 1})
 		for d in [-1, 0, 1]:
-			activate("rh", r + d, c, t + 40)
-			activate("rv", r, c + d, t + 40)
+			activate("rh", r + d, c, t + 40, null, lit)
+			activate("rv", r, c + d, t + 40, null, lit)
 		return
 	if a.sp == "bomb" and b.sp == "bomb":
-		blast_area(r, c, 4, t)
+		blast_area(r, c, 4, t, lit)
 		return
 	if s.has("drill"):
 		var other := b.sp if a.sp == "drill" else a.sp
 		if other == "drill":
-			for k in 3: activate("drill", r, c, t + k * 60)
+			for k in 3: activate("drill", r, c, t + k * 60, null, lit)
 		else:
 			var carrier := Gem.new(0, -1)
 			carrier.carry = other
-			activate("drill", r, c, t, carrier)
+			activate("drill", r, c, t, carrier, lit)
 
 # ------------------------------------------------------------------ turn steps
 
@@ -1238,10 +1391,22 @@ func groups_to_blast(groups: Array, swap_cells: Array, events: Array) -> Array:
 			if key < 0: key = g.cells[g.cells.size() / 2]
 			pos = Vector2i(key / C, key % C)
 			created.append({r = pos.x, c = pos.y, sp = g.special})
+		# a match touching the light carries it to all its cells (the dark's goal)
+		var lit := false
+		for k in g.cells:
+			if not DARK[k / C][k % C]: lit = true
+		# a match of a cart's colour touching the cart goes into it, every stone of it
+		if not carts.is_empty():
+			var ci := -1
+			for k in g.cells:
+				var q := _cart_beside(k / C, k % C, col(k / C, k % C))
+				if q >= 0: ci = q
+			if ci >= 0:
+				for k in g.cells: _to_cart[k] = ci
 		for k in g.cells:
 			var r: int = k / C
 			var c: int = k % C
-			events.append({t = 0.0, r = r, c = c, kind = "match"})
+			events.append({t = 0.0, r = r, c = c, kind = "match", lit = lit})
 			if pos.x >= 0 and G[r][c] and not LOCK[r][c]:
 				G[r][c].merge = pos
 	return created
@@ -1399,7 +1564,7 @@ func gas_spread() -> Vector2i:
 				var cc: int = c + d.y
 				if not playable(rr, cc): continue
 				var g: Gem = G[rr][cc]
-				if g and g.t >= 0 and g.sp == "" and g.item == "" and not LOCK[rr][cc]:
+				if g and g.t >= 0 and g.sp == "" and g.item == "" and not LOCK[rr][cc] and not BELT[rr][cc]:
 					cand.append(Vector2i(rr, cc))
 	if cand.is_empty():
 		return Vector2i(-1, -1)
@@ -1409,6 +1574,21 @@ func gas_spread() -> Vector2i:
 	var gi := goal_index("gas")
 	if gi >= 0: goals[gi].left += 1
 	return p
+
+## the belts move after every move: each stone on a belt rides one cell along its loop (cells blocked by anything
+## are skipped, the stones jump past them). Returns {turned: [[id, from, to]]}
+func belt_turn() -> Dictionary:
+	var out := {turned = []}
+	for loop: Array in belts:
+		var cells := loop.filter(func(p: Vector2i) -> bool: return open(p.x, p.y) and not LOCK[p.x][p.y])
+		if cells.size() < 2: continue
+		var gs := []
+		for p: Vector2i in cells: gs.append(G[p.x][p.y])
+		for i in cells.size():
+			var to: Vector2i = cells[(i + 1) % cells.size()]
+			G[to.x][to.y] = gs[i]
+			if gs[i]: out.turned.append([(gs[i] as Gem).id, cells[i], to])
+	return out
 
 ## the nodules grow a layer every NOD_EVERY moves; a full one overgrows instead: malachite crusts the stones round it
 ## and it starts again from its core. Returns what changed: [{r, c, from, stage, crust: [cells]}]
@@ -1464,7 +1644,7 @@ func finale_picks() -> Array:
 
 func booster_events(id: String, r: int, c: int) -> Array:
 	if id == "pick":
-		return [{t = 0.0, r = r, c = c, kind = "pick"}]
+		return [{t = 0.0, r = r, c = c, kind = "pick", lit = true}]
 	return [{t = 0.0, fn = _bore_at.bind(id, r, c)}]
 
 ## the drill boosters: the drill comes in from the board's edge (left, or the top) and bores through the whole
@@ -1473,8 +1653,8 @@ func _bore_at(t: float, id: String, r: int, c: int) -> void:
 	_fx(t, "bore", {sp = id, r = r, c = c})
 	var n := C if id == "bore_h" else R
 	for k in n:
-		if id == "bore_h": _push(r, k, t + BORE_IN + k * BORE_STEP)
-		else: _push(k, c, t + BORE_IN + k * BORE_STEP)
+		if id == "bore_h": _push(r, k, t + BORE_IN + k * BORE_STEP, "fx", true)
+		else: _push(k, c, t + BORE_IN + k * BORE_STEP, "fx", true)
 
 const BORE_IN := 340.0     # ms until the tip reaches the first cell (the drill comes up to the rim and revs first)
 const BORE_STEP := 55.0    # ms a cell

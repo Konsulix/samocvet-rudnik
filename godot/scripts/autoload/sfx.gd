@@ -46,6 +46,13 @@ const SAMPLES := {
 	# story scenes (StoryScene): knocking somewhere in the rock, far off; the mountain's breath rumbling under the boots
 	knock = {f = ["impactMining_000", "impactMining_002"], db = -6.0, pitch = 0.55},
 	rumble = {f = ["bfh1_rock_falling_04", "bfh1_rock_falling_07"], db = -2.0, pitch = 0.45},
+	# the gallery's works on the board: the dark lit (a soft bowl note, higher as the light runs on), a stone dropped
+	# into a cart, a full cart rumbling off, a keg's fuse hissing, the belt's gravel rattle
+	light = {f = ["bowl_ping"], db = -17.0, pitch = 1.9, step = 0.05},
+	cart_load = {f = ["impactMining_000", "impactMining_002"], db = -10.0, pitch = 1.35, step = 0.02},
+	cart_go = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -5.0, pitch = 0.8},
+	fuse = {f = ["gas_0", "gas_1"], db = -10.0, pitch = 2.2},
+	belt = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -15.0, pitch = 0.75},
 	# the gold pan: gravel rattling round it
 	pan = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -8.0, pitch = 1.5},
 	# buttons and windows: a book set down, a page turned (Kenney RPG Audio) — the old digital clicks were out of place

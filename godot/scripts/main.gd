@@ -11,6 +11,8 @@ func _exit_tree() -> void:
 	Level.release_pool()
 	MineView.release()
 	Atlas.release()
+	BoardMech.release()
+	FxLayer.release()
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -44,6 +46,8 @@ func _ready() -> void:
 	if args.has("area"): Save.d.area = int(args.area)
 	if args.has("rich"): Save.d.lrich = true
 	if args.has("lseed"): Save.d.lseed = int(args.lseed)
+	# feat=cart,dark: a generated level with exactly these works (LevelGen.FEATURES)
+	if args.has("feat"): LevelGen.force_feats = Array(String(args.feat).split(","))
 	if args.has("fe"): Save.d.fe = int(args.fe)
 	if args.has("au"): Save.d.ore = int(args.au)
 	if args.has("built"):
@@ -181,6 +185,25 @@ func _ready() -> void:
 		# kept in the save, so a later run without the key still has them (and the atlas knows them)
 		for st: Dictionary in Save.d.coll:
 			if st.get("sid", "") == "trilobite": Save.note_find(st, 2, int(st.dl))
+		Save.persist()
+	if args.has("mine4"):
+		# test data: Fire Horizon's finds, a few of each species as the mine rolls them: `-- screen=stones mine4`;
+		# marked test (admin → Remove test finds), old ones from a previous run are replaced
+		var want := {sulphur = 3, aragonite = 3, obsidian = 5, fulgurite = 2, olivine = 3, realgar = 3, hematite = 4, simetite = 2}
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not (c.get("test", false) and int(c.get("area", 0)) == 3))
+		var sd := 81000
+		while want.size():
+			var st := Stones.roll(sd, 3, 1.2, sd % 6)
+			sd += 1
+			if not want.has(st.sid): continue
+			want[st.sid] = int(want[st.sid]) - 1
+			if int(want[st.sid]) <= 0: want.erase(st.sid)
+			st.area = 3
+			st.dl = sd % 6
+			st.test = true
+			Save.d.coll.append(st)
+			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+			Save.note_find(st, 3, int(st.dl))
 		Save.persist()
 	if args.has("tab"):
 		Museum.start_tab = args.tab
@@ -414,6 +437,8 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 		lv.busy = false
 		if lv.booster == "pan": lv._use_pan()
 		else: lv._use_booster(int(rc[0]), int(rc[1]))
+	if args.has("lab"):
+		_lab(lv, String(args.lab))
 	if args.has("autoplay"):
 		_autoplay(lv, int(args.autoplay))
 	if args.has("win"):
@@ -556,12 +581,36 @@ func _hitch(secs: float) -> void:
 		Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
 	get_tree().quit()
 
+## lab=<what>: a special set off in the middle of the board a moment after it settles, to film it frame by frame
+## (`shot=... frames=N every=S`): rh, rv, bomb, drill, orb (a single special), or two side by side swapped together:
+## rh+rv, bomb+rh, bomb+bomb, orb+bomb, orb+orb, drill+bomb...
+func _lab(lv: Level, what: String) -> void:
+	await get_tree().create_timer(1.6).timeout
+	while lv.busy: await get_tree().create_timer(0.05).timeout
+	var r := lv.model.R / 2
+	var c := lv.model.C / 2 - 1
+	var sps := what.split("+")
+	for i in sps.size():
+		var g: BoardModel.Gem = lv.model.G[r][c + i]
+		if g == null: return
+		g.sp = sps[i]
+		g.t = -1
+		g.ore = ""
+		lv.board.convert_gem(g.id, g.sp)
+	await get_tree().create_timer(0.5).timeout
+	if sps.size() == 1: lv._on_tap(r, c)
+	else: lv._on_swipe(r, c, r, c + 1)
+
 ## plays a few moves by itself, for screenshots of a level in motion
 func _autoplay(lv: Level, turns: int) -> void:
 	await get_tree().create_timer(1.2).timeout
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
 	for i in turns:
 		while lv.busy: await get_tree().create_timer(0.1).timeout
-		var mv := lv.model.find_move()
+		if lv.model.over: return
+		# `smart`: the moves the smart autoplayer would make (tests/sim_economy.gd), to see a level played for its goals
+		var mv: Array = SimEconomy._choose_smart(lv.model, rng) if args.has("smart") else lv.model.find_move()
 		if mv.is_empty(): return
 		if mv[0] == mv[2] and mv[1] == mv[3]: lv._on_tap(mv[0], mv[1])
 		else: lv._on_swipe(mv[0], mv[1], mv[2], mv[3])
@@ -591,7 +640,7 @@ func _take_shot() -> void:
 	await get_tree().create_timer(float(args.get("after", "3"))).timeout
 	var n := int(args.get("frames", "1"))
 	for i in n:
-		if i > 0: await get_tree().create_timer(float(args.get("every", "0.1"))).timeout
+		if i > 0: await get_tree().create_timer(float(args.get("every", "0.1")), true, false, true).timeout
 		await RenderingServer.frame_post_draw
 		var img := get_viewport().get_texture().get_image()
 		var path: String = args.shot if n == 1 else String(args.shot).get_basename() + "_%d.png" % i
