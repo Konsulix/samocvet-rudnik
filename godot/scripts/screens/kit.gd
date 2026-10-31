@@ -16,10 +16,12 @@ const FRAMES := {
 const FIT_H := ["capsule"]
 ## plates with a round rivet on each short end: half the rivet's height in picture px, kept as drawn (KitBox.pin)
 const PIN := {btn_green = 18.0, btn_slate = 18.0, title = 15.0}
-## big panels drawn as a hollow frame over a tiled slate (art/ui_kit/slate_fill.py): frame -> [frame picture, tile]
-const FILLS := {window = ["window_frame", "slate"]}
+## panels drawn as a hollow frame over a tiled slate (art/ui_kit/slate_fill.py, hollow_frame.py; the tile —
+## slate_tile.py): frame -> [frame picture, tile, how far in the tile starts (picture px)]. Their own slate middle,
+## repeated to fit, showed its joins as stripes (playtest 31.10)
+const FILLS := {window = ["window_frame", "slate", 24.0], btn_dark = ["btn_dark_frame", "btn_dark_slate", 14.0]}
 ## frames whose middle is seamless (art/ui_kit/seam_mid.py) and repeats along these axes instead of stretching
-const TILE := {btn_green = "x", btn_slate = "x", btn_dark = "xy", title = "x", card = "xy", tab = "xy"}
+const TILE := {btn_green = "x", btn_slate = "x", title = "x", card = "xy", tab = "xy"}
 const CREAM := Color("#f3e6c8")       # text on slate
 const AMBER := Color("#e6c47e")       # calm brass, like the frames (was #ffc95a)
 const DIM := Color("#a89c86")
@@ -50,6 +52,7 @@ static func box(name: String, pad := -1.0, tint := Color.WHITE) -> KitBox:
 		var fl: Array = FILLS[name]
 		b.tex = tex(fl[0])
 		b.fill = tex(fl[1])
+		b.fill_inset = float(fl[2])
 	b.margin = Vector4(float(f[0]), float(f[1]), float(f[2]), float(f[3]))
 	b.s = float(f[4])
 	b.modulate = tint
@@ -179,10 +182,10 @@ static func chain(ci: CanvasItem, a: Vector2, b: Vector2, link := 5.0) -> void:
 static func title_plate(n: String) -> Control:
 	var p := PanelContainer.new()
 	var st := box("title", 0.0)
-	st.content_margin_left = 20
-	st.content_margin_right = 20
-	st.content_margin_top = 4
-	st.content_margin_bottom = 5
+	st.content_margin_left = 16
+	st.content_margin_right = 16
+	st.content_margin_top = 2
+	st.content_margin_bottom = 3
 	p.add_theme_stylebox_override("panel", st)
 	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -190,9 +193,9 @@ static func title_plate(n: String) -> Control:
 	font.base_font = UI.display.base_font       # (a variation of a variation loses its weight: copy it over)
 	font.variation_opentype = UI.display.variation_opentype
 	font.spacing_glyph = 1
-	var l := label(n.to_upper(), 19, font, AMBER)
+	var l := label(n.to_upper(), 15, font, AMBER)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_constant_override("outline_size", 5)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
 	l.add_theme_constant_override("shadow_offset_y", 2)
 	p.add_child(l)
@@ -215,6 +218,7 @@ static func hanging(p: Control, bar: Control) -> Control:
 	sw.add_child(p)
 	const INSET := 24.0         # from the plate's ends to its chains
 	const LINKS_SHOWN := 4.0    # links of chain left showing between the capsules and the plate
+	const NARROW := 0.75        # the plate is this much of the chains' span: quieter, the chains lean in a little
 	var ends := func() -> Array:
 		# the hooks in the swinging part's own space: [left x, right x, top y]
 		var a: Control = hooks[0]
@@ -228,7 +232,7 @@ static func hanging(p: Control, bar: Control) -> Control:
 		var m := p.get_combined_minimum_size()
 		if hooks.size() == 2:
 			var apart: float = (hooks[1] as Control).get_global_rect().get_center().x - (hooks[0] as Control).get_global_rect().get_center().x
-			m.x = maxf(m.x, apart + INSET * 2)
+			m.x = maxf(m.x, (apart + INSET * 2) * NARROW)
 		p.custom_minimum_size.x = m.x
 		slot.custom_minimum_size = m
 		sw.size = m
@@ -257,8 +261,10 @@ static func hanging(p: Control, bar: Control) -> Control:
 		# the plate swings about the point between the hooks
 		sw.pivot_offset = Vector2((float(xs[0]) + float(xs[1])) / 2 - sw.position.x, top - sw.position.y)
 		var xf := sw.get_transform()
-		for x: float in xs:
-			chain(ch, Vector2(x, top), xf * Vector2(x - sw.position.x, 5)))
+		# down to the plate's own ends (it is narrower than the hooks are apart)
+		var at: Array = [INSET * NARROW, sw.size.x - INSET * NARROW]
+		for i in 2:
+			chain(ch, Vector2(float(xs[i]), top), xf * Vector2(float(at[i]), 5)))
 	var swing := func(r: float):
 		sw.rotation = r
 		ch.queue_redraw()

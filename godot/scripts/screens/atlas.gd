@@ -67,6 +67,7 @@ const FACTS := {
 }
 
 var area := -1
+var _intro_now := false   # the atlas's first note shows now: the grey page's waits for the next visit
 var content: VBoxContainer
 var scroll: ScrollContainer
 
@@ -84,8 +85,9 @@ func _ready() -> void:
 	var bg := SlateBg.new()
 	bg.size = size
 	add_child(bg)
+	_intro_now = not Save.told("c_atlas")
 	render()
-	Coach.note(self, "c_atlas", "The Scholar's atlas. Every kind of stone you find gets a page - your best one, the records, where it lies. Grey shapes are still to find.")
+	Coach.note(self, "c_atlas", "The Scholar's atlas. Every kind of stone you find gets a page - your best one, the records, where it lies. Dark shapes are still to find. Keep your best stone of each kind: sold, its page turns grey.")
 
 func render() -> void:
 	for ch in get_children():
@@ -366,9 +368,23 @@ func _mine(a: int) -> void:
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	var w := (size.x - 24 - 16) / 3.0
+	var grey: Control = null
 	for id in ids:
-		grid.add_child(_tile(String(id), w))
+		var t := _tile(String(id), w)
+		if grey == null and bool(t.get_meta("gone", false)): grey = t
+		grid.add_child(t)
 	content.add_child(grid)
+	if grey != null and not Save.told("c_atlas_grey"):
+		_grey_note.call_deferred(grey)
+
+## the first page gone grey: what it means, pointing at it (if it is on the screen)
+func _grey_note(t: Control) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(t) or _intro_now: return
+	var r := t.get_global_rect()
+	var hole := r if get_viewport_rect().encloses(r) else Rect2()
+	Coach.note(self, "c_atlas_grey", "A grey page: you sold the best %s you had found. Its records stay. Find a finer one and keep it, and the page comes back to colour." % Data.SP[String(t.get_meta("sid"))].n, hole)
 
 ## the stage for the boss's trophy (the same for every mine), fading into the slate; on it the name and the way back
 const STAGE_H := 236.0
@@ -481,14 +497,33 @@ func _seals(a: int) -> Control:
 	return h
 
 ## a species: its best stone on its own tinted ground, or the black silhouette of its shape
+## whether the player still keeps the species' record stone (the best one, the atlas's picture of it): sold, it
+## lives on in the atlas grey, its records stay, so there is a reason to keep the fine ones (playtest 31.10)
+static func best_kept(id: String) -> bool:
+	var e: Dictionary = Save.d.atlas.get(id, {})
+	if not e.has("best"): return false
+	for s in Save.d.coll:
+		if int(s.id) == int(e.best.id) and String(s.sid) == id: return true
+	return false
+
+static var _faded: ShaderMaterial
+## the grey of a species not kept (shaders/faded.gdshader)
+static func faded() -> ShaderMaterial:
+	if _faded == null:
+		_faded = ShaderMaterial.new()
+		_faded.shader = load("res://shaders/faded.gdshader")
+	return _faded
+
 func _tile(id: String, w: float) -> Control:
 	var e: Dictionary = Save.d.atlas.get(id, {})
 	var got := e.has("best")
+	var gone := got and not best_kept(id)
 	var tier: int = int(e.best.tier) if got else int(Data.SP[id].r)
 	var rc := Data.rarity_color(tier)
 	var b := PanelContainer.new()
 	b.custom_minimum_size = Vector2(w, w * 1.08)
 	var spc := Data.sp_color(id)
+	if gone: spc = Color(0.5, 0.49, 0.47)
 	var st := StyleBoxFlat.new()
 	st.bg_color = spc.darkened(0.82) if got else Color("#1d1914")
 	st.border_color = Color(rc.lerp(Kit.AMBER, 0.5), 0.75) if got else Color("#3a332a")
@@ -497,6 +532,8 @@ func _tile(id: String, w: float) -> Control:
 	st.anti_aliasing = true
 	b.add_theme_stylebox_override("panel", st)
 	b.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	b.set_meta("gone", gone)
+	b.set_meta("sid", id)
 	var glow := Control.new()
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	glow.draw.connect(func():
@@ -510,6 +547,8 @@ func _tile(id: String, w: float) -> Control:
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not got:
 		img.modulate = Color(0.015, 0.012, 0.01)
+	elif gone:
+		img.material = faded()
 	var pm := MarginContainer.new()
 	pm.add_theme_constant_override("margin_top", int(w * 0.24))
 	pm.add_theme_constant_override("margin_bottom", int(w * (0.04 if got else 0.18)))
@@ -571,7 +610,7 @@ func _open_species(id: String) -> void:
 	var e: Dictionary = Save.d.atlas[id]
 	var best: Dictionary = e.best
 	var v := Ov.card(350, Data.rarity_color(int(best.tier)))
-	Reveal.stone_card(v, best, 380, func(): Ov.close())
+	var view := Reveal.stone_card(v, best, 380, func(): Ov.close())
 	if FACTS.has(id):
 		var f := Kit.label(FACTS[id], 12, UI.body, Kit.DIM)
 		f.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -581,10 +620,17 @@ func _open_species(id: String) -> void:
 	var still := false
 	for s in Save.d.coll:
 		if s.sid == id: kept += 1
-		if int(s.id) == int(best.id): still = true
+		if int(s.id) == int(best.id) and s.sid == id: still = true
 	var ba := int(best.get("area", 0))
 	var where := "Best found in %s, %d m" % [Data.AREAS[ba].n, Data.depth_m(ba, int(best.get("dl", 0)))]
 	if not still: where += " · sold"
+	if not still:
+		# the record stone sold: it shows grey, the records stay
+		view.hold_grey()
+		var g := Kit.label("Its best stone was sold: find a finer one and keep it to bring it back to colour", 12, UI.body, Kit.DIM)
+		g.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(g)
 	var wl := Kit.label(where, 12, UI.body_bold, Kit.CREAM)
 	wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(wl)

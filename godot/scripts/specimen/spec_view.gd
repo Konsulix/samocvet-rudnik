@@ -35,6 +35,10 @@ var _press := Vector2.ZERO
 var _press_ms := -1
 var _tap_ms := 0
 
+## the stone grey and dim, as the atlas shows a species the player no longer keeps
+func hold_grey() -> void:
+	_img.material = Atlas.faded()
+
 func _init(px := 512, transparent := false) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	studio = SpecStudio.make(px, Viewport.MSAA_4X, transparent)

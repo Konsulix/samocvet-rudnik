@@ -85,9 +85,17 @@ static func ore_hot() -> Vector3:
 	var c := Color.html(String(Data.ore(Save.area()).get("hot", "#ffc75c")))
 	return Vector3(c.r, c.g, c.b)
 
+## which of zone_kit.py's pictures a big block wears: the two are swapped (playtest 31.10). The geode, which stays on
+## the board as an empty shell, wears the block with the golden core; the find, gone once dug out, the violet one
+const ZONE_PIC := {geode = "find", find = "geode"}
+static func zone_pic(kind: String) -> String:
+	return String(ZONE_PIC.get(kind, kind))
+
 ## a big block's small square icon (prototype/tools/zone_icons.py): "find_2x2", "geode_2x2"... in this look.
 ## The interface never draws the board's own block sprites: on iPhone those came out as plain white squares there
 static func zone_icon(name: String, look := "") -> Texture2D:
+	var kind := name.get_slice("_", 0)
+	name = zone_pic(kind) + name.substr(kind.length())
 	var path := "res://assets/board/zones/%s/icon/%s.png" % [zone_style if look == "" else look, name]
 	if not _tex.has(path): _tex[path] = load(path)
 	return _tex[path]

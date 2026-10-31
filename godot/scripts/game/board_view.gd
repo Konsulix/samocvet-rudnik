@@ -527,7 +527,7 @@ func _draw_zone(ci: Node2D, kind: String, b: Dictionary, since_hit: float, now: 
 	var w: int = b.get("w", 2)
 	var h: int = b.get("h", 2)
 	var stage := "open" if b.get("done", false) else str(clampi(int(floor(float(b.hp_max - b.hp) / float(b.hp_max) * 8.0)), 0, 7))
-	var path := "res://assets/board/zones/%s/%s_%dx%d_%s.png" % [BoardSprites.zone_style, kind, w, h, stage]
+	var path := "res://assets/board/zones/%s/%s_%dx%d_%s.png" % [BoardSprites.zone_style, BoardSprites.zone_pic(kind), w, h, stage]
 	if not _zone_tex.has(path): _zone_tex[path] = load(path)
 	var shake := sin(since_hit * 55.0) * TS * 0.06 if since_hit < 0.22 else 0.0
 	var a := 1.0

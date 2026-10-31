@@ -17,7 +17,7 @@ PX = 128
 for look in ("hewn", "pillow"):
     out = os.path.join(ROOT, look, "icon")
     os.makedirs(out, exist_ok=True)
-    for f in sorted(glob.glob(os.path.join(ROOT, look, "find_*_0.png")) + [os.path.join(ROOT, look, "geode_2x2_0.png")]):
+    for f in sorted(glob.glob(os.path.join(ROOT, look, "find_*_0.png")) + glob.glob(os.path.join(ROOT, look, "geode_*_0.png"))):
         im = Image.open(f).convert("RGBA")
         im = im.crop(im.getbbox())
         k = PX / max(im.size)

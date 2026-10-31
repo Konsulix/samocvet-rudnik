@@ -112,6 +112,13 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.close()
 		Ov.toast("Added to the inventory")
 		finished.emit()
+	var atl: Dictionary = Save.d.atlas.get(String(s.sid), {})
+	if reply == "" and atl.has("best") and int(atl.best.id) == int(s.id):
+		# the species' new record stone: sold, the atlas keeps its records but shows it grey
+		var only := Kit.label("Your best %s yet: sold, it turns grey in the atlas" % Data.SP[s.sid].n, 12, UI.body, Kit.DIM)
+		only.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		only.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(only)
 	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)
 	if reply != "":
 		var b := Kit.button(reply, "btn_gold", 17, 4.0)
