@@ -248,6 +248,7 @@ func _ready() -> void:
 		st.integ = 86
 		if args.has("sid"): st.sid = args.sid
 		if args.has("kind"): st.kind = args.kind
+		if args.has("gi"): st.gi = int(args.gi)
 		if args.has("shroom"): st.shroom = int(args.shroom)
 		if args.has("traits"): st.traits = Array(args.traits.split(","))
 		if args.has("legend"):

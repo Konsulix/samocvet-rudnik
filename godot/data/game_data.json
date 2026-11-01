@@ -245,6 +245,18 @@
    "c": "#a9c2dc",
    "v": 80,
    "r": 2
+  },
+  "fern": {
+   "n": "Fossil Fern",
+   "c": "#4a5a34",
+   "v": 90,
+   "r": 2
+  },
+  "rhodochrosite": {
+   "n": "Rhodochrosite",
+   "c": "#e03a5a",
+   "v": 420,
+   "r": 3
   }
  },
  "GR": [
@@ -1685,8 +1697,8 @@
     "galena": 12,
     "sphalerite": 10,
     "chalcedony": 6,
-    "flower_quartz": 4,
-    "diamond": 1.2
+    "fern": 8,
+    "rhodochrosite": 1.2
    },
    "steps": 3,
    "tasks": [
@@ -2292,11 +2304,13 @@
   "anhydrite": "blade",
   "pyrope": "dodeca",
   "chrysolite": "prism",
-  "siderite": "cube",
+  "siderite": "rhomb",
   "barite": "blade",
   "galena": "cube",
-  "sphalerite": "dodeca",
-  "chalcedony": "botryoid"
+  "sphalerite": "tetra",
+  "chalcedony": "botryoid",
+  "rhodochrosite": "rhomb",
+  "fern": "fossil"
  },
  "TRAITS": [
   {

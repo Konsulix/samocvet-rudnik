@@ -8,7 +8,7 @@ extends RefCounted
 
 const U := preload("res://scripts/specimen/spec_util.gd")
 
-const KINDS := [["black", 4.0], ["snowflake", 3.0], ["mahogany", 2.0], ["rainbow", 1.2], ["tears", 1.5]]
+const KINDS := [["black", 3.0], ["snowflake", 3.0], ["mahogany", 2.0], ["rainbow", 2.4], ["tears", 1.5]]
 const NAMES := {snowflake = "snowflake obsidian", mahogany = "mahogany obsidian", rainbow = "rainbow sheen", tears = "Apache tears",
 	black = "jet-black glass"}
 
@@ -125,8 +125,8 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			var blot := nz.get_noise_3dv(p * 1.4) + band * 0.5
 			c = black.lerp(Color(0.085, 0.016, 0.005), smoothstep(0.0, 0.3, blot))
 		g.col[i] = c
-	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.02, coat = 0.3, coat_r = 0.01, env = 0.55, metal = 0.0,
-		ir = 0.07 if kind == "rainbow" else 0.0, rf = 0.0})
+	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.02, coat = 0.3, coat_r = 0.01, env = 1.1, metal = 0.0,
+		ir = 0.15 if kind == "rainbow" else 0.0, oil = 0.6 if kind == "rainbow" else 0.0, rf = 0.0})
 	var mi := U.mesh(g, m, root, Vector3(0, 0.05, 0), Basis(Vector3.UP, rng.next() * TAU) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.5))
 	mi.set_meta("col", true)
 	if kind == "snowflake":

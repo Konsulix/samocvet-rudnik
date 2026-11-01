@@ -22,6 +22,41 @@ static func warp(g: Geo, rng: Rng32, amt: float, freq := 1.0) -> Geo:
 		g.v[i] = p * (1.0 + n * amt / 5.0)
 	return g
 
+## a truncated tetrahedron (sphalerite): the four big faces become hexagons, each corner a small triangle; f = how deep the cut
+static func tetra(r: float, f: float) -> Geo:
+	var c := [Vector3(1, 1, 1), Vector3(1, -1, -1), Vector3(-1, 1, -1), Vector3(-1, -1, 1)]
+	var cut := func(a: int, b: int) -> Vector3: return ((c[a] as Vector3).lerp(c[b], f)) * r * 0.58
+	var g := Geo.new()
+	var fan := func(pts: Array) -> void:
+		for k in range(1, pts.size() - 1):
+			g.v.append_array([pts[0], pts[k], pts[k + 1]])
+	for skip in 4:
+		var t := []
+		for k in 4:
+			if k != skip: t.append(k)
+		fan.call([cut.call(t[0], t[1]), cut.call(t[1], t[0]), cut.call(t[1], t[2]), cut.call(t[2], t[1]), cut.call(t[2], t[0]), cut.call(t[0], t[2])])
+	for a in 4:
+		var t := []
+		for k in 4:
+			if k != a: t.append(cut.call(a, k))
+		fan.call(t)
+	return g.orient_out()
+
+## galena: a cube with a few smaller cubes grown on its faces — the stepped terraces its crystals build; sunk a quarter in
+static func cube_steps(rng: Rng32, s: float) -> Geo:
+	var g := Geo.box(s, s * (0.92 + rng.next() * 0.16), s)
+	var axes := [Vector3.RIGHT, Vector3.LEFT, Vector3.BACK, Vector3.FORWARD, Vector3.UP, Vector3.UP]
+	for k in 1 + int(rng.next() * 3.0):
+		var n: Vector3 = axes[int(rng.next() * axes.size())]
+		var t := s * (0.4 + rng.next() * 0.35)
+		var a := Vector3(n.y, n.z, n.x)
+		var b := n.cross(a)
+		var at := n * (s * 0.5 + t * (0.2 + rng.next() * 0.25) - t * 0.5)
+		at += a * (s - t) * 0.5 * signf(rng.next() - 0.5) + b * (s - t) * 0.5 * (rng.next() * 2.0 - 1.0)
+		var bx := Geo.box(t, t, t).translate(at.x, at.y, at.z)
+		g.v.append_array(bx.v)
+	return g.translate(0, s * 0.25, 0)
+
 ## cfg: {h, tip, scepter, dt (both ends), cA, cB, zk (colour zoning)}
 static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	var r := 0.32 * float(cfg.get("wk", 1.0))
@@ -41,6 +76,8 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = Geo.lathe([Vector2(0, 0), Vector2(r * 0.75, 0), Vector2(r * 1.05, h * 0.3), Vector2(r * 1.05, h * 0.7), Vector2(r * 0.8, h), Vector2(0, h)], 6)
 	elif habit == "scaleno":
 		g = Geo.octa(0.3).scale(1, 2.4, 1).translate(0, 0.65, 0)
+	elif habit == "cube" and cfg.get("steps", false):
+		g = cube_steps(rng, 0.36 + rng.next() * 0.08)
 	elif habit == "cube":
 		var s := 0.32 + rng.next() * 0.1
 		g = Geo.box(s, s * (0.9 + rng.next() * 0.3), s).translate(0, s * 0.5, 0)
@@ -58,11 +95,34 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 			var l1 := absf(p.x) + absf(p.y) + absf(p.z)
 			g.v[i] = p.lerp(p.normalized() * 0.3 * (l1 / 0.3) * 0.82, 0.32)
 		g.scale(sx, sy, sz).translate(0, 0.3 * float(cfg.get("hk", 1.0)), 0)
+	elif habit == "rhomb":
+		# a rhombohedron (siderite, rhodochrosite): a cube drawn out along its body diagonal and stood on that axis;
+		# siderite's faces bow into a saddle (cfg saddle), the way its curved brown rhombs grow
+		var s := 0.3 + rng.next() * 0.06
+		g = Geo.box(s, s, s)
+		var sad: float = cfg.get("saddle", 0.0)
+		if sad > 0.0: g.subdivide(2)
+		var n := Vector3(1, 1, 1).normalized()
+		var b := Basis(n.cross(Vector3.UP).normalized(), n.angle_to(Vector3.UP))
+		var rh: float = cfg.get("rh", 0.3)
+		for i in g.v.size():
+			var p := g.v[i]
+			p = b * (p + n * p.dot(n) * rh)
+			# the saddle: the whole rhomb bowed over and its faces cupped, as siderite's crystals curve
+			p.x += sad * (p.y * p.y * 2.2 - 0.04)
+			p += p.normalized() * sad * (0.5 * p.length() - absf(p.x) - absf(p.z)) * 0.18
+			g.v[i] = p
+		g.scale(float(cfg.get("wk", 1.0)), float(cfg.get("hk", 1.0)), float(cfg.get("wk", 1.0))).translate(0, s * 0.55, 0)
 	elif habit == "grain":
 		# a rounded grain (olivine in basalt): a lump with soft facets
 		g = Geo.icosa(0.26, 1).scale(1.0, 0.85, 0.95).translate(0, 0.2, 0)
 	elif habit == "dodeca":
 		g = Geo.dodeca(0.3).translate(0, 0.28, 0)
+	elif habit == "tetra":
+		# sphalerite: a tetrahedron with its corners cut off, stood on a corner a little askew
+		g = tetra(0.34, 0.16 + rng.next() * 0.14)
+		g.xform(Transform3D(Basis.from_euler(Vector3(rng.next(), rng.next(), rng.next()) * TAU), Vector3.ZERO))
+		g.translate(0, 0.22, 0)
 	else:
 		g = Geo.sphere(0.2, 20, 14).translate(0, 0.15, 0)
 	if habit == "blade":

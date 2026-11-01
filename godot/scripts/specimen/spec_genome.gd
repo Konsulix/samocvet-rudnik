@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -36,7 +36,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var kind: String = o.get("kind", "crystal")
 	var tr: Array = o.get("traits", [])
-	var metal := habit == "nugget" or sid in ["pyrite", "hematite", "galena"]
+	var metal := habit == "nugget" or sid in ["pyrite", "hematite", "galena"] or SpecLooks.of(sid).has("metal_col")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
@@ -146,6 +146,8 @@ static func of(o: Dictionary) -> Dictionary:
 	if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
 	# a fulgurite's own: the lightning that made it runs through it still
 	if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
+	# a fossil leaf greens again, light running up its veins
+	if sid == "fern": fpool = ["spring", "spring", "jellyfish"]
 	# a trilobite's pyrite legs walk again; a pearl glows like the moon
 	if sid == "trilobite":
 		fpool = ["awaken", "jellyfish", "glow"] + (["moon", "moon"] if int(fossil.get("oysters", 0)) > 0 else [])
@@ -154,6 +156,9 @@ static func of(o: Dictionary) -> Dictionary:
 	if sid == "pearl": fpool = ["moon", "jellyfish"]
 	# obsidian is its own glass, opaque: only what lives outside it, or lights its skin
 	if habit == "obsidian": fpool = ["jellyfish", "fluor"]
+	# Proval's own, from the polar night: the northern lights over the find, frost growing over it
+	if sid in ["siderite", "barite", "galena", "sphalerite", "chalcedony", "rhodochrosite"]:
+		fpool.append_array(["borealis", "borealis", "frost", "frost"])
 	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
 	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
 	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget"])

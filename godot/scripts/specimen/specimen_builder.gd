@@ -166,8 +166,10 @@ func _specimen(o: Dictionary) -> Node3D:
 		var pal: Array = look.palette
 		var pe: Array = Stones.pick_w(pal.map(func(e: Array) -> Array: return [e, e[2]]), Rng32.new((seed_v * 1597334677 + 31) % 4294967296))
 		col = SpecMat.lin(int(pe[0]))
+		# a poorer stone is duller, not paler: a grey as bright as its own colour (a light grey turned ruby jack pink)
 		if gi < 2:
-			col = col.lerp(SpecMat.lin(0xb8b4ac), 0.25 - gi * 0.1)
+			var lum := col.r * 0.3 + col.g * 0.55 + col.b * 0.15
+			col = col.lerp(Color(lum, lum, lum), 0.2 - gi * 0.08)
 		core_hex = int(pe[1])
 	if (gene.sig as Array).size():
 		tr = tr.duplicate()
@@ -181,7 +183,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		col = SpecMat.offset_hsl(col, gene.hue, 0.3, 0.04)
 	root.set_meta("glow", col)
 	var irk := 1.9 if "aurora" in tr else 1.0 if "irid" in tr else 0.45 if legend else 0.14
-	var metal := habit == "nugget" or sid in ["pyrite", "hematite"]
+	var metal := habit == "nugget" or sid in ["pyrite", "hematite"] or look.has("metal_col")
 	var cut: String = o.get("cut", "")
 	# a cut stone floats alone, tilted to show its table and pavilion
 	if cut != "" and cut != "broken":
@@ -204,7 +206,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var cB := col
 	# with the species' proportions (SpecLooks: hk, wk, blunt), which every crystal and column takes
 	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
-		blunt = bool(look.get("blunt", false))}
+		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false))}
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
 	var kind: String = o.get("kind", "crystal")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
@@ -223,7 +225,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		dt.fb = 0.0
 
 	var st := {rocky = false, pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
-		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = []}
+		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = [], agate = look.get("agate", [])}
 	var stria := 1.0 if elongated else 0.0
 	var cmat_spec := func() -> Dictionary:
 		var irk2: float = st.irk
@@ -232,7 +234,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (hematite: dark steel — SpecLooks metal_col)
 			if look.has("metal_col"):
 				# hematite's steel: darker, less mirror, its tarnish a rainbow in patches
-				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = 0.3, coat = 0.6, coat_r = 0.08, flat = true, env = 2.6, oil = 0.5, st = 0.4, dirt = dt, prio = 2}
+				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = 0.4, dirt = dt, prio = 2}
 			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		# an opaque species (SpecLooks opaque: aragonite's wax, realgar's resin): no glass, a lit surface of its colour
@@ -275,6 +277,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		st.pick = func() -> Vector3: return top[int(floor(rng.next() * top.size()))] if top.size() else Vector3(0, 0.3, 0)
 		st.nrm = func(w: Vector3) -> Vector3: return RockKit.rock_nrm(sc, w)
 		st.rock = mi
+		st.rock_geo = R.geo
 		return mi
 	if layout == "columnar" or layout == "cluster":
 		irk = maxf(irk, 0.3)
@@ -297,7 +300,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		var cfg := {h = h, tip = 0.05 if kind == "shard" or cut == "broken" else null, detail = st.detail, erode = ero if mo == null and parent == null else 0.0}
 		cfg.merge(zcfg)
 		cfg.merge(extra, true)
-		var g := RockKit.crystal(habit, rng, cfg)
+		var g := RockKit.crystal(String(extra.get("habit", habit)), rng, cfg)
 		var c := U.mesh(g, mo if mo else any_cmat.call(), parent if parent else root)
 		_place(c, at, dir, s * gs, rng.next() * 6.28)
 		return c
@@ -311,6 +314,8 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = SpecWood.build(self, gene)
 		"fulgurite":
 			main = SpecFulgurite.build(self, gene)
+		"fern":
+			main = SpecFern.build(self, gene)
 		"flower_quartz", "amber", "simetite":
 			main = SpecFlower.build(self, gene)
 		"trilobite":
@@ -335,17 +340,18 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (sulphur's mound sits down on the rock, its foot hidden in it)
 			var mid: Vector3 = c0 + Vector3(0, (0.05 if habit == "prism" else -0.12) * gs, 0)
 			var gaps := []
-			var nn := 90 + int(rng.next() * 40) if habit != "prism" else 150 + int(rng.next() * 50)
+			# (aragonite: fewer, longer, pointed — a spray of crystals catching the light, not a lump of facets)
+			var nn := 90 + int(rng.next() * 40) if habit != "prism" else 70 + int(rng.next() * 30)
 			for k in nn:
 				var u := Vector3(rng.next() - 0.5, rng.next() * 0.9 - 0.15, rng.next() - 0.5).normalized()
-				var p: Vector3 = mid + Vector3(u.x * 0.55, u.y * 0.4, u.z * 0.5) * gs * (0.5 + rng.next() * 0.45 if habit != "prism" else 0.62 + rng.next() * 0.2)
+				var p: Vector3 = mid + Vector3(u.x * 0.55, u.y * 0.4, u.z * 0.5) * gs * (0.5 + rng.next() * 0.45 if habit != "prism" else 0.3 + rng.next() * 0.2)
 				gaps.append([p, u])
 				var dir := (u + _rv() * 0.5).normalized()
-				var w := (0.05 + pow(rng.next(), 1.3) * 0.06) * gs * (1.25 if habit == "prism" else 1.0)
-				var h := w * ((0.8 + rng.next() * 0.9) if habit == "prism" else (1.4 + rng.next() * 1.6))
+				var w := (0.05 + pow(rng.next(), 1.3) * 0.06) * gs * (0.9 if habit == "prism" else 1.0)
+				var h := w * ((2.6 + rng.next() * 2.4) if habit == "prism" else (1.4 + rng.next() * 1.6))
 				var c: MeshInstance3D
 				if habit == "prism":
-					var g := RockKit.prism(rng, {sides = 6, w = w, d = w * (0.85 + rng.next() * 0.2), h = h, point = false, slope = 0.0, taper = 0.96, y0 = -w * 1.2, detail = 1, erode = ero * 0.5}, zcfg)
+					var g := RockKit.prism(rng, {sides = 6, w = w, d = w * (0.85 + rng.next() * 0.2), h = h, point = true, taper = 0.9, y0 = -w * 1.2, detail = 1, erode = ero * 0.5}, zcfg)
 					c = U.mesh(g, cm, root)
 					_place(c, p, dir, 1.0, rng.next() * TAU)
 				else:
@@ -411,21 +417,42 @@ func _specimen(o: Dictionary) -> Node3D:
 			var n0: Vector3 = st.nrm.call(c0)
 			var t1 := n0.cross(UP if absf(n0.y) < 0.9 else Vector3.RIGHT).normalized()
 			var t2 := n0.cross(t1)
-			var cols := [SpecMat.lin(0x6e7a18), SpecMat.lin(0x55661a), SpecMat.lin(0x8a8a24), SpecMat.lin(0x3c4a12), SpecMat.lin(0x9a8028), SpecMat.lin(0x5a3a16), SpecMat.lin(0x0e0e0c)]
+			# (peridot: the grains glassy and bright, lime to bottle-green, a few honey and black)
+			var cols := [SpecMat.lin(0x8cc020), SpecMat.lin(0x5e9a18), SpecMat.lin(0xb4c830), SpecMat.lin(0x3c6a12), SpecMat.lin(0xc0a030), SpecMat.lin(0x6a4a16), SpecMat.lin(0x0e0e0c)]
 			var nod := Geo.new()
 			var R := (0.32 + rng.next() * 0.1) * gs
-			for k in 700 + int(rng.next() * 160):
+			# the rock round the nest: each grain is dropped onto it along the ray from the middle (on a flat disc the
+			# edge grains hung in the air over the lump's curve)
+			var near := []
+			for v: Vector3 in (st.rock_geo as Geo).v:
+				if v.distance_to(c0) < R * 1.8 + 0.05: near.append(v)
+			var on_rock := func(p: Vector3) -> Vector3:
+				var d := p.normalized()
+				var best := [-2.0, -2.0, -2.0]
+				var rad := [0.0, 0.0, 0.0]
+				for v: Vector3 in near:
+					var c := v.normalized().dot(d)
+					if c > best[2]:
+						var j := 2
+						while j > 0 and c > (best[j - 1] as float):
+							best[j] = best[j - 1]
+							rad[j] = rad[j - 1]
+							j -= 1
+						best[j] = c
+						rad[j] = v.length()
+				return d * (((rad[0] as float) + (rad[1] as float) + (rad[2] as float)) / 3.0) if near.size() > 2 else p
+			for k in 300 + int(rng.next() * 80):
 				var a := rng.next() * TAU
 				var rr := sqrt(rng.next()) * R
-				var s := (0.016 + rng.next() * 0.018) * gs
-				var g := Geo.icosa(s, 1).to_soup()
+				var s := (0.024 + rng.next() * 0.03) * gs
+				var g := Geo.icosa(s, 0).to_soup()
 				var sq := Vector3(1.0 + rng.next() * 0.3, 0.85 + rng.next() * 0.3, 1.0 + rng.next() * 0.2)
 				var bs := Basis(U.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6))
 				var dome := sqrt(maxf(0.0, 1.0 - (rr / R) * (rr / R))) * R * 0.35
 				# (packed: the nest's floor is grains too, no rock showing through)
 				# a broken-open nest: the grains lie a little sunk in the face of the break
-				var at := c0 + (t1 * cos(a) + t2 * sin(a)) * rr + n0 * (dome * 0.7 + R * 0.05 - s * 0.3)
-				var cc: Color = (cols[int(Stones.pick_w([[0, 4.0], [1, 3.0], [2, 2.0], [3, 1.5], [4, 0.8], [5, 0.4], [6, 0.9]], rng))] as Color) * (0.45 + rng.next() * 0.35)
+				var at: Vector3 = on_rock.call(c0 + (t1 * cos(a) + t2 * sin(a)) * rr) + n0 * (dome * 0.7 + R * 0.05 - s * 0.3)
+				var cc: Color = (cols[int(Stones.pick_w([[0, 4.0], [1, 3.0], [2, 2.0], [3, 1.5], [4, 0.8], [5, 0.4], [6, 0.6]], rng))] as Color) * (0.35 + rng.next() * 0.3)
 				for v in g.v:
 					nod.v.append(at + bs * (v * sq))
 					nod.col.append(cc)
@@ -478,11 +505,19 @@ func _specimen(o: Dictionary) -> Node3D:
 				var p: Vector3 = st.pick.call() if k else top_pick.call()
 				var dir: Vector3 = lean.call((st.nrm.call(p) as Vector3).lerp(UP, 0.55 if k else 0.85), 0.6 if k else 0.25)
 				var c: MeshInstance3D
-				if prismy:
+				if cubic and look.get("steps", false):
+					# galena: true cubes with stepped terraces, tumbled at any angle, a few stood on a corner
+					var cs := (0.11 + f * 0.3) * gs
+					c = U.mesh(RockKit.cube_steps(rng, cs), cm, root)
+					_place(c, p, dir, 1.0, rng.next() * 6.28)
+					if rng.next() < 0.25: c.rotate_object_local(Vector3(1, 0, 1).normalized(), 0.62)
+					else: c.rotate_object_local(Vector3.RIGHT, (rng.next() - 0.5) * 0.7)
+					c.set_meta("col", true)
+				elif prismy:
 					var w := (0.05 + f * 0.15) * (1.3 if cubic else 1.0) * gs
 					var h := w * (1.3 + rng.next() * 0.7) if cubic else w * (3.0 + rng.next() * 3.5)
 					var g := RockKit.prism(rng, {sides = sides, w = w, d = w * (0.6 if habit == "blade" else 0.75 + rng.next() * 0.35), h = h,
-						point = not cubic and rng.next() < 0.7, slope = 0.5 if rng.next() < 0.3 else 0.0, y0 = -w * 0.8, detail = 1, erode = ero * 0.7}, zcfg)
+						point = not cubic and not look.get("flat_top", false) and rng.next() < 0.7, slope = 0.5 if rng.next() < (0.6 if look.get("flat_top", false) else 0.3) else 0.0, y0 = -w * 0.8, detail = 1, erode = ero * 0.7}, zcfg)
 					c = U.mesh(g, cm, root)
 					_place(c, p, dir, 1.0, rng.next() * 6.28)
 					c.set_meta("col", true)
@@ -714,8 +749,11 @@ func _specimen(o: Dictionary) -> Node3D:
 				elif habit == "octa" or habit == "dipyr": shape = 0.9
 				elif habit == "grain": shape = 0.95
 				elif habit == "cube": shape = 0.1
+				elif habit == "tetra": shape = -1.0
 				hs *= float(zcfg.wk)
-				if shape > 0.92: g = Geo.icosa(hs * 1.1, 1).scale(1.0, 0.75 + rng.next() * 0.3, 0.9 + rng.next() * 0.2)
+				if shape < 0.0: g = RockKit.tetra(hs * 1.9, 0.15 + rng.next() * 0.15)
+				elif habit == "cube" and look.get("steps", false): g = RockKit.cube_steps(rng, hs * 2.0)
+				elif shape > 0.92: g = Geo.icosa(hs * 1.1, 1).scale(1.0, 0.75 + rng.next() * 0.3, 0.9 + rng.next() * 0.2)
 				elif shape < 0.5: g = Geo.box(hs * 2, hs * (1.6 + rng.next() * 0.8), hs * (1.6 + rng.next() * 0.6))
 				elif shape < 0.8: g = Geo.dodeca(hs * 1.2).scale(1.0, 0.8 + rng.next() * 0.5, 1.0)
 				else: g = Geo.octa(hs * 1.3).scale(1.0, 1.2 + rng.next() * 0.6, 1.0)
@@ -848,6 +886,7 @@ func _specimen(o: Dictionary) -> Node3D:
 
 	match gene.fx:
 		"jellyfish": SpecJelly.swarm(root, rng)
+		"borealis": SpecPolar.borealis(root, rng)
 		"heart":
 			SpecLegend.heart(root, main, rng, col)
 			if main and main.material_override is ShaderMaterial:
@@ -888,6 +927,9 @@ func _specimen(o: Dictionary) -> Node3D:
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
 		SpecSea.caustics(root)
+	# frost over the crystals (their meshes, too, exist only now)
+	if gene.fx == "frost":
+		SpecPolar.frost(root, rng)
 	if legend:
 		root.set_meta("glow", U.raw(0xe4ae39))
 	return root
@@ -1005,6 +1047,10 @@ func _botryoid(sid: String, col: Color, irk: float) -> void:
 	bc.a = 1.0
 	var bm := SpecMat.make({col = bc, rough = 0.12 if sid == "opal" else 0.22, coat = 0.8, coat_r = 0.15, env = 1.4,
 		ir = 0.95 if sid == "opal" else maxf(irk, 0.12), bd = 0.3 if banded else 0.0, dirt = {h = -0.3, a = 0.35, col = crust, fr = 0.0, isl = 0.08, fb = 0.0}})
+	if sid == "chalcedony":
+		# blue chalcedony: waxy, translucent — lit a little from within, fine bands round each bubble, a soft sheen
+		bm = SpecMat.make({col = col * 0.85, rough = 0.16, coat = 0.9, coat_r = 0.1, env = 1.5, ir = 0.22, bd = 0.18, emis = col * 0.22,
+			dirt = {h = -0.3, a = 0.35, col = SpecMat.lin(0x3a3430), fr = 0.0, isl = 0.08, fb = 0.0}})
 	if rng.next() < 0.35:
 		# rounded stalagmites crowded together on a crusty foot
 		for k in 4 + int(floor(rng.next() * 5)):
@@ -1045,9 +1091,15 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	U.inst(Geo.octa(1), SpecMat.make({rough = 0.08, coat = 1.0, flat = true, env = 2.4}), 800, place, shell)
 	# agate rind: fine bands from the dark outer crust through grey and milky layers to a hint of the stone's own colour
 	var hue := SpecMat.get_hsl(Color(sp.c)).x
+	var ag: Array = st.agate
 	var band := func(t: float) -> Color:
 		var r := t * 40.0
 		var j := sin(r * 2.1) * 0.5 + sin(r * 0.37) * 0.5
+		if ag.size():
+			# the species' own agate (Svalbard: blue): bands of its colours, uneven widths, a dark crust outside
+			if t < 0.12: return SpecMat.hsl(0.07, 0.25, 0.14 + t)
+			var u := fposmod(t * 5.3 + sin(t * 23.0) * 0.18, float(ag.size()))
+			return Color.hex(int(ag[int(u)]) << 8 | 0xff).lerp(Color.hex(int(ag[(int(u) + 1) % ag.size()]) << 8 | 0xff), smoothstep(0.7, 1.0, fposmod(u, 1.0)))
 		if t < 0.25:
 			return SpecMat.hsl((20.0 + j * 8.0) / 360.0, 0.35 + j * 0.15, 0.12 + t * 0.4 + j * 0.06)
 		return SpecMat.hsl(hue if t > 0.8 else (30.0 + j * 180.0) / 360.0, 0.3 if t > 0.8 else 0.06 + j * 0.08, 0.18 + t * 0.28 + j * 0.12)
@@ -1089,6 +1141,11 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	dt.fr = 0.0
 	var c_root := Color(0.92, 0.93, 0.95).lerp(col, 0.45)
 	var c_tip := SpecMat.offset_hsl(col, 0, 0.15, -0.08)
+	# an agate (SpecLooks agate) is lined with little clear quartz points, only a breath of its colour at their tips
+	var inner: String = "prism" if (st.agate as Array).size() else habit
+	if inner != habit:
+		c_root = Color(0.95, 0.96, 0.98)
+		c_tip = Color(0.95, 0.96, 0.98).lerp(col, 0.35)
 	var prismy := elongated or habit == "cube"
 	var main: MeshInstance3D = null
 	for k in 80 + int(floor(rng.next() * 40)):
@@ -1103,7 +1160,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			c = U.mesh(g, gm, shell)
 			_place(c, d * 0.86, dir, 1.0, rng.next() * 6.28)
 		else:
-			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * 0.86, dir, {cA = c_root, cB = c_tip, zk = 1.0}, gm, shell)
+			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * 0.86, dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
 		c.set_meta("local", true)
 		if not main: main = c
 	shell.transform = Transform3D(U.eul(-PI / 2 - 0.55, 0.35, 0), Vector3.ZERO)

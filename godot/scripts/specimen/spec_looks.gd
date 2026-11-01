@@ -23,8 +23,10 @@ extends RefCounted
 ## opaque  no glass: a waxy or resinous lit surface {rough, coat, grain}
 ## ir      how much rainbow film / holographic sheen the species takes (1 as before)
 ## metal_col  a metal species' own colour (hematite's dark steel)
+## tarnish the rainbow tarnish over the metal (hematite's iridescent "rainbow hematite"), 0.5 when not set
 ## rose_metal  the rosette's blades in steel (hematite's iron rose)
 ## dense   how many crystals a druse packs (x)
+## flat_top  its columns end flat or bevelled, never in a point (barite's tablets)
 ## growths the chance anything of the common layer (growths, mushrooms) grows on it at all
 ## no_acc  accents it never takes (dark inclusions in sulphur's glass)
 ## rose_n, rose_s  the rose's blade count and size (x): hematite's are many and small
@@ -63,36 +65,46 @@ const LOOK := {
 		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 1.3, wk = 0.7, dark = 0.0, rose = [0x7a5a3c, 0xa4865e], more = {twin = 0.12}},
 	# Fire Horizon (Sicily's sulphur mines and Etna)
 	sulphur = {zone = [0, 0.0, 0.0], foot_frost = false, rock_shape = "slab", forms = [["spray", 1.0]], kinds = [["druse", 7.0], ["crystal", 2.0]],
-		rock = [["gypsum", 4.0], ["limestone", 1.0]], dark = 0.0, glass = {tint = 0.75, frost = 0.3, glow = 0.24}, ir = 0.05, hk = 0.85, wk = 1.3,
-		dense = 1.9, growths = 0.35, no_acc = ["inkspots", "clouds"], with = [["blades", 0xa8c8ec, 0.3, "celestine"]]},
-	aragonite = {zone = [0, 0.0, 0.0], forms = [["spray", 1.0]], opaque = {rough = 0.5, coat = 0.15, grain = 0.15},
-		kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["gypsum", 3.0], ["limestone", 1.0]], dark = 0.0, ir = 0.05, growths = 0.4,
+		rock = [["gypsum", 4.0], ["limestone", 1.0]], dark = 0.0, glass = {tint = 0.7, frost = 0.2, glow = 0.36}, ir = 0.3, hk = 0.85, wk = 1.3,
+		dense = 1.9, no_acc = ["inkspots", "clouds"], with = [["blades", 0xa8c8ec, 0.3, "celestine"]]},
+	aragonite = {zone = [0, 0.0, 0.0], forms = [["spray", 1.0]], glass = {tint = 0.5, frost = 0.6, glow = 0.2},
+		palette = [[0xf2e8d6, 0xf2e8d6, 4.0], [0xeab868, 0xeab868, 3.0], [0xb8a0e0, 0xb8a0e0, 1.2], [0x9ad0c8, 0x9ad0c8, 1.0]],
+		kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["gypsum", 3.0], ["limestone", 1.0]], dark = 0.0, ir = 0.35,
 		with = [["crust", 0xf0d020, 0.55, "sulphur"]]},
 	realgar = {zone = [0, 0.0, 0.0], foot_frost = false, forms = [["cluster", 1.0]], kinds = [["druse", 1.0]], dense = 0.7,
-		rock = [["slate", 3.0], ["lava", 2.0]], hk = 0.7, wk = 1.05, dark = 0.0, opaque = {rough = 0.18, coat = 0.7, grain = 0.25},
-		ir = 0.0, blunt = true, growths = 0.3, no_acc = ["inkspots", "clouds"], with = [["crust", 0xd8681a, 0.85, "orpiment"]]},
+		rock = [["slate", 3.0], ["lava", 2.0]], hk = 0.7, wk = 1.05, dark = 0.0, glass = {tint = 0.9, dark = 0.2, frost = 0.12, glow = 0.32},
+		ir = 0.2, blunt = true, no_acc = ["inkspots", "clouds"], with = [["crust", 0xd8681a, 0.85, "orpiment"]]},
 	hematite = {forms = [["rosette", 4.0], ["platestack", 4.0]], kinds = [["crystal", 5.0], ["druse", 2.0]], rock = [["quartzite", 2.0], ["lava", 1.0]],
-		rose = [0x1c1612, 0x3a3028], rose_metal = true, rose_n = 2.4, rose_s = 0.6, metal_col = 0x4c5060, growths = 0.0,
+		rose = [0x1c1612, 0x3a3028], rose_metal = true, rose_n = 2.4, rose_s = 0.6, metal_col = 0x4c5060, tarnish = 0.8,
 		with = [["blades", 0xeef2f6, 0.2, "rockcrystal"]]},
 	olivine = {zone = [0, 0.0, 0.0], forms = [["xenolith", 1.0]], kinds = [["crystal", 1.0]], rock = [["lava", 1.0]], dark = 0.0,
-		opaque = {rough = 0.22, coat = 0.8, grain = 0.0}, ir = 0.0, growths = 0.0},
+		glass = {tint = 0.95, frost = 0.05, glow = 0.2}, ir = 0.2},
 	obsidian = {kinds = [["crystal", 1.0]]},
-	# Proval (Svalbard's coal measures): the vein minerals of the coal and the shale, and agate from the old lavas
-	siderite = {forms = [["pile", 4.0], ["cluster", 4.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 4.0], ["ironstone", 2.0]],
-		hk = 0.8, wk = 1.0, dark = 0.0, opaque = {rough = 0.3, coat = 0.5, grain = 0.25}, ir = 0.1, dense = 1.4,
+	# Proval (Svalbard's coal measures): the vein minerals of the coal and the shale, and agate from the old lavas —
+	# shown at their prettiest: glowing honey rhombs, blue and golden barite, mirror galena, fiery ruby jack,
+	# blue agate, and the raspberry rhodochrosite as its jewel
+	siderite = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 4.0], ["ironstone", 2.0]],
+		saddle = 1.0, rh = -0.22, wk = 1.3, hk = 1.2, dark = 0.0, opaque = {rough = 0.22, coat = 0.8, grain = 0.04}, ir = 0.25, dense = 1.0,
+		palette = [[0x6a3e16, 0x6a3e16, 4.0], [0x8a5820, 0x8a5820, 3.0], [0x46280e, 0x46280e, 1.5]],
 		with = [["blades", 0xeef2f6, 0.25, "rockcrystal"]]},
-	barite = {forms = [["rosette", 4.0], ["slabs", 3.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
-		rock = [["limestone", 3.0], ["slate", 2.0]], hk = 0.7, wk = 1.3, dark = 0.0, glass = {tint = 0.45, frost = 0.35}, ir = 0.1,
-		rose = [0xc8b088, 0xe8dcc0], rose_n = 1.4,
-		palette = [[0xe6d6b4, 0xe6d6b4, 4.0], [0xf2eee6, 0xf2eee6, 3.0], [0x9ab8d8, 0x9ab8d8, 2.0], [0xd8a868, 0xd8a868, 1.5]]},
-	galena = {forms = [["cluster", 4.0], ["pile", 2.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
-		rock = [["slate", 3.0], ["quartzite", 2.0]], metal_col = 0x7a7e8a, growths = 0.3,
+	barite = {zone = [0, 0.0, 0.0], flat_top = true, forms = [["rosette", 1.5], ["cluster", 5.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
+		rock = [["slate", 3.0], ["limestone", 1.0]], hk = 0.6, wk = 1.6, dark = 0.0, glass = {tint = 0.85, frost = 0.08, glow = 0.3}, ir = 0.4,
+		rose = [0xa86a30, 0xe8b868], rose_n = 1.4,
+		palette = [[0xd89428, 0xd89428, 3.0], [0x5a94e0, 0x5a94e0, 3.0], [0xeae2d2, 0xeae2d2, 1.5], [0xd07040, 0xd07040, 1.0]]},
+	galena = {forms = [["cluster", 4.0], ["pile", 2.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]], steps = true,
+		rock = [["slate", 3.0], ["quartzite", 2.0]], metal_col = 0x8a929e, mrough = 0.22, menv = 2.0, tarnish = 0.1, growths = 0.15,
 		with = [["blades", 0xe6d6b4, 0.3, "barite"]]},
-	sphalerite = {forms = [["cluster", 4.0], ["pile", 3.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["slate", 4.0], ["limestone", 1.0]],
-		dark = 0.0, glass = {tint = 0.9, dark = 0.45}, ir = 0.15,
-		palette = [[0x8a3a12, 0x8a3a12, 4.0], [0xb8721a, 0xb8721a, 2.0], [0x3a2416, 0x3a2416, 2.0]]},
-	chalcedony = {kinds = [["druse", 1.0]], rock = [["basalt", 4.0], ["lava", 1.0]], dark = 0.0, growths = 0.4,
-		palette = [[0xa9c2dc, 0xa9c2dc, 4.0], [0xc8d4e2, 0xc8d4e2, 2.0], [0x8aa0c8, 0x8aa0c8, 1.5]]},
+	sphalerite = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["pile", 3.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["slate", 4.0], ["limestone", 1.0]],
+		wk = 1.3, hk = 1.3, dark = 0.0, glass = {tint = 1.0, dark = 0.7, frost = 0.02, glow = 0.36}, ir = 0.15,
+		palette = [[0x8a1404, 0xa81a06, 4.0], [0xc84a0c, 0xc84a0c, 3.0], [0xc08a18, 0xc08a18, 1.5], [0x581206, 0x581206, 1.0]]},
+	chalcedony = {kinds = [["geode", 5.0], ["druse", 3.0]], rock = [["basalt", 4.0], ["lava", 1.0]], dark = 0.0, growths = 0.3,
+		agate = [0x5a7ab0, 0xa8c4e8, 0xe8eef6, 0x34507e],
+		palette = [[0x8ab0e0, 0x8ab0e0, 4.0], [0xb0c8ec, 0xb0c8ec, 2.0], [0x6a88c8, 0x6a88c8, 1.5]]},
+	rhodochrosite = {zone = [0, 0.0, 0.0], forms = [["cluster", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0]],
+		rock = [["quartzite", 3.0], ["slate", 1.0]], rh = 0.1, dark = 0.0, glass = {tint = 1.0, dark = 0.2, frost = 0.04, glow = 0.45}, ir = 0.45, dense = 0.8,
+		palette = [[0xc81838, 0xc81838, 4.0], [0xe03a58, 0xe03a58, 2.0], [0xa00c2c, 0xa00c2c, 2.0]],
+		with = [["blades", 0xeef2f6, 0.45, "rockcrystal"]]},
+	fern = {rock = [["slate", 1.0]], growths = 0.0},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
 }

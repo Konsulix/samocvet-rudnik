@@ -291,6 +291,15 @@ func _ready() -> void:
 				var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977))
 				var e := {seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []}
 				if args.has("form"): e.form = args.form
+				# fern=all: every film in turn, the plants down the rows
+				if args.has("fern"):
+					e.film = k % 4
+					e.plant = ["fern", "ginkgo", "redwood", "horsetail"][(k / 4) % 4]
+				# fx=<effect>: every one legendary with that effect
+				if args.has("fx"):
+					e.legend = true
+					e.fx = args.fx
+					e.gi = 4
 				if args.has("ob"): e.ob = ["black", "snowflake", "mahogany", "rainbow", "tears"][k % 5] if args.ob == "all" else args.ob
 				list.append(e)
 		args.cols = args.get("cols", "3")
