@@ -167,10 +167,16 @@ func _board_theme() -> Array:
 	if has.call("rock"): return ["Rubble", "Clear the rock"]
 	return ["", ""]
 
+## a hard level's mark (the banner's line, the title)
+const HARD_COL := Color("#e0584a")
+## coins a win brings on a hard level and a super hard one (LevelGen.BEAT)
+const HARD_PAY := {"hard": 1.5, "super": 2.0}
+
 ## the board's name and task across it as it starts, on a slate band, then gone
 func _banner() -> void:
 	var th := _board_theme()
-	if String(th[0]) == "": return
+	var hard_line := "Super hard level" if model.beat == "super" else "Hard level" if model.hard else ""
+	if String(th[0]) == "" and hard_line == "": return
 	var vp := get_viewport_rect().size
 	var band := PanelContainer.new()
 	var st := Kit.box("card", 0.0)
@@ -180,6 +186,10 @@ func _banner() -> void:
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 0)
+	if hard_line != "":
+		var hl := Kit.label(hard_line.to_upper(), 15, UI.display, HARD_COL)
+		hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(hl)
 	var t := Kit.label(String(th[0]), 26, UI.display, Kit.AMBER)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
@@ -406,7 +416,7 @@ func _build_hud() -> void:
 	hud.add_child(overlay)
 
 func _render_hud() -> void:
-	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · hard" if model.hard else ""]
+	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · super hard" if model.beat == "super" else " · hard" if model.hard else ""]
 	if prologue: title_label.text = "Cave-in"
 	if model.boss_on():
 		title_label.text = "%s · %d m" % [model.boss.B.n, int(model.boss.B.m)]
@@ -1378,7 +1388,8 @@ func _finale() -> void:
 func _win() -> void:
 	Sfx.play("win")
 	Sfx.buzz(80)
-	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul())
+	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul()
+		* float(HARD_PAY.get(model.beat, 1.0)))
 	Save.d.coins += coins
 	# the ore counts only now, and comes out of the depth's veins (none is mined at the boss)
 	if model.boss_on():

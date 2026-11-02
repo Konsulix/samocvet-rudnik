@@ -21,6 +21,7 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 	var m := BoardModel.new()
 	m.rng.seed = seed_v
 	m.setup(n, streak_pre(), dl, Save.d.eq, area, true, level)
+	var goal0 := _goals_left(m)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 7 + 1
 	var broken := [0, 0, 0, 0, 0, 0]
@@ -94,6 +95,7 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		if m.moves <= 0:
 			break
 	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves),
+		goal0 = goal0, left = _goals_left(m),
 		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0}
 
 static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
@@ -112,6 +114,12 @@ static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 	if swaps.is_empty():
 		return []
 	return swaps[rng.randi_range(0, swaps.size() - 1)]
+
+## what the goals still want, all counted together (a near miss: a loss with little of it left)
+static func _goals_left(m: BoardModel) -> int:
+	var n := 0
+	for g in m.goals: n += maxi(0, int(g.left))
+	return n
 
 ## the smart player (`-- smart`): tries every move on a copy of the board and keeps the one that does the most for the
 ## level's goals (_worth), as a player who looks at what the level asks for would. It doesn't see the stones about
@@ -294,14 +302,16 @@ static func gen_report(per_depth: int, area := 0) -> String:
 		var iw := 0
 		var ii := 0
 		for i in per_depth:
-			var def := LevelGen.make(area, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0)
+			# the levels' beats in turn (LevelGen.BEAT), so each is measured
+			var beat: String = ["easy", "normal", "hard", "super"][i % 4]
+			var def := LevelGen.make(area, dl, 5000 + dl * 1000 + i, false, 1 + i % 4 if i else 0, beat)
 			# sim_free: moves without end, so `used` is what the level really needs (for fitting LevelGen.WORK)
 			var given0 := int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_free"): def.moves = 120
 			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def, area)
 			given += int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_rows"):
-				print("ROW ", JSON.stringify({dl = dl, moves = def.moves, given = given0, feats = def.get("feats", []), count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
+				print("ROW ", JSON.stringify({dl = dl, beat = def.get("beat", ""), left = r.left, goal0 = r.goal0, moves = def.moves, given = given0, feats = def.get("feats", []), count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
 			used += int(r.used)
 			if def.intro:
 				ii += 1

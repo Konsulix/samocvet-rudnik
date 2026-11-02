@@ -97,6 +97,7 @@ var n := 1
 var depth := 0
 var moves := 0
 var hard := false
+var beat := ""      # a generated level's place in the rhythm (LevelGen.BEAT): easy | normal | hard | super
 var colors := 5
 var goals := []      # {k, t, left}
 var over := false
@@ -841,6 +842,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	vent = int(eq.get("vent", 0))
 	moves = start_moves(def, dl, eq)
 	hard = bool(def.get("hard", false))
+	beat = String(def.get("beat", ""))
 	colors = int(def.colors) if gen else 6 if dl >= 4 else 5
 	goals = []
 	over = false
