@@ -79,8 +79,8 @@ const FEATURE_P := 0.8
 const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 1.0, bucket = 0.8}
 const WORK := {sand = 0.25, granite = 0.9, mud = 0.15, gas = 0.55, lock = 0.55, crust = 0.3, ice = 0.7, nod = 0.45, nug = 1.2, geo = 3.0, colour = 0.07, cart = 0.95, keg = 0.3, kegs = -0.4, dark = 0.04, belt = -1.5, bucket = 1.6}
 const BASE := 5.1
-## a shape that is slower to work through than its cells say: shafts dug from the top, a lower tier behind a throat
-const SCHEME_WORK := {shafts = 6.0, tiers = 4.0}
+## a shape that is slower to work through than its cells say: a lower tier behind a throat
+const SCHEME_WORK := {tiers = 4.0}
 ## moves over what the smart bot needs WITH the win streak's gifts (a player mostly has them, Data.streak_free), tighter
 ## by TIGHT a depth; the first depth forgives a little more. Tuned 31.10 (playtest: three mines without a loss): the bot
 ## with the gifts wins ~85%, without them ~60%
@@ -157,6 +157,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int) -> Dict
 		"hand": _from_hand(rng, grid, groups, nugs, geo_at)
 		"drawn": _drawn(rng, grid, groups)
 		_: _scheme(rng, scheme, grid, groups, nugs, geo_at)
+	_fill_specks(grid, groups)
 	# what goes where
 	var kinds: Array = T.kinds
 	var ka: String = nk if intro else _pick(rng, kinds, nk)
@@ -486,13 +487,12 @@ static func _scheme(rng: RandomNumberGenerator, scheme: String, grid: Array, gro
 				nugs.append(Vector2i(rt + 1, half - 1))
 			geo_at.append(Vector2i(1, half - 2))
 		"shafts":
-			# shafts two wide down both sides behind a wall of holes, packed with blocks; a band across the middle between
-			# them, in the lower half. The wall has a window every other row: a shaft walled off whole is dug out one
-			# layer at a time from its top only (+24 moves for the smart player)
+			# shafts two wide down both sides of the lower half, packed with blocks, behind a wall of the other blocks
+			# (a wall of holes cut the shafts off from matches, and its windows left single holes all over the board);
+			# a band across the middle between them
 			var sw := 2
 			var rs := rng.randi_range(R / 2 - 1, R / 2 + 1)
-			for r in range(rs, R):
-				if (r - rs) % 2 == 0: _hole(grid, r, sw)
+			for r in range(rs, R): _put(grid, groups, "a", r, sw)
 			for r in range(R - 1, rs - 1, -1):
 				for c in sw: _put(grid, groups, "b", r, c)
 			var r0 := rng.randi_range(R / 2, R - 3)
@@ -546,6 +546,41 @@ static func _scheme(rng: RandomNumberGenerator, scheme: String, grid: Array, gro
 				_hole(grid, R - 1, 0)
 				_hole(grid, 0, 0)
 			nugs.append_array([Vector2i(0, half - 1), Vector2i(0, C - half)])
+
+## holes shape the board's outline (a notch, a cut corner, a gap between tiers), never a speck inside it: a patch of
+## holes off the edge smaller than 2 x 2 goes back to board (to the blocks round it, if they are all of one group)
+static func _fill_specks(grid: Array, groups: Dictionary) -> void:
+	var seen := {}
+	for r in R:
+		for c in C:
+			if grid[r][c] != "#" or seen.has(Vector2i(r, c)): continue
+			var patch := [Vector2i(r, c)]
+			seen[patch[0]] = true
+			var edge := false
+			var i := 0
+			while i < patch.size():
+				var p: Vector2i = patch[i]
+				i += 1
+				if p.x == 0 or p.y == 0 or p.x == R - 1 or p.y == C - 1: edge = true
+				for d: Vector2i in BoardModel.DIRS4:
+					var q := p + d
+					if q.x >= 0 and q.y >= 0 and q.x < R and q.y < C and grid[q.x][q.y] == "#" and not seen.has(q):
+						seen[q] = true
+						patch.append(q)
+			if edge or _has_square(grid, patch): continue
+			for p: Vector2i in patch:
+				grid[p.x][p.y] = "."
+				var near := {}
+				for d: Vector2i in BoardModel.DIRS4:
+					for g in ["a", "b"]:
+						if p + d in groups[g]: near[g] = true
+				if near.size() == 1: groups[near.keys()[0]].append(p)
+
+static func _has_square(grid: Array, patch: Array) -> bool:
+	for p: Vector2i in patch:
+		if p.x + 1 < R and p.y + 1 < C and grid[p.x + 1][p.y] == "#" and grid[p.x][p.y + 1] == "#" and grid[p.x + 1][p.y + 1] == "#":
+			return true
+	return false
 
 ## a hole and its mirror image
 static func _hole(grid: Array, r: int, c: int) -> void:

@@ -52,6 +52,11 @@ func _check(m: BoardModel, def: Dictionary) -> String:
 			if m.DARK[r][c]: dark += 1
 			elif m.open(r, c): light += 1
 	if dark and not light: return "the dark with no light"
+	# holes shape the outline: none stands alone inside the board (a hole with board on all four sides)
+	for r in range(1, m.R - 1):
+		for c in range(1, m.C - 1):
+			if not m.playable(r, c) and m.playable(r - 1, c) and m.playable(r + 1, c) and m.playable(r, c - 1) and m.playable(r, c + 1):
+				return "a lone hole at %d,%d" % [r, c]
 	var nod_asked: int = int(def.count.get("nod", -1))
 	if def.count.has("nod") and nod_asked < 2: return "%d nodules" % nod_asked
 	# nuggets: straight down to the bottom, blocks aside (they get cleared), never over a hole with board below it
