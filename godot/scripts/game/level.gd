@@ -23,6 +23,13 @@ var booster_bar: HBoxContainer
 var overlay: Control
 var looks_icon: Control
 var busy := true
+## a move made while the last one still cascades (Royal Match's way): its events and swap wait for the cascade's next
+## step, its turn's end (gas, nodules) is played once more when the cascade is done
+var _resolving := false
+var _queued_ev: Array = []
+var _queued_sw: Array = []
+var _extra_moves := 0
+var _swipes_in_flight := 0
 var booster := ""
 var idle := 0.0
 var _hinted := false
@@ -630,7 +637,9 @@ var _find_since := 0.0
 var _light_snd := 0      # the dark's chimes: one at a time, rising while the light runs on
 var _light_n := 0
 
+static var _rush_on := OS.get_cmdline_user_args().has("rush")
 func _process(dt: float) -> void:
+	if _rush_on and model and not model.over: _rush(dt)
 	if find_spec:
 		find_spec.rotation.y += dt * 0.5
 	if _light: _light_tick()
@@ -648,7 +657,10 @@ func _process(dt: float) -> void:
 		if not mv.is_empty(): board.hint(mv)
 
 func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
-	if busy or model.over: return
+	if model.over: return
+	if busy:
+		if _resolving: await _swipe_mid(r1, c1, r2, c2)
+		return
 	_touched()
 	if booster != "":
 		return
@@ -694,6 +706,95 @@ func _on_tap(r: int, c: int) -> void:
 		await _resolve([{t = 0.0, r = r, c = c, kind = "fx"}], [])
 		await _after_turn()
 
+## a swap while the board is still cascading: only stones at rest that nothing below can move, a match of their own;
+## the swap plays first and is checked again before it counts (the cascade went on meanwhile)
+func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
+	if booster != "" or coach.visible or not Save.told("swap") or model.moves <= 0: return
+	if model.boss_on() or not model.belts.is_empty(): return
+	if not _still(r1, c1) or not _still(r2, c2): return
+	var a: BoardModel.Gem = model.G[r1][c1]
+	var b: BoardModel.Gem = model.G[r2][c2]
+	var ok := _mid_swap_ok(r1, c1, r2, c2)
+	_touched()
+	_swipes_in_flight += 1
+	Sfx.play("swap")
+	if not ok:
+		await board.animate_swap(a.id, b.id, true)
+		Sfx.play("bad")
+		_swipes_in_flight -= 1
+		return
+	await board.animate_swap(a.id, b.id)
+	# the cascade went on while they moved: still the same two stones, still a match?
+	var res = null
+	if model.G[r1][c1] == a and model.G[r2][c2] == b and a.alive() and b.alive() and model.moves > 0 and _mid_swap_ok(r1, c1, r2, c2):
+		res = model.swap(r1, c1, r2, c2)
+	# each picture to where its stone now is (only these two: the rest may be falling)
+	for q: Vector2i in [Vector2i(r1, c1), Vector2i(r2, c2)]:
+		var g: BoardModel.Gem = model.G[q.x][q.y]
+		var n: GemNode = board.nodes.get(g.id) if g else null
+		if n:
+			n.position = board.cell_center(q.x, q.y)
+			n.z_index = 0
+	if res == null:
+		_swipes_in_flight -= 1
+		return
+	model.use_move()
+	_render_moves()
+	_extra_moves += 1
+	_queued_ev.append_array(res.events)
+	if not res.special: _queued_sw = res.swap_cells
+	_swipes_in_flight -= 1
+
+## testing (`-- rush`, with `autoplay=N`): while a cascade runs, now and then a move of the stones at rest, as a quick
+## player would - to see moves made mid-cascade and the board staying in step
+var _rush_at := 0.0
+func _rush(dt: float) -> void:
+	_rush_at += dt
+	if _rush_at < 0.3 or not _resolving: return
+	_rush_at = 0.0
+	var pairs := []
+	for r in model.R:
+		for c in model.C:
+			for d: Vector2i in [Vector2i(0, 1), Vector2i(1, 0)]:
+				var q := Vector2i(r, c) + d
+				if q.x < model.R and q.y < model.C and _still(r, c) and _still(q.x, q.y) and _mid_swap_ok(r, c, q.x, q.y):
+					pairs.append([r, c, q.x, q.y])
+	if pairs.is_empty(): return
+	var mv: Array = pairs[randi() % pairs.size()]
+	print("RUSH move ", mv, " moves left ", model.moves)
+	_swipe_mid(mv[0], mv[1], mv[2], mv[3])
+
+## a stone at rest: alive, not melting into a special, its picture in its cell, nothing empty or dying below it
+func _still(r: int, c: int) -> bool:
+	if not model.open(r, c) or model.LOCK[r][c]: return false
+	var g: BoardModel.Gem = model.G[r][c]
+	if g == null or not g.alive() or g.merge.x >= 0 or g.convert_t >= 0.0: return false
+	var n: GemNode = board.nodes.get(g.id)
+	if n == null or n.position.distance_to(board.cell_center(r, c)) > 1.0: return false
+	for rr in range(r + 1, model.R):
+		if not model.open(rr, c): continue
+		var h: BoardModel.Gem = model.G[rr][c]
+		if h == null or not h.alive(): return false
+	return true
+
+## would swapping these two make a move of its own: a special among them, or a match one of them is in (the board
+## has other matches mid-cascade - model.swap alone would take any of those for this move's)
+func _mid_swap_ok(r1: int, c1: int, r2: int, c2: int) -> bool:
+	var a: BoardModel.Gem = model.G[r1][c1]
+	var b: BoardModel.Gem = model.G[r2][c2]
+	if a == null or b == null: return false
+	if a.sp != "" or b.sp != "": return true
+	model.G[r1][c1] = b
+	model.G[r2][c2] = a
+	var keys := [r1 * model.C + c1, r2 * model.C + c2]
+	var hit := false
+	for gr in model.find_groups():
+		for k in gr.cells:
+			if k in keys: hit = true
+	model.G[r1][c1] = a
+	model.G[r2][c2] = b
+	return hit
+
 func _touched() -> void:
 	idle = 0.0
 	_hinted = false
@@ -706,11 +807,21 @@ func _wait(sec: float) -> void:
 func _resolve(first: Array, swap_cells: Array) -> void:
 	var cascade := 0
 	var sw := swap_cells
+	_resolving = true
 	while true:
-		var groups := model.find_groups()
-		var ev := first
+		# a move made meanwhile joins this step: its special's events, its swap for where a new special goes
+		var ev := first + _queued_ev
+		_queued_ev = []
 		first = []
+		if not _queued_sw.is_empty():
+			sw = _queued_sw
+			_queued_sw = []
+		var groups := model.find_groups()
 		if groups.is_empty() and ev.is_empty():
+			if _swipes_in_flight > 0:
+				await _wait(0.05)
+				continue
+			_resolving = false
 			break
 		cascade += 1
 		# a cascade's count over the stones that fell into place by themselves
@@ -1047,21 +1158,25 @@ func _after_turn() -> void:
 			await _finale()
 			_win()
 			return
-	var p := model.gas_spread()
-	if p.x >= 0:
-		board.sync(true)   # the gassed stone goes (and any other the model no longer has)
-		board.redraw_under()
-		fx.sparkle(p.x, p.y, Color("#c8f070"), 14)
-		Sfx.play("gas")
-		var gi := model.goal_index("gas")
-		if gi >= 0:
-			goal_boxes[gi].shown += 1
-			_render_goal(gi)
-		if not Save.told("gas_spread"):
-			Save.tell("gas_spread")
-			_toast("Gas is spreading — hit it every move")
-		await _wait(0.26)
-	await _grow_nodules()
+	# the turn's end once for every move this cascade took (moves made during it, _swipe_mid)
+	var turns := 1 + _extra_moves
+	_extra_moves = 0
+	for k in turns:
+		var p := model.gas_spread()
+		if p.x >= 0:
+			board.sync(true)   # the gassed stone goes (and any other the model no longer has)
+			board.redraw_under()
+			fx.sparkle(p.x, p.y, Color("#c8f070"), 14)
+			Sfx.play("gas")
+			var gi := model.goal_index("gas")
+			if gi >= 0:
+				goal_boxes[gi].shown += 1
+				_render_goal(gi)
+			if not Save.told("gas_spread"):
+				Save.tell("gas_spread")
+				_toast("Gas is spreading — hit it every move")
+			await _wait(0.26)
+		await _grow_nodules()
 	if not model.belts.is_empty():
 		await _belts()
 		if model.goals_done():

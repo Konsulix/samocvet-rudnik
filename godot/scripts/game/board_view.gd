@@ -131,7 +131,8 @@ func _ready() -> void:
 	lamp_layer = _layer(func(ci: Node2D):
 		if model:
 			BoardMech.draw_belt_rails(self, ci)
-			BoardMech.draw_lamps(self, ci, Time.get_ticks_msec() / 1000.0))
+			BoardMech.draw_lamps(self, ci, Time.get_ticks_msec() / 1000.0)
+			_draw_last(ci))
 	ink_layer = _layer(_draw_ink)
 	var im := ShaderMaterial.new()
 	im.shader = preload("res://shaders/ink.gdshader")
@@ -230,6 +231,7 @@ func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
 	return n
 
 func refresh() -> void:
+	_find_last()
 	queue_redraw()
 	belt_layer.queue_redraw()
 	mech_layer.queue_redraw()
@@ -746,11 +748,49 @@ func run_belts(dur: float) -> void:
 		lamp_layer.queue_redraw(), 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE)
 	await tw.finished
 
+## the last few cells a goal still wants (LAST_FEW or fewer): they pulse, so the last one in the dark or a speck of mud
+## left in a corner is not hunted for (Royal Match does the same)
+const LAST_FEW := 4
+var last_cells: Array[Vector2i] = []
+
+func _find_last() -> void:
+	last_cells.clear()
+	if model == null or model.boss_on(): return
+	var of := {dark = func(r: int, c: int) -> bool: return bool(model.DARK[r][c]),
+		mud = func(r: int, c: int) -> bool: return model.MUD[r][c] > 0,
+		rock = func(r: int, c: int) -> bool: return model.ROCK[r][c] > 0,
+		gas = func(r: int, c: int) -> bool: return model.GAS[r][c] > 0,
+		lock = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 1,
+		crust = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 2,
+		ice = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 4 or model.LOCK[r][c] == 5}
+	var few := LAST_FEW
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("last="): few = int(arg.get_slice("=", 1))   # testing: `-- last=99` lights them all
+	for g in model.goals:
+		var k: String = g.k
+		if not of.has(k) or int(g.left) <= 0 or int(g.left) > few: continue
+		var f: Callable = of[k]
+		for r in R:
+			for c in C:
+				if model.playable(r, c) and bool(f.call(r, c)) and not Vector2i(r, c) in last_cells: last_cells.append(Vector2i(r, c))
+
+## a soft ring breathing round each of the last cells, with a faint fill: easy to see even under the dark
+func _draw_last(ci: CanvasItem) -> void:
+	if last_cells.is_empty(): return
+	var t := Time.get_ticks_msec() / 1000.0
+	var p := 0.5 + 0.5 * sin(t * 4.2)
+	for q: Vector2i in last_cells:
+		var ctr := cell_center(q.x, q.y)
+		ci.draw_circle(ctr, TS * 0.44, Color(1.0, 0.86, 0.5, 0.08 + 0.1 * p))
+		ci.draw_arc(ctr, TS * (0.4 + 0.05 * p), 0.0, TAU, 32, Color(1.0, 0.88, 0.55, 0.5 + 0.45 * p), maxf(2.0, TS * 0.06), true)
+
 var _has_mech := false         # carts, kegs, buckets or lanterns on this board: their layers are live
 var _dark_live := false
 func _process(dt: float) -> void:
 	if model and _has_mech:
 		mech_layer.queue_redraw()
+		lamp_layer.queue_redraw()
+	elif not last_cells.is_empty():
 		lamp_layer.queue_redraw()
 	if model and (dark_any or _dark_live):
 		_dark_live = BoardMech.dark_mask(self, Time.get_ticks_msec() / 1000.0)
