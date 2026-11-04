@@ -449,6 +449,7 @@ func redraw_under() -> void:
 
 func _draw_under(ci: Node2D) -> void:
 	if model == null: return
+	var kit := BoardKit.for_area(Save.area())
 	for r in R:
 		for c in C:
 			if not model.playable(r, c): continue
@@ -456,14 +457,33 @@ func _draw_under(ci: Node2D) -> void:
 			ci.draw_set_transform(p, 0, Vector2.ONE)
 			var cc := Vector2(TS, TS) * 0.5
 			if BoardSprites.gem_style != "":
-				if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.blocker("mud"), cc, TS)
-				if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.blocker(_rock_look(r, c)), cc, TS)
+				if model.MUD[r][c]:
+					if kit.light(): _clay(ci, cc, r, c)
+					else: BoardSprites.draw(ci, BoardSprites.blocker("mud"), cc, TS)
+				if model.ROCK[r][c]:
+					var bt := BoardSprites.blocker(_rock_look(r, c))
+					# on the light tray a block casts its own silhouette down-right, so light rock still stands off the tiles
+					if kit.light(): BoardSprites.draw(ci, bt, cc + Vector2(TS * 0.035, TS * 0.06), TS, Color(0.05, 0.05, 0.07, 0.5))
+					BoardSprites.draw(ci, bt, cc, TS)
 				continue
 			if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
 			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex(ROCKS[mini(2, model.ROCK[r][c])]), cc, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 const ROCKS := ["rock0", "rock1", "rock2"]
+
+## mud on the new tray: the cell's tile is a tray of wet mud (art/board_look/gen_tiles.sh), edge to edge, so the patch
+## shows round the stone standing on it
+func _clay(ci: CanvasItem, cc: Vector2, r: int, c: int) -> void:
+	var t := clay_tile((r * 7 + c * 5) % 3)
+	var tw := TS * (1.0 + BoardKit.MARGIN * 2.0)
+	ci.draw_texture_rect(t, Rect2(cc - Vector2(tw, tw) * 0.5, Vector2(tw, tw)), false)
+
+static var _clay_tex: Array[Texture2D] = []
+static func clay_tile(i: int) -> Texture2D:
+	if _clay_tex.is_empty():
+		for k in 3: _clay_tex.append(load("res://assets/board/kit/clay/tile%d.png" % k))
+	return _clay_tex[i]
 
 static var _white: Texture2D
 
@@ -763,7 +783,7 @@ func _find_last() -> void:
 		lock = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 1,
 		crust = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 2,
 		ice = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 4 or model.LOCK[r][c] == 5}
-	var few := LAST_FEW
+	var few := 0   # off: on the board the rings read as gold coins (user, 4.11); `-- last=N` still shows them
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("last="): few = int(arg.get_slice("=", 1))   # testing: `-- last=99` lights them all
 	for g in model.goals:
@@ -782,6 +802,7 @@ func _draw_last(ci: CanvasItem) -> void:
 	for q: Vector2i in last_cells:
 		var ctr := cell_center(q.x, q.y)
 		ci.draw_circle(ctr, TS * 0.44, Color(1.0, 0.86, 0.5, 0.08 + 0.1 * p))
+		ci.draw_arc(ctr, TS * (0.4 + 0.05 * p), 0.0, TAU, 32, Color(0.08, 0.05, 0.02, 0.45), maxf(2.0, TS * 0.06) * 2.2, true)
 		ci.draw_arc(ctr, TS * (0.4 + 0.05 * p), 0.0, TAU, 32, Color(1.0, 0.88, 0.55, 0.5 + 0.45 * p), maxf(2.0, TS * 0.06), true)
 
 var _has_mech := false         # carts, kegs, buckets or lanterns on this board: their layers are live

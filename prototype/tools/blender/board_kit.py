@@ -57,6 +57,37 @@ ROCKS = {
     "coalfrost": dict(scan="rock_face_04", scale=0.55, dark=(0.02, 0.022, 0.03), mid=(0.07, 0.078, 0.095), light=(0.2, 0.22, 0.27),
                       edge=(0.78, 0.86, 0.95), grime=(0.008, 0.009, 0.012), vein=((0.55, 0.78, 1.0), 0.0, 1.0), speck=None,
                       vein_sharp=(0.35, 0.75), vein_all=True, sharp=0.53, tile_k=0.85, chip=0.025),
+    # light tiles (only tile0..2 are used, the frame stays the mine's own dark rock): pale enough that every gem,
+    # even sapphire and amethyst, stands out on them; calm, the cracks only faint
+    # Old Adit: cool light-grey slate, a touch warm so the blue gems keep apart from it
+    "slate_lt": dict(scan="rock_face_04", scale=0.55, dark=(0.22, 0.24, 0.27), mid=(0.36, 0.39, 0.43), light=(0.52, 0.56, 0.61),
+                     edge=(0.72, 0.72, 0.72), grime=(0.13, 0.13, 0.14), vein=((0.16, 0.165, 0.18), 0.0, 0.35), speck=None,
+                     tile_k=1.0, chip=0.02, bed_k=0.3),
+    # look F (art/board_look/mock_f.png): matte mid-dark cool slate, a crisp lighter bevel along the top edge; less blue
+    # than the mock so the sapphire keeps apart from it
+    "slate_f": dict(scan="rock_face_04", scale=0.55, dark=(0.02, 0.028, 0.045), mid=(0.035, 0.05, 0.078), light=(0.065, 0.088, 0.13),
+                    edge=(0.3, 0.34, 0.4), grime=(0.01, 0.013, 0.02), vein=((0.018, 0.024, 0.034), 0.0, 0.3), speck=None,
+                    tile_k=1.0, chip=0.012, tile_chip=0.6, tile_h=0.14, tile_bevel=0.08, sharp=0.5, nor=0.6, bed_k=0.5),
+    # Copper Mountain: pale serpentine, grey with only a breath of green (the emerald must stay apart), faint jade veins
+    "serp_lt": dict(scan="rock_face_04", scale=0.55, dark=(0.22, 0.245, 0.235), mid=(0.355, 0.39, 0.375), light=(0.52, 0.565, 0.545),
+                    edge=(0.72, 0.74, 0.72), grime=(0.13, 0.14, 0.135), vein=((0.12, 0.3, 0.22), 0.0, 0.35), speck=None,
+                    tile_k=1.0, chip=0.02, bed_k=0.3),
+    # Whalebone Cove: slate washed with sand, a little warm
+    "sand_lt": dict(scan="rock_face_04", scale=0.55, dark=(0.25, 0.235, 0.21), mid=(0.4, 0.38, 0.345), light=(0.57, 0.545, 0.5),
+                    edge=(0.76, 0.73, 0.68), grime=(0.14, 0.13, 0.115), vein=((0.18, 0.165, 0.14), 0.0, 0.35), speck=None,
+                    tile_k=1.0, chip=0.02, bed_k=0.3),
+    # Fire Horizon: pale volcanic tuff, warm grey with a blush of rose
+    "tuff_lt": dict(scan="rock_06", scale=0.5, dark=(0.27, 0.23, 0.21), mid=(0.42, 0.37, 0.34), light=(0.6, 0.54, 0.5),
+                    edge=(0.78, 0.72, 0.67), grime=(0.15, 0.12, 0.11), vein=((0.2, 0.15, 0.13), 0.0, 0.3), speck=None,
+                    tile_k=1.0, chip=0.02, bed_k=0.3),
+    # Proval: frosted slate, blue-white, ice in the cracks
+    "frost_lt": dict(scan="rock_face_04", scale=0.55, dark=(0.25, 0.28, 0.33), mid=(0.4, 0.44, 0.5), light=(0.58, 0.63, 0.7),
+                     edge=(0.85, 0.9, 0.96), grime=(0.15, 0.17, 0.2), vein=((0.7, 0.82, 0.95), 0.0, 0.5), speck=None,
+                     vein_sharp=(0.35, 0.75), tile_k=1.0, chip=0.02, bed_k=0.3),
+    # mud over a cell (tiles only, laid by the game in place of the light tile): dark wet clay, glossy (wet: roughness)
+    "clay": dict(scan="rock_06", scale=0.3, dark=(0.06, 0.025, 0.01), mid=(0.14, 0.062, 0.025), light=(0.26, 0.13, 0.06),
+                 edge=(0.48, 0.28, 0.15), grime=(0.025, 0.01, 0.004), vein=((0.05, 0.022, 0.009), 0.0, 0.5), speck=None,
+                 tile_k=1.0, chip=0.02, tile_chip=0.5, tile_h=0.14, tile_bevel=0.08, sharp=0.5, wet=(0.1, 0.45), nor=0.35, bed_k=0.5),
     # boss frame: the Great Poloz' brown-grey stone with gold in the cracks
     "poloz": dict(scan="rock_face_03", scale=0.5, dark=(0.05, 0.04, 0.03), mid=(0.16, 0.13, 0.1), light=(0.36, 0.3, 0.24),
                   edge=(0.6, 0.5, 0.38), grime=(0.015, 0.012, 0.01), vein=((1.0, 0.68, 0.22), 1.0, 0.9), speck=None,
@@ -236,7 +267,7 @@ def stone(name, offset, tile=False):
     L.new(me.outputs[2], p.inputs["Base Color"])
     # surface: the scan's roughness and fine relief; ore in the veins shines like metal
     rough = scan("rough")
-    rr = nd("ShaderNodeMapRange"); rr.inputs["To Min"].default_value = 0.55; rr.inputs["To Max"].default_value = 0.95
+    rr = nd("ShaderNodeMapRange"); rr.inputs["To Min"].default_value, rr.inputs["To Max"].default_value = R.get("wet", (0.55, 0.95))
     L.new(rough.outputs["Color"], rr.inputs["Value"])
     if vmetal > 0:
         rm = nd("ShaderNodeMix"); rm.data_type = 'FLOAT'
@@ -251,7 +282,7 @@ def stone(name, offset, tile=False):
         L.new(fl.outputs[0], fm.inputs[0]); L.new(fm.outputs[0], p.inputs["Metallic"])
     else:
         L.new(rr.outputs[0], p.inputs["Roughness"])
-    nm = nd("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = 1.2
+    nm = nd("ShaderNodeNormalMap"); nm.inputs["Strength"].default_value = R.get("nor", 1.2)
     L.new(scan("nor_gl").outputs["Color"], nm.inputs["Color"])
     if R.get("facets"):
         # hewn: the face broken into small flat facets, their ridges catching the light

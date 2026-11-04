@@ -3,6 +3,8 @@ extends RefCounted
 ## The board's stone kit for one mine (rendered by prototype/tools/blender/board_kit.py into assets/board/kit/<rock>/):
 ## cell tiles, long frame bars and the caps on their joints. draw() builds any board shape out of them:
 ## a dark bed, a tile per cell, a bar along every outside edge, a cap on every corner, and their shadows.
+## The tiles are the mine's own set (AREA_TILES: look F, drawn by GPT - art/board_look/gen_tiles.sh, cut_tiles.py), laid as
+## a checkerboard, so every gem stands out on them. `-- tray=old` brings back the frame rock's own dark tiles.
 
 # sizes in cells, as board_kit.py renders them (FW, CAP, MARGIN, BAR_N there)
 const PX := 192.0
@@ -13,36 +15,58 @@ const CAP := 0.46
 const AREA_ROCK := ["basalt", "serpentine", "basalt", "basalt", "coalfrost"]
 # the bed between the tiles, the rock's darkest tone (kit.json's "bed")
 const BED := {basalt = Color("#101011"), granite = Color("#322924"), serpentine = Color("#353735"), coalfrost = Color("#0d0f14")}
+# the tiles each mine lays inside its frame ("" - the frame rock's own dark tiles), the gap between them,
+# and how much darker the second tone of the checkerboard is
+const AREA_TILES := ["slate_f", "slate_f", "slate_f", "slate_f", "slate_f"]
+const LIGHT_BED := {slate_f = Color("#15191e")}
+const CHECKER := Color(0.88, 0.89, 0.91)
+const BEAD: Array[String] = []   # tile sets that get the brass bead along the frame (none now: the user found it too much)
+const BRASS := Color("#d8b46a")
+const BRASS_DARK := Color(0.1, 0.07, 0.03, 0.55)
 
 static var force_rock := ""
 static var _kits := {}
 
 var rock: String
+var tile_rock: String          # whose tiles: rock, or the mine's light tiles
 var tiles: Array[Texture2D] = []
 var bar_h: Texture2D
 var bar_v: Texture2D
 var cap: Texture2D
 
+static var _old := "tray=old" in OS.get_cmdline_user_args()
+
 static func for_area(area: int) -> BoardKit:
-	var r: String = force_rock if force_rock != "" else AREA_ROCK[clampi(area, 0, AREA_ROCK.size() - 1)]
-	if not _kits.has(r):
+	var a := clampi(area, 0, AREA_ROCK.size() - 1)
+	var r: String = force_rock if force_rock != "" else AREA_ROCK[a]
+	var t: String = "" if _old or force_rock != "" else AREA_TILES[a]
+	if t == "": t = r
+	var key := r + "/" + t
+	if not _kits.has(key):
 		var k := BoardKit.new()
 		k.rock = r
+		k.tile_rock = t
 		var dir := "res://assets/board/kit/%s/" % r
 		for i in 3:
-			k.tiles.append(load(dir + "tile%d.png" % i))
+			k.tiles.append(load("res://assets/board/kit/%s/tile%d.png" % [t, i]))
 		k.bar_h = load(dir + "bar_h.png")
 		k.bar_v = load(dir + "bar_v.png")
 		k.cap = load(dir + "cap.png")
-		_kits[r] = k
-	return _kits[r]
+		_kits[key] = k
+	return _kits[key]
 
 static func paths() -> Array:
 	var out := []
 	for r in BED:
 		for f in ["tile0", "tile1", "tile2", "bar_h", "bar_v", "cap"]:
 			out.append("res://assets/board/kit/%s/%s.png" % [r, f])
+	for t in LIGHT_BED:
+		for i in 3:
+			out.append("res://assets/board/kit/%s/tile%d.png" % [t, i])
 	return out
+
+func light() -> bool:
+	return tile_rock != rock
 
 ## the whole tray onto `ci`: cells `fill(r, c)` of an R x C grid, cell `ts` wide, grid origin at `o`
 func draw(ci: CanvasItem, o: Vector2, ts: float, rows: int, cols: int, fill: Callable) -> void:
@@ -99,7 +123,7 @@ func draw(ci: CanvasItem, o: Vector2, ts: float, rows: int, cols: int, fill: Cal
 				off = Vector2(1 if f % 2 == 0 else -1, 1 if f < 2 else -1)
 			caps.append((at.call(r, c) as Vector2) + off * fw * 0.5)
 	# the dark bed, a little wider than the cells so it runs under the bars' inner edge
-	var bed: Color = BED.get(rock, Color(0.05, 0.05, 0.05))
+	var bed: Color = LIGHT_BED[tile_rock] if light() else BED.get(rock, Color(0.05, 0.05, 0.05))
 	for r in rows:
 		for c in cols:
 			if full.call(r, c):
@@ -110,7 +134,8 @@ func draw(ci: CanvasItem, o: Vector2, ts: float, rows: int, cols: int, fill: Cal
 		for c in cols:
 			if full.call(r, c):
 				var t: Texture2D = tiles[(r * 7 + c * 5) % 3]
-				ci.draw_texture_rect(t, Rect2((at.call(r, c) as Vector2) + Vector2(ts, ts) * 0.5 - Vector2(tw, tw) * 0.5, Vector2(tw, tw)), false)
+				var tone := CHECKER if light() and (r + c) % 2 == 1 else Color.WHITE
+				ci.draw_texture_rect(t, Rect2((at.call(r, c) as Vector2) + Vector2(ts, ts) * 0.5 - Vector2(tw, tw) * 0.5, Vector2(tw, tw)), false, tone)
 	# the frame stands above the tiles: its shadow falls inwards, darkest along the top and left
 	for b in bars:
 		_inner_shadow(ci, b[0], b[3], ts)
@@ -125,12 +150,37 @@ func draw(ci: CanvasItem, o: Vector2, ts: float, rows: int, cols: int, fill: Cal
 		ci.draw_texture_rect_region(b[1], b[0], b[2])
 	for p in caps:
 		ci.draw_texture_rect(cap, Rect2((p as Vector2) - Vector2(cw, cw) * 0.5, Vector2(cw, cw)), false)
+	if light() and BEAD.has(tile_rock):
+		_bead(ci, bars, ts)
+
+## the brass bead along the frame's inner edge: a dark line under it, the bright one on top; the runs meet at the
+## board's corners, so the bead follows the whole shape
+func _bead(ci: CanvasItem, bars: Array, ts: float) -> void:
+	var w := maxf(1.5, ts * 0.05)
+	for pass_ in 2:
+		for b in bars:
+			var rc: Rect2 = b[0]
+			var into: float = b[3]
+			var a: Vector2
+			var e: Vector2
+			if rc.size.x > rc.size.y:
+				var y := rc.end.y if into > 0 else rc.position.y
+				a = Vector2(rc.position.x - w * 0.5, y)
+				e = Vector2(rc.end.x + w * 0.5, y)
+			else:
+				var x := rc.end.x if into > 0 else rc.position.x
+				a = Vector2(x, rc.position.y - w * 0.5)
+				e = Vector2(x, rc.end.y + w * 0.5)
+			if pass_ == 0:
+				ci.draw_line(a, e, BRASS_DARK, w * 2.2)
+			else:
+				ci.draw_line(a, e, BRASS, w)
 
 ## a soft band of shade on the cells along one bar, deeper where the light comes from (top-left)
 func _inner_shadow(ci: CanvasItem, bar: Rect2, into: float, ts: float) -> void:
 	var horiz := bar.size.x > bar.size.y
 	var depth := ts * (0.16 if into > 0 else 0.07)
-	var a := 0.55 if into > 0 else 0.3
+	var a := (0.55 if into > 0 else 0.3) * (0.5 if light() else 1.0)
 	var p: PackedVector2Array
 	if horiz:
 		var y := bar.end.y if into > 0 else bar.position.y
