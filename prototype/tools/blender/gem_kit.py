@@ -445,8 +445,12 @@ AMMONITE_LOOK = dict(core=(0.98, 0.7, 0.26), rim=(0.025, 0.02, 0.012), halo=(0.8
 # Proval's coal (its own kind "coal", for the red stone): ember-red veins in a black seam, and instead of lumps of metal
 # two or three angular lumps of glossy black coal grown into the stone, each in a socket that smoulders orange
 COAL_LOOK = dict(core=(0.95, 0.2, 0.03), rim=(0.012, 0.01, 0.01), halo=(0.9, 0.18, 0.03), burn=0.95, coal=True)
-OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK, "coal": COAL_LOOK}
-OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite"], "ruby": ["coal"]}
+# Spider Hollow's silver (its own kind "silver", for the violet stone - the only colour no mine's ore takes, and a
+# generated board has five colours, not the sixth white one): cold blue-white veins in a dark seam, and lumps of bright
+# native silver grown into its front
+SILVER_LOOK = dict(core=(0.82, 0.88, 1.0), rim=(0.015, 0.018, 0.028), halo=(0.55, 0.7, 1.0), burn=1.25)
+OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK, "coal": COAL_LOOK, "silver": SILVER_LOOK}
+OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite"], "ruby": ["coal"], "amethyst": ["silver"]}
 
 def flat_emit(name, strength):
     """a plain light (or, at 0, plain black) for the glow mask"""

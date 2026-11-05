@@ -87,7 +87,7 @@ func _ready() -> void:
 	# + the pictures of the mine on the home screen, and the scripts of the other mines' screens (compiling them
 	# when the home screen is built held the frame the loading screen leaves on)
 	# + this mine's board backgrounds
-	_paths = BoardSprites.paths() + BoardKit.paths() + EXTRA + MineView.pictures(Save.area()) + [Home.COPPER_VIEW, Home.SEA_VIEW, Home.FIRE_VIEW]
+	_paths = BoardSprites.paths() + BoardKit.paths() + EXTRA + MineView.pictures(Save.area()) + [Home.COPPER_VIEW, Home.SEA_VIEW, Home.FIRE_VIEW, Home.WEB_VIEW]
 	for i in Level.BG_N: _paths.append(Level.bg_path(Save.area(), i))
 	for f in ResourceLoader.list_directory("res://assets/thumbs/"):
 		if f.ends_with(".png"): _paths.append("res://assets/thumbs/" + f)

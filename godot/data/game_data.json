@@ -257,6 +257,54 @@
    "c": "#e03a5a",
    "v": 420,
    "r": 3
+  },
+  "stibnite": {
+   "n": "Stibnite",
+   "c": "#8c93a0",
+   "v": 30,
+   "r": 0
+  },
+  "natrolite": {
+   "n": "Natrolite",
+   "c": "#eef0ea",
+   "v": 25,
+   "r": 0
+  },
+  "chalcopyrite": {
+   "n": "Chalcopyrite",
+   "c": "#c8a23a",
+   "v": 30,
+   "r": 0
+  },
+  "japan_quartz": {
+   "n": "Japan-law Quartz",
+   "c": "#e6eef2",
+   "v": 50,
+   "r": 1
+  },
+  "acanthite": {
+   "n": "Acanthite",
+   "c": "#4a4e56",
+   "v": 45,
+   "r": 1
+  },
+  "cinnabar": {
+   "n": "Cinnabar",
+   "c": "#c8241c",
+   "v": 70,
+   "r": 1
+  },
+  "jadeite": {
+   "n": "Jadeite",
+   "c": "#3c9a5a",
+   "v": 110,
+   "r": 2
+  },
+  "proustite": {
+   "n": "Proustite",
+   "c": "#b0101c",
+   "v": 420,
+   "r": 3
   }
  },
  "GR": [
@@ -1857,6 +1905,177 @@
      ]
     }
    ]
+  },
+  {
+   "n": "Spider Hollow",
+   "sub": "Silver mine, Iwami",
+   "pool": {
+    "stibnite": 22,
+    "natrolite": 16,
+    "chalcopyrite": 14,
+    "japan_quartz": 12,
+    "acanthite": 10,
+    "cinnabar": 8,
+    "jadeite": 6,
+    "proustite": 1.2
+   },
+   "steps": 3,
+   "tasks": [
+    [
+     "houses",
+     "Miners' row",
+     64
+    ],
+    [
+     "wheel",
+     "Water wheel",
+     65
+    ],
+    [
+     "smelter",
+     "Smelting hut",
+     66
+    ],
+    [
+     "kura",
+     "Silver store",
+     67
+    ],
+    [
+     "bridge",
+     "Rope bridge",
+     68
+    ],
+    [
+     "shrine",
+     "The shrine",
+     69
+    ],
+    [
+     "cocoons",
+     "Cut the cocoons",
+     70
+    ],
+    [
+     "lanterns",
+     "Lantern road",
+     72
+    ],
+    [
+     "lair",
+     "The lair's rope",
+     74
+    ]
+   ],
+   "ore": {
+    "n": "Silver",
+    "iron": 0,
+    "local": 4,
+    "c": "#c4cad4",
+    "hot": "#eef4ff",
+    "look": "silver"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 100,
+     "au": 100,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 104,
+     "au": 104,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      64,
+      1600
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 108,
+     "au": 108,
+     "tool": "Steam drill",
+     "machine": "hammer",
+     "drill": [
+      65,
+      1750
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 112,
+     "au": 112,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      66,
+      1900
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 116,
+     "au": 116,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      67,
+      2100
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 120,
+     "au": 120,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      68,
+      2300
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 124,
+     "au": 124,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      69,
+      2550
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 128,
+     "au": 128,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      70,
+      2800
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 132,
+     "au": 132,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      72,
+      3100
+     ]
+    }
+   ]
   }
  ],
  "CHEST": [
@@ -2310,7 +2529,15 @@
   "sphalerite": "tetra",
   "chalcedony": "botryoid",
   "rhodochrosite": "rhomb",
-  "fern": "fossil"
+  "fern": "fossil",
+  "stibnite": "prism",
+  "natrolite": "prism",
+  "chalcopyrite": "tetra",
+  "japan_quartz": "prism",
+  "acanthite": "octa",
+  "cinnabar": "rhomb",
+  "jadeite": "botryoid",
+  "proustite": "scaleno"
  },
  "TRAITS": [
   {

@@ -54,7 +54,7 @@ const BG_N := 3
 static var last_bg := -1
 
 static func bg_path(area: int, i: int) -> String:
-	var a := clampi(area, 0, 4)
+	var a := clampi(area, 0, Data.AREAS.size() - 1)
 	while a > 0 and not ResourceLoader.exists("res://assets/ui/level_bg/%d_%d.png" % [a, i + 1]): a -= 1
 	return "res://assets/ui/level_bg/%d_%d.png" % [a, i + 1]
 

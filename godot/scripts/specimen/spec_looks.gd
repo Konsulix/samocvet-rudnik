@@ -108,6 +108,28 @@ const LOOK := {
 	fern = {rock = [["slate", 1.0]], growths = 0.8, no_acc = ["pompom", "straw", "needles"]},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
+	# Spider Hollow (an Edo silver mine in a cedar valley, the Tsuchigumo; docs/mine6-tsuchigumo.md §8): "silver and
+	# silk" - steel needles and swords of stibnite, silky white needle sprays, peacock brass, the heart-shaped quartz
+	# twins of Japan, lead-black silver ore, cinnabar on white rock, jade, and ruby silver as its jewel
+	stibnite = {forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 5.0]],
+		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 2.2, wk = 0.35, metal_col = 0x9aa2b0, mrough = 0.16, menv = 2.2, tarnish = 0.35,
+		growths = 0.35, with = [["blades", 0xeef2f6, 0.25, "rockcrystal"]]},
+	natrolite = {zone = [0, 0.0, 0.0], forms = [["radial", 5.0], ["cluster", 2.0]], kinds = [["druse", 4.0], ["crystal", 3.0], ["geode", 1.0]],
+		rock = [["basalt", 5.0]], hk = 2.6, wk = 0.25, dark = 0.0, glass = {frost = 0.3, tint = 0.15, glow = 0.12}, dense = 1.6, ir = 0.25},
+	chalcopyrite = {forms = [["cluster", 4.0], ["pile", 2.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["quartzite", 3.0], ["limestone", 1.0]],
+		metal_col = 0xc8a23a, mrough = 0.25, menv = 2.0, tarnish = 1.0, with = [["blades", 0xeef2f6, 0.35, "rockcrystal"]]},
+	japan_quartz = {forms = [["single", 4.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 2.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
+		hk = 1.0, wk = 1.15, dark = 0.0, sig = ["twin"], glass = {frost = 0.04}},
+	acanthite = {forms = [["cluster", 4.0], ["pile", 2.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
+		metal_col = 0x5c6068, mrough = 0.3, menv = 1.8, tarnish = 0.25, growths = 0.3, with = [["blades", 0xeef2f6, 0.3, "rockcrystal"]]},
+	cinnabar = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
+		rock = [["limestone", 4.0], ["quartzite", 1.0]], rh = 0.15, dark = 0.0, glass = {tint = 0.95, dark = 0.25, frost = 0.05, glow = 0.32}, ir = 0.15,
+		palette = [[0xc01c14, 0xc01c14, 4.0], [0xa0100c, 0xa0100c, 2.0], [0xd8402a, 0xd8402a, 1.0]]},
+	jadeite = {kinds = [["crystal", 1.0]], rock = [["slate", 3.0], ["quartzite", 1.0]], dark = 0.0, opaque = {rough = 0.28, coat = 0.9, grain = 0.05},
+		palette = [[0x2e8a4e, 0x2e8a4e, 4.0], [0x5aae6e, 0x5aae6e, 2.0], [0x9a86c0, 0x9a86c0, 1.0], [0xd8e4d0, 0xd8e4d0, 1.0]]},
+	proustite = {zone = [0, 0.0, 0.0], forms = [["cluster", 3.0], ["single", 2.0]], kinds = [["druse", 3.0], ["crystal", 4.0]],
+		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 1.4, wk = 0.8, dark = 0.0, glass = {tint = 1.0, dark = 0.35, frost = 0.02, glow = 0.45}, ir = 0.3,
+		palette = [[0x9a0812, 0x9a0812, 4.0], [0xc0141e, 0xc0141e, 2.0]], with = [["blades", 0xeef2f6, 0.4, "rockcrystal"]]},
 }
 
 static func of(sid: String) -> Dictionary:

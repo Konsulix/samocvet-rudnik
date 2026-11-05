@@ -14,6 +14,7 @@ const COPPER_VIEW := "res://scripts/screens/mine_view_copper.gd"
 const SEA_VIEW := "res://scripts/screens/mine_view_sea.gd"
 const FIRE_VIEW := "res://scripts/screens/mine_view_fire.gd"
 const ICE_VIEW := "res://scripts/screens/mine_view_ice.gd"
+const WEB_VIEW := "res://scripts/screens/mine_view_web.gd"
 var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
@@ -74,6 +75,13 @@ func _ready() -> void:
 			_views[4] = iv
 		else:
 			iv.free()
+	# Spider Hollow (WebView in mine_view_web.gd, the same way) - a mine of its own, outside the first arc's chain
+	if ResourceLoader.exists(WEB_VIEW):
+		var wv: MineView = (load(WEB_VIEW) as GDScript).new()
+		if wv.has_method("available_here") and wv.call("available_here"):
+			_views[5] = wv
+		else:
+			wv.free()
 	for a in _views:
 		var mv: MineView = _views[a]
 		mv.visible = false
@@ -974,6 +982,7 @@ const HELLO := {
 	2: "Mind the sea here, it has long arms. Under the cove the old shells have turned to pyrite - that's our ore.",
 	3: "Hear that? The mountain breathes like a forge. Work to its beat and it won't burn you.",
 	4: "Coal pays here. Warm the barracks first - in the polar night nothing else gets done.",
+	5: "Silver, and something that spins in the dark under it. Dig by the lamps, and never sleep in the crevice.",
 }
 ## before the first level with a new kind of rock in it
 const ROCK_LINE := {

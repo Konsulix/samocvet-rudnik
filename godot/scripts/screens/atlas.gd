@@ -66,6 +66,14 @@ const FACTS := {
 	ruby = "Al₂O₃ with chromium · hardness 9 · corundum: only diamond is harder",
 	sapphire = "Al₂O₃ · hardness 9 · corundum of every colour but red",
 	diamond = "C · hardness 10 · the hardest thing in nature",
+	stibnite = "Sb₂S₃ · hardness 2 · Japan's Ichinokawa mine grew steel-grey 'swords' half a metre long",
+	natrolite = "Na₂Al₂Si₃O₁₀·2H₂O · hardness 5 · needles fine as silk, grown in the gas bubbles of old lava",
+	chalcopyrite = "CuFeS₂ · hardness 3.5 · the copper ore of the world; tarnishes into a peacock's colours",
+	japan_quartz = "SiO₂ · hardness 7 · two crystals grown as one heart at 84°: the 'Japan law' twin",
+	acanthite = "Ag₂S · hardness 2 · the silver of Iwami: Edo smelters drew pure silver out of this black ore",
+	cinnabar = "HgS · hardness 2.5 · ground into the vermilion of shrine gates; it holds mercury",
+	jadeite = "NaAlSi₂O₆ · hardness 7 · Japan's national stone, from the Itoigawa river",
+	proustite = "Ag₃AsS₃ · hardness 2.5 · 'ruby silver': it darkens in light, so it is kept in the dark",
 }
 
 var area := -1
@@ -270,7 +278,7 @@ static func _cover(ts: Vector2, s: Vector2, fy := 0.5) -> Rect2:
 	return Rect2(0, (ts.y - h) * fy, ts.x, h)
 
 static func _mine_dir(a: int) -> String:
-	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval"][clampi(a, 0, 4)]
+	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval", "spider_hollow"][clampi(a, 0, 5)]
 
 ## the banner's emblem: the beaten boss's sign, an empty socket while the boss stands, a lock on a mine not reached
 static func _sign(a: int, open: bool) -> String:
