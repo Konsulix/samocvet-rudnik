@@ -295,6 +295,12 @@ func _ready() -> void:
 				if args.has("fern"):
 					e.film = k % 4
 					e.plant = ["fern", "ginkgo", "redwood", "horsetail"][(k / 4) % 4]
+				# fossil leaves pinned: plant=palm film=4 show=nodule guest=dragonfly pair=1
+				for fk in ["plant", "show", "guest"]:
+					if args.has(fk): e[fk] = args[fk]
+				if args.has("film"): e.film = int(args.film)
+				if args.has("pair"): e.pair = args.pair == "1"
+				if args.has("dendrites"): e.dendrites = args.dendrites == "1"
 				# fx=<effect>: every one legendary with that effect
 				if args.has("fx"):
 					e.legend = true
