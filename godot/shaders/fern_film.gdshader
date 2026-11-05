@@ -22,9 +22,25 @@ uniform float spring = 0.0;    // the legendary "spring": light runs up the vein
 uniform float seed = 0.0;
 uniform float relief = 1.0;
 uniform float fire_h = 0.3;     // nacre and opal: the main colour of the fire (0 red .. 1 violet)
+// ON A ROCK (rocky 1): the film is not a sheet on the stone but a stain and a print IN it. The fragment is the rock
+// itself, worked out exactly as the generator's rock shader does (the same photo scan in the same rock coordinates —
+// CUSTOM0 holds each point's place in the rock's frame before it was held up to the viewer, lean_a — the same colour,
+// normal map and roughness), then darkened, rusted or whitened where the leaf lay, the leaf's lines pressed in. Towards
+// its edges and where it flaked off (peel) the leaf fades into plain rock, so there is no edge to it at all.
+uniform float rocky = 0.0;
+uniform sampler2D scan_diff : source_color, hint_default_white, filter_linear_mipmap, repeat_enable;
+uniform sampler2D scan_nrm : filter_linear_mipmap, repeat_enable;
+uniform sampler2D scan_rough : hint_default_white, filter_linear_mipmap, repeat_enable;
+uniform vec3 rock_col = vec3(0.3);   // the rock's own colour (linear), as its shader has it
+uniform float lean_a = 0.9;
+uniform float ao_k = 1.12;           // the rock's vertex shading, on average, up on its top
+uniform mat3 to_film = mat3(1.0);    // a direction in the rock's frame -> in the film's
+uniform float peel = 0.0;
 
 varying vec3 v_op;
 varying vec3 v_cam;
+varying vec3 v_wp;
+varying vec3 v_rp;
 
 #include "res://shaders/opal.gdshaderinc"
 
@@ -47,17 +63,21 @@ float line(float x, float w) { return 1.0 - smoothstep(0.0, w, abs(fract(x) - 0.
 void vertex() {
 	v_op = VERTEX;
 	v_cam = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
+	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// (the rock's coordinates are taken after it is held up to the viewer: turned about x by lean_a)
+	float ca = cos(lean_a);
+	float sa = sin(lean_a);
+	v_rp = vec3(CUSTOM0.x, CUSTOM0.y * ca - CUSTOM0.z * sa, CUSTOM0.y * sa + CUSTOM0.z * ca);
 }
 
 void fragment() {
 	// the film is flat: its normal is the leaf's own up, turned to face the eye. Not trusted to the face's winding — the
 	// counterpart is mirrored, and on iPhone (Metal) one of the two halves came out back-facing, lit from below, black.
-	vec3 up = normalize((VIEW_MATRIX * (MODEL_MATRIX * vec4(0.0, 1.0, 0.0, 0.0))).xyz);
-	vec3 n = dot(up, VIEW) < 0.0 ? -up : up;
+	// (the film lies over the rock's relief: its normal is the rock's there, from the mesh, turned to the eye whichever way
+	// the face winds — the counterpart is mirrored)
+	vec3 n = normalize(dot(NORMAL, VIEW) < 0.0 ? -NORMAL : NORMAL);
 	float stem = step(0.5, COLOR.r);
 	int part = int(COLOR.b * 10.0 + 0.5);
-	// (scale-tree bark is a trunk lying in the rock: its own round normal)
-	if (part == 7) n = normalize(dot(NORMAL, VIEW) < 0.0 ? -NORMAL : NORMAL);
 	float ay = abs(UV.y);
 	float rnd = COLOR.g;
 	// --- the relief: h the height (0..~1), marks the dark lines and spots drawn into the film, amp its height in model units
@@ -91,7 +111,7 @@ void fragment() {
 		h = (1.0 - ay) * 0.9;
 		marks = 0.3 * line(UV.y * 1.5 + 0.5, 0.15) + 0.25 * (1.0 - smoothstep(0.0, 0.06, ay));
 		edge = smoothstep(0.85, 1.0, ay);
-		amp = 0.009;
+		amp = 0.005;
 	} else if (part == 4) {
 		// an insect's body: rounded, in rings
 		h = sqrt(max(0.0, 1.0 - ay * ay)) * (0.7 + 0.3 * abs(sin(UV.x * 3.14159 * 9.0)));
@@ -161,6 +181,29 @@ void fragment() {
 	}
 	// a cast is nothing but its relief: give it more
 	if (film == 4) amp *= 1.6;
+	// the rock under it, as its own shader makes it
+	vec3 rk = vec3(0.0);
+	float s_rough = 0.8;
+	float cover = 1.0;
+	if (rocky > 0.5) {
+		vec2 sp = v_rp.xz * 1.3;
+		vec3 sd = texture(scan_diff, sp).rgb;
+		rk = pow(mix(sd * 0.8, sd * rock_col / 0.3, 0.75), vec3(1.15)) * ao_k;
+		s_rough = texture(scan_rough, sp).r;
+		vec3 ty = texture(scan_nrm, sp).xyz * 2.0 - 1.0;
+		vec3 ns = normalize(vec3(ty.x, abs(ty.z), ty.y));
+		vec3 s_nv = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(to_film * ns, 0.0)).xyz);
+		if (dot(s_nv, VIEW) < 0.0) s_nv = -s_nv;
+		n = s_nv;
+		// the leaf fades into the rock at its edges and where it flaked away in little islands
+		float fk = vn(v_rp * 26.0 + seed) * 0.6 + vn(v_rp * 80.0 + seed) * 0.4;
+		cover = (1.0 - 0.75 * clamp(edge, 0.0, 1.0)) * smoothstep(0.0, 0.12, fk - peel * 0.3);
+		amp *= film == 4 ? 1.8 : 0.6;
+	} else if (peel > 0.0) {
+		// the film flaked off in little islands, more of it towards its thin edges: the rock shows through
+		float fk = vn(v_wp * 26.0 + seed) * 0.6 + vn(v_wp * 80.0 + seed) * 0.4;
+		if (fk < peel * (0.28 + 0.45 * clamp(edge, 0.0, 1.0)) - 0.05 * stem) discard;
+	}
 	// the counterpart is the other side of the same print: what stood up is pressed in
 	if (mould > 0.5) h = 1.0 - h;
 	float hw = h * amp * relief * length(MODEL_MATRIX[1].xyz);
@@ -263,8 +306,8 @@ void fragment() {
 		// Green River brown: a thin dark-brown film, thinner and warmer at its edges, the veins darker
 		c = film_col * (0.75 + 0.45 * mott) * (1.0 - 0.3 * marks);
 		c = mix(c, film_col * 1.9, 0.35 * edge);
-		rough = 0.4;
-		spec = 0.55;
+		rough = 0.62;
+		spec = 0.35;
 	}
 	c *= cav;
 	if (film != 4) c *= 1.0 - edge * (film == 2 || film == 5 ? 0.45 : 0.4);
@@ -282,6 +325,49 @@ void fragment() {
 		metal *= 0.5;
 		rough = mix(rough, 0.6, 0.6);
 		glit *= 0.4;
+	}
+	if (rocky > 0.5) {
+		// IN the rock: its own colour and grain, stained where the leaf lay
+		float k = cover * (mould > 0.5 ? 0.85 : 1.0);
+		float lum = dot(rk, vec3(0.3, 0.55, 0.15));
+		vec3 st = rk;
+		float sr = s_rough;
+		if (film == 0) {
+			// carbon: the rock blackened, the veins a little less so, a dull sheen
+			st = rk * vec3(0.085, 0.072, 0.062) * (1.0 + 0.8 * marks) + vec3(0.008, 0.006, 0.004);
+			sr = 0.45;
+		} else if (film == 3) {
+			// iron: soaked rusty orange-brown, darker along the veins
+			st = rk * vec3(0.9, 0.36, 0.12) * (1.0 - 0.35 * marks);
+			sr = s_rough;
+		} else if (film == 6) {
+			// Green River brown: a warm brown stain, veins darker
+			st = rk * vec3(0.5, 0.3, 0.17) * (1.0 - 0.3 * marks);
+			sr = mix(s_rough, 0.55, 0.5);
+		} else if (film == 4) {
+			// a cast: the rock itself, only its print — a shade darker where it lay, the lines darker still
+			st = rk * vec3(0.8, 0.77, 0.74) * (1.0 - 0.3 * marks);
+		} else if (film == 2) {
+			// silver: pale pyrophyllite over the dark rock, the grain still in it
+			st = mix(rk, vec3(0.5, 0.52, 0.54) * (0.6 + 0.8 * lum / max(0.05, dot(rock_col, vec3(0.33)) * 1.4)), 0.75) + vec3(0.06) * marks;
+			sr = 0.35;
+			metal = 0.35 * k;
+		} else if (film == 5) {
+			// kaolinite: chalky white soaked into the rock
+			st = mix(rk, vec3(0.78, 0.76, 0.72) * (0.7 + 0.6 * lum / max(0.05, dot(rock_col, vec3(0.33)) * 1.4)), 0.62) * (1.0 - 0.2 * marks);
+			sr = 0.7;
+		} else {
+			// minerals that replaced the leaf (pyrite, ammolite, opal): themselves, the rock's grain only faintly through
+			st = c * mix(vec3(1.0), rk / max(vec3(0.02), vec3(dot(rock_col, vec3(0.33)) * 1.3)), 0.15);
+			sr = rough;
+		}
+		st *= mix(1.0, cav, 0.8);
+		c = mix(rk, st, k);
+		rough = mix(s_rough, sr, k);
+		metal *= k;
+		spec = mix(0.5, spec, k);
+		EMISSION *= k;
+		glit *= k;
 	}
 	if (glit > 0.0) {
 		vec3 gc = film == 1 ? vec3(1.0, 0.85, 0.5) : vec3(0.95, 0.95, 1.0);

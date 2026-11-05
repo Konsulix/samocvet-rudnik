@@ -9,12 +9,11 @@ extends RefCounted
 
 const U := preload("res://scripts/specimen/spec_util.gd")
 const FILM_SHADER := preload("res://shaders/fern_film.gdshader")
-const SLAB_SHADER := preload("res://shaders/fern_slab.gdshader")
 
 const PLANT := ["fern", "ginkgo", "redwood", "horsetail", "palm", "annularia", "lepido"]
 const PLANT_N := {fern = "tree fern", ginkgo = "ginkgo leaves", redwood = "dawn redwood", horsetail = "horsetail",
 	palm = "fan palm", annularia = "star leaves", lepido = "scale-tree bark"}
-## the film: its colour, and the stone it lies on (a nodule has its own ironstone, NODULE_STONE)
+## the film: its colour, and the stone it lies on
 const FILM := [
 	{name = "carbon film", col = 0x141110, stone = 0x8e8a80},
 	{name = "pyritized", col = 0xf0c858, stone = 0x34322f},
@@ -33,7 +32,8 @@ const CRYS := {
 	amethyst = {name = "amethyst druse", col = 0xa060d8, metal = 0.0, rough = 0.06, shape = "point"},
 	calcite = {name = "calcite crystals", col = 0xf0c070, metal = 0.0, rough = 0.12, shape = "point"},
 }
-const NODULE_STONE := 0x8c8070
+## how far the split rock is tipped up to the viewer (the film's shader reads the rock's coordinates after it)
+const LEAN := 0.9
 const GUEST_N := {dragonfly = "dragonfly", fish = "little fish"}
 
 static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
@@ -82,6 +82,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.rock = ["limestone", "slate", "slate", "limestone", "limestone" if rk < 0.6 else "gypsum", "ironstone", "limestone", "slate", "limestone"][int(g.film)]
 	# (crystals would be lost on a film that glitters or burns with colour already)
 	if int(g.film) in [1, 7, 8] and not o.has("crystals"): g.crystals = ""
+	if g.show == "nodule": g.rock = "ironstone"
 	return g
 
 static func accents(g: Dictionary) -> Array:
@@ -106,7 +107,8 @@ static func gene_name(id: String, g: Dictionary) -> String:
 		"crystals": return String((CRYS.get(g.get("crystals", ""), {}) as Dictionary).get("name", ""))
 	return ""
 
-static func film_mat(f: Dictionary, mould: bool, spring: bool, stone_c: Color) -> ShaderMaterial:
+## rk: on a rock, what the film needs to be drawn as the rock itself ({scan, col (linear), to_film}); a nodule has none
+static func film_mat(f: Dictionary, mould: bool, spring: bool, stone_c: Color, rk: Dictionary = {}) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = FILM_SHADER
 	var fc := Color.hex(int(FILM[int(f.film)].col) << 8 | 0xff)
@@ -119,18 +121,29 @@ static func film_mat(f: Dictionary, mould: bool, spring: bool, stone_c: Color) -
 	m.set_shader_parameter("spring", 1.0 if spring and not mould else 0.0)
 	m.set_shader_parameter("seed", float(int(f.seed) % 97))
 	m.set_shader_parameter("fire_h", float(f.get("fire_h", 0.3)))
+	if rk.size():
+		var i: int = rk.scan
+		var rc: Color = rk.col
+		m.set_shader_parameter("rocky", 1.0)
+		m.set_shader_parameter("scan_diff", SpecMat.scan_tex(i, "diff"))
+		m.set_shader_parameter("scan_nrm", SpecMat.scan_tex(i, "nor_gl"))
+		m.set_shader_parameter("scan_rough", SpecMat.scan_tex(i, "rough"))
+		m.set_shader_parameter("rock_col", Vector3(rc.r, rc.g, rc.b))
+		m.set_shader_parameter("to_film", rk.to_film)
+		m.set_shader_parameter("lean_a", LEAN)
+		m.set_shader_parameter("peel", [0.5, 0.25, 0.4, 0.6, 0.0, 0.3, 0.5, 0.22, 0.15][int(f.film)])
 	return m
 
 static func build(b: RefCounted, gene: Dictionary, use_rock: Callable, st: Dictionary) -> MeshInstance3D:
 	var f: Dictionary = gene.fossil
-	if f.get("show", "") == "nodule":
-		return _build_nodule(b, gene)
+	var nod: bool = f.get("show", "") == "nodule"
 	var root: Node3D = b.root
 	var spring: bool = gene.fx == "spring"
 	var pair: bool = f.get("pair", false)
 	# the generator's own rock, split along a bedding plane: a flat face for the leaf, the living rock round it
 	var srng := Rng32.new(int(f.seed) * 19 + 3)
-	var rk: MeshInstance3D = use_rock.call("slab" if srng.next() < 0.7 else "chunk")
+	# (a nodule: a rounded ironstone lump split through its middle)
+	var rk: MeshInstance3D = use_rock.call("chunk" if nod else "slab" if srng.next() < 0.7 else "chunk")
 	var stone_c: Color = (rk.get_meta("base", Color(0.3, 0.3, 0.3)) as Color).linear_to_srgb()
 	var sp := _split(rk, st, srng)
 	# the plant's long axis along the face's longer side, sized to sit inside it
@@ -141,25 +154,19 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable, st: Dicti
 	var rz := ea * 0.95 / k
 	var yaw := PI * 0.5 if sp.ex >= sp.ez else 0.0
 	yaw += (srng.next() - 0.5) * 0.25
-	var t1 := Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * k), Vector3(sp.cx, sp.y0 + 0.0035, sp.cz))
-	var halves := [[t1, false]]
-	# the fresh split face: smooth, a shade paler than the weathered rock round it
-	var face_m := ShaderMaterial.new()
-	face_m.shader = SLAB_SHADER
-	face_m.set_shader_parameter("stone", Color(stone_c.r * 1.12, stone_c.g * 1.04, stone_c.b * 0.92))
-	face_m.set_shader_parameter("tex", load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg"))
-	face_m.set_shader_parameter("seed", float(int(f.seed) % 13) * 0.17)
-	face_m.set_shader_parameter("rust", 1.0 if int(f.film) == 3 else 0.0)
-	face_m.set_meta("rock", true)
-	U.mesh(sp.face, face_m, root)
+	var t1 := Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * k), Vector3(sp.cx, 0.0, sp.cz))
+	var halves := [[t1, false, 0.0]]
+	# the rock's top as heights: the leaf is laid over its relief, not printed on a plane
+	var hf := _hfield(rk.get_meta("geo"))
+	var scan := int(RockKit.SCAN_OF.get(String(gene.rock), 0))
+	var rcol: Color = rk.get_meta("base", Color(0.3, 0.3, 0.3))
 	if pair:
 		# the counterpart: the other half of the split, its face the mirror of this one, laid beside it
 		var rg: Geo = rk.get_meta("geo")
 		var dz := rg.aabb().size.z * 1.04
 		var mir := Transform3D(Basis(Vector3(-1, 0, 0), Vector3.UP, Vector3.BACK), Vector3(0, 0, dz))
 		U.mesh(_mirror(rg, dz), rk.material_override, root)
-		U.mesh(_mirror(sp.face, dz), face_m, root)
-		halves.append([mir * t1, true])
+		halves.append([mir * t1, true, dz])
 	var main: MeshInstance3D = null
 	for h: Array in halves:
 		var mould: bool = h[1]
@@ -167,18 +174,25 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable, st: Dicti
 		root.add_child(leaf)
 		leaf.transform = h[0]
 		var made := _plant(f, rx, rz, mould)
-		var mi := U.mesh(made.g, film_mat(f, mould, spring, stone_c), leaf)
+		_drape(made.g, h[0], hf, mould, float(h[2]), 0.006)
+		for key in ["pts", "lit", "gpts", "dpts"]:
+			_drape_pts(made[key], h[0], hf, mould, float(h[2]))
+		var rkd := {scan = scan, col = rcol, to_film = (h[0] as Transform3D).basis.inverse()}
+		var mi := U.mesh(made.g, film_mat(f, mould, spring, stone_c, rkd), leaf)
 		if made.gd:
+			_drape(made.gd, h[0], hf, mould, float(h[2]), 0.0045)
 			var dl := Node3D.new()
 			leaf.add_child(dl)
-			dl.position = Vector3(0, -0.0008 / k, 0)
-			var dm := film_mat({film = 0, seed = f.seed}, false, false, stone_c)
+			var dm := film_mat({film = 0, seed = f.seed}, false, false, stone_c, rkd)
 			dm.set_shader_parameter("film_col", Color(0.07, 0.05, 0.04))
 			dm.set_shader_parameter("relief", 0.25)
 			U.mesh(made.gd, dm, dl)
 		if main == null:
 			main = mi
 			_marks(b, root, leaf, made)
+			if nod:
+				var lx0 := U.rel_xform(leaf, root)
+				b._mark("nodule", lx0 * Vector3(rx * 0.9, 0.0, 0.0), (lx0.basis * Vector3.UP).normalized())
 			if String(f.get("crystals", "")) != "":
 				var lx := U.rel_xform(leaf, root)
 				for cp in _crystals(mi, leaf, String(f.crystals), k, Rng32.new(int(f.seed) * 23 + 1)):
@@ -192,7 +206,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable, st: Dicti
 		lamp.light_color = Color(0.5, 1.0, 0.4)
 		lamp.light_energy = 0.3
 		lamp.omni_range = 2.2
-		lamp.position = Vector3(sp.cx, sp.y0 + 0.5, sp.cz)
+		lamp.position = Vector3(sp.cx, sp.y0 + 0.6, sp.cz)
 		root.add_child(lamp)
 	return main
 
@@ -261,10 +275,8 @@ static func _split(rk: MeshInstance3D, st: Dictionary, rng: Rng32) -> Dictionary
 	for i in g.v.size():
 		var v := g.v[i]
 		if v.y >= y0:
-			g.v[i] = Vector3(v.x, y0, v.z)
-			# the fresh split: clean stone, no pits, no silver on its crests
-			if g.col.size() == g.v.size():
-				g.col[i] = Color(0.95, 0.0, 0.95)
+			# the bedding plane it split along: the top eased down towards it, its weathered relief kept
+			g.v[i] = Vector3(v.x, y0 + (v.y - y0) * 0.5, v.z)
 			face.append(Vector2(v.x, v.z))
 		elif v.y > y0 - (y0 - lo) * 0.45:
 			rim.append(v)
@@ -327,15 +339,12 @@ static func _mirror(g: Geo, dz: float) -> Geo:
 
 ## the camera looks nearly level: hold the split face up to the viewer, with everything that grew on the rock
 static func lean(b: RefCounted, gene: Dictionary) -> void:
-	var f: Dictionary = gene.fossil
-	if f.get("show", "") == "nodule":
-		return
 	var root: Node3D = b.root
 	root.set_meta("face", true)
 	var pv := Node3D.new()
 	var kids := root.get_children()
 	root.add_child(pv)
-	pv.basis = Basis(Vector3.RIGHT, 0.9)
+	pv.basis = Basis(Vector3.RIGHT, LEAN)
 	for k: Node in kids:
 		k.reparent(pv, false)
 	var grown: Dictionary = b.grown
@@ -343,112 +352,6 @@ static func lean(b: RefCounted, gene: Dictionary) -> void:
 		for m: Array in grown[id]:
 			m[0] = pv.basis * (m[0] as Vector3)
 			m[1] = pv.basis * (m[1] as Vector3)
-
-## a split ironstone nodule (Mazon Creek): its own shape and shader, the two halves side by side
-static func _build_nodule(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
-	var f: Dictionary = gene.fossil
-	var root: Node3D = b.root
-	var gs: float = gene.scale
-	var holder := Node3D.new()
-	root.add_child(holder)
-	var spring: bool = gene.fx == "spring"
-	var stone_c := Color.hex(NODULE_STONE << 8 | 0xff)
-	var stone := ShaderMaterial.new()
-	stone.shader = SLAB_SHADER
-	stone.set_shader_parameter("stone", stone_c)
-	stone.set_shader_parameter("tex", load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg"))
-	stone.set_shader_parameter("seed", float(int(f.seed) % 13) * 0.17)
-	stone.set_shader_parameter("nodule", 1.0)
-	stone.set_meta("rock", true)
-	var pair: bool = f.get("pair", false)
-	var halves := [[Vector3(-0.66, 0, 0.02), false], [Vector3(0.66, 0, -0.02), true]] if pair else [[Vector3.ZERO, false]]
-	var rx := 0.6 if pair else 0.66
-	var rz := 0.92 if pair else 0.95
-	var main: MeshInstance3D = null
-	for h: Array in halves:
-		var mould: bool = h[1]
-		var srng := Rng32.new(int(f.seed) * 13 + (29 if mould else 3))
-		var sm := U.mesh(_nodule(srng, rx, rz, int(f.seed) + (5 if mould else 0)), stone, holder, h[0])
-		sm.set_meta("col", true)
-		var made := _plant(f, rx, rz, mould)
-		var leaf := Node3D.new()
-		holder.add_child(leaf)
-		leaf.position = h[0] + Vector3(0, 0.006, 0)
-		# the counterpart is the mirror image: the same leaf seen from the other side of the split
-		if mould: leaf.scale = Vector3(-1, 1, 1)
-		var mi := U.mesh(made.g, film_mat(f, mould, spring, stone_c), leaf)
-		if main == null:
-			main = mi
-			_marks(b, root, leaf, made)
-			var hx := U.rel_xform(sm, root)
-			b._mark("nodule", hx * Vector3(rx * 0.86, 0, rz * 0.3), hx.basis * Vector3.UP)
-		else:
-			var xf2 := U.rel_xform(leaf, root)
-			b._mark("pair", xf2 * Vector3.ZERO, xf2.basis * Vector3.UP)
-	# lying on the table, tipped up to face the viewer
-	root.set_meta("face", true)
-	var yaw := (Rng32.new(int(f.seed) + 77).next() - 0.5) * 0.4
-	holder.transform = Transform3D(Basis(Vector3.RIGHT, 0.95) * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * gs), Vector3.ZERO)
-	if spring:
-		root.set_meta("dim", true)
-		var lamp := OmniLight3D.new()
-		lamp.light_color = Color(0.5, 1.0, 0.4)
-		lamp.light_energy = 0.3
-		lamp.omni_range = 2.2
-		lamp.position = Vector3(0, 0.5, 0)
-		holder.add_child(lamp)
-	return main
-
-## the split slab: an irregular flat top (the bedding plane the leaf lies on), a rounded broken edge, stepped sides
-static func _slab(rng: Rng32, rx: float, rz: float, seed_v: int) -> Geo:
-	var nz := FastNoiseLite.new()
-	nz.seed = seed_v
-	nz.frequency = 1.6
-	var g := Geo.new()
-	var na := 64
-	var nr := 10
-	var ns := 6
-	var nd := 4
-	var depth := 0.16 + rng.next() * 0.06
-	for i in nr + ns + nd + 1:
-		for j in na + 1:
-			var a := TAU * float(j) / na
-			var wob := 1.0 + 0.12 * nz.get_noise_1d(a * 2.2) + 0.025 * nz.get_noise_1d(a * 7.0 + 40.0)
-			var x := 0.0
-			var z := 0.0
-			var y := 0.0
-			var r := 0.0
-			if i <= nr:
-				var t := float(i) / nr
-				x = sin(a) * rx * t * wob
-				z = cos(a) * rz * t * wob
-				y = 0.004 * nz.get_noise_2d(x * 9.0, z * 9.0)
-				r = t
-				if t > 0.85:
-					var e := (t - 0.85) / 0.15
-					y -= 0.03 * (1.0 - cos(e * PI * 0.5))
-			elif i <= nr + ns:
-				var t := float(i - nr) / ns
-				var k := 1.0 + (0.03 + 0.05 * nz.get_noise_2d(a * 5.0, t * 4.0)) * t
-				x = sin(a) * rx * wob * k
-				z = cos(a) * rz * wob * k
-				y = -0.03 - t * (depth - 0.03) + 0.015 * nz.get_noise_2d(a * 7.0, 9.0) * t
-				r = 1.0 + t
-			else:
-				var t := 1.0 - float(i - nr - ns) / nd
-				x = sin(a) * rx * wob * 1.05 * t
-				z = cos(a) * rz * wob * 1.05 * t
-				y = -depth - 0.02 * nz.get_noise_2d(x * 4.0, z * 4.0)
-				r = 2.0
-			g.v.append(Vector3(x, y, z))
-			g.rp.append(Vector3(x, z, r))
-	var rows := nr + ns + nd
-	for i in rows:
-		for j in na:
-			var p0 := i * (na + 1) + j
-			var p1 := p0 + na + 1
-			g.idx.append_array([p0, p0 + 1, p1, p0 + 1, p1 + 1, p1])
-	return g.orient_out(Vector3(0, -depth * 0.5, 0))
 
 ## a blade: base at `at`, out along `d` (unit, xz), length l, full width w; a rounded base and a blunt or pointed tip;
 ## u the place along the whole plant (UV2.x); part: what it is to the film shader (COLOR.b: 0 a leaf blade, 0.3 a palm
@@ -630,49 +533,6 @@ static func _litter(g: Geo, rng: Rng32, rx: float, rz: float, plant: String) -> 
 					_blade(g, q, _rot(d, float(s2) * 1.15), 0.035, 0.024, 0.5, rng.next(), 0.55)
 		out.append(at)
 	return out
-
-## a nodule (Mazon Creek): an ironstone concretion split in half — the flat oval face the leaf lies on, its edge
-## rounding over into a domed back. rp.z: 0..1 across the face, 1..2 down the back (the slab shader's rind and crust)
-static func _nodule(rng: Rng32, rx: float, rz: float, seed_v: int) -> Geo:
-	var nz := FastNoiseLite.new()
-	nz.seed = seed_v
-	nz.frequency = 1.4
-	var g := Geo.new()
-	var na := 64
-	var nr := 10
-	var ns := 12
-	var depth := rx * (0.5 + rng.next() * 0.15)
-	for i in nr + ns + 1:
-		for j in na + 1:
-			var a := TAU * float(j) / na
-			var wob := 1.0 + 0.05 * nz.get_noise_1d(a * 2.0) + 0.012 * nz.get_noise_1d(a * 9.0 + 40.0)
-			var x := 0.0
-			var z := 0.0
-			var y := 0.0
-			var r := 0.0
-			if i <= nr:
-				var t := float(i) / nr
-				x = sin(a) * rx * t * wob
-				z = cos(a) * rz * t * wob
-				y = 0.003 * nz.get_noise_2d(x * 9.0, z * 9.0)
-				if t > 0.9: y -= 0.014 * (t - 0.9) / 0.1
-				r = t
-			else:
-				var t := float(i - nr) / ns
-				var ph := t * PI * 0.5
-				var k := cos(ph) * (1.0 + 0.03 * sin(ph * 2.0))
-				x = sin(a) * rx * wob * k
-				z = cos(a) * rz * wob * k
-				y = -0.014 - depth * sin(ph) + 0.012 * nz.get_noise_2d(a * 6.0, t * 5.0) * sin(ph * 2.0)
-				r = 1.0 + t
-			g.v.append(Vector3(x, y, z))
-			g.rp.append(Vector3(x, z, r))
-	for i in nr + ns:
-		for j in na:
-			var p0 := i * (na + 1) + j
-			var p1 := p0 + na + 1
-			g.idx.append_array([p0, p0 + 1, p1, p0 + 1, p1 + 1, p1])
-	return g.orient_out(Vector3(0, -depth * 0.4, 0))
 
 ## how far from p along d before leaving the slab's face (an ellipse a little inside its wobbling edge)
 static func _reach(p: Vector3, d: Vector2, rx: float, rz: float, k := 0.84) -> float:
@@ -922,3 +782,148 @@ static func _crystals(mi: MeshInstance3D, leaf: Node3D, kind: String, k: float, 
 	for i in mini(3, pts.size()):
 		out.append(pts[i * pts.size() / 3][0])
 	return out
+
+## the rock's top as a grid of heights (root space): the highest surface over each cell, then widened a cell (so a
+## film laid on it rides over the little bumps rather than sinking into them) and a smoothed copy (for normals and
+## for the bark's trunk, which follows the rock's lie, not its grain)
+static func _hfield(g: Geo, n := 140) -> Dictionary:
+	var bb := g.aabb()
+	var cs := maxf(bb.size.x, bb.size.z) / float(n - 1)
+	var nx := int(bb.size.x / cs) + 3
+	var nz := int(bb.size.z / cs) + 3
+	var x0 := bb.position.x - cs
+	var z0 := bb.position.z - cs
+	var hd := PackedFloat32Array()
+	hd.resize(nx * nz)
+	hd.fill(-1e9)
+	var tops := 0.0
+	var ntop := 0
+	for t in range(0, g.idx.size(), 3):
+		var a := g.v[g.idx[t]]
+		var b := g.v[g.idx[t + 1]]
+		var c := g.v[g.idx[t + 2]]
+		var den := (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z)
+		if absf(den) < 1e-12: continue
+		var i0 := int((minf(a.x, minf(b.x, c.x)) - x0) / cs)
+		var i1 := int((maxf(a.x, maxf(b.x, c.x)) - x0) / cs) + 1
+		var j0 := int((minf(a.z, minf(b.z, c.z)) - z0) / cs)
+		var j1 := int((maxf(a.z, maxf(b.z, c.z)) - z0) / cs) + 1
+		for j in range(maxi(j0, 0), mini(j1, nz - 1) + 1):
+			var pz := z0 + j * cs
+			for i in range(maxi(i0, 0), mini(i1, nx - 1) + 1):
+				var px := x0 + i * cs
+				var l1 := ((b.z - c.z) * (px - c.x) + (c.x - b.x) * (pz - c.z)) / den
+				var l2 := ((c.z - a.z) * (px - c.x) + (a.x - c.x) * (pz - c.z)) / den
+				var l3 := 1.0 - l1 - l2
+				if l1 < -0.001 or l2 < -0.001 or l3 < -0.001: continue
+				var y := l1 * a.y + l2 * b.y + l3 * c.y
+				var k := j * nx + i
+				if y > hd[k]: hd[k] = y
+	for k in hd.size():
+		if hd[k] > -1e8:
+			tops += hd[k]
+			ntop += 1
+	var fall := tops / maxf(1.0, ntop)
+	# widen: the max over each cell's neighbours (rows, then columns)
+	var w1 := hd.duplicate()
+	for j in nz:
+		for i in nx:
+			var m := hd[j * nx + i]
+			if i > 0: m = maxf(m, hd[j * nx + i - 1])
+			if i < nx - 1: m = maxf(m, hd[j * nx + i + 1])
+			w1[j * nx + i] = m
+	var hw := w1.duplicate()
+	for j in nz:
+		for i in nx:
+			var m := w1[j * nx + i]
+			if j > 0: m = maxf(m, w1[(j - 1) * nx + i])
+			if j < nz - 1: m = maxf(m, w1[(j + 1) * nx + i])
+			hw[j * nx + i] = m
+	# smooth: a box blur over valid cells, 4 cells each way (rows, then columns)
+	var r := 4
+	var s1 := PackedFloat32Array()
+	s1.resize(nx * nz)
+	for j in nz:
+		for i in nx:
+			var sum := 0.0
+			var cnt := 0
+			for q in range(maxi(0, i - r), mini(nx - 1, i + r) + 1):
+				var v := hw[j * nx + q]
+				if v > -1e8:
+					sum += v
+					cnt += 1
+			s1[j * nx + i] = sum / cnt if cnt else -1e9
+	var hs := PackedFloat32Array()
+	hs.resize(nx * nz)
+	for j in nz:
+		for i in nx:
+			var sum := 0.0
+			var cnt := 0
+			for q in range(maxi(0, j - r), mini(nz - 1, j + r) + 1):
+				var v := s1[q * nx + i]
+				if v > -1e8:
+					sum += v
+					cnt += 1
+			hs[j * nx + i] = sum / cnt if cnt else -1e9
+	return {x0 = x0, z0 = z0, cs = cs, nx = nx, nz = nz, hd = hw, hs = hs, fall = fall}
+
+## a height off the grid at (x, z): bilinear over the valid corners
+static func _hat(H: Dictionary, x: float, z: float, smooth := false) -> float:
+	var arr: PackedFloat32Array = H.hs if smooth else H.hd
+	var nx: int = H.nx
+	var nz: int = H.nz
+	var fx := clampf((x - float(H.x0)) / float(H.cs), 0.0, nx - 1.001)
+	var fz := clampf((z - float(H.z0)) / float(H.cs), 0.0, nz - 1.001)
+	var i := int(fx)
+	var j := int(fz)
+	var tx := fx - i
+	var tz := fz - j
+	var sum := 0.0
+	var wsum := 0.0
+	for c in [[0, 0, (1.0 - tx) * (1.0 - tz)], [1, 0, tx * (1.0 - tz)], [0, 1, (1.0 - tx) * tz], [1, 1, tx * tz]]:
+		var v := arr[(j + int(c[1])) * nx + i + int(c[0])]
+		if v > -1e8:
+			sum += v * float(c[2])
+			wsum += float(c[2])
+	return sum / wsum if wsum > 0.0001 else float(H.fall)
+
+static func _hnorm(H: Dictionary, x: float, z: float) -> Vector3:
+	var e: float = H.cs * 1.5
+	var dx := _hat(H, x + e, z, true) - _hat(H, x - e, z, true)
+	var dz := _hat(H, x, z + e, true) - _hat(H, x, z - e, true)
+	return Vector3(-dx, 2.0 * e, -dz).normalized()
+
+## lay a film (built flat in the leaf's frame xf) over the rock: every point set down on the rock's top just above
+## it, its normal the rock's there. The counterpart lies on the mirrored rock moved dz: its heights are the first's
+## read through the mirror. The bark's trunk (its own round normals) is lifted whole onto the rock's lie.
+static func _drape(g: Geo, xf: Transform3D, H: Dictionary, mir: bool, dz: float, eps: float) -> void:
+	var inv := xf.affine_inverse()
+	if g.own_n.size() != g.v.size():
+		g.own_n.resize(g.v.size())
+		g.own_n.fill(Vector3.UP)
+	g.bary.resize(g.v.size())
+	for i in g.v.size():
+		var w := xf * g.v[i]
+		var qx := -w.x if mir else w.x
+		var qz := w.z - dz if mir else w.z
+		var nr := _hnorm(H, qx, qz)
+		if mir: nr.x = -nr.x
+		if g.own_n[i] != Vector3.UP:
+			# the trunk: follows the rock's lie as a whole, keeps its own round normal
+			w.y += _hat(H, qx, qz, true)
+			g.v[i] = inv * w
+			g.bary[i] = w
+			continue
+		w.y += _hat(H, qx, qz) + eps
+		g.v[i] = inv * w
+		g.bary[i] = w
+		g.own_n[i] = (inv.basis * nr).normalized()
+	g._mesh = null
+
+## the callouts' points set down on the rock the same way
+static func _drape_pts(pts: Array, xf: Transform3D, H: Dictionary, mir: bool, dz: float) -> void:
+	var inv := xf.affine_inverse()
+	for i in pts.size():
+		var w := xf * (pts[i] as Vector3)
+		w.y = _hat(H, -w.x if mir else w.x, w.z - dz if mir else w.z) + 0.006
+		pts[i] = inv * w
