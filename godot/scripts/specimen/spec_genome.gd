@@ -95,8 +95,9 @@ static func of(o: Dictionary) -> Dictionary:
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	if form in ["geode", "botryoid"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
-	# a fossil without its slab of rock has nowhere for things to grow
-	if habit == "fossil" and fossil.get("show", "") != "matrix":
+	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
+	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
+	if habit == "fossil" and not on_rock:
 		apool = []
 	# nor on a lump of glass
 	if habit == "obsidian":
@@ -180,7 +181,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
 	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
-			and not (habit == "fossil" and fossil.get("show", "") != "matrix"):
+			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:
 		shroom = -1
@@ -196,7 +197,8 @@ static func of(o: Dictionary) -> Dictionary:
 		# where moss, lichen and little plants settle: over the rock, or only in its pits and pockets
 		nest = o.get("nest", "hollows" if rng.next() < 0.5 else "surface"),
 		# a crumbling, spongy host rock
-		loose = o.get("loose", 0.45 + rng.next() * 0.55 if rng.next() < 0.28 else 0.0),
+		# (a fossil leaf's rock is split flat: no crumbs lying on its face)
+		loose = 0.0 if sid == "fern" else o.get("loose", 0.45 + rng.next() * 0.55 if rng.next() < 0.28 else 0.0),
 		palette = palette,
 		shroom = shroom,
 		shroom_seed = seed_v,

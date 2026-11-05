@@ -104,7 +104,8 @@ const LOOK := {
 		rock = [["quartzite", 3.0], ["slate", 1.0]], rh = 0.1, dark = 0.0, glass = {tint = 1.0, dark = 0.2, frost = 0.04, glow = 0.45}, ir = 0.45, dense = 0.8,
 		palette = [[0xc81838, 0xc81838, 4.0], [0xe03a58, 0xe03a58, 2.0], [0xa00c2c, 0xa00c2c, 2.0]],
 		with = [["blades", 0xeef2f6, 0.45, "rockcrystal"]]},
-	fern = {rock = [["slate", 1.0]], growths = 0.0},
+	# a fossil leaf on its split rock: lichen, moss and mushrooms on the weathered rim, never the big puffs
+	fern = {rock = [["slate", 1.0]], growths = 0.8, no_acc = ["pompom", "straw", "needles"]},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
 }

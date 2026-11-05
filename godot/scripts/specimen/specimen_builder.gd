@@ -268,6 +268,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		var R := RockKit.rock(rng, rtype, shape, 32, loose)
 		var rm: ShaderMaterial = rock_mat.call(R.base)
 		var mi := U.mesh(R.geo, rm, root)
+		mi.set_meta("base", R.base)
 		dt.col = R.base
 		var top: Array = R.top
 		st.hollows = R.hollows
@@ -315,7 +316,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		"fulgurite":
 			main = SpecFulgurite.build(self, gene)
 		"fern":
-			main = SpecFern.build(self, gene)
+			main = SpecFern.build(self, gene, use_rock, st)
 		"flower_quartz", "amber", "simetite":
 			main = SpecFlower.build(self, gene)
 		"trilobite":
@@ -923,6 +924,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	# a trilobite's slab is held up to the viewer, everything that grew on it with it
 	if layout == "trilobite":
 		SpecTrilobite.lean(self, gene)
+	elif layout == "fern":
+		SpecFern.lean(self, gene)
 	_finish()
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
@@ -1279,7 +1282,8 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 	for c in root.get_children():
 		if c is MeshInstance3D and c.get_meta("col", false):
 			cols.append(c)
-	if main and not main in cols:
+	# (a fossil leaf's main mesh is the film on the split face: nothing grows on that)
+	if main and not main in cols and layout != "fern":
 		cols.append(main)
 	var on_rock := func() -> Array:
 		if not st.rock:

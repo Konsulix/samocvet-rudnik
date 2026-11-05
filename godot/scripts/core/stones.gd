@@ -132,7 +132,8 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			kind_m *= 0.4 + 0.8 * float(fg.get("keep", 1.0))
 		# fossil leaves: gold or silver film, both halves of the split, a ginkgo
 		if sid == "fern":
-			kind_m *= [1.0, 1.9, 1.4, 1.1, 1.0, 1.3, 1.2][int(fg.get("film", 0))]
+			kind_m *= [1.0, 1.9, 1.4, 1.1, 1.0, 1.3, 1.2, 2.4, 2.8][int(fg.get("film", 0))]
+			if String(fg.get("crystals", "")) != "": kind_m *= 1.5
 			if fg.get("pair", false): kind_m *= 1.6
 			kind_m *= {ginkgo = 1.2, palm = 1.4, annularia = 1.1, lepido = 1.1}.get(fg.get("plant", ""), 1.0)
 			# a split ironstone nodule; a dragonfly or a fish on the same slab

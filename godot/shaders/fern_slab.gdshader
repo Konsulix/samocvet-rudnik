@@ -64,8 +64,15 @@ void fragment() {
 		c *= mix(0.72 + 0.32 * lam, 1.0, top) * (1.0 - 0.25 * rim);
 		if (rust > 0.0) {
 			float m = smoothstep(0.45, 0.8, vn(v_op * 3.5 + seed + 2.0));
-			c = mix(c, vec3(0.42, 0.2, 0.07), m * 0.45 * rust);
+			c = mix(c, vec3(0.42, 0.2, 0.07), m * 0.2 * rust);
 		}
+		// on the split face: soft iron stains soaked in (ochre blotches with a darker ring), faint ripples of the old mud
+		float stn = vn(v_op * 1.8 + seed + 7.0) * 0.8 + vn(v_op * 7.0 + seed) * 0.2;
+		float blot = smoothstep(0.62, 0.8, stn);
+		float ringb = smoothstep(0.6, 0.64, stn) * (1.0 - smoothstep(0.64, 0.7, stn));
+		c = mix(c, c * vec3(1.04, 0.8, 0.55), blot * 0.3 * top * (1.0 - rust));
+		c *= 1.0 - 0.12 * ringb * top;
+		c *= 1.0 + 0.06 * sin(v_op.x * 30.0 + vn(v_op * 4.0 + seed) * 5.0) * top;
 	}
 	// fine specks of mica on the bedding plane
 	c += vec3(0.3) * step(0.996, h3(floor(v_op * 700.0) + seed)) * top * 0.5;

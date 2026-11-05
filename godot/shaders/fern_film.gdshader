@@ -10,7 +10,8 @@ shader_type spatial;
 // 0 blade, 3 palm segment, 4 insect body, 5 fan (ginkgo, a fin, the tail), 7 bark (UV in cushion units), 8 wing, 9 fish.
 // film: 0 carbon (glossy black on grey mudstone), 1 pyrite (gold, glittering), 2 silver (pale pyrophyllite on black
 // shale), 3 iron (rusty orange on buff stone), 4 cast (the stone itself, only the relief), 5 kaolinite (chalk-white on a
-// rusty nodule), 6 brown (Green River: dark brown on cream limestone).
+// rusty nodule), 6 brown (Green River: dark brown on cream limestone), 7 nacre (the leaf turned to ammolite: plates of
+// thin-film fire on a dark film), 8 opal (the leaf replaced by precious opal, its play of colour sliding as it turns).
 render_mode cull_disabled;
 
 uniform vec3 film_col : source_color = vec3(0.1, 0.09, 0.08);
@@ -20,16 +21,13 @@ uniform float mould = 0.0;
 uniform float spring = 0.0;    // the legendary "spring": light runs up the veins and the leaf greens as if alive
 uniform float seed = 0.0;
 uniform float relief = 1.0;
+uniform float fire_h = 0.3;     // nacre and opal: the main colour of the fire (0 red .. 1 violet)
 
 varying vec3 v_op;
+varying vec3 v_cam;
 
-float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float vn(vec3 x) {
-	vec3 i = floor(x), f = fract(x);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-}
+#include "res://shaders/opal.gdshaderinc"
+
 // the distance to the nearest cell wall of a jittered grid (a wing's net of veins)
 float cells(vec2 p) {
 	vec2 i = floor(p), f = fract(p);
@@ -48,6 +46,7 @@ float line(float x, float w) { return 1.0 - smoothstep(0.0, w, abs(fract(x) - 0.
 
 void vertex() {
 	v_op = VERTEX;
+	v_cam = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
 }
 
 void fragment() {
@@ -57,6 +56,8 @@ void fragment() {
 	vec3 n = dot(up, VIEW) < 0.0 ? -up : up;
 	float stem = step(0.5, COLOR.r);
 	int part = int(COLOR.b * 10.0 + 0.5);
+	// (scale-tree bark is a trunk lying in the rock: its own round normal)
+	if (part == 7) n = normalize(dot(NORMAL, VIEW) < 0.0 ? -NORMAL : NORMAL);
 	float ay = abs(UV.y);
 	float rnd = COLOR.g;
 	// --- the relief: h the height (0..~1), marks the dark lines and spots drawn into the film, amp its height in model units
@@ -237,6 +238,27 @@ void fragment() {
 		rough = 0.6;
 		spec = 0.45;
 		glit = 0.25;
+	} else if (film == 7) {
+		// nacre: the leaf turned to ammolite - plates of thin-film fire, each its own colour, cracked between like
+		// dragon scales; the colours slide with the angle and drift slowly
+		vec3 pl = vor2(v_op.xz * 13.0 + seed);
+		float crack = 1.0 - smoothstep(0.0, 0.04, pl.y);
+		float th = fire_h + (pl.z - 0.5) * 0.35 + (fbm(v_op * 4.0 + seed) - 0.5) * 0.4 + (1.0 - abs(dot(n, VIEW))) * 0.9 + h * 0.15 + TIME * 0.015;
+		vec3 fire = lin(spectral(th));
+		c = mix(vec3(0.02, 0.015, 0.012), fire, 0.82) * (1.0 - 0.75 * crack) * (1.0 - 0.3 * marks);
+		metal = 0.55;
+		rough = 0.16;
+		spec = 0.7;
+		EMISSION = fire * 0.1 * (1.0 - crack);
+	} else if (film == 8) {
+		// opal: the leaf's shape in precious opal - a dark body, its fire in clouds and flakes that slide as it turns
+		vec3 v = normalize(v_cam - v_op);
+		float gl;
+		vec3 fire = opal_play(v_op * 3.0, v, vec3(0.0, 1.0, 0.0), fire_h, 0.3, seed, TIME * 0.2, 1.6, 0.6, 1.0, gl);
+		c = opal_body_col(0, v_op, seed) * (1.0 - 0.3 * marks) + fire * 0.45;
+		rough = 0.1;
+		spec = 0.6;
+		EMISSION = fire * 0.25;
 	} else {
 		// Green River brown: a thin dark-brown film, thinner and warmer at its edges, the veins darker
 		c = film_col * (0.75 + 0.45 * mott) * (1.0 - 0.3 * marks);
@@ -246,6 +268,7 @@ void fragment() {
 	}
 	c *= cav;
 	if (film != 4) c *= 1.0 - edge * (film == 2 || film == 5 ? 0.45 : 0.4);
+	if (film >= 7) EMISSION *= 1.0 - edge * 0.6;
 	// a wing's membrane: a faint rainbow that shifts as it turns
 	if (wing > 0.0) {
 		float k = dot(n, VIEW) * 3.0 + UV.x * 2.0 + rnd * 4.0;
