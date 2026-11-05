@@ -28,6 +28,10 @@ void vertex() {
 }
 
 void fragment() {
+	// the film is flat: its normal is the leaf's own up, turned to face the eye. Not trusted to the face's winding — the
+	// counterpart is mirrored, and on iPhone (Metal) one of the two halves came out back-facing, lit from below, black.
+	vec3 up = normalize((VIEW_MATRIX * (MODEL_MATRIX * vec4(0.0, 1.0, 0.0, 0.0))).xyz);
+	NORMAL = dot(up, VIEW) < 0.0 ? -up : up;
 	float stem = COLOR.r;
 	float fan = step(0.25, COLOR.b);
 	float ay = abs(UV.y);

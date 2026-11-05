@@ -1425,7 +1425,8 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 				return [Transform3D(Basis(U.quat_to(UP, d)) * Basis.from_scale(Vector3(0.0025, ln, 0.0025)), p + d * rng.next() * 0.008), c]
 			U.inst(Geo.cone(1, 1, 4).translate(0, 0.5, 0), SpecMat.make({rough = 0.55, metal = 0.3}), 260, place, root)
 	# a sparkling crust of tiny crystals over the big one
-	if main and "druzy" in tr:
+	# (not on a fossil leaf: its main mesh is the film itself, and the grains stood on it in white lumps)
+	if main and "druzy" in tr and layout != "fern":
 		# spread over the faces, not stacked on the mesh's corners (those stood in rings round the prism);
 		# light sparkling grains half sunk into the face rather than dark glass beads
 		var pts := RockKit.surf_pts(main, 420, rng)
