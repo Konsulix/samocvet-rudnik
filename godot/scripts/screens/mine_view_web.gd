@@ -112,7 +112,7 @@ func setup(a: int) -> void:
 		var sr: Array = J.sway.rect
 		sm.set_shader_parameter("mask", tex("web_mask.png"))
 		sm.set_shader_parameter("mask_rect", Vector4(float(sr[0]), float(sr[1]), float(sr[2]), float(sr[3])))
-		sm.set_shader_parameter("amp", 7.0)
+		sm.set_shader_parameter("amp", 4.0)
 		sm.set_shader_parameter("to_mine", 1.0 / K)
 		surf.material = sm
 		var stm := sm.duplicate() as ShaderMaterial
@@ -215,19 +215,18 @@ func _draw_still() -> void:
 		if ResourceLoader.exists(dir + bp):
 			_put(c, bp, Vector2(0, float(b.y)))
 	_draw_niches(c)
-	# the seams between the bands: a dark line and the shade of the band above - not across the crevice
+	# the joins: GPT's seam pieces (the rock and the crevice run on from one picture into the next)
 	var cv: Array = J.crev
 	for b in _bands:
-		for seg in [[0.0, float(cv[0])], [float(cv[1]), float(J.W)]]:
-			c.draw_texture_rect(_shade, Rect2(float(seg[0]), float(b.y), float(seg[1]) - float(seg[0]), 40), false)
-			c.draw_rect(Rect2(float(seg[0]), float(b.y) - 3, float(seg[1]) - float(seg[0]), 6), Color(0.03, 0.04, 0.03))
+		var sp := "seam/%d.png" % (int(b.k))
+		if ResourceLoader.exists(dir + sp):
+			var sz := _size(sp)
+			_put(c, sp, Vector2(0, float(b.y) - sz.y * 0.5))
 	# the crevice as one: a soft dark column down it, deeper the lower
 	var top := _cut_top() + float(J.cut) * 0.3
 	var cx := (float(cv[0]) + float(cv[1])) * 0.5
 	var w := (float(cv[1]) - float(cv[0])) * 0.5
 	c.draw_texture_rect(_glow, Rect2(cx - w, top, w * 2.0, H - top), false, Color(0.0, 0.02, 0.01, 0.3))
-	for b in _bands:
-		c.draw_texture_rect(_glow, Rect2(float(cv[0]) - 16.0, float(b.y) - 46.0, w * 2.0 + 32.0, 92.0), false, Color(0.02, 0.03, 0.025, 0.5))
 	_draw_bedrock(c)
 
 ## the rope ladder: from the foot of the one in the picture down the cleft and the crevice to the deepest open floor -
@@ -415,6 +414,10 @@ func _process(delta: float) -> void:
 	if int(_shown_places.get("wheel", 0)) >= 3:
 		_wheel_a += delta * (0.35 + 0.35 * rn)
 	_wb_basket_move()
+	if surf.material is ShaderMaterial:
+		var amp := 4.0 + 10.0 * rn
+		(surf.material as ShaderMaterial).set_shader_parameter("amp", amp)
+		if still.material is ShaderMaterial: (still.material as ShaderMaterial).set_shader_parameter("amp", amp)
 	_bk_sw = 10.0 * sin(t * 0.9) + 14.0 * rn * sin(t * 2.3)
 
 ## the basket goes down to the walkway of the depth being dug, waits, comes up heaped with ore, waits at the bridge;
@@ -459,10 +462,35 @@ func _wb_rope(c: CanvasItem, a: Vector2, b: Vector2) -> void:
 		y += seg
 	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
-## where the basket's rope leaves the bridge (the rope GPT drew hanging from it)
+## where the basket's rope leaves the bridge: the windlass's drum once the bridge is built
 func _wb_rope_top() -> Vector2:
+	if J.has("winch") and int(_shown_places.get("bridge", 0)) >= 3:
+		var wd: Array = J.winch.drum
+		return Vector2(float(wd[0]), float(wd[1]))
 	var th: Array = J.thread
 	return Vector2(float(th[0]), float(th[1]))
+
+## the windlass on the bridge and its winchman, cranking while the basket is on its way
+var _crank := 0.0
+func _wb_winch(c: CanvasItem) -> void:
+	if not J.has("winch") or int(_shown_places.get("bridge", 0)) < 3 or not ResourceLoader.exists(dir + "winch.png"):
+		return
+	var w: Dictionary = J.winch
+	var at: Array = w.at
+	var sz := _size("winch.png")
+	if float(at[1]) < _seen.x - 200.0 or float(at[1]) - 300.0 > _seen.y:
+		return
+	var moving := absf(_bk_y - _bk_prev) > 0.3
+	_bk_prev = _bk_y
+	if moving: _crank += get_process_delta_time() * 14.0
+	_put(c, "winch.png", Vector2(float(at[0]) - sz.x / 2, float(at[1]) - sz.y))
+	if _crew_ok("winchman"):
+		var n := int(J.crew_n.winchman)
+		var fr := "winchman/%02d.png" % (int(_crank) % n)
+		var fs := _size(fr)
+		var mx: Array = w.man
+		_put(c, fr, Vector2(float(mx[0]) - fs.x / 2, float(mx[1]) - fs.y), bool(w.get("man_flip", true)))
+var _bk_prev := 0.0
 
 ## the basket: a hemp rope from the bridge, a deep woven basket swinging on it, heaped with grey ore and silver going up;
 ## while the spider's line has it, a glinting thread runs up from it into the dark
@@ -662,7 +690,7 @@ func _wb_crevice(c: CanvasItem) -> void:
 	for b in _bands:
 		if not _band_seen(b) or int(b.k) == 0:
 			continue
-		_wb_seam_web(c, int(b.k), float(b.y), x0, x1, tr, fin)
+		pass
 	# the line: from the rope in the picture straight down the middle to below the deepest open level
 	var th: Array = J.thread
 	var tx := (x0 + x1) * 0.5 + 18.0
@@ -788,10 +816,73 @@ func _wb_mist_draw(c: CanvasItem) -> void:
 		var sz := float(m[2])
 		c.draw_texture_rect(_glow, Rect2(x - sz, y - sz * 0.22, sz * 2.0, sz * 0.44), false, Color(0.8, 0.86, 0.84, 0.1 + 0.08 * rn))
 
+## the rain: streaks falling onto the surfaces it lands on (the mask's points), each ending in a splash, some trickling on;
+## down the crevice it falls on past the surface and fades into the dark
+func _wb_rain2(c: CanvasItem, rn: float) -> void:
+	var pts: Array = J.rain_pts
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var col := Color(0.84, 0.9, 0.92, 0.45 * rn)
+	var n := int(140 * rn)
+	for j in n:
+		var p: Array = pts[rng.randi() % pts.size()]
+		var land := Vector2(float(p[0]), float(p[1]))
+		if land.y < _seen.x - 50.0 or land.y - 400.0 > _seen.y: continue
+		var per := rng.randf_range(0.55, 0.8)
+		var u := fposmod(t + rng.randf() * 7.0, per) / per
+		var fall := 420.0
+		if u < 0.8:
+			var q := u / 0.8
+			var head := land + Vector2(-0.18, -1.0) * fall * (1.0 - q)
+			c.draw_line(head - Vector2(-0.18, -1.0) * 34.0 * -1.0, head, col, 1.6)
+		else:
+			var q := (u - 0.8) / 0.2
+			c.draw_arc(land, 3.0 + 9.0 * q, PI * 1.05, PI * 1.95, 7, Color(col, col.a * (1.0 - q)), 1.4)
+			c.draw_circle(land + Vector2(-5.0 * q, -6.0 * q * (1.0 - q) * 4.0), 1.4, Color(col, col.a * (1.0 - q)))
+			c.draw_circle(land + Vector2(6.0 * q, -5.0 * q * (1.0 - q) * 4.0), 1.2, Color(col, col.a * (1.0 - q)))
+			if j % 5 == 0:
+				# it runs on down the rock a little
+				c.draw_line(land, land + Vector2(0, 26.0 * q), Color(col, col.a * 0.8), 1.4)
+	# down the crevice, through the section and on into the dark
+	var cv: Array = J.crev
+	var top := _cut_top() - 200.0
+	var bot := _cut_top() + float(J.cut) + float(J.band) * 1.2
+	for j in int(40 * rn):
+		var x := rng.randf_range(float(cv[0]) + 20.0, float(cv[1]) - 20.0)
+		var y := top + fposmod(rng.randf_range(0.0, 2000.0) + t * 1300.0, bot - top)
+		if y < _seen.x or y > _seen.y: continue
+		var f := 1.0 - clampf((y - _cut_top()) / (bot - _cut_top()), 0.0, 1.0)
+		c.draw_line(Vector2(x, y), Vector2(x - 6.0, y + 30.0), Color(col, col.a * f), 1.4)
+
+## mist in the crevice: soft clouds drifting up out of its dark, thicker in the rain
+func _wb_crevice_mist(c: CanvasItem) -> void:
+	var rn := _rain(t - _rain_at) * _rain_k
+	var cv: Array = J.crev
+	var ps := _size("puff.png")
+	var top := _cut_top() - 150.0
+	for b in _bands:
+		if not _band_seen(b): continue
+		for j in 4:
+			var u := fposmod(t * 0.025 + j * 0.25 + int(b.k) * 0.13, 1.0)
+			var x := lerpf(float(cv[0]) + 40.0, float(cv[1]) - 40.0, fposmod(j * 0.37 + int(b.k) * 0.29, 1.0)) + 30.0 * sin(t * 0.2 + j)
+			var y := float(b.y) + float(J.band) * (1.0 - u)
+			var sc := 2.4 + 1.2 * sin(j * 1.7 + int(b.k))
+			c.draw_texture_rect(tex("puff.png"), Rect2(Vector2(x, y) - ps * sc / 2, ps * sc), false, Color(0.75, 0.82, 0.8, (0.1 + 0.08 * rn) * sin(PI * u)))
+	for j in 5:
+		var u := fposmod(t * 0.03 + j * 0.2, 1.0)
+		var x := lerpf(float(cv[0]) - 40.0, float(cv[1]) + 40.0, fposmod(j * 0.41, 1.0))
+		var y := top + float(J.cut) * (1.0 - u)
+		if y < _seen.x - 300.0 or y > _seen.y + 300.0: continue
+		var sc := 3.0 + 1.4 * sin(j * 2.3)
+		c.draw_texture_rect(tex("puff.png"), Rect2(Vector2(x, y) - ps * sc / 2, ps * sc), false, Color(0.78, 0.85, 0.82, (0.12 + 0.1 * rn) * sin(PI * u)))
+
 ## a shower: grey streaks slanting down the screen where it is looked at, splashes on the terraces
 func _wb_rain_draw(c: CanvasItem) -> void:
 	var rn := _rain(t - _rain_at) * _rain_k
 	if rn < 0.03:
+		return
+	if J.has("rain_pts"):
+		_wb_rain2(c, rn)
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(_rain_at * 10.0)
@@ -815,7 +906,9 @@ func _draw_live() -> void:
 	_wb_mist_draw(c)
 	_surface_live(c)
 	_wb_crevice(c)
+	_wb_crevice_mist(c)
 	_wb_basket(c)
+	_wb_winch(c)
 	for b in _bands:
 		if _band_seen(b):
 			_band_live(c, b)
@@ -939,13 +1032,13 @@ func _wb_small_life(c: CanvasItem, b: Dictionary) -> void:
 			c.draw_colored_polygon(PackedVector2Array([mp, mp + Vector2(sgn * 10.0, -4.0 - 5.0 * beat), mp + Vector2(sgn * 11.0, 5.0)]), Color(0.85, 0.8, 0.68, 0.85))
 		c.draw_circle(mp, 2.4, ink)
 	# drops from the roof of the gallery, each falling to the floor and splashing
-	var gx: Array = J.galleries.get(str(d), [100, 600])
 	var fy := y + floor_of(d)
-	for j in 3:
-		var dx := lerpf(float(gx[0]) + 60.0, float(gx[1]) - 60.0, fmod(j * 0.37 + k * 0.21, 1.0))
+	for j in mini(3, ls.size()):
+		var lp: Array = ls[j]
+		var dx := float(lp[0]) + (40.0 if j % 2 == 0 else -50.0)
 		var per := 2.6 + j * 0.9
 		var u := fposmod(t + j * 1.3 + k, per) / per
-		var top := fy - 300.0
+		var top := y + float(lp[1]) - 70.0
 		if u < 0.5:
 			var q := u / 0.5
 			c.draw_circle(Vector2(dx, top + 4.0 * q), 2.0 + q, Color(0.8, 0.9, 0.95, 0.6 * q))
@@ -986,6 +1079,10 @@ func _wb_small_life(c: CanvasItem, b: Dictionary) -> void:
 				var pts: Array = L.pts
 				for i in pts.size():
 					_light(c, Vector2(float(pts[i][0]), y + float(pts[i][1])), 120, Color(L.get("col", "#ffb060"), 0.2 * _flick(k * 5 + i)))
+	if lx.has(str(d)) and String(lx[str(d)].kind) == "warm" and d == 2:
+		_wb_hall(c, y)
+	if d == 6:
+		_wb_lake(c, b)
 	# the second dweller of the depth
 	var c2: Dictionary = J.get("crews2", {})
 	if c2.has(str(d)) and b.lived:
@@ -999,6 +1096,65 @@ func _wb_small_life(c: CanvasItem, b: Dictionary) -> void:
 			var sz := _size(fr)
 			var shy := Vector2((-1.0 if float(w.x) < (float(J.crev[0]) + float(J.crev[1])) * 0.5 else 1.0) * 26.0 * fear + 2.0 * fear * sin(t * 43.0), 0)
 			_put(c, fr, Vector2(float(w.x) - sz.x / 2, y + float(w.get("floor", floor_of(d))) - sz.y + 4.0) + shy, bool(w.get("flip", false)))
+
+## 100 m: the shaft of daylight through the roof breathes, rays shift, dust and drops drift in it; the water runs along the
+## bamboo channel, pours from its spout and rings out over the wet floor
+func _wb_hall(c: CanvasItem, y: float) -> void:
+	var H2: Dictionary = J.get("hall", {})
+	if H2.is_empty(): return
+	var sh: Array = H2.shaft          # top x0, x1, y; bottom x0, x1, y (band px)
+	var br := 0.75 + 0.15 * sin(t * 0.7) + 0.1 * sin(t * 1.9)
+	for i in 5:
+		var q := (i + 0.5) / 5.0 + 0.04 * sin(t * 0.5 + i * 1.7)
+		var x0 := lerpf(float(sh[0]), float(sh[1]), q)
+		var x1 := lerpf(float(sh[3]), float(sh[4]), q)
+		var a := 0.05 * br * (0.6 + 0.4 * sin(t * 1.3 + i * 2.1))
+		var wdt := 22.0 + 10.0 * sin(i * 3.3)
+		c.draw_polygon(PackedVector2Array([Vector2(x0 - wdt * 0.5, y + float(sh[2])), Vector2(x0 + wdt * 0.5, y + float(sh[2])),
+			Vector2(x1 + wdt, y + float(sh[5])), Vector2(x1 - wdt, y + float(sh[5]))]),
+			PackedColorArray([Color(0.9, 0.97, 0.95, a), Color(0.9, 0.97, 0.95, a), Color(0.9, 0.97, 0.95, 0.0), Color(0.9, 0.97, 0.95, 0.0)]))
+	for i in 26:
+		var u := fposmod(t * (0.04 + 0.02 * sin(i)) + i * 0.13, 1.0)
+		var q := fposmod(i * 0.618, 1.0)
+		var yy := lerpf(float(sh[2]), float(sh[5]), u)
+		var xx := lerpf(lerpf(float(sh[0]), float(sh[1]), q), lerpf(float(sh[3]), float(sh[4]), q), u) + 10.0 * sin(t * 0.8 + i)
+		c.draw_circle(Vector2(xx, y + yy), 2.0, Color(1.0, 1.0, 0.95, 0.55 * sin(PI * u)))
+	_light(c, Vector2((float(sh[3]) + float(sh[4])) * 0.5, y + float(sh[5])), 160, Color(0.85, 0.95, 0.92, 0.12 * br))
+	var ch: Array = H2.channel        # points along the channel, the last is the spout
+	for i in 10:
+		var u := fposmod(t * 0.6 + i * 0.1, 1.0)
+		var f := u * (ch.size() - 1)
+		var i0 := mini(int(f), ch.size() - 2)
+		var a2: Array = ch[i0]
+		var b2: Array = ch[i0 + 1]
+		var p := Vector2(float(a2[0]), y + float(a2[1])).lerp(Vector2(float(b2[0]), y + float(b2[1])), f - i0)
+		c.draw_line(p, p + Vector2(-10, 1), Color(0.85, 0.97, 1.0, 0.7), 2.0)
+	var sp: Array = ch[ch.size() - 1]
+	var pool: Array = H2.pool
+	for i in 6:
+		var u := fposmod(t * 1.6 + i / 6.0, 1.0)
+		var p := Vector2(float(sp[0]) - 6.0 * u, y + lerpf(float(sp[1]), float(pool[1]), u * u))
+		c.draw_line(p, p + Vector2(-1, 12), Color(0.85, 0.97, 1.0, 0.75), 2.5)
+	for i in 4:
+		var u := fposmod(t * 0.5 + i * 0.25, 1.0)
+		var cx := float(pool[0]) + (i - 1.5) * 26.0 * float(i % 2)
+		c.draw_set_transform(Vector2(cx, y + float(pool[1])), 0, Vector2(1.0, 0.3))
+		c.draw_arc(Vector2.ZERO, 6.0 + 40.0 * u, 0, TAU, 20, Color(0.85, 0.97, 1.0, 0.45 * (1.0 - u)), 2.0)
+		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+## 300 m: rings on the lake round the boat's pole and the fisher's net when they touch the water
+func _wb_lake(c: CanvasItem, b: Dictionary) -> void:
+	var lk: Dictionary = J.get("lake", {})
+	if lk.is_empty() or not b.lived: return
+	var y := float(b.y)
+	for key in ["net", "pole"]:
+		if not lk.has(key): continue
+		var at: Array = lk[key]
+		for i in 3:
+			var u := fposmod(t * 0.45 + i / 3.0 + (0.5 if key == "pole" else 0.0), 1.0)
+			c.draw_set_transform(Vector2(float(at[0]), y + float(at[1])), 0, Vector2(1.0, 0.28))
+			c.draw_arc(Vector2.ZERO, 5.0 + 34.0 * u, 0, TAU, 20, Color(0.75, 0.97, 1.0, 0.5 * (1.0 - u)), 2.0)
+			c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 ## moths round the lamps of the surface (at night more), now and then
 func _wb_moths_surface(c: CanvasItem) -> void:
@@ -1040,7 +1196,7 @@ func _tick_events() -> void:
 	if t < _next_event:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
-	var pool := ["web", "eyes", "skitter", "leg", "leg", "tug"]
+	var pool := ["web", "eyes", "skitter", "tug"]
 	if int(_shown_places.get("bridge", 0)) >= 3: pool.append_array(["monk", "monk"])
 	for b in _bands:
 		if bool(b.lived) and J.lamps.get(str(int(b.d)), []).size() > 0:
