@@ -106,6 +106,18 @@ func setup(a: int) -> void:
 	surf.scale = Vector2.ONE / K
 	surf.material = null
 	still.material = null
+	if J.has("sway") and ResourceLoader.exists(dir + "web_mask.png"):
+		var sm := ShaderMaterial.new()
+		sm.shader = load("res://shaders/mine_sway_mask.gdshader")
+		var sr: Array = J.sway.rect
+		sm.set_shader_parameter("mask", tex("web_mask.png"))
+		sm.set_shader_parameter("mask_rect", Vector4(float(sr[0]), float(sr[1]), float(sr[2]), float(sr[3])))
+		sm.set_shader_parameter("amp", 7.0)
+		sm.set_shader_parameter("to_mine", 1.0 / K)
+		surf.material = sm
+		var stm := sm.duplicate() as ShaderMaterial
+		stm.set_shader_parameter("to_mine", 1.0)
+		still.material = stm
 	_changes()
 	if not last_result.is_empty() and int(last_result.area) == a:
 		var k := clampi(int(last_result.k), 0, _bands.size() - 1)
@@ -216,12 +228,33 @@ func _draw_still() -> void:
 	c.draw_texture_rect(_glow, Rect2(cx - w, top, w * 2.0, H - top), false, Color(0.0, 0.02, 0.01, 0.3))
 	for b in _bands:
 		c.draw_texture_rect(_glow, Rect2(float(cv[0]) - 16.0, float(b.y) - 46.0, w * 2.0 + 32.0, 92.0), false, Color(0.02, 0.03, 0.025, 0.5))
-	_wb_ladder(c)
 	_draw_bedrock(c)
 
 ## the rope ladder: from the foot of the one in the picture down the cleft and the crevice to the deepest open floor -
 ## two ropes and wooden rungs, sagging a little between the walkways
 func _wb_ladder(c: CanvasItem) -> void:
+	if ResourceLoader.exists(dir + "ladder.png"):
+		var ld0: Array = J.ladder
+		var cv0: Array = J.crev
+		var tx := tex("ladder.png")
+		var w := tx.get_size().x / K
+		var seg := tx.get_size().y / K
+		var x := float(cv0[0]) + 30.0
+		var y := float(ld0[1]) + 380.0
+		var bottom := band_y(open) + floor_of(open + 1)
+		# from the foot of the ladder in the picture, slanting to the crevice's wall, then straight down
+		var xs := float(ld0[0]) - w / 2
+		var join := y + 260.0
+		c.draw_set_transform(Vector2(xs, y), atan2(x - xs, 260.0) * -1.0, Vector2.ONE)
+		c.draw_texture_rect_region(tx, Rect2(0, 0, w, Vector2(x - xs, 260.0).length()), Rect2(0, 0, tx.get_size().x, minf(tx.get_size().y, Vector2(x - xs, 260.0).length() * K)))
+		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+		y = join
+		while y < bottom and y < _seen.y + 100.0:
+			var h := minf(seg, bottom - y)
+			if y + h > _seen.x - 100.0:
+				c.draw_texture_rect_region(tx, Rect2(x, y, w, h), Rect2(0, 0, tx.get_size().x, h * K))
+			y += seg
+		return
 	var ld: Array = J.ladder
 	var cv: Array = J.crev
 	var x0 := float(ld[0])
@@ -410,6 +443,22 @@ func _wb_basket_move() -> void:
 		y -= 110.0 * smoothstep(0.0, 1.0, clampf(q / 1.6, 0.0, 1.0)) * clampf((5.0 - q) / 1.2, 0.0, 1.0) + 8.0 * sin(q * 18.0) * clampf(2.0 - q, 0.0, 1.0)
 	_bk_y = y
 
+## a GPT rope repeated along a line (its drawing runs down its texture's y)
+func _wb_rope(c: CanvasItem, a: Vector2, b: Vector2) -> void:
+	var tx := tex("rope.png")
+	var w := tx.get_size().x / K
+	var seg := tx.get_size().y / K
+	var d := b - a
+	var ln := d.length()
+	if ln < 1.0: return
+	c.draw_set_transform(a, d.angle() - PI / 2, Vector2.ONE)
+	var y := 0.0
+	while y < ln:
+		var h := minf(seg, ln - y)
+		c.draw_texture_rect_region(tx, Rect2(-w / 2, y, w, h), Rect2(0, 0, tx.get_size().x, h * K))
+		y += seg
+	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
 ## where the basket's rope leaves the bridge (the rope GPT drew hanging from it)
 func _wb_rope_top() -> Vector2:
 	var th: Array = J.thread
@@ -422,10 +471,23 @@ func _wb_basket(c: CanvasItem) -> void:
 	var at := Vector2(top.x + _bk_sw * clampf((_bk_y - top.y) / 2500.0, 0.1, 1.0), _bk_y)
 	if at.y < _seen.x - 200.0 or top.y > _seen.y + 200.0:
 		return
+	var ang := clampf(_bk_sw * 0.01, -0.15, 0.15)
+	if ResourceLoader.exists(dir + "basket_full.png") and ResourceLoader.exists(dir + "rope.png"):
+		var bt := tex("basket_full.png" if _bk_up else "basket_empty.png")
+		var bs := _size("basket_full.png")
+		var hook := at + Vector2(0, -bs.y * 0.5)
+		_wb_rope(c, top, hook)
+		c.draw_set_transform(at, ang, Vector2.ONE)
+		c.draw_texture_rect(bt, Rect2(-bs / 2, bs), false)
+		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+		if _events.has("tug"):
+			var q2 := t - float(_events.tug)
+			var al2 := clampf(q2 / 0.5, 0.0, 1.0) * clampf((5.0 - q2) / 0.8, 0.0, 1.0)
+			c.draw_line(at + Vector2(10, 30), Vector2(at.x + 30.0, at.y - 900.0), Color(0.9, 0.95, 1.0, 0.7 * al2), 1.8)
+		return
 	var ink := Color(0.04, 0.035, 0.03)
 	c.draw_line(top, at + Vector2(0, -90), ink, 6.0)
 	c.draw_line(top, at + Vector2(0, -90), Color(0.55, 0.45, 0.3), 2.8)
-	var ang := clampf(_bk_sw * 0.01, -0.15, 0.15)
 	c.draw_set_transform(at, ang, Vector2.ONE * 1.8)
 	c.draw_line(Vector2(-26, -10), Vector2(0, -50), ink, 3.0)
 	c.draw_line(Vector2(26, -10), Vector2(0, -50), ink, 3.0)
@@ -600,27 +662,7 @@ func _wb_crevice(c: CanvasItem) -> void:
 	for b in _bands:
 		if not _band_seen(b) or int(b.k) == 0:
 			continue
-		var y := float(b.y)
-		var cen := Vector2((x0 + x1) * 0.5 + 10.0 * sin(int(b.k) * 1.7), y - 6.0)
-		var shake := (tr * 4.0 + fin * 1.5) * sin(t * 26.0 + int(b.k))
-		var col := Color(0.82, 0.86, 0.84, 0.35)
-		var spokes := PackedVector2Array()
-		for j in 9:
-			var a := TAU * j / 9.0 + int(b.k) * 0.4
-			var d := Vector2.from_angle(a)
-			# a spoke runs to where it meets a wall (or the band's edge)
-			var e := cen + d * 140.0
-			e.x = clampf(e.x, x0 + 4.0, x1 - 4.0)
-			spokes.append(e)
-			c.draw_line(cen, e + Vector2(0, shake), col, 1.4)
-		for ring in 5:
-			var rr := 0.22 + ring * 0.17
-			var pts := PackedVector2Array()
-			for j in 10:
-				pts.append(cen.lerp(spokes[j % 9], rr) + Vector2(0, shake * rr))
-			c.draw_polyline(pts, Color(col, 0.28), 1.2)
-		var g := 0.5 + 0.5 * sin(t * 1.4 + int(b.k) * 2.0)
-		c.draw_circle(cen.lerp(spokes[int(t * 0.3 + b.k) % 9], 0.6), 2.2, Color(1, 1, 1, 0.5 * g))
+		_wb_seam_web(c, int(b.k), float(b.y), x0, x1, tr, fin)
 	# the line: from the rope in the picture straight down the middle to below the deepest open level
 	var th: Array = J.thread
 	var tx := (x0 + x1) * 0.5 + 18.0
@@ -658,6 +700,68 @@ func _wb_crevice(c: CanvasItem) -> void:
 			if bl > 0.05:
 				_light(c, p, 26, Color(0.75, 1.0, 0.45, 0.5 * bl * nt))
 				c.draw_circle(p, 2.0, Color(0.9, 1.0, 0.7, bl * nt))
+
+## the web over one seam of the crevice: its own kind and size per depth (an orb web off centre, a torn one with its
+## threads hanging, a sagging sheet, or only a few loose strands), swaying a little in the draught, trembling with the spider
+func _wb_seam_web(c: CanvasItem, k: int, y: float, x0: float, x1: float, tr: float, fin: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7919 * k + 13
+	var kind: String = ["orb", "torn", "sheet", "orb", "strands", "torn", "sheet", "orb"][k % 8]
+	var w := x1 - x0
+	var sway := 3.0 * sin(t * 0.6 + k * 1.3)
+	var shake := (tr * 4.0 + fin * 1.5) * sin(t * 26.0 + k)
+	var col := Color(0.84, 0.88, 0.86, 0.38)
+	var cy := y + rng.randf_range(-40.0, 30.0)
+	match kind:
+		"orb", "torn":
+			var cen := Vector2(lerpf(x0, x1, rng.randf_range(0.3, 0.7)), cy) + Vector2(sway, shake)
+			var n := rng.randi_range(7, 12)
+			var reach := rng.randf_range(0.6, 1.0) * w * 0.55
+			var rot := rng.randf_range(0.0, TAU)
+			var spokes := PackedVector2Array()
+			for j in n:
+				var a := rot + TAU * j / n + rng.randf_range(-0.15, 0.15)
+				var e := cen + Vector2.from_angle(a) * reach * rng.randf_range(0.75, 1.15)
+				e.x = clampf(e.x, x0 + 4.0, x1 - 4.0)
+				spokes.append(e)
+				if kind == "torn" and rng.randf() < 0.3:
+					# a broken spoke hangs down from the hub
+					c.draw_line(cen, cen + Vector2(rng.randf_range(-10, 10) + sway * 2.0, rng.randf_range(30, 70)), col, 1.2)
+				else:
+					c.draw_line(cen, e, col, 1.3)
+			var rings := rng.randi_range(4, 7)
+			for ring in rings:
+				var rr := 0.18 + ring * (0.8 / rings)
+				var pts := PackedVector2Array()
+				for j in n + 1:
+					if kind == "torn" and rng.randf() < 0.25:
+						if pts.size() > 1: c.draw_polyline(pts, Color(col, 0.3), 1.1)
+						pts = PackedVector2Array()
+						continue
+					pts.append(cen.lerp(spokes[j % n], rr) + Vector2(0, 2.0 * rr * sin(j)))
+				if pts.size() > 1: c.draw_polyline(pts, Color(col, 0.3), 1.1)
+			var g := 0.5 + 0.5 * sin(t * 1.4 + k * 2.0)
+			c.draw_circle(cen.lerp(spokes[int(t * 0.3 + k) % n], 0.55), 2.2, Color(1, 1, 1, 0.5 * g))
+		"sheet":
+			# a sagging hammock of silk between the walls, threads up to the rock above
+			var pts := PackedVector2Array()
+			var sag := rng.randf_range(30.0, 60.0)
+			for j in 13:
+				var q := j / 12.0
+				pts.append(Vector2(lerpf(x0 + 6.0, x1 - 6.0, q) + sway * sin(PI * q), cy + sag * sin(PI * q) + shake * sin(PI * q)))
+			for j in 4:
+				var lo := pts.duplicate()
+				for i in lo.size(): lo[i] += Vector2(0, -j * 7.0 * sin(PI * float(i) / 12.0))
+				c.draw_polyline(lo, Color(col, 0.22 + 0.05 * j), 1.2)
+			for j in 6:
+				var pp := pts[2 + j * 2 % 10]
+				c.draw_line(pp, Vector2(pp.x + rng.randf_range(-20, 20), cy - rng.randf_range(60, 120)), Color(col, 0.25), 1.0)
+		"strands":
+			for j in rng.randi_range(3, 5):
+				var a := Vector2(x0 + 4.0, cy + rng.randf_range(-50, 50))
+				var bpt := Vector2(x1 - 4.0, cy + rng.randf_range(-50, 50))
+				var mid := (a + bpt) * 0.5 + Vector2(sway, rng.randf_range(10, 40) + shake)
+				c.draw_polyline(PackedVector2Array([a, a.lerp(mid, 0.5) + Vector2(0, 6), mid, mid.lerp(bpt, 0.5) + Vector2(0, 6), bpt]), col, 1.2)
 
 ## mist banks drifting across the valley; thicker in the rain and towards evening
 func _wb_mist_draw(c: CanvasItem) -> void:
@@ -719,6 +823,7 @@ func _draw_live() -> void:
 	_wb_moths_surface(c)
 	_wb_egret(c)
 	_events_live(c)
+	_wb_ladder(c)          # over the spider's leg: it comes up behind the ladder
 	_wb_rain_draw(c)
 	_ore_flight(c)
 	_finale(c)
@@ -766,7 +871,12 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 	if rx != "":
 		p = rx
 	var sz := _size(p)
-	_put(c, p, Vector2(x - sz.x / 2, floor_y - sz.y + 4 + float(cr.get("dy", 0.0))), flip, al)
+	var fear := _wb_fear(k)
+	if fear > 0.0 and rx == "":
+		p = "%s/%02d.png" % [who, _drawing_at(cr, _wb_crew_v(k, float(_events.leg)))]
+		sz = _size(p)
+	var shy := Vector2((-1.0 if x < (float(J.crev[0]) + float(J.crev[1])) * 0.5 else 1.0) * 26.0 * fear + 2.0 * fear * sin(t * 40.0), 0)
+	_put(c, p, Vector2(x - sz.x / 2, floor_y - sz.y + 4 + float(cr.get("dy", 0.0))) + shy, flip, al)
 	var sgn := -1.0 if flip else 1.0
 	if cr.has("lamp"):
 		var lp: Array = cr.lamp
@@ -883,10 +993,12 @@ func _wb_small_life(c: CanvasItem, b: Dictionary) -> void:
 		var nm := String(w.name)
 		if _crew_ok(nm):
 			var n := int(J.crew_n[nm])
-			var u := (t + k * 1.7) * float(w.get("fps", 9))
+			var fear := _wb_fear(k)
+			var u := ((float(_events.leg) if fear > 0.0 else t) + k * 1.7) * float(w.get("fps", 9))
 			var fr := "%s/%02d.png" % [nm, _drawing_at(w, u) if w.has("play") else int(u) % n]
 			var sz := _size(fr)
-			_put(c, fr, Vector2(float(w.x) - sz.x / 2, y + float(w.get("floor", floor_of(d))) - sz.y + 4.0), bool(w.get("flip", false)))
+			var shy := Vector2((-1.0 if float(w.x) < (float(J.crev[0]) + float(J.crev[1])) * 0.5 else 1.0) * 26.0 * fear + 2.0 * fear * sin(t * 43.0), 0)
+			_put(c, fr, Vector2(float(w.x) - sz.x / 2, y + float(w.get("floor", floor_of(d))) - sz.y + 4.0) + shy, bool(w.get("flip", false)))
 
 ## moths round the lamps of the surface (at night more), now and then
 func _wb_moths_surface(c: CanvasItem) -> void:
@@ -1014,7 +1126,7 @@ func _events_live(c: CanvasItem) -> void:
 			"tug":
 				done = s > 5.0
 			"leg":
-				if s > LEG_LEN or not _events.has("leg_k"): done = true
+				if s > LEG_LEN + 0.8 or not _events.has("leg_k"): done = true
 				else: _wb_leg(c, int(_events.leg_k), s)
 			"eyes":
 				# eight red eyes open far down the crevice, under the deepest open level, and go out one by one
@@ -1109,6 +1221,13 @@ func _events_live(c: CanvasItem) -> void:
 			_events.erase(ev)
 			_events.erase(ev + "_k")
 
+## how much the people of depth k are frightened now (the leg out at their walkway): 0..1
+func _wb_fear(k: int) -> float:
+	if not _events.has("leg") or int(_events.get("leg_k", -1)) != k:
+		return 0.0
+	var s := t - float(_events.leg)
+	return clampf((s - 0.6) / 0.4, 0.0, 1.0) * clampf((LEG_LEN + 0.8 - s) / 0.8, 0.0, 1.0)
+
 ## a spider's leg, huge, out of the crevice's dark below a walkway: it comes up slowly, reaches over the planks towards the
 ## gallery, the claw taps twice on the floor, it feels about, and pulls back fast into the dark. One straight drawing
 ## (cyc_leg_strip) bent at two knees; its base stays in the dark, only as much as is out is drawn
@@ -1120,24 +1239,23 @@ func _wb_leg(c: CanvasItem, k: int, s: float) -> void:
 	var gx: Array = J.galleries.get(str(d), [100, 600])
 	var dir := -1.0 if float(gx[0]) < 600.0 else 1.0           # towards the gallery's side
 	var fl := band_y(k) + floor_of(d)
-	var base := Vector2((float(cv[0]) + float(cv[1])) * 0.5 - dir * 50.0, fl + 260.0)
+	var base := Vector2((float(cv[0]) + float(cv[1])) * 0.5 - dir * 30.0, fl + 110.0)
 	var tx := tex("leg_strip.png")
-	var full := 980.0
-	var hw := full * float(tx.get_height()) / float(tx.get_width()) * 0.5 * 2.2
+	var full := 640.0
+	var hw := full * float(tx.get_height()) / float(tx.get_width()) * 0.5 * 1.25
 	var out := 0.0
 	if s < 2.0: out = 1.0 - pow(1.0 - s / 2.0, 2.5)
 	elif s < LEG_LEN - 0.5: out = 1.0
 	else: out = pow(1.0 - (s - LEG_LEN + 0.5) / 0.5, 2.0)
 	var vis := full * out
-	c.draw_circle(base, 70.0, Color(0, 0, 0, 0.5 * clampf(s / 0.5, 0.0, 1.0) * clampf((LEG_LEN - s) / 0.6, 0.0, 1.0)))
-	if vis < 4.0:
+	if vis < 4.0 or s > LEG_LEN:
 		return
 	# the knees: up and out, over, down onto the floor; the claw taps at 2.2 s and 2.9 s, feels about after
 	var tap := exp(-pow((s - 2.2) * 7.0, 2.0)) + exp(-pow((s - 2.9) * 7.0, 2.0))
 	var feel := 0.25 * sin(s * 2.1) * clampf(s - 3.2, 0.0, 1.0)
-	var a1 := -1.25 + 0.05 * sin(s * 1.3)
-	var a2 := -0.35 + feel * 0.5
-	var a3 := 0.95 - 0.5 * tap + feel
+	var a1 := -1.45 + 0.05 * sin(s * 1.3)
+	var a2 := -0.55 + feel * 0.5
+	var a3 := 0.9 - 0.5 * tap + feel
 	var pts := Bend.chain(base, vis, 36, func(q: float) -> float:
 		var a := a3
 		if q < 0.36: a = a1
@@ -1145,7 +1263,12 @@ func _wb_leg(c: CanvasItem, k: int, s: float) -> void:
 		elif q < 0.70: a = a2
 		elif q < 0.74: a = lerpf(a2, a3, (q - 0.70) / 0.04)
 		return a if dir > 0.0 else PI - a)
-	Bend.draw(c, pts, func(q: float) -> float: return hw * (1.0 - 0.45 * q), tx, 1.0 - vis / full, 1.0, dir < 0.0, Color(0.8, 0.82, 0.8))
+	Bend.draw(c, pts, func(q: float) -> float: return hw * (1.0 - 0.45 * q), tx, 1.0 - vis / full, 1.0, dir < 0.0,
+		func(q: float) -> Color: var v := lerpf(0.12, 0.66, smoothstep(0.0, 0.4, q + (1.0 - vis / full))); return Color(v, v * 1.03, v))
+	# the walkway in front of it again (its base stays below the planks, in the crevice's dark)
+	var wp := "walk/d%d.png" % d
+	if ResourceLoader.exists(WDIR + wp):
+		_put(c, wp, Vector2(float(cv[0]) - 40.0, fl - 40.0))
 
 func _tremor() -> void:
 	if String(_shown_bands.get(8, "")) == "done" and not bool(Save.d.boss_won[area]) and t > _next_tremor:
