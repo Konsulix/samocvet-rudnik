@@ -1169,14 +1169,39 @@ func _wb_egret(c: CanvasItem) -> void:
 
 # ---------------------------------------------------------------- the spider, about the place
 
+## where an event happens (source px), for the admin's "Event:" buttons: Home glides there before it plays
+func event_y(ev: String) -> float:
+	match ev:
+		"monk":
+			var br: Dictionary = J.bridge
+			return float((br.l as Array)[1]) + 60.0
+		"eyes":
+			return band_y(open) + float(J.band) * (0.55 if open >= _bands.size() - 1 else 1.0)
+		"thread":
+			for k in range(sel, -1, -1):
+				if J.lamps.get(str(k + 1), []).size() > 0: return band_y(k) + 250.0
+			return band_y(0) + 250.0
+		"skitter":
+			return band_y(sel) + 250.0
+		"tug":
+			return maxf(_bk_y, _wb_rope_top().y + 300.0)
+	return -1.0
+
+var _pending_ev := ""
+var _pending_at := 0.0
 func _tick_events() -> void:
-	if force_event != "" and t > 0.5:
-		_start_event(force_event)
+	# an event from the admin waits until the screen has glided to it
+	if force_event != "":
+		_pending_ev = force_event
+		_pending_at = t + 0.9
 		force_event = ""
+	if _pending_ev != "" and t > _pending_at:
+		_start_event(_pending_ev)
+		_pending_ev = ""
 	if t < _next_event:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
-	var pool := ["web", "eyes", "skitter", "tug"]
+	var pool := ["eyes", "skitter", "tug"]
 	if int(_shown_places.get("bridge", 0)) >= 3: pool.append_array(["monk", "monk"])
 	for b in _bands:
 		if bool(b.lived) and J.lamps.get(str(int(b.d)), []).size() > 0:

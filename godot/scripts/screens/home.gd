@@ -141,6 +141,10 @@ func render() -> void:
 		_scroll_to(scroll)
 		if view.focus_y >= 0.0:
 			_glide_to(view.focus_y * view.scale.y - vp.y * 0.45)
+		# an event asked for from the admin: glide to where it happens (the mines that say where)
+		if MineView.force_event != "" and view.has_method("event_y"):
+			var ey: float = view.call("event_y", MineView.force_event)
+			if ey >= 0.0: _glide_to(ey * view.scale.y - vp.y * 0.45)
 	else:
 		scene.setup(ai(), Save.d.built[ai()], int(Save.d.depth[ai()]), dl_sel(), hv)
 	if ui_root:
