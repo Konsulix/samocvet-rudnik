@@ -43,6 +43,10 @@ static func drone(v: WebView, db: float) -> void:
 static func jingle(v: WebView, db: float) -> void:
 	v.amb.shot_clear("web/jingle", db - 16.0, randf_range(0.95, 1.05))
 
+## the leg's claw on the planks
+static func tap(v: WebView, db: float) -> void:
+	v.amb.shot("web/chisel_%d" % (randi() % 3), db - 14.0, 0.45)
+
 static func groan(v: WebView, db: float) -> void:
 	v.amb.shot("web/groan", db - 2.0, 1.0)
 

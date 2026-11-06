@@ -32,6 +32,15 @@ var _wb_flies: Array = []   # fireflies: [x, y, phase, speed]
 var _wb_mist: Array = []    # mist banks drifting across: [y, speed, size, phase]
 
 const RAIN_LEN := 7.0
+## the ore basket on its rope down the crevice (from the bridge's rope): to the depth being dug and back up, heaped
+var _bk_from := 0.0
+var _bk_to := 0
+var _bk_y := 0.0
+var _bk_up := false
+var _bk_sw := 0.0
+const BK_V := 230.0         # source px a second along the rope
+const BK_WAIT := 2.4
+const LEG_LEN := 7.0        # the spider's leg out of the crevice
 
 func _init() -> void:
 	dir = WDIR
@@ -91,6 +100,8 @@ func setup(a: int) -> void:
 		_events = {}
 		_next_event = 7.0
 		_set_area = a
+		_bk_from = t
+		_bk_to = sel
 	surf.texture = tex("surface.png")
 	surf.scale = Vector2.ONE / K
 	surf.material = null
@@ -370,6 +381,74 @@ func _process(delta: float) -> void:
 	var rn := _rain(t - _rain_at) * _rain_k
 	if int(_shown_places.get("wheel", 0)) >= 3:
 		_wheel_a += delta * (0.35 + 0.35 * rn)
+	_wb_basket_move()
+	_bk_sw = 10.0 * sin(t * 0.9) + 14.0 * rn * sin(t * 2.3)
+
+## the basket goes down to the walkway of the depth being dug, waits, comes up heaped with ore, waits at the bridge;
+## now and then it serves another open depth; the spider's line can catch it on the way ("tug")
+func _wb_basket_move() -> void:
+	var top := _wb_rope_top().y + 120.0
+	var to_y := band_y(_bk_to) + floor_of(_bk_to + 1) - 40.0
+	var down := maxf(0.5, (to_y - top) / BK_V)
+	if _events.has("tug"):
+		_bk_from += get_process_delta_time()      # held while the line has it
+	var s := t - _bk_from
+	var cyc := down * 2.0 + BK_WAIT * 2.0
+	if s > cyc:
+		_bk_from = t
+		_bk_to = sel if _rng.randf() < 0.6 else _rng.randi_range(0, open)
+		s = 0.0
+		to_y = band_y(_bk_to) + floor_of(_bk_to + 1) - 40.0
+		down = maxf(0.5, (to_y - top) / BK_V)
+	var y := top
+	_bk_up = s >= down + BK_WAIT
+	if s < down: y = lerpf(top, to_y, smoothstep(0.0, 1.0, s / down))
+	elif s < down + BK_WAIT: y = to_y
+	elif s < down * 2.0 + BK_WAIT: y = lerpf(to_y, top, smoothstep(0.0, 1.0, (s - down - BK_WAIT) / down))
+	if _events.has("tug"):
+		var q := t - float(_events.tug)
+		y -= 110.0 * smoothstep(0.0, 1.0, clampf(q / 1.6, 0.0, 1.0)) * clampf((5.0 - q) / 1.2, 0.0, 1.0) + 8.0 * sin(q * 18.0) * clampf(2.0 - q, 0.0, 1.0)
+	_bk_y = y
+
+## where the basket's rope leaves the bridge (the rope GPT drew hanging from it)
+func _wb_rope_top() -> Vector2:
+	var th: Array = J.thread
+	return Vector2(float(th[0]), float(th[1]))
+
+## the basket: a hemp rope from the bridge, a deep woven basket swinging on it, heaped with grey ore and silver going up;
+## while the spider's line has it, a glinting thread runs up from it into the dark
+func _wb_basket(c: CanvasItem) -> void:
+	var top := _wb_rope_top()
+	var at := Vector2(top.x + _bk_sw * clampf((_bk_y - top.y) / 2500.0, 0.1, 1.0), _bk_y)
+	if at.y < _seen.x - 200.0 or top.y > _seen.y + 200.0:
+		return
+	var ink := Color(0.04, 0.035, 0.03)
+	c.draw_line(top, at + Vector2(0, -90), ink, 6.0)
+	c.draw_line(top, at + Vector2(0, -90), Color(0.55, 0.45, 0.3), 2.8)
+	var ang := clampf(_bk_sw * 0.01, -0.15, 0.15)
+	c.draw_set_transform(at, ang, Vector2.ONE * 1.8)
+	c.draw_line(Vector2(-26, -10), Vector2(0, -50), ink, 3.0)
+	c.draw_line(Vector2(26, -10), Vector2(0, -50), ink, 3.0)
+	c.draw_colored_polygon(PackedVector2Array([Vector2(-34, -14), Vector2(34, -14), Vector2(26, 34), Vector2(-26, 34)]), ink)
+	c.draw_colored_polygon(PackedVector2Array([Vector2(-30, -10), Vector2(30, -10), Vector2(23, 30), Vector2(-23, 30)]), Color(0.52, 0.4, 0.22))
+	for j in 4:
+		var yy := -4.0 + j * 9.0
+		c.draw_line(Vector2(-29 + j * 1.8, yy), Vector2(29 - j * 1.8, yy), Color(0.3, 0.22, 0.12), 2.0)
+	for j in 6:
+		var xx := -24.0 + j * 9.6
+		c.draw_line(Vector2(xx, -9), Vector2(xx * 0.8, 29), Color(0.38, 0.28, 0.15, 0.8), 1.5)
+	if _bk_up:
+		for j in 6:
+			var p := Vector2(-20 + j * 8, -15 - 5 * absf(sin(j * 1.9)))
+			c.draw_circle(p, 7.5, ink)
+			c.draw_circle(p, 6.0, Color(0.45, 0.47, 0.5) if j % 3 else Color(0.82, 0.86, 0.92))
+			if j % 3 == 0: c.draw_circle(p + Vector2(-2, -2), 2.0, Color(1, 1, 1, 0.9))
+	c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	if _events.has("tug"):
+		var q := t - float(_events.tug)
+		var al := clampf(q / 0.5, 0.0, 1.0) * clampf((5.0 - q) / 0.8, 0.0, 1.0)
+		c.draw_line(at + Vector2(10, 30), Vector2(at.x + 30.0, at.y - 900.0), Color(0.9, 0.95, 1.0, 0.7 * al), 1.8)
+		_light(c, at + Vector2(10, 30), 20, Color(0.9, 0.97, 1.0, 0.5 * al))
 
 # ---------------------------------------------------------------- lights
 
@@ -604,12 +683,13 @@ func _wb_rain_draw(c: CanvasItem) -> void:
 	var y1 := minf(_seen.y, _cut_top() + float(J.cut))
 	if y1 <= y0:
 		return
-	for j in int(90 * rn):
+	c.draw_rect(Rect2(-200, y0, 1936, y1 - y0), Color(0.04, 0.06, 0.06, 0.16 * rn))
+	for j in int(170 * rn):
 		var x := rng.randf_range(-100, 1636)
 		var sp := rng.randf_range(1400.0, 1900.0)
 		var y := y0 + fposmod(rng.randf_range(0, 2000) + t * sp, y1 - y0 + 200.0) - 100.0
 		var l := rng.randf_range(40.0, 80.0)
-		c.draw_line(Vector2(x, y), Vector2(x - l * 0.18, y + l), Color(0.82, 0.88, 0.9, 0.3 * rn), rng.randf_range(1.2, 2.2))
+		c.draw_line(Vector2(x, y), Vector2(x - l * 0.18, y + l), Color(0.84, 0.9, 0.92, 0.42 * rn), rng.randf_range(1.4, 2.6))
 
 # ---------------------------------------------------------------- the live layer
 
@@ -619,6 +699,7 @@ func _draw_live() -> void:
 	_wb_mist_draw(c)
 	_surface_live(c)
 	_wb_crevice(c)
+	_wb_basket(c)
 	for b in _bands:
 		if _band_seen(b): _band_live(c, b)
 	_events_live(c)
@@ -688,7 +769,7 @@ func _tick_events() -> void:
 	if t < _next_event:
 		return
 	_next_event = t + _rng.randf_range(10.0, 16.0)
-	var pool := ["web", "eyes", "skitter"]
+	var pool := ["web", "eyes", "skitter", "leg", "leg", "tug"]
 	if int(_shown_places.get("bridge", 0)) >= 3: pool.append_array(["monk", "monk"])
 	for b in _bands:
 		if bool(b.lived) and J.lamps.get(str(int(b.d)), []).size() > 0:
@@ -699,6 +780,27 @@ func _tick_events() -> void:
 func _start_event(ev: String) -> void:
 	_events[ev] = t
 	match ev:
+		"leg":
+			# out of the crevice beside the open walkway on the screen (the nearest to the middle)
+			var pick := -1
+			var best := 1e9
+			var mid := lerpf(_seen.x, _seen.y, 0.55)
+			for b in _bands:
+				var k := int(b.k)
+				if k > open or String(_shown_bands.get(k, "closed")) == "closed": continue
+				var yy := band_y(k) + floor_of(k + 1)
+				if yy > _seen.x + 80 and yy < _seen.y - 80 and absf(yy - mid) < best:
+					best = absf(yy - mid)
+					pick = k
+			if pick < 0:
+				_events.erase(ev)
+				return
+			_events["leg_k"] = pick
+			WebSounds.skitter(self, _far(band_y(pick) + 300.0) + 4.0)
+			get_tree().create_timer(2.2).timeout.connect(func(): WebSounds.tap(self, _far(band_y(pick) + 300.0)))
+			get_tree().create_timer(2.9).timeout.connect(func(): WebSounds.tap(self, _far(band_y(pick) + 300.0)))
+		"tug":
+			WebSounds.skitter(self, _far(_bk_y) - 4.0)
 		"web":
 			WebSounds.skitter(self, _far(float(J.sky) + 300.0) - 6.0)
 		"eyes":
@@ -750,6 +852,11 @@ func _events_live(c: CanvasItem) -> void:
 		match ev:
 			"web":
 				done = s > 3.2
+			"tug":
+				done = s > 5.0
+			"leg":
+				if s > LEG_LEN or not _events.has("leg_k"): done = true
+				else: _wb_leg(c, int(_events.leg_k), s)
 			"eyes":
 				# eight red eyes open far down the crevice, under the deepest open level, and go out one by one
 				if s > 6.0: done = true
@@ -842,6 +949,44 @@ func _events_live(c: CanvasItem) -> void:
 		if done:
 			_events.erase(ev)
 			_events.erase(ev + "_k")
+
+## a spider's leg, huge, out of the crevice's dark below a walkway: it comes up slowly, reaches over the planks towards the
+## gallery, the claw taps twice on the floor, it feels about, and pulls back fast into the dark. One straight drawing
+## (cyc_leg_strip) bent at two knees; its base stays in the dark, only as much as is out is drawn
+func _wb_leg(c: CanvasItem, k: int, s: float) -> void:
+	if not ResourceLoader.exists(dir + "leg_strip.png"):
+		return
+	var cv: Array = J.crev
+	var d := k + 1
+	var gx: Array = J.galleries.get(str(d), [100, 600])
+	var dir := -1.0 if float(gx[0]) < 600.0 else 1.0           # towards the gallery's side
+	var fl := band_y(k) + floor_of(d)
+	var base := Vector2((float(cv[0]) + float(cv[1])) * 0.5 - dir * 50.0, fl + 260.0)
+	var tx := tex("leg_strip.png")
+	var full := 980.0
+	var hw := full * float(tx.get_height()) / float(tx.get_width()) * 0.5 * 2.2
+	var out := 0.0
+	if s < 2.0: out = 1.0 - pow(1.0 - s / 2.0, 2.5)
+	elif s < LEG_LEN - 0.5: out = 1.0
+	else: out = pow(1.0 - (s - LEG_LEN + 0.5) / 0.5, 2.0)
+	var vis := full * out
+	c.draw_circle(base, 70.0, Color(0, 0, 0, 0.5 * clampf(s / 0.5, 0.0, 1.0) * clampf((LEG_LEN - s) / 0.6, 0.0, 1.0)))
+	if vis < 4.0:
+		return
+	# the knees: up and out, over, down onto the floor; the claw taps at 2.2 s and 2.9 s, feels about after
+	var tap := exp(-pow((s - 2.2) * 7.0, 2.0)) + exp(-pow((s - 2.9) * 7.0, 2.0))
+	var feel := 0.25 * sin(s * 2.1) * clampf(s - 3.2, 0.0, 1.0)
+	var a1 := -1.25 + 0.05 * sin(s * 1.3)
+	var a2 := -0.35 + feel * 0.5
+	var a3 := 0.95 - 0.5 * tap + feel
+	var pts := Bend.chain(base, vis, 36, func(q: float) -> float:
+		var a := a3
+		if q < 0.36: a = a1
+		elif q < 0.40: a = lerpf(a1, a2, (q - 0.36) / 0.04)
+		elif q < 0.70: a = a2
+		elif q < 0.74: a = lerpf(a2, a3, (q - 0.70) / 0.04)
+		return a if dir > 0.0 else PI - a)
+	Bend.draw(c, pts, func(q: float) -> float: return hw * (1.0 - 0.45 * q), tx, 1.0 - vis / full, 1.0, dir < 0.0, Color(0.8, 0.82, 0.8))
 
 func _tremor() -> void:
 	if String(_shown_bands.get(8, "")) == "done" and not bool(Save.d.boss_won[area]) and t > _next_tremor:
