@@ -505,7 +505,7 @@ func _wb_basket(c: CanvasItem) -> void:
 		if _events.has("tug"):
 			var q2 := t - float(_events.tug)
 			var al2 := clampf(q2 / 0.5, 0.0, 1.0) * clampf((5.0 - q2) / 0.8, 0.0, 1.0)
-			c.draw_line(at + Vector2(10, 30), Vector2(at.x + 30.0, at.y - 900.0), Color(0.9, 0.95, 1.0, 0.7 * al2), 1.8)
+			c.draw_line(at + Vector2(10, 30), Vector2(at.x + 30.0, at.y - 140.0), Color(0.9, 0.95, 1.0, 0.45 * al2), 1.8)
 		return
 	var ink := Color(0.04, 0.035, 0.03)
 	c.draw_line(top, at + Vector2(0, -90), ink, 6.0)
@@ -531,7 +531,7 @@ func _wb_basket(c: CanvasItem) -> void:
 	if _events.has("tug"):
 		var q := t - float(_events.tug)
 		var al := clampf(q / 0.5, 0.0, 1.0) * clampf((5.0 - q) / 0.8, 0.0, 1.0)
-		c.draw_line(at + Vector2(10, 30), Vector2(at.x + 30.0, at.y - 900.0), Color(0.9, 0.95, 1.0, 0.7 * al), 1.8)
+		c.draw_line(at + Vector2(10, 30), Vector2(at.x + 30.0, at.y - 140.0), Color(0.9, 0.95, 1.0, 0.45 * al), 1.8)
 		_light(c, at + Vector2(10, 30), 20, Color(0.9, 0.97, 1.0, 0.5 * al))
 
 # ---------------------------------------------------------------- lights
@@ -685,25 +685,6 @@ func _wb_crevice(c: CanvasItem) -> void:
 		if not _band_seen(b) or int(b.k) == 0:
 			continue
 		pass
-	# the line: from the rope in the picture straight down the middle to below the deepest open level
-	var th: Array = J.thread
-	var tx := (x0 + x1) * 0.5 + 18.0
-	var ty0 := float(th[1]) + 120.0
-	var ty1 := band_y(open) + float(J.band) * 1.2
-	var sw := 6.0 * sin(t * 0.5)
-	var seen0 := maxf(ty0, _seen.x - 50.0)
-	var seen1 := minf(ty1, _seen.y + 50.0)
-	if seen1 > seen0:
-		var a := Vector2(lerpf(float(th[0]), tx, clampf((seen0 - ty0) / 300.0, 0.0, 1.0)) + sw * (seen0 - ty0) / maxf(1.0, ty1 - ty0), seen0)
-		var b2 := Vector2(tx + sw * (seen1 - ty0) / maxf(1.0, ty1 - ty0), seen1)
-		c.draw_line(a, b2, Color(0.85, 0.9, 0.95, 0.45), 1.6)
-		for j in 4:
-			var u := fmod(t * 0.12 + j * 0.25, 1.0)
-			var y := lerpf(ty0, ty1, u)
-			if y < seen0 or y > seen1: continue
-			var p := Vector2(tx + sw * (y - ty0) / maxf(1.0, ty1 - ty0), y)
-			_light(c, p, 18, Color(0.9, 0.97, 1.0, 0.45))
-			c.draw_circle(p, 2.4, Color(1, 1, 1, 0.85))
 	# fireflies at night over the stream, the houses' terrace and down the crevice
 	var nt := _night()
 	if nt > 0.05:
@@ -1361,7 +1342,7 @@ func _events_live(c: CanvasItem) -> void:
 						var tip := top.lerp(lamp, down)
 						tip.y -= up * up * 420.0
 						tip.x += sin(s * 2.0) * 6.0 * up
-						c.draw_line(top + Vector2(0, -400), tip, Color(0.9, 0.95, 1.0, 0.65), 1.6)
+						c.draw_line(top + Vector2(0, -120), tip, Color(0.9, 0.95, 1.0, 0.45), 1.4)
 						if s > 2.0:
 							# the lamp (a little paper lantern of its own, drawn here) hangs on the line, swinging, and goes up
 							var sw := sin(s * 3.0) * 0.25 * up
