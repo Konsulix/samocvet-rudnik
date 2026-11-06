@@ -662,6 +662,18 @@ func _wb_crevice(c: CanvasItem) -> void:
 ## mist banks drifting across the valley; thicker in the rain and towards evening
 func _wb_mist_draw(c: CanvasItem) -> void:
 	var rn := _rain(t - _rain_at) * _rain_k
+	if J.has("stair_mist"):
+		var line: Array = J.stair_mist
+		var ps := _size("puff.png")
+		for i in 9:
+			var u := fposmod(t * 0.03 + i / 9.0, 1.0)
+			var f := u * (line.size() - 1)
+			var i0 := mini(int(f), line.size() - 2)
+			var a: Array = line[i0]
+			var b: Array = line[i0 + 1]
+			var p := Vector2(float(a[0]), float(a[1])).lerp(Vector2(float(b[0]), float(b[1])), f - i0) + Vector2(25.0 * sin(i * 2.1 + t * 0.2), 0)
+			var sc := 2.2 + 1.2 * sin(i * 1.7)
+			c.draw_texture_rect(tex("puff.png"), Rect2(p - ps * sc / 2, ps * sc), false, Color(0.85, 0.9, 0.88, (0.16 + 0.08 * rn) * sin(PI * u)))
 	var y_top := float(J.sky) + 300.0
 	var y_bot := _cut_top() + float(J.cut)
 	for m_ in _wb_mist:
@@ -701,7 +713,11 @@ func _draw_live() -> void:
 	_wb_crevice(c)
 	_wb_basket(c)
 	for b in _bands:
-		if _band_seen(b): _band_live(c, b)
+		if _band_seen(b):
+			_band_live(c, b)
+			_wb_small_life(c, b)
+	_wb_moths_surface(c)
+	_wb_egret(c)
 	_events_live(c)
 	_wb_rain_draw(c)
 	_ore_flight(c)
@@ -759,6 +775,149 @@ func _band_live(c: CanvasItem, b: Dictionary) -> void:
 		var ep: Array = cr.ember
 		var draw_ := fposmod(_wb_crew_v(k, t), _loop(cr)) / maxf(1.0, _loop(cr))
 		_light(c, Vector2(x + float(ep[0]) * sgn, floor_y + float(ep[1])), 26, Color(1.0, 0.5, 0.15, (0.6 if draw_ < 0.25 else 0.2) * al))
+
+# ---------------------------------------------------------------- small life (between the events, something always moves)
+
+## a moth: two pale wings beating round a body, flying a loose loop round a light
+func _wb_moth(c: CanvasItem, at: Vector2, seed_: int, warm: Color) -> void:
+	var ph := seed_ * 1.37
+	var sp := 0.9 + 0.25 * sin(seed_)
+	var p := at + Vector2(sin(t * 1.3 * sp + ph) * 34.0 + sin(t * 3.1 + ph * 2.0) * 8.0, cos(t * 1.7 * sp + ph) * 22.0 + sin(t * 2.3 + ph) * 6.0)
+	var beat := absf(sin(t * 26.0 + ph))
+	var ink := Color(0.05, 0.04, 0.03, 0.9)
+	var wing := Color(warm.lightened(0.5), 0.85)
+	for sgn in [-1.0, 1.0]:
+		var w := PackedVector2Array([p, p + Vector2(sgn * 8.0, -3.0 - 6.0 * beat), p + Vector2(sgn * 10.0, 3.0 - 2.0 * beat)])
+		c.draw_colored_polygon(w, wing)
+		c.draw_polyline(PackedVector2Array([w[0], w[1], w[2], w[0]]), ink, 1.0)
+	c.draw_circle(p, 2.0, ink)
+
+## per depth: moths round its lamps, a small spider going up and down its own thread in the crevice, drops falling from
+## the roof in a gallery, a moth caught in the crevice's web; the depth's own light (silver glints running along the
+## quartz vein, ripples of lamplight on the lake, the green mushrooms breathing)
+func _wb_small_life(c: CanvasItem, b: Dictionary) -> void:
+	var k := int(b.k)
+	var y := float(b.y)
+	var d := int(b.d)
+	if String(_shown_bands.get(k, b.state)) == "closed":
+		return
+	var ls: Array = J.lamps.get(str(d), [])
+	for j in ls.size():
+		if (k + j) % 2 == 1 and j > 0: continue
+		var l: Array = ls[j]
+		_wb_moth(c, Vector2(float(l[0]), y + float(l[1]) - 10.0), k * 11 + j, Color(1.0, 0.85, 0.6))
+	var cv: Array = J.crev
+	# the little spider on its thread: it lets itself down, hangs, climbs back
+	var sx := float(cv[0]) + 40.0 + fposmod(k * 53.0, float(cv[1]) - float(cv[0]) - 80.0)
+	var cyc := fposmod(t + k * 4.1, 14.0) / 14.0
+	var dn := smoothstep(0.0, 0.35, cyc) * (1.0 - smoothstep(0.6, 1.0, cyc))
+	var sy := y + 20.0 + dn * 300.0 + 4.0 * sin(t * 2.0 + k)
+	c.draw_line(Vector2(sx, y), Vector2(sx, sy), Color(0.85, 0.9, 0.9, 0.5), 1.2)
+	var ink := Color(0.03, 0.03, 0.03)
+	c.draw_circle(Vector2(sx, sy + 4.0), 5.0, ink)
+	c.draw_circle(Vector2(sx, sy - 2.0), 3.0, ink)
+	for l in 4:
+		var a := 0.3 + l * 0.42 + 0.15 * sin(t * 6.0 + l + k)
+		c.draw_line(Vector2(sx, sy + 3.0), Vector2(sx + cos(a) * 11.0, sy + 3.0 + sin(a) * 9.0 - 4.0), ink, 1.4)
+		c.draw_line(Vector2(sx, sy + 3.0), Vector2(sx - cos(a) * 11.0, sy + 3.0 + sin(a) * 9.0 - 4.0), ink, 1.4)
+	# a moth caught in the web over this depth's seam: still, then a burst of flapping
+	if k > 0 and k % 3 != 2:
+		var mp := Vector2((float(cv[0]) + float(cv[1])) * 0.5 + 30.0 * sin(k * 2.2), y - 20.0)
+		var fl := maxf(0.0, sin(t * 0.6 + k)) ** 6
+		var beat := absf(sin(t * 30.0)) * fl
+		for sgn in [-1.0, 1.0]:
+			c.draw_colored_polygon(PackedVector2Array([mp, mp + Vector2(sgn * 10.0, -4.0 - 5.0 * beat), mp + Vector2(sgn * 11.0, 5.0)]), Color(0.85, 0.8, 0.68, 0.85))
+		c.draw_circle(mp, 2.4, ink)
+	# drops from the roof of the gallery, each falling to the floor and splashing
+	var gx: Array = J.galleries.get(str(d), [100, 600])
+	var fy := y + floor_of(d)
+	for j in 3:
+		var dx := lerpf(float(gx[0]) + 60.0, float(gx[1]) - 60.0, fmod(j * 0.37 + k * 0.21, 1.0))
+		var per := 2.6 + j * 0.9
+		var u := fposmod(t + j * 1.3 + k, per) / per
+		var top := fy - 300.0
+		if u < 0.5:
+			var q := u / 0.5
+			c.draw_circle(Vector2(dx, top + 4.0 * q), 2.0 + q, Color(0.8, 0.9, 0.95, 0.6 * q))
+		elif u < 0.68:
+			var q := (u - 0.5) / 0.18
+			c.draw_line(Vector2(dx, lerpf(top, fy - 6.0, q * q)), Vector2(dx, lerpf(top, fy - 6.0, q * q) + 10.0), Color(0.85, 0.93, 1.0, 0.75), 2.5)
+		elif u < 0.8:
+			var q := (u - 0.68) / 0.12
+			c.draw_arc(Vector2(dx, fy - 4.0), 4.0 + 12.0 * q, PI * 1.1, PI * 1.9, 8, Color(0.85, 0.93, 1.0, 0.6 * (1.0 - q)), 1.5)
+	# the depth's own light
+	var lx: Dictionary = J.get("light", {})
+	if lx.has(str(d)):
+		var L: Dictionary = lx[str(d)]
+		match String(L.kind):
+			"glints":
+				var pts: Array = L.pts
+				for i in pts.size():
+					var g := maxf(0.0, sin(t * 1.1 - i * 0.7)) ** 8
+					if g < 0.05: continue
+					var gp := Vector2(float(pts[i][0]), y + float(pts[i][1]))
+					_light(c, gp, 26, Color(0.85, 0.92, 1.0, 0.6 * g))
+					c.draw_line(gp + Vector2(-8, 0) * g, gp + Vector2(8, 0) * g, Color(1, 1, 1, g), 1.5)
+					c.draw_line(gp + Vector2(0, -8) * g, gp + Vector2(0, 8) * g, Color(1, 1, 1, g), 1.5)
+			"water":
+				var r: Array = L.rect
+				for i in 18:
+					var wx := lerpf(float(r[0]), float(r[2]), fmod(i * 0.618, 1.0))
+					var wy := y + lerpf(float(r[1]), float(r[3]), fmod(i * 0.37, 1.0))
+					var a := 0.5 + 0.5 * sin(t * 1.4 + i * 1.9)
+					var ln := 18.0 + 14.0 * sin(i * 2.3)
+					c.draw_line(Vector2(wx - ln + 6.0 * sin(t + i), wy), Vector2(wx + ln + 6.0 * sin(t + i), wy), Color(0.7, 0.95, 1.0, 0.22 * a), 2.0)
+			"fungi":
+				var pts: Array = L.pts
+				for i in pts.size():
+					var g := 0.5 + 0.5 * sin(t * 0.8 + i * 1.3)
+					_light(c, Vector2(float(pts[i][0]), y + float(pts[i][1])), 60, Color(0.4, 1.0, 0.75, 0.22 * g))
+			"warm":
+				var pts: Array = L.pts
+				for i in pts.size():
+					_light(c, Vector2(float(pts[i][0]), y + float(pts[i][1])), 120, Color(L.get("col", "#ffb060"), 0.2 * _flick(k * 5 + i)))
+	# the second dweller of the depth
+	var c2: Dictionary = J.get("crews2", {})
+	if c2.has(str(d)) and b.lived:
+		var w: Dictionary = c2[str(d)]
+		var nm := String(w.name)
+		if _crew_ok(nm):
+			var n := int(J.crew_n[nm])
+			var u := (t + k * 1.7) * float(w.get("fps", 9))
+			var fr := "%s/%02d.png" % [nm, _drawing_at(w, u) if w.has("play") else int(u) % n]
+			var sz := _size(fr)
+			_put(c, fr, Vector2(float(w.x) - sz.x / 2, y + float(w.get("floor", floor_of(d))) - sz.y + 4.0), bool(w.get("flip", false)))
+
+## moths round the lamps of the surface (at night more), now and then
+func _wb_moths_surface(c: CanvasItem) -> void:
+	var sl: Dictionary = J.surface_lamps
+	var i := 0
+	for place in sl:
+		if place != "" and int(_shown_places.get(place, 0)) < 3:
+			continue
+		for l in sl[place]:
+			i += 1
+			if i % 3 != 0: continue
+			var at := Vector2(float(l[0]), float(l[1]))
+			if at.y < _seen.x - 100.0 or at.y > _seen.y + 100.0: continue
+			_wb_moth(c, at, 100 + i, Color(1.0, 0.85, 0.6))
+
+## an egret flies over the valley every half minute or so, low over the mist
+func _wb_egret(c: CanvasItem) -> void:
+	if not _crew_ok("egret"):
+		return
+	var per := 34.0
+	var u := fposmod(t + 9.0, per) / 12.0
+	if u > 1.0:
+		return
+	var sky := float(J.sky)
+	var p := Vector2(lerpf(-160.0, 1700.0, u), sky + 520.0 - 220.0 * u + 30.0 * sin(u * 6.0))
+	if p.y < _seen.x - 100.0 or p.y > _seen.y + 100.0:
+		return
+	var n := int(J.crew_n.egret)
+	var fr := "egret/%02d.png" % (int(t * 10.0) % n)
+	var sz := _size(fr)
+	_put(c, fr, p - sz / 2)
 
 # ---------------------------------------------------------------- the spider, about the place
 
