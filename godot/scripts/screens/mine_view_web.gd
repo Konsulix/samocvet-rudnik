@@ -238,16 +238,10 @@ func _wb_ladder(c: CanvasItem) -> void:
 		var tx := tex("ladder.png")
 		var w := tx.get_size().x / K
 		var seg := tx.get_size().y / K
-		var x := float(cv0[0]) + 30.0
-		var y := float(ld0[1]) + 380.0
+		# one ladder from the bridge's deck straight down to the deepest open floor, over the one drawn in the picture
+		var x := float(ld0[0]) - w / 2
+		var y := float(ld0[1]) + 4.0
 		var bottom := band_y(open) + floor_of(open + 1)
-		# from the foot of the ladder in the picture, slanting to the crevice's wall, then straight down
-		var xs := float(ld0[0]) - w / 2
-		var join := y + 260.0
-		c.draw_set_transform(Vector2(xs, y), atan2(x - xs, 260.0) * -1.0, Vector2.ONE)
-		c.draw_texture_rect_region(tx, Rect2(0, 0, w, Vector2(x - xs, 260.0).length()), Rect2(0, 0, tx.get_size().x, minf(tx.get_size().y, Vector2(x - xs, 260.0).length() * K)))
-		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-		y = join
 		while y < bottom and y < _seen.y + 100.0:
 			var h := minf(seg, bottom - y)
 			if y + h > _seen.x - 100.0:
@@ -1120,24 +1114,29 @@ func _wb_hall(c: CanvasItem, y: float) -> void:
 		var xx := lerpf(lerpf(float(sh[0]), float(sh[1]), q), lerpf(float(sh[3]), float(sh[4]), q), u) + 10.0 * sin(t * 0.8 + i)
 		c.draw_circle(Vector2(xx, y + yy), 2.0, Color(1.0, 1.0, 0.95, 0.55 * sin(PI * u)))
 	_light(c, Vector2((float(sh[3]) + float(sh[4])) * 0.5, y + float(sh[5])), 160, Color(0.85, 0.95, 0.92, 0.12 * br))
-	var ch: Array = H2.channel        # points along the channel, the last is the spout
-	for i in 10:
-		var u := fposmod(t * 0.6 + i * 0.1, 1.0)
-		var f := u * (ch.size() - 1)
-		var i0 := mini(int(f), ch.size() - 2)
-		var a2: Array = ch[i0]
-		var b2: Array = ch[i0 + 1]
-		var p := Vector2(float(a2[0]), y + float(a2[1])).lerp(Vector2(float(b2[0]), y + float(b2[1])), f - i0)
-		c.draw_line(p, p + Vector2(-10, 1), Color(0.85, 0.97, 1.0, 0.7), 2.0)
-	var sp: Array = ch[ch.size() - 1]
+	# the stream from the spout, along its own drawn arc: bright dashes running down it
+	var sp: Array = H2.spout
 	var pool: Array = H2.pool
+	for i in 7:
+		var u := fposmod(t * 1.4 + i / 7.0, 1.0)
+		var f := u * (sp.size() - 1)
+		var i0 := mini(int(f), sp.size() - 2)
+		var a2: Array = sp[i0]
+		var b2: Array = sp[i0 + 1]
+		var p := Vector2(float(a2[0]), y + float(a2[1])).lerp(Vector2(float(b2[0]), y + float(b2[1])), f - i0)
+		var dirv := (Vector2(float(b2[0]), float(b2[1])) - Vector2(float(a2[0]), float(a2[1]))).normalized()
+		c.draw_line(p, p + dirv * 9.0, Color(0.9, 0.98, 1.0, 0.8), 2.2)
+	# the little fall that feeds the channel: threads sliding down it
+	var fl2: Array = H2.falls
 	for i in 6:
-		var u := fposmod(t * 1.6 + i / 6.0, 1.0)
-		var p := Vector2(float(sp[0]) - 6.0 * u, y + lerpf(float(sp[1]), float(pool[1]), u * u))
-		c.draw_line(p, p + Vector2(-1, 12), Color(0.85, 0.97, 1.0, 0.75), 2.5)
+		var u := fposmod(t * 1.1 + i / 6.0, 1.0)
+		var a3: Array = fl2[0]
+		var b3: Array = fl2[fl2.size() - 1]
+		var p := Vector2(float(a3[0]), y + float(a3[1])).lerp(Vector2(float(b3[0]), y + float(b3[1])), u) + Vector2(sin(i * 2.3) * 5.0, 0)
+		c.draw_line(p, p + Vector2(0, 12), Color(0.9, 0.98, 1.0, 0.5 * sin(PI * u)), 2.0)
 	for i in 4:
 		var u := fposmod(t * 0.5 + i * 0.25, 1.0)
-		var cx := float(pool[0]) + (i - 1.5) * 26.0 * float(i % 2)
+		var cx := float(pool[0]) + (i - 1.5) * 10.0
 		c.draw_set_transform(Vector2(cx, y + float(pool[1])), 0, Vector2(1.0, 0.3))
 		c.draw_arc(Vector2.ZERO, 6.0 + 40.0 * u, 0, TAU, 20, Color(0.85, 0.97, 1.0, 0.45 * (1.0 - u)), 2.0)
 		c.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
