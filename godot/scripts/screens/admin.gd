@@ -17,6 +17,10 @@ const SKULL_SP := ["amethyst", "venom", "morion", "cinnabar", "celestine", "smok
 static func main() -> Node:
 	return Engine.get_main_loop().current_scene
 
+## the panel's scroller, and where it stood: a button reopens the panel, which then comes back to the same place
+static var _sc: ScrollContainer
+static var _keep := 0
+
 static func open() -> void:
 	var a := Save.area()
 	var card := Ov.card(360)
@@ -38,6 +42,11 @@ static func open() -> void:
 	var sc := UI.scroller()
 	sc.custom_minimum_size = Vector2(0, maxf(300.0, card.get_viewport_rect().size.y - 300.0))
 	card.add_child(sc)
+	_sc = sc
+	if _keep > 0:
+		# (after the content is laid out, or the scroller clamps it to 0)
+		_scroll_back(sc, _keep)
+		_keep = 0
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 12)
@@ -266,7 +275,14 @@ static func _saved() -> void:
 	Ov.toast("Done")
 	_reopen()
 
+static func _scroll_back(sc: ScrollContainer, at: int) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	for i in 2:
+		await tree.process_frame
+		if is_instance_valid(sc): sc.scroll_vertical = at
+
 static func _reopen() -> void:
+	_keep = _sc.scroll_vertical if is_instance_valid(_sc) else 0
 	_refresh()
 	open()
 
