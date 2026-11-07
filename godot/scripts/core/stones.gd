@@ -73,6 +73,43 @@ static func pool_at(area: int, dl: int) -> Array:
 			out.append([s, float(pool[s]) * (2.0 if int(at[s]) == dl and dl > 0 else 1.0)])
 	return out
 
+## Skulls of Koschei's barrow (SpecSkull, docs/skulls.md): there about every fourth find is a skull, the barrow's
+## crystal growing out of it. What it is cast in, by depth (the tale's layers): plain bone near the top, nacre, gold leaf
+## and the mosaic further down, glass by the duck's lake, cast gold, silver and copper only in the hoard — rare, so a
+## golden skull stays an event. Its own random stream: the rest of the find rolls as before.
+const SKULL_AREAS := {6: 0.36}   # (of the finds that can be one: about every fourth find in all)
+const SKULL_SP := ["vivianite", "apatite", "morion", "pyrope", "venom"]   # (prisms and garnets grow a crown; not the needle)
+const SKULL_SKINS := ["bone", "nacre", "gilt", "kintsugi", "glass", "gold", "silver", "copper"]
+const SKULL_N := {bone = "Bone Skull", nacre = "Nacre Skull", gilt = "Gilded Skull", kintsugi = "Kintsugi Skull", glass = "Crystal Skull",
+	gold = "Golden Skull", silver = "Silver Skull", copper = "Copper Skull"}
+const SKULL_V := {bone = 1.6, nacre = 2.4, gilt = 2.6, kintsugi = 3.2, glass = 3.8, gold = 5.5, silver = 4.5, copper = 4.0}
+const SKULL_TIER := {bone = 1, nacre = 2, gilt = 2, kintsugi = 3, glass = 3, gold = 3, silver = 3, copper = 3}
+const SKULL_COL := {bone = Color("#cfc2a4"), nacre = Color("#9fb6c9"), gilt = Color("#d9b25a"), kintsugi = Color("#c9744f"),
+	glass = Color("#bfe3ef"), gold = Color("#e8c35a"), silver = Color("#d8dbe2"), copper = Color("#d0805a")}
+## the skins at each depth of the barrow (index = depth): [skin, weight]
+const SKULL_AT := [
+	[["bone", 1.0]], [["bone", 1.0]],
+	[["bone", 70.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 5.0]],
+	[["bone", 70.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 5.0]],
+	[["bone", 70.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 5.0]],
+	[["bone", 60.0], ["nacre", 12.0], ["gilt", 8.0], ["kintsugi", 5.0], ["glass", 15.0]],
+	[["bone", 65.0], ["nacre", 15.0], ["gilt", 12.0], ["kintsugi", 8.0]],
+	[["bone", 50.0], ["nacre", 10.0], ["gilt", 15.0], ["kintsugi", 8.0], ["gold", 8.0], ["silver", 5.0], ["copper", 4.0]],
+	[["bone", 60.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 8.0], ["glass", 7.0]]]
+
+## a find's name: the species, or for a skull its kind ("Gilded Skull")
+static func name_of(s: Dictionary) -> String:
+	if String(s.get("form", "")) == "skull" and s.has("skin"):
+		# (a plain bone one is named by its crystal: "Pyrope Skull"; the rest by what they are: "Gilded Skull")
+		if s.skin == "bone": return "%s Skull" % Data.SP[s.sid].n
+		return String(SKULL_N.get(s.skin, "Skull"))
+	return String(Data.SP[s.sid].n)
+
+## the page of the atlas (and the pile in the inventory) a find belongs to: its species, or skull_<kind>
+static func atlas_id(s: Dictionary) -> String:
+	if String(s.get("form", "")) == "skull" and s.has("skin"): return "skull_" + String(s.skin)
+	return String(s.sid)
+
 static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
 	var entries := []
@@ -145,6 +182,16 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			kind_m *= {round = 1.3, baroque = 0.8, circled = 0.8}.get(fg.get("shape", ""), 1.0)
 			kind_m *= 0.6 + float(fg.get("luster", 0.5))
 			if int(fg.get("count", 1)) > 1: kind_m *= 1.5
+	# the barrow: now and then a skull (see SKULL_AREAS)
+	var skull := ""
+	if SKULL_AREAS.has(area) and sid in SKULL_SP and not legend:
+		var sr := Rng32.new((seed_id * 2654435761 + 7) % 4294967296)
+		if sr.next() < float(SKULL_AREAS[area]):
+			var at: Array = SKULL_AT[clampi(dl, 0, SKULL_AT.size() - 1)]
+			skull = pick_w(at, sr)
+			kind = "druse"
+			kind_m *= float(SKULL_V[skull])
+			g = roundi(900.0 * (1.0 + sr.next() * 0.8))
 	var value: float = float(Data.SP[sid].v) * VALUE_K * tm * kind_m
 	# a living effect is worth the same on any body: added, not multiplied, so a legendary pyrite
 	# outprices a plain emerald (it is about as rare); the stone itself still counts a little more
@@ -152,7 +199,12 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		value = value * LEGEND_K + LEGEND_V
 	value *= 1.3 * (1.0 + dl * 0.25)
 	value = capped(value, area)
-	return {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = roundi(value), tier = tier_of(sid, gi, legend)}
+	var out := {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = roundi(value), tier = tier_of(sid, gi, legend)}
+	if skull != "":
+		out.form = "skull"
+		out.skin = skull
+		out.tier = maxi(int(out.tier), int(SKULL_TIER[skull]))
+	return out
 
 ## a legendary find is always the top tier, whatever its body
 static func tier_of(sid: String, gi: int, legend: bool) -> int:

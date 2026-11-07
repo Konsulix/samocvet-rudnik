@@ -168,10 +168,11 @@ func _cases() -> void:
 	var groups := {}
 	var order := []
 	for st in list:
-		if not groups.has(st.sid):
-			groups[st.sid] = []
-			order.append(st.sid)
-		groups[st.sid].append(st)
+		var gid := Stones.atlas_id(st)
+		if not groups.has(gid):
+			groups[gid] = []
+			order.append(gid)
+		groups[gid].append(st)
 	for sid in order:
 		grid.add_child(_tile(groups[sid], w))
 	content.add_child(grid)
@@ -277,7 +278,7 @@ func _tile(g: Array, w: float) -> Control:
 	txt.position = Vector2(9, 7)
 	txt.add_theme_constant_override("separation", 2)
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var nl := Kit.label(String(Data.SP[s0.sid].n), 11, UI.body_bold, Kit.CREAM)
+	var nl := Kit.label(Stones.name_of(s0), 11, UI.body_bold, Kit.CREAM)
 	nl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
 	nl.add_theme_constant_override("shadow_offset_y", 1)
 	nl.clip_text = true
@@ -324,10 +325,11 @@ func _tile(g: Array, w: float) -> Control:
 func _dupes() -> Array:
 	var best := {}
 	for st in Save.d.coll:
-		if not best.has(st.sid) or int(st.value) > int(best[st.sid].value): best[st.sid] = st
+		var gid := Stones.atlas_id(st)
+		if not best.has(gid) or int(st.value) > int(best[gid].value): best[gid] = st
 	var out := []
 	for st in Save.d.coll:
-		if st == best[st.sid] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "": continue
+		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "": continue
 		out.append(st)
 	return out
 
@@ -362,8 +364,8 @@ func _swipe_stack() -> void:
 	var all: Array = Save.d.coll.duplicate()
 	all.sort_custom(func(a, b): return int(a.value) > int(b.value))
 	for s in all:
-		if not groups.has(s.sid): groups[s.sid] = []
-		groups[s.sid].append(s)
+		if not groups.has(Stones.atlas_id(s)): groups[Stones.atlas_id(s)] = []
+		groups[Stones.atlas_id(s)].append(s)
 	var best: Array = []
 	for k in groups:
 		if groups[k].size() > best.size(): best = groups[k]
@@ -375,8 +377,8 @@ func _open_stack() -> void:
 	var all: Array = Save.d.coll.duplicate()
 	all.sort_custom(func(a, b): return int(a.value) > int(b.value))
 	for s in all:
-		if not groups.has(s.sid): groups[s.sid] = []
-		groups[s.sid].append(s)
+		if not groups.has(Stones.atlas_id(s)): groups[Stones.atlas_id(s)] = []
+		groups[Stones.atlas_id(s)].append(s)
 	var best: Array = []
 	for k in groups:
 		if groups[k].size() > best.size(): best = groups[k]
@@ -470,7 +472,7 @@ func _cut_panel(s: Dictionary) -> void:
 	var chance := func(c: Dictionary) -> float: return minf(0.98, float(c.p) + int(s.gi) * 0.025)
 	var v := Ov.card(350)
 	v.add_child(UI.title("Cutting", 22))
-	v.add_child(Ov.text("%s · now %s" % [Data.SP[s.sid].n, UI.coins(int(s.value))]))
+	v.add_child(Ov.text("%s · now %s" % [Stones.name_of(s), UI.coins(int(s.value))]))
 	for c in Data.CUTS:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 66)

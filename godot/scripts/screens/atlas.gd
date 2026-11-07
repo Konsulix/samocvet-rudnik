@@ -22,6 +22,9 @@ const LEGEND := [
 	"Something vast sleeps under the whalers' bones",
 	"Under Etna a giant still keeps his forge",
 	"The ground opened in the polar night, and someone went down",
+	"",
+	"",
+	"Hush: the canary sings, and Shubin sleeps in the gas",
 ]
 ## one real line about each species
 const FACTS := {
@@ -80,6 +83,14 @@ const FACTS := {
 	morion = "SiO₂ · hardness 7 · black quartz: the old folk laid it with the dead",
 	pyrope = "Mg₃Al₂(SiO₄)₃ · hardness 7 · blood-red garnet set in the Scythians' gold",
 	carnelian = "SiO₂ · hardness 7 · red chalcedony: the barrows' beads were cut from it",
+	flintstone = "SiO₂ · hardness 7 · grows in the chalk as black nodules; struck on steel, it gives the spark that fires the gas",
+	dogtooth = "CaCO₃ · hardness 3 · calcite of the chalk caves, its crystals sharp as a dog's teeth",
+	marcasite = "FeS₂ · hardness 6 · the coal seams' brassy 'cockscomb'; in damp air it slowly crumbles",
+	wavellite = "Al₃(PO₄)₂(OH,F)₃·5H₂O · hardness 3.5 · green stars of needles, split open in the chalk's cracks",
+	hyalite = "SiO₂·nH₂O · hardness 6 · glassy opal like drops of water; under a black lamp it glows green",
+	whewellite = "CaC₂O₄·H₂O · hardness 2.5 · a mineral born of living things, found in coal seams",
+	enhydro = "SiO₂ · hardness 7 · a quartz with a drop of water and a bubble of gas sealed in it millions of years ago",
+	ember = "the colour of a firedamp flame: the old gas-burner's last coal, still warm",
 	needle = "a death on the needle's point, the needle in an egg, the egg in a duck, the duck in a hare...",
 }
 
@@ -285,7 +296,7 @@ static func _cover(ts: Vector2, s: Vector2, fy := 0.5) -> Rect2:
 	return Rect2(0, (ts.y - h) * fy, ts.x, h)
 
 static func _mine_dir(a: int) -> String:
-	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval", "spider_hollow", "deathless_barrow"][clampi(a, 0, 6)]
+	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval", "spider_hollow", "deathless_barrow", "whispering_seam"][clampi(a, 0, 7)]
 
 ## the banner's emblem: the beaten boss's sign, an empty socket while the boss stands, a lock on a mine not reached
 static func _sign(a: int, open: bool) -> String:
@@ -391,6 +402,19 @@ func _mine(a: int) -> void:
 		if grey == null and bool(t.get_meta("gone", false)): grey = t
 		grid.add_child(t)
 	content.add_child(grid)
+	# the barrow's own collection: its skulls, by what they are made of
+	if Stones.SKULL_AREAS.has(a):
+		var got := 0
+		for sk: String in Stones.SKULL_SKINS:
+			if Save.d.atlas.has("skull_" + sk): got += 1
+		content.add_child(_progress("%d/%d skulls" % [got, Stones.SKULL_SKINS.size()], float(got) / Stones.SKULL_SKINS.size(), 120))
+		var sg := GridContainer.new()
+		sg.columns = 3
+		sg.add_theme_constant_override("h_separation", 8)
+		sg.add_theme_constant_override("v_separation", 8)
+		for sk: String in Stones.SKULL_SKINS:
+			sg.add_child(_tile("skull_" + sk, w))
+		content.add_child(sg)
 	if grey != null and not Save.told("c_atlas_grey"):
 		_grey_note.call_deferred(grey)
 
@@ -520,7 +544,7 @@ static func best_kept(id: String) -> bool:
 	var e: Dictionary = Save.d.atlas.get(id, {})
 	if not e.has("best"): return false
 	for s in Save.d.coll:
-		if int(s.id) == int(e.best.id) and String(s.sid) == id: return true
+		if int(s.id) == int(e.best.id) and Stones.atlas_id(s) == id: return true
 	return false
 
 static var _faded: ShaderMaterial
@@ -535,11 +559,12 @@ func _tile(id: String, w: float) -> Control:
 	var e: Dictionary = Save.d.atlas.get(id, {})
 	var got := e.has("best")
 	var gone := got and not best_kept(id)
-	var tier: int = int(e.best.tier) if got else int(Data.SP[id].r)
+	var skin := id.trim_prefix("skull_") if id.begins_with("skull_") else ""
+	var tier: int = int(e.best.tier) if got else int(Stones.SKULL_TIER[skin]) if skin != "" else int(Data.SP[id].r)
 	var rc := Data.rarity_color(tier)
 	var b := PanelContainer.new()
 	b.custom_minimum_size = Vector2(w, w * 1.08)
-	var spc := Data.sp_color(id)
+	var spc: Color = Stones.SKULL_COL[skin] if skin != "" else Data.sp_color(id)
 	if gone: spc = Color(0.5, 0.49, 0.47)
 	var st := StyleBoxFlat.new()
 	st.bg_color = spc.darkened(0.82) if got else Color("#1d1914")
@@ -583,7 +608,7 @@ func _tile(id: String, w: float) -> Control:
 	tm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tm.add_child(txt)
 	if got:
-		var nl := Kit.label(String(Data.SP[id].n), 12, UI.body_bold, Kit.CREAM)
+		var nl := Kit.label(String(Stones.SKULL_N[skin]) if skin != "" else String(Data.SP[id].n), 12, UI.body_bold, Kit.CREAM)
 		nl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
 		nl.add_theme_constant_override("shadow_offset_y", 1)
 		nl.clip_text = true
@@ -618,6 +643,10 @@ func _tile(id: String, w: float) -> Control:
 
 ## a stand-in stone of the species for its silhouette: the same one every time
 static func _sample(id: String) -> Dictionary:
+	if id.begins_with("skull_"):
+		return {seed = 7001 + absi(hash(id)) % 9000, sid = "morion", kind = "druse", gi = 2, traits = [], legend = false, cut = "", form = "skull",
+			skin = id.trim_prefix("skull_"), crown = false, eyes = "none", moss = "none", trees = 0, flies = 0, stream = false, roots = false,
+			fangs = "none", bloom = false, accents = []}
 	var kind := "nugget" if id in Data.NUGGETY else "fossil" if Data.HABIT.get(id, "") == "fossil" else "crystal"
 	return {seed = 7001 + absi(hash(id)) % 9000, sid = id, kind = kind, gi = 2, traits = [], legend = false, cut = ""}
 
@@ -636,8 +665,8 @@ func _open_species(id: String) -> void:
 	var kept := 0
 	var still := false
 	for s in Save.d.coll:
-		if s.sid == id: kept += 1
-		if int(s.id) == int(best.id) and s.sid == id: still = true
+		if Stones.atlas_id(s) == id: kept += 1
+		if int(s.id) == int(best.id) and Stones.atlas_id(s) == id: still = true
 	var ba := int(best.get("area", 0))
 	var where := "Best found in %s, %d m" % [Data.AREAS[ba].n, Data.depth_m(ba, int(best.get("dl", 0)))]
 	if not still: where += " · sold"

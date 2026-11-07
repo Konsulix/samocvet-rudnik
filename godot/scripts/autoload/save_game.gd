@@ -92,7 +92,8 @@ func _init() -> void:
 ## the atlas remembers every species ever found, whatever became of the stone: sid -> {best = the most valuable
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
 func note_find(s: Dictionary, a: int, dl: int) -> void:
-	var e: Dictionary = d.atlas.get(s.sid, {n = 0, max_g = 0, max_v = 0, legend = false})
+	var aid := Stones.atlas_id(s)
+	var e: Dictionary = d.atlas.get(aid, {n = 0, max_g = 0, max_v = 0, legend = false})
 	e.n = int(e.n) + 1
 	e.max_g = maxi(int(e.max_g), int(s.g))
 	e.max_v = maxi(int(e.max_v), int(s.value))
@@ -100,10 +101,10 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if not e.has("best") or int(s.value) > int(e.best.value):
 		var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
 			g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
-		for k in ["fx", "shroom"]:
+		for k in ["fx", "shroom", "form", "skin"]:
 			if s.has(k): b[k] = s[k]
 		e.best = b
-	d.atlas[s.sid] = e
+	d.atlas[aid] = e
 
 ## the tutorial (docs/onboarding.md): has this tip been shown
 func told(id: String) -> bool:

@@ -32,7 +32,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 	stone_card(v, shown, 400 if others.is_empty() else 360)
 	if others.size():
 		var names := []
-		for o in others: names.append(Data.SP[o.sid].n)
+		for o in others: names.append(Stones.name_of(o))
 		v.add_child(Ov.text("The others were: " + ", ".join(names), 13))
 	var price := roundi(float(s.value) * Save.coin_mul())
 	var sell := func():
@@ -71,7 +71,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 ## the joke is over: the stone's own name types in over `name_as`, and the usual buttons come
 func unmask(s: Dictionary) -> void:
 	if is_instance_valid(_name_l):
-		_name_l.text = Data.SP[s.sid].n
+		_name_l.text = Stones.name_of(s)
 		_name_l.visible_ratio = 0.0
 		_name_l.create_tween().tween_property(_name_l, "visible_ratio", 1.0, 0.6)
 	if is_instance_valid(_btn_row):
@@ -147,7 +147,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	head.position = Vector2(18, 14)
 	head.add_theme_constant_override("separation", 2)
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var name_l := Kit.label(String(s.get("name_as", Data.SP[s.sid].n)), 30, UI.display, Kit.CREAM)
+	var name_l := Kit.label(String(s.get("name_as", Stones.name_of(s))), 30, UI.display, Kit.CREAM)
 	_name_l = name_l
 	name_l.add_theme_constant_override("outline_size", 0)
 	name_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
@@ -238,6 +238,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	for a in gene.accents:
 		var fn := SpecFossil.gene_name(a, gene.get("fossil", {}))
 		if String(a).begins_with("sk_"): fn = SpecSkull.gene_name(a, SpecSkull.genes(int(so.seed), gene.get("skull", {})))
+		# (a skull's crystals are its species: "pyrope crown", not "crystal crown")
+		if a in ["sk_crown", "sk_eyes", "sk_fangs"]:
+			var cn := fn if fn != "" else String(SpecGenome.ACC_N.get(a, a))
+			fn = cn.replace("crystal", String(Data.SP[s.sid].n).to_lower())
 		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
 	if chips_max > 0:
 		for id: String in genes.keys().slice(chips_max): genes.erase(id)
