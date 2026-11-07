@@ -90,7 +90,8 @@ static func box_of(top: Node3D) -> AABB:
 		if n is MeshInstance3D and n.has_meta("geo"):
 			var g: Geo = n.get_meta("geo")
 			var t := Transform3D.IDENTITY if n == top else rel_xform(n, top)
-			var b := t * g.aabb()
+			# (a batch of pieces keeps the box its pieces had, so the find is framed the same)
+			var b: AABB = t * (n.get_meta("box") as AABB) if n.has_meta("box") else t * g.aabb()
 			if first:
 				out = b
 				first = false
@@ -98,3 +99,108 @@ static func box_of(top: Node3D) -> AABB:
 				out = out.merge(b)
 	return out
 
+
+## Many little pieces drawn as few. On a phone every object costs a draw call in each pass (shadows, depth, colour), and a
+## skull with a few hundred soil crumbs and moss sprigs ran to thousands a frame. So, at the end of a build:
+## - siblings sharing one plain opaque StandardMaterial3D (the soil at crystals' feet), 4 or more, become one mesh —
+##   each piece moved by its own transform on the CPU, normals worked out per piece as before;
+## - plant multimeshes (SpecPlants.scatter, meta "mmbuf") of the same mesh and material under one parent become one.
+## Nothing moves and no shader sees a difference (neither the soil nor the plants look at their object's own space), so
+## the picture is the same. Left alone: nodes under a script (it may move its children), nodes with children, the animated
+## (root meta "anim"), and crystals — their shader draws zones and bands in each crystal's own space.
+static func batch(root: Node3D) -> void:
+	var skip := {}
+	for a in root.get_meta("anim", []):
+		if a is Array and (a as Array).size() and a[0] is Node: skip[a[0]] = true
+		elif a is Node: skip[a] = true
+	_batch(root, skip)
+
+static func _batch(n: Node, skip: Dictionary) -> void:
+	for c in n.get_children():
+		if c.get_script() == null and c.get_child_count() > 0: _batch(c, skip)
+	var pieces := {}
+	var plants := {}
+	for c in n.get_children():
+		if c.get_script() != null or c.get_child_count() > 0 or skip.has(c) or not (c as Node3D) or not (c as Node3D).visible: continue
+		if c is MultiMeshInstance3D and c.has_meta("mmbuf"):
+			var mi := c as MultiMeshInstance3D
+			var mm := mi.multimesh
+			if mm.transform_format != MultiMesh.TRANSFORM_3D or not mm.use_colors or mm.use_custom_data: continue
+			var k := "%d %d %d %d" % [mm.mesh.get_instance_id(), mi.material_override.get_instance_id() if mi.material_override else 0, mi.cast_shadow, mi.layers]
+			if not plants.has(k): plants[k] = []
+			plants[k].append(mi)
+		elif c is MeshInstance3D and c.has_meta("geo") and c.get_meta_list().size() == 1:
+			var m := c as MeshInstance3D
+			var mat := m.material_override as StandardMaterial3D
+			if not mat or mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or m.mesh == null: continue
+			var g: Geo = m.get_meta("geo")
+			if g.rp.size() or g.bary.size() or g.own_n.size(): continue
+			var k := "%d %d %d %d %d" % [mat.get_instance_id(), m.cast_shadow, m.layers, int(g.indexed()), int(g.col.size() == g.v.size())]
+			if not pieces.has(k): pieces[k] = []
+			pieces[k].append(m)
+	for k: String in pieces:
+		var list: Array = pieces[k]
+		if list.size() < 4: continue
+		var all := Geo.new()
+		var box := AABB()
+		for i in list.size():
+			var m: MeshInstance3D = list[i]
+			var g: Geo = m.get_meta("geo")
+			var t := m.transform
+			var b := t * g.aabb()
+			box = b if i == 0 else box.merge(b)
+			# the piece's normals as it had them (worked out on its own), turned with it
+			var nr := g.normals()
+			var base := all.v.size()
+			for j in g.v.size():
+				all.v.append(t * g.v[j])
+				all.own_n.append((t.basis * nr[j]).normalized())
+			if g.col.size() == g.v.size(): all.col.append_array(g.col)
+			for j in g.idx: all.idx.append(base + j)
+		var first: MeshInstance3D = list[0]
+		var out := MeshInstance3D.new()
+		out.material_override = first.material_override
+		out.cast_shadow = first.cast_shadow
+		out.layers = first.layers
+		out.mesh = all.to_mesh()
+		out.set_meta("geo", all)
+		out.set_meta("box", box)
+		n.add_child(out)
+		n.move_child(out, first.get_index())
+		for m: MeshInstance3D in list:
+			n.remove_child(m)
+			m.free()
+	for k: String in plants:
+		var list: Array = plants[k]
+		if list.size() < 2: continue
+		var buf := PackedFloat32Array()
+		var count := 0
+		for mi: MultiMeshInstance3D in list:
+			var b: PackedFloat32Array = mi.get_meta("mmbuf")
+			var t := mi.transform
+			if t != Transform3D.IDENTITY:
+				b = b.duplicate()
+				for i in b.size() / 16:
+					var o := i * 16
+					var x := Transform3D(Basis(Vector3(b[o], b[o + 4], b[o + 8]), Vector3(b[o + 1], b[o + 5], b[o + 9]), Vector3(b[o + 2], b[o + 6], b[o + 10])), Vector3(b[o + 3], b[o + 7], b[o + 11]))
+					put(b, i, t * x, Color(b[o + 12], b[o + 13], b[o + 14], b[o + 15]))
+			buf.append_array(b)
+			count += b.size() / 16
+		var first: MultiMeshInstance3D = list[0]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = first.multimesh.mesh
+		mm.instance_count = count
+		mm.buffer = buf
+		var out := MultiMeshInstance3D.new()
+		out.multimesh = mm
+		out.material_override = first.material_override
+		out.cast_shadow = first.cast_shadow
+		out.layers = first.layers
+		out.set_meta("mmbuf", buf)
+		n.add_child(out)
+		n.move_child(out, first.get_index())
+		for mi: MultiMeshInstance3D in list:
+			n.remove_child(mi)
+			mi.free()

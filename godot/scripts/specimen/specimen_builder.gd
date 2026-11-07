@@ -974,6 +974,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		SpecPolar.frost(root, rng)
 	if legend:
 		root.set_meta("glow", U.raw(0xe4ae39))
+	# hundreds of soil crumbs and moss sprigs drawn as a few objects (the same picture, far fewer draw calls)
+	U.batch(root)
 	return root
 
 # native metal: soft rounded lumps, hammered and pitted, with iron-oxide (or green patina on copper) packed into the hollows

@@ -123,6 +123,7 @@ static func scatter(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, ra
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		mi.material_override = material(kind)
+		mi.set_meta("mmbuf", buf)   # (SpecUtil.batch joins these)
 		parent.add_child(mi)
 
 static func bed_material(tint: Color) -> ShaderMaterial:
