@@ -10,6 +10,8 @@ const SRC := "res://assets/specimen/skull.json"
 const K := 0.15            # source centimetres → generator units (the skull ~1.3 tall)
 const LIFT := 4.4          # source height of the middle: the skull sits around the origin, like a rock
 const BONE := preload("res://shaders/bone.gdshader")
+## how finely a soil crumb is cut (RockKit.crumble): 0 by its size (_earth), a number — every crumb so (tests, `crumb=`)
+static var CRUMB_DETAIL := 0
 const BONE_OLD := preload("res://shaders/bone_old.gdshader")   # (admin "Skull speedups: off" — the cost before 7.11)
 const WATER := preload("res://shaders/skull_water.gdshader")
 const GLASS := preload("res://shaders/skull_glass.gdshader")
@@ -1209,7 +1211,9 @@ static func _earth(b: RefCounted, at: Array, earth_m: Material, n: int) -> void:
 		var p: Vector3 = q[0]
 		var nn: Vector3 = q[1]
 		var g := 0.01 + pow(rng.next(), 2.0) * 0.04
-		U.mesh(RockKit.crumble(rng, g, Vector3(1.3, 0.6, 1.0)), earth_m, b.root, p + nn * g * 0.2, Basis(U.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.next() * 6.3))
+		# (cut as finely, in pixels, as the biggest crumb at 16: a small one needs fewer triangles to look the same)
+		var dt := CRUMB_DETAIL if CRUMB_DETAIL > 0 else clampi(ceili(16.0 * g / 0.05), 5, 16)
+		U.mesh(RockKit.crumble(rng, g, Vector3(1.3, 0.6, 1.0), dt), earth_m, b.root, p + nn * g * 0.2, Basis(U.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.next() * 6.3))
 
 ## the bone's vertex nearest a point, on the outside of the head
 static func _snap(cr: Geo, nr: PackedVector3Array, w: Vector3, mid: Vector3) -> int:

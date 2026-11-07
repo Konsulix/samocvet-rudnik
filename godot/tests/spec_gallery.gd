@@ -300,6 +300,7 @@ func _ready() -> void:
 	# to see that every species looks like itself. base=S moves the seeds
 	# slow: build as before 7.11 (admin "Skull speedups: off") — the old bone shader, no batching
 	if args.has("slow"): SpecUtil.fast = false
+	if args.has("crumb"): SpecSkull.CRUMB_DETAIL = int(args.crumb)
 	if args.has("area"):
 		list = []
 		var pool: Dictionary = Data.AREAS[int(args.area)].pool

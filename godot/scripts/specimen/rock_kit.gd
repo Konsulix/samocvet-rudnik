@@ -461,8 +461,9 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose :=
 
 ## a spongy, crumbling lump of native metal: frothy ridges, bubbles and deep pockets.
 ## Vertex colour carries the shading of the hollows.
-static func crumble(rng: Rng32, r: float, sc := Vector3.ONE) -> Geo:
-	var g := ball(16)
+## detail: how finely the ball is cut (16: ~5800 triangles — for a crumb a few pixels across on a phone, 6–8 do)
+static func crumble(rng: Rng32, r: float, sc := Vector3.ONE, detail := 16) -> Geo:
+	var g := ball(detail)
 	var sd := int(rng.next() * 1000000)
 	var form := FastNoiseLite.new()
 	form.seed = sd
