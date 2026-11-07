@@ -298,6 +298,8 @@ func _ready() -> void:
 	if args.has("only"): list = [list[int(args.only)]]  # one specimen, e.g. for the app icon: -- set=11 only=1 clean
 	# area=N: three of each species in that mine's pool, a row each, the kind rolled as the game rolls it (SpecLooks) —
 	# to see that every species looks like itself. base=S moves the seeds
+	# slow: build as before 7.11 (admin "Skull speedups: off") — the old bone shader, no batching
+	if args.has("slow"): SpecUtil.fast = false
 	if args.has("area"):
 		list = []
 		var pool: Dictionary = Data.AREAS[int(args.area)].pool

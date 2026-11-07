@@ -100,6 +100,9 @@ static func box_of(top: Node3D) -> AABB:
 	return out
 
 
+## false: finds built as before 7.11 — no batching, the old bone shader (admin "Skull speedups", to measure on a phone)
+static var fast := true
+
 ## Many little pieces drawn as few. On a phone every object costs a draw call in each pass (shadows, depth, colour), and a
 ## skull with a few hundred soil crumbs and moss sprigs ran to thousands a frame. So, at the end of a build:
 ## - siblings sharing one plain opaque StandardMaterial3D (the soil at crystals' feet), 4 or more, become one mesh —
@@ -109,6 +112,7 @@ static func box_of(top: Node3D) -> AABB:
 ## the picture is the same. Left alone: nodes under a script (it may move its children), nodes with children, the animated
 ## (root meta "anim"), and crystals — their shader draws zones and bands in each crystal's own space.
 static func batch(root: Node3D) -> void:
+	if not fast: return
 	var skip := {}
 	for a in root.get_meta("anim", []):
 		if a is Array and (a as Array).size() and a[0] is Node: skip[a[0]] = true

@@ -131,6 +131,11 @@ static func open() -> void:
 	mk.add_child(_btn("+1 like this", false, func(): _finds(1)))
 	mk.add_child(_btn("+5 like this", false, func(): _finds(5)))
 	mk.add_child(_btn("+8 ammonites, every kind", false, func(): _ammonites()))
+	mk.add_child(_btn("+6 test skulls (same every time)", false, func(): _skull_set()))
+	# before / after on one install: the old bone shader and no batching of soil and moss (reopen the card to rebuild)
+	mk.add_child(_btn("Skull speedups: %s" % ("on" if SpecUtil.fast else "OFF (old)"), not SpecUtil.fast, func():
+		SpecUtil.fast = not SpecUtil.fast
+		_reopen()))
 	mk.add_child(_btn("Remove test finds", false, func():
 		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("test", false))
 		_saved()))
@@ -220,6 +225,31 @@ static func _find(sd: int, sid: String, fx: String) -> Dictionary:
 	st.test = true
 	if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 	return st
+
+## six skulls that are the same on every install (fixed seeds, as `spec_gallery -- area=0 sp=amethyst form=skull
+## base=500 skin=…` builds them), to measure a phone's frame before and after a change: three bone ones heavy with
+## growth (trees and moss, a crystal crown, roots), cast gold, the stone mosaic, and glass — the light one
+static func _skull_set() -> void:
+	for e: Array in [[508, "bone"], [515, "bone"], [543, "bone"], [501, "gold"], [522, "kintsugi"], [529, "glass"]]:
+		var st := Stones.roll(int(e[0]), 0, 1.5, 3)
+		st.id = int(e[0])
+		st.sid = "amethyst"
+		st.kind = "druse"
+		st.gi = 2
+		st.traits = []
+		st.legend = false
+		st.erase("fx")
+		st.form = "skull"
+		st.skin = String(e[1])
+		st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+		st.area = 0
+		st.dl = 0
+		st.test = true
+		Save.d.coll.append(st)
+	if not "amethyst" in Save.d.seen: Save.d.seen.append("amethyst")
+	Save.persist()
+	Ov.toast("Added 6 test skulls: bone ×3, gold, mosaic, glass")
+	_reopen()
 
 ## eight ammonites, one of each look: sawn, a matched pair, crystal-lined chambers, a brood, crushed in shale, a
 ## heteromorph, dragon fire, jellyfish — seeds found that grow each

@@ -10,6 +10,7 @@ const SRC := "res://assets/specimen/skull.json"
 const K := 0.15            # source centimetres → generator units (the skull ~1.3 tall)
 const LIFT := 4.4          # source height of the middle: the skull sits around the origin, like a rock
 const BONE := preload("res://shaders/bone.gdshader")
+const BONE_OLD := preload("res://shaders/bone_old.gdshader")   # (admin "Skull speedups: off" — the cost before 7.11)
 const WATER := preload("res://shaders/skull_water.gdshader")
 const GLASS := preload("res://shaders/skull_glass.gdshader")
 const BARK := preload("res://shaders/bark.gdshader")
@@ -260,7 +261,7 @@ static func _shape(g: Geo, sh: Array) -> Geo:
 
 static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
-	m.shader = BONE
+	m.shader = BONE if SpecUtil.fast else BONE_OLD
 	m.set_shader_parameter("age", float(sk.age))
 	m.set_shader_parameter("gloss", float(sk.gloss))
 	m.set_shader_parameter("crack_k", 0.2 + float(sk.cracks) * 0.8)
