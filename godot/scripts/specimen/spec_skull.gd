@@ -229,7 +229,7 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 		g.skin = Stones.pick_w([["agate", 3.0], ["pyrite", 3.0], ["geode", 2.5], ["opal", 1.5]], Rng32.new(int(g.skin_seed) * 13 + 5))
 	g.coins = o.get("coins", x.call(2) < 0.05)
 	g.diadem = o.get("diadem", x.call(3) < 0.05)
-	g.lantern = o.get("lantern", x.call(4) < 0.05)
+	g.lantern = o.get("lantern", false)   # (fireflies inside: set aside 7.11)
 	# (a pile of skulls: built, but not rolled — set aside 7.11; the admin or tests can still pin it)
 	g.pile = int(o.get("pile", 0))
 	g.fx = String(o.get("fx", ""))

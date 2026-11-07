@@ -11,6 +11,9 @@ const COIN := preload("res://shaders/skull_coin.gdshader")
 const U := preload("res://scripts/specimen/spec_util.gd")
 
 ## Yaga's fire: its colour by the skull (green most, then blue, the forge's orange, violet)
+## Yaga's fire: the two colours its flames drift between
+const FIRE2 := [[[Color(0.35, 1.0, 0.4), Color(1.0, 0.5, 0.15)], 4.0], [[Color(0.35, 0.65, 1.0), Color(0.8, 0.4, 1.0)], 2.0],
+	[[Color(1.0, 0.5, 0.15), Color(1.0, 0.85, 0.3)], 1.5]]
 const FIRE := [[Color(0.35, 1.0, 0.4), 4.0], [Color(0.35, 0.65, 1.0), 2.5], [Color(1.0, 0.5, 0.15), 2.0], [Color(0.8, 0.4, 1.0), 1.0]]
 
 static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_m: Material, crystal: Callable, lean: Callable) -> void:
@@ -36,7 +39,7 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 		"yaga": _yaga(root, sk, r, eyes)
 		"watching": _watching(root, r, eyes)
 		"candle": _candle(root, sk, r, bones, surf)
-		"fireflies": _fireflies(root, r, Vector3(0, 0.1, 0.05), 0.75, 64, 0.14, true)
+		"fireflies": _swarm(root, r)
 		"flutter": _flock(root, r)
 		"deathless": _shatter(root, sk, r, bones[0], bone_m)
 
@@ -88,47 +91,46 @@ static func dig(cr: Geo, nr: PackedVector3Array, sk: Dictionary, seed_f: float) 
 		cr.rp[i] = Vector3(m, 0.0, 0.0)
 		if m <= 0.0: continue
 		cr.v[i] -= nr[i] * 0.035 * m
-		if m > 0.75 and i % 2 == 0: spots.append([cr.v[i], nr[i]])
+		if m > 0.6: spots.append([cr.v[i], nr[i]])
 	return spots
 
 ## crystals growing in the geode's pits: the find's own, small, crowded, pointing out of the pit
 static func _geode(sk: Dictionary, r: Rng32, crystal: Callable, lean: Callable) -> void:
 	var spots: Array = sk.geode_pits
 	var put := []
-	for t in 260:
-		if put.size() >= 46 or spots.is_empty(): break
+	for t in 900:
+		if put.size() >= 110 or spots.is_empty(): break
 		var q: Array = spots[int(r.next() * spots.size())]
 		var p: Vector3 = q[0]
 		var ok := true
 		for o: Vector3 in put:
-			if o.distance_to(p) < 0.04: ok = false
+			if o.distance_to(p) < 0.026: ok = false
 		if not ok: continue
 		put.append(p)
-		crystal.call(0.08 + r.next() * 0.2, p - (q[1] as Vector3) * 0.006, lean.call(q[1], 0.5))
+		# (k 0.3: a druse of small crystals, not the crown's big ones)
+		crystal.call(0.05 + r.next() * 0.25, p - (q[1] as Vector3) * 0.004, lean.call(q[1], 0.45), 0.3)
 	if put.size(): (sk.marks as Array).append(["sk_geode", put[0], Vector3.BACK])
 
-## obols on the eyes: two old coins laid over the sockets, gold or silver, one now and then slipped askew
+## obols on the eyes: two struck coins of old gold (or silver) laid over the sockets — a thick uneven blank, a raised
+## rim, a ring of beads, an owl in relief, worn smooth on the high places and dark in the low ones (real relief in the
+## mesh, so the light picks it out), one now and then slipped down the cheek
 static func _coins(root: Node3D, sk: Dictionary, r: Rng32, eyes: Array) -> void:
 	var gold := r.next() < 0.65
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.metallic = 1.0
+	m.roughness = 0.38
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	for k in eyes.size():
 		var e: Dictionary = eyes[k]
 		var rad: float = float(e.r) * 1.15
-		var cm := CylinderMesh.new()
-		cm.top_radius = rad
-		cm.bottom_radius = rad
-		cm.height = 0.012
-		cm.radial_segments = 40
-		var m := ShaderMaterial.new()
-		m.shader = COIN
-		m.set_shader_parameter("metal_col", Vector3(0.95, 0.72, 0.32) if gold else Vector3(0.82, 0.83, 0.86))
-		m.set_shader_parameter("rad", rad)
-		m.set_shader_parameter("seed", r.next() * 10.0)
 		var mi := MeshInstance3D.new()
-		mi.mesh = cm
+		mi.mesh = _coin_mesh(r, rad, gold)
 		mi.material_override = m
 		var slip := k == 1 and r.next() < 0.35
-		var at: Vector3 = (e.front as Vector3) + Vector3(0, 0, 0.012)
-		var bas := Basis(Vector3.RIGHT, PI * 0.5 - 0.15) * Basis(Vector3.UP, r.next() * TAU)
+		var at: Vector3 = (e.front as Vector3) + Vector3(0, 0, 0.01)
+		# (the coin's face is +Y; laid over the socket, facing out, a little tipped back on the brow)
+		var bas := Basis(Vector3.RIGHT, PI * 0.5 - 0.18) * Basis(Vector3.UP, r.next() * TAU)
 		if slip:
 			at += Vector3(float(e.sx) * rad * 0.2, -rad * 0.7, -0.012)
 			bas = Basis(Vector3.BACK, float(e.sx) * 0.4) * Basis(Vector3.RIGHT, PI * 0.5 - 0.32) * Basis(Vector3.UP, r.next() * TAU)
@@ -136,87 +138,186 @@ static func _coins(root: Node3D, sk: Dictionary, r: Rng32, eyes: Array) -> void:
 		root.add_child(mi)
 		if k == 0: (sk.marks as Array).append(["sk_coins", at, Vector3.BACK])
 
-## Koschei's diadem: a thin band of tarnished gold round the brow, a little askew, its points rising, the front one
-## tallest with a red stone at its foot
+## one coin: a polar grid over an uneven round blank, the relief displacing the faces, its colour in the vertices
+static func _coin_mesh(r: Rng32, rad: float, gold: bool) -> ArrayMesh:
+	var rings := 16
+	var segs := 64
+	var th := rad * 0.16
+	var sd := r.next() * 100.0
+	var base := Color(0.86, 0.64, 0.28) if gold else Color(0.8, 0.8, 0.82)
+	var dark := Color(0.3, 0.2, 0.08) if gold else Color(0.2, 0.2, 0.22)
+	var out_r := PackedFloat32Array()
+	for j in segs: out_r.append(1.0 + (SpecMask.vn(Vector3(cos(TAU * j / segs) * 1.6, sin(TAU * j / segs) * 1.6, sd)) - 0.5) * 0.14)
+	var relief := func(p: Vector2, face: int) -> float:
+		var rr := p.length()
+		var h := smoothstep(0.8, 0.88, rr) * 0.9
+		var a := atan2(p.y, p.x)
+		h = maxf(h, (1.0 - smoothstep(0.0, 0.05, absf(rr - 0.72))) * smoothstep(0.35, 0.65, 0.5 + 0.5 * cos(a * 26.0)) * 0.6)
+		if face == 0:
+			# the owl: a body, two big eyes with dark pupils, ear tufts, a beak
+			var q := p * 1.5
+			var body := smoothstep(0.55, 0.45, (q - Vector2(0, -0.2)).length() / Vector2(1.0, 1.25).length() * 1.6)
+			var eyes := 0.0
+			for sx in [-1.0, 1.0]:
+				var d := (q - Vector2(sx * 0.2, 0.28)).length()
+				eyes = maxf(eyes, smoothstep(0.2, 0.16, d) - smoothstep(0.08, 0.04, d) * 0.6)
+			var tufts := smoothstep(0.1, 0.0, absf(q.x) - 0.3) * smoothstep(0.42, 0.5, q.y) * smoothstep(0.62, 0.5, q.y) * smoothstep(0.15, 0.25, absf(q.x))
+			h = maxf(h, body * 0.55 + eyes * 0.35 + tufts * 0.4)
+		else:
+			# the reverse: a worn head, hardly more than a swelling
+			h = maxf(h, smoothstep(0.55, 0.2, p.length()) * 0.45)
+		# worn: the high places rubbed down, scratches
+		h -= SpecMask.fbm(Vector3(p.x * 5.0, p.y * 5.0, sd + face)) * 0.25
+		return clampf(h, 0.0, 1.0)
+	var g := Geo.new()
+	for face in 2:
+		var sg := 1.0 if face == 0 else -1.0
+		var i0 := g.v.size()
+		g.v.append(Vector3(0, sg * (th * 0.5 + float(relief.call(Vector2.ZERO, face)) * th * 0.35), 0))
+		g.col.append(base)
+		for i in range(1, rings + 1):
+			var f := float(i) / rings
+			for j in segs:
+				var a := TAU * j / segs
+				var p := Vector2(cos(a), sin(a)) * f
+				var hh: float = relief.call(p, face)
+				var rr := rad * f * out_r[j]
+				g.v.append(Vector3(cos(a) * rr, sg * (th * 0.5 + hh * th * 0.35 - (1.0 - f) * 0.0), sin(a) * rr))
+				g.col.append(dark.lerp(base, 0.35 + hh * 0.75))
+		for j in segs:
+			g.idx.append_array([i0, i0 + 1 + j, i0 + 1 + (j + 1) % segs])
+		for i in range(1, rings):
+			for j in segs:
+				var a0 := i0 + 1 + (i - 1) * segs + j
+				var a1 := i0 + 1 + (i - 1) * segs + (j + 1) % segs
+				var b0 := a0 + segs
+				var b1 := a1 + segs
+				g.idx.append_array([a0, b0, b1, a0, b1, a1])
+	# the edge between the two faces
+	var top0 := 1 + (rings - 1) * segs
+	var bot0 := g.v.size() / 2 + 1 + (rings - 1) * segs
+	for j in segs:
+		var j1 := (j + 1) % segs
+		g.idx.append_array([top0 + j, bot0 + j, bot0 + j1, top0 + j, bot0 + j1, top0 + j1])
+	# (each triangle facing away from the coin's middle)
+	g.orient_out(Vector3.ZERO)
+	return g.to_mesh()
+
+## Koschei's diadem: a band of old gold round the brow (a rounded strip with a raised edge and a groove along it), a
+## little askew; its points are leaves of metal rising and leaning out, each with a bead at its tip, the front one
+## tallest with a red stone set at its foot
 static func _diadem(root: Node3D, sk: Dictionary, r: Rng32, surf: SpecSurf) -> void:
 	var bb := AABB()
 	for k in surf.ta.size(): bb = AABB(surf.ta[k], Vector3.ZERO) if k == 0 else bb.expand(surf.ta[k])
-	var y0 := bb.position.y + bb.size.y * 0.72
+	var y0 := bb.position.y + bb.size.y * 0.7
 	var tilt := (r.next() - 0.5) * 0.12
 	var roll := (r.next() - 0.5) * 0.1
-	var n := 36
+	var n := 72
 	var ring := []
 	for k in n:
-		var a := TAU * k / n
+		var a := TAU * float(k) / float(n)
 		var y := y0 + tilt * cos(a) + roll * sin(a)
 		var o := Vector3(sin(a) * 1.2, y, cos(a) * 1.2)
 		var h := surf.ray(o, (Vector3(0, y, 0) - o).normalized(), 1.5)
 		ring.append(h[0] if h.size() else null)
-	var miss := ring.count(null)
-	if miss > n / 3: return
+	if ring.count(null) > n / 3: return
 	for k in n:
 		if ring[k] == null:
 			for d in range(1, n):
-				var q2: Variant = ring[(k + d) % n]
-				if q2 != null:
-					ring[k] = q2
+				if ring[(k + d) % n] != null:
+					ring[k] = ring[(k + d) % n]
 					break
+	# smooth the ring (a band does not follow every bump)
+	for it in 3:
+		var sm := []
+		for k in n: sm.append(((ring[(k + n - 1) % n] as Vector3) + (ring[k] as Vector3) * 2.0 + (ring[(k + 1) % n] as Vector3)) * 0.25)
+		ring = sm
 	var cen := Vector3.ZERO
 	for p: Vector3 in ring: cen += p
 	cen /= ring.size()
+	var gold := Color(0.78, 0.58, 0.26)
+	var dark := Color(0.3, 0.2, 0.08)
 	var g := Geo.new()
-	var hb := 0.022
-	var out := []
+	# the band: a profile swept round — inner face against the bone, a raised rim top and bottom, a groove between
+	var prof := [[0.0, -1.0, 0.2], [0.55, -1.0, 0.8], [0.8, -0.85, 1.0], [0.7, -0.55, 0.7], [0.62, 0.0, 0.25], [0.7, 0.55, 0.7], [0.8, 0.85, 1.0], [0.55, 1.0, 0.8], [0.0, 1.0, 0.2]]
+	var hb := 0.034
+	var tk := 0.02
+	var outs := []
 	for k in n:
 		var p: Vector3 = ring[k]
 		var od := Vector3(p.x - cen.x, 0, p.z - cen.z).normalized()
-		out.append(od)
-		var base := p + od * 0.008
-		g.v.append_array([base - Vector3(0, hb, 0), base + Vector3(0, hb, 0), base + od * 0.012 - Vector3(0, hb, 0), base + od * 0.012 + Vector3(0, hb, 0)])
+		outs.append(od)
+		for q: Array in prof:
+			g.v.append(p + od * (0.004 + float(q[0]) * tk) + Vector3(0, float(q[1]) * hb, 0))
+			g.col.append(dark.lerp(gold, float(q[2])))
+	var np := prof.size()
 	for k in n:
-		var a0 := k * 4
-		var a1 := ((k + 1) % n) * 4
-		# outer face, top, bottom (the inner face is against the bone)
-		g.idx.append_array([a0 + 2, a1 + 2, a0 + 3, a0 + 3, a1 + 2, a1 + 3])
-		g.idx.append_array([a0 + 1, a0 + 3, a1 + 1, a1 + 1, a0 + 3, a1 + 3])
-		g.idx.append_array([a0, a1, a0 + 2, a0 + 2, a1, a1 + 2])
-	# the points: every third, taller toward the front
+		for j in np - 1:
+			var a0 := k * np + j
+			var a1 := ((k + 1) % n) * np + j
+			g.idx.append_array([a0, a1, a0 + 1, a0 + 1, a1, a1 + 1])
+	g.orient_out(cen)
+	# the points: leaves of metal, every 6th place, taller toward the front, leaning out, a bead on each
+	var beads := []
 	var gems := []
-	for k in range(0, n, 3):
+	var lv := Geo.new()
+	for k in range(0, n, 6):
 		var p: Vector3 = ring[k]
-		var od: Vector3 = out[k]
-		var front := 0.5 + 0.5 * cos(TAU * k / n)
-		var hgt := 0.035 + front * 0.05
-		var side := Vector3.UP.cross(od).normalized() * 0.022
-		var base := p + od * 0.014 + Vector3(0, hb * 0.6, 0)
-		var tip := base + Vector3(0, hgt, 0) + od * 0.006
-		var i0 := g.v.size()
-		g.v.append_array([base - side, base + side, tip, base - side - od * 0.01, base + side - od * 0.01])
-		g.idx.append_array([i0, i0 + 2, i0 + 1, i0 + 3, i0 + 4, i0 + 2, i0, i0 + 3, i0 + 2, i0 + 1, i0 + 2, i0 + 4])
-		if front > 0.85: gems.append([base + od * 0.006 + Vector3(0, 0.012, 0), od])
+		var od: Vector3 = outs[k]
+		var front := 0.5 + 0.5 * cos(TAU * float(k) / float(n))
+		var hgt := 0.08 + front * 0.09
+		var side := Vector3.UP.cross(od).normalized()
+		var base := p + od * 0.012 + Vector3(0, hb * 0.8, 0)
+		var up := (Vector3.UP + od * 0.25).normalized()
+		var outline := [[-1.0, 0.0], [-0.9, 0.35], [-0.45, 0.7], [0.0, 1.0], [0.45, 0.7], [0.9, 0.35], [1.0, 0.0]]
+		var wid := 0.034 + front * 0.012
+		var i0 := lv.v.size()
+		lv.v.append(base + up * hgt * 0.35 + od * 0.004)
+		lv.col.append(gold)
+		for q: Array in outline:
+			lv.v.append(base + side * float(q[0]) * wid + up * float(q[1]) * hgt)
+			lv.col.append(dark.lerp(gold, 0.7))
+		for j in outline.size() - 1:
+			lv.idx.append_array([i0, i0 + 1 + j, i0 + 2 + j])
+		beads.append(base + up * hgt + od * 0.002)
+		if front > 0.9: gems.append(base + up * hgt * 0.35 + od * 0.01)
+	var lmesh := lv
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.62, 0.47, 0.22)
+	m.vertex_color_use_as_albedo = true
 	m.metallic = 1.0
-	m.roughness = 0.38
+	m.roughness = 0.34
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	U.mesh(g.to_soup(), m, root)
+	U.mesh(g, m, root)
+	U.mesh(lmesh, m, root)
+	var bm := StandardMaterial3D.new()
+	bm.albedo_color = gold
+	bm.metallic = 1.0
+	bm.roughness = 0.22
+	for p: Vector3 in beads:
+		var s := MeshInstance3D.new()
+		var sm2 := SphereMesh.new()
+		sm2.radius = 0.013
+		sm2.height = 0.026
+		s.mesh = sm2
+		s.material_override = bm
+		s.position = p
+		root.add_child(s)
 	var gm := StandardMaterial3D.new()
-	gm.albedo_color = Color(0.55, 0.03, 0.05)
-	gm.roughness = 0.08
+	gm.albedo_color = Color(0.5, 0.02, 0.05)
+	gm.roughness = 0.06
 	gm.metallic_specular = 1.0
 	gm.emission_enabled = true
-	gm.emission = Color(0.25, 0.0, 0.02)
-	for q: Array in gems:
+	gm.emission = Color(0.2, 0.0, 0.02)
+	for p: Vector3 in gems:
 		var s := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.014
-		sm.height = 0.022
-		s.mesh = sm
+		var sm3 := SphereMesh.new()
+		sm3.radius = 0.022
+		sm3.height = 0.03
+		s.mesh = sm3
 		s.material_override = gm
-		s.position = q[0]
+		s.position = p
 		root.add_child(s)
-	var fp: Vector3 = ring[0]
-	(sk.marks as Array).append(["sk_diadem", fp + Vector3(0, 0.04, 0), Vector3.BACK])
+	(sk.marks as Array).append(["sk_diadem", (ring[0] as Vector3) + Vector3(0, 0.04, 0.01), Vector3.BACK])
 
 ## a pile: one or two more skulls lying under and behind it, bare and old, on their sides
 static func _pile(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, bone_m: Material) -> void:
@@ -237,62 +338,133 @@ static func _pile(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, bone_m: 
 
 # ---------------------------------------------------------------- legends
 
-## Yaga's fire, as on the fence round her hut: the sockets full of fire — tongues pouring up out of each eye over the
-## brow, each its own, the whole fire breathing (it dies down, then roars up), sparks rising off it, a glow deep in the
-## sockets and the fire's light leaping over the bone
+## Yaga's fire, as on the fence round her hut: the sockets burn inside — little flames rising from the floor of each
+## socket and licking out over its rim, the fire breathing (it dies down, then roars up), its colour drifting between
+## two (green and orange, or blue and violet), sparks rising off it, a glow down inside, its light on the bone
 static func _yaga(root: Node3D, sk: Dictionary, r: Rng32, eyes: Array) -> void:
-	var col: Color = Stones.pick_w(FIRE, Rng32.new(int(sk.skin_seed) + 77))
+	var pair: Array = Stones.pick_w(FIRE2, Rng32.new(int(sk.skin_seed) + 77))
+	var ca: Color = pair[0]
+	var cb: Color = pair[1]
 	root.set_meta("dark", true)
 	var breath := r.next() * 10.0
 	for e: Dictionary in eyes:
 		var rr: float = e.r
 		var front: Vector3 = e.front
 		var deep: Vector3 = e.deep
-		# the glow down in the socket
 		var g := MeshInstance3D.new()
 		var gq := QuadMesh.new()
-		gq.size = Vector2.ONE * rr * 2.2
+		gq.size = Vector2.ONE * rr * 2.0
 		g.mesh = gq
-		var gm := ShaderMaterial.new()
-		gm.shader = FLAME
-		gm.set_shader_parameter("col", Vector3(col.r, col.g, col.b))
-		gm.set_shader_parameter("mode", 1)
-		gm.set_shader_parameter("power", 1.6)
-		g.material_override = gm
-		g.position = deep.lerp(front, 0.4)
+		g.material_override = _flame_mat(ca, cb, 1, 1.3, r.next() * 20.0, -1.0)
+		g.position = deep.lerp(front, 0.3)
 		root.add_child(g)
-		# the tongues: a big one and two smaller to its sides, rooted on the socket's lower rim, rising over the brow
-		for j in 3:
+		for j in 5:
 			var q := MeshInstance3D.new()
 			var qm := QuadMesh.new()
-			var big := j == 0
-			qm.size = Vector2(rr * (1.6 if big else 1.0), rr * (4.4 if big else 2.8 + r.next()))
+			var hgt := rr * (2.1 + r.next() * 0.9) * (1.0 if j < 2 else 0.75)
+			qm.size = Vector2(hgt * 0.55, hgt)
 			q.mesh = qm
-			var m := ShaderMaterial.new()
-			m.shader = FLAME
-			m.set_shader_parameter("col", Vector3(col.r, col.g, col.b))
-			m.set_shader_parameter("seed", r.next() * 20.0)
-			m.set_shader_parameter("speed", 1.1 + r.next() * 0.5)
-			m.set_shader_parameter("power", 0.8)
-			m.set_shader_parameter("breath", breath + float(j) * 0.4)
-			q.material_override = m
-			var off := 0.0 if big else (rr * 0.55 * (1.0 if j == 1 else -1.0))
-			q.position = front + Vector3(off, -rr * 0.35 + float(qm.size.y) * 0.5, 0.02 + float(j) * 0.004)
+			q.material_override = _flame_mat(ca, cb, 0, 0.75, r.next() * 20.0, breath + float(j) * 0.7)
+			var x := (r.next() - 0.5) * rr * 0.9
+			var at := deep.lerp(front, 0.25 + float(j) * 0.1) + Vector3(x, -rr * 0.55 + hgt * 0.5, 0)
+			q.position = at
 			root.add_child(q)
-		# sparks flying up off it
-		_fireflies(root, r, front + Vector3(0, rr * 0.4, 0.02), rr * 0.7, 14, 0.02, false, col, rr * 6.0)
+		_fireflies(root, r, front + Vector3(0, rr * 0.3, 0.0), rr * 0.6, 12, 0.015, false, ca.lerp(cb, 0.5), rr * 5.0)
 		var l := OmniLight3D.new()
-		l.light_color = col
-		l.light_energy = 1.1
+		l.light_color = ca
+		l.light_energy = 1.0
 		l.omni_range = 1.0
-		l.position = front + Vector3(0, rr, 0.1)
+		l.position = front + Vector3(0, rr * 0.6, 0.08)
 		root.add_child(l)
 		var fl := Flicker.new()
 		fl.light = l
-		fl.base = 1.1
+		fl.base = 1.0
+		fl.col_a = ca
+		fl.col_b = cb
 		fl.r = Rng32.new(int(sk.skin_seed) + int(float(e.sx) * 9.0))
 		root.add_child(fl)
-	if eyes.size(): (sk.marks as Array).append(["fx", (eyes[0].front as Vector3) + Vector3(0, float(eyes[0].r), 0), Vector3.BACK])
+	if eyes.size(): (sk.marks as Array).append(["fx", (eyes[0].front as Vector3), Vector3.BACK])
+
+static func _flame_mat(ca: Color, cb: Color, mode: int, power: float, seed: float, breath: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = FLAME
+	m.set_shader_parameter("col", Vector3(ca.r, ca.g, ca.b))
+	m.set_shader_parameter("col2", Vector3(cb.r, cb.g, cb.b))
+	m.set_shader_parameter("shift", 0.45)
+	m.set_shader_parameter("mode", mode)
+	m.set_shader_parameter("power", power)
+	m.set_shader_parameter("seed", seed)
+	m.set_shader_parameter("speed", 1.2)
+	m.set_shader_parameter("breath", breath)
+	return m
+
+## a swarm of fireflies round the skull: little dark beetles each with a glowing tail and a soft halo, flying in
+## wandering loops, their lights pulsing on and off each in its own rhythm; a light goes with two of them
+static func _swarm(root: Node3D, r: Rng32) -> void:
+	root.set_meta("dark", true)
+	var sw := Swarm.new()
+	sw.r = r
+	root.add_child(sw)
+	var body_m := StandardMaterial3D.new()
+	body_m.albedo_color = Color(0.1, 0.07, 0.05)
+	body_m.roughness = 0.4
+	var wing_m := StandardMaterial3D.new()
+	wing_m.albedo_color = Color(0.8, 0.85, 0.9, 0.25)
+	wing_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wing_m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	wing_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for k in 22:
+		var f := Node3D.new()
+		sw.add_child(f)
+		var body := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.013
+		cm.height = 0.055
+		body.mesh = cm
+		body.material_override = body_m
+		body.rotation = Vector3(PI * 0.5, 0, 0)
+		f.add_child(body)
+		var tail := MeshInstance3D.new()
+		var tm := SphereMesh.new()
+		tm.radius = 0.015
+		tm.height = 0.03
+		tail.mesh = tm
+		var tmat := StandardMaterial3D.new()
+		tmat.albedo_color = Color(0.85, 1.0, 0.35)
+		tmat.emission_enabled = true
+		tmat.emission = Color(0.75, 1.0, 0.3)
+		tail.material_override = tmat
+		tail.position = Vector3(0, -0.004, -0.024)
+		f.add_child(tail)
+		var wings := []
+		for s in [-1.0, 1.0]:
+			var w := MeshInstance3D.new()
+			var wq := QuadMesh.new()
+			wq.size = Vector2(0.042, 0.022)
+			w.mesh = wq
+			w.material_override = wing_m
+			w.position = Vector3(s * 0.021, 0.008, 0.004)
+			w.rotation = Vector3(-PI * 0.5, 0, 0)
+			f.add_child(w)
+			wings.append(w)
+		var halo := MeshInstance3D.new()
+		var hq := QuadMesh.new()
+		hq.size = Vector2.ONE * 0.16
+		halo.mesh = hq
+		var hm := _flame_mat(Color(0.75, 1.0, 0.3), Color(0.75, 1.0, 0.3), 1, 1.0, r.next() * 20.0, -1.0)
+		hm.set_shader_parameter("shift", 0.0)
+		halo.material_override = hm
+		halo.position = Vector3(0, 0, -0.024)
+		f.add_child(halo)
+		sw.flies.append({node = f, tail = tmat, halo = hm, wings = wings, ph = r.next() * TAU, sp = 0.35 + r.next() * 0.4,
+			rad = 0.45 + r.next() * 0.35, hy = (r.next() - 0.3) * 0.5, tilt = (r.next() - 0.5) * 0.9, blink = 1.6 + r.next() * 1.8, bph = r.next() * 10.0})
+	for k in 2:
+		var l := OmniLight3D.new()
+		l.light_color = Color(0.7, 1.0, 0.35)
+		l.light_energy = 0.8
+		l.omni_range = 0.8
+		sw.add_child(l)
+		sw.lights.append(l)
 
 ## eyes that follow you: an eyeball in each socket, dark and wet, with a burning iris and a slit pupil that turn to the
 ## viewer as the find turns — lagging a little, darting, now and then glancing away and snapping back; they blink
@@ -314,8 +486,9 @@ static func _watching(root: Node3D, r: Rng32, eyes: Array) -> void:
 	pupil_m.roughness = 0.1
 	for e: Dictionary in eyes:
 		var rr: float = e.r
-		var c: Vector3 = (e.deep as Vector3).lerp(e.front, 0.45)
-		var R := rr * 0.78
+		# (sunk well into the socket: only the front of the ball shows)
+		var c: Vector3 = (e.deep as Vector3).lerp(e.front, 0.2)
+		var R := rr * 0.72
 		var ball := MeshInstance3D.new()
 		var bs := SphereMesh.new()
 		bs.radius = R
@@ -610,13 +783,18 @@ class Watch extends Node:
 			e[2] = cur
 			n.basis = Basis.looking_at(-cur, Vector3.UP).scaled(Vector3(1.0, maxf(0.06, shut), 1.0))
 
-## a light flickering as a flame does
+## a light flickering as a flame does, its colour drifting between two (col_b = col_a: one colour)
 class Flicker extends Node:
 	var light: OmniLight3D
 	var base := 2.0
 	var r: Rng32
 	var t := 0.0
 	var to := 1.0
+	var col_a := Color.WHITE
+	var col_b := Color.WHITE
+	var drift := false
+	func _ready() -> void:
+		drift = col_a != col_b
 	func _process(dt: float) -> void:
 		if not is_instance_valid(light): return
 		t -= dt
@@ -624,9 +802,44 @@ class Flicker extends Node:
 			to = 0.75 + r.next() * 0.45
 			t = 0.05 + r.next() * 0.12
 		light.light_energy = lerpf(light.light_energy, base * to, minf(1.0, dt * 12.0))
+		# (in step with the flames' own colour: shaders/skull_flame.gdshader, shift 0.45)
+		if drift: light.light_color = col_a.lerp(col_b, 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.001 * 0.45))
+
+## the fireflies: each flies its own wandering loop round the skull, wings a blur, its tail pulsing on and off
+class Swarm extends Node3D:
+	var r: Rng32
+	var flies := []
+	var lights := []
+	var t := 0.0
+	func _process(dt: float) -> void:
+		t += dt
+		for i in flies.size():
+			var f: Dictionary = flies[i]
+			var n: Node3D = f.node
+			var a: float = t * float(f.sp) + float(f.ph)
+			var rad: float = f.rad
+			var p := Vector3(cos(a) * rad, float(f.hy) + sin(a * 1.7 + float(f.ph)) * 0.12, sin(a) * rad * 0.8)
+			p = Basis(Vector3.RIGHT, float(f.tilt)) * p
+			p += Vector3(sin(a * 3.1) * 0.04, sin(a * 2.3) * 0.03, cos(a * 2.7) * 0.04)
+			var prev := n.position
+			n.position = p
+			var v := p - prev
+			if v.length() > 1e-5: n.basis = Basis.looking_at(-v.normalized(), Vector3.UP)
+			# the light: on for a moment, off a while, each its own rhythm
+			var s := fmod(t + float(f.bph), float(f.blink)) / float(f.blink)
+			var on := smoothstep(0.0, 0.08, s) * (1.0 - smoothstep(0.25, 0.45, s))
+			var glow := 0.15 + on * 1.6
+			(f.tail as StandardMaterial3D).emission_energy_multiplier = glow * 2.0
+			(f.halo as ShaderMaterial).set_shader_parameter("power", glow)
+			for w: MeshInstance3D in f.wings:
+				w.rotation.z = sin(t * 60.0 + float(f.ph)) * 0.8 * (1.0 if w.position.x > 0 else -1.0)
+			if i < lights.size():
+				(lights[i] as OmniLight3D).position = p
+				(lights[i] as OmniLight3D).light_energy = 0.15 + on * 0.9
 
 ## the cloud of butterflies: they sit on the skull opening and closing their wings, then all at once take off, whirl
-## round it for a few seconds, and settle again
+## round it for a few seconds, and settle again. While they sit, any still flying is sent to a free spot of its own
+## (their own search often found none among the crystals and kept them in the air)
 class Flock extends Node:
 	var r: Rng32
 	var phase := 0    # 0 sitting, 1 up
@@ -636,9 +849,17 @@ class Flock extends Node:
 		var flies := get_parent().find_children("*", "", true, false).filter(func(n: Node) -> bool: return n is SpecButterfly.Fly)
 		if phase == 0:
 			for f in flies:
-				# (sitting ones stay put; any still up comes down soon)
+				if not f.looked: continue
 				if f.state == SpecButterfly.Fly.SIT: f.timer = maxf(f.timer, 1.0)
-				elif f.state == SpecButterfly.Fly.FLY: f.timer = minf(f.timer, 0.4)
+				elif f.state == SpecButterfly.Fly.FLY:
+					var spot := _spot(f)
+					if spot.size():
+						f.spot = spot
+						f._claim(spot[0], true)
+						f.state = SpecButterfly.Fly.LAND
+						f.land_from = f.pos
+						f.timer = 0.0
+						f.retarget = 0.0
 			if t <= 0.0:
 				phase = 1
 				t = 3.5 + r.next() * 1.5
@@ -650,6 +871,19 @@ class Flock extends Node:
 			if t <= 0.0:
 				phase = 0
 				t = 7.0 + r.next() * 4.0
+
+	## a free place to sit: on the bone, a span from any other (crystals or not — it lands among them)
+	func _spot(f) -> Array:
+		var taken: Array = f._taken()
+		var perch: Array = f.perch
+		if perch.is_empty(): return []
+		for k in 16:
+			var q: Array = perch[int(r.next() * perch.size())]
+			var ok := true
+			for o: Vector3 in taken:
+				if o.distance_to(q[0]) < float(f.size) * 1.1: ok = false
+			if ok: return q
+		return []
 
 ## deathless: every piece of the skull (its bone shards, teeth, jaw, crystals, moss) on a seven-second round — lying
 ## scattered on the ground, rising and flying home (the cracks lit as they close), whole for a while, then falling
@@ -668,9 +902,8 @@ class Shatter extends Node:
 		var up := (top.global_transform.basis.inverse() * Vector3.UP).normalized() if top.is_inside_tree() else Vector3.UP
 		var floor_h := INF
 		for v in low_pts: floor_h = minf(floor_h, v.dot(up))
-		var stack: Array[Node] = top.get_children()
 		var nodes := []
-		for n in stack:
+		for n in top.get_children():
 			if n == self or n is Light3D or not (n is Node3D): continue
 			if n.get_script() != null: continue
 			if n is GeometryInstance3D and not (n as GeometryInstance3D).visible: continue
@@ -681,19 +914,76 @@ class Shatter extends Node:
 		var mid := Vector3.ZERO
 		for v in low_pts: mid += v
 		mid /= maxf(1.0, low_pts.size())
+		# where each piece comes to rest: scattered round the skull's foot, none on top of another, the bigger ones
+		# nearer the middle; a shard of the vault lies with its outer face up (as a broken bowl does), anything else
+		# tumbled any way; each set down so its lowest point just touches the ground
+		var info := []
 		for n: Node3D in nodes:
-			var home := n.transform
-			var c := home.origin
-			if n is MeshInstance3D and (n as MeshInstance3D).mesh:
-				c = home * (n as MeshInstance3D).mesh.get_aabb().get_center()
+			var pts := _points(n)
+			if pts.is_empty(): continue
+			var c := Vector3.ZERO
+			for p in pts: c += p
+			c /= pts.size()
+			var size := 0.0
+			for p in pts: size = maxf(size, p.distance_to(c))
+			info.append([n, pts, c, size])
+		info.sort_custom(func(a: Array, b: Array) -> bool: return float(a[3]) > float(b[3]))
+		var placed := []   # [ground point, radius]
+		for it: Array in info:
+			var n: Node3D = it[0]
+			var pts: PackedVector3Array = it[1]
+			var c: Vector3 = it[2]
+			var size: float = it[3]
+			var rot: Basis
+			if n.get_parent() and n.get_parent().name == "shards":
+				var outn := (c - mid).normalized()
+				rot = Basis(up, r.next() * TAU) * Basis(_turn(outn, up))
+			else:
+				rot = Basis(Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5).normalized(), r.next() * TAU)
+			# a free place on the ground
 			var flat := (c - mid) - up * (c - mid).dot(up)
-			var out := flat.normalized() if flat.length() > 0.01 else Vector3(r.next() - 0.5, 0, r.next() - 0.5).normalized()
-			var target := c + out * (0.1 + r.next() * 0.35) + up * (floor_h + 0.03 - c.dot(up))
-			var axis := Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5).normalized()
-			var rot := Basis(axis, (0.6 + r.next() * 1.6) * (1.0 if r.next() < 0.5 else -1.0))
-			var fl := Transform3D(rot, target - rot * c) * home
-			pieces.append([n, home, fl, r.next() * 0.45, up])
+			var dir := flat.normalized() if flat.length() > 0.01 else Vector3(1, 0, 0)
+			var at := Vector3.ZERO
+			for tries in 40:
+				var d := dir.rotated(up, (r.next() - 0.5) * (0.8 + float(tries) * 0.06))
+				var dist := 0.12 + r.next() * 0.25 + float(tries) * 0.012
+				var cand := mid - up * mid.dot(up) + d * dist
+				var ok := true
+				for q: Array in placed:
+					if (q[0] as Vector3).distance_to(cand) < (float(q[1]) + size) * 0.75: ok = false
+				at = cand
+				if ok: break
+			placed.append([at, size])
+			# down onto the ground: the lowest of its points after the turn on the floor
+			var low := INF
+			for p in pts: low = minf(low, (rot * (p - c)).dot(up))
+			var target := at + up * (floor_h - low + 0.004)
+			var fl := Transform3D(rot, target - rot * c) * n.transform
+			pieces.append([n, n.transform, fl, r.next() * 0.45, up])
 		ready_ = true
+
+	## a few points of a piece, in the space it lives in (its vertices, or the corners of its box)
+	func _points(n: Node3D) -> PackedVector3Array:
+		var out := PackedVector3Array()
+		if n is MeshInstance3D and (n as MeshInstance3D).mesh:
+			var m := (n as MeshInstance3D).mesh
+			var arr := m.surface_get_arrays(0) if m.get_surface_count() else []
+			if arr.size() and arr[Mesh.ARRAY_VERTEX] != null:
+				var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+				var step := maxi(1, vs.size() / 80)
+				for i in range(0, vs.size(), step): out.append(n.transform * vs[i])
+				return out
+		if n is VisualInstance3D:
+			var bb := (n as VisualInstance3D).get_aabb()
+			for k in 8: out.append(n.transform * bb.get_endpoint(k))
+		return out
+
+	## the turn that brings a onto b
+	static func _turn(a: Vector3, b: Vector3) -> Quaternion:
+		var c := a.cross(b)
+		if c.length() < 1e-5: return Quaternion() if a.dot(b) > 0.0 else Quaternion(Vector3.RIGHT, PI)
+		return Quaternion(c.normalized(), a.angle_to(b))
+
 	func _process(dt: float) -> void:
 		if not ready_:
 			_setup()

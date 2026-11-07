@@ -214,7 +214,7 @@ func _ready() -> void:
 		if String(args.skulls) == "new":
 			var nb := {moss = "none", trees = 0, flies = 0, stream = false, roots = false, pile = 0, coins = false, diadem = false, lantern = false, show = "loose"}
 			pins = [{skin = "agate"}, {skin = "opal"}, {skin = "pyrite"}, {skin = "geode"}, {skin = "bone", coins = true},
-				{skin = "bone", diadem = true, eyes = "both"}, {skin = "bone", lantern = true},
+				{skin = "bone", diadem = true, eyes = "both"}, 
 				{skin = "bone", legend = true, fx = "yaga"}, {skin = "bone", legend = true, fx = "candle"}, {skin = "bone", legend = true, fx = "watching"},
 				{skin = "bone", legend = true, fx = "deathless"}, {skin = "bone", legend = true, fx = "flutter"}, {skin = "bone", legend = true, fx = "fireflies"}]
 			for k in pins.size():

@@ -6,6 +6,8 @@ render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabl
 #include "res://shaders/opal.gdshaderinc"
 
 uniform vec3 col : source_color = vec3(0.35, 1.0, 0.4);
+uniform vec3 col2 : source_color = vec3(1.0, 0.5, 0.15);
+uniform float shift = 0.0;   // > 0: the colour drifts between col and col2 at this pace
 uniform float seed = 0.0;
 uniform float speed = 1.0;
 uniform int mode = 0;
@@ -21,10 +23,11 @@ void vertex() {
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float t = TIME * speed;
+	vec3 colr = shift > 0.0 ? mix(col, col2, 0.5 + 0.5 * sin(TIME * shift)) : col;
 	if (mode == 1) {
 		float d = length(p);
 		float a = pow(max(0.0, 1.0 - d), 2.2) * (0.85 + 0.15 * sin(t * 3.0 + seed));
-		ALBEDO = col * a * power;
+		ALBEDO = colr * a * power;
 		ALPHA = a;
 	} else {
 		float v = 1.0 - UV.y;   // 0 at the root .. 1 at the tip
@@ -37,11 +40,13 @@ void fragment() {
 		// the tongue sways and is torn by turbulence rising through it
 		x += (vn(vec3(v * 2.5 - t * 1.8, seed, 0.0)) - 0.5) * 0.5 * v;
 		float n = fbm(vec3(p.x * 3.0, v * 4.0 - t * 3.2, seed));
-		float w = 0.62 * pow(max(0.0, 1.0 - v), 0.55) * (0.7 + 0.6 * n);
-		float body = smoothstep(w, w * 0.35, abs(x)) * smoothstep(0.0, 0.08, v);
+		// a tongue, not a column: round at the root, widest a quarter up, drawn to a point
+		float prof = pow(sin(3.1416 * clamp(v * 0.85 + 0.15, 0.0, 1.0)), 0.7) * pow(max(0.0, 1.0 - v), 0.3);
+		float w = 0.6 * prof * (0.75 + 0.5 * n);
+		float body = smoothstep(w, w * 0.15, abs(x)) * smoothstep(0.0, 0.12, v);
 		body *= 1.0 - smoothstep(0.45, 1.0, v + (n - 0.5) * 0.6);
 		float core = smoothstep(w * 0.5, 0.0, abs(x)) * (1.0 - smoothstep(0.0, 0.45, v));
-		vec3 c = mix(col, vec3(1.0, 0.97, 0.9), core * 0.8) * (1.3 - v * 0.6);
+		vec3 c = mix(colr, vec3(1.0, 0.97, 0.9), core * 0.7) * (1.3 - v * 0.6);
 		ALBEDO = c * body * power * 1.6 * (0.6 + 0.6 * flare);
 		ALPHA = body;
 	}

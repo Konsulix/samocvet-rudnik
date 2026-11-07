@@ -269,15 +269,16 @@ void fragment() {
 				vec3 crust = vec3(0.016, 0.015, 0.014) * (0.7 + 0.6 * fbm(q * 10.0));   // (linear: near black)
 				crust *= 1.0 - smoothstep(0.75, 0.95, ves.y) * smoothstep(0.35, 0.05, length(vec2(ves.x)) ) * 0.0 + 0.0;
 				crust *= 0.85 + 0.3 * fbm(q * 30.0);
+				// (down in the pit, under the crystals: dark, a dull violet, a spark here and there — the crystals do the rest)
 				vec2 dz = cell3(q * 40.0);
-				float glint = pow(0.5 + 0.5 * sin(dz.y * 60.0 + fr * 14.0), 8.0);
-				vec3 dru = mix(vec3(0.16, 0.06, 0.3), vec3(0.62, 0.42, 0.9), dz.y) * (0.5 + 0.5 * smoothstep(0.0, 0.25, dz.x)) + vec3(0.8, 0.7, 1.0) * glint * 0.8;
+				float glint = pow(0.5 + 0.5 * sin(dz.y * 60.0 + fr * 14.0), 16.0) * step(0.7, dz.y);
+				vec3 dru = vec3(0.05, 0.02, 0.09) * (0.6 + 0.8 * fbm(q * 18.0)) + vec3(0.7, 0.6, 1.0) * glint * 0.5;
 				// a white chalcedony rim where the crust broke
 				float rim = smoothstep(0.24, 0.34, UV.x) * (1.0 - brk);
 				c = mix(mix(crust, vec3(0.75, 0.73, 0.78), rim), dru, brk);
 				rough = mix(0.95, 0.12, brk);
 				spec = mix(0.15, 0.7, brk);
-				h = mix(fbm(q * 18.0) * 0.4, dz.x * 0.5 + 0.6, brk) + rim * 0.4;
+				h = mix(fbm(q * 18.0) * 0.4, fbm(q * 30.0) * 0.4, brk) + rim * 0.4;
 			}
 		}
 	}
