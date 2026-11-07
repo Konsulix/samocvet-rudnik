@@ -102,7 +102,7 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if not e.has("best") or int(s.value) > int(e.best.value):
 		var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
 			g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
-		for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies"]:
+		for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind"]:
 			if s.has(k): b[k] = s[k]
 		e.best = b
 	d.atlas[aid] = e
