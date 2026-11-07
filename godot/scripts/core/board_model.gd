@@ -973,6 +973,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			var s: Array = spots[rng.randi_range(0, mini(5, spots.size() - 1))]
 			var hp := block_hp(level_n, dl)
 			var stone := Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
+			# the first find in a mine of skulls: the one picked to show what it holds (Stones.first_find)
+			var first: Variant = Stones.first_find(area, (0.6 if hard else 0.2) + dl * 0.35, dl)
+			if first != null: stone = first
 			# the first stone a newcomer digs up himself is never pyrite: the old man's gift was (Home._rise), and this
 			# one brings the Scholar (StoryScene "sister_meet")
 			var tries := 0

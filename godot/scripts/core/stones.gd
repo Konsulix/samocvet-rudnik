@@ -97,6 +97,28 @@ const SKULL_AT := [
 	[["bone", 50.0], ["nacre", 10.0], ["gilt", 15.0], ["kintsugi", 8.0], ["gold", 8.0], ["silver", 5.0], ["copper", 4.0]],
 	[["bone", 60.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 8.0], ["glass", 7.0]]]
 
+## the very first find in a mine with skulls is one picked by eye (the seed and genes as `spec_gallery -- area=6
+## sp=pyrope form=skull base=700 skin=bone moss=cap tree_kind=blossom stream=1 wine=1` draws its second): a dark skull,
+## a crown of pyrope, moss, a scarlet spring from the eye — the mine shows what it holds at once. Null if already found.
+const FIRST_SKULL := {6: {seed = 708, sid = "pyrope", gi = 3, skin = "bone", moss = "cap", tree_kind = "blossom", stream = true, wine = true, flies = 0}}
+static func first_find(area: int, luck: float, dl: int) -> Variant:
+	if not FIRST_SKULL.has(area) or Save.told("first_find_%d" % area): return null
+	var f: Dictionary = FIRST_SKULL[area]
+	var st := roll(int(f.seed), area, luck, dl)
+	st.id = int(f.seed)
+	st.sid = f.sid
+	st.kind = "druse"
+	st.gi = int(f.gi)
+	st.traits = []
+	st.legend = false
+	st.erase("fx")
+	st.form = "skull"
+	for k in ["skin", "moss", "tree_kind", "stream", "wine", "flies"]: st[k] = f[k]
+	st.value = roundi(float(Data.SP[f.sid].v) * VALUE_K * float(SKULL_V[f.skin]) * 1.4 * 1.3)
+	st.tier = maxi(tier_of(st.sid, st.gi, false), int(SKULL_TIER[f.skin]))
+	st.first_of = area
+	return st
+
 ## a find's name: the species, or for a skull its kind ("Gilded Skull")
 static func name_of(s: Dictionary) -> String:
 	if String(s.get("form", "")) == "skull" and s.has("skin"):
