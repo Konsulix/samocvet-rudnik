@@ -10,6 +10,7 @@ uniform float seed = 0.0;
 uniform float speed = 1.0;
 uniform int mode = 0;
 uniform float power = 1.0;
+uniform float breath = -1.0;   // >= 0: the fire breathes — dies down, then roars up, in its own phase
 
 void vertex() {
 	// always facing the viewer, at the node's own scale
@@ -27,6 +28,11 @@ void fragment() {
 		ALPHA = a;
 	} else {
 		float v = 1.0 - UV.y;   // 0 at the root .. 1 at the tip
+		float flare = 1.0;
+		if (breath >= 0.0) {
+			flare = 0.55 + 0.45 * pow(0.5 + 0.5 * sin(TIME * 1.1 + breath), 2.0) + 0.08 * sin(TIME * 7.0 + breath * 3.0);
+			v /= flare;
+		}
 		float x = p.x;
 		// the tongue sways and is torn by turbulence rising through it
 		x += (vn(vec3(v * 2.5 - t * 1.8, seed, 0.0)) - 0.5) * 0.5 * v;
@@ -36,7 +42,7 @@ void fragment() {
 		body *= 1.0 - smoothstep(0.45, 1.0, v + (n - 0.5) * 0.6);
 		float core = smoothstep(w * 0.5, 0.0, abs(x)) * (1.0 - smoothstep(0.0, 0.45, v));
 		vec3 c = mix(col, vec3(1.0, 0.97, 0.9), core * 0.8) * (1.3 - v * 0.6);
-		ALBEDO = c * body * power * 1.6;
+		ALBEDO = c * body * power * 1.6 * (0.6 + 0.6 * flare);
 		ALPHA = body;
 	}
 }

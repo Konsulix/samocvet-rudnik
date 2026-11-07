@@ -230,7 +230,8 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 	g.coins = o.get("coins", x.call(2) < 0.05)
 	g.diadem = o.get("diadem", x.call(3) < 0.05)
 	g.lantern = o.get("lantern", x.call(4) < 0.05)
-	g.pile = int(o.get("pile", (1 + int(x.call(6) * 2)) if x.call(5) < 0.06 else 0))
+	# (a pile of skulls: built, but not rolled — set aside 7.11; the admin or tests can still pin it)
+	g.pile = int(o.get("pile", 0))
 	g.fx = String(o.get("fx", ""))
 	if g.show == "rock": g.pile = 0
 	# what fills the eyes: a fire, watching eyes or fireflies need them open; obols lie over them
@@ -252,6 +253,11 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 			g.crown = false
 		else:
 			g.diadem = false
+	# deathless: the skull falls to shards and gathers itself again — loose, nothing running over it
+	if g.fx == "deathless":
+		g.show = "loose"
+		g.stream = false
+		g.pile = 0
 	# a candle on the crown: no crystal crown under it, no tree in the way
 	if g.fx == "candle":
 		g.roots = false
@@ -420,7 +426,10 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		var em := _eyes(b, st, sk, cr, nr, earth_m, crystal, lean)
 		if main == null: main = em
 
+	# a geode: the crust broken away in patches, the bone hollowed there (crystals grow in them: SpecSkullFx.dress)
+	if sk.skin == "geode": sk.geode_pits = SpecSkullFx.dig(cr, nr, sk, float(seed_v % 97) * 1.37)
 	var mi := U.mesh(cr, bm, root)
+	sk.cr_mi = mi
 	mi.set_meta("base", Color(0.6, 0.55, 0.45))
 	var tu := _teeth(P.teeth_up_each, _gone(sk, P.teeth_up_each.size(), 0, false))
 	if tu.v.size(): U.mesh(_shape(tu, sk.shape), bm, root)
@@ -485,7 +494,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		var one: String = String(sk.fly_kind) if String(sk.fly_kind) != "" else ("" if fr.next() < 0.3 else SpecButterfly.pick(fr))
 		# where they may land: the crown of the head, facing up
 		var perches := []
-		for q in 40:
+		for q in (140 if String(sk.get("fx", "")) == "flutter" else 40):
 			var j: int = top[int(fr.next() * top.size())]
 			if nr[j].y > 0.45: perches.append([cr.v[j], nr[j]])
 		for k in int(sk.flies):
@@ -496,7 +505,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 			var i: int = top[int(fr.next() * top.size())]
 			SpecButterfly.put(root, fr, id, cr.v[i], nr[i], (0.34 + fr.next() * 0.12) * 0.8, flying, perches)
 	# obols, a diadem, fireflies inside, a pile; its own legend (SpecSkullFx)
-	SpecSkullFx.dress(b, sk, bones, nrs, bm)
+	SpecSkullFx.dress(b, sk, bones, nrs, bm, crystal, lean)
 	_forest(b, sk, cr, nr, gene)
 	_marks(b, st, sk, cr, nr, main, P)
 	var T := Transform3D.IDENTITY

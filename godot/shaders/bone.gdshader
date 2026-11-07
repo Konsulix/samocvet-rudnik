@@ -218,17 +218,22 @@ void fragment() {
 			} else if (skin == 5) {
 				// agate: the bone turned to banded chalcedony — bands following the head's shape, warped, cream, honey,
 				// rust and smoke, polished, a little translucent at the thin edges
-				float t = length(mp * vec3(1.0, 1.15, 0.95)) * 30.0 + fbm(q * 2.2) * 5.0 + fbm(q * 7.0) * 0.8;
+				float t = length(mp * vec3(1.0, 1.15, 0.95)) * 34.0 + fbm(q * 1.8) * 7.0 + fbm(q * 6.0) * 1.2;
 				float bnd = fract(t);
 				float sel = fract(floor(t) * 0.618 + skin_k);
 				// four colours of band: cream, carnelian, rust-brown, smoke
 				vec3 ag = sel < 0.3 ? vec3(0.86, 0.78, 0.62) : sel < 0.55 ? vec3(0.78, 0.3, 0.08) : sel < 0.8 ? vec3(0.38, 0.19, 0.08) : vec3(0.42, 0.45, 0.5);
-				ag *= 0.85 + 0.25 * smoothstep(0.1, 0.9, bnd);
-				ag = mix(ag, vec3(0.95, 0.92, 0.86), (1.0 - smoothstep(0.0, 0.06, bnd)) * 0.7);
+				// (stone, not plastic: muted, fine growth lines inside each band, a waxy translucent milkiness that
+				// varies, crystal grain, a few pale quartz-filled hollows)
+				ag = mix(ag, vec3(0.62, 0.55, 0.47), 0.25);
+				ag *= 0.8 + 0.25 * smoothstep(0.1, 0.9, bnd) + (sin(t * 38.0) * 0.5 + 0.5) * 0.08;
+				ag = mix(ag, vec3(0.88, 0.84, 0.76), (1.0 - smoothstep(0.0, 0.05, bnd)) * 0.55);
+				ag = mix(ag, ag * 1.25 + vec3(0.05), smoothstep(0.45, 0.8, fbm(q * 4.0 + 3.0)) * 0.35);
+				ag *= 0.88 + 0.24 * vn(q * 120.0);
 				c = mix(ag * mix(1.0, 0.55, cav), pit_col * 0.5, max(crack, sut) * 0.5);
-				rough = mix(0.12, 0.5, cav);
-				spec = 0.55;
-				h = bnd * 0.15 - max(crack, sut) * 0.4;
+				rough = mix(0.34, 0.7, cav) + vn(q * 40.0) * 0.12;
+				spec = 0.32;
+				h = bnd * 0.25 + vn(q * 90.0) * 0.25 - max(crack, sut) * 0.4;
 			} else if (skin == 6) {
 				// opal: the bone become precious opal — a dark body, play of colour in patches that flash and change as
 				// it turns (pinfire small, harlequin larger), the pits dull potch
@@ -258,16 +263,17 @@ void fragment() {
 			} else if (skin == 8) {
 				// a geode: the skull in a black basalt crust, pocked with gas holes; where the crust broke away, a druse of
 				// tiny violet crystals sparkles (each cell a facet tilted its own way)
-				float brk = smoothstep(0.58, 0.64, fbm(q * 2.6 + skin_k * 10.0)) * open;
+				// (where the crust broke: the builder's own mask, in UV.x — the same places as the pits and crystals)
+				float brk = smoothstep(0.35, 0.6, UV.x);
 				vec2 ves = cell3(q * 14.0);
-				vec3 crust = vec3(0.07, 0.065, 0.06) * (0.75 + 0.5 * fbm(q * 10.0));
+				vec3 crust = vec3(0.016, 0.015, 0.014) * (0.7 + 0.6 * fbm(q * 10.0));   // (linear: near black)
 				crust *= 1.0 - smoothstep(0.75, 0.95, ves.y) * smoothstep(0.35, 0.05, length(vec2(ves.x)) ) * 0.0 + 0.0;
 				crust *= 0.85 + 0.3 * fbm(q * 30.0);
 				vec2 dz = cell3(q * 40.0);
 				float glint = pow(0.5 + 0.5 * sin(dz.y * 60.0 + fr * 14.0), 8.0);
 				vec3 dru = mix(vec3(0.16, 0.06, 0.3), vec3(0.62, 0.42, 0.9), dz.y) * (0.5 + 0.5 * smoothstep(0.0, 0.25, dz.x)) + vec3(0.8, 0.7, 1.0) * glint * 0.8;
 				// a white chalcedony rim where the crust broke
-				float rim = smoothstep(0.56, 0.58, fbm(q * 2.6 + skin_k * 10.0)) * (1.0 - brk) * open;
+				float rim = smoothstep(0.24, 0.34, UV.x) * (1.0 - brk);
 				c = mix(mix(crust, vec3(0.75, 0.73, 0.78), rim), dru, brk);
 				rough = mix(0.95, 0.12, brk);
 				spec = mix(0.15, 0.7, brk);
