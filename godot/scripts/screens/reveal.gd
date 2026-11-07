@@ -90,6 +90,10 @@ func unmask(s: Dictionary) -> void:
 const CARD_PAD := 7.0        # the card's frame to the stone: just inside the brass rim
 const INFO_R := 22.0         # the info panel's top corners
 const TITLE_H := 64.0        # the name in the corner covers this much of the stone's frame
+## the life that grows on a find — moss, little trees, mushrooms, butterflies, flowers, lichen, fern fronds: named by
+## callouts only, never a badge (a forest skull ran to nine badges)
+const LIFE := ["pompom", "straw", "lichen", "fronds", "flowers", "mushrooms", "fungi", "sk_moss", "sk_trees", "sk_flies"]
+const CHIPS_MAX := 5
 static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
 static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
 
@@ -237,8 +241,12 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
 	if chips_max > 0:
 		for id: String in genes.keys().slice(chips_max): genes.erase(id)
+	# badges only for what makes the find what it is (its legend, its traits, the big genes), at most CHIPS_MAX, in that
+	# order; the life that grew on it (moss, trees, mushrooms, butterflies, flowers…) and anything past the limit is
+	# shown by its callout only — a tap on the stone opens them all
 	var chips := {}
 	for id: String in genes:
+		if id in LIFE or chips.size() >= CHIPS_MAX: continue
 		var c := chip(genes[id][0], genes[id][1], not (id in s.get("traits", [])) and id != "fx")
 		c.modulate.a = 0.0
 		chips[id] = c
@@ -250,12 +258,12 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	view.built.connect(func(p: Node3D) -> void:
 		var grown: Dictionary = p.get_meta("grown", {})
 		var list := []
-		for id: String in chips:
-			var c: Label = chips[id]
+		for id: String in genes:
+			var c: Label = chips.get(id)
 			if not grown.has(id):
-				c.queue_free()
+				if c: c.queue_free()
 				continue
-			c.create_tween().tween_property(c, "modulate:a", 1.0, 0.3)
+			if c: c.create_tween().tween_property(c, "modulate:a", 1.0, 0.3)
 			list.append({id = id, name = genes[id][0], rare = genes[id][1], pts = grown[id]})
 		if list.is_empty():
 			flow.queue_free()
@@ -273,6 +281,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 			else: co.show_all())
 		for it: Dictionary in list:
 			var id: String = it.id
+			if not chips.has(id): continue
 			var c: Label = chips[id]
 			c.mouse_filter = Control.MOUSE_FILTER_STOP
 			c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
