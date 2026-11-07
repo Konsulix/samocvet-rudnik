@@ -210,6 +210,9 @@ func _ready() -> void:
 			for k in pins.size():
 				pins[k].stream = true
 				pins[k].wine = k % 3 == 1   # (every third a scarlet spring)
+		# skulls=metal: cast in gold, copper and silver, two of each (one on a rock)
+		if String(args.skulls) == "metal":
+			pins = [{skin = "gold"}, {skin = "copper"}, {skin = "silver"}, {skin = "gold", show = "rock"}, {skin = "copper", show = "rock"}, {skin = "silver", show = "rock"}]
 		var n := int(args.skulls) if String(args.skulls).is_valid_int() and int(args.skulls) > 1 else pins.size()
 		for i in n:
 			var st := Stones.roll(90000 + i * 13, 0, 1.2, i % 6)

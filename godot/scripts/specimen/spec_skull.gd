@@ -1303,114 +1303,156 @@ static func down_of(sk: Dictionary) -> Vector3:
 		bas = bas * Basis(Vector3.UP, float(a[0])) * Basis(Vector3.BACK, float(a[1])) * Basis(Vector3.RIGHT, float(a[2]))
 	return (bas.inverse() * Vector3.DOWN).normalized()
 
-## a run of molten metal down the bone from `start` (_drips): each step slides along the surface (the step projected on
-## its tangent plane), sticking to it; where the bone turns away below (an overhang: the brow, the cheekbone, the chin)
-## it lets go and stops. Returns [points on the surface, their normals, true if it let go at the end]
-static func _flow(bones: Array, nrs: Array, start: Vector3, down: Vector3, step: float, n: int, cling := 0.55) -> Array:
-	var pts := []
-	var ns := []
-	var p := start
-	var off := false
-	for k in n:
-		var q: Array = _near(bones, nrs, p)
-		var sp: Vector3 = q[0]
-		var nv: Vector3 = q[1]
-		if pts.size() > 1 and p.distance_to(sp) > step * 3.0:
-			off = true
-			break
-		var on := p - nv * (p - sp).dot(nv)
-		pts.append(on)
-		ns.append(nv)
-		# the overhang: the surface here faces down — the drop hangs from it
-		if nv.dot(down) > cling and pts.size() > 2:
-			off = true
-			break
-		var t := down - nv * down.dot(nv)
-		if t.length() < 0.15: t = down
-		p = on + t.normalized() * step + down * step * 0.25
-	return [pts, ns, off]
-
-## a strand lying along a run (thickening downhill: r0 at the top, r1 at the end), pushed out of the bone by its own
-## radius so it sits on the surface, not in it
-static func _strand(pts: Array, ns: Array, r0: float, r1: float, m := 7) -> Geo:
-	var lifted := []
-	for k in pts.size():
-		var f := float(k) / maxf(1.0, pts.size() - 1.0)
-		lifted.append((pts[k] as Vector3) + (ns[k] as Vector3) * lerpf(r0, r1, f) * 0.55)
-	return _taper(lifted, r0, r1, m)
-
-## molten metal: runs from the brow, the cheekbones, round the eyes and the nose, the teeth, flowing down over the bone
-## and swelling as they go; where one reaches an edge it hangs a short tail with a bead — none hang in the air
+## molten metal poured over the head and set: a few broad tongues from high on it (the crown's sides, the brow) run down
+## over the bone (SpecSurf: on its real surface), thickening as they go, some merging, each ending in a heavy lobe — or,
+## where it reached an edge, a tear hanging from it. They read against the skull cast in the same metal by being thick
+## (they cast their own shading), polished and a touch brighter (shaders/metal_run.gdshader). A rare one (its own draw)
+## is not cold yet: the tongues' feet glow, and a drop now and then falls slowly from a hanging tear.
 static func _drips(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array) -> void:
 	var r := Rng32.new(int(sk.skin_seed) + 3)
 	var down := down_of(sk)
 	var mt: Array = METALS[String(sk.skin)]
 	var mcol: Color = mt[0]
-	# the runs: polished, warmer and brighter than the skull's own satin metal, so they read against it
+	var hot := Rng32.new(int(sk.skin_seed) * 5 + 77).next() < 0.15
+	var surf := SpecSurf.new()
+	for k in bones.size(): surf.add(bones[k], nrs[k])
 	var mat := ShaderMaterial.new()
 	mat.shader = METAL_RUN
 	mat.set_shader_parameter("col", Vector3(mcol.r, mcol.g, mcol.b))
-	mat.set_shader_parameter("rough", 0.06)
-	var bead := StandardMaterial3D.new()
-	bead.albedo_color = mcol.linear_to_srgb()   # (the skull's metal colour is used raw: the same gold)
-	bead.metallic = 1.0
-	bead.roughness = 0.05
-	# where the runs start: the brow ridges, the cheekbones, round the eyes and the nose, the teeth's roots
+	mat.set_shader_parameter("rough", 0.14)
+	mat.set_shader_parameter("hot", 1.0 if hot else 0.0)
+	mat.set_shader_parameter("phase", r.next() * 10.0)
+	# where they start: high on the head, facing up, spread apart
+	var g0: Geo = bones[0]
+	var nr0: PackedVector3Array = nrs[0]
+	var top := -INF
+	var bot := INF
+	for i in range(0, g0.v.size(), 5):
+		var hgt := -g0.v[i].dot(down)
+		top = maxf(top, hgt)
+		bot = minf(bot, hgt)
+	# (facing the viewer once the skull is posed: a skull turned aside keeps its runs on the side we see)
+	var bas := pose_basis(sk)
 	var cand := []
-	for k in bones.size():
-		var g: Geo = bones[k]
-		var nr: PackedVector3Array = nrs[k]
-		for i in range(0, g.v.size(), 3):
-			if g.v[i].z > 0.05 and g.col[i].g > 0.62 and nr[i].dot(down) < 0.0 and _alive(g, i):
-				cand.append(g.v[i])
+	for i in range(0, g0.v.size(), 3):
+		var hgt := -g0.v[i].dot(down)
+		# (the forehead, the temples, the brow: below the crown, which a bouquet or crystals often cover, and on the side
+		# the viewer sees)
+		if hgt < top - (top - bot) * 0.12 and hgt > top - (top - bot) * 0.55 and (bas * nr0[i]).z > 0.15 and nr0[i].dot(down) < 0.2 and _alive(g0, i):
+			cand.append(g0.v[i])
 	if cand.is_empty(): return
+	var starts := []
+	var want := 5 + int(r.next() * 4)
+	for t in 60:
+		if starts.size() >= want: break
+		var q: Vector3 = cand[int(r.next() * cand.size())]
+		var ok := true
+		for sp: Vector3 in starts:
+			if sp.distance_to(q) < 0.12: ok = false
+		if ok: starts.append(q)
 	var hold := Node3D.new()
 	b.root.add_child(hold)
-	var drops := 0
-	for k in 14 + int(r.next() * 8):
-		var p: Vector3 = cand[int(r.next() * cand.size())]
-		var run: Array = _flow(bones, nrs, p, down, 0.018, 10 + int(pow(r.next(), 1.3) * 18))
-		if (run[0] as Array).size() < 3: continue
-		var sm := _smooth_run(run[0], run[1], 0.006)
-		var path: Array = sm[0]
-		var ns: Array = sm[1]
-		# a thick rounded strand on the surface, thin where it starts, swelling as metal gathers
-		var w := 0.01 + r.next() * 0.008
-		var g := _strand(path, ns, w * 0.7, w * 1.7, 10)
-		var uv := PackedVector2Array()
-		var m := 11
-		for q in path.size():
-			for jj in m:
-				uv.append(Vector2(float(jj) / (m - 1), float(q) * 0.006))
-		var mi := U.mesh(g, mat, hold)
-		var e: Vector3 = (path[path.size() - 1] as Vector3) + (ns[ns.size() - 1] as Vector3) * w * 1.2
+	var tears := 0
+	var hung := []
+	for k in starts.size():
+		var res := surf.run(starts[k], down, 0.014, 0.25 + pow(r.next(), 0.7) * 0.55, Vector3.ZERO, 0.6)
+		if res.is_empty(): continue
+		var rr: Array = (res.runs as Array)[0]
+		if (rr[0] as Array).size() < 5: continue
+		var sm := _smooth_run(rr[0], rr[1], 0.006)
+		var pts := []
+		var ns := []
+		for q: Vector3 in sm[0]:
+			var cp := surf.closest(q)
+			pts.append(cp[0] if cp.size() else q)
+			ns.append(cp[1] if cp.size() else -down)
+		var w0 := 0.022 + r.next() * 0.012
+		var w1 := w0 * (1.7 + r.next() * 0.7)
+		_tongue(hold, pts, ns, w0, w1, surf, mat, r.next() * 5.0)
+		var e: Vector3 = pts[pts.size() - 1]
 		var en: Vector3 = ns[ns.size() - 1]
-		if run[2]:
-			# hanging off an edge: a teardrop, its neck still joined to the run
-			var tl := w * (2.0 + r.next() * 3.0)
+		# (one tear to an edge: runs reaching the same edge close together gather into one, not a bunch)
+		var near_tear := false
+		for hp: Vector3 in hung:
+			if hp.distance_to(e) < w1 * 3.0: near_tear = true
+		if ((res.drops as Array).size() or res.pour) and not near_tear and hung.size() < 4:
+			hung.append(e)
+			# it reached an edge: a tear hanging from it, its neck still joined to the run
+			var tl := w1 * (2.0 + r.next() * 1.5)
 			var drop := MeshInstance3D.new()
 			var dm := SphereMesh.new()
 			dm.radius = 0.5
 			dm.height = 1.0
+			dm.radial_segments = 16
+			dm.rings = 10
 			drop.mesh = dm
-			drop.material_override = bead
-			drop.transform = Transform3D(Basis(U.quat_to(Vector3.UP, -down)) * Basis.from_scale(Vector3(w * 2.2, tl * 1.5, w * 2.2)), e + down * tl * 0.55)
+			drop.material_override = mat
+			drop.transform = Transform3D(Basis(U.quat_to(Vector3.UP, -down)) * Basis.from_scale(Vector3(w1 * 1.7, tl, w1 * 1.7)), e + down * tl * 0.38 + en * w1 * 0.3)
 			hold.add_child(drop)
-			if drops < 3 and r.next() < 0.6:
-				drops += 1
+			if hot and tears < 2:
+				tears += 1
 				var dr := Drip.new()
-				dr.setup(Rng32.new(int(sk.skin_seed) + 50 + k), down, w * 1.5, true, bead)
-				dr.position = e + down * tl * 1.3
+				dr.setup(Rng32.new(int(sk.skin_seed) + 50 + k), down, w1 * 1.2, true, mat)
+				dr.position = e + down * tl * 0.85
 				hold.add_child(dr)
-		else:
-			var blob := MeshInstance3D.new()
-			var bm := SphereMesh.new()
-			bm.radius = 0.5
-			bm.height = 1.0
-			blob.mesh = bm
-			blob.material_override = bead
-			blob.transform = Transform3D(Basis(U.quat_to(Vector3.UP, en)) * Basis.from_scale(Vector3(w * 2.4, w * 1.3, w * 2.4)), e)
-			hold.add_child(blob)
+
+## a tongue of set metal along a run on the surface (pressed onto it): thick and domed, its head rounded, widening to
+## a heavy lobe at its foot. UV.x across, UV.y along; COLOR.r 0 at its head .. 1 at its foot (shaders/metal_run.gdshader)
+static func _tongue(parent: Node3D, path: Array, ns: Array, w0: float, w1: float, surf: SpecSurf, mat: Material, v0: float) -> void:
+	var m := 10
+	var v := PackedVector3Array()
+	var nm := PackedVector3Array()
+	var uv := PackedVector2Array()
+	var cl := PackedColorArray()
+	var idx := PackedInt32Array()
+	var n := path.size()
+	var total := 0.0
+	for k in range(1, n): total += (path[k] as Vector3).distance_to(path[k - 1])
+	var d := 0.0
+	for k in n:
+		if k: d += (path[k] as Vector3).distance_to(path[k - 1])
+		var f := d / maxf(total, 0.001)
+		var a: Vector3 = path[maxi(k - 1, 0)]
+		var c: Vector3 = path[mini(k + 1, n - 1)]
+		var tg := (c - a).normalized()
+		var out: Vector3 = ns[k]
+		var side := tg.cross(out).normalized()
+		if side.length_squared() < 0.5: side = Vector3.RIGHT
+		# the profile: a rounded head, swelling down its length, the lobe at the foot rounded off
+		var wd := lerpf(w0, w1, pow(f, 1.5)) * (1.0 + 0.12 * sin(d * 60.0 + v0))
+		wd *= sqrt(smoothstep(0.0, 0.06, f))
+		if f > 0.86: wd *= sqrt(maxf(0.0, 1.0 - pow((f - 0.86) / 0.14, 2.0))) * 1.15
+		var lift := wd * (0.7 + f * 0.35)
+		for j in m + 1:
+			var s := float(j) / m * 2.0 - 1.0
+			var dome := sqrt(maxf(0.0, 1.0 - s * s))
+			var at := (path[k] as Vector3) + side * wd * s
+			var on := out
+			var cp := surf.closest(at)
+			if cp.size():
+				at = cp[0]
+				on = cp[1]
+			v.append(at + on * (0.0015 + dome * lift))
+			nm.append((on * (0.25 + dome) + side * s * 0.9).normalized())
+			uv.append(Vector2(0.5 + s * 0.5, d + v0))
+			cl.append(Color(f, 0, 0, 1))
+	for k in n - 1:
+		for j in m:
+			var a2 := k * (m + 1) + j
+			idx.append_array([a2, a2 + m + 1, a2 + 1, a2 + 1, a2 + m + 1, a2 + m + 2])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	arr[Mesh.ARRAY_NORMAL] = nm
+	arr[Mesh.ARRAY_TEX_UV] = uv
+	arr[Mesh.ARRAY_COLOR] = cl
+	arr[Mesh.ARRAY_INDEX] = idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	parent.add_child(mi)
 
 ## a smooth run: the coarse steps of a flow resampled into a fine, even curve (no corners), its normals smoothed too
 static func _smooth_run(path: Array, ns: Array, step: float) -> Array:
@@ -1917,6 +1959,10 @@ class Drip extends Node3D:
 			dm.rim = 0.8
 			dm.rim_tint = 0.2
 			drop.material_override = dm
+		# (hidden and drop-sized from the start: a still picture — the collection's preview — is taken before the first
+		# _process, and a unit sphere then hung off the skull like a great bubble)
+		drop.visible = false
+		drop.scale = Vector3.ONE * size
 		add_child(drop)
 		phase = 2
 		dur = r.next() * 1.5
