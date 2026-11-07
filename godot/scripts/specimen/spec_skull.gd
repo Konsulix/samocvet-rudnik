@@ -26,6 +26,12 @@ const METALS := {
 	copper = [Color(0.86, 0.45, 0.3), 0.22, Color(0.16, 0.36, 0.3)],
 }
 
+## the genes a skull may have pinned from outside (the save, tests, the admin): SpecGenome and Spec pass these on
+const KEYS := ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees",
+	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile"]
+## the bones that are not bone any more (bone.gdshader skins 5–8)
+const STONE_SKINS := {agate = 5, opal = 6, pyrite = 7, geode = 8}
+
 static var _parts := {}
 static var _lock := Mutex.new()
 
@@ -216,6 +222,43 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 	}
 	# the spring runs scarlet, as wine, in about a third (its own draw: the other genes stay as they were)
 	g.wine = o.get("wine", Rng32.new(int(g.skin_seed) * 3 + 333).next() < 0.3)
+	# later genes, each on its own draw (no older skull changes): a bone turned to stone — banded agate, opal, pyrite,
+	# or a geode's black crust; obols on the eyes; Koschei's diadem; fireflies living inside; a pile of two or three
+	var x := func(k: int) -> float: return Rng32.new(int(g.skin_seed) * 13 + k * 7919).next()
+	if g.skin == "bone" and not o.has("skin") and x.call(1) < 0.16:
+		g.skin = Stones.pick_w([["agate", 3.0], ["pyrite", 3.0], ["geode", 2.5], ["opal", 1.5]], Rng32.new(int(g.skin_seed) * 13 + 5))
+	g.coins = o.get("coins", x.call(2) < 0.05)
+	g.diadem = o.get("diadem", x.call(3) < 0.05)
+	g.lantern = o.get("lantern", x.call(4) < 0.05)
+	g.pile = int(o.get("pile", (1 + int(x.call(6) * 2)) if x.call(5) < 0.06 else 0))
+	g.fx = String(o.get("fx", ""))
+	if g.show == "rock": g.pile = 0
+	# what fills the eyes: a fire, watching eyes or fireflies need them open; obols lie over them
+	# a cloud of butterflies: many, all resting to begin with (SpecSkullFx.Flock sends them up together)
+	if g.fx == "flutter":
+		g.flies = 7
+		g.fly_mode = 0
+	if g.fx in ["yaga", "watching"] or g.lantern or g.coins:
+		g.eyes = "none"
+		g.crown = true
+	if g.fx in ["yaga", "watching"] or g.coins: g.stream = false
+	if g.fx in ["yaga", "watching"]: g.coins = false
+	# a diadem sits where a crown of crystals would: the crystals then come out of the eyes (if they are free)
+	if g.diadem:
+		if g.eyes == "none" and not (g.coins or g.lantern or g.fx in ["yaga", "watching"]):
+			g.crown = false
+			g.eyes = "both"
+		elif g.eyes != "none":
+			g.crown = false
+		else:
+			g.diadem = false
+	# a candle on the crown: no crystal crown under it, no tree in the way
+	if g.fx == "candle":
+		g.roots = false
+		g.crown = false
+		g.bloom = false
+		g.trees = 0
+		if g.eyes == "none": g.eyes = "one"
 	# a glass skull is the crystal: no breach, no crystals out of the eyes, no moss
 	if g.skin == "glass":
 		g.crown = false
@@ -278,9 +321,13 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 	# a scarlet spring stains the bone it runs over
 	if sk.stream and sk.get("wine", false): m.set_shader_parameter("wet_col", Vector3(1.35, 0.28, 0.3))
 	m.set_shader_parameter("crack_k", 0.2 + float(sk.cracks) * 0.8)
+	if String(sk.get("fx", "")) == "deathless":
+		m.set_shader_parameter("deathless", 1.0)
+		m.set_shader_parameter("crack_k", 1.0)
+		m.set_shader_parameter("suture_k", 1.0)
 	m.set_shader_parameter("seed", float(seed_v % 97) * 1.37)
 	var su: Array = sk.sutures
-	m.set_shader_parameter("suture_k", float(su[0]))
+	m.set_shader_parameter("suture_k", 1.0 if String(sk.get("fx", "")) == "deathless" else float(su[0]))
 	m.set_shader_parameter("sut_shift", Vector3(float(su[1]), float(su[2]), float(su[3])))
 	match String(sk.skin):
 		"gilt": m.set_shader_parameter("skin", 1)
@@ -297,6 +344,11 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 			if sk.skin == "silver": m.set_shader_parameter("patina_col", Vector3(0.06, 0.06, 0.07))
 			if sk.skin == "silver": m.set_shader_parameter("patina_k", 0.8)
 		"kintsugi": m.set_shader_parameter("skin", 3)
+		"agate", "opal", "pyrite", "geode":
+			m.set_shader_parameter("skin", int(STONE_SKINS[sk.skin]))
+			m.set_shader_parameter("skin_k", float(sk.skin_k))
+			# (a stone skull is polished or weathered, its crust cracked: fewer bone cracks)
+			m.set_shader_parameter("crack_k", 0.15)
 		"nacre": m.set_shader_parameter("skin", 4)
 	m.set_shader_parameter("skin_k", 0.25 + float(sk.skin_k) * 0.6)
 	m.set_shader_parameter("fire", [0.0, 0.33, 0.6, 0.75][int(float(sk.skin_k) * 997.0) % 4])
@@ -443,6 +495,8 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 			if int(sk.fly_mode) >= 0: flying = int(sk.fly_mode) == 1
 			var i: int = top[int(fr.next() * top.size())]
 			SpecButterfly.put(root, fr, id, cr.v[i], nr[i], (0.34 + fr.next() * 0.12) * 0.8, flying, perches)
+	# obols, a diadem, fireflies inside, a pile; its own legend (SpecSkullFx)
+	SpecSkullFx.dress(b, sk, bones, nrs, bm)
 	_forest(b, sk, cr, nr, gene)
 	_marks(b, st, sk, cr, nr, main, P)
 	var T := Transform3D.IDENTITY
@@ -486,7 +540,7 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 		var at := Vector3.INF
 		var n := Vector3.FORWARD
 		match id.get_slice("_", 1):
-			"gilt", "gold", "silver", "copper", "kintsugi", "nacre", "glass":
+			"gilt", "gold", "silver", "copper", "kintsugi", "nacre", "glass", "agate", "opal", "pyrite", "geode":
 				at = cr.v[i_skin]
 				n = nr[i_skin]
 			"grave", "ash":
@@ -516,7 +570,11 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 static func accents(sk: Dictionary) -> Array:
 	var out := []
 	match String(sk.skin):
-		"gilt", "gold", "silver", "copper", "kintsugi", "glass", "nacre": out.append("sk_" + String(sk.skin))
+		"gilt", "gold", "silver", "copper", "kintsugi", "glass", "nacre", "agate", "opal", "pyrite", "geode": out.append("sk_" + String(sk.skin))
+	if sk.get("coins", false): out.append("sk_coins")
+	if sk.get("diadem", false): out.append("sk_diadem")
+	if sk.get("lantern", false): out.append("sk_lantern")
+	if int(sk.get("pile", 0)) > 0: out.append("sk_pile")
 	if sk.skin != "glass":
 		if sk.crown or sk.eyes == "none": out.append("sk_bloom" if sk.bloom else "sk_crown")
 		if sk.eyes != "none": out.append("sk_eyes")

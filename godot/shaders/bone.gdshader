@@ -21,7 +21,10 @@ uniform float gloss = 0.3;    // handled smooth (polished) .. chalky
 uniform float seed = 0.0;
 uniform float cav_k = 1.0;
 uniform float wear = 0.0;
-uniform int skin = 0;         // 0 bone, 1 gilt (gold leaf over part), 2 gold (cast in gold), 3 kintsugi (stone mosaic on gold seams), 4 nacre
+uniform int skin = 0;         // 0 bone, 1 gilt (gold leaf over part), 2 gold (cast in gold), 3 kintsugi (stone mosaic on gold seams), 4 nacre,
+                              // 5 agate (banded), 6 opal, 7 pyrite, 8 geode (black crust, a druse where it broke)
+uniform float deathless = 0.0;   // the legend "deathless": light running along the cracks and sutures, as if they healed
+uniform vec3 life_col = vec3(0.45, 1.0, 0.75);
 uniform float skin_k = 0.5;   // gilt: how much is covered; nacre: how much of the bone has turned
 uniform vec3 gilt_dir = vec3(1.0, 0.2, 0.3);   // gilt: the side it covers
 uniform float fire = 0.33;
@@ -84,6 +87,7 @@ void fragment() {
 	float metal = 0.0;
 	float spec;
 	float h;
+	float glowline = 0.0;
 	if (skin == 3) {
 		// kintsugi: a mosaic of polished stone pieces — carnelian, opal, amethyst, moonstone — set in raised gold seams
 		vec3 wq = q * 4.2 + vec3(fbm(q * 3.0), fbm(q * 3.0 + 5.0), fbm(q * 3.0 + 9.0)) * 0.6;
@@ -130,6 +134,7 @@ void fragment() {
 			// fused here and there: the lines break off in places
 			if (line > 0.0) sut = line * suture_k * open * smoothstep(0.38, 0.55, fbm(q * 4.0 + 13.0));
 		}
+		glowline = max(crack, sut);
 		if (skin == 2) {
 			// cast in gold: polished metal, darker deep in the pits, the old bone's detail just a ripple in it
 			c = metal_col * mix(1.0, 0.45, cav) * (0.9 + 0.12 * mot);
@@ -210,12 +215,74 @@ void fragment() {
 					spec = mix(spec, 0.25, k);
 					h += k * (pl.x * 0.4);
 				}
+			} else if (skin == 5) {
+				// agate: the bone turned to banded chalcedony — bands following the head's shape, warped, cream, honey,
+				// rust and smoke, polished, a little translucent at the thin edges
+				float t = length(mp * vec3(1.0, 1.15, 0.95)) * 30.0 + fbm(q * 2.2) * 5.0 + fbm(q * 7.0) * 0.8;
+				float bnd = fract(t);
+				float sel = fract(floor(t) * 0.618 + skin_k);
+				// four colours of band: cream, carnelian, rust-brown, smoke
+				vec3 ag = sel < 0.3 ? vec3(0.86, 0.78, 0.62) : sel < 0.55 ? vec3(0.78, 0.3, 0.08) : sel < 0.8 ? vec3(0.38, 0.19, 0.08) : vec3(0.42, 0.45, 0.5);
+				ag *= 0.85 + 0.25 * smoothstep(0.1, 0.9, bnd);
+				ag = mix(ag, vec3(0.95, 0.92, 0.86), (1.0 - smoothstep(0.0, 0.06, bnd)) * 0.7);
+				c = mix(ag * mix(1.0, 0.55, cav), pit_col * 0.5, max(crack, sut) * 0.5);
+				rough = mix(0.12, 0.5, cav);
+				spec = 0.55;
+				h = bnd * 0.15 - max(crack, sut) * 0.4;
+			} else if (skin == 6) {
+				// opal: the bone become precious opal — a dark body, play of colour in patches that flash and change as
+				// it turns (pinfire small, harlequin larger), the pits dull potch
+				vec2 pl = cell3(q * 9.0 + vec3(f4) * 0.6);
+				vec2 pl2 = cell3(q * 3.5 + 7.0);
+				float th = pl.y * 0.9 + pl2.y * 0.5 + fr * 1.4 + skin_k;
+				vec3 film = hue(fract(th));
+				float flash = pow(0.5 + 0.5 * sin(pl.y * 40.0 + fr * 9.0 + pl2.y * 6.0), 6.0);
+				vec3 body = vec3(0.03, 0.035, 0.05) * (0.8 + 0.4 * fbm(q * 5.0));
+				vec3 op = body + film * film * (0.02 + 1.2 * flash);
+				c = mix(op, vec3(0.32, 0.3, 0.28) * (0.8 + 0.4 * mot), smoothstep(0.35, 0.8, cav));
+				rough = mix(0.08, 0.6, cav);
+				spec = 0.6;
+				h = pl.x * 0.25 - max(crack, sut) * 0.3;
+			} else if (skin == 7) {
+				// pyrite: the bone replaced by fool's gold — brassy metal in fine grains, little cube faces catching
+				// the light, rust-brown limonite in the pits and patches
+				vec2 gr = cell3(q * 26.0);
+				float face = step(0.6, fract(gr.y * 7.0 + fr * 2.0));
+				vec3 py = vec3(0.72, 0.58, 0.26) * (0.7 + 0.45 * gr.y) * (0.85 + 0.3 * face) * (1.0 - (1.0 - smoothstep(0.0, 0.06, gr.x)) * 0.5);
+				float lim = clamp(smoothstep(0.55, 0.8, fbm(q * 3.5 + 4.0)) + smoothstep(0.3, 0.8, cav), 0.0, 1.0);
+				c = mix(py, vec3(0.36, 0.2, 0.08) * (0.7 + 0.5 * mot), lim);
+				metal = 1.0 - lim;
+				rough = mix(0.28 - face * 0.12, 0.9, lim);
+				spec = 0.5;
+				h = gr.x * 0.4 - max(crack, sut) * 0.4 + lim * 0.3;
+			} else if (skin == 8) {
+				// a geode: the skull in a black basalt crust, pocked with gas holes; where the crust broke away, a druse of
+				// tiny violet crystals sparkles (each cell a facet tilted its own way)
+				float brk = smoothstep(0.58, 0.64, fbm(q * 2.6 + skin_k * 10.0)) * open;
+				vec2 ves = cell3(q * 14.0);
+				vec3 crust = vec3(0.07, 0.065, 0.06) * (0.75 + 0.5 * fbm(q * 10.0));
+				crust *= 1.0 - smoothstep(0.75, 0.95, ves.y) * smoothstep(0.35, 0.05, length(vec2(ves.x)) ) * 0.0 + 0.0;
+				crust *= 0.85 + 0.3 * fbm(q * 30.0);
+				vec2 dz = cell3(q * 40.0);
+				float glint = pow(0.5 + 0.5 * sin(dz.y * 60.0 + fr * 14.0), 8.0);
+				vec3 dru = mix(vec3(0.16, 0.06, 0.3), vec3(0.62, 0.42, 0.9), dz.y) * (0.5 + 0.5 * smoothstep(0.0, 0.25, dz.x)) + vec3(0.8, 0.7, 1.0) * glint * 0.8;
+				// a white chalcedony rim where the crust broke
+				float rim = smoothstep(0.56, 0.58, fbm(q * 2.6 + skin_k * 10.0)) * (1.0 - brk) * open;
+				c = mix(mix(crust, vec3(0.75, 0.73, 0.78), rim), dru, brk);
+				rough = mix(0.95, 0.12, brk);
+				spec = mix(0.15, 0.7, brk);
+				h = mix(fbm(q * 18.0) * 0.4, dz.x * 0.5 + 0.6, brk) + rim * 0.4;
 			}
 		}
 	}
 	// the inside of the vault, seen through a break: dim bone
 	if (!FRONT_FACING) c = c * vec3(0.32, 0.28, 0.24);
 	ALBEDO = c;
+	// deathless: light runs over the cracks and sutures in slow waves, as if they were healing
+	if (deathless > 0.0) {
+		float wave = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 0.9 - mp.y * 7.0 + mp.x * 3.0), 3.0);
+		EMISSION = life_col * glowline * wave * deathless * 6.0;
+	}
 	METALLIC = metal;
 	ROUGHNESS = rough;
 	SPECULAR = mix(spec, 0.7, wet * float(skin == 0 || skin == 4 || skin == 1));

@@ -22,7 +22,8 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_gilt = "gold leaf", sk_gold = "molten gold", sk_silver = "molten silver", sk_copper = "molten copper", sk_kintsugi = "kintsugi",
 	sk_glass = "glass skull", sk_crown = "crystal crown", sk_frost = "cloudy crystals", sk_wax = "waxy crystals", sk_broken = "broken skull",
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
-	sk_flies = "butterflies",
+	sk_flies = "butterflies", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
+	sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
@@ -134,12 +135,6 @@ static func of(o: Dictionary) -> Dictionary:
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
 	acc.append_array(SpecFossil.accents(fossil))
-	# a skull's own genes (SpecSkull): its coat, crystals, moss and trees, stream, roots, butterflies
-	if o.get("form", "") == "skull":
-		var sk_o := {}
-		for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine"]:
-			if o.has(k): sk_o[k] = o[k]
-		acc.append_array(SpecSkull.accents(SpecSkull.genes(seed_v, sk_o)))
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
 	# own stream, so no other gene moves
 	var withs: Array = look.get("with", [])
@@ -185,6 +180,9 @@ static func of(o: Dictionary) -> Dictionary:
 	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget"])
 	if lustre == "glass" and glassy:
 		fpool.append_array(in_glass)
+	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
+	# follow you, cracks healing with light, a cloud of butterflies, a swarm of fireflies
+	if form == "skull": fpool = ["yaga", "yaga", "candle", "watching", "deathless", "flutter", "fireflies"]
 	if o.get("legend", false):
 		fx = fpool[int(rng.next() * fpool.size())]
 	# an effect given from outside (the admin's finds, tests) is kept when the body can show it — a glass effect on a
@@ -206,11 +204,20 @@ static func of(o: Dictionary) -> Dictionary:
 	else:
 		shroom = -1
 	var size_k := int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 2.5], [3, 0.6]], rng))
+	# a skull's own genes (SpecSkull): its coat, crystals, moss and trees, stream, roots, butterflies — read once its
+	# legend is known (a fire in the eyes leaves no room for crystals there)
+	if o.get("form", "") == "skull":
+		var sk_o := {}
+		for k in SpecSkull.KEYS:
+			if o.has(k): sk_o[k] = o[k]
+		sk_o.fx = fx
+		acc.append_array(SpecSkull.accents(SpecSkull.genes(seed_v, sk_o)))
 	var anomaly := "anomaly" in tr
 	# a skull's own genes pinned from outside (tests, the admin): SpecSkull.genes reads them
 	var skull_o := {}
-	for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine"]:
+	for k in SpecSkull.KEYS:
 		if o.has(k): skull_o[k] = o[k]
+	skull_o.fx = fx
 	return {
 		skull = skull_o,
 		form = form,

@@ -328,6 +328,9 @@ func _ready() -> void:
 				if args.has("trees"): e.trees = int(args.trees)
 				if args.has("stream"): e.stream = args.stream == "1"
 				if args.has("wine"): e.wine = args.wine == "1"
+				for gk in ["coins", "diadem", "lantern"]:
+					if args.has(gk): e[gk] = args[gk] == "1"
+				if args.has("pile"): e.pile = int(args.pile)
 				if args.has("roots"): e.roots = args.roots == "1"
 				if args.has("flies"): e.flies = int(args.flies)
 				if args.has("fly_kind"): e.fly_kind = String(args.fly_kind)

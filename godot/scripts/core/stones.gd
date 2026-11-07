@@ -79,23 +79,25 @@ static func pool_at(area: int, dl: int) -> Array:
 ## golden skull stays an event. Its own random stream: the rest of the find rolls as before.
 const SKULL_AREAS := {6: 0.36}   # (of the finds that can be one: about every fourth find in all)
 const SKULL_SP := ["vivianite", "apatite", "morion", "pyrope", "venom"]   # (prisms and garnets grow a crown; not the needle)
-const SKULL_SKINS := ["bone", "nacre", "gilt", "kintsugi", "glass", "gold", "silver", "copper"]
+const SKULL_SKINS := ["bone", "pyrite", "agate", "nacre", "gilt", "geode", "kintsugi", "opal", "glass", "gold", "silver", "copper"]
 const SKULL_N := {bone = "Bone Skull", nacre = "Nacre Skull", gilt = "Gilded Skull", kintsugi = "Kintsugi Skull", glass = "Crystal Skull",
-	gold = "Golden Skull", silver = "Silver Skull", copper = "Copper Skull"}
-const SKULL_V := {bone = 1.6, nacre = 2.4, gilt = 2.6, kintsugi = 3.2, glass = 3.8, gold = 5.5, silver = 4.5, copper = 4.0}
-const SKULL_TIER := {bone = 1, nacre = 2, gilt = 2, kintsugi = 3, glass = 3, gold = 3, silver = 3, copper = 3}
+	gold = "Golden Skull", silver = "Silver Skull", copper = "Copper Skull", agate = "Agate Skull", opal = "Opal Skull", pyrite = "Pyrite Skull",
+	geode = "Geode Skull"}
+const SKULL_V := {agate = 2.8, opal = 4.2, pyrite = 2.2, geode = 3.0, bone = 1.6, nacre = 2.4, gilt = 2.6, kintsugi = 3.2, glass = 3.8, gold = 5.5, silver = 4.5, copper = 4.0}
+const SKULL_TIER := {agate = 2, opal = 3, pyrite = 2, geode = 3, bone = 1, nacre = 2, gilt = 2, kintsugi = 3, glass = 3, gold = 3, silver = 3, copper = 3}
 const SKULL_COL := {bone = Color("#cfc2a4"), nacre = Color("#9fb6c9"), gilt = Color("#d9b25a"), kintsugi = Color("#c9744f"),
-	glass = Color("#bfe3ef"), gold = Color("#e8c35a"), silver = Color("#d8dbe2"), copper = Color("#d0805a")}
+	glass = Color("#bfe3ef"), gold = Color("#e8c35a"), silver = Color("#d8dbe2"), copper = Color("#d0805a"), agate = Color("#c27a45"),
+	opal = Color("#6f7fd0"), pyrite = Color("#bfa452"), geode = Color("#8a62c4")}
 ## the skins at each depth of the barrow (index = depth): [skin, weight]
 const SKULL_AT := [
 	[["bone", 1.0]], [["bone", 1.0]],
-	[["bone", 70.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 5.0]],
-	[["bone", 70.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 5.0]],
-	[["bone", 70.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 5.0]],
-	[["bone", 60.0], ["nacre", 12.0], ["gilt", 8.0], ["kintsugi", 5.0], ["glass", 15.0]],
-	[["bone", 65.0], ["nacre", 15.0], ["gilt", 12.0], ["kintsugi", 8.0]],
+	[["bone", 70.0], ["pyrite", 8.0], ["agate", 6.0], ["nacre", 10.0], ["gilt", 6.0]],
+	[["bone", 65.0], ["pyrite", 6.0], ["agate", 8.0], ["nacre", 12.0], ["gilt", 8.0], ["kintsugi", 4.0]],
+	[["bone", 62.0], ["pyrite", 6.0], ["agate", 8.0], ["nacre", 12.0], ["gilt", 8.0], ["kintsugi", 4.0], ["geode", 3.0]],
+	[["bone", 55.0], ["nacre", 10.0], ["gilt", 6.0], ["kintsugi", 4.0], ["glass", 15.0], ["geode", 6.0], ["agate", 4.0]],
+	[["bone", 55.0], ["nacre", 12.0], ["gilt", 10.0], ["kintsugi", 7.0], ["geode", 8.0], ["opal", 4.0]],
 	[["bone", 50.0], ["nacre", 10.0], ["gilt", 15.0], ["kintsugi", 8.0], ["gold", 8.0], ["silver", 5.0], ["copper", 4.0]],
-	[["bone", 60.0], ["nacre", 15.0], ["gilt", 10.0], ["kintsugi", 8.0], ["glass", 7.0]]]
+	[["bone", 55.0], ["nacre", 12.0], ["gilt", 8.0], ["kintsugi", 8.0], ["glass", 7.0], ["opal", 6.0], ["geode", 4.0]]]
 
 ## the very first find in a mine with skulls is one picked by eye (the seed and genes as `spec_gallery -- area=6
 ## sp=pyrope form=skull base=700 skin=bone moss=cap tree_kind=blossom stream=1 wine=1` draws its second): a dark skull,
