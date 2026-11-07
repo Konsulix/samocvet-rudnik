@@ -50,7 +50,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.toast("Added to the inventory")
 		finished.emit()
 	var atl: Dictionary = Save.d.atlas.get(String(s.sid), {})
-	if reply == "" and atl.has("best") and int(atl.best.id) == int(s.id):
+	if reply == "" and chips_max == 0 and atl.has("best") and int(atl.best.id) == int(s.id):
 		# the species' new record stone: sold, the atlas keeps its records but shows it grey
 		var only := Kit.label("Your best %s yet: sold, it turns grey in the atlas" % Data.SP[s.sid].n, 12, UI.body, Kit.DIM)
 		only.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -90,6 +90,8 @@ func unmask(s: Dictionary) -> void:
 const CARD_PAD := 7.0        # the card's frame to the stone: just inside the brass rim
 const INFO_R := 22.0         # the info panel's top corners
 const TITLE_H := 64.0        # the name in the corner covers this much of the stone's frame
+static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
+static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
 
 static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close := Callable()) -> SpecView:
 	# the card's own box becomes the info panel's content: the stone goes above it, edge to edge
@@ -192,6 +194,17 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	info.add_child(slate)
 	info.resized.connect(func(): slate.queue_redraw())
 	info.add_child(v)
+	if info_h > 0.0:
+		info.custom_minimum_size.y = info_h
+		# the buttons (added by the caller, last) sit at the panel's foot on every card
+		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		(func():
+			if not is_instance_valid(v) or v.get_child_count() < 2: return
+			var gap := Control.new()
+			gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			v.add_child(gap)
+			v.move_child(gap, v.get_child_count() - 2)).call_deferred()
 	outer.add_child(info)
 	# the panel's brass rim, a layer of its own over the whole card: it rises out of the card's rim on each side,
 	# turns round the panel's rounded corner and runs across its top — one ribbon, no joint
@@ -220,7 +233,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		genes[id] = [t.n, float(t.p) < 0.06]
 	for a in gene.accents:
 		var fn := SpecFossil.gene_name(a, gene.get("fossil", {}))
+		if String(a).begins_with("sk_"): fn = SpecSkull.gene_name(a, SpecSkull.genes(int(so.seed), gene.get("skull", {})))
 		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
+	if chips_max > 0:
+		for id: String in genes.keys().slice(chips_max): genes.erase(id)
 	var chips := {}
 	for id: String in genes:
 		var c := chip(genes[id][0], genes[id][1], not (id in s.get("traits", [])) and id != "fx")

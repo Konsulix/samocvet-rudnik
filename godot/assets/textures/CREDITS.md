@@ -50,3 +50,5 @@ ambientCG (ambientcg.com), CC0: `tree_end/` — TreeEnd001–004 (торцы б�
 берётся только яркость), `onyx/` — Onyx006/010/013/015 (полосы халцедона, агатовых линз, каймы и разводы яшмы),
 `weathered_wood/wood_040.jpg` — Wood040 (выветренное волокно коряги).
 - `marble_cliff_05/`, `rock_04/` — Poly Haven (CC0), https://polyhaven.com/a/marble_cliff_05, https://polyhaven.com/a/rock_04 — white gypsum rock and Etna lava of the Fire Horizon finds.
+
+- `sakura_bark/`, `jolcham_oak_bark_01/` — Poly Haven (https://polyhaven.com/a/sakura_bark, https://polyhaven.com/a/jolcham_oak_bark_01), CC0. Bark of the trees on the skulls (`shaders/bark.gdshader`).

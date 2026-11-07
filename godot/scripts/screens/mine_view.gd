@@ -95,7 +95,8 @@ static func available() -> bool:
 
 ## each area's folder (the screens that extend this one set theirs: CopperView.CDIR, SeaView.SDIR, FireView.FDIR)
 const DIRS := [DIR, "res://assets/mine/copper_mountain/", "res://assets/mine/whalebone_cove/", "res://assets/mine/fire_horizon/",
-	"res://assets/mine/proval/", "res://assets/mine/spider_hollow/"]
+	"res://assets/mine/proval/", "res://assets/mine/spider_hollow/",
+	"res://assets/mine/deathless_barrow/"]
 
 ## every picture of an area's mine: the loading screen reads them on background threads, so the first minute
 ## on the home screen does not stop for each picture (an animation's drawings load as they first come up)

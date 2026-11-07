@@ -20,17 +20,19 @@ const SCHEMES := [["wall", 3.0], ["tiers", 2.5], ["shafts", 2.0], ["pocket", 2.0
 ## a board's obstacles grow with its cells: TIERS' load is for 9 x 8, a bigger board takes more, LOAD_K more again
 const LOAD_K := 2.0
 ## what each depth puts on the board (Old Adit, and any mine without its own AREA_TIERS): the obstacles it may use and
-## about how many cells they take. A new obstacle every other depth: 100 m granite, 200 m gas, 300 m timber
+## about how many cells they take, and how often a nugget to bring down comes (`nug`; none where it is not said).
+## Each mine has one sign of its own and one helper (docs/backlog.md, «Механики поля по рудникам», 6.11): Old Adit's
+## is the nugget (from 150 m) and timber (the Serpent's coils, from 250 m); gas has a mine of its own later
 const TIERS := [
-	{kinds = ["sand", "mud"], load = 10},
-	{kinds = ["sand", "mud", "granite"], load = 12},
-	{kinds = ["sand", "mud", "granite"], load = 15},
-	{kinds = ["sand", "mud", "granite", "gas"], load = 14},
-	{kinds = ["sand", "mud", "granite", "gas"], load = 17},
-	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 18},
+	{kinds = ["sand", "mud"], load = 10, nug = 0.0},
+	{kinds = ["sand", "mud", "granite"], load = 12, nug = 0.0},
+	{kinds = ["sand", "mud", "granite"], load = 14, nug = 0.45},
+	{kinds = ["sand", "mud", "granite"], load = 16, nug = 0.35},
+	{kinds = ["sand", "mud", "granite", "lock"], load = 16, nug = 0.3},
+	{kinds = ["sand", "mud", "granite", "lock"], load = 18, nug = 0.3},
 ]
-## Copper Mountain (9 depths): sand and mud, serpentine from 150 m, malachite crust from 250 m, gas from 350 m;
-## no timber - her fight asks for crust and fallen rock, not for timber
+## Copper Mountain (9 depths): sand and mud with the nodules from the start, serpentine from 150 m, malachite crust from
+## 250 m; no timber and no gas - her fight asks for crust and fallen rock
 const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud"], load = 9},
 	{kinds = ["sand", "mud"], load = 11},
@@ -38,24 +40,61 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite"], load = 13},
 	{kinds = ["sand", "mud", "granite", "crust"], load = 14},
 	{kinds = ["sand", "mud", "granite", "crust"], load = 15},
-	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 14},
-	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 15},
-	{kinds = ["sand", "mud", "granite", "crust", "gas"], load = 17},
+	{kinds = ["sand", "mud", "granite", "crust"], load = 15},
+	{kinds = ["sand", "mud", "granite", "crust"], load = 16},
+	{kinds = ["sand", "mud", "granite", "crust"], load = 17},
+],
+## Whalebone Cove (9 depths): plain rock; the station's crane (the bucket) is its helper, from 150 m
+2: [
+	{kinds = ["sand", "mud"], load = 10},
+	{kinds = ["sand", "mud", "granite"], load = 12},
+	{kinds = ["sand", "mud", "granite"], load = 13},
+	{kinds = ["sand", "mud", "granite"], load = 14},
+	{kinds = ["sand", "mud", "granite"], load = 15},
+	{kinds = ["sand", "mud", "granite"], load = 16},
+	{kinds = ["sand", "mud", "granite"], load = 16},
+	{kinds = ["sand", "mud", "granite"], load = 17},
+	{kinds = ["sand", "mud", "granite"], load = 18},
+],
+## Fire Horizon (9 depths): pumice and ash, basalt from 100 m, powder kegs (sulphur makes powder) from 150 m, iron
+## staples (timber) from 300 m
+3: [
+	{kinds = ["sand", "mud"], load = 10},
+	{kinds = ["sand", "mud", "granite"], load = 12},
+	{kinds = ["sand", "mud", "granite"], load = 13},
+	{kinds = ["sand", "mud", "granite"], load = 14},
+	{kinds = ["sand", "mud", "granite"], load = 15},
+	{kinds = ["sand", "mud", "granite", "lock"], load = 15},
+	{kinds = ["sand", "mud", "granite", "lock"], load = 16},
+	{kinds = ["sand", "mud", "granite", "lock"], load = 17},
+	{kinds = ["sand", "mud", "granite", "lock"], load = 18},
 ],
 ## Proval (9 depths) - the exam before the brother: snow and frozen mud, permafrost from 100 m, its own ice from 150 m,
 ## then the depths bring back what the four mines taught, one at a time (docs/mine5-proval.md §6): the Serpent's nuggets
-## to bring down at 200 m, the Mistress's nodules at 250 m, methane at 300 m, her crust at 350 m, timber at 400 m; all
-## of it at 450 m
+## to bring down at 200 m, the Mistress's nodules at 250 m, the cove's bucket at 300 m (AREA_FEATS), her crust at 350 m,
+## the fire's kegs at 400 m, timber at 450 m with all of it
 4: [
 	{kinds = ["sand", "mud"], load = 10},
 	{kinds = ["sand", "mud", "granite"], load = 12},
 	{kinds = ["sand", "mud", "granite", "ice"], load = 13},
 	{kinds = ["sand", "mud", "granite", "ice"], load = 11, nug = 0.5},
 	{kinds = ["sand", "mud", "granite", "ice"], load = 12, nod = true},
-	{kinds = ["sand", "mud", "granite", "ice", "gas"], load = 14},
-	{kinds = ["sand", "mud", "granite", "ice", "gas", "crust"], load = 15},
-	{kinds = ["sand", "mud", "granite", "ice", "gas", "crust", "lock"], load = 16},
-	{kinds = ["sand", "mud", "granite", "ice", "gas", "crust", "lock"], load = 17, nug = 0.4, nod = true},
+	{kinds = ["sand", "mud", "granite", "ice"], load = 13},
+	{kinds = ["sand", "mud", "granite", "ice", "crust"], load = 14},
+	{kinds = ["sand", "mud", "granite", "ice", "crust"], load = 15},
+	{kinds = ["sand", "mud", "granite", "ice", "crust", "lock"], load = 16, nug = 0.4, nod = true},
+],
+## Spider Hollow (9 depths): clay, tuff, quartz from 100 m; the web, the cocoon and the thread are its own (not made yet)
+5: [
+	{kinds = ["sand", "mud"], load = 10},
+	{kinds = ["sand", "mud", "granite"], load = 12},
+	{kinds = ["sand", "mud", "granite"], load = 13},
+	{kinds = ["sand", "mud", "granite"], load = 14},
+	{kinds = ["sand", "mud", "granite"], load = 15},
+	{kinds = ["sand", "mud", "granite"], load = 16},
+	{kinds = ["sand", "mud", "granite"], load = 16},
+	{kinds = ["sand", "mud", "granite"], load = 17},
+	{kinds = ["sand", "mud", "granite"], load = 18},
 ]}
 const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i"}
 ## gas spreads and timber pins stones: a little of either goes a long way
@@ -68,10 +107,11 @@ const NOD_LOAD := 0.7
 ## on the smart autoplayer (it looks a move ahead for its goals) by the moves it needs with no limit (`-- sim_gen=N
 ## sim_depth=D smart streak=7 sim_rows sim_free`); what a level asks for is kept within NEED_MAX
 ## the gallery's works (BoardModel: cart, keg, dark, belt, bucket) - one of them on most levels, two now and then
-## deeper down, so that no two levels play alike. In Old Adit each comes in at its depth (FEATURE_AT: the depth, shown
-## alone on the second level played there); every mine after it has them all from the start
+## deeper down. Each mine has only its own (AREA_FEATS: work -> the depth it comes in at, shown alone on the second
+## level played there): Copper Mountain the belt, the cove the bucket, the fire the kegs, Proval brings the cove's and
+## the fire's back. The cart (a ghost-cart mine) and the dark (a boss of its own) wait for their mines
 const FEATURES := ["cart", "keg", "dark", "belt", "bucket"]
-const FEATURE_AT := {cart = 0, keg = 1, dark = 2, belt = 3, bucket = 4}
+const AREA_FEATS := {1: {belt = 3}, 2: {bucket = 2}, 3: {keg = 2}, 4: {bucket = 5, keg = 7}}
 const FEATURE_P := 0.8
 ## a feature takes over part of a level's work: the plain obstacles shrink to this share of their load
 const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 1.0, bucket = 0.8}
@@ -162,7 +202,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	var intro := nk != "" and wins == 0
 	# the works this level gets: the one new at this depth alone on its second level here, else now and then one or two
 	var feats := _features(rng, area, dl, wins, intro)
-	var feat_intro := area == 0 and wins == 1 and feats.size() == 1 and int(FEATURE_AT[feats[0]]) == dl
+	var feat_intro := wins == 1 and feats.size() == 1 and int(feats_at(area).get(feats[0], -1)) == dl
 	# a first look at something, and the first depth of the game, are never hard
 	if beat in ["hard", "super"] and (intro or feat_intro or (area == 0 and dl == 0)): beat = "normal"
 	var bk: Dictionary = BEAT[beat]
@@ -268,7 +308,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new, and not as a
 	# fourth thing on a level that has its three
 	var things := (1 if ka != "" else 0) + (1 if kb != "" else 0) + feats.size() + (1 if nods else 0)
-	if not intro and things < 3 and not fdef.has("bucket") and rng.randf() < float(T.get("nug", 0.25)) and BASE + work + WORK.nug <= NEED_MAX:
+	if not intro and things < 3 and not fdef.has("bucket") and rng.randf() < float(T.get("nug", 0.0)) and BASE + work + WORK.nug <= NEED_MAX:
 		if nugs.is_empty(): nugs = [Vector2i(0, 2), Vector2i(0, C - 3)]
 		var put := 0
 		for p: Vector2i in nugs:
@@ -311,25 +351,30 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 		if fdef.has(k): out[k] = fdef[k]
 	return out
 
+## a mine's works and the depths they come in at (AREA_FEATS)
+static func feats_at(area: int) -> Dictionary:
+	return AREA_FEATS.get(area, {})
+
 ## the works a level gets (FEATURES): none on an obstacle's first showing; the one new at this depth alone on the
 ## second level played there; otherwise one most of the time, deeper now and then two
 static func _features(rng: RandomNumberGenerator, area: int, dl: int, wins: int, intro: bool) -> Array:
 	if not force_feats.is_empty(): return force_feats.duplicate()
 	if intro: return []
+	var at := feats_at(area)
 	var open_f := []
-	for f: String in FEATURES:
-		if area > 0 or int(FEATURE_AT[f]) <= dl: open_f.append(f)
+	for f: String in at:
+		if int(at[f]) <= dl: open_f.append(f)
 	if open_f.is_empty(): return []
 	var fresh := ""
 	for f: String in open_f:
-		if area == 0 and int(FEATURE_AT[f]) == dl: fresh = f
+		if int(at[f]) == dl: fresh = f
 	if fresh != "" and wins == 1: return [fresh]
 	if rng.randf() > FEATURE_P: return []
 	var w := []
 	for f: String in open_f: w.append([f, 2.0 if f == fresh else 1.0])
 	var first := String(Stones.pick_w(w, Rng32.new(rng.randi())))
 	var out := [first]
-	if (dl >= 3 or area > 0) and open_f.size() > 1 and rng.randf() < 0.3:
+	if dl >= 3 and open_f.size() > 1 and rng.randf() < 0.3:
 		var w2 := []
 		for f: String in open_f:
 			# the dark with another big work is too much at once; the belt goes with anything

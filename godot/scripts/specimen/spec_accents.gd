@@ -178,77 +178,27 @@ const FLOWER := [Color(1.0, 1.0, 0.97), Color(1.1, 0.85, 0.15), Color(1.1, 0.4, 
 
 ## little fern fronds: a thin dark stem arching out and drooping, paired rounded leaflets shrinking to the tip
 static func fronds(parent: Node3D, rng: Rng32, spots: Array, count: int, size: float, pal: Array) -> void:
-	var lx := []
-	var lc := []
-	var sx := []
-	var sc := []
-	for f in count:
+	# a scanned fern (Poly Haven fern_02, its photo texture: real pinnae and veins), a few fronds per clump,
+	# tinted by the palette (fresh, dark spleenwort, autumn)
+	var tint: Color = (pal[1] as Color).lerp(Color(1, 1, 1), 0.55) * 1.4
+	for f in maxi(1, count / 4):
 		var at: Array = spots[int(rng.next() * spots.size())]
-		var p: Vector3 = at[0]
-		var n: Vector3 = at[1]
-		var d := (n * 0.7 + Vector3(rng.next() - 0.5, rng.next() * 0.6, rng.next() - 0.5)).normalized()
-		var L := size * (0.6 + rng.next() * 0.7)
-		var droop := 0.3 + rng.next() * 0.6
-		var side := d.cross(Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT).normalized()
-		var pts := []
-		var steps := 12
-		for i in steps + 1:
-			var t := i / float(steps)
-			pts.append(p + d * L * t + Vector3.DOWN * droop * L * t * t)
-		for i in steps:
-			var a: Vector3 = pts[i]
-			var b: Vector3 = pts[i + 1]
-			var seg := b - a
-			sx.append(Transform3D(Basis(SpecUtil.quat_to(Vector3.UP, seg.normalized())) * Basis.from_scale(Vector3(0.0035 * size / 0.2, seg.length(), 0.0035 * size / 0.2)), a))
-			sc.append(pal[2])
-			if i >= 1:
-				var t := i / float(steps)
-				var ls := L * 0.16 * (1.0 - t * 0.65)
-				var tang := seg.normalized()
-				var up := tang.cross(side).normalized()
-				if up.y < 0: up = -up
-				for sgn in [-1.0, 1.0]:
-					var out: Vector3 = (side * sgn + tang * 0.35).normalized()
-					var nrm := (up + tang * 0.2).normalized()
-					nrm = (nrm - out * nrm.dot(out)).normalized()
-					# the leaflet's +Y runs out from the stem, its face looks up
-					var basis := Basis(out.cross(nrm), out, nrm)
-					lx.append(Transform3D(basis * Basis.from_scale(Vector3(ls, ls, ls)), a + seg * 0.5))
-					var c: Color = (pal[0] as Color).lerp(pal[1], rng.next())
-					lc.append(c)
-	_mm(stem_mesh(), sx, sc, parent)
-	_mm(leaf_mesh(), lx, lc, parent)
+		SpecPlants.scatter(parent, rng, [at], at[0], 0.02, 1 + int(rng.next() * 2), "fern", size * (3.2 + rng.next() * 1.4), 0.35, tint)
 
 ## tiny five-petalled flowers on thin stems, in little groups
 static func flowers(parent: Node3D, rng: Rng32, spots: Array, count: int, size: float, col: Color) -> void:
-	var px := []
-	var pc := []
-	var sx := []
-	var sc := []
-	var cx := []
-	var cc := []
+	# (SpecBloom: petal by petal — a few open cosmos-like heads with their dark eyes and stamens, buds among them)
+	var bt := SpecBloom.batch()
+	var eye := col.darkened(0.7) if col.get_luminance() > 0.6 else Color(0.95, 0.75, 0.2)
 	for f in count:
 		var at: Array = spots[int(rng.next() * spots.size())]
 		var p: Vector3 = at[0]
 		var n: Vector3 = at[1]
 		var d := (n.lerp(Vector3.UP, 0.6) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.6).normalized()
 		var h := size * (0.35 + rng.next() * 0.55)
-		sx.append(Transform3D(Basis(SpecUtil.quat_to(Vector3.UP, d)) * Basis.from_scale(Vector3(0.0018 * size / 0.1, h, 0.0018 * size / 0.1)), p))
-		sc.append(Color(0.15, 0.35, 0.08))
-		var head := p + d * h
-		var face := (d + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.4).normalized()
-		var ps := size * (0.3 + rng.next() * 0.12)
-		var ref := face.cross(Vector3.RIGHT if absf(face.x) < 0.9 else Vector3.FORWARD).normalized()
-		var spin := rng.next() * TAU
-		for k in 5:
-			var out: Vector3 = ref.rotated(face, spin + k * TAU / 5.0)
-			var fz := (face - out * face.dot(out)).normalized()
-			var b := Basis(out.cross(fz), out, fz)
-			px.append(Transform3D(b * Basis.from_scale(Vector3(ps, ps, ps)), head))
-			var v := 0.85 + rng.next() * 0.3
-			pc.append(Color(col.r * v, col.g * v, col.b * v))
-		cx.append(Transform3D(Basis.from_scale(Vector3.ONE * ps * 0.28), head + face * ps * 0.05))
-		cc.append(Color(1.1, 0.75, 0.1))
-	_mm(stem_mesh(), sx, sc, parent)
-	_mm(leaf_mesh(true), px, pc, parent)
-	_mm(Geo.sphere(1, 8, 6).to_mesh(), cx, cc, parent)
+		var tip := p + d * h
+		SpecBloom.stem(bt, rng, p, tip, size * 0.012)
+		var face := (d + Vector3(rng.next() - 0.5, 0.3, rng.next() - 0.5) * 0.5).normalized()
+		var c := col * (0.85 + rng.next() * 0.3)
+		SpecBloom.head(bt, rng, "bud" if rng.next() < 0.22 else "cosmos", tip, face, size * (1.3 + rng.next() * 0.5), c, eye)
+	SpecBloom.flush(bt, parent)

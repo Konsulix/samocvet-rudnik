@@ -19,6 +19,10 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	ob_mahogany = "mahogany obsidian", ob_rainbow = "rainbow sheen", ob_tears = "Apache tears",
 	heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
+	sk_gilt = "gold leaf", sk_gold = "molten gold", sk_silver = "molten silver", sk_copper = "molten copper", sk_kintsugi = "kintsugi",
+	sk_glass = "glass skull", sk_crown = "crystal crown", sk_frost = "cloudy crystals", sk_wax = "waxy crystals", sk_broken = "broken skull",
+	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
+	sk_flies = "butterflies",
 	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
@@ -107,7 +111,17 @@ static func of(o: Dictionary) -> Dictionary:
 	var no_acc: Array = look.get("no_acc", [])
 	if no_acc.size():
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in no_acc))
+	# a skull (SpecSkull) takes the quiet ones: lichen, fronds, flowers — no puffs, straw or needles on bone
+	if o.get("form", "") == "skull":
+		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "fronds", "flowers", "inkspots", "clouds"])
+		# on gold, a mosaic or glass nothing of the shared layer grows
+		var sko := {}
+		for k in ["skin"]:
+			if o.has(k): sko[k] = o[k]
+		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass"]:
+			apool = []
 	var bare := form == "rosette" and look.has("rose")
+	if o.get("form", "") == "skull" and apool.is_empty(): bare = true   # (a gold / mosaic / glass skull: no mushrooms either)
 	if Rng32.new((seed_v * 1103515245 + 13) % 4294967296).next() > float(look.get("growths", 1.0)):
 		bare = true
 	if bare:
@@ -120,6 +134,12 @@ static func of(o: Dictionary) -> Dictionary:
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
 	acc.append_array(SpecFossil.accents(fossil))
+	# a skull's own genes (SpecSkull): its coat, crystals, moss and trees, stream, roots, butterflies
+	if o.get("form", "") == "skull":
+		var sk_o := {}
+		for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal"]:
+			if o.has(k): sk_o[k] = o[k]
+		acc.append_array(SpecSkull.accents(SpecSkull.genes(seed_v, sk_o)))
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
 	# own stream, so no other gene moves
 	var withs: Array = look.get("with", [])
@@ -187,7 +207,12 @@ static func of(o: Dictionary) -> Dictionary:
 		shroom = -1
 	var size_k := int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 2.5], [3, 0.6]], rng))
 	var anomaly := "anomaly" in tr
+	# a skull's own genes pinned from outside (tests, the admin): SpecSkull.genes reads them
+	var skull_o := {}
+	for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal"]:
+		if o.has(k): skull_o[k] = o[k]
 	return {
+		skull = skull_o,
 		form = form,
 		fossil = fossil,
 		lustre = lustre,

@@ -68,6 +68,12 @@ void fragment() {
 	float ang = atan(v_op.z, v_op.x);
 	// cap: dark centre to a paler rim, mottled, with raised white warts on the agaric
 	vec3 cc = mix(cap_a, cap_b, smoothstep(0.15, 1.0, rr / cap_r)) * (0.82 + 0.3 * vn(v_op * 14.0));
+	// the cap's skin: fine radial fibres, a few darker streaks and blotches, a paler, thinner rim; a faint sheen
+	float fib = vn(vec3(ang * 38.0, rr * 9.0, 0.0)) * 0.6 + vn(vec3(ang * 90.0, rr * 30.0, 3.0)) * 0.4;
+	cc *= 0.82 + 0.3 * fib;
+	cc = mix(cc, cc * 0.6, smoothstep(0.62, 0.8, vn(v_op * 9.0 + 7.0)) * 0.6);
+	cc = mix(cc, mix(cc, vec3(0.9, 0.85, 0.75), 0.35), smoothstep(0.82, 1.0, rr / cap_r));
+	cc *= 1.0 - smoothstep(0.7, 0.9, vn(v_op * 60.0)) * 0.25;
 	float wart = smoothstep(0.66, 0.72, vn(v_op * 15.0)) * spots;
 	cc = mix(cc, vec3(0.94, 0.9, 0.82), wart);
 	// underside: fine radial gills or a sponge of pores
@@ -76,9 +82,19 @@ void fragment() {
 	uc *= mix(1.0, 0.55 + 0.45 * smoothstep(0.35, 0.6, vn(v_op * 110.0)), pores);
 	// stem: lengthwise fibres
 	vec3 sc = stem * (0.82 + 0.25 * vn(vec3(v_op.x * 45.0, v_op.y * 5.0, v_op.z * 45.0)));
+	// stem: darker and dirtier toward its foot, a few fine scales
+	sc *= mix(0.55, 1.0, smoothstep(0.0, 0.25, v_op.y));
+	sc *= 1.0 - smoothstep(0.72, 0.85, vn(vec3(v_op.x * 80.0, v_op.y * 25.0, v_op.z * 80.0))) * 0.3;
 	vec3 c = sc * stemk + uc * underk + cc * capk;
 	ALBEDO = c * COLOR.rgb;
 	ROUGHNESS = mix(0.78, rough_cap, capk) - wart * 0.2;
+	// relief: the fibres and warts raised, the gills cut in
+	float hgt = capk * (fib * 0.5 + wart * 2.0) + underk * g * 0.6 + stemk * vn(vec3(v_op.x * 45.0, v_op.y * 5.0, v_op.z * 45.0)) * 0.4;
+	vec3 dpx = dFdx(VERTEX), dpy = dFdy(VERTEX);
+	vec3 r1 = cross(dpy, NORMAL), r2 = cross(NORMAL, dpx);
+	float det = dot(dpx, r1);
+	vec3 rn = abs(det) * NORMAL - sign(det) * (dFdx(hgt) * r1 + dFdy(hgt) * r2) * 0.004;
+	NORMAL = dot(rn, rn) > 1e-20 ? normalize(rn) : NORMAL;
 	SPECULAR = 0.35;
 	BACKLIGHT = c * 0.15;
 	// mycena glow: the gills brightest, breathing slowly; brighter still when the room goes dark

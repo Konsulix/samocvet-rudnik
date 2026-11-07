@@ -74,6 +74,13 @@ const FACTS := {
 	cinnabar = "HgS · hardness 2.5 · ground into the vermilion of shrine gates; it holds mercury",
 	jadeite = "NaAlSi₂O₆ · hardness 7 · Japan's national stone, from the Itoigawa river",
 	proustite = "Ag₃AsS₃ · hardness 2.5 · 'ruby silver': it darkens in light, so it is kept in the dark",
+	vivianite = "Fe₃(PO₄)₂·8H₂O · hardness 2 · grows blue on bones buried in bogs; it darkens in the light",
+	goethite = "FeO(OH) · hardness 5 · bog iron: the steppe's first smiths dug it out of the marsh",
+	apatite = "Ca₅(PO₄)₃(F,Cl,OH) · hardness 5 · the mineral your bones are made of",
+	morion = "SiO₂ · hardness 7 · black quartz: the old folk laid it with the dead",
+	pyrope = "Mg₃Al₂(SiO₄)₃ · hardness 7 · blood-red garnet set in the Scythians' gold",
+	carnelian = "SiO₂ · hardness 7 · red chalcedony: the barrows' beads were cut from it",
+	needle = "a death on the needle's point, the needle in an egg, the egg in a duck, the duck in a hare...",
 }
 
 var area := -1
@@ -278,7 +285,7 @@ static func _cover(ts: Vector2, s: Vector2, fy := 0.5) -> Rect2:
 	return Rect2(0, (ts.y - h) * fy, ts.x, h)
 
 static func _mine_dir(a: int) -> String:
-	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval", "spider_hollow"][clampi(a, 0, 5)]
+	return ["old_adit", "copper_mountain", "whalebone_cove", "fire_horizon", "proval", "spider_hollow", "deathless_barrow"][clampi(a, 0, 6)]
 
 ## the banner's emblem: the beaten boss's sign, an empty socket while the boss stands, a lock on a mine not reached
 static func _sign(a: int, open: bool) -> String:

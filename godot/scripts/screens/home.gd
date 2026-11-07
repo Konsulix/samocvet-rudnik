@@ -15,6 +15,7 @@ const SEA_VIEW := "res://scripts/screens/mine_view_sea.gd"
 const FIRE_VIEW := "res://scripts/screens/mine_view_fire.gd"
 const ICE_VIEW := "res://scripts/screens/mine_view_ice.gd"
 const WEB_VIEW := "res://scripts/screens/mine_view_web.gd"
+const BARROW_VIEW := "res://scripts/screens/mine_view_barrow.gd"
 var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
@@ -22,6 +23,7 @@ static var start_scroll := -1.0   # a test key puts the first view here (-- scro
 ## the prologue's gift: pyrites picked by eye (`-- find_seeds=pyrite,1500`, then `reveal=<seed>`), each as `reveal` rolls it
 const GIFTS := [164]
 static var rise := false    # just dug out of the prologue's cave-in: the mine is seen from its bottom up to the guide
+static var dive := 0.0      # a test key for the trailer (-- dive=S): no chrome, the camera falls from the sky to the bottom in S s
 var _vel := 0.0             # the drawn mine's fling after the finger lets go, screen units a second
 var _track: Array = []      # the last few [time, y] of the finger, for the fling speed
 var _glide: Tween
@@ -82,6 +84,13 @@ func _ready() -> void:
 			_views[5] = wv
 		else:
 			wv.free()
+	# Deathless Barrow (BarrowView in mine_view_barrow.gd, the same way) - Koschei's, a second mine of its own
+	if ResourceLoader.exists(BARROW_VIEW):
+		var bv: MineView = (load(BARROW_VIEW) as GDScript).new()
+		if bv.has_method("available_here") and bv.call("available_here"):
+			_views[6] = bv
+		else:
+			bv.free()
 	for a in _views:
 		var mv: MineView = _views[a]
 		mv.visible = false
@@ -195,6 +204,8 @@ func render() -> void:
 		if rise:
 			rise = false
 			_rise()
+		elif dive > 0.0:
+			_dive()
 		else:
 			# the guide has his say once what changed has played out
 			_guide_later(3.6 if view.focus_y >= 0.0 or not MineView.last_result.is_empty() else 1.0)
@@ -987,6 +998,7 @@ const HELLO := {
 	3: "Hear that? The mountain breathes like a forge. Work to its beat and it won't burn you.",
 	4: "Coal pays here. Warm the barracks first - in the polar night nothing else gets done.",
 	5: "Silver, and something that spins in the dark under it. Dig by the lamps, and never sleep in the crevice.",
+	6: "Sit, I'll sing you the tale. The oak, the chest, the hare, the duck, the egg, the needle. Dig, and you'll hear the rest.",
 }
 ## before the first level with a new kind of rock in it
 const ROCK_LINE := {
@@ -1106,6 +1118,18 @@ func _show_atlas_tab() -> void:
 	layer.queue_free()
 
 ## out of the cave-in: the whole mine goes by from its dark bottom up to the surface, to the old man with the lantern
+func _dive() -> void:
+	ui_root.visible = false
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_scroll_to(1e9)
+	var bottom := scroll
+	_scroll_to(0.0)
+	if _glide: _glide.kill()
+	# at an even speed: shots of several mines join into one fall
+	_glide = create_tween()
+	_glide.tween_method(_scroll_to, 0.0, bottom, dive)
+
 func _rise() -> void:
 	_guide_waits = true
 	# hands off while the camera rides: a tap stopped the ride, and what came after waited for it for ever

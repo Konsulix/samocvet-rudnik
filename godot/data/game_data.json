@@ -305,6 +305,54 @@
    "c": "#b0101c",
    "v": 420,
    "r": 3
+  },
+  "venom": {
+   "n": "Venom Quartz",
+   "c": "#a8f03c",
+   "v": 220,
+   "r": 2
+  },
+  "vivianite": {
+   "n": "Vivianite",
+   "c": "#2e6e78",
+   "v": 30,
+   "r": 0
+  },
+  "goethite": {
+   "n": "Bog Iron",
+   "c": "#3a2a20",
+   "v": 25,
+   "r": 0
+  },
+  "apatite": {
+   "n": "Apatite",
+   "c": "#9ac86a",
+   "v": 35,
+   "r": 0
+  },
+  "morion": {
+   "n": "Morion",
+   "c": "#2a2622",
+   "v": 50,
+   "r": 1
+  },
+  "pyrope": {
+   "n": "Pyrope",
+   "c": "#8e0c18",
+   "v": 60,
+   "r": 1
+  },
+  "carnelian": {
+   "n": "Carnelian",
+   "c": "#c8502a",
+   "v": 80,
+   "r": 1
+  },
+  "needle": {
+   "n": "Koschei's Needle",
+   "c": "#cfe4ff",
+   "v": 450,
+   "r": 3
   }
  },
  "GR": [
@@ -910,11 +958,11 @@
       "every": 2,
       "acts": [
        "rockfall",
-       "breath",
+       "coils",
        "hoard",
-       "coils"
+       "rockfall"
       ],
-      "map": "##.....##|#.......#|.........|..R...R..|...ggg...|....g....|.........|.........|#.......#|##.....##"
+      "map": "##.....##|#.......#|.........|..R...R..|...RRR...|....R....|.........|.........|#.......#|##.....##"
      }
     ],
     "lines": {
@@ -2076,6 +2124,177 @@
      ]
     }
    ]
+  },
+  {
+   "n": "Deathless Barrow",
+   "sub": "Scythian barrow, the steppe bog",
+   "pool": {
+    "vivianite": 20,
+    "goethite": 16,
+    "apatite": 14,
+    "morion": 12,
+    "pyrope": 10,
+    "carnelian": 8,
+    "venom": 6,
+    "needle": 1.2
+   },
+   "steps": 3,
+   "tasks": [
+    [
+     "camp",
+     "Expedition camp",
+     76
+    ],
+    [
+     "gin",
+     "Horse whim",
+     77
+    ],
+    [
+     "sieves",
+     "Sifting yard",
+     78
+    ],
+    [
+     "finds",
+     "Finds hut",
+     79
+    ],
+    [
+     "idols",
+     "Stone idols",
+     80
+    ],
+    [
+     "well",
+     "The well",
+     81
+    ],
+    [
+     "egg",
+     "Crack the egg",
+     82
+    ],
+    [
+     "hoard",
+     "The hoard",
+     84
+    ],
+    [
+     "needle",
+     "The needle",
+     86
+    ]
+   ],
+   "ore": {
+    "n": "Bone",
+    "iron": 0,
+    "local": 1,
+    "c": "#d8d0bc",
+    "hot": "#bfe0ff",
+    "look": "bone"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 100,
+     "au": 100,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 104,
+     "au": 104,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      64,
+      1600
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 108,
+     "au": 108,
+     "tool": "Steam drill",
+     "machine": "hammer",
+     "drill": [
+      65,
+      1750
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 112,
+     "au": 112,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      66,
+      1900
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 116,
+     "au": 116,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      67,
+      2100
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 120,
+     "au": 120,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      68,
+      2300
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 124,
+     "au": 124,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      69,
+      2550
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 128,
+     "au": 128,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      70,
+      2800
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 132,
+     "au": 132,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      72,
+      3100
+     ]
+    }
+   ]
   }
  ],
  "CHEST": [
@@ -2537,7 +2756,14 @@
   "acanthite": "octa",
   "cinnabar": "rhomb",
   "jadeite": "botryoid",
-  "proustite": "scaleno"
+  "proustite": "scaleno",
+  "venom": "prism",
+  "vivianite": "prism",
+  "goethite": "botryoid",
+  "apatite": "prism",
+  "morion": "prism",
+  "carnelian": "botryoid",
+  "needle": "prism"
  },
  "TRAITS": [
   {

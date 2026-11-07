@@ -267,7 +267,26 @@ const SETS := [
 	{seed = 775, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "isotelus", show = "matrix", pal = 5, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
 	{seed = 776, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "walliserops", show = "prepared", pal = 2, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
 	{seed = 777, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "enrolled", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
-	{seed = 778, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "dicranurus", show = "prepared", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "hunter"}]
+	{seed = 778, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "dicranurus", show = "prepared", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "hunter"}],
+	# set 39: the showcase - the generator's best, one by one (art/trailer/showcase.sh films them: -- set=39 only=N px=1080 cols=1 clean)
+	[{seed = 121, sid = "quartz", kind = "druse", gi = 4, traits = [], legend = true, fx = "lava", lustre = "glass"},
+	{seed = 131, sid = "amethyst", kind = "crystal", gi = 4, traits = [], legend = true, fx = "lava", lustre = "dark", form = "columnar"},
+	{seed = 504, sid = "ammonite", kind = "fossil", gi = 4, traits = [], legend = true, fx = "jellyfish", show = "loose", hetero = ""},
+	{seed = 775, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "isotelus", show = "matrix", pal = 5, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
+	{seed = 777, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "phacops", show = "enrolled", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "glow"},
+	{seed = 771, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "elrathia", show = "matrix", pal = 0, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "hunter"},
+	{seed = 778, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "dicranurus", show = "prepared", pal = 1, oysters = 0, moult = false, bite = false, soft = false, legend = true, fx = "hunter"},
+	{seed = 438, sid = "ammonite", kind = "fossil", gi = 4, traits = [], show = "split", legend = true, fx = "dragonfire", pair = false, hollow = 0.0, fill = "ammolite", nacre = 0.8, hetero = ""},
+	{seed = 439, sid = "ammonite", kind = "fossil", gi = 4, traits = [], show = "split", legend = true, fx = "dragonfire", pair = true, hollow = 0.0, fill = "calcite", nacre = 0.7, hetero = ""},
+	{seed = 126, sid = "quartz", kind = "crystal", gi = 4, traits = [], legend = true, fx = "lightning", lustre = "glass", form = "single"},
+	{seed = 123, sid = "fluorite", kind = "druse", gi = 4, traits = [], legend = true, fx = "fluor", lustre = "glass"},
+	{seed = 127, sid = "sapphire", kind = "crystal", gi = 4, traits = [], legend = true, fx = "starry", lustre = "glass", form = "slabs"},
+	{seed = 128, sid = "opal", kind = "crystal", gi = 4, traits = [], legend = true, fx = "opal", lustre = "glass", form = "pile"},
+	{seed = 124, sid = "aquamarine", kind = "crystal", gi = 4, traits = [], legend = true, fx = "levitate", lustre = "glass", form = "columnar"},
+	{seed = 761, sid = "trilobite", kind = "fossil", gi = 3, traits = [], genus = "elrathia", show = "matrix", pal = 0, oysters = 2, moult = false, bite = false, soft = false, legend = true, fx = "moon"},
+	{seed = 531, sid = "rhodochrosite", kind = "druse", gi = 4, traits = [], legend = true, fx = "borealis"},
+	{seed = 563, sid = "fluorite", kind = "druse", gi = 4, traits = [], legend = true, fx = "frost"},
+	{seed = 502, sid = "amethyst", kind = "druse", gi = 4, traits = [], legend = true, fx = "jellyfish", lustre = "glass"}]
 ]
 
 func _ready() -> void:
@@ -283,7 +302,7 @@ func _ready() -> void:
 		list = []
 		var pool: Dictionary = Data.AREAS[int(args.area)].pool
 		# sp=<species> n=<how many>: only that one; form=<layout>: every one in that layout
-		var sids: Array = [args.sp] if args.has("sp") else pool.keys()
+		var sids: Array = Array(String(args.sp).split(",")) if args.has("sp") else pool.keys()
 		for sid: String in sids:
 			if Data.HABIT.get(sid, "") == "fossil" and not args.has("sp"): continue
 			for k in int(args.get("n", "3")):
@@ -291,6 +310,24 @@ func _ready() -> void:
 				var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977))
 				var e := {seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []}
 				if args.has("form"): e.form = args.form
+				if args.has("gi"): e.gi = int(args.gi)
+				# a skull's genes pinned: eyes=none|one|both breach=side|crest crown=0|1
+				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind"]:
+					pass
+				if args.has("bloom"): e.bloom = args.bloom == "1"
+				# the shared layer pinned: acc=flowers,fronds shroom=0..4
+				if args.has("acc"): e.accents = Array(String(args.acc).split(","))
+				if args.has("shroom"): e.shroom = int(args.shroom)
+				if args.has("bloom_pal"): e.bloom_pal = int(args.bloom_pal)
+				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind"]:
+					if args.has(sk): e[sk] = args[sk]
+				if args.has("crown"): e.crown = args.crown == "1"
+				if args.has("trees"): e.trees = int(args.trees)
+				if args.has("stream"): e.stream = args.stream == "1"
+				if args.has("roots"): e.roots = args.roots == "1"
+				if args.has("flies"): e.flies = int(args.flies)
+				if args.has("fly_kind"): e.fly_kind = String(args.fly_kind)
+				if args.has("fly_mode"): e.fly_mode = int(args.fly_mode)
 				# fern=all: every film in turn, the plants down the rows
 				if args.has("fern"):
 					e.film = k % 4
@@ -318,6 +355,11 @@ func _ready() -> void:
 		v.size = Vector2(px, px)
 		v.still = args.has("still")
 		add_child(v)
+		# zoom=Z: the camera closer (>1) or further (<1), e.g. to keep a legend's jellyfish in the frame
+		if args.has("zoom"):
+			v._zoom = float(args.zoom)
+			v._zoom_to = v._zoom
+			v.studio.cam.fov = v._fov0 / v._zoom
 		if list[i].has("fx") and not args.has("clean"):
 			var l := Label.new()
 			l.text = SpecLegend.FX_N.get(list[i].fx, list[i].fx)

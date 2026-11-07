@@ -197,6 +197,7 @@ func _ready() -> void:
 	_title.position = Vector2(0, UI.safe_top() + 70)
 	_title.size = Vector2(vp.x, 30)
 	_root.add_child(_title)
+	if Reveal.chips_max > 0: _title.visible = false   # the showcase films the geode alone
 	_hint = Kit.label("", 15, UI.body, Kit.CREAM)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.size = Vector2(vp.x, 24)

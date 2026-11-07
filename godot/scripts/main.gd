@@ -66,6 +66,9 @@ func _ready() -> void:
 			Save.d.jstep["%d:%s" % [Save.area(), p[0]]] = int(p[1])
 	if args.has("scroll"): Home.start_scroll = float(args.scroll)
 	if args.has("rise"): Home.rise = true
+	if args.has("dive"): Home.dive = float(args.dive)
+	if args.has("card_h"): Reveal.info_h = float(args.card_h)
+	if args.has("chips"): Reveal.chips_max = int(args.chips)
 	if args.has("story_auto"): StoryScene.auto = true   # the home screen as after the prologue: up from the bottom to the guide
 	if args.has("mine_event"): MineView.force_event = args.mine_event
 	if args.has("mine_result"):   # mine_result=win|lose[,depth[,ore[,iron]]]: the home screen plays the level's reaction
@@ -187,6 +190,34 @@ func _ready() -> void:
 		for st: Dictionary in Save.d.coll:
 			if st.get("sid", "") == "trilobite": Save.note_find(st, 2, int(st.dl))
 		Save.persist()
+	if args.has("skulls"):
+		# test data: skulls (SpecSkull, docs/skulls.md) with their genes mixed, `-- save=skulls screen=stones skulls[=N]`;
+		# marked test, old ones from a previous run are replaced. Every few is pinned to show one gene clearly.
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return c.get("form", "") != "skull")
+		var sps := ["amethyst", "venom", "morion", "cinnabar", "celestine", "smoky", "quartz", "fluorite"]
+		var pins := [{}, {show = "rock"}, {moss = "cap", trees = 3}, {flies = 3}, {eyes = "both", crown = false}, {fangs = "all"},
+			{milk = "wax", tone = "grave"}, {dmg = "broken"}, {show = "rock", rock_kind = "boulder"}, {tone = "ash"},
+			{milk = "frost"}, {moss = "patches", flies = 2}, {show = "rock", rock_kind = "perched"}, {lie = "side", show = "rock"},
+			{fangs = "some", eyes = "one"}, {}, {flies = 2, fly_kind = "comet"}, {moss = "cap", show = "rock"}, {}, {flies = 3, fly_kind = "blue"},
+			{skin = "glass"}, {skin = "gold", crown = false, eyes = "none"}, {skin = "kintsugi", crown = false, eyes = "none"},
+			{skin = "gilt", tone = "ash"}, {skin = "silver", crown = false, eyes = "both"}, {skin = "copper", show = "rock"}, {skin = "nacre"}, {skin = "nacre", flies = 2}, {moss = "cap", trees = 3, stream = true, tone = "ash", crown = false, eyes = "none"},
+			{roots = true, crown = false, eyes = "none", moss = "none"}, {bloom = true, bloom_pal = 0, crown = true, moss = "none"}, {bloom = true, bloom_pal = 1, crown = true},
+			{moss = "cap", trees = 3, tree_kind = "blossom"}, {moss = "cap", trees = 2, tree_kind = "autumn", show = "rock"}, {roots = true, tree_kind = "leaves", show = "rock", rock_kind = "slab"}]
+		var n := int(args.skulls) if String(args.skulls).is_valid_int() and int(args.skulls) > 1 else pins.size()
+		for i in n:
+			var st := Stones.roll(90000 + i * 13, 0, 1.2, i % 6)
+			st.sid = sps[i % sps.size()]
+			st.kind = "druse"
+			st.traits = []
+			st.legend = false
+			st.form = "skull"
+			st.test = true
+			st.merge(pins[i % pins.size()], true)
+			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.area = 0
+			st.dl = i % 6
+			Save.d.coll.append(st)
+		Save.persist()
 	if args.has("mine4"):
 		# test data: Fire Horizon's finds, a few of each species as the mine rolls them: `-- screen=stones mine4`;
 		# marked test (admin → Remove test finds), old ones from a previous run are replaced
@@ -251,6 +282,15 @@ func _ready() -> void:
 		if args.has("gi"): st.gi = int(args.gi)
 		if args.has("shroom"): st.shroom = int(args.shroom)
 		if args.has("traits"): st.traits = Array(args.traits.split(","))
+		# a skull and its genes: form=skull skin=gold moss=cap ...
+		if args.get("form", "") == "skull":
+			st.form = "skull"
+			for k in ["skin", "moss", "eyes", "milk", "tone", "show", "rock_kind", "dmg", "fangs", "tree_kind"]:
+				if args.has(k): st[k] = args[k]
+			for k in ["trees", "flies", "bloom_pal"]:
+				if args.has(k): st[k] = int(args[k])
+			for k in ["stream", "roots", "bloom", "crown"]:
+				if args.has(k): st[k] = args[k] == "1"
 		if args.has("legend"):
 			st.legend = true
 			st.tier = 4
@@ -384,6 +424,7 @@ func _swap(n: Node) -> void:
 	if screen: screen.queue_free()
 	screen = n
 	add_child(n)
+	if Reveal.chips_max > 0 and n is CanvasItem: (n as CanvasItem).visible = false   # the showcase: the card alone, its glow whole
 	Diag.where = n.get_script().get_global_name() if n.get_script() else String(n.name)
 	# a boss fight has started its own theme while mounting
 	if n is Level and (n as Level).model.boss_on(): return

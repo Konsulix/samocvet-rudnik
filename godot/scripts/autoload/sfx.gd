@@ -173,6 +173,7 @@ func _sample(f: String) -> AudioStream:
 
 ## background music for "home" or "level": cross-fades to it (levels alternate between their two loops)
 func music(track: String) -> void:
+	if Reveal.chips_max > 0: return   # the showcase's recordings: only the game's sounds, the film brings its own music
 	var own := "%s_%d" % [track, Save.area()]
 	if MUSIC.has(own): track = own
 	if track == _track and _music[_cur].playing:

@@ -321,6 +321,43 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = SpecFlower.build(self, gene)
 		"trilobite":
 			main = SpecTrilobite.build(self, gene, use_rock)
+		"skull":
+			# the skull's crystals: the druse's pointed columns (or the species' own crystal), f = 0..1 how big
+			# the skull's own say on its crystals: clear glass as the species has it, or cloudy and matte
+			# (frost: milky glass glowing in its colour; wax: opaque, soft, like resin or jade)
+			var skg := SpecSkull.genes(int(gene.shroom_seed), gene.get("skull", {}))
+			var cd: Dictionary = cmat_spec.call()
+			# (a dark stone — morion, smoky, cinnabar — keeps its colour: cloudy, not milky white)
+			var dark_sp := float(cd.get("dark_body", 0.0)) > 0.0 or col.get_luminance() < 0.2
+			if skg.milk == "frost" and cd.get("glass", false):
+				if dark_sp:
+					# a dark stone only loses its rainbow and goes a little silky: milk would whiten it
+					cd.merge({ir = 0.0, holo = 0.0, frost = 0.15}, true)
+				else:
+					cd.merge({frost = 1.0, ir = 0.0, holo = 0.0, rf = 0.0, thick = 2.0, tint_body = 0.9, tint_glow = 0.35}, true)
+			elif skg.milk == "wax" and dark_sp and not metal:
+				cd = {col = col * 1.4, rough = 0.38, coat = 0.35, coat_r = 0.2, flat = true, st = 0.3, dirt = dt, prio = 2, env = 0.9, grain = 0.12}
+			elif skg.milk == "wax" and not metal:
+				cd = {col = Color(1, 1, 1).lerp(col / maxf(0.001, maxf(col.r, maxf(col.g, col.b))), 0.75), rough = 0.42, coat = 0.3, coat_r = 0.25, flat = true, st = 0.3, dirt = dt, prio = 2, env = 0.9, grain = 0.12, emis = col * 0.14}
+			var cmk: ShaderMaterial = make_cmat.call(cd)
+			# (always pointed: a beryl's blunt end read as a stub of glass out of the bone)
+			var zsk := zcfg.duplicate()
+			zsk.blunt = false
+			# (k: a size multiplier — the teeth's crystals are tiny)
+			var grow := func(f: float, at: Vector3, dir: Vector3, k := 1.0) -> MeshInstance3D:
+				var c: MeshInstance3D
+				if elongated:
+					var w := (0.018 + f * 0.12) * gs * k
+					var g := RockKit.prism(rng, {sides = 6, w = w, d = w * (0.75 + rng.next() * 0.35), h = w * (2.2 + rng.next() * 1.8), point = true, slope = 0.0,
+						y0 = -minf(w * 0.3, 0.035), detail = 1, erode = ero * 0.7}, zsk)   # (shallow: the skull is a shell, a deep foot shows inside the eyes)
+					c = U.mesh(g, cmk, root)
+					_place(c, at, dir, 1.0, rng.next() * 6.28)
+					c.set_meta("col", true)
+				else:
+					c = crystal.call(0.3 + f * 0.6, (0.25 + f * 0.5) * k, at, dir)
+				c.set_meta("local", true)
+				return c
+			main = SpecSkull.build(self, gene, st, rock_mat, grow, lean, use_rock)
 		"pearl":
 			main = SpecPearl.build(self, gene)
 		"obsidian":
@@ -926,6 +963,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		SpecTrilobite.lean(self, gene)
 	elif layout == "fern":
 		SpecFern.lean(self, gene)
+	elif layout == "skull":
+		SpecSkull.lean(self, gene)
 	_finish()
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
@@ -1395,8 +1434,10 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 		# bright little cubes, pyrite or galena, perched where crystal meets rock
 		var pts := []
 		if dloc:
+			# (where the find says its crystals break out — a skull's breach — or anywhere on the rock)
+			var foot: Callable = st.get("foot_pick", pick)
 			for k in 22:
-				var q: Vector3 = pick.call()
+				var q: Vector3 = foot.call()
 				pts.append([q, nrm.call(q)])
 		else:
 			for m in cols:

@@ -130,6 +130,31 @@ const LOOK := {
 	proustite = {zone = [0, 0.0, 0.0], forms = [["cluster", 3.0], ["single", 2.0]], kinds = [["druse", 3.0], ["crystal", 4.0]],
 		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 1.4, wk = 0.8, dark = 0.0, glass = {tint = 1.0, dark = 0.35, frost = 0.02, glow = 0.45}, ir = 0.3,
 		palette = [[0x9a0812, 0x9a0812, 4.0], [0xc0141e, 0xc0141e, 2.0]], with = [["blades", 0xeef2f6, 0.4, "rockcrystal"]]},
+	# Koschei's mine (docs/skulls.md): a poison-lime quartz, glowing in its own colour, cloudy
+	venom = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
+		rock = [["slate", 3.0], ["basalt", 1.0]], dark = 0.0, glass = {tint = 0.85, frost = 0.35, glow = 0.45}, ir = 0.15, hk = 0.8, wk = 1.3,
+		palette = [[0x8ee838, 0x8ee838, 4.0], [0xa8f43c, 0xa8f43c, 2.0], [0x6cd034, 0x6cd034, 1.0]]},
+	# Deathless Barrow (mine 7, docs/mine7-koschei.md §8): "the bog, the bones and the barrow's gold" - vivianite that grows
+	# on buried bones in bogs, black bog-iron, apatite (the mineral bone is made of), black morion (the stone of the dead),
+	# blood-red pyrope of Scythian inlays, carnelian beads, and Koschei's needle as its jewel
+	vivianite = {zone = [0, 0.0, 0.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
+		rock = [["ironstone", 3.0], ["slate", 2.0]], hk = 1.8, wk = 0.5, dark = 0.0, glass = {tint = 0.9, dark = 0.45, glow = 0.15}, ir = 0.15,
+		palette = [[0x15505a, 0x15505a, 4.0], [0x1f5e46, 0x1f5e46, 2.0], [0x16365e, 0x16365e, 1.0]]},
+	goethite = {kinds = [["crystal", 1.0]], rock = [["ironstone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 1.0, grain = 0.02},
+		palette = [[0x2a1c14, 0x2a1c14, 4.0], [0x4a2a16, 0x4a2a16, 2.0], [0x161210, 0x161210, 1.0]]},
+	apatite = {zone = [0, 0.0, 0.0], forms = [["single", 3.0], ["cluster", 3.0]], kinds = [["crystal", 5.0], ["druse", 3.0]], blunt = true,
+		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 0.9, wk = 1.1, dark = 0.0, glass = {tint = 0.6, glow = 0.2},
+		palette = [[0x9ac86a, 0x9ac86a, 4.0], [0x3a8ab0, 0x3a8ab0, 2.0], [0xd8c040, 0xd8c040, 1.5], [0x7a5ab0, 0x7a5ab0, 0.7]]},
+	morion = {forms = [["single", 4.0], ["columnar", 3.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
+		rock = [["slate", 3.0], ["basalt", 1.0]], hk = 1.1, wk = 1.3, dark = 0.4, glass = {dark = 0.95}, ir = 0.08},
+	pyrope = {zone = [0, 0.0, 0.0], ir = 0.15, forms = [["pile", 4.0], ["single", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
+		rock = [["slate", 4.0], ["basalt", 2.0]], dark = 0.0, glass = {tint = 0.9, dark = 0.3, glow = 0.3},
+		palette = [[0x8e0c18, 0x8e0c18, 4.0], [0xa8121c, 0xa8121c, 2.0]]},
+	carnelian = {kinds = [["crystal", 1.0]], rock = [["limestone", 2.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.18, coat = 0.95, grain = 0.04},
+		palette = [[0xc8502a, 0xc8502a, 4.0], [0xa83a1e, 0xa83a1e, 2.0], [0xe07a3a, 0xe07a3a, 1.0]]},
+	needle = {zone = [0, 0.0, 0.0], forms = [["single", 5.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
+		rock = [["slate", 3.0], ["ironstone", 1.0]], hk = 2.4, wk = 0.42, dark = 0.0, glass = {tint = 0.75, frost = 0.15, glow = 0.85}, ir = 0.3,
+		palette = [[0x9fd0ff, 0x9fd0ff, 4.0], [0xffd88a, 0xffd88a, 1.0]]},
 }
 
 static func of(sid: String) -> Dictionary:
