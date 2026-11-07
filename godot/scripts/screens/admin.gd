@@ -10,7 +10,9 @@ static var f_kind := ""
 static var f_fx := ""
 static var f_traits := false
 const FX_LIST := ["", "?", "lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi", "dragonfire", "jellyfish"]
-const KINDS := ["", "crystal", "druse", "geode"]
+const KINDS := ["", "crystal", "druse", "geode", "skull"]
+## crystals a skull grows when the species is "any" or a nugget/fossil (SpecSkull, docs/skulls.md)
+const SKULL_SP := ["amethyst", "venom", "morion", "cinnabar", "celestine", "smoky", "quartz", "fluorite"]
 
 static func main() -> Node:
 	return Engine.get_main_loop().current_scene
@@ -189,7 +191,12 @@ static func _find(sd: int, sid: String, fx: String) -> Dictionary:
 		if sid in Data.NUGGETY: st.kind = "nugget"
 		elif Data.HABIT.get(sid, "") == "fossil": st.kind = "fossil"
 		elif st.kind in ["nugget", "fossil"]: st.kind = "crystal"
-	if f_kind != "" and not (st.kind in ["nugget", "fossil"]):
+	if f_kind == "skull":
+		# a skull of Koschei's barrow: its genes come from the seed (SpecSkull.genes)
+		if sid == "" or st.kind in ["nugget", "fossil"]: st.sid = SKULL_SP[randi() % SKULL_SP.size()]
+		st.kind = "druse"
+		st.form = "skull"
+	elif f_kind != "" and not (st.kind in ["nugget", "fossil"]):
 		st.kind = f_kind
 	if f_traits:
 		var pool: Array = Data.TRAITS.map(func(t: Dictionary) -> String: return t.id)
