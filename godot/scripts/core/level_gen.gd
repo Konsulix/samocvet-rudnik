@@ -95,6 +95,19 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite"], load = 16},
 	{kinds = ["sand", "mud", "granite"], load = 17},
 	{kinds = ["sand", "mud", "granite"], load = 18},
+],
+## Whispering Seam (9 depths, docs/mine8-shubin.md): chalk and coal dust, rock from 100 m, and its own FIREDAMP from 150 m
+## (no other mine has gas any more: it waits for the canary's mine); the canary's cage and the air doors are not made yet
+7: [
+	{kinds = ["sand", "mud"], load = 10},
+	{kinds = ["sand", "mud", "granite"], load = 12},
+	{kinds = ["sand", "mud", "granite", "gas"], load = 12},
+	{kinds = ["sand", "mud", "granite", "gas"], load = 13},
+	{kinds = ["sand", "mud", "granite", "gas"], load = 14},
+	{kinds = ["sand", "mud", "granite", "gas"], load = 15},
+	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 15},
+	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 16},
+	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 17},
 ]}
 const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i"}
 ## gas spreads and timber pins stones: a little of either goes a long way

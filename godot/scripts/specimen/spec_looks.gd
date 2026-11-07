@@ -155,6 +155,30 @@ const LOOK := {
 	needle = {zone = [0, 0.0, 0.0], forms = [["single", 5.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
 		rock = [["slate", 3.0], ["ironstone", 1.0]], hk = 2.4, wk = 0.42, dark = 0.0, glass = {tint = 0.75, frost = 0.15, glow = 0.85}, ir = 0.3,
 		palette = [[0x9fd0ff, 0x9fd0ff, 4.0], [0xffd88a, 0xffd88a, 1.0]]},
+	# Whispering Seam (mine 8, docs/mine8-shubin.md §5): "coal under the chalk, and the breath of the earth" - black flint out
+	# of the chalk, honey dogtooth spar of the chalk caves, brassy marcasite of the coal seams, green wavellite balls,
+	# hyalite (glassy opal, it glows green), whewellite (a mineral born in coal), enhydro quartz with water and gas sealed
+	# in it, and Shubin's ember - the colour of a firedamp flame - as its jewel
+	flintstone = {kinds = [["crystal", 1.0]], rock = [["limestone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 0.95, grain = 0.03},
+		palette = [[0x1c1c22, 0x1c1c22, 4.0], [0x2e2c30, 0x2e2c30, 2.0], [0x3c342c, 0x3c342c, 1.0]]},
+	dogtooth = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0], ["geode", 1.0]],
+		rock = [["limestone", 4.0]], dark = 0.0, glass = {tint = 0.5, glow = 0.15}, ir = 0.2,
+		palette = [[0xd8a050, 0xd8a050, 4.0], [0xf0d090, 0xf0d090, 2.0], [0xf4f0e8, 0xf4f0e8, 1.0]]},
+	marcasite = {forms = [["cluster", 5.0], ["radial", 2.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 3.0], ["limestone", 1.0]],
+		dark = 0.0, metal_col = 0xb8a870, tarnish = 0.4, hk = 0.8, wk = 1.2},
+	wavellite = {zone = [0, 0.0, 0.0], forms = [["radial", 6.0], ["cluster", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
+		rock = [["slate", 3.0], ["limestone", 1.0]], hk = 1.6, wk = 0.4, dark = 0.0, glass = {tint = 0.6, frost = 0.3, glow = 0.2}, ir = 0.15,
+		palette = [[0xa8d870, 0xa8d870, 4.0], [0xd0e890, 0xd0e890, 2.0], [0x70b860, 0x70b860, 1.0]]},
+	hyalite = {kinds = [["crystal", 1.0]], rock = [["basalt", 2.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 0.5, frost = 0.1, glow = 0.55}, ir = 0.3,
+		palette = [[0xd8f8c8, 0xd8f8c8, 4.0], [0xb8f0b0, 0xb8f0b0, 2.0]]},
+	whewellite = {zone = [0, 0.0, 0.0], forms = [["cluster", 3.0], ["single", 3.0]], kinds = [["crystal", 5.0], ["druse", 3.0]],
+		rock = [["slate", 4.0]], hk = 0.9, wk = 1.2, dark = 0.0, glass = {frost = 0.4}, ir = 0.2,
+		palette = [[0xf4f0e6, 0xf4f0e6, 4.0], [0xe8dcc0, 0xe8dcc0, 2.0]]},
+	enhydro = {forms = [["single", 4.0], ["floater", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
+		rock = [["quartzite", 2.0], ["slate", 1.0]], hk = 1.3, wk = 0.9, dark = 0.0, glass = {frost = 0.12}, more = {phantom = 0.3}},
+	ember = {zone = [0, 0.0, 0.0], forms = [["single", 4.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
+		rock = [["slate", 3.0]], hk = 1.5, wk = 0.7, dark = 0.0, glass = {tint = 0.8, frost = 0.1, glow = 0.9}, ir = 0.25,
+		palette = [[0x6fe8d0, 0x6fe8d0, 4.0], [0x5ab8ff, 0x5ab8ff, 1.5]]},
 }
 
 static func of(sid: String) -> Dictionary:

@@ -120,3 +120,10 @@ Joseph Sardin и Pablo Bergel, BigSoundBank (CC0):
 - `accordion` — [Accordion registers.ogg](https://commons.wikimedia.org/wiki/File:Accordion_registers.ogg) (public domain).
 - `crack_0..2` — [Bones breaking wood fire ice crackling.ogg](https://commons.wikimedia.org/wiki/File:Bones_breaking_wood_fire_ice_crackling.ogg) (public domain).
 - `hum` (генератор ТЭЦ), `heart` (двойной удар сердца снизу), `gate` (стон гномьих врат) — синтез.
+
+## Whispering Seam (`amb/seam`, `prototype/tools/amb_seam.py`)
+
+- `canary_0..5`, `cheep` — песни домашней канарейки M1: Giraudon, Trouvain, Cazala, Del Negro, Hinaut, «Labeled songs of domestic canary M1 (Serinus canaria)», Zenodo 2021, [doi:10.5281/zenodo.4736597](https://zenodo.org/records/4736597) (CC BY 4.0); вырезаны фразы, срезан гул камеры.
+- `cough_0..2` — [old man cough](https://opengameart.org/content/old-man-cough), AntumDeluge, OpenGameArt (CC0): приступ, его начало, мелкое покашливание; ниже тоном, с эхом штрека.
+- `knock` — три удара `impactPlank_medium_000` (Kenney, CC0, уже в игре) с эхом.
+- `hiss` (газ), `flame` (вспышка газа), `bell` (сигнальный колокол), `whistle` (гудок парохода) — синтез.

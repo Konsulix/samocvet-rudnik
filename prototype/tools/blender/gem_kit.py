@@ -452,8 +452,13 @@ SILVER_LOOK = dict(core=(0.82, 0.88, 1.0), rim=(0.015, 0.018, 0.028), halo=(0.55
 # Deathless Barrow's bone (its own kind "bone", for the blue stone): pale ivory veins like hairline cracks in old
 # bone, cold blue-white halo, lumps of yellowed bone grown into its front
 BONE_LOOK = dict(core=(0.95, 0.9, 0.76), rim=(0.03, 0.025, 0.02), halo=(0.6, 0.78, 1.0), burn=1.05)
-OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK, "coal": COAL_LOOK, "silver": SILVER_LOOK, "bone": BONE_LOOK}
-OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite", "bone"], "ruby": ["coal"], "amethyst": ["silver"]}
+# Whispering Seam's flint (its own kind "flint", for the green stone): bone-white veins like chalk in cracks, a cold white
+# halo (the spark struck off flint), lumps of white-crusted flint grown into its front
+FLINT_LOOK = dict(core=(0.97, 0.96, 0.92), rim=(0.008, 0.008, 0.01), halo=(0.85, 0.92, 1.0), burn=1.15)
+OWN_LOOKS = {"sulphur": SULPHUR_LOOK, "ammonite": AMMONITE_LOOK, "coal": COAL_LOOK, "silver": SILVER_LOOK, "bone": BONE_LOOK,
+             "flint": FLINT_LOOK}
+OWN_KINDS = {"citrine": ["sulphur"], "sapphire": ["ammonite", "bone"], "ruby": ["coal"], "amethyst": ["silver"],
+             "emerald": ["flint"]}
 
 def flat_emit(name, strength):
     """a plain light (or, at 0, plain black) for the glow mask"""

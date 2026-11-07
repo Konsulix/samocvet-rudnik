@@ -16,6 +16,7 @@ const FIRE_VIEW := "res://scripts/screens/mine_view_fire.gd"
 const ICE_VIEW := "res://scripts/screens/mine_view_ice.gd"
 const WEB_VIEW := "res://scripts/screens/mine_view_web.gd"
 const BARROW_VIEW := "res://scripts/screens/mine_view_barrow.gd"
+const SEAM_VIEW := "res://scripts/screens/mine_view_seam.gd"
 var _views := {}            # area -> its drawn mine
 var view: MineView          # the drawn mine (Old Adit), scrolled with a finger; null where the old scene is used
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
@@ -91,6 +92,13 @@ func _ready() -> void:
 			_views[6] = bv
 		else:
 			bv.free()
+	# Whispering Seam (SeamView in mine_view_seam.gd, the same way) - Shubin's and the canary's, a third mine of its own
+	if ResourceLoader.exists(SEAM_VIEW):
+		var sv: MineView = (load(SEAM_VIEW) as GDScript).new()
+		if sv.has_method("available_here") and sv.call("available_here"):
+			_views[7] = sv
+		else:
+			sv.free()
 	for a in _views:
 		var mv: MineView = _views[a]
 		mv.visible = false
@@ -999,6 +1007,7 @@ const HELLO := {
 	4: "Coal pays here. Warm the barracks first - in the polar night nothing else gets done.",
 	5: "Silver, and something that spins in the dark under it. Dig by the lamps, and never sleep in the crevice.",
 	6: "Sit, I'll sing you the tale. The oak, the chest, the hare, the duck, the egg, the needle. Dig, and you'll hear the rest.",
+	7: "Hear her sing? While the canary sings, the air is good and old Shubin sleeps. If she stops - you run.",
 }
 ## before the first level with a new kind of rock in it
 const ROCK_LINE := {

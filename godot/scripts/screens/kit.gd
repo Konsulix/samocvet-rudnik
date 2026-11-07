@@ -89,7 +89,7 @@ static func res_icon(kind: String, size: float) -> TextureRect:
 
 static func res_name(kind: String) -> String:
 	if kind in ["coin", "heart", "iron"]: return kind
-	return {1: "copper", 2: "ammonite", 3: "sulphur", 4: "coal", 5: "silver", 6: "bone"}.get(Save.area(), "gold")
+	return {1: "copper", 2: "ammonite", 3: "sulphur", 4: "coal", 5: "silver", 6: "bone", 7: "flint"}.get(Save.area(), "gold")
 
 ## a button in a kit frame: btn_green (the main action), btn_gold, btn_dark, sq_gold, sq_dark, card, tab...
 ## Pressed it sinks a little darker; disabled it greys out.

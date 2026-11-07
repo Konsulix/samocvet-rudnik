@@ -353,6 +353,54 @@
    "c": "#cfe4ff",
    "v": 450,
    "r": 3
+  },
+  "flintstone": {
+   "n": "Chalk Flint",
+   "c": "#2a2a30",
+   "v": 25,
+   "r": 0
+  },
+  "dogtooth": {
+   "n": "Dogtooth Spar",
+   "c": "#e0b060",
+   "v": 20,
+   "r": 0
+  },
+  "marcasite": {
+   "n": "Marcasite",
+   "c": "#b8a870",
+   "v": 30,
+   "r": 0
+  },
+  "wavellite": {
+   "n": "Wavellite",
+   "c": "#a8d870",
+   "v": 45,
+   "r": 1
+  },
+  "hyalite": {
+   "n": "Hyalite",
+   "c": "#d8f8c8",
+   "v": 60,
+   "r": 1
+  },
+  "whewellite": {
+   "n": "Whewellite",
+   "c": "#f0eadc",
+   "v": 55,
+   "r": 1
+  },
+  "enhydro": {
+   "n": "Enhydro Quartz",
+   "c": "#e6eef4",
+   "v": 180,
+   "r": 2
+  },
+  "ember": {
+   "n": "Shubin's Ember",
+   "c": "#6fe8d0",
+   "v": 420,
+   "r": 3
   }
  },
  "GR": [
@@ -2295,6 +2343,177 @@
      ]
     }
    ]
+  },
+  {
+   "n": "Whispering Seam",
+   "sub": "Coal under the chalk, the Don",
+   "pool": {
+    "flintstone": 20,
+    "dogtooth": 18,
+    "marcasite": 16,
+    "wavellite": 12,
+    "hyalite": 10,
+    "whewellite": 9,
+    "enhydro": 6,
+    "ember": 1.2
+   },
+   "steps": 3,
+   "tasks": [
+    [
+     "adit",
+     "The adit",
+     76
+    ],
+    [
+     "lamps",
+     "Lamp house",
+     77
+    ],
+    [
+     "fan",
+     "Draught furnace",
+     78
+    ],
+    [
+     "headframe",
+     "Headframe",
+     79
+    ],
+    [
+     "staithe",
+     "Coal pier",
+     80
+    ],
+    [
+     "church",
+     "Cave church",
+     81
+    ],
+    [
+     "burn",
+     "Burn the gas",
+     82
+    ],
+    [
+     "fall",
+     "The old fall",
+     84
+    ],
+    [
+     "lull",
+     "The lullaby",
+     86
+    ]
+   ],
+   "ore": {
+    "n": "Flint",
+    "iron": 0,
+    "local": 2,
+    "c": "#3a3a40",
+    "hot": "#e8f0ff",
+    "look": "flint"
+   },
+   "depths": [
+    {
+     "m": 50,
+     "fe": 100,
+     "au": 100,
+     "tool": "",
+     "machine": "",
+     "drill": [
+      0,
+      0
+     ]
+    },
+    {
+     "m": 100,
+     "fe": 104,
+     "au": 104,
+     "tool": "Jackhammer",
+     "machine": "hammer",
+     "drill": [
+      64,
+      1600
+     ]
+    },
+    {
+     "m": 150,
+     "fe": 108,
+     "au": 108,
+     "tool": "Steam drill",
+     "machine": "hammer",
+     "drill": [
+      65,
+      1750
+     ]
+    },
+    {
+     "m": 200,
+     "fe": 112,
+     "au": 112,
+     "tool": "Rock drill",
+     "machine": "hammer",
+     "drill": [
+      66,
+      1900
+     ]
+    },
+    {
+     "m": 250,
+     "fe": 116,
+     "au": 116,
+     "tool": "Drilling rig",
+     "machine": "rig",
+     "drill": [
+      67,
+      2100
+     ]
+    },
+    {
+     "m": 300,
+     "fe": 120,
+     "au": 120,
+     "tool": "Diamond rig",
+     "machine": "rig",
+     "drill": [
+      68,
+      2300
+     ]
+    },
+    {
+     "m": 350,
+     "fe": 124,
+     "au": 124,
+     "tool": "Tunnel borer",
+     "machine": "tbm",
+     "drill": [
+      69,
+      2550
+     ]
+    },
+    {
+     "m": 400,
+     "fe": 128,
+     "au": 128,
+     "tool": "Deep drill",
+     "machine": "deep",
+     "drill": [
+      70,
+      2800
+     ]
+    },
+    {
+     "m": 450,
+     "fe": 132,
+     "au": 132,
+     "tool": "Shaft sinker",
+     "machine": "deep",
+     "drill": [
+      72,
+      3100
+     ]
+    }
+   ]
   }
  ],
  "CHEST": [
@@ -2763,7 +2982,15 @@
   "apatite": "prism",
   "morion": "prism",
   "carnelian": "botryoid",
-  "needle": "prism"
+  "needle": "prism",
+  "flintstone": "botryoid",
+  "dogtooth": "scaleno",
+  "marcasite": "blade",
+  "wavellite": "prism",
+  "hyalite": "botryoid",
+  "whewellite": "prism",
+  "enhydro": "prism",
+  "ember": "prism"
  },
  "TRAITS": [
   {
