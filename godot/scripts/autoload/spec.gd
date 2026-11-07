@@ -105,7 +105,7 @@ static func of_stone(s: Dictionary) -> Dictionary:
 	# a skull (SpecSkull): its body, and any of its genes pinned
 	if s.get("form", "") == "skull":
 		o.form = "skull"
-		for k in ["eyes", "breach", "crown", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal"]:
+		for k in ["eyes", "breach", "crown", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine"]:
 			if s.has(k): o[k] = s[k]
 	return o
 

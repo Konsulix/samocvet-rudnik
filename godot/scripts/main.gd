@@ -203,6 +203,13 @@ func _ready() -> void:
 			{skin = "gilt", tone = "ash"}, {skin = "silver", crown = false, eyes = "both"}, {skin = "copper", show = "rock"}, {skin = "nacre"}, {skin = "nacre", flies = 2}, {moss = "cap", trees = 3, stream = true, tone = "ash", crown = false, eyes = "none"},
 			{roots = true, crown = false, eyes = "none", moss = "none"}, {bloom = true, bloom_pal = 0, crown = true, moss = "none"}, {bloom = true, bloom_pal = 1, crown = true},
 			{moss = "cap", trees = 3, tree_kind = "blossom"}, {moss = "cap", trees = 2, tree_kind = "autumn", show = "rock"}, {roots = true, tree_kind = "leaves", show = "rock", rock_kind = "slab"}]
+		# skulls=water: only skulls with a stream from the eye (bone, nacre, gilt; on a rock, with moss, plain)
+		if String(args.skulls) == "water":
+			pins = [{}, {show = "rock"}, {moss = "cap"}, {skin = "nacre"}, {skin = "gilt"}, {crown = false, eyes = "none"},
+				{show = "rock", rock_kind = "boulder"}, {lie = "side", show = "rock"}, {moss = "patches", trees = 2}, {tone = "ash", crown = false}]
+			for k in pins.size():
+				pins[k].stream = true
+				pins[k].wine = k % 3 == 1   # (every third a scarlet spring)
 		var n := int(args.skulls) if String(args.skulls).is_valid_int() and int(args.skulls) > 1 else pins.size()
 		for i in n:
 			var st := Stones.roll(90000 + i * 13, 0, 1.2, i % 6)

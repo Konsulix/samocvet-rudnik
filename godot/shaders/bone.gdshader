@@ -28,6 +28,7 @@ uniform float fire = 0.33;
 uniform vec3 metal_col = vec3(0.95, 0.68, 0.28);   // cast metal: gold, silver, copper
 uniform float metal_rough = 0.16;
 uniform vec3 patina_col = vec3(0.25, 0.55, 0.45); // in the pits: verdigris on copper, black tarnish on silver
+uniform vec3 wet_col = vec3(1.0);   // what wet bone turns (a scarlet spring stains it red)
 uniform float patina_k = 0.0;    // nacre: the hue of its fire (as ammolite: red 0, green 0.33, blue 0.6, violet 0.75)     // ridges rubbed lighter (a dark skull still reads as bone)
 
 varying vec3 mp;
@@ -168,7 +169,7 @@ void fragment() {
 			c = mix(c, soil_col * (0.6 + mot * 0.8), soil);
 			rough = mix(0.45 + (1.0 - gloss) * 0.4, 1.0, max(cav, soil));
 			// wet where water runs (vertex alpha below 1): darker, glossy, a little green slime in the wettest part
-			c = mix(c, c * 0.42, wet);
+			c = mix(c, c * 0.42 * wet_col, wet);
 			if (wet > 0.6) c = mix(c, c * vec3(0.7, 0.9, 0.6), smoothstep(0.6, 1.0, wet) * smoothstep(0.4, 0.7, fbm(q * 14.0)) * 0.6);
 			rough = mix(rough, 0.12, wet);
 			spec = 0.3 * open;

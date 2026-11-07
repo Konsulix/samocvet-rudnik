@@ -13,7 +13,9 @@ const BONE := preload("res://shaders/bone.gdshader")
 ## how finely a soil crumb is cut (RockKit.crumble): 0 by its size (_earth), a number — every crumb so (tests, `crumb=`)
 static var CRUMB_DETAIL := 0
 const BONE_OLD := preload("res://shaders/bone_old.gdshader")   # (admin "Skull speedups: off" — the cost before 7.11)
-const WATER := preload("res://shaders/skull_water.gdshader")
+## a waterfall out of the eye: its sheet's width at the lip and where it lands
+const FALL_W := [0.085, 0.065]
+const FALL := preload("res://shaders/skull_fall.gdshader")
 const GLASS := preload("res://shaders/skull_glass.gdshader")
 const BARK := preload("res://shaders/bark.gdshader")
 const METAL_RUN := preload("res://shaders/metal_run.gdshader")
@@ -212,6 +214,8 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 		bloom_pal = int(o.get("bloom_pal", int(r.next() * SpecBloom.PALETTES.size()))),
 		tree_kind = o.get("tree_kind", Stones.pick_w([["moss", 3.0], ["leaves", 2.5], ["blossom", 2.0], ["autumn", 1.5], ["bare", 1.0]], r)),
 	}
+	# the spring runs scarlet, as wine, in about a third (its own draw: the other genes stay as they were)
+	g.wine = o.get("wine", Rng32.new(int(g.skin_seed) * 3 + 333).next() < 0.3)
 	# a glass skull is the crystal: no breach, no crystals out of the eyes, no moss
 	if g.skin == "glass":
 		g.crown = false
@@ -246,6 +250,11 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 		"side": g.lie_a = [yaw * 0.6, sg * (1.0 + float(q[1]) * 0.4), (float(q[2]) - 0.5) * 0.4]
 		"up": g.lie_a = [yaw * 0.6, (float(q[1]) - 0.5) * 0.4, -0.7 - float(q[2]) * 0.4]
 		_: g.lie_a = [yaw * 0.6, (float(q[1]) - 0.5) * 0.4, 0.3 + float(q[2]) * 0.3]
+	# a spring only where it can be seen running: not on a skull lying face up or face down (it would fill the eyes or
+	# run unseen underneath), nor one turned away from the viewer — the badge goes with it (_stream decides the same)
+	if g.stream:
+		var dn := down_of(g)
+		if absf(dn.dot(Vector3.BACK)) > 0.6 or (pose_basis(g) * Vector3.BACK).z < -0.1: g.stream = false
 	return g
 
 ## the skull's build: stretched by its own proportions and a soft lopsidedness (one transform for every part, so
@@ -266,6 +275,8 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 	m.shader = BONE if SpecUtil.fast else BONE_OLD
 	m.set_shader_parameter("age", float(sk.age))
 	m.set_shader_parameter("gloss", float(sk.gloss))
+	# a scarlet spring stains the bone it runs over
+	if sk.stream and sk.get("wine", false): m.set_shader_parameter("wet_col", Vector3(1.35, 0.28, 0.3))
 	m.set_shader_parameter("crack_k", 0.2 + float(sk.cracks) * 0.8)
 	m.set_shader_parameter("seed", float(seed_v % 97) * 1.37)
 	var su: Array = sk.sutures
@@ -529,6 +540,7 @@ static func gene_name(id: String, sk: Dictionary) -> String:
 		"sk_moss": return "moss cap" if sk.moss == "cap" else "moss"
 		"sk_bloom": return ["crimson and gold", "white and lilac", "pink and cream", "blue and silver", "orange and yellow"][int(sk.bloom_pal) % 5] + " bouquet"
 		"sk_eyes": return "crystal eyes" if sk.eyes == "both" else "crystal eye"
+		"sk_stream": return "wine from the eye" if sk.get("wine", false) else "spring from the eye"
 		"sk_fangs": return "crystal teeth" if sk.fangs == "all" else "crystal fangs"
 	return ""
 
@@ -1291,47 +1303,30 @@ static func down_of(sk: Dictionary) -> Vector3:
 		bas = bas * Basis(Vector3.UP, float(a[0])) * Basis(Vector3.BACK, float(a[1])) * Basis(Vector3.RIGHT, float(a[2]))
 	return (bas.inverse() * Vector3.DOWN).normalized()
 
-## a run of liquid down the bone from `start`: each step slides along the surface (the step projected on its tangent
-## plane), sticking to it; where the bone turns away below (an overhang: the brow, the cheekbone, the chin) the run
-## lets go. Returns [points on the surface, their normals, true if it let go at the end]
-static func _flow(bones: Array, nrs: Array, start: Vector3, down: Vector3, step: float, n: int, cling := 0.55, drift := Vector3.ZERO) -> Array:
+## a run of molten metal down the bone from `start` (_drips): each step slides along the surface (the step projected on
+## its tangent plane), sticking to it; where the bone turns away below (an overhang: the brow, the cheekbone, the chin)
+## it lets go and stops. Returns [points on the surface, their normals, true if it let go at the end]
+static func _flow(bones: Array, nrs: Array, start: Vector3, down: Vector3, step: float, n: int, cling := 0.55) -> Array:
 	var pts := []
 	var ns := []
 	var p := start
 	var off := false
-	var water := cling >= 0.9
 	for k in n:
 		var q: Array = _near(bones, nrs, p)
 		var sp: Vector3 = q[0]
 		var nv: Vector3 = q[1]
-		# off the surface: metal lets go here; water falls free a little way (over the gap below the teeth, an
-		# overhang) and lands on the bone below — or, falling too far, leaves it
 		if pts.size() > 1 and p.distance_to(sp) > step * 3.0:
-			if not water or p.distance_to(pts[pts.size() - 1]) > 0.22:
-				off = true
-				break
-			p += down * step * 1.5
-			continue
+			off = true
+			break
 		var on := p - nv * (p - sp).dot(nv)
-		# water stuck in a hollow (it made no way down over the last steps): it spills on over the lip
-		if water and pts.size() > 4 and (on - (pts[pts.size() - 4] as Vector3)).dot(down) < step * 0.6:
-			p = on + down * step * 1.6 + nv * step * 0.4
-			continue
 		pts.append(on)
 		ns.append(nv)
 		# the overhang: the surface here faces down — the drop hangs from it
 		if nv.dot(down) > cling and pts.size() > 2:
-			if not water:
-				off = true
-				break
-			p = on + down * step * 1.5
-			continue
+			off = true
+			break
 		var t := down - nv * down.dot(nv)
 		if t.length() < 0.15: t = down
-		# (a rivulet keeps its own way across the slope: a sideways pull, wandering a little)
-		if drift != Vector3.ZERO:
-			var dd := drift - nv * drift.dot(nv)
-			t = t.normalized() + dd * (0.8 + 0.4 * sin(float(k) * 0.7))
 		p = on + t.normalized() * step + down * step * 0.25
 	return [pts, ns, off]
 
@@ -1443,7 +1438,8 @@ static func _smooth_run(path: Array, ns: Array, step: float) -> Array:
 
 ## the water's sheet along a run: domed across (its middle a thin lens of water, its edges on the surface), 9 strips
 ## wide, fine along — no facets; UV.x across 0..1, UV.y along in units (continuing from `v0`)
-static func _sheet(path: Array, ns: Array, w0: float, w1: float, v0: float, mat: Material, parent: Node3D) -> float:
+## surf: the sheet is pressed onto it point by point (its edges follow the real surface, not the run's tangent plane)
+static func _sheet(path: Array, ns: Array, w0: float, w1: float, v0: float, mat: Material, parent: Node3D, surf: SpecSurf = null) -> float:
 	var m := 8
 	var v := PackedVector3Array()
 	var nm := PackedVector3Array()
@@ -1451,6 +1447,10 @@ static func _sheet(path: Array, ns: Array, w0: float, w1: float, v0: float, mat:
 	var idx := PackedInt32Array()
 	var n := path.size()
 	var vlen := v0
+	# (the run's length, so its ends can narrow: water creeps out at its head and gathers to a bead at its tail)
+	var total := 0.0
+	for k in range(1, n): total += (path[k] as Vector3).distance_to(path[k - 1])
+	var run_d := 0.0
 	for k in n:
 		var a: Vector3 = path[maxi(k - 1, 0)]
 		var c: Vector3 = path[mini(k + 1, n - 1)]
@@ -1459,13 +1459,24 @@ static func _sheet(path: Array, ns: Array, w0: float, w1: float, v0: float, mat:
 		var side := tg.cross(out).normalized()
 		if side.length_squared() < 0.5: side = Vector3.RIGHT
 		var f := float(k) / maxf(1.0, n - 1.0)
-		var wd := lerpf(w0, w1, smoothstep(0.0, 0.5, f)) * (1.0 + 0.12 * sin(float(k) * 0.35 + v0 * 7.0))
-		if k: vlen += (path[k] as Vector3).distance_to(path[k - 1])
+		if k:
+			var dk := (path[k] as Vector3).distance_to(path[k - 1])
+			vlen += dk
+			run_d += dk
+		var wd := lerpf(w0, w1, smoothstep(0.0, 0.5, f)) * (1.0 + 0.14 * sin(float(k) * 0.35 + v0 * 7.0) + 0.08 * sin(float(k) * 0.93 + v0 * 3.0))
+		wd *= sqrt(smoothstep(0.0, 0.03, run_d)) * lerpf(0.3, 1.0, sqrt(smoothstep(0.0, 0.025, total - run_d)))
 		for j in m + 1:
 			var s := float(j) / m * 2.0 - 1.0
 			var dome := sqrt(maxf(0.0, 1.0 - s * s))
-			v.append((path[k] as Vector3) + side * wd * s + out * (0.004 + dome * wd * 0.35))
-			nm.append((out * (0.3 + dome) + side * s * 0.8).normalized())
+			var at := (path[k] as Vector3) + side * wd * s
+			var on := out
+			if surf:
+				var cp := surf.closest(at)
+				if cp.size():
+					at = cp[0]
+					on = cp[1]
+			v.append(at + on * (0.0025 + dome * wd * 0.15))
+			nm.append((on * (0.3 + dome) + side * s * 0.8).normalized())
 			uv.append(Vector2(0.5 + s * 0.5, vlen))
 	for k in n - 1:
 		for j in m:
@@ -1485,122 +1496,388 @@ static func _sheet(path: Array, ns: Array, w0: float, w1: float, v0: float, mat:
 	parent.add_child(mi)
 	return vlen
 
-static func water_mat() -> ShaderMaterial:
-	var wm := ShaderMaterial.new()
-	wm.shader = WATER
-	wm.render_priority = 2
-	return wm
+## the falling-water material (shaders/skull_fall.gdshader); waver: how much the sheet wavers (low where it lies on bone)
+## the colour of the water being laid (set by _stream / _stream_on for the skull being built): clear, or wine
+static var wine := false
+const WINE_DEEP := Vector3(0.28, 0.0, 0.03)
+const WINE_LIGHT := Vector3(0.55, 0.02, 0.05)
 
-## a stream out of an eye socket: water welling over the socket's lower rim and running down the bone (the cheek, the
-## teeth, the jaw) as a clear sheet that follows every bump, dripping off below in its own rhythm (Drip). On a skull
-## lying on its rock the stream goes on over the rock afterwards (_stream_on): its end and its drip are kept in sk.
+static func fall_mat(waver: float) -> ShaderMaterial:
+	var fm := ShaderMaterial.new()
+	fm.shader = FALL
+	fm.render_priority = 3
+	fm.set_shader_parameter("waver", waver)
+	if wine:
+		fm.set_shader_parameter("deep", WINE_DEEP)
+		fm.set_shader_parameter("white", WINE_LIGHT)
+		fm.set_shader_parameter("glow", 0.15)
+		fm.set_shader_parameter("body_a", 0.72)
+		fm.set_shader_parameter("spec", 0.18)
+	return fm
+
+## a drop's material (Drip): clear water, or wine
+static func drop_mat() -> StandardMaterial3D:
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.45, 0.02, 0.05, 0.75) if wine else Color(0.06, 0.08, 0.09, 0.3)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.roughness = 0.02
+	dm.metallic_specular = 1.0
+	dm.rim_enabled = true
+	dm.rim = 0.8
+	dm.rim_tint = 0.2
+	return dm
+
+## the skull's pose: its own space to the find's (held up to the viewer, lying on its rock) — the viewer looks along -Z
+static func pose_basis(sk: Dictionary) -> Basis:
+	var bas := lean_basis(sk)
+	if sk.show == "rock":
+		var a: Array = sk.lie_a
+		bas = bas * Basis(Vector3.UP, float(a[0])) * Basis(Vector3.BACK, float(a[1])) * Basis(Vector3.RIGHT, float(a[2]))
+	return bas
+
+## a little waterfall out of an eye: it wells over the lowest point of the socket's rim (outside it, never inside) and
+## runs down over the bone as a broad sheet of racing water (shaders/skull_fall.gdshader), pressed onto the real
+## surface (SpecSurf); where the bone turns in under itself it drops straight down onto what is below, white where it
+## lands, and runs on. It comes out of the eye the viewer sees; a skull lying face down or face up has none (it would
+## run unseen, or fill the eyes). What happens at its end: on a skull on its rock the rock takes it on (_stream_on),
+## else it pours off into the air, or (ending on the bone) drips.
 static func _stream(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array) -> void:
-	var sx := float(sk.stream_side)
+	wine = bool(sk.get("wine", false))
 	var down := down_of(sk)
-	var r := Rng32.new(int(sk.skin_seed) + 61)
-	# from the socket's floor, over its lower rim: the run starts inside the eye
-	var run: Array = _flow(bones, nrs, Vector3(sx * 0.27, -0.01, 0.4), down, 0.02, 80, 0.9)
-	if (run[0] as Array).size() < 3: return
-	# (a short run is lengthened: on down the face as far as the bone goes)
-	var sm := _smooth_run(run[0], run[1], 0.008)
-	var path: Array = sm[0]
-	var ns: Array = sm[1]
-	var wm := water_mat()
-	var vlen := _sheet(path, ns, 0.05, 0.095, 0.0, wm, b.root)
+	if absf(down.dot(Vector3.BACK)) > 0.6: return
+	var surf := SpecSurf.new()
+	for k in bones.size(): surf.add(bones[k], nrs[k])
+	var bas := pose_basis(sk)
+	var lip := []
+	var score := -INF
+	for sx: float in [-1.0, 1.0]:
+		var l := _lip(surf, sx, down)
+		if l.is_empty(): continue
+		var vis := (bas * (l[1] as Vector3)).z + (0.25 if sx == float(sk.stream_side) else 0.0)
+		if vis > score:
+			score = vis
+			lip = l
+	if lip.is_empty() or score < -0.15: return
+	var sx: float = lip[3]
+	# (water clings to bone a long way under an overhang before it lets go)
+	var res := surf.run((lip[0] as Vector3) + (lip[2] as Vector3) * 0.012, down, 0.014, 0.85, Vector3.ZERO, 0.75)
+	if res.is_empty(): return
+	var laid := _lay(b, sk, surf, res, down, Vector3(-sx, 0.0, 0.0), FALL_W[0], FALL_W[1], 0.0, 47)
+	var path: Array = laid[0]
+	var e: Vector3 = (res.end as Array)[0]
+	var en: Vector3 = (res.end as Array)[1]
 	var n := path.size()
-	# the eye socket brimming: a pool of water filling its lower part, spilling over the rim into the stream
-	var pool := MeshInstance3D.new()
-	var pm := CylinderMesh.new()
-	pm.top_radius = 0.06
-	pm.bottom_radius = 0.045
-	pm.height = 0.01
-	pm.radial_segments = 24
-	pool.mesh = pm
-	pool.material_override = wm
-	var pc: Vector3 = (path[0] as Vector3) + (ns[0] as Vector3) * 0.01
-	pool.transform = Transform3D(Basis(U.quat_to(Vector3.UP, -down)) * Basis.from_scale(Vector3(1.15, 1.0, 0.9)), pc)
-	b.root.add_child(pool)
-	# a thread or two splitting off the main run and finding their own way down
-	for k in 1 + int(r.next() * 2):
-		var at: int = int(n * (0.15 + r.next() * 0.4))
-		var a: Vector3 = path[at]
-		var tg := ((path[mini(at + 1, n - 1)] as Vector3) - a).normalized()
-		var side := tg.cross(ns[at] as Vector3).normalized() * (1.0 if r.next() < 0.5 else -1.0)
-		var r2: Array = _flow(bones, nrs, a + side * 0.04, (down + side * 0.35).normalized(), 0.02, 30, 0.9)
-		if (r2[0] as Array).size() > 3:
-			var s2 := _smooth_run(r2[0], r2[1], 0.008)
-			_sheet(s2[0], s2[1], 0.015, 0.03, r.next() * 5.0, wm, b.root)
-			path.append_array(s2[0])
-	(sk.marks as Array).append(["sk_stream", path[n / 3], ns[n / 3]])
-	(sk.taken as Array).append_array(range(0, path.size(), 6).map(func(i: int) -> Array: return [path[i], Vector3.UP]))
+	if n < 3: return
+	# (the gene's callout points at the spring itself: the eye's rim it wells over)
+	(sk.marks as Array).append(["sk_stream", lip[0], lip[1]])
+	(sk.taken as Array).append_array(range(0, n, 6).map(func(i: int) -> Array: return [path[i], Vector3.UP]))
 	# the wet bone along every run (vertex alpha), fading out a little to the sides
 	for k in bones.size():
 		var g: Geo = bones[k]
 		if g.col.size() < g.v.size(): continue
 		for i in g.v.size():
 			var dmin := INF
-			for jj in range(0, path.size(), 3):
+			for jj in range(0, n, 3):
 				dmin = minf(dmin, g.v[i].distance_squared_to(path[jj]))
-			var w := 1.0 - smoothstep(0.0009, 0.004, dmin)
+			var w := 1.0 - smoothstep(0.0012, 0.005, dmin)
 			if w > 0.0:
 				var c := g.col[i]
 				c.a = minf(c.a, 1.0 - w)
 				g.col[i] = c
-	var e: Vector3 = path[n - 1]
-	var dr := Drip.new()
-	dr.setup(Rng32.new(int(sk.skin_seed) + 41), down, 0.02, false)
-	dr.position = e + down * 0.008
-	b.root.add_child(dr)
-	sk.stream_end = [e, ns[n - 1], vlen, dr]
+	var dr: Drip = null
+	if res.pour and sk.show != "rock":
+		# pouring off into the air below
+		var fp := []
+		for k in 12: fp.append(e + en * 0.004 + down * 0.3 * float(k) / 11.0)
+		_curtain(b, fp, en - down * down.dot(en), true, fall_mat(1.0))
+	elif not res.pour:
+		dr = Drip.new()
+		dr.setup(Rng32.new(int(sk.skin_seed) + 41), down, 0.02, false, drop_mat())
+		dr.position = e + down * 0.008
+		b.root.add_child(dr)
+	sk.stream_end = [e, en, float(laid[1]), dr, bool(res.pour)]
+	sk.stream_bones = [bones, nrs]
 
-## the stream on: from where it leaves the skull, over the rock (its surface, its flank) to the rock's edge, where the
-## drip moves to; rock: [geo, normals] in the root's space, T: the skull's place on it
+## where water wells out of an eye (side sx), found on the skull itself (proportions differ from skull to skull): rays
+## straight at the face (skull space, face toward +Z) fall deep into the socket's opening and stop short on the bone
+## round it; the opening's middle is the middle of the deep hits, its rim — along each of 32 ways out from there — the
+## first ray that stops on the bone in front. The lip is the rim's lowest point (the nose's corner kept out of it).
+## Returns [point, normal, outward (away from the opening), sx] or []
+static func _lip(surf: SpecSurf, sx: float, down: Vector3) -> Array:
+	var hits := []
+	var zf := -INF
+	for yi in 16:
+		for xi in 16:
+			var q := Vector3(sx * (0.03 + xi * 0.02), -0.12 + yi * 0.022, 1.5)
+			var h := surf.ray(q, Vector3.FORWARD, 3.0)
+			if h.is_empty(): continue
+			var hz: float = (h[0] as Vector3).z
+			zf = maxf(zf, hz)
+			hits.append(Vector3(q.x, q.y, hz))
+	if hits.size() < 20: return []
+	var c := Vector2.ZERO
+	var zd := 0.0
+	var nd := 0
+	for hv: Vector3 in hits:
+		if hv.z < zf - 0.15:
+			c += Vector2(hv.x, hv.y)
+			zd += hv.z
+			nd += 1
+	if nd < 4: return []
+	c /= nd
+	zd /= nd
+	var front := zd + (zf - zd) * 0.6
+	var best := []
+	var bs := -INF
+	for k in 32:
+		var a := TAU * k / 32.0
+		var dv := Vector2(cos(a), sin(a))
+		# (the nose's side of the rim — its inner lower corner — left out)
+		if dv.x * sx < -0.5 and dv.y < 0.3: continue
+		var r := 0.02
+		while r < 0.22:
+			var h := surf.ray(Vector3(c.x + dv.x * r, c.y + dv.y * r, 1.5), Vector3.FORWARD, 3.0)
+			if h.size() and (h[0] as Vector3).z > front:
+				var pt: Vector3 = h[0]
+				var sc := pt.dot(down)
+				if sc > bs:
+					bs = sc
+					best = [pt, h[1], Vector3(dv.x, dv.y, 0.0), sx]
+				break
+			r += 0.006
+	return best
+
+## lays what a run of water did (SpecSurf.run): a sheet over each stretch (its middle moved toward `toward` by a third
+## of its width), a short drop with a splash where it fell between them. Returns [all its points, its length]
+static func _lay(b: RefCounted, sk: Dictionary, surf: SpecSurf, res: Dictionary, down: Vector3, toward: Vector3, w0: float, w1: float, v0: float, seed_add: int) -> Array:
+	var path := []
+	var vlen := v0
+	var runs: Array = res.runs
+	var drops: Array = res.drops
+	var fm := fall_mat(0.2)
+	for ri in runs.size():
+		var rr: Array = runs[ri]
+		if (rr[0] as Array).size() >= 3:
+			var sm := _smooth_run(rr[0], rr[1], 0.008)
+			var mid := []
+			var mn := []
+			for k in (sm[0] as Array).size():
+				var nk: Vector3 = (sm[1] as Array)[k]
+				var q: Vector3 = (sm[0] as Array)[k]
+				if toward != Vector3.ZERO: q += (toward - nk * toward.dot(nk)) * w0 * 0.15
+				var cp := surf.closest(q)
+				mid.append(cp[0] if cp.size() else q)
+				mn.append(cp[1] if cp.size() else nk)
+			vlen = _sheet(mid, mn, w0 * (0.75 if ri == 0 else 1.0), w1, vlen, fm, b.root, surf)
+			path.append_array(mid)
+		if ri < drops.size():
+			var dd: Array = drops[ri]
+			var f0: Vector3 = dd[0]
+			var t0: Vector3 = dd[1]
+			var tn: Vector3 = dd[2]
+			var dp := []
+			for k in 9: dp.append(f0.lerp(t0, float(k) / 8.0))
+			var c0 := surf.closest(f0)
+			var on: Vector3 = c0[1] if c0.size() else Vector3.BACK
+			_curtain(b, dp, on - down * down.dot(on), false, fall_mat(1.0))
+			var spl := Splash.new()
+			spl.setup(Rng32.new(int(sk.skin_seed) + seed_add + ri), tn, down, w1)
+			spl.position = t0 + tn * 0.004
+			b.root.add_child(spl)
+	return [path, vlen]
+
+## falling water along `pts` (shaders/skull_fall.gdshader, its `tube` mode): a flattened tube — wide across `fwd` (the
+## way it faces), half as deep — so it has a body from any side (a flat ribbon thinned to a line seen edge on),
+## narrowing as it speeds up; clear_end: it falls clear of everything, the end fades out. UV.x round the tube, UV.y along
+static func _curtain(b: RefCounted, pts: Array, fwd: Vector3, clear_end: bool, mat: Material) -> void:
+	if pts.size() < 2: return
+	fwd = fwd.normalized() if fwd.length() > 0.05 else Vector3.BACK
+	var m := 12
+	var vv := PackedVector3Array()
+	var nm := PackedVector3Array()
+	var uv := PackedVector2Array()
+	var cl := PackedColorArray()
+	var idx := PackedInt32Array()
+	var n := pts.size()
+	var len_ := 0.0
+	var total := 0.0
+	for k in range(1, n): total += (pts[k] as Vector3).distance_to(pts[k - 1])
+	for k in n:
+		var a: Vector3 = pts[maxi(k - 1, 0)]
+		var c: Vector3 = pts[mini(k + 1, n - 1)]
+		var tg := (c - a).normalized()
+		var side := tg.cross(fwd).normalized()
+		if side.length_squared() < 0.5: side = Vector3.RIGHT
+		var face := side.cross(tg).normalized()
+		if k: len_ += (pts[k] as Vector3).distance_to(pts[k - 1])
+		var f := len_ / maxf(total, 0.001)
+		var wd := lerpf(FALL_W[0], FALL_W[1], sqrt(f)) * (1.0 + 0.1 * sin(float(k) * 0.8))
+		var dp := wd * 0.5
+		var fade := 1.0 - smoothstep(0.5, 1.0, f) if clear_end else 1.0
+		for j in m + 1:
+			var an := TAU * float(j) / m
+			var ca := cos(an)
+			var sa := sin(an)
+			vv.append((pts[k] as Vector3) + side * wd * ca + face * dp * sa)
+			nm.append((side * ca / wd + face * sa / dp).normalized())
+			uv.append(Vector2(float(j) / m, len_))
+			cl.append(Color(1, 1, 1, fade))
+	for k in n - 1:
+		for j in m:
+			var a2 := k * (m + 1) + j
+			idx.append_array([a2, a2 + m + 1, a2 + 1, a2 + 1, a2 + m + 1, a2 + m + 2])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = vv
+	arr[Mesh.ARRAY_NORMAL] = nm
+	arr[Mesh.ARRAY_TEX_UV] = uv
+	arr[Mesh.ARRAY_COLOR] = cl
+	arr[Mesh.ARRAY_INDEX] = idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	(mat as ShaderMaterial).set_shader_parameter("tube", true)   # (each fall has its own material: fall_mat)
+	mi.material_override = mat
+	b.root.add_child(mi)
+
+## where a fall lands: a patch of white water, pulsing, and droplets jumping out of it and falling back, one after
+## another
+class Splash extends Node3D:
+	var drops := []
+	var r: Rng32
+	var up := Vector3.UP
+	var down := Vector3.DOWN
+	var foam: MeshInstance3D
+	var fb := Basis.IDENTITY
+	var t := 0.0
+
+	func setup(rng: Rng32, n: Vector3, d: Vector3, size: float) -> void:
+		r = rng
+		up = n
+		down = d
+		var wm := StandardMaterial3D.new()
+		wm.albedo_color = Color(0.85, 0.25, 0.3, 0.45) if SpecSkull.wine else Color(0.9, 0.96, 1.0, 0.35)
+		wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		wm.roughness = 0.3
+		wm.emission_enabled = true
+		wm.emission = Color(0.4, 0.08, 0.1) if SpecSkull.wine else Color(0.5, 0.55, 0.6)
+		foam = MeshInstance3D.new()
+		var fs := SphereMesh.new()
+		fs.radius = 0.5
+		fs.height = 1.0
+		fs.radial_segments = 16
+		fs.rings = 8
+		foam.mesh = fs
+		foam.material_override = wm
+		fb = Basis(U.quat_to(Vector3.UP, up)) * Basis.from_scale(Vector3(size * 1.1, size * 0.18, size * 0.9))
+		foam.basis = fb
+		add_child(foam)
+		var dm := StandardMaterial3D.new()
+		dm.albedo_color = Color(0.7, 0.08, 0.12, 0.8) if SpecSkull.wine else Color(0.8, 0.9, 1.0, 0.75)
+		dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		dm.roughness = 0.05
+		dm.emission_enabled = true
+		dm.emission = Color(0.3, 0.03, 0.05) if SpecSkull.wine else Color(0.4, 0.45, 0.5)
+		var sm := SphereMesh.new()
+		sm.radius = 0.5
+		sm.height = 1.0
+		sm.radial_segments = 8
+		sm.rings = 4
+		for k in 9:
+			var m := MeshInstance3D.new()
+			m.mesh = sm
+			m.material_override = dm
+			m.visible = false
+			add_child(m)
+			drops.append({m = m, v = Vector3.ZERO, t = -r.next() * 0.6, life = 0.4, s = size * (0.12 + r.next() * 0.12)})
+
+	func _process(dt: float) -> void:
+		dt = minf(dt, 0.05)
+		t += dt
+		var fs := 1.0 + 0.12 * sin(t * 13.0) + 0.06 * sin(t * 29.0)
+		foam.basis = fb * Basis(Vector3.UP, t * 0.7) * Basis.from_scale(Vector3(fs, 1.0, fs * 0.9))
+		for d: Dictionary in drops:
+			var m: MeshInstance3D = d.m
+			d.t += dt
+			if d.t < 0.0: continue
+			if d.t > float(d.life) or not m.visible:
+				# out again: up off the foam and a little to a side
+				var side := Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5)
+				side -= up * side.dot(up)
+				d.v = up * (0.18 + r.next() * 0.22) + side.normalized() * (0.06 + r.next() * 0.12) - down * 0.05
+				d.life = 0.25 + r.next() * 0.3
+				d.t = 0.0
+				m.position = Vector3.ZERO
+				m.visible = true
+			d.v += down * 2.6 * dt
+			m.position += (d.v as Vector3) * dt
+			var k := 1.0 - float(d.t) / float(d.life)
+			m.scale = Vector3.ONE * float(d.s) * (0.4 + 0.6 * k)
+
+
+## the stream on its rock: from where it left the skull — pouring off it, straight down onto the stone; or still on the
+## bone, running off it — over the rock's surface and flank, splitting into a rivulet or two, each dripping (or
+## pouring) off the stone at its end. rock: [geo, normals] in the root's space, T: the skull's place on it
 static func _stream_on(b: RefCounted, sk: Dictionary, T: Transform3D, rock: Geo, rn: PackedVector3Array) -> void:
 	if not sk.has("stream_end"): return
+	wine = bool(sk.get("wine", false))
 	var se: Array = sk.stream_end
-	var r := Rng32.new(int(sk.skin_seed) + 71)
 	var down := (lean_basis(sk).inverse() * Vector3.DOWN).normalized()
+	var surf := SpecSurf.new()
+	surf.add(rock, rn)
+	var sb: Array = sk.stream_bones
+	for k in (sb[0] as Array).size(): surf.add(sb[0][k], sb[1][k], T)
 	var start := T * (se[0] as Vector3)
-	# from the end on the bone straight down onto the rock below it
-	var run: Array = _flow([rock], [rn], start + down * 0.01, down, 0.022, 70, 0.9)
-	if (run[0] as Array).size() < 3: return
-	var sm := _smooth_run(run[0], run[1], 0.008)
-	var path: Array = sm[0]
-	var ns: Array = sm[1]
-	var n := path.size()
-	# on the rock the water spreads and splits: the main run reaches a little way, then breaks into rivulets that
-	# find their own ways down the stone (each a little off the slope), each dripping from where it leaves the rock
-	var split := maxi(2, int(n * (0.08 + r.next() * 0.1)))
-	var wm := water_mat()
-	var v0 := _sheet(path.slice(0, split + 1), ns.slice(0, split + 1), 0.06, 0.09, float(se[2]), wm, b.root)
-	var dr: Drip = se[3]
-	var at: Vector3 = path[split]
-	var tg := ((path[mini(split + 1, n - 1)] as Vector3) - at).normalized()
-	var nv: Vector3 = ns[split]
-	var side := tg.cross(nv).normalized()
-	var arms := 2 + int(r.next() * 3)
-	var first := true
-	for k in arms:
-		var f := (float(k) / maxf(1.0, arms - 1.0) - 0.5) * 2.0
-		var dir := (tg + side * f * (0.6 + r.next() * 0.4)).normalized()
-		var p0 := at + side * f * 0.035
-		var arm: Array = _flow([rock], [rn], p0 + dir * 0.02, down, 0.02, 60, 0.9, side * f * 3.0 + tg * 0.4)
-		if (arm[0] as Array).size() < 3: continue
-		var asm := _smooth_run(arm[0], arm[1], 0.008)
-		var ap: Array = asm[0]
-		var w := 0.022 + r.next() * 0.02
-		_sheet([at] + ap, [nv] + (asm[1] as Array), w * 1.3, w, v0 + r.next() * 3.0, wm, b.root)
-		# a drip at each arm's end (the stream's own drip moves to the first)
-		var e: Vector3 = ap[ap.size() - 1]
-		var d2 := dr if first else Drip.new()
-		if not first: d2.setup(Rng32.new(int(sk.skin_seed) + 80 + k), down, 0.014, false)
-		if first:
-			d2.reparent(b.root, false)
-			d2.down = down
-		else:
-			b.root.add_child(d2)
-		d2.position = e + down * 0.008
-		first = false
+	var sn := (T.basis * (se[1] as Vector3)).normalized()
+	var old: Drip = se[3]
+	if old:
+		if old.get_parent(): old.get_parent().remove_child(old)
+		old.free()
+	var p := start
+	if se[4]:
+		var h := surf.ray(start + sn * 0.003, down, 0.9)
+		if h.is_empty(): return
+		var dp := []
+		for k in 12: dp.append(start.lerp(h[0], float(k) / 11.0))
+		_curtain(b, dp, sn - down * down.dot(sn), false, fall_mat(1.0))
+		var spl := Splash.new()
+		spl.setup(Rng32.new(int(sk.skin_seed) + 70), h[1], down, FALL_W[1])
+		spl.position = (h[0] as Vector3) + (h[1] as Vector3) * 0.004
+		b.root.add_child(spl)
+		p = h[0]
+	var r := Rng32.new(int(sk.skin_seed) + 71)
+	var res := surf.run(p, down, 0.016, 0.8)
+	if res.is_empty(): return
+	var laid := _lay(b, sk, surf, res, down, Vector3.ZERO, FALL_W[1], FALL_W[1] * 0.8, float(se[2]), 72)
+	_end_of(b, sk, res, down, 80)
+	# a rivulet or two splitting off and finding their own way down the stone
+	var main: Array = laid[0]
+	if main.size() > 10:
+		for k in 1 + int(r.next() * 2):
+			var at: Vector3 = main[int(main.size() * (0.3 + r.next() * 0.35))]
+			var cp := surf.closest(at)
+			if cp.is_empty(): continue
+			var nn: Vector3 = cp[1]
+			var side := down.cross(nn).normalized() * (1.0 if r.next() < 0.5 else -1.0)
+			var r2 := surf.run(at + side * 0.02, down, 0.016, 0.25 + r.next() * 0.2, side * 1.5)
+			if r2.is_empty(): continue
+			_lay(b, sk, surf, r2, down, Vector3.ZERO, FALL_W[1] * 0.5, FALL_W[1] * 0.35, r.next() * 3.0, 90 + k * 10)
+			_end_of(b, sk, r2, down, 81 + k)
+
+## the end of a run on the rock: pouring off its edge into the air, or a drip where it gives out
+static func _end_of(b: RefCounted, sk: Dictionary, res: Dictionary, down: Vector3, sd: int) -> void:
+	var e: Vector3 = (res.end as Array)[0]
+	var en: Vector3 = (res.end as Array)[1]
+	if res.pour:
+		var fp := []
+		for k in 10: fp.append(e + en * 0.004 + down * 0.25 * float(k) / 9.0)
+		_curtain(b, fp, en - down * down.dot(en), true, fall_mat(1.0))
+	else:
+		var d := Drip.new()
+		d.setup(Rng32.new(int(sk.skin_seed) + sd), down, 0.014, false, drop_mat())
+		d.position = e + down * 0.008
+		b.root.add_child(d)
 
 ## a drop gathering at the end of a stream (or of a run of metal), swelling, stretching and letting go, falling and
 ## gone; then a pause, sometimes two drops close together. Water quick and light, metal slow and heavy.
@@ -1630,11 +1907,15 @@ class Drip extends Node3D:
 		drop.mesh = sm
 		if mat: drop.material_override = mat
 		else:
+			# (clear: dark see-through with a bright glint and a lit rim, as the stream — a pale one read as a pearl)
 			var dm := StandardMaterial3D.new()
-			dm.albedo_color = Color(0.8, 0.9, 1.0, 0.45)
+			dm.albedo_color = Color(0.06, 0.08, 0.09, 0.3)
 			dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			dm.roughness = 0.02
 			dm.metallic_specular = 1.0
+			dm.rim_enabled = true
+			dm.rim = 0.8
+			dm.rim_tint = 0.2
 			drop.material_override = dm
 		add_child(drop)
 		phase = 2

@@ -327,6 +327,7 @@ func _ready() -> void:
 				if args.has("crown"): e.crown = args.crown == "1"
 				if args.has("trees"): e.trees = int(args.trees)
 				if args.has("stream"): e.stream = args.stream == "1"
+				if args.has("wine"): e.wine = args.wine == "1"
 				if args.has("roots"): e.roots = args.roots == "1"
 				if args.has("flies"): e.flies = int(args.flies)
 				if args.has("fly_kind"): e.fly_kind = String(args.fly_kind)

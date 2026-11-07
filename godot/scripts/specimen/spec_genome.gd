@@ -137,7 +137,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# a skull's own genes (SpecSkull): its coat, crystals, moss and trees, stream, roots, butterflies
 	if o.get("form", "") == "skull":
 		var sk_o := {}
-		for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal"]:
+		for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine"]:
 			if o.has(k): sk_o[k] = o[k]
 		acc.append_array(SpecSkull.accents(SpecSkull.genes(seed_v, sk_o)))
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
@@ -209,7 +209,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var anomaly := "anomaly" in tr
 	# a skull's own genes pinned from outside (tests, the admin): SpecSkull.genes reads them
 	var skull_o := {}
-	for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal"]:
+	for k in ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees", "flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine"]:
 		if o.has(k): skull_o[k] = o[k]
 	return {
 		skull = skull_o,
