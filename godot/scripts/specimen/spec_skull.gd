@@ -1212,7 +1212,7 @@ static func _earth(b: RefCounted, at: Array, earth_m: Material, n: int) -> void:
 		var nn: Vector3 = q[1]
 		var g := 0.01 + pow(rng.next(), 2.0) * 0.04
 		# (cut as finely, in pixels, as the biggest crumb at 16: a small one needs fewer triangles to look the same)
-		var dt := CRUMB_DETAIL if CRUMB_DETAIL > 0 else clampi(ceili(16.0 * g / 0.05), 5, 16)
+		var dt := CRUMB_DETAIL if CRUMB_DETAIL > 0 else 16 if not SpecUtil.fast else clampi(ceili(16.0 * g / 0.05), 5, 16)
 		U.mesh(RockKit.crumble(rng, g, Vector3(1.3, 0.6, 1.0), dt), earth_m, b.root, p + nn * g * 0.2, Basis(U.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.next() * 6.3))
 
 ## the bone's vertex nearest a point, on the outside of the head

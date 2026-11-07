@@ -100,7 +100,7 @@ static func box_of(top: Node3D) -> AABB:
 	return out
 
 
-## false: finds built as before 7.11 — no batching, the old bone shader (admin "Skull speedups", to measure on a phone)
+## false: finds built as before 7.11 — no batching, the old bone shader, soil crumbs at full detail (admin "Skull speedups", to measure on a phone)
 static var fast := true
 
 ## Many little pieces drawn as few. On a phone every object costs a draw call in each pass (shadows, depth, colour), and a
