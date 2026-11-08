@@ -97,6 +97,45 @@ const CHIPS_MAX := 5
 static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
 static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
 
+## the stone is its species' atlas record (the most valuable ever found, the atlas's picture of it): sold, the page
+## turns grey (Atlas.best_kept)
+static func is_record(s: Dictionary) -> bool:
+	if not s.has("id"): return false
+	var e: Dictionary = Save.d.atlas.get(Stones.atlas_id(s), {})
+	return e.has("best") and int(e.best.id) == int(s.id)
+
+## under the name: a small brass star and "BEST OF ITS KIND" - the one to keep
+static func _record_badge() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 5)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var star := Control.new()
+	star.custom_minimum_size = Vector2(12, 14)
+	star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	star.draw.connect(func():
+		var c := Vector2(6, 7.5)
+		var pts := PackedVector2Array()
+		for k in 10:
+			var an := -PI / 2 + k * PI / 5
+			pts.append(c + Vector2(cos(an), sin(an)) * (6.0 if k % 2 == 0 else 2.6))
+		star.draw_colored_polygon(pts, Kit.AMBER))
+	row.add_child(star)
+	var l := Kit.label("BEST OF ITS KIND", 11, UI.display, Kit.AMBER)
+	l.add_theme_constant_override("outline_size", 0)
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
+	l.add_theme_constant_override("shadow_offset_y", 1)
+	# a little letter spacing over the display face (its weight lives in variation_opentype - copied, or it is lost)
+	var fv := FontVariation.new()
+	if UI.display is FontVariation:
+		fv.base_font = (UI.display as FontVariation).base_font
+		fv.variation_opentype = (UI.display as FontVariation).variation_opentype
+	else:
+		fv.base_font = UI.display
+	fv.spacing_glyph = 1
+	l.add_theme_font_override("font", fv)
+	row.add_child(l)
+	return row
+
 static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close := Callable()) -> SpecView:
 	# the card's own box becomes the info panel's content: the stone goes above it, edge to edge
 	var card := v.get_parent() as PanelContainer
@@ -159,6 +198,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	rule.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	head.add_child(rule)
+	if chips_max == 0 and not s.has("name_as") and is_record(s):
+		head.add_child(_record_badge())
 	view.add_child(head)
 	if on_close.is_valid():
 		var x := thin_close()

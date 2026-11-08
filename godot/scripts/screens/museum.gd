@@ -395,6 +395,13 @@ func _open_uncut() -> void:
 			_open_stone(s)
 			return
 
+## for screenshots: ui=open_record - a stone that is its species' atlas record (the "best of its kind" mark)
+func _open_record() -> void:
+	for s in Save.d.coll:
+		if Reveal.is_record(s):
+			_open_stone(s)
+			return
+
 ## group: the stones of one species in the showcase's order; a sideways swipe over the info panel brings the next one
 ## (the stone itself turns under the finger, so the swipe is taken below it), from: -1 / 1 the side it slides in from
 func _open_stone(s: Dictionary, group := [], from := 0) -> void:
