@@ -656,7 +656,7 @@ func _open_species(id: String) -> void:
 	var e: Dictionary = Save.d.atlas[id]
 	var best: Dictionary = e.best
 	var v := Ov.card(350, Data.rarity_color(int(best.tier)))
-	var view := Reveal.stone_card(v, best, 380, func(): Ov.close())
+	var view := Reveal.stone_card(v, best, 380, func(): Ov.close(), best_kept(id))
 	if FACTS.has(id):
 		var f := Kit.label(FACTS[id], 12, UI.body, Kit.DIM)
 		f.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
