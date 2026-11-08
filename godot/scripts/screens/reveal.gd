@@ -220,9 +220,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	outer.add_child(info)
 	# the panel's brass rim, a layer of its own over the whole card: it rises out of the card's rim on each side,
 	# turns round the panel's rounded corner and runs across its top — one ribbon, no joint
-	# the species' record (its atlas page): a silk bookmark out from under the rim, fluttering as the card opens
+	# the species' record (its atlas page): a silk bookmark tucked into the panel's corner, fluttering as the card
+	# opens; inside the panel, so its rounded clip cuts the ribbon's top, the rim lies over it
 	if mark and chips_max == 0 and not s.has("name_as") and is_record(s):
-		card.add_child(RecordRibbon.make(card, info))
+		info.add_child(RecordRibbon.make(card, info))
 	card.add_child(_info_rim(card, info))
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)
