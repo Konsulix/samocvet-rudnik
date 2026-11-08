@@ -101,10 +101,11 @@ static func brass() -> ImageTexture:
 		along.fractal_octaves = 2
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 88
-		var hi := Color(1.0, 0.95, 0.7)
-		var md := Color(0.98, 0.74, 0.2)
-		var lo := Color(0.7, 0.46, 0.13)
-		var dk := Color(0.16, 0.08, 0.02)
+		# the card frame's own calm brass (sampled from rule.png, the rim's strip): the edging is the same metal as the rim
+		var hi := Color(0.86, 0.8, 0.69)
+		var md := Color(0.63, 0.56, 0.45)
+		var lo := Color(0.34, 0.29, 0.22)
+		var dk := Color(0.06, 0.03, 0.015)
 		var img := Image.create(TW, TH, true, Image.FORMAT_RGBA8)
 		for x in TW:
 			var a := along.get_noise_2d(x, 0.0) * 0.5
