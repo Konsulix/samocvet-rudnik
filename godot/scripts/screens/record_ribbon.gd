@@ -118,15 +118,14 @@ static func brass() -> ImageTexture:
 					var t := (v - 0.2) / 0.73
 					var lit := sin(PI * clampf(t * 1.1, 0.0, 1.0))     # rounded, its crest a little above the middle
 					c = lo.lerp(md, lit).lerp(hi, pow(lit, 6.0) * 0.8)
-					c = c.lerp(lo if a < 0.0 else hi, absf(a) * 0.4)
-					if rng.randf() < 0.012: c = c.lerp(Color.WHITE, 0.5)   # a speck
+					c = c.lerp(lo if a < 0.0 else hi, absf(a) * 0.15)
 				img.set_pixel(x, y, c)
 		img.generate_mipmaps()
 		_brass = ImageTexture.create_from_image(img)
 	return _brass
 
-## a textured strip along `pts` (open), `wd` across: mitred at the corners, u by length (`per` points a repeat)
-func _strip(pts: PackedVector2Array, wd: float, tex: Texture2D, per: float) -> void:
+## the mitred normals of an open line, pointing to its right (for the ribbon's outline: inwards)
+static func _normals(pts: PackedVector2Array) -> PackedVector2Array:
 	var n := pts.size()
 	var nrm := PackedVector2Array()
 	for i in n:
@@ -134,8 +133,14 @@ func _strip(pts: PackedVector2Array, wd: float, tex: Texture2D, per: float) -> v
 		var b := (pts[mini(n - 1, i + 1)] - pts[i]).normalized() if i < n - 1 else Vector2.ZERO
 		var t := (a + b).normalized() if (a + b).length() > 0.001 else b if b != Vector2.ZERO else a
 		var o := t.orthogonal()
-		var mit := 1.0 / maxf(o.dot(a.orthogonal() if a != Vector2.ZERO else o), 0.45)
+		var mit := 1.0 / maxf(o.dot(a.orthogonal() if a != Vector2.ZERO else o), 0.7)   # the swallowtail's sharp corners: no long spurs
 		nrm.append(o * mit)
+	return nrm
+
+## a textured strip along `pts` (open), `wd` across: mitred at the corners, u by length (`per` points a repeat)
+func _strip(pts: PackedVector2Array, wd: float, tex: Texture2D, per: float) -> void:
+	var n := pts.size()
+	var nrm := _normals(pts)
 	var u := 0.0
 	var white := Color.WHITE
 	for i in n - 1:
@@ -206,12 +211,20 @@ func _draw() -> void:
 	for i in N + 1: outline.append(cols[0][i])
 	outline.append(cols[2][N])     # the swallowtail: its two straight cuts, no points between (they kinked the edging)
 	for i in range(N, -1, -1): outline.append(cols[ACROSS.size() - 1][i])
-	# a soft shadow on the slate, down and to the left
-	for k in 3:
-		var off := Vector2(-0.8 - k * 0.9, 1.6 + k * 1.3)
-		var sh := PackedVector2Array()
-		for p in outline: sh.append(p + off)
-		draw_colored_polygon(sh, Color(0, 0, 0, 0.16))
+	# a soft shadow on the slate, down and to the left: the shape a little shrunk, then a fringe fading out round it
+	# (stacked hard-edged copies stair-stepped under the swallowtail)
+	var off := Vector2(-1.6, 3.0)
+	var sh := PackedVector2Array()
+	for p in outline: sh.append(p + off)
+	var shade := Color(0, 0, 0, 0.42)
+	var nrm := _normals(sh)
+	var core := PackedVector2Array()
+	for i in sh.size(): core.append(sh[i] + nrm[i] * 0.8)
+	draw_colored_polygon(core, shade)
+	var gone := Color(0, 0, 0, 0)
+	for i in sh.size() - 1:
+		draw_primitive(PackedVector2Array([core[i], core[i + 1], sh[i + 1] - nrm[i + 1] * 2.6, sh[i] - nrm[i] * 2.6]),
+			PackedColorArray([shade, shade, gone, gone]), PackedVector2Array())
 	# the silk
 	var tex := silk()
 	for i in N:
