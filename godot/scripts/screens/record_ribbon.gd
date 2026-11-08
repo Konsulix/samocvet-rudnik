@@ -17,11 +17,10 @@ const RUN := 2.2         # then the flutter, settling
 const WREATH_PT := 16.0  # the wreath, across
 
 # the silk, sRGB (the reference: a deep wine, darker up under the rim, a soft sheen a third of the way across)
-const SILK := Color(0.35, 0.055, 0.07)
-const SILK_DARK := Color(0.13, 0.018, 0.026)
-const SILK_SHEEN := Color(0.47, 0.095, 0.11)
-const EDGE := Color(0.86, 0.66, 0.33)
-const EDGE_DARK := Color(0.30, 0.17, 0.06)
+const SILK := Color(0.39, 0.06, 0.077)        # (the silk texture is ~SILK_K grey: these are /0.82)
+const SILK_DARK := Color(0.16, 0.022, 0.032)
+const SILK_SHEEN := Color(0.52, 0.105, 0.125)
+const EDGE_W := 1.8      # the brass edging, across
 
 var card: Control
 var info: Control
@@ -46,27 +45,113 @@ func _process(dt: float) -> void:
 	queue_redraw()
 	if _t > RUN: set_process(false)
 
-## the silk's weave, once: a faint satin - threads along the ribbon, a little unevenness (grey: the colour is the vertices')
-static func weave() -> ImageTexture:
+## the silk, once, over the whole ribbon (u across 0..1, v down 0..1): soft creases - wandering lines, each a dark
+## fold with a lit edge above it, as in the reference - over a mottled ground and fine threads along it. Grey around
+## SILK_K: the colour is the vertices', the texture only lights and shades it
+const SILK_K := 0.82
+static func silk() -> ImageTexture:
 	if _weave == null:
-		var S := 32
-		var img := Image.create(S, S, true, Image.FORMAT_RGBA8)
+		const TW := 80
+		const TH := 188
+		var folds := FastNoiseLite.new()
+		folds.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		folds.seed = 41
+		folds.frequency = 0.022
+		folds.fractal_octaves = 1
+		folds.domain_warp_enabled = true
+		folds.domain_warp_amplitude = 7.0
+		folds.domain_warp_frequency = 0.012
+		var mottle := FastNoiseLite.new()
+		mottle.seed = 7
+		mottle.frequency = 0.045
+		mottle.fractal_octaves = 3
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 731
-		var col := []
-		for x in S: col.append(rng.randf())
-		for y in S:
-			for x in S:
-				var v := 0.95
-				if x % 2 == 0: v += 0.025                 # warp threads, along the ribbon
-				if (x + y) % 6 < 2: v -= 0.035  # a faint diagonal twill
-				if (x + 3 * y) % 8 == 0: v -= 0.02        # the satin's sparse binding points
-				v += (float(col[x]) - 0.5) * 0.04         # a thread a touch thicker here and there
-				v += (rng.randf() - 0.5) * 0.025
+		var thread := []
+		for x in TW: thread.append(rng.randf() - 0.5)
+		var crease := func(x: float, y: float) -> float:
+			var w := Vector2(x, y * 0.8)        # the folds run a little more along the ribbon than across
+			var n := folds.get_noise_2d(w.x, w.y)
+			return 1.0 - smoothstep(0.02, 0.16, absf(n))
+		var img := Image.create(TW, TH, true, Image.FORMAT_RGBA8)
+		for y in TH:
+			for x in TW:
+				var v := SILK_K
+				v += mottle.get_noise_2d(x, y) * 0.07
+				v -= float(crease.call(x, y)) * 0.24                     # the fold
+				v += float(crease.call(x + 2.0, y + 2.0)) * 0.14         # its lit edge, up and to the left
+				v += float(thread[x]) * 0.035 + (rng.randf() - 0.5) * 0.03
 				img.set_pixel(x, y, Color(v, v, v))
 		img.generate_mipmaps()
 		_weave = ImageTexture.create_from_image(img)
 	return _weave
+
+## the brass edging, once: a strip (u along, repeating; v across 0..1): a dark line each side, a rounded gilt bead
+## between, lit a little above its middle; along it the metal is uneven - brighter and duller stretches, small dark
+## pits, a few bright specks (the reference's edging is worked brass, not a flat line)
+static var _brass: ImageTexture
+static func brass() -> ImageTexture:
+	if _brass == null:
+		const TW := 192
+		const TH := 16
+		var along := FastNoiseLite.new()
+		along.seed = 19
+		along.frequency = 0.05
+		along.fractal_octaves = 3
+		var pits := FastNoiseLite.new()
+		pits.noise_type = FastNoiseLite.TYPE_CELLULAR
+		pits.seed = 5
+		pits.frequency = 0.16
+		pits.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 88
+		var hi := Color(1.0, 0.95, 0.7)
+		var md := Color(0.98, 0.74, 0.2)
+		var lo := Color(0.7, 0.46, 0.13)
+		var dk := Color(0.16, 0.08, 0.02)
+		var img := Image.create(TW, TH, true, Image.FORMAT_RGBA8)
+		for x in TW:
+			var a := along.get_noise_2d(x, 0.0) * 0.5
+			for y in TH:
+				var v := (y + 0.5) / TH
+				var c: Color
+				if v < 0.2 or v > 0.93:   # v 0 is the outer side (the strip runs round with its inside on the +normal)
+					c = dk
+				else:
+					var t := (v - 0.2) / 0.73
+					var lit := sin(PI * clampf(t * 1.1, 0.0, 1.0))     # rounded, its crest a little above the middle
+					c = lo.lerp(md, lit).lerp(hi, pow(lit, 6.0) * 0.8)
+					c = c.lerp(lo if a < 0.0 else hi, absf(a) * 0.4)
+					var p := pits.get_noise_2d(x * 1.0, y * 2.0)
+					if p < -0.82: c = c.lerp(lo, 0.55)                  # a pit
+					if rng.randf() < 0.012: c = c.lerp(Color.WHITE, 0.5)   # a speck
+				img.set_pixel(x, y, c)
+		img.generate_mipmaps()
+		_brass = ImageTexture.create_from_image(img)
+	return _brass
+
+## a textured strip along `pts` (open), `wd` across: mitred at the corners, u by length (`per` points a repeat)
+func _strip(pts: PackedVector2Array, wd: float, tex: Texture2D, per: float) -> void:
+	var n := pts.size()
+	var nrm := PackedVector2Array()
+	for i in n:
+		var a := (pts[i] - pts[maxi(0, i - 1)]).normalized() if i > 0 else Vector2.ZERO
+		var b := (pts[mini(n - 1, i + 1)] - pts[i]).normalized() if i < n - 1 else Vector2.ZERO
+		var t := (a + b).normalized() if (a + b).length() > 0.001 else b if b != Vector2.ZERO else a
+		var o := t.orthogonal()
+		var mit := 1.0 / maxf(o.dot(a.orthogonal() if a != Vector2.ZERO else o), 0.45)
+		nrm.append(o * mit)
+	var u := 0.0
+	var white := Color.WHITE
+	for i in n - 1:
+		var seg := pts[i].distance_to(pts[i + 1])
+		var u1 := u + seg / per
+		var p0 := pts[i]
+		var p1 := pts[i + 1]
+		draw_primitive(PackedVector2Array([p0 - nrm[i] * wd / 2.0, p1 - nrm[i + 1] * wd / 2.0, p1 + nrm[i + 1] * wd / 2.0, p0 + nrm[i] * wd / 2.0]),
+			PackedColorArray([white, white, white, white]),
+			PackedVector2Array([Vector2(u, 0.0), Vector2(u1, 0.0), Vector2(u1, 1.0), Vector2(u, 1.0)]), tex)
+		u = u1
 
 ## where the ribbon's middle line is at a share `s` (0 top .. 1 tip) of its length
 func _line(s: float) -> Vector2:
@@ -124,7 +209,7 @@ func _draw() -> void:
 		for p in outline: sh.append(p + off)
 		draw_colored_polygon(sh, Color(0, 0, 0, 0.16))
 	# the silk
-	var tex := weave()
+	var tex := silk()
 	for i in N:
 		for c in ACROSS.size() - 1:
 			var q: PackedVector2Array = cols[c]
@@ -135,16 +220,10 @@ func _draw() -> void:
 			for k in 4:
 				var cc := c if k < 2 else c + 1
 				var row := i if k == 0 or k == 3 else i + 1
-				uv.append(Vector2((float(ACROSS[cc]) + 0.5) * W / 10.0, row * (L / N) / 10.0))
+				uv.append(Vector2(float(ACROSS[cc]) + 0.5, float(row) / N))
 			draw_primitive(pts, cl, uv, tex)
-	# the brass edging down both sides and round the swallowtail: a dark line outside, the brass inside it, a glint
-	# on the left side
-	var edge := outline
-	draw_polyline(edge, EDGE_DARK, 2.3, true)
-	draw_polyline(edge, EDGE, 1.15, true)
-	var lit := PackedVector2Array()
-	for i in range(2, N - 2): lit.append(cols[0][i] + (cols[1][i] - cols[0][i]).normalized() * 0.5)
-	draw_polyline(lit, Color(1.0, 0.9, 0.7, 0.35), 0.6, true)
+	# the worked brass edging down both sides and round the swallowtail, on the silk's edge
+	_strip(outline, EDGE_W, brass(), 40.0)    # ~as many texels along as across: no muddy mipmap
 	# the laurel near the end, turning with the silk
 	var at := int(round(N * (1.0 - (NOTCH + 10.5) / L)))
 	var tilt := -atan(lean[at])
