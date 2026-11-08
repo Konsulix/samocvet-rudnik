@@ -20,7 +20,8 @@ const WREATH_PT := 16.0  # the wreath, across
 const SILK := Color(0.39, 0.06, 0.077)        # (the silk texture is ~SILK_K grey: these are /0.82)
 const SILK_DARK := Color(0.16, 0.022, 0.032)
 const SILK_SHEEN := Color(0.52, 0.105, 0.125)
-const EDGE_W := 1.8      # the brass edging, across
+const EDGE_W := 1.6      # the brass edging, across
+const FRINGE := 0.45     # its soft edge (a screen pixel or so on the phone)
 
 var card: Control
 var info: Control
@@ -88,7 +89,7 @@ static func silk() -> ImageTexture:
 
 ## the brass edging, once: a strip (u along, repeating; v across 0..1): a dark line each side, a rounded gilt bead
 ## between, lit a little above its middle; along it the metal is uneven - brighter and duller stretches, small dark
-## pits, a few bright specks (the reference's edging is worked brass, not a flat line)
+## a few bright specks (the reference's edging is worked brass, not a flat line)
 static var _brass: ImageTexture
 static func brass() -> ImageTexture:
 	if _brass == null:
@@ -97,12 +98,7 @@ static func brass() -> ImageTexture:
 		var along := FastNoiseLite.new()
 		along.seed = 19
 		along.frequency = 0.05
-		along.fractal_octaves = 3
-		var pits := FastNoiseLite.new()
-		pits.noise_type = FastNoiseLite.TYPE_CELLULAR
-		pits.seed = 5
-		pits.frequency = 0.16
-		pits.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+		along.fractal_octaves = 2
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 88
 		var hi := Color(1.0, 0.95, 0.7)
@@ -122,8 +118,6 @@ static func brass() -> ImageTexture:
 					var lit := sin(PI * clampf(t * 1.1, 0.0, 1.0))     # rounded, its crest a little above the middle
 					c = lo.lerp(md, lit).lerp(hi, pow(lit, 6.0) * 0.8)
 					c = c.lerp(lo if a < 0.0 else hi, absf(a) * 0.4)
-					var p := pits.get_noise_2d(x * 1.0, y * 2.0)
-					if p < -0.82: c = c.lerp(lo, 0.55)                  # a pit
 					if rng.randf() < 0.012: c = c.lerp(Color.WHITE, 0.5)   # a speck
 				img.set_pixel(x, y, c)
 		img.generate_mipmaps()
@@ -148,9 +142,18 @@ func _strip(pts: PackedVector2Array, wd: float, tex: Texture2D, per: float) -> v
 		var u1 := u + seg / per
 		var p0 := pts[i]
 		var p1 := pts[i + 1]
-		draw_primitive(PackedVector2Array([p0 - nrm[i] * wd / 2.0, p1 - nrm[i + 1] * wd / 2.0, p1 + nrm[i + 1] * wd / 2.0, p0 + nrm[i] * wd / 2.0]),
+		var h := wd / 2.0
+		draw_primitive(PackedVector2Array([p0 - nrm[i] * h, p1 - nrm[i + 1] * h, p1 + nrm[i + 1] * h, p0 + nrm[i] * h]),
 			PackedColorArray([white, white, white, white]),
 			PackedVector2Array([Vector2(u, 0.0), Vector2(u1, 0.0), Vector2(u1, 1.0), Vector2(u, 1.0)]), tex)
+		# a soft fringe on each side, fading out: quads are not antialiased, and a diagonal edge stair-stepped
+		# into little notches along the swallowtail
+		var clear := Color(1, 1, 1, 0)
+		for sd: float in [-1.0, 1.0]:
+			var v := 0.0 if sd < 0.0 else 1.0
+			draw_primitive(PackedVector2Array([p0 + nrm[i] * h * sd, p1 + nrm[i + 1] * h * sd, p1 + nrm[i + 1] * (h + FRINGE) * sd, p0 + nrm[i] * (h + FRINGE) * sd]),
+				PackedColorArray([white, white, clear, clear]),
+				PackedVector2Array([Vector2(u, v), Vector2(u1, v), Vector2(u1, v), Vector2(u, v)]), tex)
 		u = u1
 
 ## where the ribbon's middle line is at a share `s` (0 top .. 1 tip) of its length
@@ -200,7 +203,7 @@ func _draw() -> void:
 			cols[c] = col_pts
 	var outline := PackedVector2Array()
 	for i in N + 1: outline.append(cols[0][i])
-	for c in range(1, ACROSS.size()): outline.append(cols[c][N])
+	outline.append(cols[2][N])     # the swallowtail: its two straight cuts, no points between (they kinked the edging)
 	for i in range(N, -1, -1): outline.append(cols[ACROSS.size() - 1][i])
 	# a soft shadow on the slate, down and to the left
 	for k in 3:
