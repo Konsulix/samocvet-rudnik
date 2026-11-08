@@ -12,6 +12,7 @@ signal replay(a: int)
 
 ## which screen opens: -1 the mines, N a mine; -2 decides (straight into the mine while only one is open)
 static var start_area := -2
+static var BOARD := true   # the mines as one board of islands (AtlasBoard); false: the old list of banners
 ## a banner's width to its height
 const BANNER_K := 3.9
 
@@ -134,6 +135,14 @@ func render() -> void:
 	col.add_theme_constant_override("separation", 8)
 	pad.add_child(col)
 	col.add_child(Chrome.top_bar())
+	if area < 0 and BOARD:
+		# the atlas as one board of islands (AtlasBoard), full width between the bars
+		pad.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var bd := AtlasBoard.new(self)
+		bd.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		root.add_child(bd)
+		root.add_child(Chrome.nav_bar("atlas", func(id: String): go.emit(id)))
+		return
 	scroll = UI.scroller()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(scroll)
@@ -693,6 +702,18 @@ func _open_species(id: String) -> void:
 		Ov.close()
 		go.emit("museum"))
 	v.add_child(inv)
+
+## for screenshots: ui=board_all shows the whole board of islands
+func _board_all() -> void:
+	for ch in get_children():
+		for b in ch.get_children():
+			if b is AtlasBoard: b.overview()
+
+## for screenshots: ui=board_home flies into the player's mine
+func _board_home() -> void:
+	for ch in get_children():
+		for b in ch.get_children():
+			if b is AtlasBoard: b.home()
 
 ## for screenshots: ui=replay_first fights the first mine's boss again
 func _replay_first() -> void:
