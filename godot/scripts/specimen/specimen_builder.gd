@@ -521,7 +521,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var look_b := SpecLooks.of(sid)
 			if sid == "jadeite": main = _jade(col, use_rock, st, gs)
 			elif sid == "carnelian": main = _pebble(sid, col, look_b.get("opaque", {}))
-			elif sid == "flintstone": main = _flint(col)
+			elif sid == "flintstone": main = _flint(col, crystal)
 			elif sid == "hyalite": main = _beads(col, use_rock, st, gs)
 			elif sid == "opal": main = _opal_seam(col, use_rock, st, gs, seed_v)
 			else: _botryoid(sid, col, irk)
@@ -1404,11 +1404,28 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(col, 0.6))
 	return rk
 
-# a septarian nodule sawn in half (F18): grey-brown clay crazed into cells by golden calcite veins, a dark crack
-# opening at its heart where the species' crystals stand — "dragon stone"
+const FACE := preload("res://shaders/face.gdshader")
+
+## the face shader (shaders/face.gdshader) set to a face's own plane
+func _face_mat(mode: int, fc: Vector3, n: Vector3, r: float) -> ShaderMaterial:
+	var t1 := n.cross(UP if absf(n.y) < 0.95 else Vector3.RIGHT).normalized()
+	var m := ShaderMaterial.new()
+	m.shader = FACE
+	m.set_shader_parameter("mode", mode)
+	m.set_shader_parameter("face_c", fc)
+	m.set_shader_parameter("face_t1", t1)
+	m.set_shader_parameter("face_t2", n.cross(t1))
+	m.set_shader_parameter("face_r", maxf(r, 0.01))
+	m.set_shader_parameter("face_n", n)
+	m.set_shader_parameter("face_d", fc.dot(n))
+	m.set_shader_parameter("seed", rng.next() * 50.0)
+	return m
+
+# a septarian nodule sawn in half (F18): clay cells crazed by golden calcite veins — drawn pixel by pixel in the face
+# shader — and a dark crack at its heart where the species' crystals stand: "dragon stone"
 func _septaria(crystal: Callable) -> MeshInstance3D:
 	var L := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.05, wave = 0.12, k = 80.0,
-		bumps = [[8, 0.8, 0.12], [30, 0.3, 0.05]], seg = 190})
+		bumps = [[8, 0.8, 0.12], [30, 0.3, 0.05]], seg = 110})
 	var g: Geo = L[0]
 	var cav: PackedFloat32Array = L[1]
 	g.col.resize(g.v.size())
@@ -1417,150 +1434,90 @@ func _septaria(crystal: Callable) -> MeshInstance3D:
 	for v in g.v: mx = maxf(mx, v.dot(n))
 	var off := mx * (0.05 + rng.next() * 0.2)
 	var on := _saw(g, Vector3.ZERO, n * off, n)
-	var t1 := n.cross(UP if absf(n.y) < 0.95 else Vector3.RIGHT).normalized()
-	var t2 := n.cross(t1)
 	var fc := n * off
 	var rmax := 0.0
 	for i in g.v.size():
 		if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
-	# the cells: points scattered over the face, the veins along the borders between them
-	var pts := []
-	for k in 9 + int(rng.next() * 7):
-		var a := rng.next() * TAU
-		var rr := sqrt(rng.next()) * rmax * 0.95
-		pts.append(Vector2(cos(a), sin(a)) * rr)
-	var clay := SpecMat.lin(0x7a6a58)
-	var clay2 := SpecMat.lin(0x2e2620)
-	var gold := SpecMat.lin(0xe0a83a)
-	var rim := SpecMat.lin(0x7a5420)
-	var hole := rmax * (0.16 + rng.next() * 0.1)
+	var hole := rmax * (0.14 + rng.next() * 0.08)
 	var spots := []
 	for i in g.v.size():
 		if on[i] != 1:
-			var c := cav[i] if cav.size() > i else 0.5
-			g.col[i] = SpecMat.lin(0x8a7c6c) * (1.0 - 0.4 * c)
+			g.col[i] = Color(0.0, cav[i] if cav.size() > i else 0.5, 0.0, 1.0)
 			continue
-		var q := g.v[i] - fc
-		var uv := Vector2(q.dot(t1), q.dot(t2))
-		var d1 := INF
-		var d2 := INF
-		for pp: Vector2 in pts:
-			var d := uv.distance_to(pp)
-			if d < d1:
-				d2 = d1
-				d1 = d
-			elif d < d2: d2 = d
-		# veins widen towards the middle, where the nodule shrank most
-		var r := uv.length() / rmax
-		var w := rmax * (0.012 + 0.03 * (1.0 - r))
-		var e := d2 - d1
-		var vein := 1.0 - smoothstep(w * 0.6, w, e)
-		var edge := 1.0 - smoothstep(w, w * 1.6, e)
-		# (each cell its own shade of clay, darker towards its veins)
-		var cell := fposmod(sin(d1 * 0.0 + float(pts.find(_nearest(uv, pts))) * 12.9898) * 43758.5453, 1.0)
-		var soft := 0.5 + 0.5 * sin(uv.x * 7.0 + sin(uv.y * 5.0) * 1.5) * sin(uv.y * 6.0 - uv.x * 3.0)
-		var c0 := clay.lerp(clay2, clampf(cell * 0.55 + soft * 0.25 + edge * 0.35, 0.0, 1.0))
-		g.col[i] = c0.lerp(rim, edge * 0.7).lerp(gold, vein)
-		# the crack at its heart, sunk in and dark, crystals in it
-		if uv.length() < hole:
-			var k2 := 1.0 - pow(uv.length() / hole, 2.0)
-			g.v[i] -= n * rmax * 0.18 * k2
-			g.col[i] = SpecMat.lin(0x2a1e14).lerp(gold, 0.25)
+		var rr := (g.v[i] - fc).length()
+		var hk := 1.0 - smoothstep(hole * 0.75, hole, rr)
+		if rr < hole:
+			g.v[i] -= n * rmax * 0.16 * (1.0 - pow(rr / hole, 2.0))
 			spots.append(g.v[i])
-	var parts := _split(g, on)
-	var face := SpecMat.make({col = Color(1, 1, 1), rough = 0.2, coat = 0.8, coat_r = 0.06, env = 1.3, grain = 0.03})
-	var skin := SpecMat.make({col = Color(1, 1, 1), rough = 0.92, grain = 0.4, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0x8a7a66), fr = 0.0, scan = 1}})
-	skin.set_meta("rock", true)
-	var main := U.mesh(parts[1], skin, root)
-	U.mesh(parts[0], face, root)
+		g.col[i] = Color(1.0, rr / rmax, hk, 1.0)
+	var face := _face_mat(0, fc, n, rmax)
+	face.set_shader_parameter("scan", load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg"))
+	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(1, "diff"))
+	face.set_shader_parameter("c_rind", Color(0.5, 0.4, 0.3))
+	var main := U.mesh(g, face, root)
 	# the crystals in the crack, standing out of it towards the viewer
-	for k in mini(spots.size(), 5 + int(rng.next() * 6)):
+	for k in mini(spots.size(), 5 + int(rng.next() * 5)):
 		var p: Vector3 = spots[int(rng.next() * spots.size())]
-		crystal.call(0.2 + rng.next() * 0.2, 0.35 + rng.next() * 0.25, p - n * 0.02, (n + _rv() * 0.7).normalized())
+		crystal.call(0.22 + rng.next() * 0.22, 0.4 + rng.next() * 0.25, p - n * 0.02, (n + _rv() * 0.7).normalized())
 	return main
 
-static func _nearest(uv: Vector2, pts: Array) -> Vector2:
-	var best: Vector2 = pts[0]
-	for pp: Vector2 in pts:
-		if uv.distance_squared_to(pp) < uv.distance_squared_to(best): best = pp
-	return best
-
-# a flint nodule out of the chalk, broken open (F11): a knobbly lump in a white chalky rind, the break black and
-# glassy with conchoidal ripples spreading from where the blow fell
-func _flint(col: Color) -> MeshInstance3D:
+# a flint nodule out of the chalk, broken open (F11): a knobbly lump in its white chalk rind (the limestone scan), the
+# break glassy black, conchoidal rings in the light (face shader); half of them hollow, a cave of real quartz crystals
+func _flint(col: Color, crystal: Callable) -> MeshInstance3D:
 	var L := RockKit.lump(rng, {r = 0.55, sx = 1.35 + rng.next() * 0.25, sy = 0.8, sz = 1.0, wave = 0.25, k = 120.0,
-		bumps = [[9, 0.7, 0.3], [40, 0.25, 0.1]], seg = 96})
+		bumps = [[9, 0.7, 0.3], [40, 0.25, 0.1]], seg = 150})
 	var g: Geo = L[0]
 	var cav: PackedFloat32Array = L[1]
 	g.col.resize(g.v.size())
-	# (only a cap knocked off, so the chalk rind is most of what shows; the blow fell near the rim of the break)
 	var n := (VIEW_DIR + UP * 0.9 + Vector3((rng.next() - 0.5) * 0.5, 0, 0)).normalized()
 	var mx := -INF
 	for v in g.v: mx = maxf(mx, v.dot(n))
-	var off := mx * (0.6 + rng.next() * 0.15)
-	var t1 := n.cross(UP if absf(n.y) < 0.95 else Vector3.RIGHT).normalized()
-	var a0 := rng.next() * TAU
-	var hit := n * off + (t1 * cos(a0) + n.cross(t1) * sin(a0)) * mx * 0.55
-	var bc := col
-	bc.a = 1.0
-	var chalk := SpecMat.lin(0xe6e0d0)
-	var rind := SpecMat.lin(0x8a8478)
-	var on := PackedByteArray()
-	on.resize(g.v.size())
+	var off := mx * (0.55 + rng.next() * 0.15)
+	var on := _saw(g, Vector3.ZERO, n * off, n)
+	var fc := Vector3.ZERO
+	var nf := 0
 	for i in g.v.size():
-		var d := g.v[i].dot(n) - off
-		if d > 0.0:
-			var q := g.v[i] - n * d
-			var rr := q.distance_to(hit)
-			q += n * (sin(rr * 34.0 + sin(rr * 9.0)) * 0.005 * exp(-rr * 2.0) - rr * rr * 0.04)
-			g.v[i] = q
-			on[i] = 1
-			# black at the heart, going grey-brown and cloudy towards the white rind (flint's translucent edge)
-			var edge := clampf((q - n * off).length() / (mx * 0.75), 0.0, 1.0)
-			var mot := 0.85 + 0.3 * sin(q.x * 23.0 + sin(q.z * 17.0) * 2.0) * sin(q.y * 19.0 - q.x * 7.0)
-			g.col[i] = bc.lerp(SpecMat.lin(0x6a6258), pow(edge, 4.0) * 0.45) * mot * (1.0 + 0.4 * exp(-rr * 6.0))
-		else:
-			var c := cav[i] if cav.size() > i else 0.5
-			g.col[i] = rind.lerp(chalk * (1.0 - 0.35 * c), clampf(-d / 0.07, 0.0, 1.0))
-	# half the nodules are hollow: the break opens on a cave lined with sparkling quartz (a flint geode)
-	var druse := []
-	if rng.next() < 0.5:
-		var fc := Vector3.ZERO
-		var nf := 0
-		for i in g.v.size():
-			if on[i] == 1:
-				fc += g.v[i]
-				nf += 1
-		fc /= maxf(1.0, float(nf))
-		var rmax := 0.0
-		for i in g.v.size():
-			if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
-		var R := rmax * (0.42 + rng.next() * 0.15)
-		var dep := R * (0.55 + rng.next() * 0.3)
-		for i in g.v.size():
-			if on[i] != 1: continue
-			var rr := (g.v[i] - fc).length() / R
-			if rr < 1.0:
-				g.v[i] -= n * dep * (1.0 - rr * rr)
-				# the lining: grey-white chalcedony under the crystals, a dark band where it meets the black
-				g.col[i] = SpecMat.lin(0xb8bcc4) * (0.7 + 0.3 * rr) if rr < 0.92 else SpecMat.lin(0x2a2c34)
-				if rr < 0.95: druse.append(g.v[i])
-	var parts := _split(g, on)
-	var face := SpecMat.make({col = Color(1, 1, 1), rough = 0.14, coat = 0.9, coat_r = 0.03, env = 0.9, grain = 0.02})
-	if druse.size():
-		var qm := SpecMat.make({col = Color(1, 1, 1), glass = true, thick = 2.0, flat = true, holo = 0.4, seed = 3.0})
-		var cnt := mini(420, druse.size() * 3)
-		var place := func(k: int) -> Array:
-			var pp: Vector3 = druse[int(rng.next() * druse.size())]
-			var s := 0.016 + pow(rng.next(), 2.0) * 0.04
-			var up := (n + _rv() * 0.9).normalized()
-			return [Transform3D(Basis(quat_to_l(UP, up)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(Vector3(s, s * 1.8, s)), pp + up * s * 0.6), Color(1, 1, 1)]
-		U.inst(Geo.octa(1), qm, cnt, place, root)
-	# the chalk rind: the limestone scan, white and pitted
-	var skin := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xe4ddcc), fr = 0.0, scan = 0}})
-	skin.set_meta("rock", true)
-	var main := U.mesh(parts[1], skin, root)
-	U.mesh(parts[0], face, root)
+		if on[i] == 1:
+			fc += g.v[i]
+			nf += 1
+	fc /= maxf(1.0, float(nf))
+	var rmax := 0.0
+	for i in g.v.size():
+		if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
+	var hollow := rng.next() < 0.5
+	var R := rmax * (0.4 + rng.next() * 0.15)
+	var dep := R * (0.6 + rng.next() * 0.3)
+	var lining := []
+	var chalk := SpecMat.lin(0xe6e0d0)
+	for i in g.v.size():
+		if on[i] != 1:
+			g.col[i] = Color(0.0, cav[i] if cav.size() > i else 0.5, 0.0, 1.0)
+			continue
+		var rr := (g.v[i] - fc).length()
+		var hk := 0.0
+		if hollow and rr < R:
+			var t := rr / R
+			g.v[i] -= n * dep * (1.0 - t * t)
+			hk = 1.0 - smoothstep(0.8, 1.0, t)
+			if t < 0.85: lining.append(g.v[i])
+		g.col[i] = Color(1.0, clampf(rr / rmax, 0.0, 1.0), hk, 1.0)
+	var face := _face_mat(1, fc, n, rmax)
+	var bc := col
+	face.set_shader_parameter("c_a", Vector3(bc.r, bc.g, bc.b) * 0.6)
+	face.set_shader_parameter("c_b", Vector3(0.16, 0.18, 0.22))
+	var a0 := rng.next() * TAU
+	face.set_shader_parameter("hit", Vector2(cos(a0), sin(a0)) * (0.6 + rng.next() * 0.3))
+	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(0, "diff"))
+	face.set_shader_parameter("c_rind", Color(chalk.r, chalk.g, chalk.b).linear_to_srgb())
+	var main := U.mesh(g, face, root)
+	if lining.size():
+		# the geode inside: real quartz points of every size, clear glass, pointing out of the cave
+		var qm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.25, rf = 0.3, thick = 1.2, frost = 0.04, holo = 0.15, seed = 5.0, prio = 2})
+		for k in 18 + int(rng.next() * 14):
+			var p: Vector3 = lining[int(rng.next() * lining.size())]
+			var out := (n * 1.2 + (fc - p).normalized() * 0.0 + _rv() * 0.9).normalized()
+			var f := pow(rng.next(), 1.8)
+			crystal.call(0.12 + f * 0.22, 0.18 + f * 0.2, p - out * 0.01, out, {habit = "prism", blunt = false}, qm)
 	return main
 
 # hyalite (F14): glassy beads and drops of water-clear opal over a dark rock, clustered, glowing green
