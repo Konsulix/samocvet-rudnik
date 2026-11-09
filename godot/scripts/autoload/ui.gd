@@ -61,8 +61,9 @@ func _insets() -> Vector2:
 	return Vector2(maxf(0.0, sa.position.y) * k, maxf(0.0, win.y - sa.end.y) * k)
 
 ## a scroll area for touch: dragged with the finger, no desktop-style scroll bars
+## a list that scrolls under the finger from anywhere on it, rows and buttons included (DragScroll)
 func scroller(horizontal := false) -> ScrollContainer:
-	var sc := ScrollContainer.new()
+	var sc := DragScroll.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if horizontal else ScrollContainer.SCROLL_MODE_DISABLED
 	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if horizontal else ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	return sc

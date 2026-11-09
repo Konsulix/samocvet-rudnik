@@ -640,7 +640,7 @@ func _sheet(e: Dictionary) -> void:
 	bx.content_margin_bottom = 22
 	p.add_theme_stylebox_override("panel", bx)
 	p.custom_minimum_size = Vector2(w, 0)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.mouse_filter = Control.MOUSE_FILTER_STOP   # a tap on the sheet itself keeps it open
 	lay.add_child(p)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -694,9 +694,16 @@ func _sheet(e: Dictionary) -> void:
 		v.add_child(b)
 	await get_tree().process_frame
 	p.position = (size - p.size) / 2.0
-	lay.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
-		Sfx.play("tab")
-		lay.queue_free())
+	# closed by the ✕ in its corner or by a tap anywhere outside it
+	var close := func() -> void:
+		if not lay.is_queued_for_deletion():
+			Sfx.play("tab")
+			lay.queue_free()
+	var x := Kit.icon_button("close", 34)
+	x.position = p.position + Vector2(p.size.x - 34 - 10, 10)
+	x.pressed.connect(close)
+	lay.add_child(x)
+	dim.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev): close.call())
 
 ## a ready achievement: the seal is stamped (prototype: just the toast and the seal)
 func _claim(e: Dictionary) -> void:
