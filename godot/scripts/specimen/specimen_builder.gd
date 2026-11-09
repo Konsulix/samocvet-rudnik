@@ -229,6 +229,11 @@ func _specimen(o: Dictionary) -> Node3D:
 	var st := {rocky = false, pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
 		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = [], agate = look.get("agate", [])}
 	var stria := 1.0 if elongated else 0.0
+	# the species' own striations (SpecLooks stria: [strength, mode]) — across quartz, along the beryls, crossed on pyrite
+	var st_mode := 0.0
+	if look.has("stria"):
+		stria = float(look.stria[0])
+		st_mode = float(look.stria[1])
 	var cmat_spec := func() -> Dictionary:
 		var irk2: float = st.irk
 		if metal:
@@ -236,17 +241,17 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (hematite: dark steel — SpecLooks metal_col)
 			if look.has("metal_col"):
 				# hematite's steel: darker, less mirror, its tarnish a rainbow in patches
-				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = 0.4, dirt = dt, prio = 2}
-			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
+				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = stria if look.has("stria") else 0.4, st_mode = st_mode, dirt = dt, prio = 2}
+			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = stria if look.has("stria") else 1.0, st_mode = st_mode, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		# an opaque species (SpecLooks opaque: aragonite's wax, realgar's resin): no glass, a lit surface of its colour
 		if look.has("opaque"):
 			var oq: Dictionary = look.opaque
-			return {col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, st = stria,
+			return {col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, st = stria, st_mode = st_mode,
 				dirt = dt, prio = 2, env = 1.3, grain = float(oq.get("grain", 0.1)), lava = 1.0 if gene.fx == "lava" else 0.0}
 		# (SpecLooks ir: how much rainbow film and sheen the species takes — none on realgar's red or aragonite's milk)
 		var irm := float(look.get("ir", 1.0))
-		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, dirt = dt, prio = 2,
+		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, st_mode = st_mode, dirt = dt, prio = 2,
 			holo = float(gene.holo) * irm, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
 			lava = 1.0 if gene.fx == "lava" else 0.0,
 			frost = float((look.get("glass", {}) as Dictionary).get("frost", 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25)), thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
@@ -525,10 +530,44 @@ func _specimen(o: Dictionary) -> Node3D:
 			for k in int(floor(rng.next() * 3)):
 				var p: Vector3 = st.pick.call()
 				crystal.call(0.45 + rng.next() * 0.5, 0.5 + rng.next() * 0.4, p, lean.call((st.nrm.call(p) as Vector3).lerp(UP, 0.5), 0.6))
-			if "twin" in tr:
+			if sid == "japan_quartz":
+				# the Japan-law twin (F7): two flattened crystals joined at their feet at 84°, a heart turned to the
+				# viewer — the first crystal swung over into the twin's left arm
+				var zv := (VIEW_DIR + Vector3((rng.next() - 0.5) * 0.3, 0.1, 0)).normalized()
+				var arms: Array[MeshInstance3D] = [main, crystal.call(1.0 + rng.next() * 0.25, 1.15, at, UP)]
+				var tilt := deg_to_rad(42.3) + (rng.next() - 0.5) * 0.06
+				for ai in 2:
+					var sgn := -1.0 if ai == 0 else 1.0
+					var yv := (Basis(zv, sgn * tilt) * UP).normalized()
+					var xv := yv.cross(zv).normalized()
+					var s := arms[ai].transform.basis.get_scale().y
+					arms[ai].transform = Transform3D(Basis(xv, yv, xv.cross(yv)) * Basis.from_scale(Vector3(s * 1.3, s, s * 0.5)), at)
+				_mark("twin", _mid(arms[1], 0.6))
+			elif "twin" in tr:
 				var t: MeshInstance3D = crystal.call(1.0 + rng.next() * 0.4, 1.05, at, lean.call(Vector3(0.8, 1, 0.3), 0.3))
 				t.rotate_object_local(Vector3.BACK, 0.6)
 				_mark("twin", _mid(t, 0.7))
+		"gwindel":
+			# smoky quartz's gwindel (F6): a row of flattened crystals side by side, each turned a little further
+			# about the row than the last — a twisted plate, its face to the viewer
+			use_rock.call("small")
+			var zv := VIEW_DIR
+			var xv := UP.cross(zv).normalized()
+			var nn := 5 + int(rng.next() * 4)
+			var twist := 0.2 + rng.next() * 0.2
+			var hh := 1.15 + rng.next() * 0.35
+			var w0 := 0.11 * gs
+			for k in nn:
+				var f := float(k) / float(nn - 1) - 0.5
+				var at := Vector3(0, 0.2, 0) + xv * f * w0 * float(nn) * 0.8
+				var c: MeshInstance3D = crystal.call(hh * (1.0 - absf(f) * 0.35), 1.2, at, UP)
+				var s := c.transform.basis.get_scale().y
+				var yv := (Basis(xv, f * twist * 2.0) * UP).normalized()
+				var z2 := xv.cross(yv).normalized()
+				c.transform = Transform3D(Basis(xv, yv, z2) * Basis.from_scale(Vector3(s * 0.9, s, s * 0.45)), at)
+				if k == nn / 2: main = c
+			dt.h = 0.3
+			dt.a = 0.35
 		"cluster":
 			# a druse: a crumbling plate bristling with crystals of every size, their feet frosted and crusted over
 			use_rock.call("slab" if rng.next() < 0.6 else "long")
@@ -1451,6 +1490,24 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 			var at := Vector3(bb.get_center().x + (rng.next() - 0.5) * w * 0.4, maxf(0.0, bb.position.y) + hh * (0.25 + rng.next() * 0.45), bb.get_center().z + (rng.next() - 0.5) * w * 0.4)
 			U.mesh(Geo.cylinder(0.004, 0.004, len, 4), gm, main, at, U.eul((rng.next() - 0.5) * 0.8, rng.next() * 3, (rng.next() - 0.5) * 0.8))
 		_mark("rutile", _mid(main, 0.55))
+	if ok and "enhydro" in tr:
+		# a pocket of water in the crystal (G1): only its far wall is drawn — pale, watery — and in it the gas bubble,
+		# a bright bead, drifting up whichever way the stone is turned
+		var w := minf(bb.size.x, bb.size.z)
+		var hh := bb.end.y - maxf(0.0, bb.position.y)
+		var cav := Enhydro.new()
+		cav.rad = Vector3(w * 0.27, minf(hh * 0.2, w * 0.45), w * 0.17)
+		cav.position = Vector3(bb.get_center().x, maxf(0.0, bb.position.y) + hh * (0.45 + rng.next() * 0.15), bb.get_center().z)
+		cav.rotation = Vector3((rng.next() - 0.5) * 0.4, rng.next() * TAU, (rng.next() - 0.5) * 0.4)
+		main.add_child(cav)
+		var wall := SpecMat.make({col = SpecMat.lin(0x9fbccc), rough = 0.12, coat = 1.0, coat_r = 0.05, env = 1.8, side = "back", emis = SpecMat.lin(0x10181c)})
+		U.mesh(Geo.sphere(1, 28, 18), wall, cav).scale = cav.rad
+		var br := minf(cav.rad.x, minf(cav.rad.y, cav.rad.z)) * 0.55
+		cav.bubble = U.mesh(Geo.sphere(1, 20, 14), SpecMat.make({col = Color(0.95, 0.97, 1.0), rough = 0.08, coat = 1.0, env = 2.4, emis = SpecMat.lin(0x6a7880)}), cav)
+		cav.bubble.scale = Vector3.ONE * br
+		cav.br = br
+		cav.settle()
+		_mark("enhydro", main.transform * cav.position)
 	if ok and gi < 2:
 		# a milky core: the glass clouds over inside
 		mat.set_shader_parameter("frost_k", 1.1 - gi * 0.35)
@@ -1870,3 +1927,23 @@ func _finish() -> void:
 					gg.v[i] = p + Vector3(fn.get_noise_3dv(q), fn.get_noise_3dv(q + Vector3(19, 0, 0)), fn.get_noise_3dv(q + Vector3(0, 0, 41))) * amp * w
 		gg.rp = rp
 		(n as MeshInstance3D).mesh = gg.to_mesh()
+
+## an enhydro's pocket (G1): the gas bubble keeps to the top of its water, the top being wherever "up" is now
+class Enhydro extends Node3D:
+	var rad := Vector3.ONE
+	var br := 0.05
+	var bubble: MeshInstance3D
+	func _target() -> Vector3:
+		var up := (global_transform.basis.inverse() * Vector3.UP) if is_inside_tree() else Vector3.UP
+		if up.length() < 1e-5: up = Vector3.UP
+		var d := up.normalized()
+		# the point of the pocket's wall that way, the bubble's own radius in from it
+		var k := 1.0 / sqrt(pow(d.x / rad.x, 2.0) + pow(d.y / rad.y, 2.0) + pow(d.z / rad.z, 2.0))
+		return d * maxf(0.0, k - br * 1.05)
+	func settle() -> void:
+		if bubble: bubble.position = _target()
+	func _ready() -> void:
+		settle()
+	func _process(dt: float) -> void:
+		if bubble:
+			bubble.position = bubble.position.lerp(_target(), 1.0 - exp(-dt * 1.6))

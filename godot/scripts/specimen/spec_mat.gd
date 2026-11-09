@@ -128,6 +128,7 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 	m.set_shader_parameter("ir_k", o.get("ir", 0.0))
 	m.set_shader_parameter("rf_k", o.get("rf", 0.0))
 	m.set_shader_parameter("st_k", o.get("st", 0.0))
+	m.set_shader_parameter("st_mode", o.get("st_mode", 0.0))
 	m.set_shader_parameter("bd_k", o.get("bd", 0.0))
 	m.set_shader_parameter("d_ao", o.get("ao", 0.0))
 	m.set_shader_parameter("oil_k", o.get("oil", 0.0))

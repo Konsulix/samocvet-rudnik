@@ -17,6 +17,7 @@ uniform float grain = 0.0;
 uniform float ir_k = 0.0;
 uniform float rf_k = 0.0;
 uniform float st_k = 0.0;
+uniform float st_mode = 0.0;   // striations: 0 across the crystal (quartz), 1 along it (beryl, stibnite), 2 crossed face to face (pyrite)
 uniform float bd_k = 0.0;
 uniform float d_h = -99.0;
 uniform float d_a = 0.4;
@@ -213,7 +214,21 @@ void fragment() {
 	vec3 e_ir = vec3(0.0);
 #ifdef IRID
 	float stb = sin(v_op.y * 70.0 + sin(v_op.x * 9.0 + v_op.z * 7.0) * 3.0) * sin(v_op.y * 23.0 + v_op.x * 5.0);
-	n = normalize(n + st_k * (1.0 - dirt) * vec3(0.0, stb * 0.075, 0.0));
+	if (st_mode > 0.5) {
+		// the lines run along the crystal, or (pyrite) each face's at right angles to its neighbour's: the stripe
+		// coordinate is taken along an axis lying in the face, the normal tipped along it
+		vec3 fn = normalize(cross(dFdx(v_op), dFdy(v_op)) + vec3(1e-6));
+		vec3 an = abs(fn);
+		vec3 ax = st_mode > 1.5 ? (an.x >= an.y && an.x >= an.z ? vec3(0.0, 1.0, 0.0) : an.y >= an.z ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0))
+			: normalize(cross(vec3(0.0, 1.0, 0.0), fn) + vec3(1e-4));
+		vec3 tg = normalize(ax - fn * dot(ax, fn) + vec3(1e-5));
+		float c = dot(v_op, ax);
+		float sv = sin(c * 70.0 + sin(dot(v_op, fn.yzx) * 9.0) * 3.0) * sin(c * 23.0 + dot(v_op, fn.zxy) * 5.0);
+		vec3 tv = (VIEW_MATRIX * (MODEL_MATRIX * vec4(tg, 0.0))).xyz;
+		n = normalize(n + st_k * (1.0 - dirt) * tv * sv * 0.075);
+	} else {
+		n = normalize(n + st_k * (1.0 - dirt) * vec3(0.0, stb * 0.075, 0.0));
+	}
 	float clean = 1.0 - max(dirt, frost * 0.7);
 	if (bd_k > 0.0) base *= 1.0 - bd_k * (0.5 + 0.5 * sin(length(v_op) * 140.0 + sin(v_op.x * 20.0) * 1.5));
 	float fr = 1.0 - abs(dot(n, VIEW));

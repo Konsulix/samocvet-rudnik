@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -34,6 +34,8 @@ const EXTRA_TRAITS := [
 	{id = "anomaly", n = "anomalous", p = 0.03, m = 2.5},
 	# never rolled with the others: the species' own stream gives it (Stones.roll, SpecLooks.odd)
 	{id = "atypical", n = "atypical habit", p = 0.0, m = 1.5},
+	# a pocket of water sealed in the crystal, its gas bubble rising as the stone turns (SpecimenBuilder.Enhydro)
+	{id = "enhydro", n = "enhydro", p = 0.025, m = 1.7},
 ]
 
 static func of(o: Dictionary) -> Dictionary:
