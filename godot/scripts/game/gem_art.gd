@@ -292,6 +292,10 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 			else:
 				find_icon(ci, S, glow)
 		"c", "boss": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
+		"maiden":
+			# the Fire Maiden herself: how many times she is still to be caught
+			if ResourceLoader.exists(MaidenView.DIR + "dance_0.png"):
+				ci.draw_texture_rect(load(MaidenView.DIR + "dance_0.png"), Rect2(-S * 0.1, -S * 0.15, S * 1.2, S * 1.17), false)
 		"rock":
 			# colour: 0 sandstone, 1 granite, 2 both (granite in front)
 			if BoardSprites.gem_style == "":

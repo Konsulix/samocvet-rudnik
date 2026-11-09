@@ -34,6 +34,7 @@ func blank() -> Dictionary:
 		aw_ev = {}, aw_seen = [], aw_got = [], unlocks = [], aw_last = "", aw_sold = {}, aw_sig = [],
 		# the highest tier each boss was beaten at (a replay from the atlas fights the next one)
 		boss_tier = [],
+		maiden_day = -100,   # the day the Fire Maiden last danced (once a week)
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)

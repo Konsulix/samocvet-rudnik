@@ -943,9 +943,17 @@ func _sheet(e: Dictionary) -> void:
 		v.add_child(grid)
 	v.add_child(tz)
 	if e.get("opens", false) and _state(e) == "done":
-		var b := Kit.button("Play: " + String(e.r), "btn_green", 17)
+		var wait := 0
+		if String(e.n) == "Where She Danced":
+			wait = maxi(0, int(Save.d.maiden_day) + 7 - int(Time.get_unix_time_from_system() / 86400.0))
+		var b := Kit.button(("Play: " + String(e.r)) if wait == 0 else "She dances again in %d day%s" % [wait, "" if wait == 1 else "s"], "btn_green" if wait == 0 else "btn_slate", 17)
 		b.custom_minimum_size = Vector2(0, 48)
-		b.pressed.connect(func(): Ov.toast("%s: coming soon" % e.r))
+		b.pressed.connect(func():
+			if String(e.n) == "Where She Danced":
+				if wait == 0:
+					lay.queue_free()
+					go.emit("maiden")
+			else: Ov.toast("%s: coming soon" % e.r))
 		v.add_child(b)
 	await get_tree().process_frame
 	p.position = (size - p.size) / 2.0

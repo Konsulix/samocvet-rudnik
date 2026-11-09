@@ -264,6 +264,8 @@ func _ready() -> void:
 		Atlas.start_area = int(args.atlas)
 	if args.has("screen"):
 		go(args.screen)
+	elif args.has("maiden"):   # the Fire Maiden's chase at once (docs/fire-maiden.md)
+		_play_maiden()
 	elif args.has("level"):
 		var dl := int(args.get("depth", "0"))
 		show_level(int(args.level), [], dl, LevelGen.current(dl) if args.has("gen") else {})
@@ -508,6 +510,7 @@ func go(id: String) -> void:
 			var m := Museum.new()
 			_swap(m)
 			m.go.connect(go)
+		"maiden": _play_maiden()
 		"awards":
 			var aw := Awards.new()
 			_swap(aw)
@@ -580,7 +583,42 @@ func _prologue_due() -> bool:
 		if int(w) > 0: return false
 	return true
 
+## the Fire Maiden's chase (Level.MAIDEN, docs/fire-maiden.md): in Old Adit's gold whatever mine you are in (the mine
+## is switched for the chase, as for a boss replayed), no life spent; once a week
+var _maiden_back := -1
+func _play_maiden() -> void:
+	_maiden_back = Save.d.area
+	Save.d.area_back = Save.d.area
+	Save.d.area = 0
+	Save.d.maiden_day = int(Time.get_unix_time_from_system() / 86400.0)
+	Save.persist()
+	show_level(Save.d.level, [], 0, Level.MAIDEN)
+
+func _maiden_done(res: Dictionary) -> void:
+	Save.d.area = int(Save.d.area_back)
+	Save.d.area_back = -1
+	Save.d.coins += int(res.coins)
+	Save.persist()
+	if not (res.stone as Dictionary).is_empty():
+		await GeodeOpen.run([res.stone], {title = "Where she danced", short = true})
+	var v := Ov.card()
+	v.add_child(UI.title("The Fire Maiden", 22))
+	var all := int(res.caught) >= BoardModel.MAIDEN_CATCH
+	v.add_child(Ov.text("Caught all five times! She left her gold where she danced." if all else
+		"Caught %d of %d times. She ran off laughing - but the gold is yours." % [int(res.caught), BoardModel.MAIDEN_CATCH], 14))
+	var got := HBoxContainer.new()
+	got.alignment = BoxContainer.ALIGNMENT_CENTER
+	got.add_child(_res_chip("coin", int(res.coins)))
+	v.add_child(got)
+	v.add_child(Ov.text("%d gold stones broken. She'll dance again in a week." % int(res.gold), 12, Kit.DIM))
+	v.add_child(Ov.btn("Continue", "green", func(): Ov.close()))
+	await Ov.closed
+	go("awards")
+
 func _on_level_finished(res: Dictionary) -> void:
+	if res.get("maiden", false):
+		await _maiden_done(res)
+		return
 	if res.get("prologue", false):
 		# dug out: the camera rises through the mine to the one with the lantern (Home.rise)
 		Save.tell("prologue")

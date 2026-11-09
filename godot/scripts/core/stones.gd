@@ -134,6 +134,20 @@ static func atlas_id(s: Dictionary) -> String:
 	if String(s.get("form", "")) == "skull" and s.has("skin"): return "skull_" + String(s.skin)
 	return String(s.sid)
 
+## the Fire Maiden's gift (Level._maiden_end): native gold where she danced, glowing like embers - a legendary with
+## the lava effect, from the first seed past `seed_id` that rolls gold in Old Adit
+static func maiden_gold(seed_id: int) -> Dictionary:
+	for i in 2000:
+		var s := roll(seed_id + i * 7919, 0, 3.0, 5)
+		if String(s.sid) != "gold": continue
+		s.legend = true
+		s.fx = "lava"
+		s.value = roundi(float(s.value) * LEGEND_K + LEGEND_V)
+		s.tier = tier_of(String(s.sid), int(s.gi), true)
+		s.maiden = true
+		return s
+	return roll(seed_id, 0, 3.0, 5)
+
 static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
 	var entries := []

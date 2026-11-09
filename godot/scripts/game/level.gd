@@ -48,6 +48,8 @@ var eye_hits := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
+var maiden: MaidenView     # the Fire Maiden's chase (MAIDEN, docs/fire-maiden.md): she dances on the board
+var _mclear: Array = []      # cells cleared in this move: one beside her catches her
 var prologue := false    # the very first board: the newcomer digs out of a cave-in towards a lantern (PROLOGUE)
 var _light: TextureRect  # the prologue's lantern light from above, nearer as the rubble goes
 var _rubble := 1         # how much rubble the prologue started with
@@ -124,7 +126,16 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	prologue = bool(level.get("prologue", false))
 	# the cave-in has its own picture: the bottom of a collapsed shaft
 	if prologue and ResourceLoader.exists(PROLOGUE_BG): bg.texture = load(PROLOGUE_BG)
-	model.setup(n, pre, dl, eq, Save.area(), not prologue, level)
+	var chase := bool(level.get("maiden", false))
+	if chase and ResourceLoader.exists(MAIDEN_BG): bg.texture = load(MAIDEN_BG)
+	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase, level)
+	if chase:
+		# only she makes gold here
+		model.ore_p = {}
+		for r in model.R:
+			for c in model.C:
+				if model.G[r][c]: (model.G[r][c] as BoardModel.Gem).ore = ""
+		model.maiden_start()
 	rich = bool(level.get("rich", false))
 	Save.persist()
 	var vp := get_viewport_rect().size
@@ -134,6 +145,11 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	_mount_find()
 	_render_hud()
 	if model.boss_on(): LevelBoss.mount(self)
+	if not model.maiden.is_empty():
+		maiden = MaidenView.new()
+		board.add_child(maiden)
+		maiden.setup(board, Vector2i(int(model.maiden.r), int(model.maiden.c)))
+		maiden.marks = model.maiden.marks
 	busy = true
 	booster = ""
 	hint_label.text = ""
@@ -163,6 +179,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 ## what this board is about, in a few words: its biggest work first ([title, the task])
 func _board_theme() -> Array:
 	var has := func(k: String) -> bool: return model.goal_index(k) >= 0
+	if has.call("maiden"): return ["The Fire Maiden", "Catch her: match right beside her"]
 	if has.call("dark"): return ["The Dark Gallery", "Carry the light down: match next to it"]
 	if has.call("cart"): return ["Ore Carts" if model.carts.size() > 1 else "The Ore Cart", "Match stones of its colour right beside it"]
 	var bucket := false
@@ -436,6 +453,7 @@ func _build_hud() -> void:
 func _render_hud() -> void:
 	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · super hard" if model.beat == "super" else " · hard" if model.hard else ""]
 	if prologue: title_label.text = "Cave-in"
+	if not model.maiden.is_empty(): title_label.text = "The Fire Maiden"
 	if model.boss_on():
 		title_label.text = "%s · %d m" % [model.boss.B.n, int(model.boss.B.m)]
 	# no ore is mined at the boss
@@ -485,6 +503,11 @@ func _render_ore() -> void:
 		var stock := vein_stock(model.depth, i)
 		var poor := left <= BoardModel.vein_floor(stock)
 		ch.count.text = str(ore_shown[kind])
+		# the chase: only her gold counts, no veins
+		if not model.maiden.is_empty():
+			(ch.root as Control).visible = kind == "ore"
+			ch.vein.text = ""
+			continue
 		ch.vein.text = str(left) if not poor else "out"
 		ch.vein.add_theme_color_override("font_color", Color("#e0904a") if poor else UI.MUTED)
 
@@ -901,6 +924,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 	match String(e.type):
 		"clear":
 			if String(e.get("sp", "")) != "": _sp_move = true
+			if maiden: _mclear.append(Vector2i(int(e.r), int(e.c)))
 			board.pop_gem(e.id, merges.get(e.id, Vector2i(-1, -1)))
 			if e.color >= 0 and not merges.has(e.id):
 				fx.gem_chips(e.r, e.c, Color.html(Data.GEMS[e.color].c))
@@ -1174,6 +1198,7 @@ func _flights_done() -> void:
 
 func _after_turn() -> void:
 	await _flights_done()
+	if maiden: await _maiden_turn()
 	if model.goals_done():
 		model.over = true
 		await _finale()
@@ -1539,6 +1564,9 @@ func _finale() -> void:
 	await _flights_done()
 
 func _win() -> void:
+	if maiden:
+		await _maiden_end(true)
+		return
 	Sfx.play("win")
 	Sfx.buzz(80)
 	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul()
@@ -1600,6 +1628,9 @@ func _aw_settled() -> void:
 	_dark0 = -1
 
 func _out_of_moves() -> void:
+	if maiden:
+		await _maiden_end(false)
+		return
 	Sfx.play("lose")
 	var left := 0
 	for g in model.goals:
@@ -1669,6 +1700,17 @@ func _eye_swim() -> void:
 	model.eye.wait = 0
 	await LevelBoss._eye_swim(self)
 	busy = false
+
+## `-- maiden ui=maiden_catch [catches=N]`: she is caught N times in a row (a match beside her each turn), for a look
+func _maiden_catch() -> void:
+	var n := 1
+	for a in OS.get_cmdline_user_args(): if a.begins_with("catches="): n = int(a.substr(8))
+	for i in n:
+		if model.over: return
+		busy = true
+		_mclear = [Vector2i(int(model.maiden.r), int(model.maiden.c))]
+		await _after_turn()
+		await _wait(0.3)
 
 ## `-- area=3 level=1 gen depth=9 [boss_stage=N] ui=forge_act act=hammer|bellows|pour|bolt|daze`: Brontes acts right away
 ## (the bolt: charged to one short of full, it strikes after this move; daze: its last charge knocked off)
@@ -1956,6 +1998,67 @@ const PROLOGUE := {
 	prologue = true, gen = true, colors = 4, moves = 40, goals = [["rock"]],
 	map = "##rrrr##|#rrrrrr#|#rr..rr#|#......#|........|........|........|........",
 }
+
+## the Fire Maiden's chase (docs/fire-maiden.md): no losing - catch her five times or run out of moves, the gold is
+## yours either way; opened by the achievement Where She Danced, once a week
+const MAIDEN := {maiden = true, gen = true, colors = 5, moves = 26, goals = [["maiden"]],
+	map = ".........|.........|.........|.........|.........|.........|.........|.........|........."}
+const MAIDEN_BG := "res://assets/maiden/bg.png"
+const MAIDEN_COIN := 40    # coins for each gold stone broken
+
+## after a move: a match beside her catches her (she flinches, scatters gold, leaps far off); else she leaps on to a
+## marked cell and the stone there turns to gold
+func _maiden_turn() -> void:
+	var cleared := _mclear
+	_mclear = []
+	var before := int(model.maiden.caught)
+	var gold: Array = model.maiden_catch(cleared)
+	var gi := model.goal_index("maiden")
+	if int(model.maiden.caught) > before:
+		goal_boxes[gi].shown = int(model.goals[gi].left)
+		_render_goal(gi)
+		if int(model.goals[gi].left) <= 0: _goal_burst(goal_boxes[gi].root)
+		Sfx.play("special")
+		Sfx.buzz(40)
+		fx.hitstop(0.06)
+		await maiden.caught()
+		for id in gold: _gild_node(int(id), true)
+		if int(model.goals[gi].left) <= 0: return
+		maiden.marks = []
+		await maiden.hop(Vector2i(int(model.maiden.r), int(model.maiden.c)), 0.7)
+		maiden.marks = model.maiden.marks
+		return
+	var res := model.maiden_hop()
+	for id in res.cooled: _gild_node(int(id), false)
+	if Vector2i(res.to).x >= 0:
+		maiden.marks = []
+		Sfx.play("fuse")
+		await maiden.hop(res.to)
+		_gild_node(int(res.gold), true)
+		var to: Vector2i = res.to
+		fx.sparkle(to.x, to.y, Color(2.2, 1.7, 0.6), 12)
+	maiden.marks = res.marks
+
+## a stone turns to gold (or cools back): its node redrawn with the ore's veins
+func _gild_node(id: int, on: bool) -> void:
+	var n: GemNode = board.nodes.get(id)
+	if n == null: return
+	n.ore = "ore" if on else ""
+	n._ore_glow(n.ore_kind())
+	n.queue_redraw()
+
+## the chase is over: she laughs and runs off; the gold broken is paid in coins, all five catches leave a find
+func _maiden_end(all: bool) -> void:
+	model.over = true
+	busy = true
+	Sfx.play("win" if all else "special")
+	await maiden.run_away()
+	var gold := int(model.mined.ore)
+	var coins := gold * MAIDEN_COIN
+	var stone := {}
+	if all: stone = Stones.maiden_gold(Save.next_uid())
+	finished.emit({won = true, maiden = true, n = model.n, caught = BoardModel.MAIDEN_CATCH - int(model.goals[model.goal_index("maiden")].left),
+		gold = gold, coins = coins, stone = stone, bonus = [], mined = model.mined.duplicate(), boss = false, prologue = false})
 
 const PROLOGUE_BG := "res://assets/ui/level_bg/prologue.png"
 

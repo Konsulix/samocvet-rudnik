@@ -110,6 +110,10 @@ var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, ston
 ## the boss fight (empty in an ordinary level): {B (the boss's data), stage, k (actions so far), timer,
 ## intent {act, cells}, clear (this board's share of health is gone)}. Its health is the "boss" goal.
 var boss := {}
+## the Fire Maiden (docs/fire-maiden.md), the bonus chase: {r, c (where she stands), marks (the cells she may leap to
+## next, shown ahead), caught (how many times), cool (stone id -> moves before the gold of her last leaps cools)}
+var maiden := {}
+const MAIDEN_CATCH := 5
 ## a colour new stones are not made of (-1: any): the Mistress' lizards carry off the greens and none come back
 var skip_colour := -1
 var area_i := 0
@@ -830,6 +834,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	var gen := bool(def.get("gen", false))
 	area_i = area
 	boss = {}
+	maiden = {}
 	if def.has("boss"):
 		boss = {B = def.boss, stage = int(def.get("stage", 0)), hp_max = int(def.hp), k = 0, timer = 0, intent = {}, clear = false}
 		roll_find = false
@@ -1027,6 +1032,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"keg": goals.append({k = "keg", t = -1, left = _count(KEG)})
 			"dark": goals.append({k = "dark", t = -1, left = _count(DARK)})
 			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
+			"maiden": goals.append({k = "maiden", t = -1, left = MAIDEN_CATCH})
 	# fill without ready-made matches, and make sure a move exists
 	for tries in 40:
 		for r in R:
@@ -1101,6 +1107,118 @@ func _count_granite() -> int:
 	return k
 
 # ------------------------------------------------------------------ queries
+
+# ------------------------------------------------------------------ the Fire Maiden
+
+## she comes out of the fire in the middle of the board
+func maiden_start() -> void:
+	maiden = {r = R / 2, c = C / 2, marks = [], caught = 0, cool = {}}
+	maiden.marks = _maiden_marks()
+
+## how many cells she may leap to: two at first, three once caught twice
+func maiden_phase() -> int:
+	return 0 if int(maiden.caught) < 2 else 1 if int(maiden.caught) < 4 else 2
+
+## a plain stone she can land on: open, not locked, not a special or an item
+func _maiden_ok(r: int, c: int) -> bool:
+	if not playable(r, c) or LOCK[r][c]: return false
+	var g: Gem = G[r][c]
+	return g != null and g.sp == "" and g.item == "" and g.t >= 0
+
+## the next cells she may leap to: 2-4 cells away, spread apart, not where she stands
+func _maiden_marks() -> Array:
+	var n := 2 if maiden_phase() == 0 else 3
+	var cand: Array = []
+	for r in R:
+		for c in C:
+			var d := absi(r - int(maiden.r)) + absi(c - int(maiden.c))
+			if d >= 2 and d <= 4 and _maiden_ok(r, c): cand.append(Vector2i(r, c))
+	cand.shuffle()
+	var out: Array = []
+	for p: Vector2i in cand:
+		var far := true
+		for q: Vector2i in out:
+			if absi(p.x - q.x) + absi(p.y - q.y) < 2: far = false
+		if far: out.append(p)
+		if out.size() >= n: break
+	return out
+
+## a stone turns to gold where she lands (its ore: the mine's own, which in Old Adit is gold); from her third phase
+## the gold she leaves cools back to stone in two moves unless it is broken first
+func _gild(g: Gem, cool: bool) -> void:
+	g.ore = "ore"
+	if cool: maiden.cool[g.id] = 2
+
+## her leap after a move: onto one of the marks (a mark no longer fit for her - the board moved - is skipped).
+## Returns {from, to, gold (the stone gilded: id or -1), cooled (ids gone back to stone), marks}
+func maiden_hop() -> Dictionary:
+	var out := {from = Vector2i(int(maiden.r), int(maiden.c)), to = Vector2i(-1, -1), gold = -1, cooled = []}
+	# the gold of her last leaps cools first
+	for id in (maiden.cool as Dictionary).keys():
+		maiden.cool[id] = int(maiden.cool[id]) - 1
+		if int(maiden.cool[id]) <= 0:
+			maiden.cool.erase(id)
+			var g := _gem_by_id(int(id))
+			if g and g.ore == "ore":
+				g.ore = ""
+				out.cooled.append(int(id))
+	var opts: Array = (maiden.marks as Array).filter(func(p: Vector2i) -> bool: return _maiden_ok(p.x, p.y))
+	if opts.is_empty():
+		maiden.marks = _maiden_marks()
+		opts = maiden.marks
+	if not opts.is_empty():
+		var to: Vector2i = opts[rng.randi() % opts.size()]
+		maiden.r = to.x
+		maiden.c = to.y
+		out.to = to
+		var g: Gem = G[to.x][to.y]
+		_gild(g, maiden_phase() == 2)
+		out.gold = g.id
+	maiden.marks = _maiden_marks()
+	out.marks = maiden.marks
+	return out
+
+## a match right beside her (or on her stone) catches her: one of her flames goes out, she scatters gold round her
+## and leaps far off at once. Returns the stones gilded, or [] if the cells cleared did not touch her
+func maiden_catch(cleared: Array) -> Array:
+	if maiden.is_empty(): return []
+	var hit := false
+	for p: Vector2i in cleared:
+		if absi(p.x - int(maiden.r)) + absi(p.y - int(maiden.c)) <= 1: hit = true
+	if not hit: return []
+	maiden.caught = int(maiden.caught) + 1
+	var gi := goal_index("maiden")
+	if gi >= 0: goals[gi].left = maxi(0, int(goals[gi].left) - 1)
+	var near: Array = []
+	for r in range(int(maiden.r) - 2, int(maiden.r) + 3):
+		for c in range(int(maiden.c) - 2, int(maiden.c) + 3):
+			if _maiden_ok(r, c) and (G[r][c] as Gem).ore == "": near.append(G[r][c])
+	near.shuffle()
+	var out: Array = []
+	for g: Gem in near.slice(0, 3):
+		_gild(g, false)
+		out.append(g.id)
+	# off she goes, as far as she can
+	var best := Vector2i(-1, -1)
+	var bd := -1
+	for r in R:
+		for c in C:
+			var d := absi(r - int(maiden.r)) + absi(c - int(maiden.c))
+			if _maiden_ok(r, c) and d > bd:
+				bd = d
+				best = Vector2i(r, c)
+	if best.x >= 0:
+		maiden.r = best.x
+		maiden.c = best.y
+	maiden.marks = _maiden_marks()
+	return out
+
+func _gem_by_id(id: int) -> Gem:
+	for r in R:
+		for c in C:
+			var g: Gem = G[r][c]
+			if g and g.id == id: return g
+	return null
 
 func playable(r: int, c: int) -> bool:
 	return r >= 0 and c >= 0 and r < R and c < C and not VOID[r][c]
