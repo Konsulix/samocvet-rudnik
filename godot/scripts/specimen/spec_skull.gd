@@ -280,6 +280,13 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 		g.stream = false
 		g.roots = false
 	if g.stream and g.moss == "none" and not o.has("moss"): g.moss = "patches"
+	# which butterflies: decided here, not while building, so the achievements (Awards.genes_of) know them
+	# (8.11; until then the builder picked them on its own stream - the skulls' butterflies changed then)
+	var kinds: Array = []
+	var fk := Rng32.new(int(g.fly_seed) * 31 + 17)
+	var one: String = String(g.fly_kind) if String(g.fly_kind) != "" else ("" if fk.next() < 0.3 else SpecButterfly.pick(fk))
+	for k in int(g.flies): kinds.append(one if one != "" else SpecButterfly.pick(fk))
+	g.fly_kinds = kinds
 	if int(g.trees) < 0:
 		var tr := Rng32.new(int(g.moss_seed) + 5)
 		g.trees = 0 if g.moss == "none" or tr.next() < 0.45 else 1 + int(tr.next() * (4.0 if g.moss == "cap" else 2.0))
@@ -491,14 +498,13 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 	# butterflies: resting on the crown of the head, or flying round the find, each kind its own way
 	if int(sk.flies) > 0 and top.size():
 		var fr := Rng32.new(int(sk.fly_seed))
-		var one: String = String(sk.fly_kind) if String(sk.fly_kind) != "" else ("" if fr.next() < 0.3 else SpecButterfly.pick(fr))
 		# where they may land: the crown of the head, facing up
 		var perches := []
 		for q in (140 if String(sk.get("fx", "")) == "flutter" else 40):
 			var j: int = top[int(fr.next() * top.size())]
 			if nr[j].y > 0.45: perches.append([cr.v[j], nr[j]])
 		for k in int(sk.flies):
-			var id := one if one != "" else SpecButterfly.pick(fr)
+			var id: String = sk.fly_kinds[k]
 			var style: String = SpecButterfly.KINDS[id][6]
 			var flying := fr.next() < (0.7 if style in ["hover", "flit"] else 0.45)
 			if int(sk.fly_mode) >= 0: flying = int(sk.fly_mode) == 1

@@ -23,9 +23,12 @@ func blank() -> Dictionary:
 		boss_tries = [0, 0, 0], boss_won = [false, false, false],
 		built = [[], [], []], jstep = {}, boost = {pick = 2, bore_h = 2, bore_v = 2, pan = 2}, btold = ["pick"], pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
-		jewels = [], seen = [], coll = [], sets = [], atlas = {}, area_back = -1, uid = 1000, lab = 0, mute = false,
+		jewels = [], seen = [], coll = [], sets = [], atlas = {}, area_back = -1, uid = 1000, lab = 0, mute = false, no_music = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 		tut = [],
+		# genes ever seen on a find (Awards.genes_of), and the find each first showed on (its niche on the awards
+		# screen); gver 2 — the old finds read in
+		genes = [], gfirst = {}, gver = 0,
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
@@ -93,6 +96,11 @@ func _init() -> void:
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
 func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if s.has("first_of"): tell("first_find_%d" % int(s.first_of))
+	# the achievements' collections (docs/achievements.md): every gene this find shows
+	for t in Awards.genes_of(s):
+		if not d.genes.has(t):
+			d.genes.append(t)
+			d.gfirst[t] = Spec.of_stone(s)
 	var aid := Stones.atlas_id(s)
 	var e: Dictionary = d.atlas.get(aid, {n = 0, max_g = 0, max_v = 0, legend = false})
 	e.n = int(e.n) + 1
