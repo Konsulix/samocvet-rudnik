@@ -1749,9 +1749,27 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var om := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}})
 	om.set_meta("rock", true)
 	var outer_mesh := U.mesh(outer, om, shell)
-	var ic := col.lerp(Color(0.25, 0.27, 0.3), 0.6) * 0.35
+	# the cave's wall: the warped shell itself, a little in (a round bowl inside poked out through the shell where it
+	# was warped in, and lit pale it read as a sheet of glass over the cave); dark, so what grows on it shows
+	var wr := []
+	for i in range(0, outer.v.size(), 3):
+		if outer.v[i].length() > 0.05: wr.append([outer.v[i].normalized(), outer.v[i].length()])
+	var wall_r := func(d: Vector3) -> float:
+		var best := -2.0
+		var r := 0.9
+		for e: Array in wr:
+			var dd := d.dot(e[0])
+			if dd > best:
+				best = dd
+				r = float(e[1])
+		return r * 0.9
+	var ic := col.lerp(Color(0.12, 0.13, 0.15), 0.8) * 0.25
 	ic.a = 1.0
-	U.mesh(Geo.sphere(0.9, 40, 20, 0, TAU, 0, PI / 2), SpecMat.make({col = ic, rough = 0.92, spec = 0.3, side = "back"}), shell)
+	var inner_g := Geo.new()
+	inner_g.v = outer.v.duplicate()
+	inner_g.idx = outer.idx.duplicate()
+	for i in inner_g.v.size(): inner_g.v[i] *= 0.9
+	U.mesh(inner_g, SpecMat.make({col = ic, rough = 0.85, spec = 0.2, side = "back"}), shell)
 	# a glittering carpet of tiny crystals over the cave wall
 	var place := func(k: int) -> Array:
 		var d := Vector3(rng.next() - 0.5, rng.next() * 0.98 + 0.02, rng.next() - 0.5).normalized()
@@ -1759,7 +1777,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		var s := 0.008 + rng.next() * 0.014
 		var c := col * (0.6 + rng.next() * 0.5)
 		c.a = 1.0
-		return [_rot_inst(d * 0.885, e, Vector3(s, s * 1.7, s)), c]
+		return [_rot_inst(d * (wall_r.call(d) as float) * 0.985, e, Vector3(s, s * 1.7, s)), c]
 	U.inst(Geo.octa(1), SpecMat.make({rough = 0.08, coat = 1.0, flat = true, env = 2.4}), 800, place, shell)
 	# agate rind: fine bands from the dark outer crust through grey and milky layers to a hint of the stone's own colour
 	var hue := SpecMat.get_hsl(Color(sp.c)).x
@@ -1820,7 +1838,23 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		c_tip = Color(0.95, 0.96, 0.98).lerp(col, 0.35)
 	var prismy := elongated or habit == "cube"
 	var main: MeshInstance3D = null
-	for k in 80 + int(floor(rng.next() * 40)):
+	if habit == "botryoid" and inner == habit:
+		# a lumpy species (opal) lines its cave with bubbles sunk half into the wall — a lining, not a cave filled
+		# with balls of glass; opal's play of colour flashing in them
+		var bodies := [SpecMat.lin(0x1a2230), SpecMat.lin(0xdce6ea), SpecMat.lin(0x6a8aa0)]
+		var bm := SpecMat.make({col = bodies[int(rng.next() * 3.0)], glass = true, thick = 1.6, frost = 0.25, holo = 0.15, ir = 0.2, seed = rng.next() * 40.0, prio = 2, tint_body = 0.6})
+		bm.set_shader_parameter("opal_k", 2.0)
+		var bub := []
+		for k in 120 + int(rng.next() * 60):
+			# (kept off the lip and sunk only into the wall's inner half, so none shows through the outside)
+			var d := Vector3(rng.next() - 0.5, rng.next() * 0.8 + 0.2, rng.next() - 0.5).normalized()
+			var s := 0.04 + pow(rng.next(), 2.0) * 0.09
+			bub.append(Transform3D(Basis(quat_to_l(UP, -d)) * Basis.from_scale(Vector3(s, s * 0.55, s)), d * (wall_r.call(d) as float) * 0.97))
+		main = U.mesh(Geo.sphere(1, 20, 14), bm, shell)
+		main.transform = bub[0]
+		main.set_meta("local", true)
+		U.inst(Geo.sphere(1, 16, 12), bm, bub.size() - 1, func(i: int) -> Array: return [bub[i + 1], Color(1, 1, 1)], shell)
+	for k in (0 if main else 80 + int(floor(rng.next() * 40))):
 		var d := Vector3(rng.next() - 0.5, rng.next() * 0.95 + 0.05, rng.next() - 0.5).normalized()
 		var f := pow(rng.next(), 1.6)
 		var dir := ((-d).lerp(UP, 0.15) + Vector3((rng.next() - 0.5) * 0.45, (rng.next() - 0.5) * 0.2, (rng.next() - 0.5) * 0.45)).normalized()
@@ -1830,9 +1864,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			var h := w * 1.4 if habit == "cube" else minf(0.42, w * (2.4 + rng.next() * 2.2))
 			var g := RockKit.prism(rng, {sides = 4 if habit == "cube" else 6, w = w, d = w * (0.8 + rng.next() * 0.3), h = h, point = habit != "cube", y0 = -w * 0.4}, {cA = c_root, cB = c_tip, zk = 1.0})
 			c = U.mesh(g, gm, shell)
-			_place(c, d * 0.86, dir, 1.0, rng.next() * 6.28)
+			_place(c, d * (wall_r.call(d) as float) * 0.96, dir, 1.0, rng.next() * 6.28)
 		else:
-			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * 0.86, dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
+			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * (wall_r.call(d) as float) * 0.96, dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
 		c.set_meta("local", true)
 		if not main: main = c
 	shell.transform = Transform3D(U.eul(-PI / 2 - 0.55, 0.35, 0), Vector3.ZERO)
