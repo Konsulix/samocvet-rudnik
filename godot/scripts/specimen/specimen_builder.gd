@@ -131,7 +131,14 @@ func _crystal_boxes(main: MeshInstance3D, mat: ShaderMaterial) -> Array:
 	return out
 
 ## a spot on the rock with no crystal over it
+## other things lying on the rock that nothing may grow through (hyalite's drops, opal patches, millerite's sprays,
+## wavellite's stars, wire silver, a jade sunk in it): [centre, radius] in root space
+var keep_out := []
+
 func _free(p: Vector3) -> bool:
+	for ko: Array in keep_out:
+		if p.distance_to(ko[0]) < float(ko[1]):
+			return false
 	for b: Dictionary in boxes:
 		if (b.bounds as AABB).has_point((b.inverse as Transform3D) * p):
 			return false
@@ -153,6 +160,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var gi: int = int(o.get("gi", 1))
 	trs = tr
 	var legend: bool = o.get("legend", false)
+	keep_out = []
 	root = Node3D.new()
 	var col := SpecMat.lin_s(sp.c)
 	col = SpecMat.offset_hsl(col, (rng.next() - 0.5) * 0.03, (rng.next() - 0.5) * 0.15, (rng.next() - 0.5) * 0.06)
@@ -565,6 +573,7 @@ func _specimen(o: Dictionary) -> Node3D:
 					var q: Vector3 = st.pick.call()
 					if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
 				var nn: Vector3 = st.nrm.call(p)
+				keep_out.append([p, 0.16 * gs])
 				var reach := 0.7 + rng.next() * 0.6
 				for k in 50 + int(rng.next() * 70):
 					var d := (nn + _rv() * 1.6).normalized()
@@ -612,6 +621,7 @@ func _specimen(o: Dictionary) -> Node3D:
 				var t1 := nn.cross(UP if absf(nn.y) < 0.9 else Vector3.RIGHT).normalized()
 				var t2 := nn.cross(t1)
 				var R := (0.08 + rng.next() * 0.1) * gs
+				keep_out.append([p, R * 1.15])
 				var cnt := 34 + int(rng.next() * 24)
 				for k in cnt:
 					var a := (float(k) + rng.next() * 0.6) / float(cnt) * TAU
@@ -1021,6 +1031,7 @@ func _specimen(o: Dictionary) -> Node3D:
 				q += d * 0.05 * gs
 				pts.append(q)
 			U.mesh(Geo.tube(pts, 64, (0.02 + rng.next() * 0.012) * gs, 7), wm, root)
+			for pi in range(0, pts.size(), 3): keep_out.append([pts[pi], 0.05 * gs])
 	# almandine's schist (SpecLooks mica): the rock round the crystals glitters with silvery flakes of mica
 	if look.get("mica", false) and st.rocky:
 		var fm := SpecMat.make({col = SpecMat.lin(0x8c8478), metal = 0.65, rough = 0.22, env = 2.2})
@@ -1069,7 +1080,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	boxes = _crystal_boxes(main, mat)
 	st.pick_any = st.pick
 	st.hollows_all = st.hollows
-	if boxes.size():
+	if boxes.size() or keep_out.size():
 		var raw: Callable = st.pick
 		st.pick = func() -> Vector3:
 			var q: Vector3 = raw.call()
@@ -1441,6 +1452,7 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 	# (nothing of the shared layer grows up through the jade: the rock under it is no ground)
 	var jc := holder.position
 	var jr := 1.4 * sz
+	keep_out.append([jc, jr])
 	var pick0: Callable = st.pick
 	st.pick = func() -> Vector3:
 		var q: Vector3 = pick0.call()
@@ -1685,6 +1697,7 @@ func _beads(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIn
 		spots.append(best)
 	var beads := []
 	for p: Vector3 in spots:
+		keep_out.append([p, 0.22 * gs])
 		var nn: Vector3 = st.nrm.call(p)
 		var t1 := nn.cross(UP if absf(nn.y) < 0.9 else Vector3.RIGHT).normalized()
 		var t2 := nn.cross(t1)
@@ -1720,6 +1733,7 @@ func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed
 		var L := RockKit.lump(rng, {r = 0.8, sx = 1.0, sy = 0.3, sz = 0.7, wave = 0.2, k = 60.0, bumps = [[6, 0.8, 0.15]], seg = 40})
 		var w := (0.2 + rng.next() * 0.18) * gs
 		var sc := Vector3(w * (1.6 if seam else 1.0), w * 0.7, w * (0.45 if seam else 0.85)) * 0.625
+		keep_out.append([best, w * 1.3])
 		var m := U.mesh(L[0], gm, root)
 		m.transform = Transform3D(Basis(quat_to_l(UP, nn)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(sc), best - nn * w * 0.07)
 		if not main: main = m
