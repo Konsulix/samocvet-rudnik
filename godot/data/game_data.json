@@ -396,6 +396,12 @@
    "v": 180,
    "r": 2
   },
+  "millerite": {
+   "n": "Millerite",
+   "c": "#c8b048",
+   "v": 180,
+   "r": 2
+  },
   "ember": {
    "n": "Shubin's Ember",
    "c": "#6fe8d0",
@@ -2354,7 +2360,7 @@
     "wavellite": 12,
     "hyalite": 10,
     "whewellite": 9,
-    "enhydro": 6,
+    "millerite": 6,
     "ember": 1.2
    },
    "steps": 3,
@@ -2990,6 +2996,7 @@
   "hyalite": "botryoid",
   "whewellite": "prism",
   "enhydro": "prism",
+  "millerite": "prism",
   "ember": "prism"
  },
  "TRAITS": [

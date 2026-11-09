@@ -133,6 +133,15 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = Geo.sphere(0.2, 20, 14).translate(0, 0.15, 0)
 	if habit == "blade":
 		g.scale(1.3, 1, 0.38)
+	# bent crystals (stibnite's swords, vivianite's flexible blades): each bowed its own way, more towards the tip
+	var bend: float = cfg.get("bend", 0.0)
+	if bend > 0.0:
+		var bk := bend * (rng.next() * 2.0 - 1.0)
+		var bz := bend * (rng.next() * 2.0 - 1.0) * 0.4
+		var hh := maxf(0.2, h)
+		for i in g.v.size():
+			var t := maxf(0.0, g.v[i].y) / hh
+			g.v[i] += Vector3(bk * t * t * hh * 0.3, 0, bz * t * t * hh * 0.3)
 	g.to_soup()
 	# small irregularities and a few knocked-off corners near the tips
 	var top := h * 0.82

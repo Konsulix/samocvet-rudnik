@@ -208,7 +208,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	var cB := col
 	# with the species' proportions (SpecLooks: hk, wk, blunt), which every crystal and column takes
 	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
-		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false))}
+		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false)),
+		bend = float(look.get("bend", 0.0))}
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
 	var kind: String = o.get("kind", "crystal")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
@@ -547,6 +548,71 @@ func _specimen(o: Dictionary) -> Node3D:
 				var t: MeshInstance3D = crystal.call(1.0 + rng.next() * 0.4, 1.05, at, lean.call(Vector3(0.8, 1, 0.3), 0.3))
 				t.rotate_object_local(Vector3.BACK, 0.6)
 				_mark("twin", _mid(t, 0.7))
+		"hair":
+			# millerite (F8): brassy hairs in sprays out of the rock, fine as a brush, catching the light one by one
+			main = use_rock.call("chunk")
+			var hm: ShaderMaterial = any_cmat.call()
+			var hairs := []
+			for spr in 2 + int(rng.next() * 3):
+				var p: Vector3 = st.pick.call()
+				for t in 8:
+					var q: Vector3 = st.pick.call()
+					if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
+				var nn: Vector3 = st.nrm.call(p)
+				var reach := 0.7 + rng.next() * 0.6
+				for k in 50 + int(rng.next() * 70):
+					var d := (nn + _rv() * 1.6).normalized()
+					if d.dot(nn) < 0.15: d = (d + nn).normalized()
+					var ln := (0.12 + pow(rng.next(), 0.7) * 0.42) * gs * reach
+					var r := (0.0028 + rng.next() * 0.0022) * gs
+					hairs.append(Transform3D(Basis(quat_to_l(UP, d)) * Basis.from_scale(Vector3(r, ln, r)), p - nn * 0.01))
+			U.inst(Geo.cylinder(1.0, 0.35, 1.0, 5).translate(0, 0.5, 0), hm, hairs.size(), func(i: int) -> Array: return [hairs[i], Color(1, 1, 1)], root)
+		"coxcomb":
+			# marcasite's cockscomb (F5): thin blades grown side by side in a crest, fanned out, each facing its
+			# neighbour, the middle ones tallest
+			use_rock.call("slab")
+			var xv := UP.cross(VIEW_DIR).normalized()
+			for crest in 1 + int(rng.next() < 0.5):
+				var c0: Vector3 = st.pick.call()
+				for t in 10:
+					var q: Vector3 = st.pick.call()
+					if q.y - absf(q.dot(xv)) * 0.5 > c0.y - absf(c0.dot(xv)) * 0.5: c0 = q
+				c0 += VIEW_DIR * (0.12 * gs * float(crest))
+				var nb := 7 + int(rng.next() * 6)
+				var fan := 0.8 + rng.next() * 0.5
+				var span := (0.45 + rng.next() * 0.2) * gs
+				for k in nb:
+					var f := float(k) / float(nb - 1) - 0.5
+					var at := c0 + xv * f * span
+					var dv := (Basis(VIEW_DIR, -f * fan) * UP).normalized()
+					var c: MeshInstance3D = crystal.call((0.55 + (1.0 - absf(f) * 2.0) * 0.4) * (0.85 + rng.next() * 0.3), 0.95, at, dv, {habit = "blade"})
+					var s := c.transform.basis.get_scale().y
+					var zt := (xv - dv * xv.dot(dv)).normalized()
+					c.transform = Transform3D(Basis(dv.cross(zt), dv, zt) * Basis.from_scale(Vector3.ONE * s), at)
+					if not main: main = c
+		"starburst":
+			# wavellite (F10): flat discs of radiating needles on the broken face of the slab — green stars
+			use_rock.call("slab")
+			var cm: ShaderMaterial = any_cmat.call()
+			var needles := []
+			var nstar := 4 + int(rng.next() * 6)
+			for sk in nstar:
+				var p: Vector3 = st.pick.call()
+				for t in 6:
+					var q: Vector3 = st.pick.call()
+					if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
+				var nn: Vector3 = st.nrm.call(p)
+				var t1 := nn.cross(UP if absf(nn.y) < 0.9 else Vector3.RIGHT).normalized()
+				var t2 := nn.cross(t1)
+				var R := (0.05 + rng.next() * 0.09) * gs
+				var cnt := 26 + int(rng.next() * 22)
+				for k in cnt:
+					var a := (float(k) + rng.next() * 0.6) / float(cnt) * TAU
+					var d := (t1 * cos(a) + t2 * sin(a) + nn * (0.08 + rng.next() * 0.12)).normalized()
+					var ln := R * (0.75 + rng.next() * 0.25)
+					var r := R * 0.035
+					needles.append(Transform3D(Basis(quat_to_l(UP, d)) * Basis.from_scale(Vector3(r, ln, r)), p + nn * r))
+			U.inst(Geo.cylinder(1.0, 0.25, 1.0, 6).translate(0, 0.5, 0).fill_color(col), cm, needles.size(), func(i: int) -> Array: return [needles[i], Color(1, 1, 1)], root)
 		"sawn":
 			# a stalactite or a crust sawn through and polished: its growth rings as eyes (rhodochrosite's rose bands)
 			main = _sawn(sid, col)
@@ -926,6 +992,21 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (the spray puts its sulphur in its own gaps)
 			if String(w[3]) in gene.accents and not (layout == "spray" and String(w[3]) == "sulphur"):
 				_companion(String(w[0]), SpecMat.lin(int(w[1])), String(w[3]), st)
+	# acanthite's wire silver (F9): bright curls of native silver sprouting from the rock among the dark crystals
+	if look.get("wire", false) and st.rocky:
+		var wm := SpecMat.make({col = SpecMat.lin(0xdfe2e6), metal = 1.0, rough = 0.16, env = 2.6})
+		for k in 3 + int(rng.next() * 4):
+			var p: Vector3 = st.pick.call()
+			var d: Vector3 = st.nrm.call(p)
+			var ax := d.cross(_rv()).normalized()
+			var pts := [p - d * 0.01]
+			var q := p
+			for i in 14 + int(rng.next() * 10):
+				d = (Basis(ax, 0.35 + rng.next() * 0.3) * d + _rv() * 0.25).normalized()
+				ax = (ax + _rv() * 0.3).normalized()
+				q += d * 0.05 * gs
+				pts.append(q)
+			U.mesh(Geo.tube(pts, 64, (0.014 + rng.next() * 0.01) * gs, 7), wm, root)
 	# almandine's schist (SpecLooks mica): the rock round the crystals glitters with silvery flakes of mica
 	if look.get("mica", false) and st.rocky:
 		var fm := SpecMat.make({col = SpecMat.lin(0xc8c4bc), metal = 0.8, rough = 0.18, env = 2.4})

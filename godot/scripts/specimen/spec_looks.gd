@@ -34,6 +34,8 @@ extends RefCounted
 ##         face to face (pyrite); 0 strength — smooth faces
 ## habits  its crystal by turns, per find: [[habit, weight], ...] (calcite: rhombs, nailheads, dogteeth)
 ## mica    the rock glitters with mica flakes round the crystals (almandine in its schist)
+## bend    how far its crystals bow, each its own way (stibnite's swords)
+## wire    curls of native silver sprout from the rock (acanthite)
 ## glass   {frost: a milky body, 0..1; dark: how dark the glass body is (smoky quartz), tint: how much the body glows in the species' own colour
 ##         rather than showing the room through it (garnet, azurite), 0..1}
 
@@ -117,7 +119,7 @@ const LOOK := {
 	# Spider Hollow (an Edo silver mine in a cedar valley, the Tsuchigumo; docs/mine6-tsuchigumo.md §8): "silver and
 	# silk" - steel needles and swords of stibnite, silky white needle sprays, peacock brass, the heart-shaped quartz
 	# twins of Japan, lead-black silver ore, cinnabar on white rock, jade, and ruby silver as its jewel
-	stibnite = {stria = [1.4, 1.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 5.0]],
+	stibnite = {bend = 0.9, stria = [1.4, 1.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 5.0]],
 		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 2.2, wk = 0.35, metal_col = 0x9aa2b0, mrough = 0.16, menv = 2.2, tarnish = 0.35,
 		growths = 0.35, with = [["blades", 0xeef2f6, 0.25, "rockcrystal"]]},
 	natrolite = {stria = [0.7, 1.0], zone = [0, 0.0, 0.0], forms = [["radial", 5.0], ["cluster", 2.0]], kinds = [["druse", 4.0], ["crystal", 3.0], ["geode", 1.0]],
@@ -126,7 +128,7 @@ const LOOK := {
 		metal_col = 0xc8a23a, mrough = 0.25, menv = 2.0, tarnish = 1.0, with = [["blades", 0xeef2f6, 0.35, "rockcrystal"]]},
 	japan_quartz = {forms = [["single", 4.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 2.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
 		hk = 1.0, wk = 1.15, dark = 0.0, sig = ["twin"], glass = {frost = 0.04}},
-	acanthite = {forms = [["cluster", 4.0], ["pile", 2.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
+	acanthite = {wire = true, forms = [["cluster", 4.0], ["pile", 2.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
 		metal_col = 0x5c6068, mrough = 0.3, menv = 1.8, tarnish = 0.25, growths = 0.3, with = [["blades", 0xeef2f6, 0.3, "rockcrystal"]]},
 	cinnabar = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
 		rock = [["gypsum", 3.0], ["limestone", 3.0]], rh = 0.15, dark = 0.0, glass = {tint = 0.95, dark = 0.25, frost = 0.05, glow = 0.32}, ir = 0.15,
@@ -143,7 +145,7 @@ const LOOK := {
 	# Deathless Barrow (mine 7, docs/mine7-koschei.md §8): "the bog, the bones and the barrow's gold" - vivianite that grows
 	# on buried bones in bogs, black bog-iron, apatite (the mineral bone is made of), black morion (the stone of the dead),
 	# blood-red pyrope of Scythian inlays, carnelian beads, and Koschei's needle as its jewel
-	vivianite = {stria = [0.9, 1.0], zone = [0, 0.0, 0.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
+	vivianite = {bend = 0.3, stria = [0.9, 1.0], zone = [0, 0.0, 0.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
 		rock = [["ironstone", 3.0], ["slate", 2.0]], hk = 1.8, wk = 0.5, dark = 0.0, glass = {tint = 0.9, dark = 0.45, glow = 0.15}, ir = 0.15,
 		palette = [[0x15505a, 0x15505a, 4.0], [0x1f5e46, 0x1f5e46, 2.0], [0x16365e, 0x16365e, 1.0]]},
 	goethite = {kinds = [["crystal", 1.0]], rock = [["ironstone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 1.0, grain = 0.02},
@@ -170,9 +172,9 @@ const LOOK := {
 	dogtooth = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0], ["geode", 1.0]],
 		rock = [["limestone", 4.0]], dark = 0.0, glass = {tint = 0.5, glow = 0.15}, ir = 0.2,
 		palette = [[0xd8a050, 0xd8a050, 4.0], [0xf0d090, 0xf0d090, 2.0], [0xf4f0e8, 0xf4f0e8, 1.0]]},
-	marcasite = {forms = [["cluster", 5.0], ["radial", 2.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 3.0], ["limestone", 1.0]],
+	marcasite = {forms = [["coxcomb", 4.0], ["cluster", 3.0], ["radial", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 3.0], ["limestone", 1.0]],
 		dark = 0.0, metal_col = 0xb8a870, tarnish = 0.4, hk = 0.8, wk = 1.2},
-	wavellite = {zone = [0, 0.0, 0.0], forms = [["radial", 6.0], ["cluster", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
+	wavellite = {zone = [0, 0.0, 0.0], forms = [["starburst", 6.0], ["radial", 2.0], ["cluster", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
 		rock = [["slate", 3.0], ["limestone", 1.0]], hk = 1.6, wk = 0.4, dark = 0.0, glass = {tint = 0.6, frost = 0.3, glow = 0.2}, ir = 0.15,
 		palette = [[0xa8d870, 0xa8d870, 4.0], [0xd0e890, 0xd0e890, 2.0], [0x70b860, 0x70b860, 1.0]]},
 	hyalite = {kinds = [["crystal", 1.0]], rock = [["basalt", 2.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 0.5, frost = 0.1, glow = 0.55}, ir = 0.3,
@@ -182,6 +184,10 @@ const LOOK := {
 		palette = [[0xf4f0e6, 0xf4f0e6, 4.0], [0xe8dcc0, 0xe8dcc0, 2.0]]},
 	enhydro = {forms = [["single", 4.0], ["floater", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
 		rock = [["quartzite", 2.0], ["slate", 1.0]], hk = 1.3, wk = 0.9, dark = 0.0, glass = {frost = 0.12}, more = {phantom = 0.3}},
+	# millerite (replaces enhydro in the seam's pool: enhydro is a shared gene now): brassy hair in the cavities of
+	# the coal measures' ironstone
+	millerite = {forms = [["hair", 1.0]], kinds = [["druse", 3.0], ["crystal", 2.0]], rock = [["ironstone", 3.0], ["limestone", 2.0]],
+		metal_col = 0xc8b048, mrough = 0.2, menv = 2.2, tarnish = 0.3, growths = 0.3},
 	ember = {zone = [0, 0.0, 0.0], forms = [["single", 4.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
 		rock = [["slate", 3.0]], hk = 1.5, wk = 0.7, dark = 0.0, glass = {tint = 0.8, frost = 0.1, glow = 0.9}, ir = 0.25,
 		palette = [[0x6fe8d0, 0x6fe8d0, 4.0], [0x5ab8ff, 0x5ab8ff, 1.5]]},
@@ -241,6 +247,7 @@ const AFFINITY := {
 	wavellite = {love = {druzy = 3.0}, never = ["rutile"]},
 	hyalite = {never = ["rutile"]},
 	whewellite = {love = {twin = 3.0}, never = ["rutile"]},
+	millerite = {never = ["moss", "coral", "pompom", "straw", "needles"]},
 	ember = {never = ["irid"]},
 }
 
@@ -289,7 +296,7 @@ const ODD := {
 	hematite = [["hexplates", 2.0], ["slabs", 1.0]],
 	celestine = [["rosette", 1.5], ["radial", 1.0]],
 	gypsum = [["pile", 1.0], ["columnar", 1.0]],
-	olivine = [], needle = [],
+	olivine = [], needle = [], millerite = [],
 }
 const ODD_BY_HABIT := {
 	prism = [["radial", 1.0], ["slabs", 1.0], ["floater", 0.7], ["columnar", 1.0], ["pile", 0.7]],

@@ -90,6 +90,7 @@ const FACTS := {
 	hyalite = "SiO₂·nH₂O · hardness 6 · glassy opal like drops of water; under a black lamp it glows green",
 	whewellite = "CaC₂O₄·H₂O · hardness 2.5 · a mineral born of living things, found in coal seams",
 	enhydro = "SiO₂ · hardness 7 · a quartz with a drop of water and a bubble of gas sealed in it millions of years ago",
+	millerite = "NiS · hardness 3 · brass-yellow hairs finer than a horse's, grown in the hollows of ironstone in the coal measures",
 	ember = "the colour of a firedamp flame: the old gas-burner's last coal, still warm",
 	needle = "a death on the needle's point, the needle in an egg, the egg in a duck, the duck in a hare...",
 }
