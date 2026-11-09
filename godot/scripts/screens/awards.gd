@@ -47,23 +47,23 @@ static var LIST := [
 	{tab = "coll", icon = "moss_stone", n = "A Rolling Stone", t = "Gathers no moss. Yours did.", r = "coins and a geode",
 		tags = ["tr:moss", "acc:lichen", "acc:fronds", "acc:flowers"], names = ["Moss", "Lichen", "Fern fronds", "Tiny flowers"]},
 	{tab = "coll", icon = "star_crystal", n = "Once in a Blue Moon", t = "Some stones are alive. Find every one of them.", r = "the Hall of Legends", opens = true, legends = true},
-	{tab = "coll", icon = "trilobite", n = "Crystal Eyes", t = "They saw the world through stone lenses. Six kinds still stare.", r = "trilobite portrait",
+	{tab = "coll", icon = "trilobite", n = "Crystal Eyes", t = "They saw the world through stone lenses. Some of them are still staring.", r = "trilobite portrait",
 		tags = ["genus:elrathia", "genus:phacops", "genus:asaphus", "genus:dicranurus", "genus:walliserops", "genus:isotelus"], names = ["Elrathia", "Phacops", "Asaphus", "Dicranurus", "Walliserops", "Isotelus"]},
 	{tab = "coll", icon = "amber_fly", n = "Stuck in Time", t = "Came for the resin. Stayed forty million years.", r = "amber gems",
 		tags = ["insect:ant", "insect:beetle", "insect:fly", "insect:mosquito", "insect:spider"], names = ["Ant", "Beetle", "Fly", "Mosquito", "Spider"]},
 	{tab = "coll", icon = "obsidian", n = "Fifty Shades of Black", t = "Black is never just black.", r = "coins",
 		tags = ["ob:black", "ob:snowflake", "ob:mahogany", "ob:rainbow", "ob:tears"], names = ["Jet black", "Snowflake", "Mahogany", "Rainbow", "Apache tears"]},
-	{tab = "coll", icon = "flame", n = "Dragon's Palette", t = "Red and green are common. Violet is a rumour.", r = "a geode",
+	{tab = "coll", icon = "flame", n = "Dragon's Palette", t = "Every shell burns with its own fire. One colour is only a rumour.", r = "a geode",
 		tags = ["fire:red", "fire:green", "fire:blue", "fire:violet"], names = ["Red fire", "Green fire", "Blue fire", "Violet fire"]},
 	{tab = "coll", icon = "flower_drop", n = "Frozen Bouquet", t = "Picked before the ice age. Still in bloom.", r = "quartz board frame",
 		tags = ["bloom:star", "bloom:rose", "bloom:daisy", "bloom:bell", "bloom:blossom", "bloom:poppy"], names = ["Star", "Rose", "Daisy", "Bell", "Blossom", "Poppy"]},
 	{tab = "coll", icon = "fern", n = "The Stone Herbarium", t = "Pressed by the weight of a mountain.", r = "coins",
 		tags = ["plant:fern", "plant:ginkgo", "plant:redwood", "plant:horsetail", "plant:palm", "plant:annularia", "plant:lepido"], names = ["Tree fern", "Ginkgo", "Dawn redwood", "Horsetail", "Palm", "Annularia", "Lepidodendron"]},
-	{tab = "coll", icon = "crowned_skull", n = "Alas, Poor Yorick", t = "I knew him well. All twelve of him.", r = "the title Curator",
+	{tab = "coll", icon = "crowned_skull", n = "Alas, Poor Yorick", t = "I knew him well. In every skin he ever wore.", r = "the title Curator",
 		items = ["sp:skull_bone", "sp:skull_nacre", "sp:skull_gilt", "sp:skull_kintsugi", "sp:skull_glass", "sp:skull_agate", "sp:skull_opal", "sp:skull_pyrite", "sp:skull_geode", "sp:skull_copper", "sp:skull_silver", "sp:skull_gold"]},
-	{tab = "coll", icon = "pearls", n = "String of Pearls", t = "Four seas, four colours, one string.", r = "a necklace recipe",
+	{tab = "coll", icon = "pearls", n = "String of Pearls", t = "Every sea grows its own colour. Thread them on one string.", r = "a necklace recipe",
 		tags = ["pearl:akoya", "pearl:south_sea", "pearl:golden", "pearl:tahitian"], names = ["Akoya", "South Sea", "Golden", "Tahitian"]},
-	{tab = "coll", icon = "fluorite", n = "Rainbow in a Cube", t = "Purple, green, blue… it can't decide.", r = "coins",
+	{tab = "coll", icon = "fluorite", n = "Rainbow in a Cube", t = "It can't decide what colour to be. Neither will you.", r = "coins",
 		tags = ["pal:fluorite:0", "pal:fluorite:1", "pal:fluorite:2", "pal:fluorite:3", "pal:fluorite:4", "pal:fluorite:5"], names = ["Green", "Purple", "Blue", "Yellow", "Colourless", "Pink"]},
 
 	{tab = "mines", icon = "adit", n = "Every Stone of the Hill", t = "The old man knows them all. Do you?", r = "an artifact stand", items = ["mine:0"]},
@@ -100,6 +100,31 @@ static var LIST := [
 	{tab = "secrets", icon = "moon", n = "Night Shift", t = "Miners don't sleep. Apparently, neither do you.", r = "Played between midnight and four", one = true, hide = true, ev = "night", give = {lives = 2}, items = ["i:moon"]},
 	{tab = "secrets", icon = "twins", n = "Déjà Vu", t = "Haven't we met?", r = "The same species twice in a row", one = true, hide = true, ev = "twins", give = {coins = 300}, items = ["i:twins"]},
 ]
+
+## the scholar's word on the big ones, once she is met (StoryScene: [mood, line]); claimed, she says it
+const SAY := {
+	"Three Kingdoms": ["shock", "Copper, silver, gold - a crown for each. Someone ruled down there. Three someones."],
+	"Where She Danced": ["curious", "Gold where every step landed. Grandmothers told of a girl of fire. I wrote it off as a fairy tale."],
+	"Koschei's Secret": ["worry", "The needle. If the tale is right, his death is in your pocket. Don't drop it."],
+	"Fool's Gold": ["smile", "Now you can tell them apart. Most miners never learn."],
+	"The Mistress's Casket": ["calm", "Malachite and emerald from the same mountain. She keeps what she likes best for herself."],
+	"Matryoshka": ["curious", "A stone grown around a stone grown around a stone. Patience is a mineral too."],
+	"Pinned by Nature": ["smile", "Every wing on the bones. I'd pin them in a case, but they're already in one."],
+	"Fairy Ring": ["worry", "They grow in a ring where no light reaches. Something feeds them. I'd rather not know what."],
+	"A Rolling Stone": ["smile", "Moss, lichen, fronds, flowers. A garden that never saw the sun."],
+	"Once in a Blue Moon": ["shock", "Every living stone. They shouldn't exist - and here they are, on my table."],
+	"Crystal Eyes": ["curious", "Calcite lenses. They looked at the sea through stone before anything had eyes like ours."],
+	"Stuck in Time": ["calm", "Every one of them came for a drop of resin. Bad luck lasts forty million years."],
+	"Fifty Shades of Black": ["smile", "Volcanic glass in every mood. My brother called it all just 'black'."],
+	"Dragon's Palette": ["shock", "Violet ammolite. I'd have bet my atlas it was a rumour."],
+	"Frozen Bouquet": ["sad", "Flowers nobody will ever smell. Still, they're the prettiest thing in my atlas."],
+	"The Stone Herbarium": ["calm", "A forest older than the dinosaurs, pressed flat between two pages of slate."],
+	"Alas, Poor Yorick": ["worry", "Twelve kinds of skull. I'm not sure the barrow wanted them dug up."],
+	"String of Pearls": ["smile", "Each sea paints its own. Now you have them all on one thread."],
+	"Rainbow in a Cube": ["curious", "One mineral, every colour. Fluorite never makes up its mind."],
+	"Every Stone of the Hill": ["resolve", "Every kind the hill gives up. The old man's list is finished - mine isn't."],
+	"Giant Slayer": ["resolve", "All of them. And still no sign of him. Keep digging."],
+}
 
 static var tab := "tales"
 
@@ -444,7 +469,7 @@ static func claim(e: Dictionary) -> void:
 		var dl := int(Save.d.depth[Save.area()])
 		st = Stones.roll(Save.next_uid(), Save.area(), [0.6, 1.2, 2.2][clampi(int(gv.geode), 0, 2)], dl)
 	Save.persist()
-	Sfx.play("coin" if gv.has("coins") else "build_knock")
+	if gv.has("coins"): Sfx.play("coin")
 	if not st.is_empty(): await GeodeOpen.run([st], {title = String(e.n), short = true})
 	elif gv.has("unlock"): Ov.toast("%s · %s — on its way in an update" % [e.n, gv.unlock])
 	else: Ov.toast("%s · claimed" % e.n)
@@ -644,7 +669,7 @@ func _strip(e: Dictionary, w: float) -> Control:
 			s.add_child(seal)
 	s.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
 		Sfx.play("open")
-		if st == "ready": _claim(e)
+		if st == "ready": _claim(e, s)
 		else: _sheet(e))
 	return s
 
@@ -959,9 +984,53 @@ func _open_find(it: Array) -> void:
 	v.add_child(l)
 
 ## a ready achievement: the reward is handed over, the seal stamped
-func _claim(e: Dictionary) -> void:
+func _claim(e: Dictionary, strip: Control = null) -> void:
+	if _busy: return
+	_busy = true
+	if strip: await _stamp(strip)
 	await Awards.claim(e)
+	if SAY.has(String(e.n)) and Save.told("s_sister_meet"):
+		var l: Array = SAY[String(e.n)]
+		await StoryScene.say(self, [["sister", String(l[0]), String(l[1])]]).finished
+	_busy = false
 	render()
+
+var _busy := false
+
+## the wax seal comes down on the strip's corner: big and high, a thud, a jolt of the strip, a ring of light
+func _stamp(strip: Control) -> void:
+	var seal := _pic("seal", 34)
+	seal.pivot_offset = Vector2(17, 17)
+	seal.position = Vector2(strip.size.x - 26.0, STRIP_H - 30.0)
+	seal.scale = Vector2(3.2, 3.2)
+	seal.rotation = -0.5
+	seal.modulate.a = 0.0
+	seal.z_index = 2
+	strip.add_child(seal)
+	var tw := seal.create_tween().set_parallel()
+	tw.tween_property(seal, "modulate:a", 1.0, 0.12)
+	tw.tween_property(seal, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(seal, "rotation", 0.18, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tw.finished
+	Sfx.play("build")
+	Sfx.buzz(30)
+	var ring := Control.new()
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.position = seal.position + Vector2(17, 17)
+	strip.add_child(ring)
+	var k := [0.0]
+	ring.draw.connect(func():
+		ring.draw_arc(Vector2.ZERO, 14.0 + 30.0 * k[0], 0, TAU, 32, Color(1.0, 0.8, 0.45, 0.8 * (1.0 - k[0])), 3.0, true))
+	var rt := ring.create_tween()
+	rt.tween_method(func(x: float):
+		k[0] = x
+		ring.queue_redraw(), 0.0, 1.0, 0.35)
+	var x0 := strip.position.x
+	var jt := strip.create_tween()
+	jt.tween_property(strip, "position:x", x0 + 3.0, 0.04)
+	jt.tween_property(strip, "position:x", x0 - 2.0, 0.05)
+	jt.tween_property(strip, "position:x", x0, 0.05)
+	await get_tree().create_timer(0.45).timeout
 
 ## for screenshots: ui=open_first opens the sheet of the first strip of the tab
 func _open_first() -> void:

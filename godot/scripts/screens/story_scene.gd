@@ -159,6 +159,17 @@ static func play(at: Node, id: String, lamp := Vector2(-1, -1)) -> StoryScene:
 	s.finished.connect(layer.queue_free)
 	return s
 
+## plays lines given here, not from SCENES ([who, mood, line] each): the achievements' notes (Awards.SAY)
+static func say(at: Node, lines: Array) -> StoryScene:
+	var layer := CanvasLayer.new()
+	layer.layer = 25
+	at.get_tree().root.add_child(layer)
+	var s := StoryScene.new()
+	s.lines = lines
+	layer.add_child(s)
+	s.finished.connect(layer.queue_free)
+	return s
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var vp := get_viewport_rect().size
