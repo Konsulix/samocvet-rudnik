@@ -98,9 +98,9 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if s.has("first_of"): tell("first_find_%d" % int(s.first_of))
 	# the achievements' collections (docs/achievements.md): every gene this find shows
 	for t in Awards.genes_of(s):
-		if not d.genes.has(t):
-			d.genes.append(t)
-			d.gfirst[t] = Awards.summary(s, a, dl)
+		if not d.genes.has(t): d.genes.append(t)
+		# the finest stone ever seen with it (shown grey on the awards once no stone with it is kept)
+		if not d.gfirst.has(t) or int(s.value) > int(d.gfirst[t].get("value", 0)): d.gfirst[t] = Awards.summary(s, a, dl)
 	var aid := Stones.atlas_id(s)
 	var e: Dictionary = d.atlas.get(aid, {n = 0, max_g = 0, max_v = 0, legend = false})
 	e.n = int(e.n) + 1

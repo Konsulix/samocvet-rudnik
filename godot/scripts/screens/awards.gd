@@ -154,20 +154,46 @@ static func summary(s: Dictionary, a: int, dl: int) -> Dictionary:
 		if s.has(k): b[k] = s[k]
 	return b
 
+## for each gene, the finest stone that shows it among those kept now (tag -> the stone); built once a render
+static var _kept: Dictionary = {}
+
+static func kept_best() -> Dictionary:
+	if _kept.is_empty():
+		_kept = {none = true}
+		for s in Save.d.coll:
+			for t in genes_of(s):
+				if not _kept.has(t) or int(s.value) > int(_kept[t].value): _kept[t] = s
+	return _kept
+
+## the stone a found item is shown by: [summary, kept now]. A gene: the finest kept stone that shows it, else the
+## finest one ever seen (grey, as the atlas greys a species whose best stone was sold); a species: the atlas's best
+func _shown(item: String) -> Array:
+	if item.begins_with("g:"):
+		var tag := item.trim_prefix("g:")
+		var k: Dictionary = kept_best()
+		if k.has(tag):
+			var s: Dictionary = k[tag]
+			return [summary(s, int(s.get("area", 0)), int(s.get("dl", 0))), true]
+		return [(Save.d.get("gfirst", {}) as Dictionary).get(tag, {}), false]
+	if item.begins_with("sp:"):
+		var id := item.trim_prefix("sp:")
+		return [(Save.d.atlas.get(id, {}) as Dictionary).get("best", {}), Atlas.best_kept(id)]
+	return [{}, true]
+
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 3: return
+	if int(Save.d.get("gver", 0)) >= 4: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
 		for t in genes_of(s):
 			if not seen.has(t): seen.append(t)
-			if not first.has(t) or not (first[t] as Dictionary).has("value"):
+			if not first.has(t) or not (first[t] as Dictionary).has("value") or int(s.value) > int(first[t].value):
 				first[t] = summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	Save.d.genes = seen
 	Save.d.gfirst = first
-	Save.d.gver = 3
+	Save.d.gver = 4
 	Save.persist()
 
 func _ready() -> void:
@@ -182,6 +208,7 @@ func _ready() -> void:
 	render()
 
 func render() -> void:
+	_kept = {}
 	var keep := scroll.scroll_vertical if scroll else 0
 	for ch in get_children():
 		if ch.name != "Bg": ch.queue_free()
@@ -399,11 +426,11 @@ func _niche(it: Array, sz: float) -> Control:
 	img.modulate = Color(0.82, 0.8, 0.76)
 	c.add_child(img)
 	if s.begins_with("g:") or s.begins_with("sp:"):
-		img.material = _fade()
+		# the finest stone kept now; grey once none is (as the atlas)
+		img.material = _fade(not bool(_shown(s)[1]))
 		img.modulate = Color.WHITE    # (the shader mutes it)
 	if s.begins_with("g:"):
-		# the find this gene first showed on, as the atlas pictures it (muted like the stones in a mine's niches)
-		var o: Dictionary = (Save.d.get("gfirst", {}) as Dictionary).get(s.trim_prefix("g:"), {})
+		var o: Dictionary = _shown(s)[0]
 		if o.is_empty(): img.texture = _tex(String(it[2]))
 		else: Atlas.cutout(Spec.of_stone(o) if o.has("value") else o, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
 	elif s.begins_with("i:"):
@@ -419,14 +446,17 @@ func _niche(it: Array, sz: float) -> Control:
 		Atlas.cutout(Spec.of_stone(e.best) if e.has("best") else Atlas._sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t)
 	return c
 
-static var _fade_m: ShaderMaterial
+static var _fade_m: Array = [null, null]
 
-## a find's picture fading into its niche (shaders/niche_fade.gdshader)
-static func _fade() -> ShaderMaterial:
-	if _fade_m == null:
-		_fade_m = ShaderMaterial.new()
-		_fade_m.shader = load("res://shaders/niche_fade.gdshader")
-	return _fade_m
+## a find's picture fading into its niche (shaders/niche_fade.gdshader); grey: no longer kept
+static func _fade(grey := false) -> ShaderMaterial:
+	var i := 1 if grey else 0
+	if _fade_m[i] == null:
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/niche_fade.gdshader")
+		m.set_shader_parameter("grey", float(i))
+		_fade_m[i] = m
+	return _fade_m[i]
 
 ## one achievement
 func _strip(e: Dictionary, w: float) -> Control:
@@ -790,23 +820,20 @@ func _in_mines(sids: Array, line: String, areas: Array = []) -> String:
 ## a found item: its find's card, as in the atlas — in colour while the stone is kept, grey once sold
 func _open_find(it: Array) -> void:
 	var s := String(it[0])
-	var best: Dictionary = {}
-	if s.begins_with("g:"): best = (Save.d.get("gfirst", {}) as Dictionary).get(s.trim_prefix("g:"), {})
-	elif s.begins_with("sp:"): best = (Save.d.atlas.get(s.trim_prefix("sp:"), {}) as Dictionary).get("best", {})
+	var sh := _shown(s)
+	var best: Dictionary = sh[0]
+	var kept: bool = sh[1]
 	if not best.has("value"):
 		Ov.toast(String(it[3]) if it.size() > 3 else "Found")
 		return
-	var kept := false
-	for x in Save.d.coll: if int(x.id) == int(best.id): kept = true
 	Sfx.play("open")
 	var v := Ov.card(350, Data.rarity_color(int(best.tier)))
 	var view := Reveal.stone_card(v, best, 380, func(): Ov.close(), kept)
 	if not kept: view.hold_grey()
 	var ba := int(best.get("area", 0))
-	var t := ("First seen: %s · " % it[3]) if it.size() > 3 else ""
+	var t := ("%s · " % it[3]) if it.size() > 3 else ""
 	t += "%s, %d m" % [Data.AREAS[ba].n, Data.depth_m(ba, int(best.get("dl", 0)))]
-	if not kept: t += "
-This stone was sold. What it showed you stays known."
+	if not kept: t += "\nSold. Keep another stone with it to bring it back to colour."
 	var l := Kit.label(t, 12, UI.body_bold, Kit.CREAM)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
