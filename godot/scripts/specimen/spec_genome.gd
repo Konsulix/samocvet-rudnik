@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", hair = "hair sprays", coxcomb = "cockscomb", starburst = "star discs", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", septaria = "septarian nodule", hair = "hair sprays", coxcomb = "cockscomb", starburst = "star discs", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -24,7 +24,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
 	sk_flies = "butterflies", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
-	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
+	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -36,6 +36,9 @@ const EXTRA_TRAITS := [
 	{id = "atypical", n = "atypical habit", p = 0.0, m = 1.5},
 	# a pocket of water sealed in the crystal, its gas bubble rising as the stone turns (SpecimenBuilder.Enhydro)
 	{id = "enhydro", n = "enhydro", p = 0.025, m = 1.7},
+	# a ghost of green chlorite inside the crystal; rusty limonite stains climbing its foot
+	{id = "chlorite", n = "chlorite phantom", p = 0.03, m = 1.4},
+	{id = "limonite", n = "limonite stains", p = 0.04, m = 1.15},
 ]
 
 static func of(o: Dictionary) -> Dictionary:
@@ -137,7 +140,7 @@ static func of(o: Dictionary) -> Dictionary:
 		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass"]:
 			apool = []
 	# (a sawn and polished face keeps nothing growing on it)
-	var bare := (form == "rosette" and look.has("rose")) or form == "sawn"
+	var bare := (form == "rosette" and look.has("rose")) or form in ["sawn", "septaria"]
 	if o.get("form", "") == "skull" and apool.is_empty(): bare = true   # (a gold / mosaic / glass skull: no mushrooms either)
 	if Rng32.new((seed_v * 1103515245 + 13) % 4294967296).next() > float(look.get("growths", 1.0)):
 		bare = true
@@ -151,6 +154,9 @@ static func of(o: Dictionary) -> Dictionary:
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
 	acc.append_array(SpecFossil.accents(fossil))
+	# emerald's trapiche: a rare one with a dark six-spoked wheel through it (its own stream)
+	if look.has("trapiche") and form in ["single", "columnar"] and Rng32.new((seed_v * 3266489917 + 151) % 4294967296).next() < float(look.trapiche):
+		acc.append("trapiche")
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
 	# own stream, so no other gene moves
 	var withs: Array = look.get("with", [])

@@ -36,6 +36,7 @@ extends RefCounted
 ## mica    the rock glitters with mica flakes round the crystals (almandine in its schist)
 ## bend    how far its crystals bow, each its own way (stibnite's swords)
 ## wire    curls of native silver sprout from the rock (acanthite)
+## trapiche the chance of a dark six-spoked wheel through a single crystal (emerald)
 ## glass   {frost: a milky body, 0..1; dark: how dark the glass body is (smoky quartz), tint: how much the body glows in the species' own colour
 ##         rather than showing the room through it (garnet, azurite), 0..1}
 
@@ -65,7 +66,7 @@ const LOOK := {
 		glass = {tint = 0.6}},
 	aquamarine = {stria = [1.5, 1.0], forms = [["single", 4.0], ["columnar", 3.0], ["hexplates", 0.6]], kinds = [["crystal", 6.0], ["druse", 1.0]],
 		rock = [["quartzite", 3.0], ["slate", 1.0]], blunt = true, hk = 1.3, wk = 0.9, dark = 0.0},
-	emerald = {stria = [0.8, 1.0], forms = [["single", 5.0], ["columnar", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["slate", 6.0]], blunt = true, dark = 0.0},
+	emerald = {trapiche = 0.2, stria = [0.8, 1.0], forms = [["single", 5.0], ["columnar", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["slate", 6.0]], blunt = true, dark = 0.0},
 	# Whalebone Cove
 	gypsum = {forms = [["slabs", 3.0], ["rosette", 4.0], ["radial", 1.0], ["single", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
 		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 1.3, wk = 0.7, dark = 0.0, rose = [0x7a5a3c, 0xa4865e], more = {twin = 0.12}},
@@ -79,7 +80,7 @@ const LOOK := {
 		with = [["crust", 0xf0d020, 0.55, "sulphur"]]},
 	realgar = {zone = [0, 0.0, 0.0], foot_frost = false, forms = [["cluster", 1.0]], kinds = [["druse", 1.0]], dense = 0.7,
 		rock = [["slate", 3.0], ["lava", 2.0]], hk = 0.7, wk = 1.05, dark = 0.0, glass = {tint = 0.9, dark = 0.2, frost = 0.12, glow = 0.32},
-		ir = 0.2, blunt = true, no_acc = ["inkspots", "clouds"], with = [["crust", 0xd8681a, 0.85, "orpiment"]]},
+		ir = 0.2, blunt = true, no_acc = ["inkspots", "clouds"], with = [["crust", 0xd8681a, 0.85, "orpiment"], ["crust", 0xf2d23a, 0.5, "pararealgar"]]},
 	hematite = {forms = [["rosette", 4.0], ["platestack", 4.0]], kinds = [["crystal", 5.0], ["druse", 2.0]], rock = [["quartzite", 2.0], ["lava", 1.0]],
 		rose = [0x1c1612, 0x3a3028], rose_metal = true, rose_n = 2.4, rose_s = 0.6, metal_col = 0x4c5060, tarnish = 0.8,
 		with = [["blades", 0xeef2f6, 0.2, "rockcrystal"]]},
@@ -89,7 +90,7 @@ const LOOK := {
 	# Proval (Svalbard's coal measures): the vein minerals of the coal and the shale, and agate from the old lavas —
 	# shown at their prettiest: glowing honey rhombs, blue and golden barite, mirror galena, fiery ruby jack,
 	# blue agate, and the raspberry rhodochrosite as its jewel
-	siderite = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 4.0], ["ironstone", 2.0]],
+	siderite = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0], ["septaria", 1.5]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["slate", 4.0], ["ironstone", 2.0]],
 		saddle = 1.0, rh = -0.22, wk = 1.3, hk = 1.2, dark = 0.0, opaque = {rough = 0.22, coat = 0.8, grain = 0.04}, ir = 0.25, dense = 1.0,
 		palette = [[0x6a3e16, 0x6a3e16, 4.0], [0x8a5820, 0x8a5820, 3.0], [0x46280e, 0x46280e, 1.5]],
 		with = [["blades", 0xeef2f6, 0.25, "rockcrystal"]]},
@@ -152,7 +153,7 @@ const LOOK := {
 		palette = [[0x15505a, 0x15505a, 4.0], [0x1f5e46, 0x1f5e46, 2.0], [0x16365e, 0x16365e, 1.0]]},
 	goethite = {kinds = [["crystal", 1.0]], rock = [["ironstone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 1.0, grain = 0.02},
 		palette = [[0x2a1c14, 0x2a1c14, 4.0], [0x4a2a16, 0x4a2a16, 2.0], [0x161210, 0x161210, 1.0]]},
-	apatite = {zone = [0, 0.0, 0.0], forms = [["single", 3.0], ["cluster", 3.0]], kinds = [["crystal", 5.0], ["druse", 3.0]], blunt = true,
+	apatite = {habits = [["hexbevel", 3.0], ["prism", 1.0]], zone = [0, 0.0, 0.0], forms = [["single", 3.0], ["cluster", 3.0]], kinds = [["crystal", 5.0], ["druse", 3.0]], blunt = true,
 		rock = [["limestone", 3.0], ["slate", 1.0]], hk = 0.9, wk = 1.1, dark = 0.0, glass = {tint = 0.6, glow = 0.2},
 		palette = [[0x9ac86a, 0x9ac86a, 4.0], [0x3a8ab0, 0x3a8ab0, 2.0], [0xd8c040, 0xd8c040, 1.5], [0x7a5ab0, 0x7a5ab0, 0.7]]},
 	morion = {forms = [["single", 4.0], ["columnar", 3.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
@@ -181,7 +182,7 @@ const LOOK := {
 		palette = [[0xa8d870, 0xa8d870, 4.0], [0xd0e890, 0xd0e890, 2.0], [0x70b860, 0x70b860, 1.0]]},
 	hyalite = {kinds = [["crystal", 1.0]], rock = [["basalt", 2.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 0.5, frost = 0.1, glow = 0.55}, ir = 0.3,
 		palette = [[0xd8f8c8, 0xd8f8c8, 4.0], [0xb8f0b0, 0xb8f0b0, 2.0]]},
-	whewellite = {zone = [0, 0.0, 0.0], forms = [["cluster", 3.0], ["single", 3.0]], kinds = [["crystal", 5.0], ["druse", 3.0]],
+	whewellite = {zone = [0, 0.0, 0.0], forms = [["septaria", 4.0], ["cluster", 2.0], ["single", 2.0]], kinds = [["crystal", 5.0], ["druse", 3.0]],
 		rock = [["slate", 4.0]], hk = 0.9, wk = 1.2, dark = 0.0, glass = {frost = 0.4}, ir = 0.2,
 		palette = [[0xf4f0e6, 0xf4f0e6, 4.0], [0xe8dcc0, 0xe8dcc0, 2.0]]},
 	enhydro = {forms = [["single", 4.0], ["floater", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
@@ -200,10 +201,10 @@ const LOOK := {
 ## the traits' (irid, phantom, rutile…) and the accents' (pompom, crust, mushrooms…). What a body cannot show at all
 ## (a phantom in metal, a twin on a fossil) is ruled out by `never()` itself.
 const AFFINITY := {
-	quartz = {love = {phantom = 2.0, rutile = 3.0, scepter = 3.0, floater = 3.0, enhydro = 3.0}, never = ["coral", "pompom"]},
-	calcite = {love = {zoned = 3.0, phantom = 3.0, enhydro = 2.0}, never = ["rutile", "scepter"]},
+	quartz = {love = {phantom = 2.0, rutile = 3.0, scepter = 3.0, floater = 3.0, enhydro = 3.0, chlorite = 3.0, limonite = 2.0}, never = ["coral", "pompom"]},
+	calcite = {love = {zoned = 3.0, phantom = 3.0, enhydro = 2.0, limonite = 3.0}, never = ["rutile", "scepter"]},
 	pyrite = {love = {irid = 4.0}, never = ["bubbles", "floater"]},
-	fluorite = {love = {twin = 3.0, druzy = 3.0, enhydro = 3.0}, never = ["rutile", "scepter"]},
+	fluorite = {love = {twin = 3.0, druzy = 3.0, enhydro = 3.0, limonite = 2.0}, never = ["rutile", "scepter"]},
 	amethyst = {love = {scepter = 3.0, phantom = 3.0, dust = 4.0}, never = ["irid", "coral"]},
 	smoky = {love = {rutile = 4.0, phantom = 2.0, enhydro = 3.0}, never = ["coral", "moss"]},
 	garnet = {love = {eroded = 4.0, silver = 3.0}, never = ["floater", "phantom", "bubbles", "coral", "scepter"]},
@@ -225,14 +226,14 @@ const AFFINITY := {
 	realgar = {never = ["moss", "lichen", "rutile"]},
 	hematite = {love = {irid = 3.0}, never = ["moss"]},
 	siderite = {love = {irid = 3.0}, never = ["phantom", "rutile", "floater"]},
-	barite = {love = {zoned = 3.0}, never = ["rutile", "scepter"]},
+	barite = {love = {zoned = 3.0, limonite = 3.0}, never = ["rutile", "scepter"]},
 	galena = {never = ["irid"]},
 	sphalerite = {never = ["rutile", "moss"]},
 	chalcedony = {never = ["rutile", "scepter", "twin"]},
 	rhodochrosite = {never = ["rutile", "moss"]},
 	stibnite = {never = ["moss"]},
 	natrolite = {love = {druzy = 3.0}, never = ["rutile", "scepter", "phantom"]},
-	japan_quartz = {love = {enhydro = 2.0}, never = ["coral", "floater"]},
+	japan_quartz = {love = {enhydro = 2.0, chlorite = 4.0}, never = ["coral", "floater"]},
 	cinnabar = {love = {crust = 3.0, twin = 4.0}, never = ["moss", "rutile"]},
 	proustite = {never = ["rutile", "moss"]},
 	vivianite = {love = {mushrooms = 3.0, moss = 3.0}, never = ["rutile"]},
@@ -254,8 +255,8 @@ const AFFINITY := {
 }
 
 ## the traits that live in clear glass, and those that need crystals grown out of a rock
-const IN_GLASS := ["phantom", "rutile", "inkspots", "clouds", "enhydro"]
-const ON_CRYSTALS := ["phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy", "enhydro"]
+const IN_GLASS := ["phantom", "rutile", "inkspots", "clouds", "enhydro", "chlorite"]
+const ON_CRYSTALS := ["phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]
 ## what a fossil's own builder reads of the shared traits (ammolite, pyrite trilobites, gold in amber, bubbles on rock)
 const FOSSIL_KEEPS := ["irid", "aurora", "goldfleck", "bubbles"]
 

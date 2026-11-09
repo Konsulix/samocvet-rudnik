@@ -75,6 +75,9 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	elif habit == "nailhead":
 		# calcite's nailhead spar: a short six-sided prism under a low flat cap
 		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.45), Vector2(r * 0.1, h * 0.45 + r * 0.42), Vector2(0, h * 0.45 + r * 0.42)], 6)
+	elif habit == "hexbevel":
+		# apatite: a stubby six-sided prism, its flat end ringed with small sloping faces
+		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.72), Vector2(r * 0.66, h * 0.86), Vector2(0, h * 0.86)], 6)
 	elif habit == "pyritohedron":
 		# pyrite's pentagonal dodecahedron: twelve five-sided faces, each with one long edge
 		g = Geo.dodeca(0.3).scale(1.0 + rng.next() * 0.12, 0.88, 1.08).translate(0, 0.27, 0)
