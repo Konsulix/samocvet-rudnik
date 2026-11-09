@@ -28,16 +28,16 @@ static var LIST := [
 	{tab = "tales", icon = "three_skulls", n = "Three Kingdoms", t = "Copper, silver, gold. Every kingdom keeps its king's head.", r = "Copper Kingdom", opens = true,
 		items = ["sp:skull_copper", "sp:skull_silver", "sp:skull_gold"]},
 	{tab = "tales", icon = "fire_maiden", n = "Where She Danced", t = "Wherever she lands, the rock turns to gold.", r = "The Fire Maiden", opens = true,
-		items = ["i:glow_stone", "i:crystal", "i:pyrite"], got = 3},
+		tags = ["gold:nugget", "gold:vein", "gold:dendrite"], names = ["Nugget", "Gold in quartz", "Gold tree"]},
 	{tab = "tales", icon = "egg_needle", n = "Koschei's Secret", t = "The needle's in the egg, the egg's in the duck, the duck's in the hare…", r = "Koschei's Needle",
-		items = ["i:casket", "i:egg_needle", "sp:needle", "i:moon", "i:crowned_skull"], got = 2},
+		items = ["i:casket", "i:egg_needle", "sp:needle", "i:moon", "i:crowned_skull"], evs = ["", "", "sp:needle", "", ""]},
 	{tab = "tales", icon = "pyrite", n = "Fool's Gold", t = "Not everything that glitters. But some of it does.", r = "a workshop recipe",
 		items = ["sp:pyrite", "sp:gold"]},
 	{tab = "tales", icon = "casket", n = "The Mistress's Casket", t = "She gives only to those who don't grab.", r = "malachite board frame",
 		items = ["sp:malachite", "sp:emerald"]},
 	{tab = "tales", icon = "nested", n = "Matryoshka", t = "A stone inside a stone inside a stone.", r = "a geode", items = ["sp:fluorite"]},
-	{tab = "tales", icon = "halves", n = "Reunited", t = "Split a hundred million years ago. Together again.", r = "a geode", items = ["i:halves"], got = 0},
-	{tab = "tales", icon = "oyster_moon", n = "Moonlit Sea", t = "It waited four hundred million years for the moon.", r = "pearl gems", items = ["i:oyster_moon"], got = 0},
+	{tab = "tales", icon = "halves", n = "Reunited", t = "Split a hundred million years ago. Together again.", r = "a geode", items = ["i:halves"], one = true, ev = ""},
+	{tab = "tales", icon = "oyster_moon", n = "Moonlit Sea", t = "It waited four hundred million years for the moon.", r = "pearl gems", items = ["i:oyster_moon"], one = true, ev = "gene:fx:moon"},
 
 	{tab = "coll", icon = "butterfly", n = "Pinned by Nature", t = "They landed on the stone and never left.", r = "butterfly board frame",
 		tags = ["fly:morpho", "fly:apollo", "fly:monarch", "fly:deathshead", "fly:glasswing", "fly:comet", "fly:mourning", "fly:blue"],
@@ -69,35 +69,36 @@ static var LIST := [
 	{tab = "mines", icon = "adit", n = "Every Stone of the Hill", t = "The old man knows them all. Do you?", r = "an artifact stand", items = ["mine:0"]},
 	{tab = "mines", icon = "serpent", n = "The Serpent Sleeps", t = "Gold doesn't come for free here.", r = "a trophy", one = true, boss = 0, items = ["i:serpent"]},
 	{tab = "mines", icon = "glow_stone", n = "Legend of the Adit", t = "One stone here is not like the others.", r = "a rare geode", one = true, legend = 0, items = ["i:glow_stone"]},
-	{tab = "mines", icon = "headframe", n = "Fully Rigged", t = "Every wheel turns, every lamp burns.", r = "coins", one = true, got = 0, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Fully Rigged", t = "Every wheel turns, every lamp burns.", r = "coins", coins = 1500, one = true, ev = "rigged:0", items = ["kit:coin"]},
 	{tab = "mines", icon = "scroll", n = "Notes from Below", t = "The guide wrote things down. Not everything was for you.", r = "the guide's story",
-		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll", "i:scroll"], got = 1},
+		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll", "i:scroll"], evs = ["tut:g_hello_0", "tut:g_ore", "tut:g_build", "tut:g_drill", "tut:g_deeper"]},
 	{tab = "mines", icon = "eye", n = "Eye of the Miner", t = "The mine moves when you're not looking.", r = "a portrait frame",
-		items = ["i:serpent", "i:eye", "i:glow_stone", "i:headframe"], got = 2},
+		items = ["i:serpent", "i:serpent", "i:eye", "i:lizard"], evs = ["ev:0:hole", "ev:0:coil", "ev:0:eyes", "ev:0:lizard"]},
 
-	{tab = "boss", icon = "serpent", n = "Snake Charmer", t = "He bit. You didn't flinch.", r = "Win against the Serpent first try", one = true, got = 1, items = ["kit:gold"]},
-	{tab = "boss", icon = "lizard", n = "Keep Your Greens", t = "Not one stone for the lizards.", r = "No green stolen by the lizards", one = true, got = 0, items = ["kit:copper"]},
-	{tab = "boss", icon = "tentacle", n = "Hold Fast", t = "Nothing goes overboard.", r = "The tentacle drags no stone", one = true, got = 0, items = ["kit:ammonite"]},
-	{tab = "boss", icon = "lightning", n = "Thunderstruck", t = "Even a giant needs to sit down.", r = "Stun Brontes 3 times", one = true, got = 0, items = ["kit:sulphur"]},
-	{tab = "boss", icon = "canary", n = "Sing, Little Bird", t = "She never stopped singing.", r = "The canary never falls silent", one = true, got = 0, items = ["kit:flint"]},
+	{tab = "boss", icon = "serpent", n = "Snake Charmer", t = "He bit. You didn't flinch.", r = "Win against the Serpent first try", one = true, ev = "boss:0:first", give = {geode = 2}, items = ["kit:gold"]},
+	{tab = "boss", icon = "lizard", n = "Keep Your Greens", t = "Not one stone for the lizards.", r = "No green stolen by the lizards", one = true, ev = "boss:1:greens", give = {geode = 2}, items = ["kit:copper"]},
+	{tab = "boss", icon = "tentacle", n = "Hold Fast", t = "Nothing goes overboard.", r = "The tentacle drags no stone", one = true, ev = "boss:2:hold", give = {geode = 2}, items = ["kit:ammonite"]},
+	{tab = "boss", icon = "lightning", n = "Thunderstruck", t = "Even a giant needs to sit down.", r = "Stun Brontes 3 times", one = true, ev = "boss:3:daze", need = 3, give = {geode = 2}, items = ["kit:sulphur"]},
+	{tab = "boss", icon = "canary", n = "Sing, Little Bird", t = "She never stopped singing.", r = "The canary never falls silent", one = true, ev = "boss:7:song", give = {geode = 2}, items = ["kit:flint"]},
 	{tab = "boss", icon = "axe_crown", n = "Giant Slayer", t = "Every legend underground has met you.", r = "the title Slayer",
-		items = ["i:serpent", "i:lizard", "i:tentacle", "i:lightning", "i:canary"], got = 2},
+		items = ["i:serpent", "i:lizard", "i:tentacle", "i:lightning", "i:canary"], evs = ["won:0", "won:1", "won:2", "won:3", "won:7"]},
 
-	{tab = "mastery", icon = "hourglass", n = "By a Hair", t = "Last move. Last chance. Done.", r = "Win on the last move", one = true, got = 1, items = ["res:res://assets/board/boosters/pick.png"]},
-	{tab = "mastery", icon = "rockfall", n = "Avalanche", t = "One stone moved. Then all of them.", r = "A cascade of 8", one = true, got = 0, items = ["res:res://assets/board/boosters/bore_h.png"]},
-	{tab = "mastery", icon = "keg", n = "Powder Party", t = "Boom. Boom boom boom boom.", r = "Five kegs in one chain", one = true, got = 0, items = ["kit:coin"]},
+	{tab = "mastery", icon = "hourglass", n = "By a Hair", t = "Last move. Last chance. Done.", r = "Win on the last move", one = true, ev = "last_move", give = {boost = {pick = 3}}, items = ["res:res://assets/board/boosters/pick.png"]},
+	{tab = "mastery", icon = "rockfall", n = "Avalanche", t = "One stone moved. Then all of them.", r = "A cascade of 8", one = true, ev = "cascade8", give = {boost = {bore_h = 2, bore_v = 2}}, items = ["res:res://assets/board/boosters/bore_h.png"]},
+	{tab = "mastery", icon = "keg", n = "Powder Party", t = "Boom. Boom boom boom boom.", r = "Five kegs in one chain", one = true, ev = "kegs5", give = {coins = 800}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "flask", n = "Mad Alchemist", t = "What happens if you mix these two?", r = "new gems look",
-		items = ["i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask"], got = 4},
-	{tab = "mastery", icon = "hands", n = "Bare Hands", t = "Who needs tools?", r = "A hard level without boosters", one = true, got = 0, items = ["kit:heart"]},
-	{tab = "mastery", icon = "bonfire", n = "On Fire", t = "Ten in a row. The mine is listening.", r = "Ten wins in a row", one = true, got = 0, items = ["res:res://assets/board/boosters/pan.png"]},
-	{tab = "mastery", icon = "crystal", n = "Not a Scratch", t = "Out of the rock in one piece.", r = "A find without a single chip", one = true, got = 1, items = ["i:crystal"]},
-	{tab = "mastery", icon = "scales", n = "Jackpot", t = "Someone will pay a fortune for that.", r = "A stone worth 10 000", one = true, got = 0, items = ["kit:coin"]},
+		items = ["i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask"],
+		evs = ["mix:rocket+rocket", "mix:bomb+rocket", "mix:orb+rocket", "mix:drill+rocket", "mix:bomb+bomb", "mix:bomb+orb", "mix:bomb+drill", "mix:orb+orb", "mix:drill+orb", "mix:drill+drill"]},
+	{tab = "mastery", icon = "hands", n = "Bare Hands", t = "Who needs tools?", r = "A hard level without boosters", one = true, ev = "bare_hands", give = {lives = 3}, items = ["kit:heart"]},
+	{tab = "mastery", icon = "bonfire", n = "On Fire", t = "Ten in a row. The mine is listening.", r = "Ten wins in a row", one = true, ev = "streak10", give = {boost = {pan = 3}}, items = ["res:res://assets/board/boosters/pan.png"]},
+	{tab = "mastery", icon = "crystal", n = "Not a Scratch", t = "Out of the rock in one piece.", r = "A find without a single chip", one = true, ev = "clean_find", give = {geode = 1}, items = ["i:crystal"]},
+	{tab = "mastery", icon = "scales", n = "Jackpot", t = "Someone will pay a fortune for that.", r = "A stone worth 10 000", one = true, ev = "jackpot", give = {coins = 2000}, items = ["kit:coin"]},
 
-	{tab = "secrets", icon = "broken_heart", n = "What Have You Done", t = "Someone will buy it. Someone always does.", r = "Sold a legendary stone", one = true, hide = true, got = 1, items = ["kit:coin"]},
-	{tab = "secrets", icon = "cracked", n = "Butterfingers", t = "It was a nice stone. It was.", r = "", one = true, hide = true, got = 0, items = ["i:cracked"]},
-	{tab = "secrets", icon = "cage", n = "Don't Poke the Bird", t = "She's working. Let her work.", r = "", one = true, hide = true, got = 0, items = ["i:canary"]},
-	{tab = "secrets", icon = "moon", n = "Night Shift", t = "Miners don't sleep. Apparently, neither do you.", r = "", one = true, hide = true, got = 0, items = ["i:moon"]},
-	{tab = "secrets", icon = "twins", n = "Déjà Vu", t = "Haven't we met?", r = "", one = true, hide = true, got = 0, items = ["i:twins"]},
+	{tab = "secrets", icon = "broken_heart", n = "What Have You Done", t = "Someone will buy it. Someone always does.", r = "Sold a legendary stone", one = true, hide = true, ev = "sold_legend", give = {coins = 500}, items = ["kit:coin"]},
+	{tab = "secrets", icon = "cracked", n = "Butterfingers", t = "It was a nice stone. It was.", r = "A find dug out in pieces", one = true, hide = true, ev = "broken_find", give = {coins = 300}, items = ["i:cracked"]},
+	{tab = "secrets", icon = "cage", n = "Don't Poke the Bird", t = "She's working. Let her work.", r = "Ten taps on the canary's cage", one = true, hide = true, ev = "poke_bird", give = {coins = 300}, items = ["i:canary"]},
+	{tab = "secrets", icon = "moon", n = "Night Shift", t = "Miners don't sleep. Apparently, neither do you.", r = "Played between midnight and four", one = true, hide = true, ev = "night", give = {lives = 2}, items = ["i:moon"]},
+	{tab = "secrets", icon = "twins", n = "Déjà Vu", t = "Haven't we met?", r = "The same species twice in a row", one = true, hide = true, ev = "twins", give = {coins = 300}, items = ["i:twins"]},
 ]
 
 static var tab := "tales"
@@ -134,6 +135,7 @@ static func genes_of(s: Dictionary) -> Array:
 		"fern": out.append("plant:" + String(f.plant))
 		"petrified_wood":
 			if f.get("fungi", false): out.append("shroom:4")    # honey fungus grows only on the wood
+	if sid == "gold": out.append("gold:" + String(g.form))     # the Fire Maiden's gold: nugget, vein, tree
 	if String(g.form) == "skull":
 		var sk := SpecSkull.genes(seed_v, g.skull)
 		for k in sk.fly_kinds: out.append("fly:" + String(k))
@@ -183,7 +185,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 4: return
+	if int(Save.d.get("gver", 0)) >= 5: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -193,7 +195,7 @@ static func backfill() -> void:
 				first[t] = summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	Save.d.genes = seen
 	Save.d.gfirst = first
-	Save.d.gver = 4
+	Save.d.gver = 5
 	Save.persist()
 
 func _ready() -> void:
@@ -305,8 +307,9 @@ func _label(t: String) -> Control:
 
 # ---------------------------------------------------------------- progress
 
-## how many of the items are in hand
-func _got(e: Dictionary) -> Array:
+## how many of the items are in hand. Where the save itself knows (genes, the atlas, bosses beaten) it is read from
+## there; the rest are events the game marks as they happen (Awards.mark: the board, the fights, the mine screens)
+static func _got(e: Dictionary) -> Array:
 	# a collection of genes: seen on any find ever kept (Save.d.genes, filled by Save.note_find)
 	if e.has("tags") or e.get("legends", false):
 		var tags: Array = e.tags if e.has("tags") else SpecLegend.FX_N.keys().map(func(k: String) -> String: return "fx:" + k)
@@ -322,37 +325,129 @@ func _got(e: Dictionary) -> Array:
 		items = []
 		for id in Data.AREAS[a].pool: items.append("sp:" + String(id))
 	var has: Array = []
-	var made := int(e.get("got", 0))
-	for it in items:
-		var s := String(it)
+	for i in items.size():
+		var s := String(items[i])
 		var ok := false
 		if e.get("one", false):
-			if e.has("boss"): ok = int(e.boss) < Save.d.boss_won.size() and bool(Save.d.boss_won[int(e.boss)])
+			if e.has("boss"): ok = _won(int(e.boss))
 			elif e.has("legend"):
 				for id in Data.AREAS[int(e.legend)].pool:
 					if Save.d.atlas.has(id) and bool(Save.d.atlas[id].get("legend", false)): ok = true
-			else: ok = made > 0
-		elif s.begins_with("sp:") and not e.has("got"):
-			ok = Save.d.atlas.has(s.trim_prefix("sp:"))
+			else: ok = n(String(e.get("ev", ""))) >= int(e.get("need", 1))
+		elif e.has("evs"):
+			ok = n(String(e.evs[i])) > 0
 		elif s.begins_with("sp:"):
-			ok = Save.d.atlas.has(s.trim_prefix("sp:")) or has.size() < made
-		else:
-			ok = has.size() < made
+			ok = Save.d.atlas.has(s.trim_prefix("sp:"))
 		has.append([s, ok])
 	return has
 
-func _count(e: Dictionary) -> Vector2i:
+static func _count(e: Dictionary) -> Vector2i:
 	var g := _got(e)
-	var n := 0
-	for x in g: if bool(x[1]): n += 1
-	return Vector2i(n, g.size())
+	var k := 0
+	for x in g: if bool(x[1]): k += 1
+	return Vector2i(k, g.size())
 
-## hidden · open · ready (all in hand, not claimed) · done (sealed)
-func _state(e: Dictionary) -> String:
+## hidden · open · ready (all in hand, not claimed) · done (claimed: sealed)
+static func _state(e: Dictionary) -> String:
 	var c := _count(e)
-	if c.x >= c.y: return "ready" if e.get("ready", false) else "done"
+	if c.x >= c.y and c.y > 0: return "done" if (Save.d.aw_got as Array).has(String(e.n)) else "ready"
 	if e.get("hide", false): return "hidden"
 	return "open"
+
+static func _won(a: int) -> bool:
+	return a < Save.d.boss_won.size() and bool(Save.d.boss_won[a])
+
+# ---------------------------------------------------------------- events, notices, rewards
+
+## how far an event has come: a count the game keeps (Save.d.aw_ev), or read straight from the save —
+## "tut:<id>" a guide's line told, "sp:<id>" a species in the atlas, "gene:<tag>" a gene seen, "won:<mine>" a boss beaten
+static func n(ev: String) -> int:
+	if ev == "": return 0
+	if ev.begins_with("tut:"): return 1 if Save.told(ev.substr(4)) else 0
+	if ev.begins_with("sp:"): return 1 if Save.d.atlas.has(ev.substr(3)) else 0
+	if ev.begins_with("gene:"): return 1 if (Save.d.genes as Array).has(ev.substr(5)) else 0
+	if ev.begins_with("won:"): return 1 if _won(int(ev.substr(4))) else 0
+	return int((Save.d.aw_ev as Dictionary).get(ev, 0))
+
+## the game tells that something happened (by: how many times); kept at once, noticed on the next check
+static func mark(ev: String, by := 1) -> void:
+	Save.d.aw_ev[ev] = int((Save.d.aw_ev as Dictionary).get(ev, 0)) + by
+	Save.persist()
+
+## once only: set, never counted up again
+static func once(ev: String) -> void:
+	if n(ev) == 0: mark(ev)
+
+## what the save shows by itself, latched as events (a streak ends, an achievement doesn't)
+static func _latch() -> void:
+	if int(Save.d.streak) >= 10: once("streak10")
+	for id in Save.d.atlas:
+		if int(Save.d.atlas[id].get("max_v", 0)) >= 10000: once("jackpot")
+	var h := Time.get_datetime_dict_from_system().hour as int
+	if h < 4: once("night")
+	# every job of Old Adit built to its last step
+	var jobs: Array = Data.AREAS[0].get("tasks", [])
+	if jobs.size() and jobs.all(func(t: Array) -> bool: return (Save.d.built[0] as Array).has(t[0])): once("rigged:0")
+
+## the achievements just completed: noticed once each (a toast now; the strip waits on the screen to be claimed).
+## quiet: noticed without a word (the save's first look, so the old ones don't all speak at once)
+static func check(quiet := false) -> Array:
+	backfill()
+	_latch()
+	var fresh: Array = []
+	for e in LIST:
+		var c := _count(e)
+		if c.y == 0 or c.x < c.y or (Save.d.aw_seen as Array).has(String(e.n)): continue
+		Save.d.aw_seen.append(String(e.n))
+		fresh.append(e)
+	if fresh.size():
+		Save.persist()
+		if not quiet:
+			Sfx.play("reveal_2")
+			var e: Dictionary = fresh[0]
+			var head := "Secret award" if e.get("hide", false) else "Award"
+			Ov.toast("%s: %s" % [head, e.n] if fresh.size() == 1 else "%d new awards — see the cabinet" % fresh.size())
+	return fresh
+
+## how many wait to be claimed (the cups in the cabinet light up)
+static func waiting() -> int:
+	_latch()
+	var k := 0
+	for e in LIST:
+		if _state(e) == "ready": k += 1
+	return k
+
+## what an achievement gives: {coins, geode (0 plain, 1 good, 2 rare), boost {id: n}, lives, unlock (a name: a series,
+## a frame, a title — kept for when it exists)}. Spelt out in `give`, else read from the reward's words
+static func give_of(e: Dictionary) -> Dictionary:
+	if e.has("give"): return e.give
+	var r := String(e.r)
+	var out := {}
+	if r.begins_with("coins"): out.coins = int(e.get("coins", 100 * maxi(3, _count(e).y)))
+	if r.ends_with("geode"): out.geode = 2 if r.contains("rare") else 1
+	if out.is_empty(): out.unlock = r
+	return out
+
+## the reward handed over: kept in the save at once (so a crash halfway never pays twice), then the geode opened
+static func claim(e: Dictionary) -> void:
+	if _state(e) != "ready": return
+	var gv := give_of(e)
+	Save.d.aw_got.append(String(e.n))
+	Save.d.coins += int(gv.get("coins", 0))
+	Save.d.lives += int(gv.get("lives", 0))
+	var bo: Dictionary = gv.get("boost", {})
+	for id in bo: Save.d.boost[id] = int(Save.d.boost.get(id, 0)) + int(bo[id])
+	if gv.has("unlock") and not (Save.d.unlocks as Array).has(String(gv.unlock)): Save.d.unlocks.append(String(gv.unlock))
+	var st := {}
+	if gv.has("geode"):
+		# a geode of the mine you're in, from its deepest open depth: the better the reward, the luckier
+		var dl := int(Save.d.depth[Save.area()])
+		st = Stones.roll(Save.next_uid(), Save.area(), [0.6, 1.2, 2.2][clampi(int(gv.geode), 0, 2)], dl)
+	Save.persist()
+	Sfx.play("coin" if gv.has("coins") else "build_knock")
+	if not st.is_empty(): await GeodeOpen.run([st], {title = String(e.n), short = true})
+	elif gv.has("unlock"): Ov.toast("%s · %s — on its way in an update" % [e.n, gv.unlock])
+	else: Ov.toast("%s · claimed" % e.n)
 
 ## the strips nearest to done (and an opened pass on top)
 func _near() -> Array:
@@ -510,7 +605,13 @@ func _strip(e: Dictionary, w: float) -> Control:
 	if not hidden:
 		var c := _count(e)
 		# no "3/8": the niches show how far it is, the names stay secret until found
-		t.add_child(_reward(e, 12, t.size.x))
+		if e.has("give"):
+			var cl := UI.label(String(e.r), 12, load(FELL) as Font, INK_SOFT)
+			cl.clip_text = true
+			cl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			cl.custom_minimum_size = Vector2(t.size.x, 0)
+			t.add_child(cl)
+		else: t.add_child(_reward(e, 12, t.size.x))
 	if st == "ready":
 		# ready to claim: a warm rim right on the parchment's edge, breathing
 		var rim := Control.new()
@@ -689,6 +790,12 @@ func _sheet(e: Dictionary) -> void:
 	var tl := UI.label("???" if hidden else String(e.n), 22, UI.display, INK)
 	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tl)
+	if not hidden and e.has("give"):
+		var cn := UI.label(String(e.r), 15, load(FELL) as Font, INK)
+		cn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cn.custom_minimum_size = Vector2(w - 44, 0)
+		v.add_child(cn)
 	if not hidden:
 		var rw := _reward(e, 15, w - 44, "Reward: ")
 		rw.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -711,7 +818,8 @@ func _sheet(e: Dictionary) -> void:
 			# found: its card (grey if sold); not yet: a hint where to look, in the teaser's place
 			ni.mouse_filter = Control.MOUSE_FILTER_STOP
 			ni.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
-				if bool(it[1]): _open_find(it)
+				if bool(it[1]):
+					if String(it[0]).begins_with("g:") or String(it[0]).begins_with("sp:"): _open_find(it)
 				else:
 					Sfx.play("tab")
 					tz.text = _where(e, String(it[0]))
@@ -751,11 +859,15 @@ func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.custom_minimum_size = Vector2(0, fs + 4)
 	var fell := load(FELL) as Font
-	var r := String(e.r)
+	var gv := give_of(e)
+	var r := String(gv.get("unlock", ""))
 	var parts: Array = []
-	var coins := r.begins_with("coins")
-	if coins: parts.append(["res://assets/ui/kit/icons/coin.png", UI.fmt(int(e.get("coins", 100 * _count(e).y)))])
-	if r.ends_with("geode"): parts.append(["res://assets/ui/geode/whole.png", "rare geode" if r.contains("rare") else "geode"])
+	var coins := gv.has("coins")
+	if coins: parts.append(["res://assets/ui/kit/icons/coin.png", UI.fmt(int(gv.coins))])
+	if gv.has("geode"): parts.append(["res://assets/ui/geode/whole.png", ["geode", "fine geode", "rare geode"][clampi(int(gv.geode), 0, 2)]])
+	var bo: Dictionary = gv.get("boost", {})
+	for id in bo: parts.append(["res://assets/board/boosters/%s.png" % id, "×%d" % int(bo[id])])
+	if gv.has("lives"): parts.append(["res://assets/ui/kit/icons/heart.png", "×%d" % int(gv.lives)])
 	if lead != "" and parts.size(): h.add_child(UI.label(lead, fs, fell, INK_SOFT))
 	if parts.is_empty():
 		var l := UI.label(lead + r, fs, fell, INK_SOFT)
@@ -779,7 +891,7 @@ func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
 	return h
 
 ## the species a gene shows on (for the hint of where to look)
-const GENE_SP := {genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
+const GENE_SP := {gold = ["gold"], genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
 	insect = ["amber", "simetite"], bloom = ["flower_quartz", "amber"], plant = ["fern"]}
 
 ## a hint for a '?': which mine (named only once opened) and among what to look — not the name of the thing itself
@@ -800,6 +912,13 @@ func _where(e: Dictionary, item: String) -> String:
 		if id.begins_with("skull_"):
 			return _in_mines([], "Dig among the bones %s." , Stones.SKULL_AREAS.keys())
 		sids = [id]
+	elif e.has("evs"):
+		match String(e.icon):
+			"flask": return "Swap two special stones into each other. Not every pair has met yet."
+			"scroll": return "The guide has more to say. Keep building and digging deeper."
+			"eye": return "Stay a while on the screen of Old Adit. The mine moves when it's quiet."
+			"axe_crown": return "A giant you haven't beaten yet."
+		return String(e.t)
 	else:
 		return String(e.t)
 	var names: Array = []
@@ -839,10 +958,9 @@ func _open_find(it: Array) -> void:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 
-## a ready achievement: the seal is stamped (prototype: just the toast and the seal)
+## a ready achievement: the reward is handed over, the seal stamped
 func _claim(e: Dictionary) -> void:
-	Ov.toast("%s · %s" % [e.n, e.r])
-	e.ready = false
+	await Awards.claim(e)
 	render()
 
 ## for screenshots: ui=open_first opens the sheet of the first strip of the tab

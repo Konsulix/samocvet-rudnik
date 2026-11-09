@@ -109,6 +109,20 @@ func _build() -> void:
 	room.add_child(case)
 	room.move_child(case, 0)
 	nodes["case"] = case
+	# awards waiting to be claimed: the cups' plaque glows and says how many
+	var waiting := Awards.waiting()
+	if waiting > 0 and nodes.has("cups_hi_plaque"):
+		var pl: PanelContainer = nodes["cups_hi_plaque"]
+		(pl.get_child(0) as Label).text = "AWARDS · %d" % waiting
+		var st := (pl.get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+		st.border_color = Color(1.0, 0.78, 0.35)
+		st.set_border_width_all(2)
+		st.shadow_color = Color(1.0, 0.7, 0.3, 0.55)
+		st.shadow_size = 6
+		pl.add_theme_stylebox_override("panel", st)
+		var tw := pl.create_tween().set_loops()
+		tw.tween_property(pl, "modulate", Color(1.25, 1.15, 0.95), 0.9).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(pl, "modulate", Color.WHITE, 0.9).set_trans(Tween.TRANS_SINE)
 	# the artifact niches: empty for now, a faint + on each stand
 	for i in NICHES.size():
 		var n := Button.new()

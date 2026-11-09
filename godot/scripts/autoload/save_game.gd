@@ -29,6 +29,9 @@ func blank() -> Dictionary:
 		# genes ever seen on a find (Awards.genes_of), and the find each first showed on (its niche on the awards
 		# screen, the same summary as the atlas's best); gver 3 — the old finds read in
 		genes = [], gfirst = {}, gver = 0,
+		# the achievements (Awards): events counted as they happen, the ones noticed (toast given), the ones claimed,
+		# rewards that are a thing to come (a series, a frame, a title), the last species found (Déjà vu)
+		aw_ev = {}, aw_seen = [], aw_got = [], unlocks = [], aw_last = "",
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
@@ -96,6 +99,8 @@ func _init() -> void:
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
 func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if s.has("first_of"): tell("first_find_%d" % int(s.first_of))
+	if String(s.sid) == String(d.aw_last) and not d.aw_ev.has("twins"): d.aw_ev.twins = 1    # Awards: Déjà vu
+	d.aw_last = String(s.sid)
 	# the achievements' collections (docs/achievements.md): every gene this find shows
 	for t in Awards.genes_of(s):
 		if not d.genes.has(t): d.genes.append(t)
@@ -117,6 +122,7 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 ## a stone leaves the inventory (sold): for every gene it shows, it becomes the one the awards remember — once no
 ## stone with the gene is kept, its niche shows the last one that went, grey (not an older one popping back)
 func gone(s: Dictionary) -> void:
+	if bool(s.get("legend", false)): Awards.once("sold_legend")
 	for t in Awards.genes_of(s):
 		d.gfirst[t] = Awards.summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 

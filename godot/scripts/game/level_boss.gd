@@ -300,6 +300,7 @@ static func _lizard_raid(lv: Level, res: Dictionary) -> void:
 	lv.board.marks = []
 	lv.board.over.queue_redraw()
 	var lz := lizards(lv)
+	if not (res.removed as Array).is_empty(): lv.set_meta("aw_stolen", true)    # Awards: Keep Your Greens
 	sound(lv, "lizards")
 	if lz: await lz.raid(res.cells, res.removed, lv.board)
 	else:
@@ -422,6 +423,7 @@ static func _drag(lv: Level, res: Dictionary) -> void:
 	var m: BoardModel = lv.model
 	lv.board.marks = []
 	sound(lv, "drag")
+	lv.set_meta("aw_dragged", true)    # Awards: Hold Fast
 	var tw := lv.create_tween().set_parallel(true)
 	var any := false
 	for d: Dictionary in res.drag:

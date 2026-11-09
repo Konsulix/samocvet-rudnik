@@ -458,6 +458,8 @@ func _swap(n: Node) -> void:
 	if screen: screen.queue_free()
 	screen = n
 	add_child(n)
+	# achievements done since the last screen: a toast each time one is noticed (not over a board)
+	if not n is Level: Awards.check.call_deferred()
 	if Reveal.chips_max > 0 and n is CanvasItem: (n as CanvasItem).visible = false   # the showcase: the card alone, its glow whole
 	Diag.where = n.get_script().get_global_name() if n.get_script() else String(n.name)
 	# a boss fight has started its own theme while mounting

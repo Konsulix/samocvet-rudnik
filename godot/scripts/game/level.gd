@@ -34,6 +34,8 @@ var booster := ""
 var idle := 0.0
 var _hinted := false
 var _flights := 0
+var aw_boost := false    # a booster was used on this board (Awards: Bare Hands)
+var _kegs := 0           # kegs gone off in this move (Awards: Powder Party)
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
@@ -807,6 +809,7 @@ func _wait(sec: float) -> void:
 func _resolve(first: Array, swap_cells: Array) -> void:
 	var cascade := 0
 	var sw := swap_cells
+	_kegs = 0
 	_resolving = true
 	while true:
 		# a move made meanwhile joins this step: its special's events, its swap for where a new special goes
@@ -824,6 +827,7 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 			_resolving = false
 			break
 		cascade += 1
+		if cascade == 8: Awards.once("cascade8")
 		# a cascade's count over the stones that fell into place by themselves
 		if cascade >= 2 and not groups.is_empty():
 			var g0: Array = groups[0].cells
@@ -1033,6 +1037,8 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			fx.sparkle(e.r - 0.35, e.c, Color(2.0, 1.4, 0.5), 8)
 			Sfx.play("fuse")
 		"keg_boom":
+			_kegs += 1
+			if _kegs == 5: Awards.once("kegs5")
 			fx.boom(e.r, e.c, 1)
 			fx.debris(e.r, e.c, Color("#7a5434"), 18)
 			fx.hitstop(0.05)
@@ -1081,6 +1087,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			var bv := LevelBoss.view(self)
 			if bv: bv.hit(true)
 			LevelBoss.line(self, "daze")
+			Awards.mark("boss:3:daze")
 			LevelBoss.sound(self, "daze", "boom")
 			_cheer("Dazed! Double damage")
 		"tentacle_cut":
@@ -1127,6 +1134,10 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"convert":
 			board.convert_gem(e.id, e.sp)
 		"combo":
+			# Awards (Mad Alchemist): which two met, rockets of either way as one
+			var ab: Array = [String(e.a), String(e.b)].map(func(x: String) -> String: return "rocket" if x in ["rh", "rv"] else x)
+			ab.sort()
+			Awards.once("mix:%s+%s" % ab)
 			# two specials together: a white-hot burst and the game holding its breath a moment
 			fx.flash(e.r, e.c, Color(1.0, 0.85, 0.5), 3.0, 0.4)
 			fx.ring(e.r, e.c, 2.5, Color(1.0, 0.85, 0.55))
@@ -1427,6 +1438,7 @@ func _use_booster(r: int, c: int) -> void:
 	booster = ""
 	hint_label.text = ""
 	Save.d.boost[id] -= 1
+	aw_boost = true
 	Save.persist()
 	_render_boosters()
 	busy = true
@@ -1523,9 +1535,24 @@ func _win() -> void:
 	var stone := {}
 	if not model.find.is_empty() and model.find.done:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
+	_awards_won(stone)
 	_victory_fx()
 	await _wait(0.6)
 	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate(), boss = model.boss_on(), prologue = prologue})
+
+## what a won board tells the achievements (Awards: Mastery, Bosses, Secrets)
+func _awards_won(stone: Dictionary) -> void:
+	if model.moves == 0: Awards.once("last_move")
+	if model.hard and not aw_boost and not model.boss_on(): Awards.once("bare_hands")
+	if not stone.is_empty():
+		var ci := Stones.CONDITION.find(Stones.condition(int(model.find.integ)))
+		if ci == 0: Awards.once("clean_find")
+		if ci == Stones.CONDITION.size() - 1: Awards.once("broken_find")
+	if model.boss_on():
+		var a := Save.area()
+		if a == 0 and int(Save.d.boss_tries[0]) == 0: Awards.once("boss:0:first")
+		if a == 1 and not has_meta("aw_stolen"): Awards.once("boss:1:greens")
+		if a == 2 and not has_meta("aw_dragged"): Awards.once("boss:2:hold")
 
 func _out_of_moves() -> void:
 	Sfx.play("lose")

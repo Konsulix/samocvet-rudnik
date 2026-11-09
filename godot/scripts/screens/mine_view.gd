@@ -851,6 +851,7 @@ func _tick_events() -> void:
 	if not pool.is_empty():
 		var ev: String = pool[_rng.randi() % pool.size()]
 		_events[ev] = t
+		if ev != "bat": Awards.once("ev:%d:%s" % [area, ev])    # Awards: Eye of the Miner
 		match ev:
 			"hole": get_tree().create_timer(1.6).timeout.connect(func(): amb.shot("hiss", _far(band_y(0) + 400) - 14.0, 1.4))
 			"coil": amb.shot("hiss", _far(band_y(3) + 300) - 10.0, 0.6)
