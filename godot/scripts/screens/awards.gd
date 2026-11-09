@@ -480,12 +480,7 @@ func _strip(e: Dictionary, w: float) -> Control:
 	if not hidden:
 		var c := _count(e)
 		# no "3/8": the niches show how far it is, the names stay secret until found
-		var sub := String(e.r)
-		var sl := UI.label(sub, 12, load(FELL) as Font, INK_SOFT)
-		sl.clip_text = true
-		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		sl.custom_minimum_size = Vector2(t.size.x, 0)
-		t.add_child(sl)
+		t.add_child(_reward(e, 12, t.size.x))
 	if st == "ready":
 		# ready to claim: a warm rim right on the parchment's edge, breathing
 		var rim := Control.new()
@@ -665,10 +660,9 @@ func _sheet(e: Dictionary) -> void:
 	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tl)
 	if not hidden:
-		var rl := UI.label(String(e.r), 14, load(FELL) as Font, INK_SOFT)
-		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(rl)
+		var rw := _reward(e, 15, w - 44, "Reward: ")
+		rw.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(rw)
 	var g := _got(e)
 	# the teaser; a tap on a '?' puts a hint of where to look in its place
 	var tz := UI.label("A secret. You'll know it when it happens." if hidden else String(e.t), 16, load(FELL) as Font, INK)
@@ -718,6 +712,41 @@ func _sheet(e: Dictionary) -> void:
 	lay.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
 		Sfx.play("tab")
 		lay.queue_free())
+
+## what an achievement gives, as it reads: coins and geodes as their picture with a number, the rest (a series,
+## a frame, a title…) in words — those names are a lure of their own. A condition (Bosses, Mastery) stays words too
+func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 3)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.custom_minimum_size = Vector2(0, fs + 4)
+	var fell := load(FELL) as Font
+	var r := String(e.r)
+	var parts: Array = []
+	var coins := r.begins_with("coins")
+	if coins: parts.append(["res://assets/ui/kit/icons/coin.png", UI.fmt(int(e.get("coins", 100 * _count(e).y)))])
+	if r.ends_with("geode"): parts.append(["res://assets/ui/geode/whole.png", "rare geode" if r.contains("rare") else "geode"])
+	if lead != "" and parts.size(): h.add_child(UI.label(lead, fs, fell, INK_SOFT))
+	if parts.is_empty():
+		var l := UI.label(lead + r, fs, fell, INK_SOFT)
+		l.clip_text = true
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		l.custom_minimum_size = Vector2(w, 0)
+		if lead != "": l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		h.add_child(l)
+		return h
+	for i in parts.size():
+		if i: h.add_child(UI.label(" +", fs, fell, INK_SOFT))
+		var ic := TextureRect.new()
+		ic.texture = Kit.tex_at(String(parts[i][0]))
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.custom_minimum_size = Vector2(fs + 4, fs + 4)
+		ic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(ic)
+		h.add_child(UI.label(String(parts[i][1]), fs, UI.body_bold if coins and i == 0 else fell, INK_SOFT))
+	return h
 
 ## the species a gene shows on (for the hint of where to look)
 const GENE_SP := {genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
