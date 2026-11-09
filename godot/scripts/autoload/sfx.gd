@@ -247,9 +247,18 @@ func pick_stream() -> AudioStream:
 	var takes: Array = SAMPLES.rock.f
 	return _sample(takes[randi() % takes.size()])
 
-## light taps for hits, a longer thump for blasts
+## light taps for hits, a longer thump for blasts.
+## On iPhone every call starts its own haptic player; a burst of overlapping ones (a cascade of blasts) now and then
+## left one running for good, until the app was put away. So: one at a time, never longer than BUZZ_MAX
+const BUZZ_MAX := 120
+var _buzz_until := 0
+
 func buzz(ms := 20) -> void:
 	if Save.d.get("mute", false): return
+	var now := Time.get_ticks_msec()
+	if now < _buzz_until: return
+	ms = clampi(ms, 1, BUZZ_MAX)
+	_buzz_until = now + ms + 40
 	Input.vibrate_handheld(ms)
 
 # ---------------------------------------------------------------- synth
