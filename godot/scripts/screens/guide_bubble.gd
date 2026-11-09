@@ -162,7 +162,7 @@ func _wedge(pts: PackedVector2Array, a: Vector2, tip: Vector2, b: Vector2) -> vo
 			pts.append(p0.lerp(ctl, t).lerp(ctl.lerp(p1, t), t))
 
 func _gui_input(e: InputEvent) -> void:
-	var pressed: bool = (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed)
+	var pressed: bool = e is InputEventMouseButton and e.pressed
 	# a moment first, so a touch that was already on its way does not close it unread
 	if not pressed or Time.get_ticks_msec() / 1000.0 - _born < 0.5: return
 	accept_event()

@@ -311,7 +311,7 @@ func _next() -> void:
 		get_tree().create_timer(1.6).timeout.connect(func(): if _i == at and not _done: _next())
 
 func _gui_input(e: InputEvent) -> void:
-	var pressed: bool = (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed)
+	var pressed: bool = e is InputEventMouseButton and e.pressed
 	if not pressed or _done: return
 	accept_event()
 	if _text.visible_ratio < 1.0:

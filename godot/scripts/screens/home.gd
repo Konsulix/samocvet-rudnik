@@ -354,7 +354,7 @@ func _gui_input(e: InputEvent) -> void:
 	if uses_view():
 		_view_input(e)
 		return
-	var tap: bool = (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed)
+	var tap: bool = e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT
 	if not tap:
 		return
 	var p: Vector2 = scene_holder.get_global_transform().affine_inverse() * (e.position as Vector2)

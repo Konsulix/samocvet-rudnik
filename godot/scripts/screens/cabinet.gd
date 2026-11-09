@@ -177,8 +177,8 @@ func _plaque(t: String) -> PanelContainer:
 
 ## a tap: the object brightens while pressed, opens its window on release
 func _press(t: TextureRect, e: InputEvent, what: String) -> void:
-	var down: bool = (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed) or (e is InputEventScreenTouch and e.pressed)
-	var up: bool = (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed) or (e is InputEventScreenTouch and not e.pressed)
+	var down: bool = e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed
+	var up: bool = e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed
 	if down:
 		t.modulate = Color(1.25, 1.18, 1.05)
 	elif up:
