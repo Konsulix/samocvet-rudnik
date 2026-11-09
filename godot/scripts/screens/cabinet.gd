@@ -22,6 +22,8 @@ const ITEMS := {
 	serpent = ["serpent", 0.3, 0.437, 0.059],
 	casket = ["casket", 0.567, 0.437, 0.08],
 }
+## the glass case with the cups (shares of the picture), all of it a tap on the awards
+const CASE := Rect2(0.855, 0.27, 0.2, 0.36)
 const NICHES := [Vector2(0.24, 0.35), Vector2(0.44, 0.35), Vector2(0.65, 0.35)]   # the artifacts' stands
 ## what each object opens, and the plaque under it
 const ZONES := {crates = ["stones", "Stones"], chest = ["stones", ""], bench = ["workshop", "Workshop"],
@@ -95,8 +97,18 @@ func _build() -> void:
 		nodes[id] = t
 		if String(z[1]) != "":
 			var p := _plaque(String(z[1]))
+			# the plaque opens the same as its object (a tap on the word was lost in the room before)
+			p.mouse_filter = Control.MOUSE_FILTER_STOP
+			p.gui_input.connect(func(e: InputEvent): _press(t, e, String(z[0])))
 			room.add_child(p)
 			nodes[id + "_plaque"] = p
+	# the cups stand in the glass case at the cropped right edge: the whole case opens the awards
+	var case := Control.new()
+	case.mouse_filter = Control.MOUSE_FILTER_STOP
+	case.gui_input.connect(func(e: InputEvent): _press(nodes.cups_hi, e, "awards"))
+	room.add_child(case)
+	room.move_child(case, 0)
+	nodes["case"] = case
 	# the artifact niches: empty for now, a faint + on each stand
 	for i in NICHES.size():
 		var n := Button.new()
@@ -134,6 +146,10 @@ func _layout() -> void:
 		var c := _at(NICHES[i].x, NICHES[i].y)
 		n.size = Vector2(0.11, 0.13) * h
 		n.position = c - Vector2(n.size.x / 2.0, n.size.y * 0.95)
+	var c0 := _at(CASE.position.x, CASE.position.y)
+	var c1 := _at(CASE.end.x, CASE.end.y)
+	nodes.case.position = c0
+	nodes.case.size = c1 - c0
 	var ap: Control = nodes["artifacts_plaque"]
 	ap.reset_size()
 	var mid := _at(NICHES[1].x, NICHES[1].y)
@@ -180,7 +196,9 @@ func _open(what: String) -> void:
 			Sfx.play("tab")
 			Museum.start_tab = "jw"
 			go.emit("stones")
-		"awards": _awards()
+		"awards":
+			Sfx.play("tab")
+			go.emit("awards")
 		"trophy": Ov.toast("A trophy of a beaten boss")
 		_: _artifacts()
 

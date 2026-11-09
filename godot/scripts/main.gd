@@ -275,6 +275,18 @@ func _ready() -> void:
 		# the end-of-level card and a toast, without playing (playtest 31.10)
 		elif args.ui == "win_card": _win_card({n = Save.d.level, coins = 152, mined = {iron = 11, ore = 9}})
 		elif args.ui == "kit_toast": Ov.toast("Added to the inventory")
+	if args.has("tap"):
+		# a real tap at a point of the screen (pt), after ui_after s: `-- screen=museum tap=370,400`
+		await get_tree().create_timer(float(args.get("ui_after", "1"))).timeout
+		var xy: PackedStringArray = String(args.tap).split(",")
+		for down in [true, false]:
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = down
+			ev.position = Vector2(float(xy[0]), float(xy[1]))
+			ev.global_position = ev.position
+			Input.parse_input_event(ev)
+			await get_tree().process_frame
 	if args.has("lens"): Save.d.eq.lens = int(args.lens)
 	if args.has("alive"):
 		# the admin's "All animations on" for the current mine: `-- screen=home area=1 alive`
@@ -493,6 +505,10 @@ func go(id: String) -> void:
 			var m := Museum.new()
 			_swap(m)
 			m.go.connect(go)
+		"awards":
+			var aw := Awards.new()
+			_swap(aw)
+			aw.go.connect(go)
 
 func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 	var lv := Level.new()
