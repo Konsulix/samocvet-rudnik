@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -93,7 +93,7 @@ static func of(o: Dictionary) -> Dictionary:
 	else: rock = Stones.pick_w(look.get("rock", [["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]]), rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
 	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
-	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < float(look.get("dark", 0.05)) and habit != "fossil":
+	if not metal and not (form in ["geode", "nugget", "botryoid", "sawn"]) and rng.next() < float(look.get("dark", 0.05)) and habit != "fossil":
 		lustre = "dark"
 	var dark_cols := [Color(0.012, 0.045, 0.045), Color(0.015, 0.035, 0.02), Color(0.012, 0.018, 0.045), Color(0.04, 0.026, 0.018), Color(0.02, 0.02, 0.022)]
 	var dark_col: Color = dark_cols[int(rng.next() * dark_cols.size())]
@@ -106,9 +106,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
-	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein"]):
+	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
-	if form in ["geode", "botryoid"]:
+	if form in ["geode", "botryoid", "sawn"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
@@ -172,7 +172,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# a legendary find always carries one living effect, one that suits its body
 	var fx := ""
 	var fpool := ["fluor", "levitate", "jellyfish"]
-	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
+	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget", "sawn"]): fpool.append("lava")
 	if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
 	# a fulgurite's own: the lightning that made it runs through it still
 	if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
@@ -191,7 +191,7 @@ static func of(o: Dictionary) -> Dictionary:
 		fpool.append_array(["borealis", "borealis", "frost", "frost"])
 	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
 	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
-	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget"])
+	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget", "sawn"])
 	if lustre == "glass" and glassy:
 		fpool.append_array(in_glass)
 	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
@@ -238,6 +238,10 @@ static func of(o: Dictionary) -> Dictionary:
 	for k in SpecSkull.KEYS:
 		if o.has(k): skull_o[k] = o[k]
 	skull_o.fx = fx
+	# the species' own crystals by turns (SpecLooks habits: calcite's rhombs, nailheads and dogteeth), on their own
+	# stream so no other gene moves
+	if odd_habit == "" and look.has("habits"):
+		odd_habit = String(Stones.pick_w((look.habits as Array).map(func(h: Array) -> Array: return [h[0], float(h[1])]), Rng32.new((seed_v * 2246822519 + 97) % 4294967296)))
 	return {
 		habit = odd_habit if odd_habit != "" else habit,
 		skull = skull_o,

@@ -72,6 +72,12 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	if habit == "prism" or habit == "blade":
 		g = Geo.lathe([Vector2(0, low), Vector2(r * 0.08 if dt else r, low if dt else 0.0), Vector2(r, 0), Vector2(r * (0.75 if scep else 1.0), h * 0.62),
 			Vector2(r * sc, h * 0.72), Vector2(r * sc, h), Vector2(r * 0.08, h + r * tip), Vector2(0, h + r * tip)], 6)
+	elif habit == "nailhead":
+		# calcite's nailhead spar: a short six-sided prism under a low flat cap
+		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.45), Vector2(r * 0.1, h * 0.45 + r * 0.42), Vector2(0, h * 0.45 + r * 0.42)], 6)
+	elif habit == "pyritohedron":
+		# pyrite's pentagonal dodecahedron: twelve five-sided faces, each with one long edge
+		g = Geo.dodeca(0.3).scale(1.0 + rng.next() * 0.12, 0.88, 1.08).translate(0, 0.27, 0)
 	elif habit == "barrel":
 		g = Geo.lathe([Vector2(0, 0), Vector2(r * 0.75, 0), Vector2(r * 1.05, h * 0.3), Vector2(r * 1.05, h * 0.7), Vector2(r * 0.8, h), Vector2(0, h)], 6)
 	elif habit == "scaleno":

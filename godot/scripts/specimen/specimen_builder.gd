@@ -547,6 +547,9 @@ func _specimen(o: Dictionary) -> Node3D:
 				var t: MeshInstance3D = crystal.call(1.0 + rng.next() * 0.4, 1.05, at, lean.call(Vector3(0.8, 1, 0.3), 0.3))
 				t.rotate_object_local(Vector3.BACK, 0.6)
 				_mark("twin", _mid(t, 0.7))
+		"sawn":
+			# a stalactite or a crust sawn through and polished: its growth rings as eyes (rhodochrosite's rose bands)
+			main = _sawn(sid, col)
 		"gwindel":
 			# smoky quartz's gwindel (F6): a row of flattened crystals side by side, each turned a little further
 			# about the row than the last — a twisted plate, its face to the viewer
@@ -923,6 +926,17 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (the spray puts its sulphur in its own gaps)
 			if String(w[3]) in gene.accents and not (layout == "spray" and String(w[3]) == "sulphur"):
 				_companion(String(w[0]), SpecMat.lin(int(w[1])), String(w[3]), st)
+	# almandine's schist (SpecLooks mica): the rock round the crystals glitters with silvery flakes of mica
+	if look.get("mica", false) and st.rocky:
+		var fm := SpecMat.make({col = SpecMat.lin(0xc8c4bc), metal = 0.8, rough = 0.18, env = 2.4})
+		var flakes := []
+		for k in 260 + int(rng.next() * 160):
+			var p: Vector3 = st.pick.call()
+			var nn: Vector3 = st.nrm.call(p)
+			var s := (0.008 + pow(rng.next(), 2.0) * 0.022) * gs
+			var b := Basis(quat_to_l(UP, (nn + _rv() * 0.9).normalized())) * Basis(UP, rng.next() * TAU)
+			flakes.append(Transform3D(b * Basis.from_scale(Vector3(s, s * 0.08, s)), p + nn * 0.004))
+		U.inst(Geo.cylinder(1, 1, 1, 6), fm, flakes.size(), func(i: int) -> Array: return [flakes[i], Color(1, 1, 1)], root)
 	# fluorite's phantom cubes (SpecLooks core): a cube of another colour inside every crystal, seen through the glass
 	if look.has("core") and main and layout != "geode":
 		var cc: Array = look.core
@@ -935,7 +949,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var inner := Geo.box(bb.size.x * float(cc[1]), bb.size.y * float(cc[1]), bb.size.z * float(cc[1]))
 			U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
 	# genes that shape or colour the crystals themselves: there only if crystals grew
-	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid"])
+	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid", "sawn"])
 	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))
 	if "floater" in tr and layout == "floater": _mark("floater", _mid(main, 0.15))
 	if "atypical" in tr and main: _mark_on("atypical", main)
@@ -1196,7 +1210,7 @@ func _sawn(_sid: String, col: Color) -> MeshInstance3D:
 	var bc := col * 0.7
 	bc.a = 1.0
 	var bm := SpecMat.make({col = bc, rough = 0.1, coat = 0.95, coat_r = 0.05, env = 1.6, ir = 0.12, bd = 0.62,
-		dirt = {h = -0.3, a = 0.35, col = SpecMat.lin(0x0e2a18), fr = 0.0, isl = 0.08, fb = 0.0}})
+		dirt = {h = -0.3, a = 0.35, col = col * 0.22, fr = 0.0, isl = 0.08, fb = 0.0}})
 	var n := (VIEW_DIR + UP * 0.45).normalized()
 	var main: MeshInstance3D = null
 	var nl := 3 + int(rng.next() * 3)
@@ -1772,7 +1786,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var L: Array = list[k]
 			return [Transform3D(Basis(U.quat_to(UP, L[1])) * Basis.from_scale(Vector3(L[3], L[2], L[3])), L[0]), L[4]]
 		U.inst(geo, m, list.size(), place, root)
-	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian"]) and not (gene_m.lustre == "fossil" and not st.rock)
+	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn"]) and not (gene_m.lustre == "fossil" and not st.rock)
 	var strong := "coral" in tr
 	var style := -1
 	if has_base:
