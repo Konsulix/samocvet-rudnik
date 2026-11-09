@@ -305,7 +305,8 @@ static func _mine_dir(a: int) -> String:
 static func _sign(a: int, open: bool) -> String:
 	if a < 0 or not open: return "lock"
 	if a < Save.d.boss_won.size() and bool(Save.d.boss_won[a]):
-		return ["poloz", "mistress", "kraken", "brontes"][clampi(a, 0, 3)]
+		var sg: String = {0: "poloz", 1: "mistress", 2: "kraken", 3: "brontes", 7: "shubin"}.get(a, "empty")
+		return sg if ResourceLoader.exists("res://assets/atlas/emblem_%s.png" % sg) else "empty"
 	return "empty"
 
 ## the boss's sign tapped: fight a beaten boss again (no hoard this time), or a word on where it waits

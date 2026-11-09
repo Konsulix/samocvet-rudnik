@@ -653,7 +653,7 @@ func _process(dt: float) -> void:
 	idle += dt
 	if idle > 5.0 and not _hinted:
 		_hinted = true
-		var mv := model.find_move()
+		var mv := model.best_move()
 		if not mv.is_empty(): board.hint(mv)
 
 func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
@@ -691,7 +691,10 @@ func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
 	await _after_turn()
 
 func _on_tap(r: int, c: int) -> void:
-	if busy or model.over: return
+	if model.over: return
+	if busy:
+		if _resolving: _tap_mid(r, c)
+		return
 	_touched()
 	if booster != "":
 		await _use_booster(r, c)
@@ -745,6 +748,20 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	if not res.special: _queued_sw = res.swap_cells
 	_swipes_in_flight -= 1
 
+## a special tapped while the board is still cascading (as in Royal Match): one at rest goes off in the next step
+func _tap_mid(r: int, c: int) -> void:
+	if booster != "" or coach.visible or not _coach_move.is_empty() or not Save.told("swap") or model.moves <= 0: return
+	if model.boss_on() or not model.belts.is_empty(): return
+	var g: BoardModel.Gem = model.G[r][c] if model.open(r, c) else null
+	if g == null or g.sp == "" or not _still(r, c): return
+	for e: Dictionary in _queued_ev:
+		if e.get("r", -1) == r and e.get("c", -1) == c: return
+	_touched()
+	model.use_move()
+	_render_moves()
+	_extra_moves += 1
+	_queued_ev.append({t = 0.0, r = r, c = c, kind = "fx"})
+
 ## testing (`-- rush`, with `autoplay=N`): while a cascade runs, now and then a move of the stones at rest, as a quick
 ## player would - to see moves made mid-cascade and the board staying in step
 var _rush_at := 0.0
@@ -752,9 +769,15 @@ func _rush(dt: float) -> void:
 	_rush_at += dt
 	if _rush_at < 0.3 or not _resolving: return
 	_rush_at = 0.0
+	if not Save.told("swap"): Save.tell("swap")   # a test save without the tutorial: mid-cascade moves need the first swap told
 	var pairs := []
 	for r in model.R:
 		for c in model.C:
+			var sg: BoardModel.Gem = model.G[r][c]
+			if sg and sg.sp != "" and _still(r, c) and randf() < 0.5:
+				print("RUSH tap ", [r, c, sg.sp, sg.id], " moves left ", model.moves)
+				_tap_mid(r, c)
+				return
 			for d: Vector2i in [Vector2i(0, 1), Vector2i(1, 0)]:
 				var q := Vector2i(r, c) + d
 				if q.x < model.R and q.y < model.C and _still(r, c) and _still(q.x, q.y) and _mid_swap_ok(r, c, q.x, q.y):
@@ -1177,6 +1200,12 @@ func _after_turn() -> void:
 				_toast("Gas is spreading — hit it every move")
 			await _wait(0.26)
 		await _grow_nodules()
+	# Shubin: the gas outweighed the song - he wakes, the canary falls
+	if model.scale_lost():
+		model.over = true
+		await LevelBoss.shubin_lost(self)
+		_canary_fell()
+		return
 	if not model.belts.is_empty():
 		await _belts()
 		if model.goals_done():
@@ -1484,9 +1513,29 @@ func _buy_booster(bo: Dictionary) -> void:
 
 func _finale() -> void:
 	if model.boss_on(): await LevelBoss.defeat(self)
+	# as in Royal Match: the specials the player left on the board go off first (and what their blasts make),
+	# then the moves left turn into dynamite
+	var cheered := false
+	if not model.boss_on():
+		for round_ in 4:
+			var ev := []
+			for r in model.R:
+				for c in model.C:
+					var g: BoardModel.Gem = model.G[r][c]
+					if g and g.sp != "" and g.alive() and not model.LOCK[r][c]:
+						ev.append({t = ev.size() * 150.0, r = r, c = c, kind = "fx"})
+						model.coins_won += 5
+			if ev.is_empty(): break
+			if not cheered:
+				_cheer("Blast shift!")
+				cheered = true
+				await _wait(0.5)
+			await _resolve(ev, [])
+			await _flights_done()
 	if model.moves <= 0: return
-	_cheer("Blast shift!")
-	await _wait(0.5)
+	if not cheered:
+		_cheer("Blast shift!")
+		await _wait(0.5)
 	var picks := model.finale_picks()
 	for p in picks:
 		var g: BoardModel.Gem = model.G[p.x][p.y]
@@ -1526,6 +1575,29 @@ func _win() -> void:
 	_victory_fx()
 	await _wait(0.6)
 	finished.emit({won = true, n = model.n, depth = model.depth, coins = coins, stone = stone, bonus = model.bonus, mined = model.mined.duplicate(), boss = model.boss_on(), prologue = prologue})
+
+## the canary fell (Shubin's fight): the fight is lost, no moves to buy - the air is gone
+func _canary_fell() -> void:
+	Sfx.play("lose")
+	var price := Data.continue_price(model.continues, Save.area())
+	_panel("The canary fell", "The gas outweighed its song and Shubin woke. Fresh air brings the bird round.", [
+		["Fresh air · %s coins" % UI.fmt(price), "gold", func():
+			if Save.d.coins < price: return
+			Save.d.coins -= price
+			Save.persist()
+			model.continues += 1
+			_close_panel()
+			Sfx.play("coin")
+			await LevelBoss.shubin_revive(self)
+			busy = false, Save.d.coins >= price],
+		["Give up (−1 life)", "glass", func():
+			Save.tick_lives()
+			Save.d.streak = 0
+			Save.d.lives = maxi(0, Save.d.lives - 1)
+			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
+			Save.persist()
+			_close_panel()
+			finished.emit({won = false, n = model.n, depth = model.depth, boss = model.boss_on()}), true]])
 
 func _out_of_moves() -> void:
 	Sfx.play("lose")
@@ -1596,6 +1668,50 @@ func _eye_swim() -> void:
 	busy = true
 	model.eye.wait = 0
 	await LevelBoss._eye_swim(self)
+	busy = false
+
+## `-- area=7 level=1 gen depth=9 ui=shubin_act act=sigh|drift|cough|knock|lose|win|quiet [notes=N gas=N]`: Shubin's
+## fight without playing - his act now, the canary silenced by gas in its ring, the bird falling, the lullaby
+func _shubin_act() -> void:
+	if not model.scale_on(): return
+	var act := "sigh"
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("act="): act = arg.get_slice("=", 1)
+		if arg.begins_with("notes="): model.boss.song.notes = int(arg.get_slice("=", 1))
+	busy = true
+	match act:
+		"quiet", "lose":
+			# gas into the canary's ring (and more for the loss)
+			var ring := model.cage_ring()
+			var n := 3 if act == "quiet" else ring.size()
+			for i in n:
+				var p: Vector2i = ring[i * 3 % ring.size()]
+				if model.G[p.x][p.y]: board.remove_node((model.G[p.x][p.y] as BoardModel.Gem).id)
+				model.G[p.x][p.y] = null
+				model.GAS[p.x][p.y] = 1
+			if act == "lose": model.boss.song.notes = 0
+			model.scale_goal()
+			board.redraw_under()
+			if act == "quiet":
+				await LevelBoss.after_turn(self)
+			else:
+				model.over = true
+				await LevelBoss.shubin_lost(self)
+				_canary_fell()
+		"win":
+			model.boss.song.notes = int(model.boss.B.scale.win) + model.gas_count() * 2
+			model.scale_goal()
+			model.over = true
+			await _finale()
+			_win()
+		_:
+			model.boss.k = 0
+			model.boss.B.moods = [{every = 1, acts = [act]}, {every = 1, acts = [act]}, {every = 1, acts = [act]}]
+			model.boss_plan()
+			model.boss.timer = 1
+			LevelBoss.show_intent(self)
+			await _wait(1.0)
+			await LevelBoss.after_turn(self)
 	busy = false
 
 ## `-- area=3 level=1 gen depth=9 [boss_stage=N] ui=forge_act act=hammer|bellows|pour|bolt|daze`: Brontes acts right away

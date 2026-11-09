@@ -64,6 +64,14 @@ const SAMPLES := {
 	gas = {f = ["gas_0", "gas_1", "gas_2"], db = -8.0},
 	# the Kraken (Whalebone Cove): the sea's own recordings (amb/sea, a path with "/" is under assets/audio/) and the
 	# creature roars taken deeper; "all" plays the takes together
+	# Shubin (Whispering Seam): his cough (a recording, amb/seam), the gas's hiss, three knocks, the canary
+	sh_cough = {f = ["amb/seam/cough_0", "amb/seam/cough_1", "amb/seam/cough_2"], db = -2.0},
+	sh_sigh = {f = ["amb/seam/hiss"], db = -6.0, pitch = 0.8},
+	sh_knock = {f = ["amb/seam/knock"], db = -2.0},
+	sh_flame = {f = ["amb/seam/flame"], db = -3.0},
+	sh_song = {f = ["amb/seam/canary_0", "amb/seam/canary_1", "amb/seam/canary_2", "amb/seam/canary_3", "amb/seam/canary_4", "amb/seam/canary_5"], db = -10.0},
+	sh_cheep = {f = ["amb/seam/cheep"], db = -6.0},
+	sh_wake = {f = ["amb/seam/cough_0", "roar_05"], all = true, db = -2.0, pitch = 0.6},
 	kr_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -3.0, pitch = 0.62},
 	kr_phase = {f = ["amb/sea/crash_0", "roar_05"], all = true, db = -2.0, pitch = 0.8},
 	kr_rise = {f = ["amb/sea/crash_1", "amb/sea/crash_2"], db = -3.0, pitch = 0.85},
@@ -213,11 +221,17 @@ func music_fade(sec: float) -> void:
 	tw.tween_property(p, "volume_db", -60.0, sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(p.stop)
 
-func _music_db() -> float:
-	return -80.0 if Save.d.get("mute", false) else MUSIC_DB
+## the music off ("effects only" in the settings, or `nomusic` for a test run - not saved)
+var no_music := false
+func music_off() -> bool:
+	return no_music or Save.d.get("mute", false) or Save.d.get("no_music", false)
 
-## sound switched on or off
+func _music_db() -> float:
+	return -80.0 if music_off() else MUSIC_DB
+
+## sound switched on or off, or the music alone
 func apply_mute() -> void:
+	if _fade and _fade.is_valid(): _fade.kill()
 	_music[_cur].volume_db = _music_db()
 	var b := AudioServer.get_bus_index(AMB_BUS)
 	if b >= 0: AudioServer.set_bus_mute(b, Save.d.get("mute", false))

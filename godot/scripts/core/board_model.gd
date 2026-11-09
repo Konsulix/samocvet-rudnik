@@ -42,6 +42,9 @@ var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off
                     # 6: forge scale (Brontes' hammer: knocked off like a crust)
 var NOD := []       # a malachite nodule's layers, 0 = none (Copper Mountain): cut off, it gives its layers as ore
 var NOD_T := []     # moves until it grows its next layer
+var CAGE := []      # the canary's cage on Shubin's board (2x2, "Q" on the map: its top left): a wall nothing falls through
+## the canary's cage: {r, c} (its top left)
+var cage := {}
 var FLW := []       # the cells of the Mistress' stone flower (2x2, "F" on her board's map: its top left)
 ## her stone flower: {r, c, st (rings out, 1..3)}; a match beside it or a hit tears its outer ring off, her turn grows
 ## one back, and in full bloom it heals her and crusts the stones round it
@@ -140,6 +143,8 @@ var vent := 0
 
 var fx := []
 var _cleared := {}
+var _aimed := {}   # cells a drill already flies to this move: the next drill picks another
+var _fell := {}    # cells a stone fell (or spawned) into in the last collapse: a cascade's special appears there
 var _rock_hit := {}
 var _geo_hit := {}
 var _find_hit := false
@@ -238,6 +243,9 @@ static func boss_level(B: Dictionary, stage: int, hp_max: int) -> Dictionary:
 
 ## what the boss does next and where, shown ahead: the board's actions in turn
 func boss_plan() -> void:
+	if scale_on():
+		_shubin_plan()
+		return
 	var S: Dictionary = boss.B.stages[boss.stage]
 	var acts: Array = S.acts
 	var act: String = acts[int(boss.k) % acts.size()]
@@ -271,6 +279,190 @@ func boss_plan() -> void:
 	if act == "pour":
 		cells = _pour_cells(int(A.get("n", 3)))
 	boss.intent = {act = act, cells = cells}
+
+# ------------------------------------------------------------------ Shubin and the canary (docs/mine8-shubin.md §7)
+# No health: a balance scale. Its left pan is the canary's SONG - a note for every move it sings, and it sings while no
+# gas is in the ring of cells round its cage; its right pan is the GAS on the board now (each cell weighs GAS_W notes).
+# The tilt (song - gas) sinks Shubin into sleep: up at "win" he sleeps, the fight is won; down at "lose" he wakes and the
+# canary falls. Between, where the needle stands is his mood: dozing, stirring, coughing - his acts get worse.
+
+func scale_on() -> bool:
+	return boss_on() and boss.B.has("scale")
+
+func gas_count() -> int:
+	var k := 0
+	for r in R:
+		for c in C:
+			if GAS[r][c]: k += 1
+	return k
+
+func scale_tilt() -> float:
+	return float(boss.song.notes) - float(boss.B.scale.get("gas_w", 2)) * gas_count()
+
+## his mood by the needle: 0 dozing, 1 stirring, 2 coughing
+func shubin_mood() -> int:
+	var th: Array = boss.B.scale.get("moods", [-3, -7])
+	var tl := scale_tilt()
+	if tl > float(th[0]): return 0
+	if tl > float(th[1]): return 1
+	return 2
+
+## the boss goal stands for how far the song still is from putting him to sleep
+func scale_goal() -> void:
+	var gi := goal_index("boss")
+	if gi < 0: return
+	goals[gi].left = maxi(0, ceili(float(boss.B.scale.win) - scale_tilt()))
+
+func scale_lost() -> bool:
+	return scale_on() and scale_tilt() <= float(boss.B.scale.lose)
+
+## the ring of cells round the cage (the air the canary breathes)
+func cage_ring() -> Array:
+	var out := []
+	if cage.is_empty(): return out
+	for r in range(int(cage.r) - 1, int(cage.r) + 3):
+		for c in range(int(cage.c) - 1, int(cage.c) + 3):
+			if playable(r, c) and not CAGE[r][c]: out.append(Vector2i(r, c))
+	return out
+
+func canary_quiet() -> bool:
+	return cage_ring().any(func(p: Vector2i) -> bool: return GAS[p.x][p.y] > 0)
+
+## how far a cell is from the cage (cells, the cage's own square counts 0)
+func cage_dist(r: int, c: int) -> int:
+	if cage.is_empty(): return 99
+	var dr := maxi(0, maxi(int(cage.r) - r, r - int(cage.r) - 1))
+	var dc := maxi(0, maxi(int(cage.c) - c, c - int(cage.c) - 1))
+	return maxi(dr, dc)
+
+## the canary's move after the player's: it sings (a note on the scale) while its ring is clear of gas
+func song_turn() -> Dictionary:
+	var q := canary_quiet()
+	boss.song.quiet = q
+	if not q: boss.song.notes = int(boss.song.notes) + 1
+	scale_goal()
+	return {sang = not q}
+
+## the fight opens in trouble: the seam full of gas, some of it right at the cage (the bird silent) - first steady the
+## air, then sing him to sleep (B.scale.gas0: ring - clouds in the cage's ring, n - the rest, apart, anywhere)
+func _shubin_gas0() -> void:
+	var G0: Dictionary = boss.B.scale.get("gas0", {})
+	var cells := []
+	var ring := cage_ring().filter(func(p: Vector2i) -> bool: return _plain(p.x, p.y))
+	for k in mini(int(G0.get("ring", 0)), ring.size()):
+		cells.append(ring.pop_at(rng.randi_range(0, ring.size() - 1)))
+	cells.append_array(_gas_cells(int(G0.get("n", 0)), 2))
+	for p: Vector2i in cells:
+		G[p.x][p.y] = null
+		GAS[p.x][p.y] = 1
+
+## what he does next, by his mood now (B.moods[mood]: every, acts in turn)
+func _shubin_plan() -> void:
+	var md := shubin_mood()
+	var M: Dictionary = boss.B.moods[md]
+	var acts: Array = M.acts
+	var act: String = acts[int(boss.k) % acts.size()]
+	boss.k = int(boss.k) + 1
+	boss.timer = int(M.every)
+	boss.mood = md
+	var cells := []
+	var A: Dictionary = boss.B.act.get(act, {})
+	match act:
+		"sigh":
+			var nn: Array = A.get("n", [2, 3, 3])
+			var near := int(A.get("near", 3)) if md == 0 else 2 if md == 1 else 1
+			cells = _gas_cells(int(nn[md]), near)
+		"cough":
+			cells = _cough_cells()
+		"knock":
+			var cand := []
+			for r in range(1, R - 1):
+				for c in C:
+					if cage_dist(r, c) == 2 and _plain(r, c): cand.append(Vector2i(r, c))
+			for k in mini(int(A.get("n", 2)), cand.size()):
+				cells.append(cand.pop_at(rng.randi_range(0, cand.size() - 1)))
+	boss.intent = {act = act, cells = cells}
+
+## n plain stones for gas to come out of, at least `near` cells from the cage, apart from each other
+func _gas_cells(n_want: int, near: int) -> Array:
+	var cand := []
+	for r in R:
+		for c in C:
+			if _plain(r, c) and cage_dist(r, c) >= near: cand.append(Vector2i(r, c))
+	var out := []
+	while out.size() < n_want and not cand.is_empty():
+		var p: Vector2i = cand.pop_at(rng.randi_range(0, cand.size() - 1))
+		if out.any(func(q: Vector2i) -> bool: return absi(q.x - p.x) + absi(q.y - p.y) <= 1): continue
+		out.append(p)
+	return out
+
+## the cough: a 3x3 of gas bursting out right beside the cage (touching its ring), on one side or another
+func _cough_cells() -> Array:
+	if cage.is_empty(): return []
+	var best := []
+	var best_v := -1
+	var cr := int(cage.r)
+	var cc := int(cage.c)
+	var sz := int((boss.B.act.get("cough", {}) as Dictionary).get("size", 3))
+	for p: Vector2i in [Vector2i(cr - 1 - sz, cc), Vector2i(cr + 2, cc), Vector2i(cr, cc - 1 - sz), Vector2i(cr, cc + 2),
+			Vector2i(cr - 1 - sz, cc - 1 - sz), Vector2i(cr - 1 - sz, cc + 2), Vector2i(cr + 2, cc - 1 - sz), Vector2i(cr + 2, cc + 2)]:
+		var cells := []
+		for dr in sz:
+			for dc in sz:
+				if _plain(p.x + dr, p.y + dc): cells.append(Vector2i(p.x + dr, p.y + dc))
+		var v := cells.size() * 10 + rng.randi_range(0, 9)
+		if v > best_v:
+			best_v = v
+			best = cells
+	return best
+
+## his act lands: gas out of the marked stones, the gas drifting a cell towards the canary, rocks off the roof
+func _shubin_act(out: Dictionary) -> void:
+	var it: Dictionary = boss.intent
+	var A: Dictionary = boss.B.act.get(it.act, {})
+	match String(it.act):
+		"sigh", "cough":
+			var cells: Array = it.cells.filter(func(p: Vector2i) -> bool: return _plain(p.x, p.y))
+			if cells.is_empty() and it.act == "sigh":
+				cells = _gas_cells((A.get("n", [2, 3, 3]) as Array)[int(boss.get("mood", 0))], 2)
+			for p: Vector2i in cells:
+				out.removed.append((G[p.x][p.y] as Gem).id)
+				G[p.x][p.y] = null
+				GAS[p.x][p.y] = 1
+				out.cells.append(p)
+		"drift":
+			# every gas cloud creeps a cell towards the cage, onto a plain stone there (the nearest clouds first)
+			var gas := []
+			for r in R:
+				for c in C:
+					if GAS[r][c]: gas.append(Vector2i(r, c))
+			gas.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return cage_dist(a.x, a.y) < cage_dist(b.x, b.y))
+			out.moved = []
+			for p: Vector2i in gas:
+				var d0 := cage_dist(p.x, p.y)
+				if d0 <= 1: continue
+				var best := Vector2i(-1, -1)
+				for d in DIRS8:
+					var q: Vector2i = p + d
+					if _plain(q.x, q.y) and cage_dist(q.x, q.y) < d0 and not CAGE[q.x][q.y]:
+						best = q
+						break
+				if best.x < 0: continue
+				out.removed.append((G[best.x][best.y] as Gem).id)
+				G[best.x][best.y] = null
+				GAS[best.x][best.y] = 1
+				GAS[p.x][p.y] = 0
+				out.moved.append([p, best])
+				out.cells.append(best)
+		"knock":
+			for p: Vector2i in it.cells:
+				if not _plain(p.x, p.y): continue
+				out.removed.append((G[p.x][p.y] as Gem).id)
+				G[p.x][p.y] = null
+				ROCK[p.x][p.y] = 1
+				ROCK_MAX[p.x][p.y] = 1
+				out.cells.append(p)
+	scale_goal()
 
 ## a plain stone Brontes may work on: no special, nugget, lock, blocker
 func _plain(r: int, c: int) -> bool:
@@ -572,6 +764,10 @@ func boss_turn() -> Dictionary:
 	if boss.timer > 0: return {}
 	var it: Dictionary = boss.intent
 	var out := {act = it.act, cells = [], removed = [], heal = 0, drag = []}
+	if scale_on():
+		_shubin_act(out)
+		boss_plan()
+		return out
 	var A: Dictionary = boss.B.act.get(it.act, {})
 	# whatever he does, the tentacles left on the board first drag the stones at their tips into the deep
 	if not tentacles.is_empty(): _drag(out, boss.B.act.get("tentacle", {}))
@@ -853,6 +1049,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	geos = []
 	find = {}
 	flower = {}
+	cage = {}
 	tentacles = []
 	ring = []
 	eye = {}
@@ -869,7 +1066,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	if gen and boss.is_empty():
 		for k in ore_p: ore_p[k] = float(ore_p[k]) * minf(1.0, 72.0 / (R * C)) * minf(1.0, 26.0 / maxi(1, moves))
 	CART = _grid(-1); KEG = _grid(0); LAMP = _grid(false); DARK = _grid(0); BUCKET = _grid(0); BELT = _grid(false); carts = []; belts = []
-	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false); BIL = _grid(0); MELT = _grid(0); ANV = _grid(false)
+	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); CAGE = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false); BIL = _grid(0); MELT = _grid(0); ANV = _grid(false)
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
 		var row: String = rows[r] if r < rows.size() else ""
@@ -898,6 +1095,10 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					LOCK[r][c] = 2
 				"i":
 					LOCK[r][c] = 4
+				"Q":
+					cage = {r = r, c = c}
+					for d in QUAD:
+						CAGE[r + d.x][c + d.y] = true
 				"F":
 					flower = {r = r, c = c, st = 1}
 					for d in QUAD:
@@ -1053,7 +1254,14 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		g.sp = sp
 		g.t = -1
 		g.ore = ""
-	if boss_on(): boss_plan()
+	if boss_on():
+		if scale_on():
+			boss.song = {notes = int(boss.B.scale.get("start", 4)), quiet = false, fell = false}
+			_shubin_gas0()
+		boss_plan()
+		# the first moves are the player's: he only acts after `calm` of them
+		if scale_on(): boss.timer = int(boss.timer) + int(boss.B.scale.get("calm", 0))
+		if scale_on(): scale_goal()
 
 ## a special handed in mid-level (the second "five more moves" brings dynamite): on a plain stone away from the edges
 func give_special(sp: String) -> Vector2i:
@@ -1106,7 +1314,7 @@ func playable(r: int, c: int) -> bool:
 	return r >= 0 and c >= 0 and r < R and c < C and not VOID[r][c]
 
 func open(r: int, c: int) -> bool:
-	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not SEA[r][c] and not TIDE[r][c] \
+	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not CAGE[r][c] and not SEA[r][c] and not TIDE[r][c] \
 		and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c] and not BIL[r][c] and not MELT[r][c] and not ANV[r][c]
 
 ## the colour a cell counts as for matching, -1 if it can't match
@@ -1220,6 +1428,40 @@ func has_moves() -> bool:
 				return true
 	return false
 
+## the move the hint shows (as in Royal Match): two specials swapped together, then the swap that makes the biggest
+## special, then the longest match; a special tapped in place beats only a plain match of three or four
+func best_move() -> Array:
+	const SPW := {orb = 100, bomb = 60, drill = 50, rh = 40, rv = 40}
+	var best := []
+	var score := 0
+	for r in R:
+		for c in C:
+			var g: Gem = G[r][c]
+			if g and g.sp != "" and not LOCK[r][c] and score < 35:
+				best = [r, c, r, c]
+				score = 35
+			for d in [Vector2i(0, 1), Vector2i(1, 0)]:
+				var rr: int = r + d.x
+				var cc: int = c + d.y
+				if not open(r, c) or not open(rr, cc): continue
+				var a: Gem = G[r][c]
+				var b: Gem = G[rr][cc]
+				if a == null or b == null or LOCK[r][c] or LOCK[rr][cc]: continue
+				var s := 0
+				if a.sp != "" and b.sp != "":
+					s = 150
+				elif a.sp == "" and b.sp == "":
+					G[r][c] = b
+					G[rr][cc] = a
+					for gr in find_groups():
+						s = maxi(s, int(SPW.get(gr.special, 0)) + (gr.cells as Array).size())
+					G[r][c] = a
+					G[rr][cc] = b
+				if s > score:
+					best = [r, c, rr, cc]
+					score = s
+	return best if not best.is_empty() else find_move()
+
 ## a move that works, as [r1, c1, r2, c2]; a special is tapped in place (r1 == r2, c1 == c2)
 func find_move() -> Array:
 	for r in R:
@@ -1249,6 +1491,7 @@ func _fx(t: float, type: String, extra := {}) -> void:
 ## run every hit a move causes, in time order; returns when the last one lands (ms)
 func run_blast(events: Array) -> float:
 	_cleared = {}
+	_aimed = {}
 	_rock_hit = {}
 	_geo_hit = {}
 	_find_hit = false
@@ -1355,6 +1598,7 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 		GAS[r][c] = 0
 		gas_hit = true
 		_goal_hit("gas", -1, r, c, t)
+		if scale_on(): scale_goal()
 		_fx(t, "gas", {r = r, c = c})
 		return
 	if FLW[r][c]:    # the stone flower loses its outer ring, once a blast, and never below its buds
@@ -1542,6 +1786,7 @@ func activate(sp: String, r: int, c: int, t: float, g: Gem = null, lit := false)
 			for d in DIRS4: _push(r + d.x, c + d.y, t + 20, "fx", lit)
 			var tgt := drill_target(r, c)
 			if tgt.x >= 0:
+				_aimed[tgt.x * C + tgt.y] = true
 				_fx(t, "drill", {r = r, c = c, tr = tgt.x, tc = tgt.y})
 				_push(tgt.x, tgt.y, t + 420, "fx", lit)
 				if g and g.carry != "":
@@ -1618,7 +1863,7 @@ func drill_target(r: int, c: int) -> Vector2i:
 	var best := 0
 	for rr in R:
 		for cc in C:
-			if not playable(rr, cc) or absi(rr - r) + absi(cc - c) <= 1 or _cleared.has(rr * C + cc): continue
+			if not playable(rr, cc) or absi(rr - r) + absi(cc - c) <= 1 or _cleared.has(rr * C + cc) or _aimed.has(rr * C + cc): continue
 			var w := 0
 			if FIND[rr][cc] and need.has("find"): w = 7
 			elif BUCKET[rr][cc] and need.has("nug"): w = 6
@@ -1700,9 +1945,19 @@ func groups_to_blast(groups: Array, swap_cells: Array, events: Array) -> Array:
 				if kk in g.cells:
 					key = kk
 					break
-			if key < 0: key = g.cells[g.cells.size() / 2]
+			var sp: String = g.special
+			# dynamite lies the way the player swiped (as in Royal Match); one made by a cascade keeps its line's way
+			if key >= 0 and (sp == "rh" or sp == "rv") and swap_cells.size() >= 2:
+				sp = "rh" if Vector2i(swap_cells[0]).x == Vector2i(swap_cells[1]).x else "rv"
+			if key < 0:
+				# a cascade's special: where the stones that closed the match fell in (as in Royal Match), else its middle
+				var cells: Array = (g.cells as Array).duplicate()
+				cells.sort()
+				var fell := cells.filter(func(k: int) -> bool: return _fell.has(k))
+				var pool: Array = fell if not fell.is_empty() else cells
+				key = pool[pool.size() / 2]
 			pos = Vector2i(key / C, key % C)
-			created.append({r = pos.x, c = pos.y, sp = g.special})
+			created.append({r = pos.x, c = pos.y, sp = sp})
 		# a match touching the light carries it to all its cells (the dark's goal)
 		var lit := false
 		for k in g.cells:
@@ -1750,6 +2005,7 @@ func collapse() -> Array:
 	var spawn_n := []
 	spawn_n.resize(C)
 	spawn_n.fill(0)
+	_fell = {}
 	var moved := true
 	while moved:
 		moved = false
@@ -1759,6 +2015,7 @@ func collapse() -> Array:
 				if r > 0 and open(r - 1, c) and G[r - 1][c] != null and not LOCK[r - 1][c]:
 					G[r][c] = G[r - 1][c]
 					G[r - 1][c] = null
+					_fell[r * C + c] = true
 					moved = true
 					continue
 				if _is_spawn(r, c):
@@ -1767,6 +2024,7 @@ func collapse() -> Array:
 					g.spawn_y = r - spawn_n[c] - 0.3
 					G[r][c] = g
 					spawned.append(g)
+					_fell[r * C + c] = true
 					moved = true
 					continue
 				var from_above: bool = r > 0 and open(r - 1, c) and not LOCK[r - 1][c]
@@ -1778,6 +2036,7 @@ func collapse() -> Array:
 						if sr >= 0 and open(sr, sc) and G[sr][sc] != null and not LOCK[sr][sc] and not (open(r, sc) and G[r][sc] == null):
 							G[r][c] = G[sr][sc]
 							G[sr][sc] = null
+							_fell[r * C + c] = true
 							moved = true
 							break
 	return spawned
@@ -1864,6 +2123,10 @@ func use_move() -> void:
 
 ## gas creeps onto a neighbouring stone if nobody touched it this turn; returns the cell or (-1,-1)
 func gas_spread() -> Vector2i:
+	# Shubin's seam: the gas is his breath, only his acts bring it (sigh, drift, cough) - it doesn't creep on its own
+	if scale_on():
+		gas_hit = false
+		return Vector2i(-1, -1)
 	if gas_hit:
 		gas_hit = false
 		return Vector2i(-1, -1)
@@ -1887,6 +2150,7 @@ func gas_spread() -> Vector2i:
 	GAS[p.x][p.y] = 1
 	var gi := goal_index("gas")
 	if gi >= 0: goals[gi].left += 1
+	if scale_on(): scale_goal()
 	return p
 
 ## the belts move after every move: each stone on a belt rides one cell along its loop (cells blocked by anything

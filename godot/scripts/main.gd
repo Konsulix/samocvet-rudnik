@@ -27,6 +27,7 @@ func _ready() -> void:
 	# the 2D glow pass: off, it showed nothing (no HDR 2D, so nothing passes its threshold) and cost a full-screen
 	# blur every frame; `glow` turns it back on to compare
 	if args.has("glow"): _setup_glow()
+	if args.has("nomusic"): Sfx.no_music = true
 	if args.has("uv"): Spec.force_uv = float(args.uv)
 	# the tutorial: `tut` shows it from the start; test runs (shots, autoplay, sims) go without it
 	# (`tut=swap,goals` starts as if those tips were already shown, to see the next ones; `quiet` - none, for recordings)
@@ -536,6 +537,14 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 		_lab(lv, String(args.lab))
 	if args.has("autoplay"):
 		_autoplay(lv, int(args.autoplay))
+	if args.has("finale"):
+		# for a look: the level won as it stands - the specials left go off, then the moves left (`specials` puts some)
+		await get_tree().create_timer(1.5).timeout
+		lv.busy = true
+		lv.model.over = true
+		await lv._finale()
+		print("finale done, coins ", lv.model.coins_won, ", specials left ",
+			lv.model.G.reduce(func(n: int, row: Array) -> int: return n + row.filter(func(g) -> bool: return g != null and g.sp != "").size(), 0))
 	if args.has("win"):
 		# jump to the end of the level: the find dug out, a geode stone waiting
 		await get_tree().create_timer(1.5).timeout

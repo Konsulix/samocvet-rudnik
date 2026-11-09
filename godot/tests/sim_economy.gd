@@ -29,11 +29,15 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 	var won := false
 	var guard := 0
 	var smart := OS.get_cmdline_user_args().has("smart")
+	# `sloppy=P`: the smart player makes a random legal move instead with chance P (nearer a living one, who misses moves)
+	var sloppy := 0.0
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("sloppy="): sloppy = float(a.substr(7))
 	while not m.over and guard < 400:
 		guard += 1
 		var first := []
 		var sw := []
-		var mv := _choose_smart(m, rng) if smart else _choose(m, rng)
+		var mv := _choose_smart(m, rng) if smart and rng.randf() >= sloppy else _choose(m, rng)
 		if mv.is_empty():
 			m.shuffle()
 			continue
@@ -61,6 +65,26 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			if m.goals_done():
 				won = true
 				break
+		if m.scale_on():
+			# Shubin: the canary sings (a note) or not; asleep - won; his act; the gas too heavy - the bird falls
+			m.song_turn()
+			if m.goals_done():
+				won = true
+				break
+			var gas_b := m.gas_count()
+			var st := m.boss_turn()
+			if not st.get("removed", []).is_empty():
+				m.collapse()
+				_resolve(m, [], [], broken)
+			if OS.get_cmdline_user_args().has("trace"):
+				print("  move %d: gas %d -> %d after %s, notes %d, tilt %.0f, bird %s" % [used, gas_b, m.gas_count(),
+					String(st.get("act", "-")), int(m.boss.song.notes), m.scale_tilt(), "quiet" if m.canary_quiet() else "sings"])
+			if m.scale_lost():
+				m.over = true
+				break
+			if not m.has_moves(): m.shuffle()
+			if m.moves <= 0: break
+			continue
 		if m.boss_on():
 			# the sea's own move (the Kraken): the maelstrom's ring turns and swallows a blue or a special, what it lines up goes
 			var sea := m.sea_turn()
@@ -96,7 +120,8 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			break
 	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves),
 		goal0 = goal0, left = _goals_left(m),
-		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0}
+		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0,
+		tilt = m.scale_tilt() if m.scale_on() else 0.0, fell = m.scale_lost()}
 
 static func _choose(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 	var specials := []
@@ -149,7 +174,7 @@ static func _worth(m: BoardModel) -> float:
 		match String(g.k):
 			"nug": w = 8.0
 			"geo", "find": w = 6.0
-			"boss": w = 0.08
+			"boss": w = 3.0 if m.scale_on() else 0.08
 			"gas": w = 1.5
 		v -= float(g.left) * w
 	# the big blocks: every hit counts, not only the last one
@@ -176,6 +201,10 @@ static func _worth(m: BoardModel) -> float:
 			if m.LOCK[r][c] == 4: v -= 0.5      # thick ice: each layer is a hit (the goal counts only the last)
 			if m.LOCK[r][c] == 6: v -= 0.25     # forge scale
 			if kegs_goal and m.KEG[r][c]: v -= float(m.KEG[r][c]) * 0.4
+	# Shubin: gas in the canary's ring silences it (no note this move)
+	if m.scale_on():
+		for p: Vector2i in m.cage_ring():
+			if m.GAS[p.x][p.y]: v -= 4.0
 	# Brontes: a cold billet heals him when he acts, molten sulphur spreads, a charged thunderbolt is near
 	if m.boss_on():
 		for r in m.R:
@@ -266,6 +295,21 @@ static func report(per_depth: int) -> String:
 ## (one more lost fight each): wins, the board it got to, the health left
 static func boss_report(area: int, n: int) -> String:
 	var B: Dictionary = Data.AREAS[area].boss
+	if B.has("scale"):
+		# Shubin: no health - how often the song wins, the bird falls, the moves run out; moves used; the tilt at the end
+		var won := 0
+		var fell := 0
+		var used := 0
+		var tilt := 0.0
+		for i in n:
+			var r := play(1, Data.depths(area).size(), 900 + i * 13, BoardModel.boss_level(B, 0, int(B.hp)), area)
+			if r.won:
+				won += 1
+				used += int(r.used)
+			elif r.fell: fell += 1
+			tilt += float(r.tilt)
+		return "%s scale %s: won %.0f%% | fell %.0f%% | out of moves %.0f%% | moves used when won %.1f | tilt at the end %.1f" % [
+			B.n, JSON.stringify(B.scale), 100.0 * won / n, 100.0 * fell / n, 100.0 * (n - won - fell) / n, used / maxf(1.0, won), tilt / n]
 	var lines := PackedStringArray(["%s: hp %d, moves %d (+%d a board) | lost before | win%% | board reached 1/2/3 | hp left when lost | moves used when won" % [B.n, int(B.hp), int(B.moves), int(B.stage_moves)]])
 	for tries in [0, 2, 4, 6]:
 		var hp := roundi(int(B.hp) * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3

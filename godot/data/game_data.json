@@ -2519,7 +2519,111 @@
       3100
      ]
     }
-   ]
+   ],
+   "boss": {
+    "id": "shubin",
+    "n": "Shubin",
+    "sub": "The Firedamp",
+    "m": 500,
+    "hp": 26,
+    "weak": 2,
+    "dmg": {
+     "weak": 0,
+     "ore": 0,
+     "special": 0
+    },
+    "moves": 24,
+    "stage_moves": 0,
+    "scale": {
+     "win": 20,
+     "lose": -22,
+     "gas_w": 2,
+     "start": 4,
+     "calm": 3,
+     "gas0": {
+      "ring": 3,
+      "n": 5
+     },
+     "moods": [
+      -4,
+      -9
+     ]
+    },
+    "act": {
+     "sigh": {
+      "n": [
+       3,
+       5,
+       6
+      ],
+      "near": 3
+     },
+     "drift": {},
+     "cough": {
+      "size": 2
+     },
+     "knock": {
+      "n": 2
+     }
+    },
+    "moods": [
+     {
+      "every": 2,
+      "acts": [
+       "sigh"
+      ]
+     },
+     {
+      "every": 2,
+      "acts": [
+       "sigh",
+       "drift"
+      ]
+     },
+     {
+      "every": 1,
+      "acts": [
+       "cough",
+       "drift",
+       "knock",
+       "sigh"
+      ]
+     }
+    ],
+    "lines": {
+     "start": "Who woke the old man? Breathe it in, digger... breathe.",
+     "stage": [
+      "",
+      ""
+     ],
+     "sleep": "Mm... the bird sings...",
+     "stir": "Who's there... who lets the gas in?",
+     "cough": "Khe... khe-khe! Out of my seam!",
+     "win": "Hush. I'll sleep now. Go up, the air is good.",
+     "lose": "The bird is down. Run, little miner - I'm awake.",
+     "quiet": "She's gone quiet... clear the air round her!"
+    },
+    "sfx": {
+     "cough": "sh_cough",
+     "sigh": "sh_sigh",
+     "drift": "sh_sigh",
+     "knock": "sh_knock",
+     "song": "sh_song",
+     "cheep": "sh_cheep",
+     "wake": "sh_wake",
+     "phase": "sh_cough"
+    },
+    "stages": [
+     {
+      "name": "Shubin's hollow",
+      "every": 2,
+      "acts": [
+       "sigh"
+      ],
+      "map": "##.....##|#g.....g#|.........|.........|.........|...Q.....|.........|.........|#.......#|##.....##"
+     }
+    ]
+   }
   }
  ],
  "CHEST": [

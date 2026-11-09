@@ -40,7 +40,7 @@ static func top_bar() -> HBoxContainer:
 
 ## the miner in his round iron frame, the player's level on a brass badge, the lives on a small plate under him
 ## the portrait frames' windows: [offset, size] as shares of the frame (from the bosses' avatar .json)
-const PORTRAIT_INNER := {poloz = [0.25, 0.5], mistress = [0.2778, 0.4444], kraken = [0.2778, 0.4444], brontes = [0.2778, 0.4444]}
+const PORTRAIT_INNER := {poloz = [0.25, 0.5], mistress = [0.2778, 0.4444], kraken = [0.2778, 0.4444], brontes = [0.2778, 0.4444], shubin = [0.2778, 0.4444]}
 
 static func _portrait() -> Control:
 	const F := 72.0
@@ -50,7 +50,7 @@ static func _portrait() -> Control:
 	# a square frame from the mine's boss board (the serpent at Old Adit, malachite and copper at Copper Mountain,
 	# shipwreck planks, rope and whale bone at Whalebone Cove, forged iron at Fire Horizon),
 	# its window a dark slate with the miner in it (for now the helmet and pick; a portrait is to be drawn)
-	var id: String = ["poloz", "mistress", "kraken", "brontes"][clampi(Save.area(), 0, 3)]
+	var id: String = {0: "poloz", 1: "mistress", 2: "kraken", 3: "brontes", 7: "shubin"}.get(Save.area(), "brontes")
 	var inner: Array = PORTRAIT_INNER[id]
 	var o := F * float(inner[0])
 	var n := F * float(inner[1])
@@ -134,16 +134,27 @@ static func capsule(kind: String, text: String) -> Control:
 	w.add_child(ic)
 	return w
 
-## the gear: sound on or off (hold the gear for the diagnostics)
+static func _sound_name() -> String:
+	if Save.d.mute: return "Sound: off"
+	return "Sound: effects only" if Save.d.get("no_music", false) else "Sound: music + effects"
+
+## the gear: sound mode (hold the gear for the diagnostics)
 static func settings() -> void:
 	var v := Ov.card(300)
 	v.add_child(UI.title("Settings", 22))
-	var snd := Ov.btn("Sound: on" if not Save.d.mute else "Sound: off", "glass", func(): pass)
+	# three modes in turn: music and sounds -> sounds only -> off
+	var snd := Ov.btn(_sound_name(), "glass", func(): pass)
 	snd.pressed.connect(func():
-		Save.d.mute = not Save.d.mute
+		if Save.d.mute:
+			Save.d.mute = false
+			Save.d.no_music = false
+		elif Save.d.get("no_music", false):
+			Save.d.mute = true
+		else:
+			Save.d.no_music = true
 		Save.persist()
 		Sfx.apply_mute()
-		snd.text = "Sound: on" if not Save.d.mute else "Sound: off")
+		snd.text = _sound_name())
 	v.add_child(snd)
 	v.add_child(Ov.btn("Story so far", "glass", func(): story_card()))
 	var tips := Ov.btn("Show tips again", "glass", func(): pass)
