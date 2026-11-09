@@ -21,7 +21,9 @@ const SAMPLES := {
 	# small bells going down (MaidenView.giggle), caught - a puff of flame and a bright ping
 	mdn_hop = {f = ["amb/fire/sparks"], db = -9.0, pitch = 1.5},
 	mdn_land = {f = ["magical_1", "magical_5"], db = -14.0, pitch = 1.7},
-	mdn_giggle = {f = ["bowl_ping"], db = -15.0, pitch = 2.9, step = -0.045},
+	mdn_giggle = {f = ["bowl_ping"], db = -20.0, pitch = 2.9, step = -0.045},
+	# her own laugh: a girl's giggle (BigSoundBank #1660, CC0; prototype/tools/maiden_laugh.py), a little higher
+	mdn_laugh = {f = ["maiden_laugh_0", "maiden_laugh_1"], db = -4.0, pitch = 1.18},
 	mdn_caught = {f = ["amb/fire/burn", "magical_6"], all = true, db = -6.0, pitch = 1.4},
 	coin = {f = ["chips-stack-1", "chips-stack-2", "chips-collide-1"], db = -6.0},
 	# a step of building: a plank set down, two hammer knocks, a brass latch (sfx_cut.py; was a digital ding)

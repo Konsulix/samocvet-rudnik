@@ -135,8 +135,9 @@ func caught() -> void:
 	play("laugh")
 	await get_tree().create_timer(0.35).timeout
 
-## her laugh: a trill of little bells running down (a fairy's laugh, as games have it), n notes
+## her laugh: a girl's giggle, and under it a trill of little bells running down, n notes
 func giggle(n := 6) -> void:
+	Sfx.play("mdn_laugh")
 	for i in n:
 		Sfx.play("mdn_giggle", i)
 		await get_tree().create_timer(0.065 + randf() * 0.02).timeout

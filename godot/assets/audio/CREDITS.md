@@ -127,3 +127,4 @@ Joseph Sardin и Pablo Bergel, BigSoundBank (CC0):
 - `cough_0..2` — [old man cough](https://opengameart.org/content/old-man-cough), AntumDeluge, OpenGameArt (CC0): приступ, его начало, мелкое покашливание; ниже тоном, с эхом штрека.
 - `knock` — три удара `impactPlank_medium_000` (Kenney, CC0, уже в игре) с эхом.
 - `hiss` (газ), `flame` (вспышка газа), `bell` (сигнальный колокол), `whistle` (гудок парохода) — синтез.
+- `maiden_laugh_0..1` — Joseph Sardin, [BigSoundBank #1660 «Laughter of children»](https://bigsoundbank.com/laughter-of-children-s1660.html) (CC0): два смешка девочки (0,10–0,48 и 2,76–3,13 с), смех Огневушки (`prototype/tools/maiden_laugh.py`).

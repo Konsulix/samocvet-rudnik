@@ -457,6 +457,7 @@ func _view_input(e: InputEvent) -> void:
 				# the Fire Maiden caught dancing in the mine: her gold stays in the rock - the next level is rich
 				Save.d.lrich = true
 				Save.persist()
+				Sfx.play("mdn_laugh")
 				for i in 6:
 					get_tree().create_timer(i * 0.07).timeout.connect(func(): Sfx.play("mdn_giggle", i))
 				Ov.toast("The Fire Maiden danced here! Your next level is a rich vein")
