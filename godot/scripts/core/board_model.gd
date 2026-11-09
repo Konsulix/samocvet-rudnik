@@ -242,7 +242,7 @@ func boss_plan() -> void:
 	var acts: Array = S.acts
 	var act: String = acts[int(boss.k) % acts.size()]
 	boss.k = int(boss.k) + 1
-	boss.timer = int(S.every)
+	boss.timer = maxi(1, int(S.every) - (1 if int(boss.B.get("tier", 1)) >= 3 else 0))
 	var cells := []
 	var A: Dictionary = boss.B.act.get(act, {})
 	if act in ["coils", "rockfall", "breath", "crust"]:

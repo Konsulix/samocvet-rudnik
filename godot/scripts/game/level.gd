@@ -36,6 +36,15 @@ var _hinted := false
 var _flights := 0
 var aw_boost := false    # a booster was used on this board (Awards: Bare Hands)
 var _kegs := 0           # kegs gone off in this move (Awards: Powder Party)
+# the achievements' watch over a board (Awards): a move in the lower half, a special or a combo in this move, the dark
+# left when the move began, matches the belts made, the Kraken's eye hits since it last swam
+var _low := false
+var _sp_move := false
+var _combo_move := false
+var _dark0 := -1
+var _belt_mode := false
+var _belt_n := 0
+var eye_hits := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
@@ -687,6 +696,7 @@ func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
 		busy = false
 		return
 	await board.animate_swap(a_id, b_id)
+	_aw_move(r1, r2)
 	model.use_move()
 	_render_moves()
 	await _resolve(res.events, res.swap_cells)
@@ -703,6 +713,8 @@ func _on_tap(r: int, c: int) -> void:
 	if g and g.sp != "" and not model.LOCK[r][c]:
 		_coach_done()
 		busy = true
+		_aw_move(r, r)
+		_sp_move = true
 		model.use_move()
 		_render_moves()
 		await _resolve([{t = 0.0, r = r, c = c, kind = "fx"}], [])
@@ -740,6 +752,7 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	if res == null:
 		_swipes_in_flight -= 1
 		return
+	_aw_move(r1, r2)
 	model.use_move()
 	_render_moves()
 	_extra_moves += 1
@@ -825,9 +838,11 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 				await _wait(0.05)
 				continue
 			_resolving = false
+			_aw_settled()
 			break
 		cascade += 1
 		if cascade == 8: Awards.once("cascade8")
+		if _belt_mode: _belt_n += groups.size()
 		# a cascade's count over the stones that fell into place by themselves
 		if cascade >= 2 and not groups.is_empty():
 			var g0: Array = groups[0].cells
@@ -885,6 +900,7 @@ func _play_fx(list: Array, merges: Dictionary) -> void:
 func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 	match String(e.type):
 		"clear":
+			if String(e.get("sp", "")) != "": _sp_move = true
 			board.pop_gem(e.id, merges.get(e.id, Vector2i(-1, -1)))
 			if e.color >= 0 and not merges.has(e.id):
 				fx.gem_chips(e.r, e.c, Color.html(Data.GEMS[e.color].c))
@@ -1038,6 +1054,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			Sfx.play("fuse")
 		"keg_boom":
 			_kegs += 1
+			if _kegs == 3: Awards.once("domino")
 			if _kegs == 5: Awards.once("kegs5")
 			fx.boom(e.r, e.c, 1)
 			fx.debris(e.r, e.c, Color("#7a5434"), 18)
@@ -1088,6 +1105,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			if bv: bv.hit(true)
 			LevelBoss.line(self, "daze")
 			Awards.mark("boss:3:daze")
+			if not board.bolt_marks.is_empty(): Awards.once("boss:3:rod")
 			LevelBoss.sound(self, "daze", "boom")
 			_cheer("Dazed! Double damage")
 		"tentacle_cut":
@@ -1097,6 +1115,8 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 		"ink":
 			board.sea_over.queue_redraw()
 		"eye_hit":
+			eye_hits += 1
+			if eye_hits == 3: Awards.once("boss:2:eye3")
 			board.eye_at = Time.get_ticks_msec() / 1000.0
 			fx.flash(e.r, e.c, Color(0.8, 1.8, 2.4), 2.0)
 			LevelBoss.sound(self, "eye", "boom")
@@ -1138,6 +1158,8 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			var ab: Array = [String(e.a), String(e.b)].map(func(x: String) -> String: return "rocket" if x in ["rh", "rv"] else x)
 			ab.sort()
 			Awards.once("mix:%s+%s" % ab)
+			_combo_move = true
+			_sp_move = true
 			# two specials together: a white-hot burst and the game holding its breath a moment
 			fx.flash(e.r, e.c, Color(1.0, 0.85, 0.5), 3.0, 0.4)
 			fx.ring(e.r, e.c, 2.5, Color(1.0, 0.85, 0.55))
@@ -1379,6 +1401,8 @@ func _cells_rect(cells: Array) -> Rect2:
 func _belts() -> void:
 	var res := model.belt_turn()
 	if res.turned.is_empty(): return
+	_belt_mode = true
+	_belt_n = 0
 	var dur := 0.34
 	var tw := create_tween().set_parallel(true)
 	for t: Array in res.turned:
@@ -1390,6 +1414,8 @@ func _belts() -> void:
 	Sfx.play("belt")
 	await tw.finished
 	await _resolve([], [])
+	_belt_mode = false
+	if _belt_n >= 3: Awards.once("belt3")
 	await _flights_done()
 
 ## Copper Mountain: the malachite nodules grow; a full one overgrows and crusts the stones round it
@@ -1543,16 +1569,35 @@ func _win() -> void:
 ## what a won board tells the achievements (Awards: Mastery, Bosses, Secrets)
 func _awards_won(stone: Dictionary) -> void:
 	if model.moves == 0: Awards.once("last_move")
+	if not _low and not model.boss_on(): Awards.once("lazy")
+	if _combo_move: Awards.once("overkill")
 	if model.hard and not aw_boost and not model.boss_on(): Awards.once("bare_hands")
 	if not stone.is_empty():
 		var ci := Stones.CONDITION.find(Stones.condition(int(model.find.integ)))
 		if ci == 0: Awards.once("clean_find")
 		if ci == Stones.CONDITION.size() - 1: Awards.once("broken_find")
+		if ci == Stones.CONDITION.size() - 1 and bool(stone.get("legend", false)): Awards.once("unlucky")
 	if model.boss_on():
 		var a := Save.area()
 		if a == 0 and int(Save.d.boss_tries[0]) == 0: Awards.once("boss:0:first")
-		if a == 1 and not has_meta("aw_stolen"): Awards.once("boss:1:greens")
+		if a == 0 and _sp_move: Awards.once("boss:0:special")
+		if a == 1 and int(get_meta("aw_stolen", 0)) == 0: Awards.once("boss:1:greens")
+		if a == 1 and int(get_meta("aw_stolen", 0)) == 1: Awards.once("boss:1:one")
 		if a == 2 and not has_meta("aw_dragged"): Awards.once("boss:2:hold")
+
+## a move begins: what it is watched for (Awards)
+func _aw_move(r1: int, r2: int) -> void:
+	if maxi(r1, r2) >= model.R / 2: _low = true
+	_sp_move = false
+	_combo_move = false
+	var gi := model.goal_index("dark")
+	_dark0 = int(model.goals[gi].left) if gi >= 0 else -1
+
+## the board has settled after a move
+func _aw_settled() -> void:
+	var gi := model.goal_index("dark")
+	if _dark0 >= 0 and gi >= 0 and _dark0 - int(model.goals[gi].left) >= 6: Awards.once("lights_out")
+	_dark0 = -1
 
 func _out_of_moves() -> void:
 	Sfx.play("lose")

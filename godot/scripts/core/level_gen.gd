@@ -167,11 +167,21 @@ static func current(dl: int) -> Dictionary:
 	return make(Save.area(), dl, int(Save.d.lseed) + dl * 7919, bool(Save.d.lrich) and not _veins_poor(dl), wins, beat)
 
 ## the mine's boss fight from its first board, with its health lowered 5% for every fight lost (to 70% at most)
-static func boss_fight(area: int) -> Dictionary:
+## tier: 1 the first fight, 2-3 a beaten boss fought again (Awards.TIERS): more health, fewer moves, and at 3
+## he acts a move sooner
+const TIER_HP := [1.0, 1.0, 1.35, 1.7]
+const TIER_MOVES := [0, 0, 3, 6]
+static func boss_fight(area: int, tier := 1) -> Dictionary:
 	var B: Dictionary = Data.AREAS[area].get("boss", {})
 	if B.is_empty(): return {}
+	tier = clampi(tier, 1, 3)
 	var tries: int = int(Save.d.boss_tries[area]) if area < Save.d.boss_tries.size() else 0
 	var hp := roundi(int(B.hp) * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3
+	if tier > 1:
+		B = B.duplicate()
+		B.tier = tier
+		B.moves = int(B.moves) - TIER_MOVES[tier]
+		hp = roundi(int(B.hp) * TIER_HP[tier] / 3.0) * 3
 	return BoardModel.boss_level(B, 0, hp)
 
 ## a rich level doubles the ore stones, so it is not handed out on veins worked down to their last tenth

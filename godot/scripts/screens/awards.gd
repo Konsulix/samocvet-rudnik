@@ -37,6 +37,9 @@ static var LIST := [
 		items = ["sp:malachite", "sp:emerald"]},
 	{tab = "tales", icon = "nested", n = "Matryoshka", t = "A stone inside a stone inside a stone.", r = "a geode", items = ["sp:fluorite"]},
 	{tab = "tales", icon = "halves", n = "Reunited", t = "Split a hundred million years ago. Together again.", r = "a geode", items = ["i:halves"], one = true, ev = ""},
+	{tab = "tales", icon = "book", n = "Brother's Footsteps", t = "He was here before you. Every time.", r = "the brother's trail",
+		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll"], evs = ["tut:s_notebook", "tut:s_poloz_after", "tut:s_proval_arrive", "tut:s_proval_gate"]},
+	{tab = "tales", icon = "book", n = "The Scholar's Atlas", t = "She can't write as fast as you dig.", r = "Fifty species in the atlas", one = true, ev = "atlas50", give = {coins = 2500, geode = 1}, items = ["i:book"]},
 	{tab = "tales", icon = "oyster_moon", n = "Moonlit Sea", t = "It waited four hundred million years for the moon.", r = "pearl gems", items = ["i:oyster_moon"], one = true, ev = "gene:fx:moon"},
 
 	{tab = "coll", icon = "butterfly", n = "Pinned by Nature", t = "They landed on the stone and never left.", r = "butterfly board frame",
@@ -63,6 +66,11 @@ static var LIST := [
 		items = ["sp:skull_bone", "sp:skull_nacre", "sp:skull_gilt", "sp:skull_kintsugi", "sp:skull_glass", "sp:skull_agate", "sp:skull_opal", "sp:skull_pyrite", "sp:skull_geode", "sp:skull_copper", "sp:skull_silver", "sp:skull_gold"]},
 	{tab = "coll", icon = "pearls", n = "String of Pearls", t = "Every sea grows its own colour. Thread them on one string.", r = "a necklace recipe",
 		tags = ["pearl:akoya", "pearl:south_sea", "pearl:golden", "pearl:tahitian"], names = ["Akoya", "South Sea", "Golden", "Tahitian"]},
+	{tab = "coll", icon = "twins", n = "Twin Peaks", t = "Two stones, one recipe. The mountain repeats itself.", r = "Two finds of a kind with the same genes", one = true, ev = "twin_genes", give = {geode = 1}, items = ["i:twins"]},
+	{tab = "coll", icon = "star_crystal", n = "The Odd One", t = "A museum would sell its roof for this.", r = "A find with eight genes at once", one = true, ev = "five_genes", give = {coins = 1000}, items = ["kit:coin"]},
+	{tab = "coll", icon = "crystal", n = "Glass Half Full", t = "It grew from its own kind.", r = "A crystal on a rock of its own mineral", one = true, ev = "same_rock", give = {coins = 500}, items = ["i:crystal"]},
+	{tab = "coll", icon = "butterfly", n = "Moth to a Flame", t = "They know better. They come anyway.", r = "Butterflies on a skull that burns", one = true, ev = "moth_flame", give = {geode = 1}, items = ["i:butterfly"]},
+	{tab = "coll", icon = "mushrooms", n = "Nature Takes Over", t = "Moss, mushrooms and flowers. Is there a stone under there?", r = "Moss, a mushroom and flowers on one find", one = true, ev = "overgrown", give = {coins = 600}, items = ["i:moss_stone"]},
 	{tab = "coll", icon = "fluorite", n = "Rainbow in a Cube", t = "It can't decide what colour to be. Neither will you.", r = "coins",
 		tags = ["pal:fluorite:0", "pal:fluorite:1", "pal:fluorite:2", "pal:fluorite:3", "pal:fluorite:4", "pal:fluorite:5"], names = ["Green", "Purple", "Blue", "Yellow", "Colourless", "Pink"]},
 
@@ -75,17 +83,35 @@ static var LIST := [
 	{tab = "mines", icon = "eye", n = "Eye of the Miner", t = "The mine moves when you're not looking.", r = "a portrait frame",
 		items = ["i:serpent", "i:serpent", "i:eye", "i:lizard"], evs = ["ev:0:hole", "ev:0:coil", "ev:0:eyes", "ev:0:lizard"]},
 
+	{tab = "mines", icon = "eye", n = "Glimpses of the Deep", t = "The mines hide their masters. Sometimes they slip.", r = "a portrait frame",
+		items = ["i:lizard", "i:tentacle", "i:lightning", "i:moon", "i:twins"], evs = ["ev:1:reflection", "ev:2:eel", "ev:3:shadow", "ev:4:dwarf", "ev:4:brother"]},
+	{tab = "mines", icon = "moon", n = "Night Watch", t = "Sit still long enough and the mine forgets you're there.", r = "Watch a mine for three minutes", one = true, ev = "night_watch", give = {lives = 2}, items = ["kit:heart"]},
+
 	{tab = "boss", icon = "serpent", n = "Snake Charmer", t = "He bit. You didn't flinch.", r = "Win against the Serpent first try", one = true, ev = "boss:0:first", give = {geode = 2}, items = ["kit:gold"]},
 	{tab = "boss", icon = "lizard", n = "Keep Your Greens", t = "Not one stone for the lizards.", r = "No green stolen by the lizards", one = true, ev = "boss:1:greens", give = {geode = 2}, items = ["kit:copper"]},
 	{tab = "boss", icon = "tentacle", n = "Hold Fast", t = "Nothing goes overboard.", r = "The tentacle drags no stone", one = true, ev = "boss:2:hold", give = {geode = 2}, items = ["kit:ammonite"]},
 	{tab = "boss", icon = "lightning", n = "Thunderstruck", t = "Even a giant needs to sit down.", r = "Stun Brontes 3 times", one = true, ev = "boss:3:daze", need = 3, give = {geode = 2}, items = ["kit:sulphur"]},
 	{tab = "boss", icon = "canary", n = "Sing, Little Bird", t = "She never stopped singing.", r = "The canary never falls silent", one = true, ev = "boss:7:song", give = {geode = 2}, items = ["kit:flint"]},
+	{tab = "boss", icon = "serpent", n = "Snake Eyes", t = "Look him in the eye. Then blow it up.", r = "Finish the Serpent with a special stone", one = true, ev = "boss:0:special", give = {boost = {pick = 2}}, items = ["i:serpent"]},
+	{tab = "boss", icon = "lizard", n = "The Kindly Mistress", t = "She likes a gift. Just the one.", r = "Let the lizards take exactly one green", one = true, ev = "boss:1:one", give = {geode = 1}, items = ["i:lizard"]},
+	{tab = "boss", icon = "eye", n = "Eye to Eye", t = "Three times before it blinks.", r = "Hit the Kraken's eye three times in a row", one = true, ev = "boss:2:eye3", give = {geode = 1}, items = ["i:eye"]},
+	{tab = "boss", icon = "lightning", n = "Lightning Rod", t = "The bolt was aimed. It never came.", r = "Stun Brontes while his bolt is aimed", one = true, ev = "boss:3:rod", give = {geode = 1}, items = ["i:lightning"]},
+	{tab = "boss", icon = "serpent", n = "The Serpent Returns", t = "Each time he wakes, he wakes angrier.", r = "Beat him three times, harder each time", give = {geode = 2}, items = ["i:serpent", "i:serpent", "i:serpent"], evs = ["tier:0:1", "tier:0:2", "tier:0:3"]},
+	{tab = "boss", icon = "lizard", n = "Stone Heart", t = "She never forgives. She only waits.", r = "Beat her three times, harder each time", give = {geode = 2}, items = ["i:lizard", "i:lizard", "i:lizard"], evs = ["tier:1:1", "tier:1:2", "tier:1:3"]},
+	{tab = "boss", icon = "tentacle", n = "Back to the Deep", t = "It sank. It always comes back up.", r = "Beat it three times, harder each time", give = {geode = 2}, items = ["i:tentacle", "i:tentacle", "i:tentacle"], evs = ["tier:2:1", "tier:2:2", "tier:2:3"]},
+	{tab = "boss", icon = "lightning", n = "Forged Thrice", t = "Steel is struck three times.", r = "Beat him three times, harder each time", give = {geode = 2}, items = ["i:lightning", "i:lightning", "i:lightning"], evs = ["tier:3:1", "tier:3:2", "tier:3:3"]},
+	{tab = "boss", icon = "axe_crown", n = "Lord Below", t = "Every master of the deep, at its worst. Bowed.", r = "Every boss beaten at its hardest", give = {coins = 10000, geode = 2, unlock = "golden gems"}, lords = true, items = []},
 	{tab = "boss", icon = "axe_crown", n = "Giant Slayer", t = "Every legend underground has met you.", r = "the title Slayer",
 		items = ["i:serpent", "i:lizard", "i:tentacle", "i:lightning", "i:canary"], evs = ["won:0", "won:1", "won:2", "won:3", "won:7"]},
 
 	{tab = "mastery", icon = "hourglass", n = "By a Hair", t = "Last move. Last chance. Done.", r = "Win on the last move", one = true, ev = "last_move", give = {boost = {pick = 3}}, items = ["res:res://assets/board/boosters/pick.png"]},
 	{tab = "mastery", icon = "rockfall", n = "Avalanche", t = "One stone moved. Then all of them.", r = "A cascade of 8", one = true, ev = "cascade8", give = {boost = {bore_h = 2, bore_v = 2}}, items = ["res:res://assets/board/boosters/bore_h.png"]},
 	{tab = "mastery", icon = "keg", n = "Powder Party", t = "Boom. Boom boom boom boom.", r = "Five kegs in one chain", one = true, ev = "kegs5", give = {coins = 800}, items = ["kit:coin"]},
+	{tab = "mastery", icon = "keg", n = "Domino", t = "You lit one. They did the rest.", r = "Three kegs in one move", one = true, ev = "domino", give = {boost = {bore_h = 1, bore_v = 1}}, items = ["kit:coin"]},
+	{tab = "mastery", icon = "moon", n = "Lights Out", t = "Darkness, gone in a single breath.", r = "Light six dark cells in one move", one = true, ev = "lights_out", give = {coins = 600}, items = ["kit:coin"]},
+	{tab = "mastery", icon = "rockfall", n = "Conveyor Chef", t = "Sit back. The belt is cooking.", r = "Three matches made by a belt in one turn", one = true, ev = "belt3", give = {coins = 600}, items = ["kit:coin"]},
+	{tab = "mastery", icon = "flame", n = "Overkill", t = "It was already beaten. You made sure.", r = "Win with two special stones together", one = true, ev = "overkill", give = {boost = {pan = 2}}, items = ["res:res://assets/board/boosters/pan.png"]},
+	{tab = "mastery", icon = "scales", n = "Lazy Miner", t = "The bottom of the board? Never heard of it.", r = "Win without a move in the lower half", one = true, ev = "lazy", give = {lives = 2}, items = ["kit:heart"]},
 	{tab = "mastery", icon = "flask", n = "Mad Alchemist", t = "What happens if you mix these two?", r = "new gems look",
 		items = ["i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask"],
 		evs = ["mix:rocket+rocket", "mix:bomb+rocket", "mix:orb+rocket", "mix:drill+rocket", "mix:bomb+bomb", "mix:bomb+orb", "mix:bomb+drill", "mix:orb+orb", "mix:drill+orb", "mix:drill+drill"]},
@@ -98,6 +124,12 @@ static var LIST := [
 	{tab = "secrets", icon = "cracked", n = "Butterfingers", t = "It was a nice stone. It was.", r = "A find dug out in pieces", one = true, hide = true, ev = "broken_find", give = {coins = 300}, items = ["i:cracked"]},
 	{tab = "secrets", icon = "cage", n = "Don't Poke the Bird", t = "She's working. Let her work.", r = "Ten taps on the canary's cage", one = true, hide = true, ev = "poke_bird", give = {coins = 300}, items = ["i:canary"]},
 	{tab = "secrets", icon = "moon", n = "Night Shift", t = "Miners don't sleep. Apparently, neither do you.", r = "Played between midnight and four", one = true, hide = true, ev = "night", give = {lives = 2}, items = ["i:moon"]},
+	{tab = "secrets", icon = "mask", n = "Unlucky Charm", t = "Legendary. Shattered. Legendarily shattered.", r = "A legendary find dug out Damaged", one = true, hide = true, ev = "unlucky", give = {geode = 1}, items = ["i:cracked"]},
+	{tab = "secrets", icon = "pyrite", n = "Old Man's Gold", t = "He gave it to you. You sold it. He knows.", r = "Sold the old man's gift", one = true, hide = true, ev = "sold_gift", give = {coins = 100}, items = ["i:pyrite"]},
+	{tab = "secrets", icon = "crystal", n = "Pet Rock", t = "You two have something special.", r = "Kept one single stone for thirty days", one = true, hide = true, ev = "pet_rock", give = {geode = 2}, items = ["i:crystal"]},
+	{tab = "secrets", icon = "casket", n = "Hoarder", t = "Every drawer, every chest, every pocket.", r = "A hundred stones kept at once", one = true, hide = true, ev = "hoarder", give = {coins = 3000}, items = ["kit:coin"]},
+	{tab = "secrets", icon = "halves", n = "Second Thoughts", t = "Sold it. Missed it. Dug it up again.", r = "Find a species a minute after selling one", one = true, hide = true, ev = "second", give = {coins = 300}, items = ["kit:coin"]},
+	{tab = "secrets", icon = "hourglass", n = "Patience", t = "It was worth the look.", r = "Look at a find for two minutes", one = true, hide = true, ev = "patience", give = {coins = 300}, items = ["kit:coin"]},
 	{tab = "secrets", icon = "twins", n = "Déjà Vu", t = "Haven't we met?", r = "The same species twice in a row", one = true, hide = true, ev = "twins", give = {coins = 300}, items = ["i:twins"]},
 ]
 
@@ -170,6 +202,19 @@ static func genes_of(s: Dictionary) -> Array:
 		var ws: Array = []
 		for i in pal.size(): ws.append([i, float(pal[i][2])])
 		out.append("pal:%s:%d" % [sid, int(Stones.pick_w(ws, Rng32.new((seed_v * 1597334677 + 31) % 4294967296)))])
+	return out
+
+## the achievements a find brings by itself (Save.note_find): eight genes, a crystal on its own rock, butterflies on a
+## burning skull, a find overgrown — read from its genes and genome, no meshes
+const OWN_ROCK := {selenite = "gypsum", calcite = "limestone", quartz = "quartzite", amethyst = "quartzite", smoky = "quartzite"}
+static func find_marks(s: Dictionary, gs: Array) -> Array:
+	var out: Array = []
+	if gs.filter(func(t: String) -> bool: return not t.begins_with("pal:")).size() >= 8: out.append("five_genes")
+	var sid := String(s.get("sid", ""))
+	if OWN_ROCK.has(sid) and String(SpecGenome.of(Spec.of_stone(s)).rock) == String(OWN_ROCK[sid]): out.append("same_rock")
+	if gs.has("fx:yaga") and gs.any(func(t: String) -> bool: return t.begins_with("fly:")): out.append("moth_flame")
+	var moss := gs.has("tr:moss") or gs.has("acc:moss") or gs.has("acc:lichen")
+	if moss and gs.any(func(t: String) -> bool: return t.begins_with("shroom:")) and gs.has("acc:flowers"): out.append("overgrown")
 	return out
 
 ## what is kept of a find to show it again (the same fields as the atlas's best): enough to build it and to tell
@@ -345,6 +390,13 @@ static func _got(e: Dictionary) -> Array:
 			out.append(["g:" + String(tags[i]), seen.has(tags[i]), String(e.icon), String(names[i])])
 		return out
 	var items: Array = e.items
+	if e.get("lords", false):
+		# every boss that exists, beaten at its worst
+		var out: Array = []
+		for a in Data.AREAS.size():
+			if (Data.AREAS[a].get("boss", {}) as Dictionary).is_empty(): continue
+			out.append(["i:" + String(BOSS_ICON.get(String(Data.AREAS[a].boss.get("id", "")), "axe_crown")), tier_of(a) >= TIERS])
+		return out
 	if items.size() == 1 and String(items[0]).begins_with("mine:"):
 		var a := int(String(items[0]).trim_prefix("mine:"))
 		items = []
@@ -379,6 +431,16 @@ static func _state(e: Dictionary) -> String:
 	if e.get("hide", false): return "hidden"
 	return "open"
 
+## a boss fought again gets harder: the first win is tier 1, each replay won the next, up to TIERS
+const TIERS := 3
+const TIER_N := ["", "", "Furious", "Undying"]
+const BOSS_ICON := {poloz = "serpent", mistress = "lizard", kraken = "tentacle", brontes = "lightning", shubin = "canary", koschei = "crowned_skull"}
+
+static func tier_of(a: int) -> int:
+	var t: Array = Save.d.get("boss_tier", [])
+	var k: int = int(t[a]) if a < t.size() else 0
+	return maxi(k, 1 if _won(a) else 0)
+
 static func _won(a: int) -> bool:
 	return a < Save.d.boss_won.size() and bool(Save.d.boss_won[a])
 
@@ -392,6 +454,7 @@ static func n(ev: String) -> int:
 	if ev.begins_with("sp:"): return 1 if Save.d.atlas.has(ev.substr(3)) else 0
 	if ev.begins_with("gene:"): return 1 if (Save.d.genes as Array).has(ev.substr(5)) else 0
 	if ev.begins_with("won:"): return 1 if _won(int(ev.substr(4))) else 0
+	if ev.begins_with("tier:"): return 1 if tier_of(int(ev.get_slice(":", 1))) >= int(ev.get_slice(":", 2)) else 0
 	return int((Save.d.aw_ev as Dictionary).get(ev, 0))
 
 ## the game tells that something happened (by: how many times); kept at once, noticed on the next check
@@ -410,6 +473,18 @@ static func _latch() -> void:
 		if int(Save.d.atlas[id].get("max_v", 0)) >= 10000: once("jackpot")
 	var h := Time.get_datetime_dict_from_system().hour as int
 	if h < 4: once("night")
+	if Save.d.atlas.size() >= 50: once("atlas50")
+	var coll: Array = Save.d.coll
+	if coll.size() >= 100: once("hoarder")
+	# one single stone kept for thirty days (the day it became the only one, by its id)
+	var day := int(Time.get_unix_time_from_system() / 86400.0)
+	if coll.size() == 1:
+		var id := int(coll[0].id)
+		if n("pet_id") != id:
+			Save.d.aw_ev.pet_id = id
+			Save.d.aw_ev.pet_day = day
+		elif day - n("pet_day") >= 30: once("pet_rock")
+	elif n("pet_id") != 0: Save.d.aw_ev.pet_id = 0
 	# every job of Old Adit built to its last step
 	var jobs: Array = Data.AREAS[0].get("tasks", [])
 	if jobs.size() and jobs.all(func(t: Array) -> bool: return (Save.d.built[0] as Array).has(t[0])): once("rigged:0")
@@ -509,7 +584,9 @@ func _parchment(hidden: bool) -> Control:
 	if hidden:
 		var np := NinePatchRect.new()
 		np.texture = _tex("strip_hidden")
-		for s in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]: np.set_patch_margin(s, 40)
+		for s in [SIDE_LEFT, SIDE_RIGHT]: np.set_patch_margin(s, 40)
+		for s in [SIDE_TOP, SIDE_BOTTOM]: np.set_patch_margin(s, 28)
+		np.modulate = Color(0.62, 0.55, 0.48)    # a crumpled sheet in the dark: not yet yours
 		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return np
 	var p := Panel.new()
@@ -893,6 +970,10 @@ func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
 	var bo: Dictionary = gv.get("boost", {})
 	for id in bo: parts.append(["res://assets/board/boosters/%s.png" % id, "×%d" % int(bo[id])])
 	if gv.has("lives"): parts.append(["res://assets/ui/kit/icons/heart.png", "×%d" % int(gv.lives)])
+	if parts.size() and r != "":
+		# a thing to come and pictures: the thing in words first
+		h.add_child(UI.label(lead + r + " +", fs, fell, INK_SOFT))
+		lead = ""
 	if lead != "" and parts.size(): h.add_child(UI.label(lead, fs, fell, INK_SOFT))
 	if parts.is_empty():
 		var l := UI.label(lead + r, fs, fell, INK_SOFT)

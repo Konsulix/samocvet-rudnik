@@ -327,7 +327,12 @@ func _boss_card(a: int) -> void:
 		return
 	var v := Ov.card(330)
 	v.add_child(UI.title(String(B.n), 22))
-	v.add_child(Ov.text("Fight again? A life, like any level. Coins for the win, but the hoard was yours the first time.", 13))
+	var nt := mini(Awards.TIERS, Awards.tier_of(a) + 1)
+	if Awards.tier_of(a) < Awards.TIERS:
+		v.add_child(Ov.text("Next: %s %s (%d of %d) — more health, fewer moves." % [Awards.TIER_N[nt], B.n, nt, Awards.TIERS], 14, Kit.AMBER))
+	else:
+		v.add_child(Ov.text("Beaten at his worst. He'll fight that hard again.", 14, Kit.AMBER))
+	v.add_child(Ov.text("A life, like any level. Coins for the win, but the hoard was yours the first time.", 13))
 	v.add_child(Ov.btn("Fight again", "red", func():
 		Ov.close()
 		replay.emit(a)))

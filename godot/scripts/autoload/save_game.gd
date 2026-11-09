@@ -31,7 +31,9 @@ func blank() -> Dictionary:
 		genes = [], gfirst = {}, gver = 0,
 		# the achievements (Awards): events counted as they happen, the ones noticed (toast given), the ones claimed,
 		# rewards that are a thing to come (a series, a frame, a title), the last species found (Déjà vu)
-		aw_ev = {}, aw_seen = [], aw_got = [], unlocks = [], aw_last = "",
+		aw_ev = {}, aw_seen = [], aw_got = [], unlocks = [], aw_last = "", aw_sold = {}, aw_sig = [],
+		# the highest tier each boss was beaten at (a replay from the atlas fights the next one)
+		boss_tier = [],
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
@@ -102,9 +104,22 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if String(s.sid) == String(d.aw_last) and not d.aw_ev.has("twins"): d.aw_ev.twins = 1    # Awards: Déjà vu
 	d.aw_last = String(s.sid)
 	# the achievements' collections (docs/achievements.md): every gene this find shows
-	for t in Awards.genes_of(s):
+	var gs: Array = Awards.genes_of(s)
+	for t in gs:
 		if not d.genes.has(t): d.genes.append(t)
 		if not d.gfirst.has(t): d.gfirst[t] = Awards.summary(s, a, dl)
+	# the achievements a find itself can bring (set straight in the save: this runs while the save loads too)
+	var mk: Array = Awards.find_marks(s, gs)
+	var sorted_g := gs.duplicate()
+	sorted_g.sort()
+	var sig := String(s.sid) + "|" + ",".join(sorted_g)
+	if gs.size() >= 2 and (d.aw_sig as Array).has(sig): mk.append("twin_genes")
+	elif gs.size() >= 2:
+		d.aw_sig.append(sig)
+		if d.aw_sig.size() > 500: d.aw_sig.pop_front()
+	if d.aw_sold.has(String(s.sid)) and now_ms() - int(d.aw_sold[String(s.sid)]) <= 60000: mk.append("second")
+	for m in mk:
+		if not d.aw_ev.has(m): d.aw_ev[m] = 1
 	var aid := Stones.atlas_id(s)
 	var e: Dictionary = d.atlas.get(aid, {n = 0, max_g = 0, max_v = 0, legend = false})
 	e.n = int(e.n) + 1
@@ -123,6 +138,8 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 ## stone with the gene is kept, its niche shows the last one that went, grey (not an older one popping back)
 func gone(s: Dictionary) -> void:
 	if bool(s.get("legend", false)): Awards.once("sold_legend")
+	if int(s.get("id", 0)) in Home.GIFTS: Awards.once("sold_gift")
+	d.aw_sold[String(s.sid)] = now_ms()
 	for t in Awards.genes_of(s):
 		d.gfirst[t] = Awards.summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 

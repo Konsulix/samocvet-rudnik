@@ -1058,6 +1058,7 @@ func _tick_events() -> void:
 	_start_event(pool[_rng.randi() % pool.size()])
 
 func _start_event(ev: String) -> void:
+	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	_events[ev] = t
 	match ev:
 		"etna":

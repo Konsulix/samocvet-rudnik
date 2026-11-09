@@ -867,6 +867,7 @@ func _tick_events() -> void:
 		return
 	var ev: String = pool[_rng.randi() % pool.size()]
 	_events[ev] = t
+	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	if ev == "lizard":
 		var cand: Array = []
 		for cr in J.cracks:

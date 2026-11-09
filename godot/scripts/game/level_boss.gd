@@ -300,7 +300,8 @@ static func _lizard_raid(lv: Level, res: Dictionary) -> void:
 	lv.board.marks = []
 	lv.board.over.queue_redraw()
 	var lz := lizards(lv)
-	if not (res.removed as Array).is_empty(): lv.set_meta("aw_stolen", true)    # Awards: Keep Your Greens
+	# Awards: Keep Your Greens / The Kindly Mistress count the greens taken
+	lv.set_meta("aw_stolen", int(lv.get_meta("aw_stolen", 0)) + (res.removed as Array).size())
 	sound(lv, "lizards")
 	if lz: await lz.raid(res.cells, res.removed, lv.board)
 	else:
@@ -392,6 +393,7 @@ static func _sea(lv: Level) -> void:
 ## his eye swims (the last board, every few moves): it sinks, comes up over four stones elsewhere - they go under -
 ## and the stones above its old place fall into it
 static func _eye_swim(lv: Level) -> void:
+	lv.eye_hits = 0
 	var m: BoardModel = lv.model
 	var b := lv.board
 	var to := m.eye_spot()

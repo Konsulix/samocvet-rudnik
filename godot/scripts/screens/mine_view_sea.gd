@@ -925,6 +925,7 @@ func _tick_events() -> void:
 	if ResourceLoader.exists(dir + "eel_strip.png") and eel_y > _seen.x and eel_y - EEL_BODY < _seen.y and (not _eel_shown or _rng.randf() < 0.4):
 		_eel_shown = true
 		_events["eel"] = t
+		Awards.once("ev:2:eel")
 		return
 	var pool := ["ink", "bubbles"]
 	for cr in J.cracks:
@@ -938,6 +939,7 @@ func _tick_events() -> void:
 		pool.append("sulphur")    # the herald of the next mine, the fiery one: nobody here knows what it means
 	var ev: String = pool[_rng.randi() % pool.size()]
 	_events[ev] = t
+	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	if ev == "ink":
 		_ink.append([_ink_at(), t])
 	if ev == "tip":

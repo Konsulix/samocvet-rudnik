@@ -729,6 +729,7 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	t += delta
+	if t >= 180.0 and t - delta < 180.0: Awards.once("night_watch")    # three minutes watching the mine
 	_seen = _seen_rows()
 	_tick_events()
 	_tremor()

@@ -113,6 +113,13 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", int(-INFO_R))
 	card.add_child(outer)
+	# Awards (a secret): two minutes looking at one stone
+	var stare := Timer.new()
+	stare.wait_time = 120.0
+	stare.one_shot = true
+	stare.autostart = true
+	stare.timeout.connect(func(): Awards.once("patience"))
+	outer.add_child(stare)
 	v.add_theme_constant_override("separation", 10)
 	var so := Spec.of_stone(s)
 	var frame := PanelContainer.new()

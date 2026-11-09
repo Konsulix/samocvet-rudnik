@@ -557,16 +557,20 @@ func _hoard_demo() -> void:
 ## a beaten boss fought again from the atlas: the fight is that mine's (its board, frame, music), so the mine is
 ## switched for it and switched back after (Save.d.area_back brings it back if the game closes mid-fight)
 var _replay := -1
+var _replay_tier := 1
 func _replay_boss(a: int) -> void:
 	Save.tick_lives()
 	if Save.d.lives <= 0:
 		Ov.toast("No lives: next in %d min" % Save.minutes_to_life())
 		return
 	_replay = a
+	_replay_tier = mini(Awards.TIERS, Awards.tier_of(a) + 1)
 	Save.d.area_back = Save.d.area
 	Save.d.area = a
 	Save.persist()
-	show_level(Save.d.level, [], Data.depths(a).size(), LevelGen.boss_fight(a))
+	show_level(Save.d.level, [], Data.depths(a).size(), LevelGen.boss_fight(a, _replay_tier))
+	if _replay_tier > 1:
+		Ov.toast("%s %s: more health, fewer moves" % [Awards.TIER_N[_replay_tier], Data.AREAS[a].boss.n])
 
 ## the prologue plays once, for a new game in the first mine (`prologue` shows it anyway; test runs go without it)
 func _prologue_due() -> bool:
@@ -614,8 +618,13 @@ func _replay_done(res: Dictionary) -> void:
 	Save.d.area_back = -1
 	Save.persist()
 	if res.won:
+		var bt: Array = Save.d.boss_tier
+		while bt.size() <= a: bt.append(0)
+		bt[a] = maxi(int(bt[a]), _replay_tier)
+		Save.persist()
 		var v := Ov.card()
 		v.add_child(UI.title("%s is beaten again" % Data.AREAS[a].boss.n, 22))
+		if _replay_tier > 1: v.add_child(Ov.text("%s · %d of %d" % [Awards.TIER_N[_replay_tier], _replay_tier, Awards.TIERS], 15, Kit.AMBER))
 		var got := HBoxContainer.new()
 		got.alignment = BoxContainer.ALIGNMENT_CENTER
 		got.add_child(_res_chip("coin", int(res.coins)))
