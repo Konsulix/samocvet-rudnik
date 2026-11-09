@@ -117,9 +117,13 @@ void fragment() {
 		rough = 0.06 + rim * 0.15;
 		coat = 0.9;
 		// the hollow: chalcedony lining, grey-blue and faintly banded, under the crystals
-		vec3 lin = mix(vec3(0.14, 0.15, 0.18), vec3(0.26, 0.27, 0.31), (0.5 + 0.5 * sin(rr * 40.0)) * 0.5 + fbm2(uv * 12.0) * 0.5);
+		// a crust of tiny quartz points: every grain its own facet, some catching the light
+		vec3 gr = cells(uv * 70.0 + 11.0);
+		float gl = pow(h2(gr.yz + 3.7), 6.0);
+		float tilt = h2(gr.yz + 9.1);
+		vec3 lin = mix(vec3(0.1, 0.1, 0.12), vec3(0.32, 0.33, 0.37), tilt) * (0.7 + 0.6 * smoothstep(0.0, 0.08, gr.x)) + gl * 1.4;
 		col = mix(col, lin, hole);
-		rough = mix(rough, 0.35, hole);
+		rough = mix(rough, 0.18, hole);
 		coat *= 1.0 - hole;
 	}
 	// the rind: the rock's scan, seen from the side it faces most

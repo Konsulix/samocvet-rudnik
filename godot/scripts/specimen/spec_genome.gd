@@ -113,6 +113,9 @@ static func of(o: Dictionary) -> Dictionary:
 	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
+	# (on a sawn and polished lump only the small things, round its back: big puffs and ferns would reach over the face)
+	if form == "sawn":
+		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "flowers", "dust"])
 	if form in ["geode", "botryoid"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)

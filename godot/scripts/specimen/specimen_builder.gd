@@ -1315,7 +1315,7 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 	var bc := col.lerp(Color(1, 1, 1), 0.1) if rho else SpecMat.lin(0x1e8e50)
 	bc.a = 1.0
 	var bm := SpecMat.make({col = bc, rough = 0.1, coat = 0.95, coat_r = 0.05, env = 1.6, ir = 0.12, bd = 0.5 if rho else 0.88,
-		dirt = {h = -0.3, a = 0.35, col = col * 0.22, fr = 0.0, isl = 0.08, fb = 0.0}})
+		dirt = {h = -99.0, a = 0.35, col = col * 0.22, fr = 0.0, isl = 0.08, fb = 0.0}})   # (no crust over the polished face)
 	var n := (VIEW_DIR + UP * 0.45).normalized()
 	var main: MeshInstance3D = null
 	# many lumps, big and small, grown into each other: on the face their bands meet as a crowd of eyes
@@ -1337,7 +1337,7 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 			back.v.append(g.v[i] + at)
 			back.col.append(g.col[i])
 	# its bubbly back and sides are the ground the shared layer grows on — never the polished face
-	_rind_as_rock(main, back, n, 0.0, 0.16)
+	_rind_as_rock(main, back, n, -0.22, 0.0)
 	return main
 
 # a water-worn pebble (F12): jadeite in its brown weathered rind with a window ground and polished into it;
@@ -1484,11 +1484,19 @@ func _septaria(crystal: Callable, st: Dictionary) -> MeshInstance3D:
 	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(1, "diff"))
 	face.set_shader_parameter("c_rind", Color(0.5, 0.4, 0.3))
 	var main := U.mesh(g, face, root)
-	_rind_as_rock(main, g, n, fc.dot(n))
+	_rind_as_rock(main, g, n, fc.dot(n), 0.1)
 	# the crystals in the crack, standing out of it towards the viewer
-	for k in mini(spots.size(), 5 + int(rng.next() * 5)):
-		var p: Vector3 = spots[int(rng.next() * spots.size())]
-		crystal.call(0.22 + rng.next() * 0.22, 0.4 + rng.next() * 0.25, p - n * 0.02, (n + _rv() * 0.7).normalized())
+	# (a few, spread round the crack and leaning out from its middle — not one clump)
+	var used := []
+	for k in 4 + int(rng.next() * 4):
+		var p: Vector3 = spots[int(rng.next() * spots.size())] if spots.size() else fc
+		var far := true
+		for u: Vector3 in used:
+			if u.distance_to(p) < hole * 0.45: far = false
+		if not far: continue
+		used.append(p)
+		var out := (n * 1.3 + (p - fc).normalized() * 0.8 + _rv() * 0.4).normalized()
+		crystal.call(0.16 + rng.next() * 0.16, 0.28 + rng.next() * 0.16, p - n * 0.015, out)
 	return main
 
 # a flint nodule out of the chalk, broken open (F11): a knobbly lump in its white chalk rind (the limestone scan), the
@@ -1567,7 +1575,7 @@ func _flint(col: Color, crystal: Callable, st: Dictionary) -> MeshInstance3D:
 	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(0, "diff"))
 	face.set_shader_parameter("c_rind", Color(0.8, 0.76, 0.67))
 	var main := U.mesh(g, face, root)
-	_rind_as_rock(main, g, n, fc.dot(n))
+	_rind_as_rock(main, g, n, fc.dot(n), 0.1)
 	if lining.size():
 		# the geode inside: real quartz points of every size, clear glass, pointing out of the cave
 		var qm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.25, rf = 0.3, thick = 1.2, frost = 0.04, holo = 0.15, seed = 5.0, prio = 2})
@@ -1894,7 +1902,8 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		if c is MeshInstance3D and c.get_meta("col", false):
 			cols.append(c)
 	# (a fossil leaf's main mesh is the film on the split face: nothing grows on that)
-	if main and not main in cols and layout != "fern":
+	# (nor on a nodule's face, a polished lump or a pebble: their main mesh is the stone itself, not a crystal)
+	if main and not main in cols and layout != "fern" and not layout in ["botryoid", "sawn", "septaria"]:
 		cols.append(main)
 	var on_rock := func() -> Array:
 		if not st.rock:
