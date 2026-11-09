@@ -276,17 +276,18 @@ func _ready() -> void:
 		elif args.ui == "win_card": _win_card({n = Save.d.level, coins = 152, mined = {iron = 11, ore = 9}})
 		elif args.ui == "kit_toast": Ov.toast("Added to the inventory")
 	if args.has("tap"):
-		# a real tap at a point of the screen (pt), after ui_after s: `-- screen=museum tap=370,400`
-		await get_tree().create_timer(float(args.get("ui_after", "1"))).timeout
-		var xy: PackedStringArray = String(args.tap).split(",")
-		for down in [true, false]:
-			var ev := InputEventMouseButton.new()
-			ev.button_index = MOUSE_BUTTON_LEFT
-			ev.pressed = down
-			ev.position = Vector2(float(xy[0]), float(xy[1]))
-			ev.global_position = ev.position
-			Input.parse_input_event(ev)
-			await get_tree().process_frame
+		# real taps at points of the screen (pt), ui_after s apart: `-- screen=museum tap=370,400` or `tap=200,300;180,700`
+		for pt in String(args.tap).split(";"):
+			await get_tree().create_timer(float(args.get("ui_after", "1"))).timeout
+			var xy: PackedStringArray = pt.split(",")
+			for down in [true, false]:
+				var ev := InputEventMouseButton.new()
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = down
+				ev.position = Vector2(float(xy[0]), float(xy[1]))
+				ev.global_position = ev.position
+				Input.parse_input_event(ev)
+				await get_tree().process_frame
 	if args.has("lens"): Save.d.eq.lens = int(args.lens)
 	if args.has("alive"):
 		# the admin's "All animations on" for the current mine: `-- screen=home area=1 alive`
