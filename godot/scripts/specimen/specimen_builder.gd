@@ -516,7 +516,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		"botryoid":
 			# the lumpy species each grow their own way (docs/species-genes.md F11–F15); the rest keep the bubbly lump
 			var look_b := SpecLooks.of(sid)
-			if sid in ["jadeite", "carnelian"]: main = _pebble(sid, col, look_b.get("opaque", {}))
+			if sid == "jadeite": main = _jade(col, use_rock, st, gs)
+			elif sid == "carnelian": main = _pebble(sid, col, look_b.get("opaque", {}))
 			elif sid == "flintstone": main = _flint(col)
 			elif sid == "hyalite": main = _beads(col, use_rock, st, gs)
 			elif sid == "opal": main = _opal_seam(col, use_rock, st, gs, seed_v)
@@ -593,7 +594,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			# wavellite (F10): flat discs of radiating needles on the broken face of the slab — green stars
 			use_rock.call("slab")
 			# (silky fibres: lit, glossy, a little glow of their green — glass needles this thin read black)
-			var cm := SpecMat.make({col = col, rough = 0.28, coat = 0.6, coat_r = 0.15, env = 1.4, emis = col * 0.18})
+			var cm := SpecMat.make({col = col, rough = 0.28, coat = 0.6, coat_r = 0.15, env = 1.4, emis = col * 0.32})
 			var needles := []
 			var nstar := 4 + int(rng.next() * 6)
 			for sk in nstar:
@@ -1358,6 +1359,42 @@ func _pebble(sid: String, col: Color, _oq: Dictionary) -> MeshInstance3D:
 		if not main: main = mi
 	return main
 
+# jadeite (F12): a jewel grown into rough rock — a lens of jade sunk in the stone, its top ground flat and polished,
+# lit from within: milky, glowing apple-green (or lavender, or snow-white), the rough rock round it for contrast
+func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshInstance3D:
+	var rk: MeshInstance3D = use_rock.call("chunk")
+	var p: Vector3 = st.pick.call()
+	for t in 12:
+		var q: Vector3 = st.pick.call()
+		if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
+	var nn: Vector3 = st.nrm.call(p)
+	var f := {host = "amber", seed = int(rng.next() * 9000.0), crust = 0.0, window = true, cloud = 0.0, spangle = false}
+	var g := SpecFlower._resin(rng, f)
+	# waxy and lit from within: its own colour glowing, mottled with paler and deeper clouds the way jade is
+	var bc := col
+	bc.a = 1.0
+	var pale := bc.lerp(Color(0.7, 0.9, 0.7), 0.3)
+	var deep := bc * 0.4
+	deep.a = 1.0
+	var ph := rng.next() * 10.0
+	g.col.resize(g.v.size())
+	for i in g.v.size():
+		var v := g.v[i]
+		var nz := sin(v.x * 3.1 + ph + sin(v.y * 4.3 + v.z * 2.1) * 1.4) * sin(v.y * 2.7 - ph * 0.7 + sin(v.x * 5.1) * 0.9)
+		g.col[i] = bc.lerp(pale, clampf(nz * 1.1, 0.0, 1.0)).lerp(deep, clampf(-nz * 1.4, 0.0, 0.9))
+	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.16, coat = 1.0, coat_r = 0.04, env = 1.5, grain = 0.03, emis = bc * 0.3 * (1.0 - 0.75 * bc.get_luminance())})
+	var zw := -INF
+	for v in g.v: zw = maxf(zw, v.z)
+	var face := (nn * 0.55 + VIEW_DIR * 0.45 + UP * 0.25).normalized()
+	var sz := (0.26 + rng.next() * 0.08) * gs
+	var holder := Node3D.new()
+	root.add_child(holder)
+	# sunk so only the polished top and a little of its rounded shoulder stand out of the rock
+	holder.transform = Transform3D(Basis(quat_to_l(Vector3.BACK, face)) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * sz), p - face * zw * sz * 0.7)
+	U.mesh(g, m, holder)
+	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(col, 0.6))
+	return rk
+
 # a flint nodule out of the chalk, broken open (F11): a knobbly lump in a white chalky rind, the break black and
 # glassy with conchoidal ripples spreading from where the blow fell
 func _flint(col: Color) -> MeshInstance3D:
@@ -1395,8 +1432,40 @@ func _flint(col: Color) -> MeshInstance3D:
 		else:
 			var c := cav[i] if cav.size() > i else 0.5
 			g.col[i] = rind.lerp(chalk * (1.0 - 0.35 * c), clampf(-d / 0.07, 0.0, 1.0))
+	# half the nodules are hollow: the break opens on a cave lined with sparkling quartz (a flint geode)
+	var druse := []
+	if rng.next() < 0.5:
+		var fc := Vector3.ZERO
+		var nf := 0
+		for i in g.v.size():
+			if on[i] == 1:
+				fc += g.v[i]
+				nf += 1
+		fc /= maxf(1.0, float(nf))
+		var rmax := 0.0
+		for i in g.v.size():
+			if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
+		var R := rmax * (0.42 + rng.next() * 0.15)
+		var dep := R * (0.55 + rng.next() * 0.3)
+		for i in g.v.size():
+			if on[i] != 1: continue
+			var rr := (g.v[i] - fc).length() / R
+			if rr < 1.0:
+				g.v[i] -= n * dep * (1.0 - rr * rr)
+				# the lining: grey-white chalcedony under the crystals, a dark band where it meets the black
+				g.col[i] = SpecMat.lin(0xb8bcc4) * (0.7 + 0.3 * rr) if rr < 0.92 else SpecMat.lin(0x2a2c34)
+				if rr < 0.95: druse.append(g.v[i])
 	var parts := _split(g, on)
-	var face := SpecMat.make({col = Color(1, 1, 1), rough = 0.08, coat = 1.0, coat_r = 0.03, env = 1.8, grain = 0.02})
+	var face := SpecMat.make({col = Color(1, 1, 1), rough = 0.14, coat = 0.9, coat_r = 0.03, env = 0.9, grain = 0.02})
+	if druse.size():
+		var qm := SpecMat.make({col = Color(1, 1, 1), glass = true, thick = 2.0, flat = true, holo = 0.4, seed = 3.0})
+		var cnt := mini(420, druse.size() * 3)
+		var place := func(k: int) -> Array:
+			var pp: Vector3 = druse[int(rng.next() * druse.size())]
+			var s := 0.016 + pow(rng.next(), 2.0) * 0.04
+			var up := (n + _rv() * 0.9).normalized()
+			return [Transform3D(Basis(quat_to_l(UP, up)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(Vector3(s, s * 1.8, s)), pp + up * s * 0.6), Color(1, 1, 1)]
+		U.inst(Geo.octa(1), qm, cnt, place, root)
 	# the chalk rind: the limestone scan, white and pitted
 	var skin := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xe4ddcc), fr = 0.0, scan = 0}})
 	skin.set_meta("rock", true)
@@ -1410,7 +1479,7 @@ func _beads(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIn
 	var bc := col
 	bc.a = 1.0
 	# (water-clear: the dark rock seen through each drop, a hard glint on top, a breath of green)
-	var gm := SpecMat.make({col = bc, glass = true, thick = 0.45, ir = 0.05, prio = 2, tint_body = 0.12, tint_glow = 0.28})
+	var gm := SpecMat.make({col = bc, glass = true, thick = 0.45, ir = 0.05, prio = 2, tint_body = 0.1, tint_glow = 0.75})
 	var spots := []
 	for k in 4 + int(rng.next() * 4):
 		var best: Vector3 = st.pick.call()
