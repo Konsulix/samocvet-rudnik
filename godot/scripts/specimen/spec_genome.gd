@@ -32,6 +32,8 @@ const EXTRA_TRAITS := [
 	{id = "eroded", n = "etched", p = 0.06, m = 1.3},
 	{id = "goldfleck", n = "gold flecks", p = 0.07, m = 1.7},
 	{id = "anomaly", n = "anomalous", p = 0.03, m = 2.5},
+	# never rolled with the others: the species' own stream gives it (Stones.roll, SpecLooks.odd)
+	{id = "atypical", n = "atypical habit", p = 0.0, m = 1.5},
 ]
 
 static func of(o: Dictionary) -> Dictionary:
@@ -45,6 +47,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
+	var odd_habit := ""
 	var look := SpecLooks.of(sid)
 	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else SpecObsidian.genes(seed_v, o) if habit == "obsidian" else {}
 	if habit == "fossil": form = sid
@@ -52,6 +55,11 @@ static func of(o: Dictionary) -> Dictionary:
 	elif kind == "geode": form = "geode"
 	elif habit == "nugget": form = "nugget"
 	elif habit == "botryoid": form = "botryoid"
+	elif "atypical" in tr and SpecLooks.odd(sid).size():
+		# a layout not the species' own (SpecLooks.odd), sometimes with another crystal: the body stays its own
+		var odd: Array = Stones.pick_w(SpecLooks.odd(sid).map(func(f: Array) -> Array: return [f, float(f[1])]), rng)
+		form = String(odd[0])
+		if odd.size() > 2: odd_habit = String(odd[2])
 	elif "floater" in tr and elongated: form = "floater"
 	else:
 		var opts := []
@@ -109,9 +117,13 @@ static func of(o: Dictionary) -> Dictionary:
 		apool = []
 	# the species' own say (SpecLooks): accents that do not suit it, and how often anything grows on it at all — or
 	# nothing does where its rock is hidden (the desert and iron roses)
-	var no_acc: Array = look.get("no_acc", [])
+	var no_acc: Array = SpecLooks.never(sid)
 	if no_acc.size():
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in no_acc))
+	# the accents it loves weigh more (SpecLooks.AFFINITY)
+	var lv := SpecLooks.love(sid)
+	if lv.size():
+		apool = apool.map(func(a: Array) -> Array: return [a[0], float(a[1]) * float(lv.get(a[0], 1.0))])
 	# a skull (SpecSkull) takes the quiet ones: lichen, fronds, flowers — no puffs, straw or needles on bone
 	if o.get("form", "") == "skull":
 		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "fronds", "flowers", "inkspots", "clouds"])
@@ -198,6 +210,12 @@ static func of(o: Dictionary) -> Dictionary:
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
+	# a species that loves them (vivianite on its bog bones) gets a second roll; one that never takes them, none
+	if shroom < 0 and lv.has("mushrooms") and not o.has("shroom"):
+		for k in int(float(lv.mushrooms)) - 1:
+			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
+			if shroom >= 0: break
+	if "mushrooms" in no_acc: shroom = -1
 	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
@@ -219,6 +237,7 @@ static func of(o: Dictionary) -> Dictionary:
 		if o.has(k): skull_o[k] = o[k]
 	skull_o.fx = fx
 	return {
+		habit = odd_habit if odd_habit != "" else habit,
 		skull = skull_o,
 		form = form,
 		fossil = fossil,

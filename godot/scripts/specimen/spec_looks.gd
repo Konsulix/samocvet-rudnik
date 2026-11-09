@@ -106,6 +106,8 @@ const LOOK := {
 		with = [["blades", 0xeef2f6, 0.45, "rockcrystal"]]},
 	# a fossil leaf on its split rock: lichen, moss and mushrooms on the weathered rim, never the big puffs
 	fern = {rock = [["slate", 1.0]], growths = 0.8, no_acc = ["pompom", "straw", "needles"]},
+	# boulder opal: seams of it in brown ironstone
+	opal = {rock = [["ironstone", 5.0], ["basalt", 1.0]], kinds = [["crystal", 5.0], ["geode", 0.6]], growths = 0.4},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
 	# Spider Hollow (an Edo silver mine in a cedar valley, the Tsuchigumo; docs/mine6-tsuchigumo.md §8): "silver and
@@ -125,7 +127,7 @@ const LOOK := {
 	cinnabar = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
 		rock = [["limestone", 4.0], ["quartzite", 1.0]], rh = 0.15, dark = 0.0, glass = {tint = 0.95, dark = 0.25, frost = 0.05, glow = 0.32}, ir = 0.15,
 		palette = [[0xc01c14, 0xc01c14, 4.0], [0xa0100c, 0xa0100c, 2.0], [0xd8402a, 0xd8402a, 1.0]]},
-	jadeite = {kinds = [["crystal", 1.0]], rock = [["slate", 3.0], ["quartzite", 1.0]], dark = 0.0, opaque = {rough = 0.28, coat = 0.9, grain = 0.05},
+	jadeite = {kinds = [["crystal", 1.0]], growths = 0.0, rock = [["slate", 3.0], ["quartzite", 1.0]], dark = 0.0, opaque = {rough = 0.28, coat = 0.9, grain = 0.05},
 		palette = [[0x2e8a4e, 0x2e8a4e, 4.0], [0x5aae6e, 0x5aae6e, 2.0], [0x9a86c0, 0x9a86c0, 1.0], [0xd8e4d0, 0xd8e4d0, 1.0]]},
 	proustite = {zone = [0, 0.0, 0.0], forms = [["cluster", 3.0], ["single", 2.0]], kinds = [["druse", 3.0], ["crystal", 4.0]],
 		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 1.4, wk = 0.8, dark = 0.0, glass = {tint = 1.0, dark = 0.35, frost = 0.02, glow = 0.45}, ir = 0.3,
@@ -150,7 +152,7 @@ const LOOK := {
 	pyrope = {zone = [0, 0.0, 0.0], ir = 0.15, forms = [["pile", 4.0], ["single", 2.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
 		rock = [["slate", 4.0], ["basalt", 2.0]], dark = 0.0, glass = {tint = 0.9, dark = 0.3, glow = 0.3},
 		palette = [[0x8e0c18, 0x8e0c18, 4.0], [0xa8121c, 0xa8121c, 2.0]]},
-	carnelian = {kinds = [["crystal", 1.0]], rock = [["limestone", 2.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.18, coat = 0.95, grain = 0.04},
+	carnelian = {kinds = [["crystal", 1.0]], growths = 0.0, rock = [["limestone", 2.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.18, coat = 0.95, grain = 0.04},
 		palette = [[0xc8502a, 0xc8502a, 4.0], [0xa83a1e, 0xa83a1e, 2.0], [0xe07a3a, 0xe07a3a, 1.0]]},
 	needle = {zone = [0, 0.0, 0.0], forms = [["single", 5.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
 		rock = [["slate", 3.0], ["ironstone", 1.0]], hk = 2.4, wk = 0.42, dark = 0.0, glass = {tint = 0.75, frost = 0.15, glow = 0.85}, ir = 0.3,
@@ -159,7 +161,7 @@ const LOOK := {
 	# of the chalk, honey dogtooth spar of the chalk caves, brassy marcasite of the coal seams, green wavellite balls,
 	# hyalite (glassy opal, it glows green), whewellite (a mineral born in coal), enhydro quartz with water and gas sealed
 	# in it, and Shubin's ember - the colour of a firedamp flame - as its jewel
-	flintstone = {kinds = [["crystal", 1.0]], rock = [["limestone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 0.95, grain = 0.03},
+	flintstone = {kinds = [["crystal", 1.0]], growths = 0.0, rock = [["limestone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 0.95, grain = 0.03},
 		palette = [[0x1c1c22, 0x1c1c22, 4.0], [0x2e2c30, 0x2e2c30, 2.0], [0x3c342c, 0x3c342c, 1.0]]},
 	dogtooth = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0], ["geode", 1.0]],
 		rock = [["limestone", 4.0]], dark = 0.0, glass = {tint = 0.5, glow = 0.15}, ir = 0.2,
@@ -181,8 +183,136 @@ const LOOK := {
 		palette = [[0x6fe8d0, 0x6fe8d0, 4.0], [0x5ab8ff, 0x5ab8ff, 1.5]]},
 }
 
+## the species' say over the shared genes (docs/species-genes.md §4): `love` — {gene id: ×chance}, a rare trait
+## (TRAITS) rolled again on its own stream, an accent (ACC) weighted up; `never` — never on this species. Gene ids are
+## the traits' (irid, phantom, rutile…) and the accents' (pompom, crust, mushrooms…). What a body cannot show at all
+## (a phantom in metal, a twin on a fossil) is ruled out by `never()` itself.
+const AFFINITY := {
+	quartz = {love = {phantom = 2.0, rutile = 3.0, scepter = 3.0, floater = 3.0}, never = ["coral", "pompom"]},
+	calcite = {love = {zoned = 3.0, phantom = 3.0}, never = ["rutile", "scepter"]},
+	pyrite = {love = {irid = 4.0}, never = ["bubbles", "floater"]},
+	fluorite = {love = {twin = 3.0, druzy = 3.0}, never = ["rutile", "scepter"]},
+	amethyst = {love = {scepter = 3.0, phantom = 3.0, dust = 4.0}, never = ["irid", "coral"]},
+	smoky = {love = {rutile = 4.0, phantom = 2.0}, never = ["coral", "moss"]},
+	garnet = {love = {eroded = 4.0, silver = 3.0}, never = ["floater", "phantom", "bubbles", "coral", "scepter"]},
+	gold = {love = {crust = 3.0}},
+	malachite = {love = {crust = 3.0}, never = ["irid", "bubbles", "clouds"]},
+	azurite = {love = {druzy = 3.0}, never = ["phantom", "rutile", "floater", "moss"]},
+	chrysocolla = {love = {crust = 3.0}},
+	nativecu = {love = {crust = 3.0, eroded = 3.0}},
+	beryl = {love = {eroded = 5.0, phantom = 3.0}, never = ["coral", "moss", "pompom"]},
+	cuprite = {love = {crust = 4.0}, never = ["phantom", "rutile", "floater", "bubbles"]},
+	aquamarine = {love = {floater = 4.0}, never = ["moss", "coral", "pompom"]},
+	emerald = {love = {inkspots = 3.0, clouds = 3.0, crust = 3.0}, never = ["irid", "bubbles", "floater", "pompom", "straw"]},
+	gypsum = {love = {inkspots = 3.0, bubbles = 3.0}, never = ["rutile", "irid"]},
+	celestine = {love = {druzy = 3.0, zoned = 3.0}, never = ["rutile", "moss"]},
+	opal = {never = ["bubbles", "pompom", "straw", "needles"]},
+	sulphur = {love = {bubbles = 3.0}, never = ["moss", "mushrooms", "lichen", "fronds", "flowers"]},
+	aragonite = {never = ["rutile", "phantom"]},
+	olivine = {never = ["moss", "mushrooms", "coral", "rutile", "phantom"]},
+	realgar = {never = ["moss", "lichen", "rutile"]},
+	hematite = {love = {irid = 3.0}, never = ["moss"]},
+	siderite = {love = {irid = 3.0}, never = ["phantom", "rutile", "floater"]},
+	barite = {love = {zoned = 3.0}, never = ["rutile", "scepter"]},
+	galena = {never = ["irid"]},
+	sphalerite = {never = ["rutile", "moss"]},
+	chalcedony = {never = ["rutile", "scepter", "twin"]},
+	rhodochrosite = {never = ["rutile", "moss"]},
+	stibnite = {never = ["moss"]},
+	natrolite = {love = {druzy = 3.0}, never = ["rutile", "scepter", "phantom"]},
+	japan_quartz = {never = ["coral", "floater"]},
+	cinnabar = {love = {crust = 3.0}, never = ["moss", "rutile"]},
+	proustite = {never = ["rutile", "moss"]},
+	vivianite = {love = {mushrooms = 3.0, moss = 3.0}, never = ["rutile"]},
+	goethite = {love = {irid = 4.0}},
+	apatite = {love = {zoned = 3.0}, never = ["rutile"]},
+	morion = {love = {phantom = 3.0}, never = ["irid", "coral"]},
+	pyrope = {never = ["twin", "scepter", "floater"]},
+	venom = {love = {clouds = 3.0}, never = ["irid"]},
+	# Koschei's needle stands alone: nothing of the shared layer on it, only its own glow
+	needle = {never = ["pompom", "straw", "lichen", "needles", "crust", "dust", "fronds", "flowers", "mushrooms", "inkspots", "clouds",
+		"moss", "coral", "twin", "druzy", "bubbles", "rutile", "phantom"]},
+	dogtooth = {love = {zoned = 3.0}, never = ["rutile"]},
+	marcasite = {love = {irid = 3.0}},
+	wavellite = {love = {druzy = 3.0}, never = ["rutile"]},
+	hyalite = {never = ["rutile"]},
+	whewellite = {love = {twin = 3.0}, never = ["rutile"]},
+	ember = {never = ["irid"]},
+}
+
+## the traits that live in clear glass, and those that need crystals grown out of a rock
+const IN_GLASS := ["phantom", "rutile", "inkspots", "clouds"]
+const ON_CRYSTALS := ["phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy"]
+## what a fossil's own builder reads of the shared traits (ammolite, pyrite trilobites, gold in amber, bubbles on rock)
+const FOSSIL_KEEPS := ["irid", "aurora", "goldfleck", "bubbles"]
+
 static func of(sid: String) -> Dictionary:
 	return LOOK.get(sid, {})
+
+static func love(sid: String) -> Dictionary:
+	return AFFINITY.get(sid, {}).get("love", {})
+
+## every shared gene this species never takes: its own word, its old no_acc, and what its body cannot show
+static func never(sid: String) -> Array:
+	var look := of(sid)
+	var out: Array = (AFFINITY.get(sid, {}).get("never", []) as Array).duplicate()
+	out.append_array(look.get("no_acc", []))
+	var habit: String = Data.HABIT.get(sid, "prism")
+	if habit in ["fossil", "obsidian"]:
+		for t: Dictionary in Data.TRAITS:
+			if not t.id in FOSSIL_KEEPS: out.append(t.id)
+	elif habit in ["botryoid", "nugget"]:
+		out.append_array(ON_CRYSTALS)
+	elif sid in ["pyrite", "hematite", "galena"] or look.has("metal_col"):
+		out.append_array(IN_GLASS)
+	elif look.has("opaque"):
+		out.append_array(IN_GLASS)
+	return out
+
+## "atypical habit" (docs/species-genes.md §7.2): now and then a species grows a layout not its own — from the rest
+## of what the generator can do, so nothing it does is lost (hex plates, plate stacks, the barrel, hopper cubes).
+## (hex plates and plate stacks only where they suit: flat-on, on a prism of quartz, they read as a blank hexagon.)
+## The body stays the species' (metal, colour, glass); a find's form, and sometimes its crystal ([layout, weight, habit]).
+const ATYPICAL_P := 0.06
+const ODD := {
+	quartz = [["radial", 2.0], ["slabs", 1.0], ["pile", 1.0]],
+	beryl = [["single", 2.0, "barrel"], ["hexplates", 1.5], ["pile", 1.0]],
+	apatite = [["single", 2.0, "barrel"], ["columnar", 1.0, "barrel"], ["hexplates", 1.0]],
+	barite = [["platestack", 2.0], ["slabs", 1.0], ["hexplates", 1.0]],
+	fluorite = [["single", 1.0, "octa"], ["pile", 1.0, "octa"], ["columnar", 0.5]],
+	sulphur = [["single", 2.0], ["pile", 1.0]],
+	aragonite = [["radial", 2.0], ["columnar", 1.0]],
+	hematite = [["hexplates", 2.0], ["slabs", 1.0]],
+	celestine = [["rosette", 1.5], ["radial", 1.0]],
+	gypsum = [["pile", 1.0], ["columnar", 1.0]],
+	olivine = [], needle = [],
+}
+const ODD_BY_HABIT := {
+	prism = [["radial", 1.0], ["slabs", 1.0], ["floater", 0.7], ["columnar", 1.0], ["pile", 0.7]],
+	blade = [["slabs", 1.0], ["rosette", 1.0], ["radial", 1.0]],
+	scaleno = [["pile", 1.0], ["columnar", 1.0], ["slabs", 0.7], ["radial", 0.7]],
+	cube = [["hopper", 1.0], ["pile", 1.0], ["columnar", 1.0]],
+	rhomb = [["single", 1.0], ["pile", 1.0], ["columnar", 0.7]],
+	tetra = [["single", 1.0], ["pile", 1.0], ["columnar", 0.7]],
+	octa = [["single", 1.0], ["pile", 1.0], ["columnar", 0.7]],
+	dodeca = [["single", 1.0], ["pile", 1.0], ["cluster", 1.0]],
+	dipyr = [["single", 1.0], ["pile", 1.0]],
+}
+
+## the atypical layouts open to a species: its own list, or what its crystal can take that it does not grow already
+static func odd(sid: String) -> Array:
+	if ODD.has(sid): return ODD[sid]
+	var habit: String = Data.HABIT.get(sid, "prism")
+	var look := of(sid)
+	var metal := sid in ["pyrite", "hematite", "galena"] or look.has("metal_col")
+	var own := {}
+	for f: Array in look.get("forms", []): own[f[0]] = true
+	var out := []
+	for f: Array in ODD_BY_HABIT.get(habit, []):
+		if own.has(f[0]): continue
+		if metal and f[0] in ["hopper", "floater"]: continue
+		out.append(f)
+	return out
 
 ## the kind of find for a species (Stones.roll): its own weights, or the old ones
 static func kinds(sid: String) -> Array:
