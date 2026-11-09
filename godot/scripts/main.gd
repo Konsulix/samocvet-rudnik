@@ -628,7 +628,7 @@ func _maiden_done(res: Dictionary) -> void:
 	MaidenCard.show(["Caught all five times! She left her gold where she danced." if all else
 		"Caught %d of %d times. She ran off laughing - but the gold is yours." % [int(res.caught), BoardModel.MAIDEN_CATCH]],
 		"%d gold stones broken. She'll dance again in a week." % int(res.gold),
-		[["Continue", "green", func(): Ov.close()]], got, 220.0)
+		[["Continue", "green", func(): Ov.close()]], got)
 	await Ov.closed
 	go("awards")
 
