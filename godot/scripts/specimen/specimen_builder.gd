@@ -137,6 +137,8 @@ func _free(p: Vector3) -> bool:
 			return false
 	return true
 
+var st_ref := {}
+
 func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 	return Transform3D(U.eul(e.x, e.y, e.z) * Basis.from_scale(sc), p)
 
@@ -230,6 +232,7 @@ func _specimen(o: Dictionary) -> Node3D:
 
 	var st := {rocky = false, pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
 		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = [], agate = look.get("agate", [])}
+	st_ref = st
 	var stria := 1.0 if elongated else 0.0
 	# the species' own striations (SpecLooks stria: [strength, mode]) — across quartz, along the beryls, crossed on pyrite
 	var st_mode := 0.0
@@ -515,13 +518,13 @@ func _specimen(o: Dictionary) -> Node3D:
 		"vein":
 			main = _vein(sid, col)
 		"septaria":
-			main = _septaria(crystal)
+			main = _septaria(crystal, st)
 		"botryoid":
 			# the lumpy species each grow their own way (docs/species-genes.md F11–F15); the rest keep the bubbly lump
 			var look_b := SpecLooks.of(sid)
 			if sid == "jadeite": main = _jade(col, use_rock, st, gs)
 			elif sid == "carnelian": main = _pebble(sid, col, look_b.get("opaque", {}))
-			elif sid == "flintstone": main = _flint(col, crystal)
+			elif sid == "flintstone": main = _flint(col, crystal, st)
 			elif sid == "hyalite": main = _beads(col, use_rock, st, gs)
 			elif sid == "opal": main = _opal_seam(col, use_rock, st, gs, seed_v)
 			else: _botryoid(sid, col, irk)
@@ -1137,6 +1140,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		root.set_meta("glow", U.raw(0xe4ae39))
 	# hundreds of soil crumbs and moss sprigs drawn as a few objects (the same picture, far fewer draw calls)
 	U.batch(root)
+	st_ref = {}   # (its closures hold the builder: let it go)
 	return root
 
 # native metal: soft rounded lumps, hammered and pitted, with iron-oxide (or green patina on copper) packed into the hollows
@@ -1316,6 +1320,7 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 	var main: MeshInstance3D = null
 	# many lumps, big and small, grown into each other: on the face their bands meet as a crowd of eyes
 	var nl := 6 + int(rng.next() * 6)
+	var back := Geo.new()
 	for k in nl:
 		var r := 0.16 + pow(rng.next(), 1.5) * 0.3 if k > 0 else 0.42
 		var at := Vector3((rng.next() - 0.5) * 1.15, (rng.next() - 0.5) * 0.7, 0.0) if k > 0 else Vector3.ZERO
@@ -1328,6 +1333,11 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 			if on[i] == 1: g.col[i] = Color(1, 1, 1)
 		var m := U.mesh(g, bm, root, at)
 		if not main: main = m
+		for i in g.v.size():
+			back.v.append(g.v[i] + at)
+			back.col.append(g.col[i])
+	# its bubbly back and sides are the ground the shared layer grows on — never the polished face
+	_rind_as_rock(main, back, n, 0.0, 0.16)
 	return main
 
 # a water-worn pebble (F12): jadeite in its brown weathered rind with a window ground and polished into it;
@@ -1406,6 +1416,25 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 
 const FACE := preload("res://shaders/face.gdshader")
 
+## a nodule's rind as the rock the shared layer grows on (lichen, moss, mushrooms, puffs): the points of it that face
+## up or towards the viewer, well off the face (plane n·p = d)
+func _rind_as_rock(mi: MeshInstance3D, g: Geo, n: Vector3, d: float, margin := 0.05) -> void:
+	var top := []
+	var hol := []
+	for i in g.v.size():
+		var v := g.v[i]
+		if v.dot(n) > d - margin: continue
+		var o := v.normalized()
+		if o.dot(UP) > 0.1 or o.dot(VIEW_DIR) > 0.35:
+			top.append(v)
+			if g.col.size() > i and g.col[i].g > 0.55: hol.append([v, o])
+	if top.is_empty(): return
+	st_ref.rocky = true
+	st_ref.rock = mi
+	st_ref.pick = func() -> Vector3: return top[int(rng.next() * top.size())]
+	st_ref.nrm = func(w: Vector3) -> Vector3: return w.normalized()
+	st_ref.hollows = hol
+
 ## the face shader (shaders/face.gdshader) set to a face's own plane
 func _face_mat(mode: int, fc: Vector3, n: Vector3, r: float) -> ShaderMaterial:
 	var t1 := n.cross(UP if absf(n.y) < 0.95 else Vector3.RIGHT).normalized()
@@ -1423,7 +1452,7 @@ func _face_mat(mode: int, fc: Vector3, n: Vector3, r: float) -> ShaderMaterial:
 
 # a septarian nodule sawn in half (F18): clay cells crazed by golden calcite veins — drawn pixel by pixel in the face
 # shader — and a dark crack at its heart where the species' crystals stand: "dragon stone"
-func _septaria(crystal: Callable) -> MeshInstance3D:
+func _septaria(crystal: Callable, st: Dictionary) -> MeshInstance3D:
 	var L := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.05, wave = 0.12, k = 80.0,
 		bumps = [[8, 0.8, 0.12], [30, 0.3, 0.05]], seg = 110})
 	var g: Geo = L[0]
@@ -1455,6 +1484,7 @@ func _septaria(crystal: Callable) -> MeshInstance3D:
 	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(1, "diff"))
 	face.set_shader_parameter("c_rind", Color(0.5, 0.4, 0.3))
 	var main := U.mesh(g, face, root)
+	_rind_as_rock(main, g, n, fc.dot(n))
 	# the crystals in the crack, standing out of it towards the viewer
 	for k in mini(spots.size(), 5 + int(rng.next() * 5)):
 		var p: Vector3 = spots[int(rng.next() * spots.size())]
@@ -1463,7 +1493,7 @@ func _septaria(crystal: Callable) -> MeshInstance3D:
 
 # a flint nodule out of the chalk, broken open (F11): a knobbly lump in its white chalk rind (the limestone scan), the
 # break glassy black, conchoidal rings in the light (face shader); half of them hollow, a cave of real quartz crystals
-func _flint(col: Color, crystal: Callable) -> MeshInstance3D:
+func _flint(col: Color, crystal: Callable, st: Dictionary) -> MeshInstance3D:
 	var L := RockKit.lump(rng, {r = 0.55, sx = 1.35 + rng.next() * 0.25, sy = 0.8, sz = 1.0, wave = 0.25, k = 120.0,
 		bumps = [[9, 0.7, 0.3], [40, 0.25, 0.1]], seg = 150})
 	var g: Geo = L[0]
@@ -1500,16 +1530,44 @@ func _flint(col: Color, crystal: Callable) -> MeshInstance3D:
 			g.v[i] -= n * dep * (1.0 - t * t)
 			hk = 1.0 - smoothstep(0.8, 1.0, t)
 			if t < 0.85: lining.append(g.v[i])
-		g.col[i] = Color(1.0, clampf(rr / rmax, 0.0, 1.0), hk, 1.0)
+		g.col[i] = Color(1.0, 0.0, hk, 1.0)
+	# how deep in from the break's edge each point of it lies: the bands follow the nodule's outline
+	var edge := []
+	for i in g.v.size():
+		if on[i] == 1 and (g.v[i] - fc).length() > rmax * 0.55: edge.append(g.v[i])
+	var dmax := 0.001
+	var dist := PackedFloat32Array()
+	dist.resize(g.v.size())
+	for i in g.v.size():
+		if on[i] != 1: continue
+		var best := INF
+		for k in range(0, edge.size(), 3):
+			best = minf(best, g.v[i].distance_squared_to(edge[k]))
+		dist[i] = sqrt(best) if edge.size() else 0.0
+		dmax = maxf(dmax, dist[i])
+	for i in g.v.size():
+		if on[i] == 1: g.col[i].g = clampf(dist[i] / dmax, 0.0, 1.0)
 	var face := _face_mat(1, fc, n, rmax)
 	var bc := col
-	face.set_shader_parameter("c_a", Vector3(bc.r, bc.g, bc.b) * 0.6)
-	face.set_shader_parameter("c_b", Vector3(0.16, 0.18, 0.22))
+	# its kind (own stream): striped like the Krzemionki flint, honey-translucent round a black heart, jet-black, or red
+	var kind := int(Stones.pick_w([[0, 3.5], [1, 2.5], [2, 2.5], [3, 1.5]], Rng32.new(int(rng.next() * 100000.0))))
+	var KINDS := [[0x1a1a20, 0x6a6a70, 0xc8c8cc, 0.85, 26.0], [0x120a06, 0x8a4a14, 0xe0a040, 0.75, 16.0],
+		[0x0c0c10, 0x34383e, 0x50545a, 0.25, 18.0], [0x2a0c08, 0xa83818, 0xe0a070, 0.7, 20.0]]
+	var kd: Array = KINDS[kind]
+	var ca := SpecMat.lin(int(kd[0]))
+	var cb := SpecMat.lin(int(kd[1]))
+	var cc := SpecMat.lin(int(kd[2]))
+	face.set_shader_parameter("c_a", Vector3(ca.r, ca.g, ca.b))
+	face.set_shader_parameter("c_b", Vector3(cb.r, cb.g, cb.b))
+	face.set_shader_parameter("c_vein", Vector3(cc.r, cc.g, cc.b))
+	face.set_shader_parameter("band_k", float(kd[3]))
+	face.set_shader_parameter("band_f", float(kd[4]))
 	var a0 := rng.next() * TAU
 	face.set_shader_parameter("hit", Vector2(cos(a0), sin(a0)) * (0.6 + rng.next() * 0.3))
 	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(0, "diff"))
-	face.set_shader_parameter("c_rind", Color(chalk.r, chalk.g, chalk.b).linear_to_srgb())
+	face.set_shader_parameter("c_rind", Color(0.8, 0.76, 0.67))
 	var main := U.mesh(g, face, root)
+	_rind_as_rock(main, g, n, fc.dot(n))
 	if lining.size():
 		# the geode inside: real quartz points of every size, clear glass, pointing out of the cave
 		var qm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.25, rf = 0.3, thick = 1.2, frost = 0.04, holo = 0.15, seed = 5.0, prio = 2})

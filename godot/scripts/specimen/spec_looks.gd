@@ -116,7 +116,7 @@ const LOOK := {
 	# malachite: half of them sawn through and polished, the eyes of its bands
 	malachite = {sawn = 0.5},
 	# boulder opal: seams of it in brown ironstone
-	opal = {rock = [["ironstone", 5.0], ["basalt", 1.0]], kinds = [["crystal", 5.0], ["geode", 0.6]], growths = 0.4},
+	opal = {rock = [["ironstone", 5.0], ["basalt", 1.0]], kinds = [["crystal", 5.0], ["geode", 0.6]], growths = 0.7},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
 		rock = [["limestone", 4.0], ["basalt", 1.0]], hk = 0.75, dark = 0.0},
 	# Spider Hollow (an Edo silver mine in a cedar valley, the Tsuchigumo; docs/mine6-tsuchigumo.md §8): "silver and
@@ -136,7 +136,7 @@ const LOOK := {
 	cinnabar = {zone = [0, 0.0, 0.0], forms = [["cluster", 4.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
 		rock = [["gypsum", 3.0], ["limestone", 3.0]], rh = 0.15, dark = 0.0, glass = {tint = 0.95, dark = 0.25, frost = 0.05, glow = 0.32}, ir = 0.15,
 		palette = [[0xc01c14, 0xc01c14, 4.0], [0xa0100c, 0xa0100c, 2.0], [0xd8402a, 0xd8402a, 1.0]]},
-	jadeite = {kinds = [["crystal", 1.0]], growths = 0.0, rock = [["slate", 3.0], ["quartzite", 1.0]], dark = 0.0, opaque = {rough = 0.28, coat = 0.9, grain = 0.05},
+	jadeite = {kinds = [["crystal", 1.0]], rock = [["slate", 3.0], ["quartzite", 1.0]], dark = 0.0, opaque = {rough = 0.28, coat = 0.9, grain = 0.05},
 		palette = [[0x2e8a4e, 0x2e8a4e, 4.0], [0x5aae6e, 0x5aae6e, 2.0], [0x9a86c0, 0x9a86c0, 1.0], [0xd8e4d0, 0xd8e4d0, 1.0]]},
 	proustite = {zone = [0, 0.0, 0.0], forms = [["cluster", 3.0], ["single", 2.0]], kinds = [["druse", 3.0], ["crystal", 4.0]],
 		rock = [["quartzite", 3.0], ["slate", 1.0]], hk = 1.4, wk = 0.8, dark = 0.0, glass = {tint = 1.0, dark = 0.35, frost = 0.02, glow = 0.45}, ir = 0.3,
@@ -170,7 +170,7 @@ const LOOK := {
 	# of the chalk, honey dogtooth spar of the chalk caves, brassy marcasite of the coal seams, green wavellite balls,
 	# hyalite (glassy opal, it glows green), whewellite (a mineral born in coal), enhydro quartz with water and gas sealed
 	# in it, and Shubin's ember - the colour of a firedamp flame - as its jewel
-	flintstone = {kinds = [["crystal", 1.0]], growths = 0.0, rock = [["limestone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 0.95, grain = 0.03},
+	flintstone = {kinds = [["crystal", 1.0]], rock = [["limestone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 0.95, grain = 0.03},
 		palette = [[0x1c1c22, 0x1c1c22, 4.0], [0x2e2c30, 0x2e2c30, 2.0], [0x3c342c, 0x3c342c, 1.0]]},
 	dogtooth = {zone = [0, 0.0, 0.0], forms = [["cluster", 5.0], ["single", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0], ["geode", 1.0]],
 		rock = [["limestone", 4.0]], dark = 0.0, glass = {tint = 0.5, glow = 0.15}, ir = 0.2,

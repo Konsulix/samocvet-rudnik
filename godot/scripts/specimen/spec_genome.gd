@@ -112,7 +112,8 @@ static func of(o: Dictionary) -> Dictionary:
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
 	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
-	if form in ["geode", "botryoid"]:
+	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
+	if form in ["geode", "botryoid"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
@@ -140,7 +141,7 @@ static func of(o: Dictionary) -> Dictionary:
 		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass"]:
 			apool = []
 	# (a sawn and polished face keeps nothing growing on it)
-	var bare := (form == "rosette" and look.has("rose")) or form in ["sawn", "septaria"]
+	var bare := form == "rosette" and look.has("rose")
 	if o.get("form", "") == "skull" and apool.is_empty(): bare = true   # (a gold / mosaic / glass skull: no mushrooms either)
 	if Rng32.new((seed_v * 1103515245 + 13) % 4294967296).next() > float(look.get("growths", 1.0)):
 		bare = true
@@ -226,7 +227,7 @@ static func of(o: Dictionary) -> Dictionary:
 			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
-	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:

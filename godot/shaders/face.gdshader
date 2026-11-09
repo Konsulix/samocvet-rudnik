@@ -21,6 +21,8 @@ uniform float seed = 0.0;
 uniform vec3 c_a : source_color = vec3(0.47, 0.41, 0.34);   // septaria: clay light / flint: black
 uniform vec3 c_b : source_color = vec3(0.18, 0.15, 0.12);   // septaria: clay dark / flint: the grey edge
 uniform vec3 c_vein : source_color = vec3(0.88, 0.62, 0.18);
+uniform float band_k = 0.0;   // flint: bands following the outline (striped flint), how strong
+uniform float band_f = 20.0;  // and how many
 uniform vec3 c_rind : source_color = vec3(0.85, 0.82, 0.74);
 uniform sampler2D scan : source_color, filter_linear_mipmap, repeat_enable;       // the face's grain (septaria clay)
 uniform sampler2D rind_scan : source_color, filter_linear_mipmap, repeat_enable;  // the rind's rock
@@ -95,9 +97,14 @@ void fragment() {
 		rough = mix(rough, 0.5, hole);
 		coat *= 1.0 - hole;
 	} else {
+		// depth in from the break's edge (per vertex): the cortex band at the edge, bands following the outline, the heart
+		float dep = COLOR.g;
 		float cl = fbm2(uv * 4.0 + seed);
 		col = mix(c_a, c_a * 1.8 + vec3(0.0, 0.004, 0.012), cl * 0.6);
-		col = mix(col, c_b, smoothstep(0.8, 1.0, rim) * (0.45 + 0.35 * cl));
+		col = mix(c_b, col, smoothstep(0.02, 0.3, dep + (cl - 0.5) * 0.12));
+		float bs = 0.5 + 0.5 * sin(dep * band_f + (fbm2(uv * 3.0 + seed + 5.0) - 0.5) * 4.0);
+		float bw = 0.5 + 0.5 * sin(dep * band_f * 0.37 + 1.3);
+		col = mix(col, c_vein * (0.75 + 0.25 * cl), band_k * smoothstep(0.55, 0.85, bs) * (0.4 + 0.6 * bw) * smoothstep(0.92, 0.6, dep));
 		col += vec3(0.25) * smoothstep(0.985, 1.0, vn2(uv * 140.0 + seed)) * (1.0 - rim);
 		// the conchoidal fracture: rings out from the blow, its slope worked out exactly (no screen ripples)
 		vec2 d = uv - hit;
@@ -110,7 +117,7 @@ void fragment() {
 		rough = 0.06 + rim * 0.15;
 		coat = 0.9;
 		// the hollow: chalcedony lining, grey-blue and faintly banded, under the crystals
-		vec3 lin = mix(vec3(0.24, 0.26, 0.3), vec3(0.42, 0.44, 0.5), 0.5 + 0.5 * sin(rr * 90.0));
+		vec3 lin = mix(vec3(0.14, 0.15, 0.18), vec3(0.26, 0.27, 0.31), (0.5 + 0.5 * sin(rr * 40.0)) * 0.5 + fbm2(uv * 12.0) * 0.5);
 		col = mix(col, lin, hole);
 		rough = mix(rough, 0.35, hole);
 		coat *= 1.0 - hole;
@@ -121,7 +128,7 @@ void fragment() {
 	vec3 ps = v_op * 1.3 + seed * 0.05;
 	vec3 rk = texture(rind_scan, ps.yz).rgb * an.x + texture(rind_scan, ps.xz).rgb * an.y + texture(rind_scan, ps.xy).rgb * an.z;
 	float rl = lum(rk) / max(lum(textureLod(rind_scan, ps.xz, 5.0).rgb), 0.03);
-	vec3 rind = c_rind * clamp(rl, 0.5, 1.5) * (1.0 - 0.45 * COLOR.g);
+	vec3 rind = c_rind * clamp(pow(rl, 1.4), 0.35, 1.6) * (1.0 - 0.55 * COLOR.g);
 	col = mix(rind, col, on);
 	rough = mix(0.93, rough, on);
 	coat *= on;
