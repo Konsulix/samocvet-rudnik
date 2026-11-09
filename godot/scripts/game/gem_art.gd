@@ -280,6 +280,8 @@ static func find_icon(ci: CanvasItem, S: float, glow: Color) -> void:
 static func geode_icon(ci: CanvasItem, S: float) -> void:
 	ci.draw_texture_rect(NODULE, Rect2(S * 0.06, S * 0.06, S * 0.88, S * 0.88), false)
 
+static var _maiden_icon: Texture2D    # held: a texture loaded inside a draw and dropped is freed before it is drawn
+
 ## any goal's icon, top-left at 0,0
 static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := Color("#c8b0ff")) -> void:
 	match k:
@@ -294,8 +296,8 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 		"c", "boss": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
 		"maiden":
 			# the Fire Maiden herself: how many times she is still to be caught
-			if ResourceLoader.exists(MaidenView.DIR + "dance_0.png"):
-				ci.draw_texture_rect(load(MaidenView.DIR + "dance_0.png"), Rect2(-S * 0.1, -S * 0.15, S * 1.2, S * 1.17), false)
+			if _maiden_icon == null and ResourceLoader.exists(MaidenView.DIR + "dance_0.png"): _maiden_icon = load(MaidenView.DIR + "dance_0.png")
+			if _maiden_icon: ci.draw_texture_rect(_maiden_icon, Rect2(-S * 0.1, -S * 0.15, S * 1.2, S * 1.17), false)
 		"rock":
 			# colour: 0 sandstone, 1 granite, 2 both (granite in front)
 			if BoardSprites.gem_style == "":

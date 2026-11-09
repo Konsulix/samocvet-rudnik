@@ -70,7 +70,9 @@ func _ready() -> void:
 	if args.has("card_h"): Reveal.info_h = float(args.card_h)
 	if args.has("chips"): Reveal.chips_max = int(args.chips)
 	if args.has("story_auto"): StoryScene.auto = true   # the home screen as after the prologue: up from the bottom to the guide
-	if args.has("mine_event"): MineView.force_event = args.mine_event
+	if args.has("mine_event"):
+		if args.mine_event == "maiden": MineView.force_maiden = true    # (comes with the next event, ~10-16 s)
+		else: MineView.force_event = args.mine_event
 	if args.has("mine_result"):   # mine_result=win|lose[,depth[,ore[,iron]]]: the home screen plays the level's reaction
 		var r: PackedStringArray = String(args.mine_result).split(",")
 		MineView.last_result = {area = Save.area(), won = r[0] == "win", k = int(r[1]) if r.size() > 1 else 0,
@@ -264,8 +266,8 @@ func _ready() -> void:
 		Atlas.start_area = int(args.atlas)
 	if args.has("screen"):
 		go(args.screen)
-	elif args.has("maiden"):   # the Fire Maiden's chase at once (docs/fire-maiden.md)
-		_play_maiden()
+	elif args.has("maiden"):   # the Fire Maiden's chase (docs/fire-maiden.md): her card first, `go` - straight to the board
+		_play_maiden(not args.has("go"))
 	elif args.has("level"):
 		var dl := int(args.get("depth", "0"))
 		show_level(int(args.level), [], dl, LevelGen.current(dl) if args.has("gen") else {})
@@ -371,6 +373,11 @@ func _ready() -> void:
 		show_level(Save.d.level, [], 0, LevelGen.current(0))
 	if args.has("sim_min"):
 		print(SimEconomy.minerals(int(args.sim_min)))
+		get_tree().quit()
+		return
+	if args.has("sim_maiden"):
+		# sim_maiden=N [moves=M] [smart]: the Fire Maiden's chase played N times (tests/sim_economy.gd)
+		print(SimEconomy.maiden_report(int(args.sim_maiden), int(args.get("moves", "-1"))))
 		get_tree().quit()
 		return
 	if args.has("sim_boss"):
@@ -586,13 +593,40 @@ func _prologue_due() -> bool:
 ## the Fire Maiden's chase (Level.MAIDEN, docs/fire-maiden.md): in Old Adit's gold whatever mine you are in (the mine
 ## is switched for the chase, as for a boss replayed), no life spent; once a week
 var _maiden_back := -1
-func _play_maiden() -> void:
+func _play_maiden(card := true) -> void:
+	# her card first: who she is and how to catch her
+	if card: await _maiden_intro()
+	if not _maiden_go: return
 	_maiden_back = Save.d.area
 	Save.d.area_back = Save.d.area
 	Save.d.area = 0
 	Save.d.maiden_day = int(Time.get_unix_time_from_system() / 86400.0)
 	Save.persist()
 	show_level(Save.d.level, [], 0, Level.MAIDEN)
+
+var _maiden_go := true
+func _maiden_intro() -> void:
+	_maiden_go = false
+	var v := Ov.card(330, Color(1.0, 0.6, 0.2))
+	v.add_child(_maiden_portrait(230))
+	v.add_child(UI.title("The Fire Maiden", 22))
+	v.add_child(Ov.text("She leaps out of the prospectors' fire and dances. Wherever she lands, the stone turns to gold.", 14))
+	v.add_child(Ov.text("Break the stone she dances on to catch her. Five times - and she leaves you her own gold.", 13, Kit.AMBER))
+	v.add_child(Ov.btn("Dance!", "green", func():
+		_maiden_go = true
+		Ov.close()))
+	v.add_child(Ov.btn("Not now", "glass", func(): Ov.close()))
+	await Ov.closed
+
+## her portrait by the campfire (art/maiden), `h` points high
+static func _maiden_portrait(h: float) -> Control:
+	var t := TextureRect.new()
+	t.texture = load(MaidenView.DIR + "portrait.png")
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	t.custom_minimum_size = Vector2(0, h)
+	t.clip_contents = true
+	return t
 
 func _maiden_done(res: Dictionary) -> void:
 	Save.d.area = int(Save.d.area_back)
@@ -601,7 +635,8 @@ func _maiden_done(res: Dictionary) -> void:
 	Save.persist()
 	if not (res.stone as Dictionary).is_empty():
 		await GeodeOpen.run([res.stone], {title = "Where she danced", short = true})
-	var v := Ov.card()
+	var v := Ov.card(330, Color(1.0, 0.6, 0.2))
+	v.add_child(_maiden_portrait(150))
 	v.add_child(UI.title("The Fire Maiden", 22))
 	var all := int(res.caught) >= BoardModel.MAIDEN_CATCH
 	v.add_child(Ov.text("Caught all five times! She left her gold where she danced." if all else

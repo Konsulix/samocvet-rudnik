@@ -8,11 +8,9 @@ func _ready() -> void:
 	var m := BoardModel.new()
 	m.rng.seed = 7
 	m.setup(1, [], 0, {}, 0, false, Level.MAIDEN)
-	m.ore_p = {}
 	for r in m.R:
 		for c in m.C:
-			if m.G[r][c]: (m.G[r][c] as BoardModel.Gem).ore = ""
-	m.maiden_start()
+			if m.G[r][c] and (m.G[r][c] as BoardModel.Gem).ore != "": bad.append("ore on the board at start")
 	if (m.maiden.marks as Array).size() != 2: bad.append("marks at start %d" % (m.maiden.marks as Array).size())
 	for i in 4:
 		var h := m.maiden_hop()
@@ -22,7 +20,8 @@ func _ready() -> void:
 	# caught twice: three marks
 	for i in 2:
 		var at := Vector2i(int(m.maiden.r), int(m.maiden.c))
-		if m.maiden_catch([at + Vector2i(0, 1)]).is_empty(): bad.append("catch %d gave no gold" % i)
+		if not m.maiden_catch([at + Vector2i(0, 1)]).is_empty(): bad.append("caught from beside her (only her stone counts)")
+		if m.maiden_catch([at]).is_empty(): bad.append("catch %d gave no gold" % i)
 	if (m.maiden.marks as Array).size() != 3: bad.append("marks after 2 catches %d" % (m.maiden.marks as Array).size())
 	if not m.maiden_catch([Vector2i(-9, -9)]).is_empty(): bad.append("caught from afar")
 	for i in 2: m.maiden_catch([Vector2i(int(m.maiden.r), int(m.maiden.c))])

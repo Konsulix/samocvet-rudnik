@@ -129,13 +129,6 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	var chase := bool(level.get("maiden", false))
 	if chase and ResourceLoader.exists(MAIDEN_BG): bg.texture = load(MAIDEN_BG)
 	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase, level)
-	if chase:
-		# only she makes gold here
-		model.ore_p = {}
-		for r in model.R:
-			for c in model.C:
-				if model.G[r][c]: (model.G[r][c] as BoardModel.Gem).ore = ""
-		model.maiden_start()
 	rich = bool(level.get("rich", false))
 	Save.persist()
 	var vp := get_viewport_rect().size
@@ -179,7 +172,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 ## what this board is about, in a few words: its biggest work first ([title, the task])
 func _board_theme() -> Array:
 	var has := func(k: String) -> bool: return model.goal_index(k) >= 0
-	if has.call("maiden"): return ["The Fire Maiden", "Catch her: match right beside her"]
+	if has.call("maiden"): return ["The Fire Maiden", "Catch her: break the stone she dances on"]
 	if has.call("dark"): return ["The Dark Gallery", "Carry the light down: match next to it"]
 	if has.call("cart"): return ["Ore Carts" if model.carts.size() > 1 else "The Ore Cart", "Match stones of its colour right beside it"]
 	var bucket := false
@@ -924,7 +917,6 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 	match String(e.type):
 		"clear":
 			if String(e.get("sp", "")) != "": _sp_move = true
-			if maiden: _mclear.append(Vector2i(int(e.r), int(e.c)))
 			board.pop_gem(e.id, merges.get(e.id, Vector2i(-1, -1)))
 			if e.color >= 0 and not merges.has(e.id):
 				fx.gem_chips(e.r, e.c, Color.html(Data.GEMS[e.color].c))
@@ -2001,7 +1993,8 @@ const PROLOGUE := {
 
 ## the Fire Maiden's chase (docs/fire-maiden.md): no losing - catch her five times or run out of moves, the gold is
 ## yours either way; opened by the achievement Where She Danced, once a week
-const MAIDEN := {maiden = true, gen = true, colors = 5, moves = 26, goals = [["maiden"]],
+## 18 moves (sim_maiden): a player who goes for her catches all five in about 11, a careless one two or three
+const MAIDEN := {maiden = true, gen = true, colors = 5, moves = 18, goals = [["maiden"]],
 	map = ".........|.........|.........|.........|.........|.........|.........|.........|........."}
 const MAIDEN_BG := "res://assets/maiden/bg.png"
 const MAIDEN_COIN := 40    # coins for each gold stone broken
@@ -2009,18 +2002,20 @@ const MAIDEN_COIN := 40    # coins for each gold stone broken
 ## after a move: a match beside her catches her (she flinches, scatters gold, leaps far off); else she leaps on to a
 ## marked cell and the stone there turns to gold
 func _maiden_turn() -> void:
-	var cleared := _mclear
+	if not _mclear.is_empty(): model.dead_cells.append_array(_mclear)    # (ui=maiden_catch)
 	_mclear = []
-	var before := int(model.maiden.caught)
-	var gold: Array = model.maiden_catch(cleared)
+	var after := model.maiden_after()
+	if after.is_empty(): return
+	var gold: Array = after.get("gold", [])
 	var gi := model.goal_index("maiden")
-	if int(model.maiden.caught) > before:
+	if bool(after.caught):
 		goal_boxes[gi].shown = int(model.goals[gi].left)
 		_render_goal(gi)
 		if int(model.goals[gi].left) <= 0: _goal_burst(goal_boxes[gi].root)
-		Sfx.play("special")
+		Sfx.play("mdn_caught")
 		Sfx.buzz(40)
 		fx.hitstop(0.06)
+		maiden.giggle()
 		await maiden.caught()
 		for id in gold: _gild_node(int(id), true)
 		if int(model.goals[gi].left) <= 0: return
@@ -2028,12 +2023,13 @@ func _maiden_turn() -> void:
 		await maiden.hop(Vector2i(int(model.maiden.r), int(model.maiden.c)), 0.7)
 		maiden.marks = model.maiden.marks
 		return
-	var res := model.maiden_hop()
+	var res: Dictionary = after.hop
 	for id in res.cooled: _gild_node(int(id), false)
 	if Vector2i(res.to).x >= 0:
 		maiden.marks = []
-		Sfx.play("fuse")
+		Sfx.play("mdn_hop")
 		await maiden.hop(res.to)
+		Sfx.play("mdn_land")
 		_gild_node(int(res.gold), true)
 		var to: Vector2i = res.to
 		fx.sparkle(to.x, to.y, Color(2.2, 1.7, 0.6), 12)
@@ -2051,7 +2047,8 @@ func _gild_node(id: int, on: bool) -> void:
 func _maiden_end(all: bool) -> void:
 	model.over = true
 	busy = true
-	Sfx.play("win" if all else "special")
+	Sfx.play("win" if all else "mdn_caught")
+	maiden.giggle(9)
 	await maiden.run_away()
 	var gold := int(model.mined.ore)
 	var coins := gold * MAIDEN_COIN

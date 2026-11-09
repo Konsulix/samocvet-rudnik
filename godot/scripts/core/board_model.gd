@@ -114,6 +114,8 @@ var boss := {}
 ## next, shown ahead), caught (how many times), cool (stone id -> moves before the gold of her last leaps cools)}
 var maiden := {}
 const MAIDEN_CATCH := 5
+static var MAIDEN_REACH := 0   # how near a cleared cell catches her: 0 - only the stone she stands on (beside her was too easy)
+var dead_cells: Array = []   # the cells cleared since the move began (a match beside the Fire Maiden catches her)
 ## a colour new stones are not made of (-1: any): the Mistress' lizards carry off the greens and none come back
 var skip_colour := -1
 var area_i := 0
@@ -843,6 +845,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	var vein: Array = Save.d.vein[dl] if area == Save.area() and dl < Save.d.vein.size() else []
 	# no ore is mined at the boss: only the stones of its weak colour carry gold, and hurt it more
 	set_ore(area, dl, vein, bool(def.get("rich", false)), not def.has("boss"))
+	# the Fire Maiden's chase: no ore but the gold she makes
+	if def.get("maiden", false): ore_p = {}
 	lift = int(eq.get("lift", 0))
 	vent = int(eq.get("vent", 0))
 	moves = start_moves(def, dl, eq)
@@ -1046,6 +1050,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					G[r][c] = new_gem(t)
 		if find_groups().is_empty() and has_moves():
 			break
+	# the Fire Maiden comes out of the fire once the board is filled
+	if goal_index("maiden") >= 0: maiden_start()
 	# boosters chosen before the level land on the board as ready specials
 	var cand := []
 	for r in range(1, R - 1):
@@ -1184,7 +1190,7 @@ func maiden_catch(cleared: Array) -> Array:
 	if maiden.is_empty(): return []
 	var hit := false
 	for p: Vector2i in cleared:
-		if absi(p.x - int(maiden.r)) + absi(p.y - int(maiden.c)) <= 1: hit = true
+		if absi(p.x - int(maiden.r)) + absi(p.y - int(maiden.c)) <= MAIDEN_REACH: hit = true
 	if not hit: return []
 	maiden.caught = int(maiden.caught) + 1
 	var gi := goal_index("maiden")
@@ -1212,6 +1218,16 @@ func maiden_catch(cleared: Array) -> Array:
 		maiden.c = best.y
 	maiden.marks = _maiden_marks()
 	return out
+
+## the move is over: caught (a cell cleared beside her) -> {caught = true, gold = ids scattered}, else she leaps ->
+## {caught = false, hop = maiden_hop()}; {} without her
+func maiden_after() -> Dictionary:
+	if maiden.is_empty() or goals_done(): return {}
+	var before := int(maiden.caught)
+	var gold := maiden_catch(dead_cells)
+	dead_cells = []
+	if int(maiden.caught) > before: return {caught = true, gold = gold}
+	return {caught = false, hop = maiden_hop()}
 
 func _gem_by_id(id: int) -> Gem:
 	for r in R:
@@ -1849,6 +1865,7 @@ func remove_dead() -> Array:
 			var g: Gem = G[r][c]
 			if g and not g.alive():
 				ids.append(g.id)
+				dead_cells.append(Vector2i(r, c))
 				G[r][c] = null
 	return ids
 
@@ -1976,6 +1993,7 @@ func swap(r1: int, c1: int, r2: int, c2: int) -> Variant:
 
 func use_move() -> void:
 	moves -= 1
+	dead_cells = []
 	gas_hit = false
 	_melt_hit = false
 	_anvil_hit = false

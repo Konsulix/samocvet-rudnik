@@ -22,6 +22,7 @@ const CREW_FPS := 14.0    # the 24-drawing crews: a pick swing ~1.7 s, its strik
 
 static var _tex := {}
 static var last_result := {}   # the level just played (main sets it): the depth's crew reacts, the ore flies in
+static var force_maiden := false   # test key (-- mine_event=maiden)
 static var force_event := ""   # test key (-- mine_event=hole|coil|eyes|bat): play it at once
 static var _last := {}    # area -> what the screen showed last: {places, bands, lived}
 
@@ -61,6 +62,15 @@ var t := 0.0
 var _rng := RandomNumberGenerator.new()
 var _bands: Array = []    # per depth: {y, state, lived}
 var _bat_k := 0
+# the Fire Maiden's glimpse (docs/fire-maiden.md): she dances a while on a gallery's floor; a tap on her - she runs off
+# laughing and the next level is a rich vein
+var _mdn_k := 0
+var _mdn_x := 0.0
+var _mdn_tap := -1.0       # when she was tapped (t), -1 while dancing
+var _mdn_ci: Node2D
+var _mdn_s := -1.0         # how long she has been dancing, -1 when she is not
+const MDN_STAY := 10.0
+const MDN_H := 175.0
 var _events := {}         # name -> start time of the running rare event, or -1
 var _next_event := 0.0
 var _tremor_at := -100.0  # when the mine last began to shake
@@ -137,6 +147,11 @@ func _ready() -> void:
 	live = Node2D.new()
 	live.draw.connect(_draw_live)
 	add_child(live)
+	# the Fire Maiden's glimpse, on a layer of its own over the live one
+	_mdn_ci = Node2D.new()
+	_mdn_ci.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_mdn_ci.draw.connect(func(): if _mdn_s >= 0.0: _maiden_glimpse(_mdn_ci, _mdn_s))
+	live.add_child(_mdn_ci)
 	front = Node2D.new()
 	front.draw.connect(func(): _draw_shaft(front))
 	add_child(front)
@@ -849,6 +864,16 @@ func _tick_events() -> void:
 	if area == 0 and J.has("lizard2") and String(_shown_bands.get(int(J.lizard2.get("k", 0)), "")) == "clear":
 		pool.append("lizard")         # the herald of the next mine's Mistress: nobody here knows who she is
 	_bat_k = _rng.randi_range(0, open)
+	# now and then, rarely, the Fire Maiden instead: a hint of her before the award opens her chase
+	var forced := force_maiden
+	if area == 0 and open >= 1 and not bool(Save.d.get("lrich", false)) and (_rng.randf() < 0.07 or forced):
+		pool = ["maiden"]
+		force_maiden = false
+	if pool == ["maiden"]:
+		# on the depth you are looking at (the one picked), else any open one
+		_mdn_k = clampi(int(Save.d.depth_sel[0]), 0, open) if forced or _rng.randf() < 0.6 else _rng.randi_range(0, open)
+		_mdn_x = float(J.portal) * _rng.randf_range(0.3, 0.6)
+		_mdn_tap = -1.0
 	if not pool.is_empty():
 		var ev: String = pool[_rng.randi() % pool.size()]
 		_events[ev] = t
@@ -1078,6 +1103,46 @@ func _pump_hose(c: CanvasItem, b: Dictionary, y: float) -> void:
 	c.draw_polyline(pts, Color(0.22, 0.16, 0.1), 8.0, true)
 	var r := fmod(t * 0.9, 1.0)
 	c.draw_arc(Vector2(hx + 2, end - 20), 10.0 + r * 34.0, PI * 0.05, PI * 0.95, 18, Color(0.7, 0.8, 0.9, 0.35 * (1.0 - r)), 2.0, true)
+
+## the Fire Maiden dancing on a gallery's floor (her board frames, MaidenView), her light and sparks; tapped, she runs
+## off and fades. Returns true when she is gone
+func _maiden_glimpse(c: CanvasItem, s: float) -> bool:
+	var feet := Vector2(_mdn_x, band_y(_mdn_k) + floor_of(_mdn_k))
+	var a := clampf(s / 0.8, 0.0, 1.0) * clampf((MDN_STAY - s) / 1.0, 0.0, 1.0)
+	var name := "dance_%d" % (int(t * 8.0) % 6)
+	if _mdn_tap >= 0.0:
+		var u := (t - _mdn_tap) / 0.9
+		if u >= 1.0: return true
+		a *= 1.0 - u
+		feet.x += u * 260.0
+		name = "run_%d" % mini(5, int(u * 6.0))
+	elif s > MDN_STAY: return true
+	# through the mine's cache: a texture loaded here and dropped was freed before it was drawn (it came out white)
+	var tx: Texture2D = tex("../../maiden/" + name + ".png")
+	var h := MDN_H
+	var w := h * tx.get_width() / float(tx.get_height())
+	# her light and sparks are a soft glow texture too: a texture drawn after polygons in one item came out white
+	var gl := GemArt.glow_tex()
+	c.draw_texture_rect(gl, Rect2(feet - Vector2(h * 0.9, h * 1.25), Vector2(h * 1.8, h * 1.6)), false, Color(1.0, 0.55, 0.15, 0.55 * a))
+	c.draw_texture_rect(tx, Rect2(feet - Vector2(w / 2.0, h), Vector2(w, h)), false, Color(1, 1, 1, a))
+	for i in 6:
+		var k := fmod(t * 0.7 + i * 0.37, 1.0)
+		var sp := feet + Vector2(sin(i * 2.3 + t) * 30.0, -h * (0.3 + k * 0.9))
+		var r := 8.0 * (1.0 - k) + 2.0
+		c.draw_texture_rect(gl, Rect2(sp - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(1.0, 0.75, 0.3, a * (1.0 - k)))
+	return false
+
+## her glimpse is over: tapped and run off, or danced her while
+func _maiden_gone(s: float) -> bool:
+	return (t - _mdn_tap) >= 0.9 if _mdn_tap >= 0.0 else s > MDN_STAY
+
+## a tap on the dancing Fire Maiden (source px): she runs off and the next level is a rich vein
+func maiden_hit(p: Vector2) -> bool:
+	if not _events.has("maiden") or _mdn_tap >= 0.0: return false
+	var feet := Vector2(_mdn_x, band_y(_mdn_k) + floor_of(_mdn_k))
+	if not Rect2(feet - Vector2(70, MDN_H + 20), Vector2(140, MDN_H + 40)).has_point(p): return false
+	_mdn_tap = t
+	return true
 
 ## the rails' top of a depth (band rows): each gallery was drawn with its own floor line
 func floor_of(d: int) -> float:
@@ -1637,6 +1702,11 @@ func _snake_live(c: CanvasItem) -> void:
 		var s := t - float(_events[ev])
 		var done := false
 		match ev:
+			"maiden":
+				_mdn_s = s
+				done = _maiden_gone(s)
+				if done: _mdn_s = -1.0
+				_mdn_ci.queue_redraw()
 			"hole":
 				if String(_shown_bands.get(0, "")) == "closed": done = true
 				elif ResourceLoader.exists(dir + "snake_strip.png"): done = _snake_out(c, s)

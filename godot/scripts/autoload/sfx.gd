@@ -17,6 +17,12 @@ const SAMPLES := {
 	crack = {f = ["impactMining_001", "impactMining_003"], db = -2.0, step = 0.12},
 	boom = {f = ["impactPunch_heavy_000", "impactPunch_heavy_001"], db = -2.0, pitch = 0.7, synth = true},
 	special = {f = ["glass_002"], db = -4.0},
+	# the Fire Maiden (docs/fire-maiden.md): a leap is a crackle of sparks, the landing a little chime, her laugh a run of
+	# small bells going down (MaidenView.giggle), caught - a puff of flame and a bright ping
+	mdn_hop = {f = ["amb/fire/sparks"], db = -9.0, pitch = 1.5},
+	mdn_land = {f = ["magical_1", "magical_5"], db = -14.0, pitch = 1.7},
+	mdn_giggle = {f = ["bowl_ping"], db = -15.0, pitch = 2.9, step = -0.045},
+	mdn_caught = {f = ["amb/fire/burn", "magical_6"], all = true, db = -6.0, pitch = 1.4},
 	coin = {f = ["chips-stack-1", "chips-stack-2", "chips-collide-1"], db = -6.0},
 	# a step of building: a plank set down, two hammer knocks, a brass latch (sfx_cut.py; was a digital ding)
 	build = {f = ["build_knock"], db = 0.0},

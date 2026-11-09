@@ -48,6 +48,7 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		m.use_move()
 		used += 1
 		_resolve(m, first, sw, broken)
+		m.maiden_after()
 		if m.goals_done():
 			won = true
 			break
@@ -95,6 +96,7 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		if m.moves <= 0:
 			break
 	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves),
+		caught = int(m.maiden.get("caught", 0)),
 		goal0 = goal0, left = _goals_left(m),
 		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0}
 
@@ -151,6 +153,7 @@ static func _worth(m: BoardModel) -> float:
 			"geo", "find": w = 6.0
 			"boss": w = 0.08
 			"gas": w = 1.5
+			"maiden": w = 10.0
 		v -= float(g.left) * w
 	# the big blocks: every hit counts, not only the last one
 	for b in m.geos:
@@ -176,7 +179,10 @@ static func _worth(m: BoardModel) -> float:
 			if m.LOCK[r][c] == 4: v -= 0.5      # thick ice: each layer is a hit (the goal counts only the last)
 			if m.LOCK[r][c] == 6: v -= 0.25     # forge scale
 			if kegs_goal and m.KEG[r][c]: v -= float(m.KEG[r][c]) * 0.4
-	# Brontes: a cold billet heals him when he acts, molten sulphur spreads, a charged thunderbolt is near
+	# the Fire Maiden: gold broken is the prize, and stones that could line up next to her are worth a little
+	if not m.maiden.is_empty():
+		v += float(m.mined.ore) * 0.6
+		# Brontes: a cold billet heals him when he acts, molten sulphur spreads, a charged thunderbolt is near
 	if m.boss_on():
 		for r in m.R:
 			for c in m.C:
@@ -261,6 +267,24 @@ static func report(per_depth: int) -> String:
 		lines.append("%d | %d | %.0f | %.1f | %s | %.0f | %.1f | %.1f, %.1f" % [dl, per_depth, 100.0 * wins / per_depth, used / float(per_depth),
 			" ".join(per), all / float(per_depth), c0_win / maxf(1.0, wins), ore_win[0] / maxf(1.0, wins), ore_win[1] / maxf(1.0, wins)])
 	return "\n".join(lines)
+
+## the Fire Maiden's chase (Level.MAIDEN) played N times: catches (0..5), gold broken, coins, moves left when all caught
+static func maiden_report(n: int, moves := -1) -> String:
+	var def: Dictionary = Level.MAIDEN.duplicate()
+	if moves > 0: def.moves = moves
+	var hist := [0, 0, 0, 0, 0, 0]
+	var gold := 0
+	var left := 0
+	var alls := 0
+	for i in n:
+		var r := play(1, 0, 4100 + i * 17, def, 0)
+		hist[clampi(int(r.caught), 0, 5)] += 1
+		gold += int(r.mined.ore)
+		if r.won:
+			alls += 1
+			left += int(r.moves) - int(r.used)
+	return "maiden moves %d, %d runs | caught 0..5: %s | all five %.0f%% | gold %.1f (coins %.0f) | moves left when all %.1f" % [
+		int(def.moves), n, str(hist), 100.0 * alls / n, float(gold) / n, float(gold) / n * Level.MAIDEN_COIN, float(left) / maxf(1.0, alls)]
 
 ## the boss fight of mine `area` played N times by the autoplayer, at full health and at each 5% step lower
 ## (one more lost fight each): wins, the board it got to, the health left

@@ -453,6 +453,16 @@ func _view_input(e: InputEvent) -> void:
 				_vel = clampf((pos.y - float(a[1])) / dtt, -4000.0, 4000.0)
 		if not _dragging:
 			var lp := view.get_global_transform().affine_inverse() * pos
+			if view.has_method("maiden_hit") and view.maiden_hit(lp):
+				# the Fire Maiden caught dancing in the mine: her gold stays in the rock - the next level is rich
+				Save.d.lrich = true
+				Save.persist()
+				for i in 6:
+					get_tree().create_timer(i * 0.07).timeout.connect(func(): Sfx.play("mdn_giggle", i))
+				Ov.toast("The Fire Maiden danced here! Your next level is a rich vein")
+				Awards.once("ev:0:maiden")
+				accept_event()
+				return
 			var stone := view.niche_at(lp)
 			if not stone.is_empty():
 				# the find on its pedestal: its card, as in the museum
