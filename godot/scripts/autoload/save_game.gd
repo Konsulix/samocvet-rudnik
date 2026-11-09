@@ -99,8 +99,7 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	# the achievements' collections (docs/achievements.md): every gene this find shows
 	for t in Awards.genes_of(s):
 		if not d.genes.has(t): d.genes.append(t)
-		# the finest stone ever seen with it (shown grey on the awards once no stone with it is kept)
-		if not d.gfirst.has(t) or int(s.value) > int(d.gfirst[t].get("value", 0)): d.gfirst[t] = Awards.summary(s, a, dl)
+		if not d.gfirst.has(t): d.gfirst[t] = Awards.summary(s, a, dl)
 	var aid := Stones.atlas_id(s)
 	var e: Dictionary = d.atlas.get(aid, {n = 0, max_g = 0, max_v = 0, legend = false})
 	e.n = int(e.n) + 1
@@ -114,6 +113,12 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 			if s.has(k): b[k] = s[k]
 		e.best = b
 	d.atlas[aid] = e
+
+## a stone leaves the inventory (sold): for every gene it shows, it becomes the one the awards remember — once no
+## stone with the gene is kept, its niche shows the last one that went, grey (not an older one popping back)
+func gone(s: Dictionary) -> void:
+	for t in Awards.genes_of(s):
+		d.gfirst[t] = Awards.summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 
 ## the tutorial (docs/onboarding.md): has this tip been shown
 func told(id: String) -> bool:

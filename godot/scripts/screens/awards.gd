@@ -166,7 +166,7 @@ static func kept_best() -> Dictionary:
 	return _kept
 
 ## the stone a found item is shown by: [summary, kept now]. A gene: the finest kept stone that shows it, else the
-## finest one ever seen (grey, as the atlas greys a species whose best stone was sold); a species: the atlas's best
+## last one with it that was sold (grey, as the atlas greys a species whose best stone was sold); a species: the atlas's best
 func _shown(item: String) -> Array:
 	if item.begins_with("g:"):
 		var tag := item.trim_prefix("g:")
@@ -189,7 +189,7 @@ static func backfill() -> void:
 	for s in Save.d.coll:
 		for t in genes_of(s):
 			if not seen.has(t): seen.append(t)
-			if not first.has(t) or not (first[t] as Dictionary).has("value") or int(s.value) > int(first[t].value):
+			if not first.has(t) or not (first[t] as Dictionary).has("value"):
 				first[t] = summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	Save.d.genes = seen
 	Save.d.gfirst = first

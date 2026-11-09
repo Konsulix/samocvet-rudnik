@@ -348,7 +348,9 @@ func _sell_bar(dup: Array) -> Control:
 func _sell_dupes(dup: Array, sum: int) -> void:
 	Ov.panel("Sell duplicates?", "%d stones go, the best of every species stays. Legendary and cut stones are never sold here." % dup.size(), [
 		["Sell · " + UI.coins(sum), "gold", func():
-			for st in dup: Save.d.coll.erase(st)
+			for st in dup:
+				Save.gone(st)
+				Save.d.coll.erase(st)
 			Save.d.coins += sum
 			Save.persist()
 			Sfx.play("coin")
@@ -414,6 +416,7 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 		v.add_child(Ov.text("Cut: " + String(Data.CUTN[s.cut]), 13))
 	var price := roundi(float(s.value) * Save.coin_mul())
 	var sell := func():
+		Save.gone(s)
 		Save.d.coll.erase(s)
 		Save.d.coins += price
 		Save.persist()
