@@ -574,7 +574,7 @@ func _specimen(o: Dictionary) -> Node3D:
 					if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
 				var nn: Vector3 = st.nrm.call(p)
 				keep_out.append([p, 0.16 * gs])
-				var reach := 0.7 + rng.next() * 0.6
+				var reach := 0.4 + rng.next() * 0.35
 				for k in 50 + int(rng.next() * 70):
 					var d := (nn + _rv() * 1.6).normalized()
 					if d.dot(nn) < 0.15: d = (d + nn).normalized()
@@ -1264,10 +1264,10 @@ func _botryoid(sid: String, col: Color, irk: float) -> void:
 	var banded := sid in ["malachite", "azurite", "chrysocolla"]
 	var crust := SpecMat.lin(0x8a7a68 if sid == "opal" else 0x2a1a10 if banded else 0x4a3424)
 	# (malachite deep green, its bands near black; the others a little darker than their own colour)
-	var bc := SpecMat.lin(0x1e8e50) if sid == "malachite" else col * 0.6 if banded else col
+	var bc := SpecMat.lin(0x0f6a34) if sid == "malachite" else col * 0.6 if banded else col
 	bc.a = 1.0
 	var bm := SpecMat.make({col = bc, rough = 0.12 if sid == "opal" else 0.22, coat = 0.8, coat_r = 0.15, env = 1.4,
-		ir = 0.95 if sid == "opal" else maxf(irk, 0.12), bd = 0.3 if banded else 0.0, dirt = {h = -0.3, a = 0.35, col = crust, fr = 0.0, isl = 0.08, fb = 0.0}})
+		ir = 0.95 if sid == "opal" else maxf(irk, 0.12), bd = 0.75 if sid == "malachite" else 0.3 if banded else 0.0, dirt = {h = -0.3, a = 0.35, col = crust, fr = 0.0, isl = 0.08, fb = 0.0}})
 	if sid == "chalcedony":
 		# blue chalcedony: waxy, translucent — lit a little from within, fine bands round each bubble, a soft sheen
 		bm = SpecMat.make({col = col * 0.85, rough = 0.16, coat = 0.9, coat_r = 0.1, env = 1.5, ir = 0.22, bd = 0.18, emis = col * 0.22,
@@ -1465,6 +1465,19 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 	return rk
 
 const FACE := preload("res://shaders/face.gdshader")
+const OPAL_SEAM := preload("res://shaders/opal_seam.gdshader")
+
+## precious opal's own play of colour (shaders/opal_seam.gdshader): black, white or crystal body, its fire's colour
+func _opal_mat(r: Rng32, scale: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = OPAL_SEAM
+	m.set_shader_parameter("opal_body", int(Stones.pick_w([[0, 4.0], [1, 1.5], [2, 1.5]], r)))
+	m.set_shader_parameter("fire_h", r.next())
+	m.set_shader_parameter("fire_spread", 0.3 + r.next() * 0.3)
+	m.set_shader_parameter("fire_scale", scale)
+	m.set_shader_parameter("seed", r.next() * 40.0)
+	m.set_shader_parameter("flow_k", 1.0 if gene_m.fx == "dragonfire" else 0.0)
+	return m
 const JADE := preload("res://shaders/jade.gdshader")
 
 ## a nodule's rind as the rock the shared layer grows on (lichen, moss, mushrooms, puffs): the points of it that face
@@ -1715,11 +1728,7 @@ func _beads(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIn
 func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed_v: int) -> MeshInstance3D:
 	var rk: MeshInstance3D = use_rock.call("chunk")
 	var r2 := Rng32.new((seed_v * 3266489917 + 59) % 4294967296)
-	var bodies := [SpecMat.lin(0x1a2230), SpecMat.lin(0xdce6ea), SpecMat.lin(0x6a8aa0)]
-	var body: Color = bodies[int(Stones.pick_w([[0, 3.0], [1, 2.0], [2, 1.5]], r2))]
-	# (the play of colour is the opal-fire flakes; the rainbow film and the holographic sheen only a little under them)
-	var gm := SpecMat.make({col = body, glass = true, thick = 1.6, frost = 0.2, holo = 0.15, ir = 0.2, seed = float(seed_v % 97), prio = 2, tint_body = 0.6})
-	gm.set_shader_parameter("opal_k", 2.0)
+	var gm := _opal_mat(r2, 3.0)
 	var main: MeshInstance3D = null
 	for k in 4 + int(rng.next() * 4):
 		var best: Vector3 = st.pick.call()
@@ -1841,9 +1850,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	if habit == "botryoid" and inner == habit:
 		# a lumpy species (opal) lines its cave with bubbles sunk half into the wall — a lining, not a cave filled
 		# with balls of glass; opal's play of colour flashing in them
-		var bodies := [SpecMat.lin(0x1a2230), SpecMat.lin(0xdce6ea), SpecMat.lin(0x6a8aa0)]
-		var bm := SpecMat.make({col = bodies[int(rng.next() * 3.0)], glass = true, thick = 1.6, frost = 0.25, holo = 0.15, ir = 0.2, seed = rng.next() * 40.0, prio = 2, tint_body = 0.6})
-		bm.set_shader_parameter("opal_k", 2.0)
+		var bm := _opal_mat(rng, 2.5)
 		var bub := []
 		for k in 120 + int(rng.next() * 60):
 			# (kept off the lip and sunk only into the wall's inner half, so none shows through the outside)
