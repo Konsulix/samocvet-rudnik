@@ -282,6 +282,11 @@ void fragment() {
 			}
 		}
 	}
+	// a stone skull wet where water runs: darker and glossy too (its skin painted over the bone's own wetness)
+	if (skin >= 5) {
+		c = mix(c, c * 0.5 * wet_col, wet);
+		rough = mix(rough, 0.1, wet);
+	}
 	// the inside of the vault, seen through a break: dim bone
 	if (!FRONT_FACING) c = c * vec3(0.32, 0.28, 0.24);
 	ALBEDO = c;
@@ -292,6 +297,6 @@ void fragment() {
 	}
 	METALLIC = metal;
 	ROUGHNESS = rough;
-	SPECULAR = mix(spec, 0.7, wet * float(skin == 0 || skin == 4 || skin == 1));
+	SPECULAR = mix(spec, 0.7, wet * float(skin == 0 || skin == 4 || skin == 1 || skin >= 5));
 	NORMAL = bump(NORMAL, VERTEX, h * 0.004, 1.0);
 }

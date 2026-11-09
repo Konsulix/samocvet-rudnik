@@ -29,6 +29,8 @@ const METALS := {
 ## the genes a skull may have pinned from outside (the save, tests, the admin): SpecGenome and Spec pass these on
 const KEYS := ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees",
 	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile"]
+## the skins water may run over (not cast metal, the mosaic or glass: there it would sit like a sticker)
+const WET_SKINS := ["bone", "nacre", "gilt", "agate", "opal", "pyrite", "geode"]
 ## the bones that are not bone any more (bone.gdshader skins 5–8)
 const STONE_SKINS := {agate = 5, opal = 6, pyrite = 7, geode = 8}
 
@@ -211,7 +213,7 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 		skin_seed = int(r.next() * 100000),
 		gilt_dir = [(r.next() - 0.5) * 2.0, r.next() - 0.3, r.next()],
 		# a stream out of an eye (mostly with moss), roots of a tree over the skull
-		stream = o.get("stream", r.next() < 0.12),
+		stream = o.get("stream", r.next() < 0.2),
 		stream_side = -1.0 if r.next() < 0.8 else 1.0,   # (mostly the side the card shows)
 		roots = o.get("roots", r.next() < 0.1),
 		# the crown of the trees on it: a flocked moss puff, leaves, blossom with buds, autumn, or bare
@@ -456,7 +458,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		_glass_flowers(b, sk)
 		main = mi
 	if sk.roots: _roots(b, sk, bones, nrs, cr)
-	if sk.stream and sk.skin in ["bone", "nacre", "gilt"]:
+	if sk.stream and sk.skin in WET_SKINS:
 		_stream(b, sk, bones, nrs)
 		# the bone it runs over, wet (the meshes rebuilt with the wetness in their vertex alpha)
 		cr._mesh = null
@@ -600,7 +602,7 @@ static func accents(sk: Dictionary) -> Array:
 	if sk.tone in ["grave", "ash"] and sk.skin == "bone": out.append("sk_" + String(sk.tone))
 	if sk.moss != "none": out.append("sk_moss")
 	if int(sk.trees) > 0: out.append("sk_trees")
-	if sk.stream and sk.skin in ["bone", "nacre", "gilt"]: out.append("sk_stream")
+	if sk.stream and sk.skin in WET_SKINS: out.append("sk_stream")
 	if sk.roots: out.append("sk_roots")
 	if int(sk.flies) > 0: out.append("sk_flies")
 	return out
