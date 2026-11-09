@@ -607,26 +607,12 @@ func _play_maiden(card := true) -> void:
 var _maiden_go := true
 func _maiden_intro() -> void:
 	_maiden_go = false
-	var v := Ov.card(330, Color(1.0, 0.6, 0.2))
-	v.add_child(_maiden_portrait(230))
-	v.add_child(UI.title("The Fire Maiden", 22))
-	v.add_child(Ov.text("She leaps out of the prospectors' fire and dances. Wherever she lands, the stone turns to gold.", 14))
-	v.add_child(Ov.text("Break the stone she dances on to catch her. Five times - and she leaves you her own gold.", 13, Kit.AMBER))
-	v.add_child(Ov.btn("Dance!", "green", func():
-		_maiden_go = true
-		Ov.close()))
-	v.add_child(Ov.btn("Not now", "glass", func(): Ov.close()))
+	MaidenCard.show(["She leaps out of the prospectors' fire and dances. Wherever she lands, the stone turns to gold."],
+		"Break the stone she dances on to catch her. Five times - and she leaves you her own gold.",
+		[["Dance!", "green", func():
+			_maiden_go = true
+			Ov.close()], ["Not now", "dark", func(): Ov.close()]])
 	await Ov.closed
-
-## her portrait by the campfire (art/maiden), `h` points high
-static func _maiden_portrait(h: float) -> Control:
-	var t := TextureRect.new()
-	t.texture = load(MaidenView.DIR + "portrait.png")
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	t.custom_minimum_size = Vector2(0, h)
-	t.clip_contents = true
-	return t
 
 func _maiden_done(res: Dictionary) -> void:
 	Save.d.area = int(Save.d.area_back)
@@ -635,18 +621,14 @@ func _maiden_done(res: Dictionary) -> void:
 	Save.persist()
 	if not (res.stone as Dictionary).is_empty():
 		await GeodeOpen.run([res.stone], {title = "Where she danced", short = true})
-	var v := Ov.card(330, Color(1.0, 0.6, 0.2))
-	v.add_child(_maiden_portrait(150))
-	v.add_child(UI.title("The Fire Maiden", 22))
 	var all := int(res.caught) >= BoardModel.MAIDEN_CATCH
-	v.add_child(Ov.text("Caught all five times! She left her gold where she danced." if all else
-		"Caught %d of %d times. She ran off laughing - but the gold is yours." % [int(res.caught), BoardModel.MAIDEN_CATCH], 14))
 	var got := HBoxContainer.new()
 	got.alignment = BoxContainer.ALIGNMENT_CENTER
 	got.add_child(_res_chip("coin", int(res.coins)))
-	v.add_child(got)
-	v.add_child(Ov.text("%d gold stones broken. She'll dance again in a week." % int(res.gold), 12, Kit.DIM))
-	v.add_child(Ov.btn("Continue", "green", func(): Ov.close()))
+	MaidenCard.show(["Caught all five times! She left her gold where she danced." if all else
+		"Caught %d of %d times. She ran off laughing - but the gold is yours." % [int(res.caught), BoardModel.MAIDEN_CATCH]],
+		"%d gold stones broken. She'll dance again in a week." % int(res.gold),
+		[["Continue", "green", func(): Ov.close()]], got, 220.0)
 	await Ov.closed
 	go("awards")
 
