@@ -76,6 +76,7 @@ void fragment() {
 	float rough;
 	float coat;
 	vec3 nmod = face_n;   // the face's normal in model space, tipped by its relief
+	vec3 vein_glow = vec3(0.0);
 	if (mode == 0) {
 		vec2 w = uv * 3.2 + (vec2(fbm2(uv * 3.0 + seed), fbm2(uv * 3.0 + seed + 9.0)) - 0.5) * 0.55;
 		vec3 c = cells(w);
@@ -91,6 +92,7 @@ void fragment() {
 		float mid = smoothstep(vw, 0.0, c.x);
 		vec3 cal = mix(c_vein * 0.45, c_vein * 1.15, mid) * (0.85 + 0.3 * h2(g.xy + 1.3)) + sp * 0.6;
 		col = mix(clay, cal, vein);
+		vein_glow = cal * vein * mid * 0.22;
 		rough = mix(0.32, 0.12, vein);
 		coat = 0.6;
 		col = mix(col, mix(vec3(0.08, 0.05, 0.03), cal * 0.5, fbm2(uv * 20.0)), hole);
@@ -143,4 +145,6 @@ void fragment() {
 	SPECULAR = 0.5;
 	CLEARCOAT = coat;
 	CLEARCOAT_ROUGHNESS = 0.05;
+	// septaria: the calcite veins lit through, a warm glow in them
+	if (mode == 0) EMISSION = vein_glow * on * (1.0 - hole);
 }

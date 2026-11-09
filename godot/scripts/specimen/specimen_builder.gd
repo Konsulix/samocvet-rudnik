@@ -1453,50 +1453,94 @@ func _face_mat(mode: int, fc: Vector3, n: Vector3, r: float) -> ShaderMaterial:
 # a septarian nodule sawn in half (F18): clay cells crazed by golden calcite veins — drawn pixel by pixel in the face
 # shader — and a dark crack at its heart where the species' crystals stand: "dragon stone"
 func _septaria(crystal: Callable, st: Dictionary) -> MeshInstance3D:
-	var L := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.05, wave = 0.12, k = 80.0,
+	# one half of the egg, built facing +z: a plump nodule sawn through near its middle
+	var L := RockKit.lump(rng, {r = 0.6, sx = 1.25 + rng.next() * 0.2, sy = 0.95, sz = 1.0, wave = 0.12, k = 80.0,
 		bumps = [[8, 0.8, 0.12], [30, 0.3, 0.05]], seg = 110})
 	var g: Geo = L[0]
 	var cav: PackedFloat32Array = L[1]
 	g.col.resize(g.v.size())
-	var n := (VIEW_DIR + UP * 0.55).normalized()
-	var mx := -INF
-	for v in g.v: mx = maxf(mx, v.dot(n))
-	var off := mx * (0.05 + rng.next() * 0.2)
+	var n := (Vector3.BACK + UP * 0.25).normalized()
+	var off := (rng.next() - 0.5) * 0.08
 	var on := _saw(g, Vector3.ZERO, n * off, n)
 	var fc := n * off
 	var rmax := 0.0
 	for i in g.v.size():
 		if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
-	var hole := rmax * (0.14 + rng.next() * 0.08)
+	# the cave at its heart, where the cracks meet: deep, lined with crystals
+	var hole := rmax * (0.24 + rng.next() * 0.1)
 	var spots := []
 	for i in g.v.size():
 		if on[i] != 1:
 			g.col[i] = Color(0.0, cav[i] if cav.size() > i else 0.5, 0.0, 1.0)
 			continue
-		var rr := (g.v[i] - fc).length()
-		var hk := 1.0 - smoothstep(hole * 0.75, hole, rr)
-		if rr < hole:
-			g.v[i] -= n * rmax * 0.16 * (1.0 - pow(rr / hole, 2.0))
-			spots.append(g.v[i])
+		var q := g.v[i] - fc
+		# (the cave's outline wanders)
+		var ang := atan2(q.dot(n.cross(UP).normalized()), q.dot(UP))
+		var hr := hole * (1.0 + 0.25 * sin(ang * 3.0 + off * 50.0) + 0.12 * sin(ang * 7.0))
+		var rr := q.length()
+		var hk := 1.0 - smoothstep(hr * 0.8, hr, rr)
+		if rr < hr:
+			g.v[i] -= n * rmax * 0.3 * sqrt(1.0 - pow(rr / hr, 2.0))
+			spots.append([g.v[i], rr / hr])
 		g.col[i] = Color(1.0, rr / rmax, hk, 1.0)
 	var face := _face_mat(0, fc, n, rmax)
 	face.set_shader_parameter("scan", load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg"))
 	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(1, "diff"))
-	face.set_shader_parameter("c_rind", Color(0.5, 0.4, 0.3))
-	var main := U.mesh(g, face, root)
-	_rind_as_rock(main, g, n, fc.dot(n), 0.1)
-	# the crystals in the crack, standing out of it towards the viewer
-	# (a few, spread round the crack and leaning out from its middle — not one clump)
-	var used := []
-	for k in 4 + int(rng.next() * 4):
-		var p: Vector3 = spots[int(rng.next() * spots.size())] if spots.size() else fc
-		var far := true
-		for u: Vector3 in used:
-			if u.distance_to(p) < hole * 0.45: far = false
-		if not far: continue
-		used.append(p)
-		var out := (n * 1.3 + (p - fc).normalized() * 0.8 + _rv() * 0.4).normalized()
-		crystal.call(0.16 + rng.next() * 0.16, 0.28 + rng.next() * 0.16, p - n * 0.015, out)
+	# its colours (own stream): the classic brown clay with yellow calcite, black clay with white, or honey-red
+	var kind := int(Stones.pick_w([[0, 5.0], [1, 2.5], [2, 1.5]], Rng32.new(int(rng.next() * 100000.0))))
+	var KINDS := [[0x7a6a58, 0x3a3028, 0xe8b040, 0x6a5440], [0x34302c, 0x141210, 0xf0ece0, 0x3a3430], [0x9a5a34, 0x4a2214, 0xf4c868, 0x6a4028]]
+	var kd: Array = KINDS[kind]
+	for kv in [["c_a", 0], ["c_b", 1], ["c_vein", 2], ["c_rind", 3]]:
+		var c := Color.hex(int(kd[kv[1]]) << 8 | 0xff)
+		face.set_shader_parameter(kv[0], c)
+	# one half, or both side by side like an opened book (one pattern, mirrored)
+	var pair := rng.next() < 0.35
+	var view := Basis(UP, -0.6)
+	var xr := view * Vector3.RIGHT
+	# (tipped back and turned a little, so the rind's thickness shows under the face — a stone, not a tile)
+	var halves := [Transform3D(view * Basis(UP, 0.35 * (1.0 if rng.next() < 0.5 else -1.0)) * Basis(Vector3.RIGHT, -0.5), Vector3(0, 0.05, 0))]
+	# the other half: the same mesh mirrored (its pattern the mirror image, as the two halves of one stone are)
+	var gm := Geo.new()
+	gm.col = g.col
+	for i in g.v.size(): gm.v.append(Vector3(-g.v[i].x, g.v[i].y, g.v[i].z))
+	if g.indexed():
+		for t in range(0, g.idx.size(), 3): gm.idx.append_array([g.idx[t], g.idx[t + 2], g.idx[t + 1]])
+	if pair:
+		halves = [Transform3D(view * Basis(UP, 0.55) * Basis(Vector3.RIGHT, -0.45) * Basis.from_scale(Vector3.ONE * 0.72), -xr * 0.62),
+			Transform3D(view * Basis(UP, -0.55) * Basis(Vector3.RIGHT, -0.45) * Basis.from_scale(Vector3.ONE * 0.72), xr * 0.62)]
+	var main: MeshInstance3D = null
+	var cal := SpecMat.make({col = Color.hex(int(kd[2]) << 8 | 0xff).srgb_to_linear(), flat = true, glass = true, ir = 0.15, rf = 0.3, thick = 1.2,
+		frost = 0.12, prio = 2, tint_body = 0.55, tint_glow = 0.25})
+	for hi in halves.size():
+		var T: Transform3D = halves[hi]
+		var mi := U.mesh(gm if hi == 1 else g, face, root)
+		mi.transform = T
+		# (on the mirrored half, its spots and their directions mirrored too)
+		var mx := Basis.from_scale(Vector3(-1, 1, 1)) if hi == 1 else Basis()
+		T = T * Transform3D(mx, Vector3.ZERO)
+		if not main:
+			main = mi
+			var wg := Geo.new()
+			for i in g.v.size():
+				wg.v.append(T * g.v[i])
+			wg.col = g.col
+			_rind_as_rock(mi, wg, (T.basis * n).normalized(), (T * fc).dot((T.basis * n).normalized()), 0.12)
+		if spots.is_empty(): continue
+		# the cave's lining: honey dogtooth calcite, small and many, pointing in towards the middle
+		var k2 := 0
+		for k in 26 + int(rng.next() * 16):
+			var sp: Array = spots[int(rng.next() * spots.size())]
+			var p: Vector3 = sp[0]
+			var dir := (n * (1.0 - float(sp[1])) * 1.4 + (fc - p).normalized() * 0.6 + _rv() * 0.5).normalized()
+			var f := pow(rng.next(), 1.6)
+			var c: MeshInstance3D = crystal.call(0.12 + f * 0.16, 0.16 + f * 0.14, T * (p - n * 0.01), (T.basis * dir).normalized(), {habit = "scaleno"}, cal)
+			k2 += 1
+		# and the species' own crystals, a few, standing out of the cave
+		for k in 2 + int(rng.next() * 3):
+			var sp: Array = spots[int(rng.next() * spots.size())]
+			var p: Vector3 = sp[0]
+			var dir := (n * 1.3 + (p - fc).normalized() * 0.5 + _rv() * 0.4).normalized()
+			crystal.call(0.2 + rng.next() * 0.16, 0.3 + rng.next() * 0.16, T * (p - n * 0.02), (T.basis * dir).normalized())
 	return main
 
 # a flint nodule out of the chalk, broken open (F11): a knobbly lump in its white chalk rind (the limestone scan), the
