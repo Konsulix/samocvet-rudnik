@@ -145,18 +145,29 @@ static func genes_of(s: Dictionary) -> Array:
 		out.append("pal:%s:%d" % [sid, int(Stones.pick_w(ws, Rng32.new((seed_v * 1597334677 + 31) % 4294967296)))])
 	return out
 
-## the genes of every find kept before the achievements came: read once
+## what is kept of a find to show it again (the same fields as the atlas's best): enough to build it and to tell
+## whether it is still in the inventory (id)
+static func summary(s: Dictionary, a: int, dl: int) -> Dictionary:
+	var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
+		g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
+	for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind"]:
+		if s.has(k): b[k] = s[k]
+	return b
+
+## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
+## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 2: return
+	if int(Save.d.get("gver", 0)) >= 3: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
 		for t in genes_of(s):
 			if not seen.has(t): seen.append(t)
-			if not first.has(t): first[t] = Spec.of_stone(s)
+			if not first.has(t) or not (first[t] as Dictionary).has("value"):
+				first[t] = summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	Save.d.genes = seen
 	Save.d.gfirst = first
-	Save.d.gver = 2
+	Save.d.gver = 3
 	Save.persist()
 
 func _ready() -> void:
@@ -394,7 +405,7 @@ func _niche(it: Array, sz: float) -> Control:
 		# the find this gene first showed on, as the atlas pictures it (muted like the stones in a mine's niches)
 		var o: Dictionary = (Save.d.get("gfirst", {}) as Dictionary).get(s.trim_prefix("g:"), {})
 		if o.is_empty(): img.texture = _tex(String(it[2]))
-		else: Atlas.cutout(o, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+		else: Atlas.cutout(Spec.of_stone(o) if o.has("value") else o, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
 	elif s.begins_with("i:"):
 		img.texture = _tex(s.trim_prefix("i:"))
 		pass   # the drawings are coloured: shown as they are, muted like the finds
@@ -468,8 +479,8 @@ func _strip(e: Dictionary, w: float) -> Control:
 	t.add_child(nl)
 	if not hidden:
 		var c := _count(e)
+		# no "3/8": the niches show how far it is, the names stay secret until found
 		var sub := String(e.r)
-		if not e.get("one", false): sub = "%d/%d · %s" % [c.x, c.y, sub]
 		var sl := UI.label(sub, 12, load(FELL) as Font, INK_SOFT)
 		sl.clip_text = true
 		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -654,11 +665,16 @@ func _sheet(e: Dictionary) -> void:
 	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tl)
 	if not hidden:
-		var rl := UI.label(("%d of %d · " % [c.x, c.y] if not e.get("one", false) else "") + String(e.r), 14, load(FELL) as Font, INK_SOFT)
+		var rl := UI.label(String(e.r), 14, load(FELL) as Font, INK_SOFT)
 		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(rl)
 	var g := _got(e)
+	# the teaser; a tap on a '?' puts a hint of where to look in its place
+	var tz := UI.label("A secret. You'll know it when it happens." if hidden else String(e.t), 16, load(FELL) as Font, INK)
+	tz.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tz.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tz.custom_minimum_size = Vector2(w - 44, 0)
 	if not hidden and not e.get("one", false):
 		var grid := GridContainer.new()
 		grid.columns = 3 if g.size() <= 6 or g.size() == 9 else 4
@@ -667,14 +683,23 @@ func _sheet(e: Dictionary) -> void:
 		grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		var cs := minf(68.0, (w - 44 - (grid.columns - 1) * 8.0) / grid.columns)
 		for it in g:
+			var ni := _niche(it, cs)
+			# found: its card (grey if sold); not yet: a hint where to look, in the teaser's place
+			ni.mouse_filter = Control.MOUSE_FILTER_STOP
+			ni.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
+				if bool(it[1]): _open_find(it)
+				else:
+					Sfx.play("tab")
+					tz.text = _where(e, String(it[0]))
+					tz.modulate = Color(0.55, 0.32, 0.12))
 			if (it as Array).size() < 4:
-				grid.add_child(_niche(it, cs))
+				grid.add_child(ni)
 				continue
-			# a gene: its name under the niche, '?' too (the collection says what to look for)
+			# a gene: its name under the niche once found; until then a secret
 			var cell := VBoxContainer.new()
 			cell.add_theme_constant_override("separation", 1)
-			cell.add_child(_niche(it, cs))
-			var nm := UI.label(String(it[3]), 10, UI.body_bold, INK if bool(it[1]) else Color(INK_SOFT, 0.7))
+			cell.add_child(ni)
+			var nm := UI.label(String(it[3]) if bool(it[1]) else "?", 10, UI.body_bold, INK if bool(it[1]) else Color(INK_SOFT, 0.7))
 			nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			nm.custom_minimum_size = Vector2(cs, 0)
 			nm.clip_text = true
@@ -682,10 +707,6 @@ func _sheet(e: Dictionary) -> void:
 			cell.add_child(nm)
 			grid.add_child(cell)
 		v.add_child(grid)
-	var tz := UI.label("A secret. You'll know it when it happens." if hidden else String(e.t), 16, load(FELL) as Font, INK)
-	tz.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tz.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tz.custom_minimum_size = Vector2(w - 44, 0)
 	v.add_child(tz)
 	if e.get("opens", false) and _state(e) == "done":
 		var b := Kit.button("Play: " + String(e.r), "btn_green", 17)
@@ -697,6 +718,70 @@ func _sheet(e: Dictionary) -> void:
 	lay.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
 		Sfx.play("tab")
 		lay.queue_free())
+
+## the species a gene shows on (for the hint of where to look)
+const GENE_SP := {genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
+	insect = ["amber", "simetite"], bloom = ["flower_quartz", "amber"], plant = ["fern"]}
+
+## a hint for a '?': which mine (named only once opened) and among what to look — not the name of the thing itself
+func _where(e: Dictionary, item: String) -> String:
+	var sids: Array = []
+	if item.begins_with("g:"):
+		var tag := item.trim_prefix("g:")
+		var kind := tag.get_slice(":", 0)
+		if kind == "fx": return "Only a legendary find has it. Every mine keeps a few."
+		if kind == "fly": return "They land where the dead lie: look on the skulls of a barrow."
+		if tag == "shroom:4": return "It feeds on old wood. Look at the petrified kind."
+		if kind in ["shroom", "tr", "acc"]: return "It grows on the rock around a find. Damp, deep places suit it."
+		if kind == "pal": sids = [tag.get_slice(":", 1)]
+		else: sids = GENE_SP.get(kind, [])
+		if kind == "pearl": return _in_mines(sids, "Something on the old sea floor guards it, %s.")
+	elif item.begins_with("sp:"):
+		var id := item.trim_prefix("sp:")
+		if id.begins_with("skull_"):
+			return _in_mines([], "Dig among the bones %s." , Stones.SKULL_AREAS.keys())
+		sids = [id]
+	else:
+		return String(e.t)
+	var names: Array = []
+	for sid in sids: if Data.SP.has(sid) and not names.has(Data.SP[sid].n): names.append(String(Data.SP[sid].n))
+	return _in_mines(sids, "Look closely at %s %s." % [" and ".join(names) if names.size() else "the finds", "%s"])
+
+## "…in Whalebone Cove" / "…in a mine you haven't opened yet"
+func _in_mines(sids: Array, line: String, areas: Array = []) -> String:
+	if areas.is_empty():
+		for a in Data.AREAS.size():
+			for sid in sids:
+				if (Data.AREAS[a].pool as Dictionary).has(sid) and not areas.has(a): areas.append(a)
+	var open: Array = []
+	for a in areas: if Atlas.is_open(int(a)): open.append(String(Data.AREAS[int(a)].n))
+	var where := ("in " + " or ".join(open)) if open.size() else "in a mine you haven't opened yet"
+	return line % where
+
+## a found item: its find's card, as in the atlas — in colour while the stone is kept, grey once sold
+func _open_find(it: Array) -> void:
+	var s := String(it[0])
+	var best: Dictionary = {}
+	if s.begins_with("g:"): best = (Save.d.get("gfirst", {}) as Dictionary).get(s.trim_prefix("g:"), {})
+	elif s.begins_with("sp:"): best = (Save.d.atlas.get(s.trim_prefix("sp:"), {}) as Dictionary).get("best", {})
+	if not best.has("value"):
+		Ov.toast(String(it[3]) if it.size() > 3 else "Found")
+		return
+	var kept := false
+	for x in Save.d.coll: if int(x.id) == int(best.id): kept = true
+	Sfx.play("open")
+	var v := Ov.card(350, Data.rarity_color(int(best.tier)))
+	var view := Reveal.stone_card(v, best, 380, func(): Ov.close(), kept)
+	if not kept: view.hold_grey()
+	var ba := int(best.get("area", 0))
+	var t := ("First seen: %s · " % it[3]) if it.size() > 3 else ""
+	t += "%s, %d m" % [Data.AREAS[ba].n, Data.depth_m(ba, int(best.get("dl", 0)))]
+	if not kept: t += "
+This stone was sold. What it showed you stays known."
+	var l := Kit.label(t, 12, UI.body_bold, Kit.CREAM)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
 
 ## a ready achievement: the seal is stamped (prototype: just the toast and the seal)
 func _claim(e: Dictionary) -> void:

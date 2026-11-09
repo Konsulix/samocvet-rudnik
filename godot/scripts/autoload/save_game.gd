@@ -27,7 +27,7 @@ func blank() -> Dictionary:
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 		tut = [],
 		# genes ever seen on a find (Awards.genes_of), and the find each first showed on (its niche on the awards
-		# screen); gver 2 — the old finds read in
+		# screen, the same summary as the atlas's best); gver 3 — the old finds read in
 		genes = [], gfirst = {}, gver = 0,
 	}
 	b.vein = fresh_veins(0)
@@ -100,7 +100,7 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	for t in Awards.genes_of(s):
 		if not d.genes.has(t):
 			d.genes.append(t)
-			d.gfirst[t] = Spec.of_stone(s)
+			d.gfirst[t] = Awards.summary(s, a, dl)
 	var aid := Stones.atlas_id(s)
 	var e: Dictionary = d.atlas.get(aid, {n = 0, max_g = 0, max_v = 0, legend = false})
 	e.n = int(e.n) + 1
