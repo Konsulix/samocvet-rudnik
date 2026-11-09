@@ -1389,19 +1389,45 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 	var nn: Vector3 = st.nrm.call(p)
 	var f := {host = "amber", seed = int(rng.next() * 9000.0), crust = 0.0, window = true, cloud = 0.0, spangle = false}
 	var g := SpecFlower._resin(rng, f)
-	# waxy and lit from within: its own colour glowing, mottled with paler and deeper clouds the way jade is
+	# its pattern drawn in the stone's own space (shaders/jade.gdshader), in one of the ways jadeite comes (own stream):
+	# imperial — vivid green all through; moss in snow — white with green patches and veins; lavender or icy white with
+	# flecks of green
 	var bc := col
-	bc.a = 1.0
-	var pale := bc.lerp(Color(0.7, 0.9, 0.7), 0.3)
-	var deep := bc * 0.4
-	deep.a = 1.0
-	var ph := rng.next() * 10.0
-	g.col.resize(g.v.size())
-	for i in g.v.size():
-		var v := g.v[i]
-		var nz := sin(v.x * 3.1 + ph + sin(v.y * 4.3 + v.z * 2.1) * 1.4) * sin(v.y * 2.7 - ph * 0.7 + sin(v.x * 5.1) * 0.9)
-		g.col[i] = bc.lerp(pale, clampf(nz * 1.1, 0.0, 1.0)).lerp(deep, clampf(-nz * 1.4, 0.0, 0.9))
-	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.16, coat = 1.0, coat_r = 0.04, env = 1.5, grain = 0.03, emis = bc * 0.3 * (1.0 - 0.75 * bc.get_luminance())})
+	var green := SpecMat.lin(0x2e9a52)
+	var r3 := Rng32.new(int(rng.next() * 100000.0))
+	var lum := bc.get_luminance()
+	var style := 0 if lum < 0.15 and r3.next() < 0.6 else 1 if lum < 0.15 else 2
+	var cb: Color
+	var cp: Color
+	var cv: Color
+	var pk := 0.4
+	match style:
+		0:
+			cb = bc
+			cp = bc.lerp(Color(0.25, 0.85, 0.35), 0.35)
+			cv = bc * 0.45
+			pk = 0.35
+		1:
+			cb = Color(0.72, 0.8, 0.72)
+			cp = green.lerp(bc, 0.3)
+			cv = green * 0.6
+			pk = 0.5
+		_:
+			# (lavender soft and milky, not violet)
+			cb = bc.lerp(Color(0.85, 0.85, 0.9), 0.35) if bc.b > bc.g else bc
+			cp = green
+			cv = green * 0.7
+			pk = 0.22
+	var m := ShaderMaterial.new()
+	m.shader = JADE
+	m.set_shader_parameter("c_base", cb)
+	m.set_shader_parameter("c_patch", cp)
+	m.set_shader_parameter("c_vein", cv)
+	m.set_shader_parameter("patch_k", pk)
+	m.set_shader_parameter("vein_k", 0.3 + r3.next() * 0.5)
+	m.set_shader_parameter("glow_k", 0.32 * (1.0 - 0.6 * cb.get_luminance()))
+	m.set_shader_parameter("seed", r3.next() * 40.0)
+	m.set_shader_parameter("scale", 0.9 + r3.next() * 0.5)
 	var zw := -INF
 	for v in g.v: zw = maxf(zw, v.z)
 	var face := (nn * 0.55 + VIEW_DIR * 0.45 + UP * 0.25).normalized()
@@ -1412,9 +1438,22 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 	holder.transform = Transform3D(Basis(quat_to_l(Vector3.BACK, face)) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * sz), p - face * zw * sz * 0.7)
 	U.mesh(g, m, holder)
 	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(col, 0.6))
+	# (nothing of the shared layer grows up through the jade: the rock under it is no ground)
+	var jc := holder.position
+	var jr := 1.4 * sz
+	var pick0: Callable = st.pick
+	st.pick = func() -> Vector3:
+		var q: Vector3 = pick0.call()
+		for t in 12:
+			if q.distance_to(jc) > jr: break
+			q = pick0.call()
+		return q
+	var hol: Array = st.get("hollows", [])
+	st.hollows = hol.filter(func(h: Array) -> bool: return (h[0] as Vector3).distance_to(jc) > jr)
 	return rk
 
 const FACE := preload("res://shaders/face.gdshader")
+const JADE := preload("res://shaders/jade.gdshader")
 
 ## a nodule's rind as the rock the shared layer grows on (lichen, moss, mushrooms, puffs): the points of it that face
 ## up or towards the viewer, well off the face (plane n·p = d)
