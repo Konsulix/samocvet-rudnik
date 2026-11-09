@@ -173,6 +173,9 @@ func show(o: Dictionary) -> Node3D:
 	return p
 
 static var _building := false
+## urgent builds waiting (a stone the player is looking at: its card, the find on the board): the background ones
+## (thumbnails, the atlas's and the awards' pictures, the mine's niches) don't start while any waits
+static var _urgent := 0
 const BUILD_GIVE_UP_MS := 20000
 
 ## build a specimen on a worker thread so the screen keeps moving; await it from the main thread.
@@ -180,10 +183,13 @@ const BUILD_GIVE_UP_MS := 20000
 ## a build that hit an error never let go of it, and every later build then waited forever, each one
 ## holding a worker thread the engine needs for its own loading — the board stalled more and more.)
 ## A failed build gives null; one that never finishes is given up on so the queue moves on.
-static func build_async(o: Dictionary) -> Node3D:
+## urgent: goes before every background build still waiting (it still waits for the one already running)
+static func build_async(o: Dictionary, urgent := false) -> Node3D:
 	var tree := Engine.get_main_loop() as SceneTree
-	while _building:
+	if urgent: _urgent += 1
+	while _building or (not urgent and _urgent > 0):
 		await tree.process_frame
+	if urgent: _urgent -= 1
 	_building = true
 	var job := "build %s#%s" % [o.get("sid", o.get("machine", o.get("jewel", {}).get("rid", "?"))), o.get("seed", "")]
 	Diag.begin(job)
@@ -199,12 +205,23 @@ static func build_async(o: Dictionary) -> Node3D:
 		await tree.process_frame
 	if done:
 		WorkerThreadPool.wait_for_task_completion(id)
+	else:
+		_reap(id, out)
 	Diag.end(job, out[0] != null)
 	_building = false
 	return out[0] if done else null
 
-func show_async(o: Dictionary) -> Node3D:
-	var p: Node3D = await build_async(o)
+## a build given up on still runs: when it ends, its task is closed and what it made is freed (it leaked before)
+static func _reap(id: int, out: Array) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	while not WorkerThreadPool.is_task_completed(id):
+		await tree.process_frame
+	WorkerThreadPool.wait_for_task_completion(id)
+	if out[0] != null and is_instance_valid(out[0]):
+		(out[0] as Node).free()
+
+func show_async(o: Dictionary, urgent := false) -> Node3D:
+	var p: Node3D = await build_async(o, urgent)
 	if p == null:
 		return null
 	if not is_instance_valid(stage):

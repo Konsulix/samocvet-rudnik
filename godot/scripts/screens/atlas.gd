@@ -602,7 +602,7 @@ func _tile(id: String, w: float) -> Control:
 	pm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pm.add_child(img)
 	b.add_child(pm)
-	cutout(Spec.of_stone(e.best) if got else _sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+	cutout(Spec.of_stone(e.best) if got else _sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	var txt := VBoxContainer.new()
 	txt.add_theme_constant_override("separation", 2)
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -712,12 +712,14 @@ func _open_best() -> void:
 # ---------------------------------------------------------------- pictures
 
 ## a stone rendered once on a transparent ground, cropped to it
-static func cutout(o: Dictionary, cb: Callable) -> void:
+## owner: what the picture is for (its TextureRect); gone by the time its turn comes (the screen was left), the stone
+## isn't built at all - a screen left behind (the awards' 30-odd niches, skulls among them) no longer holds up the next one
+static func cutout(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var key := Spec.key_of(o)
 	if _cut.has(key):
 		cb.call(_cut[key])
 		return
-	_queue.append([o, cb])
+	_queue.append([o, cb, owner])
 	if not _busy:
 		_pump()
 
@@ -732,6 +734,8 @@ static func _pump() -> void:
 		var o: Dictionary = item[0]
 		var cb: Callable = item[1]
 		var key := Spec.key_of(o)
+		if not _cut.has(key) and _gone(item[2]):
+			continue
 		if not _cut.has(key):
 			var p: Node3D = await _studio.show_async(o)
 			if p == null:
@@ -749,6 +753,16 @@ static func _pump() -> void:
 		if cb.is_valid():
 			cb.call(_cut[key])
 	_busy = false
+
+## the picture's owner is freed or about to be (its screen was swapped out)
+static func _gone(owner: Variant) -> bool:
+	if owner == null: return false
+	if not is_instance_valid(owner): return true
+	return owner is Node and (owner as Node).is_queued_for_deletion()
+
+## a picture already made for this stone, or null (a card shows it while its live stone is built)
+static func cached(o: Dictionary) -> Texture2D:
+	return _cut.get(Spec.key_of(o))
 
 ## the game is closing: drop the pictures and the studio while the renderer is still up
 static func release() -> void:

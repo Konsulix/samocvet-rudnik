@@ -72,15 +72,44 @@ func _fit() -> void:
 func show_spec(o: Dictionary) -> void:
 	_req += 1
 	var my := _req
-	var p: Node3D = await studio.show_async(o)
+	_stand_in(Atlas.cached(o))
+	var p: Node3D = await studio.show_async(o, true)
 	if my != _req or not is_instance_valid(self):
 		return
+	_stand_in(null)
 	live = p
 	built.emit(p)
 	spin_v = 0.45
 	tilt = 0.0
 	if still:
 		live.rotation = Vector3(0.12, 0.6, 0)
+
+## while the live stone is built (a skull takes seconds, and waits for the build already running), its picture made
+## earlier for a tile or the atlas stands in; it fades out as the live one comes (null: fade the one up now)
+var _hint: TextureRect
+func _stand_in(t: Texture2D) -> void:
+	if t == null:
+		if _hint:
+			var h := _hint
+			_hint = null
+			var tw := h.create_tween()
+			tw.tween_property(h, "modulate:a", 0.0, 0.25)
+			tw.tween_callback(h.queue_free)
+		return
+	if _hint == null:
+		_hint = TextureRect.new()
+		_hint.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_hint.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hint.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		# about where the studio frames the stone: the middle of the view, a margin round it
+		_hint.anchor_left = 0.2
+		_hint.anchor_right = 0.8
+		_hint.anchor_top = 0.22
+		_hint.anchor_bottom = 0.72
+		add_child(_hint)
+	_hint.texture = t
+	_hint.modulate.a = 1.0
 
 func _process(dt: float) -> void:
 	_since += dt

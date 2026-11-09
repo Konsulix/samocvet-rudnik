@@ -394,7 +394,7 @@ func _niche(it: Array, sz: float) -> Control:
 		# the find this gene first showed on, as the atlas pictures it (muted like the stones in a mine's niches)
 		var o: Dictionary = (Save.d.get("gfirst", {}) as Dictionary).get(s.trim_prefix("g:"), {})
 		if o.is_empty(): img.texture = _tex(String(it[2]))
-		else: Atlas.cutout(o, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+		else: Atlas.cutout(o, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	elif s.begins_with("i:"):
 		img.texture = _tex(s.trim_prefix("i:"))
 		pass   # the drawings are coloured: shown as they are, muted like the finds
@@ -405,7 +405,7 @@ func _niche(it: Array, sz: float) -> Control:
 	elif s.begins_with("sp:"):
 		var id := s.trim_prefix("sp:")
 		var e: Dictionary = Save.d.atlas.get(id, {})
-		Atlas.cutout(Spec.of_stone(e.best) if e.has("best") else Atlas._sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+		Atlas.cutout(Spec.of_stone(e.best) if e.has("best") else Atlas._sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	return c
 
 static var _fade_m: ShaderMaterial

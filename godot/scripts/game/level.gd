@@ -252,7 +252,7 @@ func _mount_find() -> void:
 	add_child(find_studio.vp)
 	board.find_tex = find_studio.vp.get_texture()
 	var st := find_studio
-	var p: Node3D = await st.show_async(Spec.of_stone(model.find.stone))
+	var p: Node3D = await st.show_async(Spec.of_stone(model.find.stone), true)
 	if st != find_studio or p == null:
 		return
 	find_spec = p

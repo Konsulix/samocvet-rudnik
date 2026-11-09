@@ -261,7 +261,7 @@ func _card(x: Dictionary, on: bool) -> Button:
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not x.own and not x.next:
 		img.modulate = Color(0.45, 0.45, 0.45)
-	Spec.thumb({machine = x.machine}, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+	Spec.thumb({machine = x.machine}, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	v.add_child(img)
 	var n := UI.label(x.n, 11, UI.body_bold)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
