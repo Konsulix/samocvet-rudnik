@@ -112,6 +112,8 @@ const LOOK := {
 		with = [["blades", 0xeef2f6, 0.45, "rockcrystal"]]},
 	# a fossil leaf on its split rock: lichen, moss and mushrooms on the weathered rim, never the big puffs
 	fern = {rock = [["slate", 1.0]], growths = 0.8, no_acc = ["pompom", "straw", "needles"]},
+	# malachite: half of them sawn through and polished, the eyes of its bands
+	malachite = {sawn = 0.5},
 	# boulder opal: seams of it in brown ironstone
 	opal = {rock = [["ironstone", 5.0], ["basalt", 1.0]], kinds = [["crystal", 5.0], ["geode", 0.6]], growths = 0.4},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],
@@ -145,7 +147,7 @@ const LOOK := {
 	# Deathless Barrow (mine 7, docs/mine7-koschei.md §8): "the bog, the bones and the barrow's gold" - vivianite that grows
 	# on buried bones in bogs, black bog-iron, apatite (the mineral bone is made of), black morion (the stone of the dead),
 	# blood-red pyrope of Scythian inlays, carnelian beads, and Koschei's needle as its jewel
-	vivianite = {bend = 0.3, stria = [0.9, 1.0], zone = [0, 0.0, 0.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
+	vivianite = {bend = 0.55, stria = [0.9, 1.0], zone = [0, 0.0, 0.0], forms = [["radial", 4.0], ["cluster", 3.0], ["single", 1.0]], kinds = [["druse", 4.0], ["crystal", 4.0]],
 		rock = [["ironstone", 3.0], ["slate", 2.0]], hk = 1.8, wk = 0.5, dark = 0.0, glass = {tint = 0.9, dark = 0.45, glow = 0.15}, ir = 0.15,
 		palette = [[0x15505a, 0x15505a, 4.0], [0x1f5e46, 0x1f5e46, 2.0], [0x16365e, 0x16365e, 1.0]]},
 	goethite = {kinds = [["crystal", 1.0]], rock = [["ironstone", 4.0], ["slate", 1.0]], dark = 0.0, opaque = {rough = 0.1, coat = 1.0, grain = 0.02},
@@ -244,8 +246,8 @@ const AFFINITY := {
 		"moss", "coral", "twin", "druzy", "bubbles", "rutile", "phantom"]},
 	dogtooth = {love = {zoned = 3.0}, never = ["rutile"]},
 	marcasite = {love = {irid = 3.0}},
-	wavellite = {love = {druzy = 3.0}, never = ["rutile"]},
-	hyalite = {never = ["rutile"]},
+	wavellite = {love = {druzy = 3.0}, never = ["rutile", "pompom", "straw", "needles"]},
+	hyalite = {never = ["rutile", "pompom", "straw"]},
 	whewellite = {love = {twin = 3.0}, never = ["rutile"]},
 	millerite = {never = ["moss", "coral", "pompom", "straw", "needles"]},
 	ember = {never = ["irid"]},

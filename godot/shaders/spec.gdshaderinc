@@ -230,7 +230,12 @@ void fragment() {
 		n = normalize(n + st_k * (1.0 - dirt) * vec3(0.0, stb * 0.075, 0.0));
 	}
 	float clean = 1.0 - max(dirt, frost * 0.7);
-	if (bd_k > 0.0) base *= 1.0 - bd_k * (0.5 + 0.5 * sin(length(v_op) * 140.0 + sin(v_op.x * 20.0) * 1.5));
+	if (bd_k > 0.0) {
+		// growth bands round the lump's middle: wavering, sharp-edged, some broad and some fine (malachite)
+		float ph = length(v_op) * 140.0 + sin(v_op.x * 20.0) * 1.5 + (vn(v_op * 7.0) - 0.5) * 7.0;
+		float w2 = 0.5 + 0.5 * sin(ph * 0.31 + 1.7);
+		base *= 1.0 - bd_k * smoothstep(0.3, 0.7, 0.5 + 0.5 * sin(ph)) * (0.5 + 0.5 * w2);
+	}
 	float fr = 1.0 - abs(dot(n, VIEW));
 	float hue = fr * 2.4 + sin(v_op.x * 9.0 + v_op.y * 5.0) * 0.35 + sin(v_op.z * 11.0 - v_op.y * 7.0) * 0.25;
 	vec3 ir = 0.5 + 0.5 * cos(6.2832 * (hue + vec3(0.0, 0.33, 0.67)));

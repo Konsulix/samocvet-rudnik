@@ -20,6 +20,8 @@ uniform float debris_k = 0.6;
 uniform float bubble_k = 0.5;
 uniform float spangle_k = 0.0;
 uniform float crust_k = 0.0;
+uniform vec3 crust_lo = vec3(0.07, 0.025, 0.008);   // the crust's dark and light (amber's red-brown; a jade boulder's ochre)
+uniform vec3 crust_hi = vec3(0.18, 0.07, 0.02);
 uniform float cloud_k = 0.0;
 uniform float dirt_k = 0.5;
 uniform float base_k = 0.3;     // the even light behind (resin glows; clear quartz shows the dark room through it)
@@ -223,7 +225,7 @@ void fragment() {
 			float cl = dot(texture(crack_tex, cuv).rgb, vec3(0.3, 0.5, 0.2)) / max(dot(textureLod(crack_tex, cuv, 5.0).rgb, vec3(0.3, 0.5, 0.2)), 0.03);
 			craze = mix(craze, (1.0 - smoothstep(0.55, 0.85, cl)) * 0.9, crack_k);
 		}
-		crust_c = mix(vec3(0.07, 0.025, 0.008), vec3(0.18, 0.07, 0.02), vn(cp * 5.0 + seed)) * (1.0 - craze * 0.6);
+		crust_c = mix(crust_lo, crust_hi, vn(cp * 5.0 + seed)) * (1.0 - craze * 0.6);
 	}
 	ALBEDO = crust_c * crust;
 	EMISSION = (body + refl * fr * 1.1) * (1.0 - crust) + body * crust * 0.12;

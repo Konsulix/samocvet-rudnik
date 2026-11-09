@@ -56,7 +56,8 @@ static func of(o: Dictionary) -> Dictionary:
 	elif habit == "obsidian": form = "obsidian"
 	elif kind == "geode": form = "geode"
 	elif habit == "nugget": form = "nugget"
-	elif habit == "botryoid": form = "botryoid"
+	# (some lumps are sawn and polished: malachite's eyes — SpecLooks sawn, its own stream)
+	elif habit == "botryoid": form = "sawn" if Rng32.new((seed_v * 2246822519 + 31) % 4294967296).next() < float(look.get("sawn", 0.0)) else "botryoid"
 	elif "atypical" in tr and SpecLooks.odd(sid).size():
 		# a layout not the species' own (SpecLooks.odd), sometimes with another crystal: the body stays its own
 		var odd: Array = Stones.pick_w(SpecLooks.odd(sid).map(func(f: Array) -> Array: return [f, float(f[1])]), rng)
@@ -108,7 +109,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
 	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
-	if form in ["geode", "botryoid", "sawn"]:
+	if form in ["geode", "botryoid"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
@@ -135,7 +136,8 @@ static func of(o: Dictionary) -> Dictionary:
 			if o.has(k): sko[k] = o[k]
 		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass"]:
 			apool = []
-	var bare := form == "rosette" and look.has("rose")
+	# (a sawn and polished face keeps nothing growing on it)
+	var bare := (form == "rosette" and look.has("rose")) or form == "sawn"
 	if o.get("form", "") == "skull" and apool.is_empty(): bare = true   # (a gold / mosaic / glass skull: no mushrooms either)
 	if Rng32.new((seed_v * 1103515245 + 13) % 4294967296).next() > float(look.get("growths", 1.0)):
 		bare = true
