@@ -26,15 +26,18 @@ const FRINGE := 0.45     # its soft edge (a screen pixel or so on the phone)
 var card: Control
 var info: Control
 ## the second ribbon (last_of): the last kept stone with a gene an achievement shows - in the left corner, moss green,
-## as long as the record's, a brass bead instead of the wreath
+## as long as the record's, a brass butterfly instead of the wreath (the awards' Finds, where those genes are collected)
 var left := false
 var len_ := L
 var c_silk := SILK
 var c_dark := SILK_DARK
 var c_sheen := SILK_SHEEN
+## a tap on the ribbon tells this (a toast)
+var said := ""
 var _t := -DELAY
 static var _weave: ImageTexture
 static var _laurel: ImageTexture
+static var _fly: ImageTexture
 
 ## goes into the info panel itself (after its content): the panel's rounded clip cuts its top into the corner
 static func make(card_: Control, info_: Control, last_of := false) -> RecordRibbon:
@@ -47,12 +50,26 @@ static func make(card_: Control, info_: Control, last_of := false) -> RecordRibb
 		r.c_sheen = Color(0.2, 0.37, 0.21)
 	r.card = card_
 	r.info = info_
-	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.mouse_filter = Control.MOUSE_FILTER_STOP     # only over the ribbon itself (_has_point)
+	r.gui_input.connect(func(e: InputEvent):
+		if r.said != "" and Atlas._tapped(e):
+			r.accept_event()
+			Sfx.play("click")
+			Ov.toast(r.said))
 	r.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	info_.item_rect_changed.connect(r.queue_redraw)
 	card_.item_rect_changed.connect(r.queue_redraw)
 	return r
+
+## where the ribbon hangs, in this control's space (generous, for a finger)
+func _hang() -> Rect2:
+	var ig: Rect2 = get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
+	var x := ig.position.x + IN_X if left else ig.end.x - IN_X
+	return Rect2(x - W, ig.position.y - UP, W * 2.0, len_ + UP + 8.0)
+
+func _has_point(p: Vector2) -> bool:
+	return said != "" and is_instance_valid(info) and _hang().has_point(p)
 
 func _process(dt: float) -> void:
 	_t += dt
@@ -247,13 +264,9 @@ func _draw() -> void:
 	var at := int(round(N * (1.0 - (NOTCH + 10.5) / len_)))
 	var tilt := -atan(lean[at])
 	if left:
-		# a brass bead, lit from the top left
-		var b := mid[at]
-		draw_circle(b + Vector2(0.3, 0.6), 4.6, Color(0, 0, 0, 0.35))
-		draw_circle(b, 4.2, Color(0.13, 0.06, 0.02))
-		draw_circle(b, 3.5, Color(0.63, 0.5, 0.28))
-		draw_circle(b + Vector2(-0.6, -0.6), 2.4, Color(0.86, 0.72, 0.42))
-		draw_circle(b + Vector2(-1.2, -1.3), 0.9, Color(1.0, 0.94, 0.75))
+		draw_set_transform(mid[at], tilt, Vector2.ONE * (18.0 / 96.0))
+		draw_texture_rect(butterfly(), Rect2(-Vector2(48, 48), Vector2(96, 96)), false)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	draw_set_transform(mid[at] + Vector2(0, 0), tilt, Vector2.ONE * (WREATH_PT / 96.0))
 	var lt := laurel()
@@ -361,6 +374,94 @@ static func laurel() -> ImageTexture:
 	img.generate_mipmaps()
 	_laurel = ImageTexture.create_from_image(img)
 	return _laurel
+
+## the butterfly, painted once into a 96 px texture like the wreath: four wings (the fore ones larger, swept up, an
+## eyespot in each; the hind ones with a tail), a slim body, two antennae with knobs; worked brass, each wing's
+## face lit by how it turns to the light (top left), a thin dark rim round everything
+static func butterfly() -> ImageTexture:
+	if _fly != null: return _fly
+	const S := 96
+	var C := Vector2(48, 52)
+	var light := Vector2(-0.6, -0.8).normalized()
+	var hi := Color(1.0, 0.9, 0.62)
+	var md := Color(0.86, 0.66, 0.32)
+	var lo := Color(0.52, 0.34, 0.12)
+	var rim := Color(0.13, 0.06, 0.02)
+	# wings: [centre, angle, half length, half width, eyespot share along, eyespot radius, tail]
+	var wings := []
+	for sd: float in [-1.0, 1.0]:
+		wings.append([C + Vector2(sd * 17.0, -10.0), (PI if sd < 0.0 else 0.0) - sd * 0.62, 21.0, 13.5, 0.38, 4.2, false])
+		wings.append([C + Vector2(sd * 13.5, 12.0), (PI if sd < 0.0 else 0.0) + sd * 0.78, 15.5, 10.0, 0.3, 2.8, true])
+	var img := Image.create(S, S, true, Image.FORMAT_RGBA8)
+	for y in S:
+		for x in S:
+			var p := Vector2(x + 0.5, y + 0.5)
+			var out := Color(0, 0, 0, 0)
+			# the antennae: two thin curves up and out, a knob at each tip
+			for sd: float in [-1.0, 1.0]:
+				var a0 := C + Vector2(sd * 2.0, -12.0)
+				var tipp := C + Vector2(sd * 15.0, -38.0)
+				var ctrl := C + Vector2(sd * 3.5, -34.0)
+				var best := 1e9
+				for k in 13:
+					var t := k / 12.0
+					var q := a0.lerp(ctrl, t).lerp(ctrl.lerp(tipp, t), t)
+					best = minf(best, p.distance_to(q))
+				out = _over(out, rim, clampf(2.8 - best, 0.0, 1.0))
+				out = _over(out, md.lerp(hi, 0.3), clampf(1.6 - best, 0.0, 1.0))
+				var dk := p.distance_to(tipp)
+				out = _over(out, rim, clampf(4.6 - dk, 0.0, 1.0))
+				out = _over(out, md.lerp(hi, clampf((tipp.y + 1.5 - p.y) / 3.0, 0.0, 1.0)), clampf(3.4 - dk, 0.0, 1.0))
+			for wg in wings:
+				var o: Vector2 = wg[0]
+				var ang: float = wg[1]
+				var hl: float = wg[2]
+				var hw: float = wg[3]
+				var d := (p - o).rotated(-ang)
+				# an egg, fuller towards its outer end
+				var u := d.x / hl
+				if absf(u) > 1.3: continue
+				var half := hw * sqrt(maxf(0.0, 1.0 - u * u)) * (1.0 + 0.22 * u)
+				var edge := absf(d.y) - half
+				if bool(wg[6]):
+					# the hind wing's tail: a small round lobe past its outer end
+					var tl := (d - Vector2(hl * 1.02, 0.0)).length() - 3.6
+					edge = minf(edge, tl)
+				var cov_rim := clampf(1.4 - edge, 0.0, 1.0)
+				if cov_rim <= 0.0: continue
+				out = _over(out, rim, cov_rim)
+				var cov := clampf(0.4 - edge, 0.0, 1.0)
+				if cov <= 0.0: continue
+				# the wing's face: a gentle dome, lit from the top left
+				var n := Vector2(u, d.y / maxf(half, 0.01)).rotated(ang) * 0.8
+				var face := n.dot(light)
+				var c := md.lerp(hi, clampf(face, 0.0, 1.0)) if face > 0.0 else md.lerp(lo, clampf(-face, 0.0, 1.0))
+				# veins fanning from the root, and a darker hem
+				var root := (p - (C + Vector2(0, -2))).angle()
+				if absf(sin(root * 7.0)) < 0.09 and absf(u) < 0.85: c = c.lerp(lo, 0.45)
+				if edge > -2.0: c = c.lerp(lo, 0.35)
+				# the eyespot: a dark ring round a bright pupil
+				var es := p.distance_to(o + Vector2(hl * float(wg[4]), 0).rotated(ang))
+				var er: float = wg[5]
+				if es < er + 1.0: c = rim.lerp(c, clampf(es - er, 0.0, 1.0))
+				if es < er * 0.55: c = hi
+				out = _over(out, c, cov)
+			# the body, over the wings: a slim segmented spindle
+			var db := p - C
+			var bu := db.y / 19.0
+			if absf(bu) < 1.1:
+				var bh := 2.9 * sqrt(maxf(0.0, 1.0 - bu * bu)) + (0.6 if bu < -0.55 else 0.0)
+				var be := absf(db.x) - bh
+				var ends := (1.0 - absf(bu)) * 19.0
+				out = _over(out, rim, clampf(1.4 - be, 0.0, 1.0) * clampf(ends + 1.4, 0.0, 1.0))
+				var bc := md.lerp(hi, clampf(-db.x / maxf(bh, 0.01), 0.0, 1.0) * 0.8)
+				if bu > -0.4 and fmod(db.y + 40.0, 4.0) < 0.9: bc = bc.lerp(lo, 0.5)
+				out = _over(out, bc, clampf(0.4 - be, 0.0, 1.0) * clampf(ends + 0.4, 0.0, 1.0))
+			img.set_pixel(x, y, out)
+	img.generate_mipmaps()
+	_fly = ImageTexture.create_from_image(img)
+	return _fly
+
 
 ## `c` laid over `dst` with coverage `a` (straight alpha)
 static func _over(dst: Color, c: Color, a: float) -> Color:
