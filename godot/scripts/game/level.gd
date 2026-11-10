@@ -1576,6 +1576,9 @@ func _finale() -> void:
 	# as in Royal Match: the specials the player left on the board go off first (and what their blasts make),
 	# then the moves left turn into dynamite
 	var cheered := false
+	# the level is won: stones falling in now come in a sixth colour too, so the blasts' cascades die out sooner
+	# (with five, a big board kept cascading for 5-10 s before the win card)
+	if not model.boss_on(): model.colors = maxi(model.colors, 6)
 	if not model.boss_on():
 		for round_ in 4:
 			var ev := []
