@@ -332,6 +332,10 @@ func _ready() -> void:
 					e.beast = bl[list.size() % bl.size()]
 				if args.has("crown"): e.crown = args.crown == "1"
 				if args.has("maw"): e.maw = args.maw == "1"
+				# a skull's legend: fx=yaga|candle|watching|deathless|flutter|fireflies
+				if args.has("fx"):
+					e.legend = true
+					e.fx = args.fx
 				if args.has("trees"): e.trees = int(args.trees)
 				if args.has("stream"): e.stream = args.stream == "1"
 				if args.has("wine"): e.wine = args.wine == "1"

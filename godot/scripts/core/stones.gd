@@ -77,6 +77,11 @@ static func pool_at(area: int, dl: int) -> Array:
 ## crystal growing out of it. What it is cast in, by depth (the tale's layers): plain bone near the top, nacre, gold leaf
 ## and the mosaic further down, glass by the duck's lake, cast gold, silver and copper only in the hoard — rare, so a
 ## golden skull stays an event. Its own random stream: the rest of the find rolls as before.
+## a mine of animal skulls (none yet — a future mine says here which beasts it holds): area → {chance (of its finds that
+## become one), beasts [[id, weight], ...]}; the crystal stays the find's species, the skin its own draw (BEAST_SKIN)
+const BEAST_AREAS := {}
+const BEAST_SKIN := [["bone", 6.0], ["lapis", 1.0], ["feathers", 0.9], ["sugar", 1.2], ["rhodo", 0.9], ["gilt", 1.0], ["nacre", 1.0],
+	["kintsugi", 0.7], ["agate", 0.6], ["opal", 0.4], ["gold", 0.35], ["silver", 0.2], ["copper", 0.15]]
 const SKULL_AREAS := {6: 0.36}   # (of the finds that can be one: about every fourth find in all)
 const SKULL_SP := ["vivianite", "apatite", "morion", "pyrope", "venom"]   # (prisms and garnets grow a crown; not the needle)
 const SKULL_SKINS := ["bone", "pyrite", "agate", "nacre", "gilt", "geode", "kintsugi", "opal", "glass", "gold", "silver", "copper"]
@@ -257,6 +262,17 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			kind_m *= float(SKULL_V[skull])
 			traits.erase("atypical")   # (a skull is its own form)
 			g = roundi(900.0 * (1.0 + sr.next() * 0.8))
+	var beast := ""
+	if BEAST_AREAS.has(area) and skull == "" and not legend and not kind in ["nugget", "fossil"]:
+		var br := Rng32.new((seed_id * 2246822519 + 13) % 4294967296)
+		var ba: Dictionary = BEAST_AREAS[area]
+		if br.next() < float(ba.chance):
+			beast = pick_w(ba.beasts, br)
+			skull = pick_w(BEAST_SKIN, br)
+			kind = "druse"
+			kind_m *= float(SKULL_V[skull]) * 1.15
+			traits.erase("atypical")
+			g = roundi(700.0 * (1.0 + br.next() * 1.4))
 	var value: float = float(Data.SP[sid].v) * VALUE_K * tm * kind_m
 	# a living effect is worth the same on any body: added, not multiplied, so a legendary pyrite
 	# outprices a plain emerald (it is about as rare); the stone itself still counts a little more
@@ -268,6 +284,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	if skull != "":
 		out.form = "skull"
 		out.skin = skull
+		if beast != "": out.beast = beast
 		out.tier = maxi(int(out.tier), int(SKULL_TIER[skull]))
 	return out
 

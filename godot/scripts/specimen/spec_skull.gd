@@ -108,10 +108,13 @@ static func _breach_lines(out: Dictionary) -> void:
 	var sz := bb.size
 	var nr := cr.normals()
 	var a := -1
+	# (the braincase, not the tip of a raised snout or an open beak: near the eyes if they are known, else the front
+	# 40% left out)
+	var ez := lm_v(lm, "eye_front").z if lm.has("eye_front") else INF
 	for i in cr.v.size():
 		var p := cr.v[i]
-		# (the braincase, not the tip of a raised snout or an open beak: the front 40% left out)
-		if absf(p.x) < sz.x * 0.06 and nr[i].y > 0.2 and p.z < bb.position.z + sz.z * 0.6 and (a < 0 or p.y > cr.v[a].y): a = i
+		var head := absf(p.z - ez) < maxf(sz.x, 0.35) * 0.9 if ez != INF else p.z < bb.position.z + sz.z * 0.6
+		if absf(p.x) < sz.x * 0.06 and nr[i].y > 0.2 and head and (a < 0 or p.y > cr.v[a].y): a = i
 	if a < 0: return
 	var A := cr.v[a]
 	var L := maxf(sz.x, sz.z) * 0.3
@@ -121,7 +124,7 @@ static func _breach_lines(out: Dictionary) -> void:
 			var p := cr.v[i]
 			var d := p.distance_to(A)
 			if absf(p.x) < sz.x * 0.06 and d > L * 0.8 and d < L * 1.3 and nr[i].dot(Vector3(0, 0.6, 0.8)) > 0.0 and (b < 0 or p.z > cr.v[b].z): b = i
-		if b >= 0: lm.crest = [[A.x, A.y, A.z], [cr.v[b].x, cr.v[b].y, cr.v[b].z], sz.x * 0.3, sz.x * 0.22]
+		if b >= 0: lm.crest = [[A.x, A.y, A.z], [cr.v[b].x, cr.v[b].y, cr.v[b].z], maxf(sz.x * 0.3, 0.13), maxf(sz.x * 0.22, 0.1)]
 	if not lm.has("side"):
 		var s := -1
 		var best := INF
@@ -133,7 +136,7 @@ static func _breach_lines(out: Dictionary) -> void:
 				best = d
 				s = i
 		var top := A + Vector3(sz.x * 0.12, 0, 0)
-		if s >= 0: lm.side = [[top.x, top.y, top.z], [cr.v[s].x, cr.v[s].y, cr.v[s].z], sz.x * 0.38, sz.x * 0.2]
+		if s >= 0: lm.side = [[top.x, top.y, top.z], [cr.v[s].x, cr.v[s].y, cr.v[s].z], maxf(sz.x * 0.38, 0.15), maxf(sz.x * 0.2, 0.1)]
 
 ## a landmark of a beast's (Vector3 from [x, y, z]), mirrored to side sx
 static func lm_v(lm: Dictionary, key: String, sx := 1.0) -> Vector3:
