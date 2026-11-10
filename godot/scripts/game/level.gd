@@ -860,6 +860,7 @@ func _wait(sec: float) -> void:
 
 func _resolve(first: Array, swap_cells: Array) -> void:
 	var cascade := 0
+	var moves_in := _extra_moves   # a move made mid-cascade starts its own count (else every move of a long run added up)
 	var sw := swap_cells
 	_kegs = 0
 	_resolving = true
@@ -879,8 +880,12 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 			_resolving = false
 			_aw_settled()
 			break
+		if _extra_moves != moves_in:
+			moves_in = _extra_moves
+			cascade = 0
 		cascade += 1
-		if cascade == 8: Awards.once("cascade8")
+		# (not in the prologue: four colours on an open cave cascade by themselves)
+		if cascade == 8 and not prologue: Awards.once("cascade8")
 		if _belt_mode: _belt_n += groups.size()
 		# a cascade's count over the stones that fell into place by themselves
 		if cascade >= 2 and not groups.is_empty():
@@ -1637,6 +1642,7 @@ func _win() -> void:
 
 ## what a won board tells the achievements (Awards: Mastery, Bosses, Secrets)
 func _awards_won(stone: Dictionary) -> void:
+	if prologue: return   # the scripted first board proves nothing (40 moves, four colours)
 	if model.moves == 0: Awards.once("last_move")
 	if not _low and not model.boss_on(): Awards.once("lazy")
 	if _combo_move: Awards.once("overkill")
