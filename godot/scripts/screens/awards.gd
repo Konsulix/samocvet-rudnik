@@ -78,8 +78,6 @@ static var LIST := [
 	{tab = "mines", icon = "serpent", n = "The Serpent Sleeps", t = "Gold doesn't come for free here.", r = "a trophy", one = true, boss = 0, items = ["i:serpent"]},
 	{tab = "mines", icon = "glow_stone", n = "Legend of the Adit", t = "One stone here is not like the others.", r = "a rare geode", one = true, legend = 0, items = ["i:glow_stone"]},
 	{tab = "mines", icon = "headframe", n = "Fully Rigged", t = "Every wheel turns, every lamp burns.", r = "coins", coins = 1500, one = true, ev = "rigged:0", items = ["kit:coin"]},
-	{tab = "mines", icon = "scroll", n = "Notes from Below", t = "The guide wrote things down. Not everything was for you.", r = "the guide's story",
-		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll", "i:scroll"], evs = ["tut:g_hello_0", "tut:g_ore", "tut:g_build", "tut:g_drill", "tut:g_deeper"]},
 	{tab = "mines", icon = "eye", n = "Eye of the Miner", t = "The mine moves when you're not looking. Catch it moving.", r = "a portrait frame",
 		items = ["i:serpent", "i:serpent", "i:eye", "i:lizard"], evs = ["ev:0:hole", "ev:0:coil", "ev:0:eyes", "ev:0:lizard"]},
 
