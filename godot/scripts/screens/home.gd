@@ -464,6 +464,10 @@ func _view_input(e: InputEvent) -> void:
 				Awards.once("ev:0:maiden")
 				accept_event()
 				return
+			if view.has_method("event_hit") and view.event_hit(lp):
+				# a rare event caught as it happens (the awards count only caught ones)
+				accept_event()
+				return
 			var stone := view.niche_at(lp)
 			if not stone.is_empty():
 				# the find on its pedestal: its card, as in the museum
@@ -1174,6 +1178,7 @@ func _rise() -> void:
 	Save.tell("g_hello_0")    # he has just said hello
 	# his gift: "gold" - a handpicked pyrite (GIFTS). The newcomer thanks him on the card's one button, he laughs
 	var gift := Stones.roll(GIFTS[randi() % GIFTS.size()], 0, 0.8, 1)
+	gift.gift = true
 	var rv := Reveal.new()
 	rv.name_as = "Gold?"
 	rv.reply = "Gold! Thank you!"

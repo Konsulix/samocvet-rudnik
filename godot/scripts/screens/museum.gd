@@ -329,7 +329,7 @@ func _dupes() -> Array:
 		if not best.has(gid) or int(st.value) > int(best[gid].value): best[gid] = st
 	var out := []
 	for st in Save.d.coll:
-		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "": continue
+		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "" or Save.is_gift(st): continue
 		out.append(st)
 	return out
 
@@ -424,6 +424,15 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 		Ov.close()
 		render()
 	var sell_b := Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0)
+	if Save.is_gift(s):
+		# his gift: he asks first (the sale still goes through - Old Man's Gold is for those who meant it)
+		var plain := sell
+		sell = func():
+			Ov.panel("His gift", "\"You'd sell what I gave you? ...Well. It's yours to sell.\"", [
+				["Sell it · " + UI.coins(price), "gold", func():
+					Ov.close()
+					plain.call()],
+				["Keep it", "glass", func(): _open_stone(s, group)]])
 	if cut_done:
 		sell_b.custom_minimum_size = Vector2(0, 48)
 		sell_b.pressed.connect(sell)

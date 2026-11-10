@@ -72,6 +72,10 @@ var _mdn_s := -1.0         # how long she has been dancing, -1 when she is not
 const MDN_STAY := 10.0
 const MDN_H := 175.0
 var _events := {}         # name -> start time of the running rare event, or -1
+## where a running event is drawn this frame (source px; set by its drawing, `_spot`): a tap there catches it
+## (Awards: Eye of the Miner, Glimpses of the Deep) - only caught ones count, not ones that merely went by
+var _spots := {}
+var _caught := {}         # event -> the start time of the run that was caught (one catch a run)
 var _next_event := 0.0
 var _tremor_at := -100.0  # when the mine last began to shake
 var _next_tremor := 20.0
@@ -877,7 +881,6 @@ func _tick_events() -> void:
 	if not pool.is_empty():
 		var ev: String = pool[_rng.randi() % pool.size()]
 		_events[ev] = t
-		if ev != "bat": Awards.once("ev:%d:%s" % [area, ev])    # Awards: Eye of the Miner
 		match ev:
 			"hole": get_tree().create_timer(1.6).timeout.connect(func(): amb.shot("hiss", _far(band_y(0) + 400) - 14.0, 1.4))
 			"coil": amb.shot("hiss", _far(band_y(3) + 300) - 10.0, 0.6)
@@ -1135,6 +1138,25 @@ func _maiden_glimpse(c: CanvasItem, s: float) -> bool:
 ## her glimpse is over: tapped and run off, or danced her while
 func _maiden_gone(s: float) -> bool:
 	return (t - _mdn_tap) >= 0.9 if _mdn_tap >= 0.0 else s > MDN_STAY
+
+## the running event drawn here this frame: a tap inside `r` (half size) of `at` catches it
+func _spot(ev: String, at: Vector2, r: Vector2) -> void:
+	_spots[ev] = Rect2(at - r, r * 2.0)
+
+## a tap on a running rare event (source px): caught - counted for the awards, a chime and a buzz, nothing drawn
+func event_hit(p: Vector2) -> bool:
+	for ev in _spots.keys():
+		if not _events.has(ev):
+			_spots.erase(ev)
+			continue
+		if _caught.get(ev, -1.0) == float(_events[ev]): continue
+		if (_spots[ev] as Rect2).grow(30.0).has_point(p):
+			_caught[ev] = float(_events[ev])
+			Awards.once("ev:%d:%s" % [area, ev])
+			Sfx.play("reveal_1")
+			Sfx.buzz(35)
+			return true
+	return false
 
 ## a tap on the dancing Fire Maiden (source px): she runs off and the next level is a rich vein
 func maiden_hit(p: Vector2) -> bool:
@@ -1708,6 +1730,8 @@ func _snake_live(c: CanvasItem) -> void:
 				if done: _mdn_s = -1.0
 				_mdn_ci.queue_redraw()
 			"hole":
+				var hp0: Dictionary = J.hole
+				_spot(ev, Vector2(float(hp0.x), band_y(0) + float(hp0.y) + 110.0), Vector2(150, 190))
 				if String(_shown_bands.get(0, "")) == "closed": done = true
 				elif ResourceLoader.exists(dir + "snake_strip.png"): done = _snake_out(c, s)
 				else:
@@ -1727,11 +1751,13 @@ func _snake_live(c: CanvasItem) -> void:
 					var p := "snake/coil_%02d.png" % i
 					var sz := _size(p)
 					_put(c, p, Vector2(640 - sz.x / 2, band_y(3) + 512 - 190 + 14 - sz.y))
+					_spot(ev, Vector2(640, band_y(3) + 512 - 190 + 14 - sz.y / 2), sz / 2 + Vector2(20, 20))
 			"eyes":
 				# in the dark of the adit on the surface, under its lantern
 				if s > 5.0: done = true
 				else:
 					_eyes(c, Vector2(968, float(J.sky) + 1606), s, 0.38)
+					_spot(ev, Vector2(968, float(J.sky) + 1606), Vector2(70, 50))
 			"lizard":
 				# she lives in the crack of the malachite vein on the 200 m back wall: comes out (24 drawings), sits on the vein
 				# almost unseen, blinking now and then (12 drawings), and goes back in (the coming out reversed)
@@ -1749,6 +1775,7 @@ func _snake_live(c: CanvasItem) -> void:
 				if fr != "":
 					var lp := Vector2(float(L2.x), band_y(int(L2.get("k", 0))) + float(L2.y))
 					_put(c, fr, lp)
+					_spot(ev, lp + _size(fr) / 2, _size(fr) / 2 + Vector2(30, 30))
 					# the sitting drawing is another one than the last of the coming out: one melts into the other
 					var q2 := s - out_s
 					var mix := 1.0 - q2 / LIZ_MELT if q2 >= 0.0 and q2 < LIZ_MELT else 0.0

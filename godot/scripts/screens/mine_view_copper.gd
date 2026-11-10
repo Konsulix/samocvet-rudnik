@@ -867,7 +867,6 @@ func _tick_events() -> void:
 		return
 	var ev: String = pool[_rng.randi() % pool.size()]
 	_events[ev] = t
-	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	if ev == "lizard":
 		var cand: Array = []
 		for cr in J.cracks:
@@ -896,6 +895,7 @@ func _events_live(c: CanvasItem) -> void:
 					# her face is cut by the falls' water already: only a breath of a sway, so she stays inside it
 					var wob := Vector2(sin(t * 2.3) * 1.0, 0)
 					c.draw_texture_rect(tex("reflection.png"), Rect2(Vector2(float(rf[0]), float(rf[1])) - rs / 2 + wob, rs), false, Color(1, 1, 1, 0.6 * a))
+					_spot(ev, Vector2(float(rf[0]), float(rf[1])), rs / 2)
 			"window":
 				# drawn with the lapidary (_surface_live), under the front of its windows
 				if s > 3.4: done = true

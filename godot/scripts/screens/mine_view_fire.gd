@@ -1058,7 +1058,6 @@ func _tick_events() -> void:
 	_start_event(pool[_rng.randi() % pool.size()])
 
 func _start_event(ev: String) -> void:
-	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	_events[ev] = t
 	match ev:
 		"etna":
@@ -1145,6 +1144,9 @@ func _events_live(c: CanvasItem) -> void:
 				else:
 					var cx := lerpf(1600.0, 300.0, s / SHADOW_LEN)
 					var y := band_y(6)
+					var gy := 0.0
+					for g_ in J.gaps: gy += (float(g_[1]) + float(g_[3])) * 0.5 / maxf(1.0, (J.gaps as Array).size())
+					_spot(ev, Vector2(cx, y + gy), Vector2(320, 220))
 					for g_ in J.gaps:
 						var g: Array = g_
 						var f := exp(-pow((float(g[0]) - cx) / 230.0, 2.0)) * sin(PI * s / SHADOW_LEN)

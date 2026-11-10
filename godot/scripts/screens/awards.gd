@@ -80,10 +80,10 @@ static var LIST := [
 	{tab = "mines", icon = "headframe", n = "Fully Rigged", t = "Every wheel turns, every lamp burns.", r = "coins", coins = 1500, one = true, ev = "rigged:0", items = ["kit:coin"]},
 	{tab = "mines", icon = "scroll", n = "Notes from Below", t = "The guide wrote things down. Not everything was for you.", r = "the guide's story",
 		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll", "i:scroll"], evs = ["tut:g_hello_0", "tut:g_ore", "tut:g_build", "tut:g_drill", "tut:g_deeper"]},
-	{tab = "mines", icon = "eye", n = "Eye of the Miner", t = "The mine moves when you're not looking.", r = "a portrait frame",
+	{tab = "mines", icon = "eye", n = "Eye of the Miner", t = "The mine moves when you're not looking. Catch it moving.", r = "a portrait frame",
 		items = ["i:serpent", "i:serpent", "i:eye", "i:lizard"], evs = ["ev:0:hole", "ev:0:coil", "ev:0:eyes", "ev:0:lizard"]},
 
-	{tab = "mines", icon = "glimpse", n = "Glimpses of the Deep", t = "The mines hide their masters. Sometimes they slip.", r = "a portrait frame",
+	{tab = "mines", icon = "glimpse", n = "Glimpses of the Deep", t = "The mines hide their masters. Sometimes they slip - catch them at it.", r = "a portrait frame",
 		items = ["i:lizard", "i:tentacle", "i:lightning", "i:moon", "i:twins"], evs = ["ev:1:reflection", "ev:2:eel", "ev:3:shadow", "ev:4:dwarf", "ev:4:brother"]},
 	{tab = "mines", icon = "night_watch", n = "Night Watch", t = "Sit still long enough and the mine forgets you're there.", r = "Watch a mine for three minutes", one = true, ev = "night_watch", give = {lives = 2}, items = ["kit:heart"]},
 
@@ -279,6 +279,8 @@ func _ready() -> void:
 	add_child(bg)
 	render()
 
+var _bar: Control
+
 func render() -> void:
 	_kept = {}
 	var keep := scroll.scroll_vertical if scroll else 0
@@ -293,7 +295,8 @@ func render() -> void:
 	pad.add_theme_constant_override("margin_top", 10 + int(UI.safe_top()))
 	pad.add_theme_constant_override("margin_bottom", 6)
 	pad.z_index = 1
-	pad.add_child(Chrome.top_bar())
+	_bar = Chrome.top_bar()
+	pad.add_child(_bar)
 	root.add_child(pad)
 	var area := Control.new()
 	area.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -667,10 +670,10 @@ func _strip(e: Dictionary, w: float) -> Control:
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		glow.size = s.size
 		glow.draw.connect(func():
-			for i in 4:
-				var g := 1.0 + i * 1.5
+			for i in 6:
+				var g := 1.0 + i * 2.0
 				var r := Rect2(Vector2(-g, -g), s.size + Vector2(g, g) * 2.0)
-				glow.draw_style_box(_round(Color(1.0, 0.72, 0.3, 0.42 - i * 0.09), 12.0 + g), r))
+				glow.draw_style_box(_round(Color(1.0, 0.7, 0.25, 0.55 - i * 0.085), 12.0 + g), r))
 		s.add_child(glow)
 		var tw := glow.create_tween().set_loops()
 		tw.tween_property(glow, "modulate:a", 0.45, 1.1).set_trans(Tween.TRANS_SINE)
@@ -678,6 +681,14 @@ func _strip(e: Dictionary, w: float) -> Control:
 	var p := _parchment(hidden)
 	p.size = s.size
 	s.add_child(p)
+	if st == "ready":
+		# done, waiting for its claim: the parchment itself warms and brightens with the glow
+		p.modulate = Color(1.12, 1.02, 0.82)
+		var pt := p.create_tween().set_loops()
+		pt.tween_property(p, "modulate", Color(1.2, 1.08, 0.86), 1.1).set_trans(Tween.TRANS_SINE)
+		pt.tween_property(p, "modulate", Color(1.12, 1.02, 0.82), 1.1).set_trans(Tween.TRANS_SINE)
+	elif st == "done":
+		p.modulate = Color(0.78, 0.74, 0.7)
 	var ic := _pic("question" if hidden else String(e.icon), ICON)
 	ic.position = Vector2(9, (STRIP_H - ICON) / 2.0)
 	if hidden: ic.modulate = Color(1, 1, 1, 0.45)
@@ -737,7 +748,9 @@ func _strip(e: Dictionary, w: float) -> Control:
 		row.position = Vector2(x3, (STRIP_H - CARD) / 2.0)
 		s.add_child(row)
 		if st == "done":
-			row.modulate = Color(0.85, 0.82, 0.78)
+			row.modulate = Color(0.72, 0.69, 0.65)
+			ic.modulate = Color(0.78, 0.74, 0.7)
+			t.modulate = Color(1, 1, 1, 0.7)
 			# a small seal stamped on the strip's bottom right corner, over its edge
 			var seal := _pic("seal", 34)
 			seal.position = Vector2(w - 26.0, STRIP_H - 30.0)
@@ -746,8 +759,7 @@ func _strip(e: Dictionary, w: float) -> Control:
 			s.add_child(seal)
 	s.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
 		Sfx.play("open")
-		if st == "ready": _claim(e, s)
-		else: _sheet(e))
+		_sheet(e))
 	return s
 
 ## the cards of a strip, right-aligned to the third slot; with more than three the row slides sideways
@@ -824,10 +836,29 @@ func _tabs(w: float) -> Control:
 		b.add_child(ic)
 		var done := 0
 		var all := 0
+		var ready := 0
 		for e in LIST:
 			if String(e.tab) != id: continue
 			all += 1
-			if _state(e) in ["done", "ready"]: done += 1
+			var es := _state(e)
+			if es in ["done", "ready"]: done += 1
+			if es == "ready": ready += 1
+		if ready:
+			# something to claim in it: the tab glows warm behind and breathes
+			var gl := Control.new()
+			gl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gl.size = Vector2(tw, 72)
+			gl.show_behind_parent = true
+			gl.draw.connect(func():
+				for i in 5:
+					var g := 1.0 + i * 2.0
+					gl.draw_style_box(_round(Color(1.0, 0.68, 0.22, 0.5 - i * 0.09), 8.0 + g), Rect2(Vector2(-g, -g), Vector2(tw, 60) + Vector2(g, g) * 2.0)))
+			b.add_child(gl)
+			b.move_child(gl, 0)
+			var gt := gl.create_tween().set_loops()
+			gt.tween_property(gl, "modulate:a", 0.35, 1.1).set_trans(Tween.TRANS_SINE)
+			gt.tween_property(gl, "modulate:a", 1.0, 1.1).set_trans(Tween.TRANS_SINE)
+			bg.modulate = Color(1.25, 1.08, 0.85)
 		var col := Kit.AMBER if on else Kit.CREAM
 		if on: bg.modulate = Color(1.08, 1.0, 0.9)
 		var nl := UI.label(String(t[1]), 9, UI.display, col)
@@ -942,6 +973,14 @@ func _sheet(e: Dictionary) -> void:
 			grid.add_child(cell)
 		v.add_child(grid)
 	v.add_child(tz)
+	if _state(e) == "ready":
+		var cb := Kit.button("Claim", "btn_green", 20, 6.0)
+		cb.custom_minimum_size = Vector2(0, 56)
+		cb.pressed.connect(func():
+			if _busy: return
+			cb.disabled = true
+			_claim(e, p, lay, cb))
+		v.add_child(cb)
 	if e.get("opens", false) and _state(e) == "done":
 		var wait := 0
 		if String(e.n) == "Where She Danced":
@@ -957,7 +996,7 @@ func _sheet(e: Dictionary) -> void:
 		v.add_child(b)
 	await get_tree().process_frame
 	p.position = (size - p.size) / 2.0
-	lay.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
+	lay.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev) and not _busy:
 		Sfx.play("tab")
 		lay.queue_free())
 
@@ -1073,10 +1112,14 @@ func _open_find(it: Array) -> void:
 	v.add_child(l)
 
 ## a ready achievement: the reward is handed over, the seal stamped
-func _claim(e: Dictionary, strip: Control = null) -> void:
+## (from its sheet: the seal comes down on the sheet, the coins fly up to the bar, then the sheet goes)
+func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 	if _busy: return
 	_busy = true
-	if strip: await _stamp(strip)
+	await _stamp(sheet, Vector2(sheet.size.x - 46.0, 30.0), 1.8)
+	var gv := give_of(e)
+	if gv.has("coins"): await _coins_fly(from.get_global_rect().get_center(), int(gv.coins))
+	lay.queue_free()
 	await Awards.claim(e)
 	if SAY.has(String(e.n)) and Save.told("s_sister_meet"):
 		var l: Array = SAY[String(e.n)]
@@ -1087,18 +1130,18 @@ func _claim(e: Dictionary, strip: Control = null) -> void:
 var _busy := false
 
 ## the wax seal comes down on the strip's corner: big and high, a thud, a jolt of the strip, a ring of light
-func _stamp(strip: Control) -> void:
+func _stamp(strip: Control, at: Vector2, big := 1.0) -> void:
 	var seal := _pic("seal", 34)
 	seal.pivot_offset = Vector2(17, 17)
-	seal.position = Vector2(strip.size.x - 26.0, STRIP_H - 30.0)
-	seal.scale = Vector2(3.2, 3.2)
+	seal.position = at - Vector2(17, 17)
+	seal.scale = Vector2(3.2, 3.2) * big
 	seal.rotation = -0.5
 	seal.modulate.a = 0.0
 	seal.z_index = 2
 	strip.add_child(seal)
 	var tw := seal.create_tween().set_parallel()
 	tw.tween_property(seal, "modulate:a", 1.0, 0.12)
-	tw.tween_property(seal, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(seal, "scale", Vector2.ONE * big, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_property(seal, "rotation", 0.18, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await tw.finished
 	Sfx.play("build")
@@ -1107,9 +1150,10 @@ func _stamp(strip: Control) -> void:
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ring.position = seal.position + Vector2(17, 17)
 	strip.add_child(ring)
+	var kk := big
 	var k := [0.0]
 	ring.draw.connect(func():
-		ring.draw_arc(Vector2.ZERO, 14.0 + 30.0 * k[0], 0, TAU, 32, Color(1.0, 0.8, 0.45, 0.8 * (1.0 - k[0])), 3.0, true))
+		ring.draw_arc(Vector2.ZERO, (14.0 + 30.0 * k[0]) * kk, 0, TAU, 32, Color(1.0, 0.8, 0.45, 0.8 * (1.0 - k[0])), 3.0, true))
 	var rt := ring.create_tween()
 	rt.tween_method(func(x: float):
 		k[0] = x
@@ -1120,6 +1164,47 @@ func _stamp(strip: Control) -> void:
 	jt.tween_property(strip, "position:x", x0 - 2.0, 0.05)
 	jt.tween_property(strip, "position:x", x0, 0.05)
 	await get_tree().create_timer(0.45).timeout
+
+## the coins of a reward fly up from the Claim button into the coins' capsule of the bar, chinking as they land
+func _coins_fly(from: Vector2, n: int) -> void:
+	var hooks: Array = _bar.get_meta("hooks", []) if _bar else []
+	if hooks.is_empty(): return
+	var to: Vector2 = (hooks[0] as Control).get_global_rect().get_center()
+	var tex := Kit.tex_at("res://assets/ui/kit/icons/coin.png")
+	var count := clampi(n / 50, 5, 14)
+	var o := get_global_rect().position
+	for i in count:
+		var c := TextureRect.new()
+		c.texture = tex
+		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		c.size = Vector2(26, 26)
+		c.pivot_offset = Vector2(13, 13)
+		c.z_index = 10
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.position = from - o - Vector2(13, 13)
+		add_child(c)
+		var mid := from - o + Vector2(randf_range(-70, 70), randf_range(-60, 10))
+		var end := to - o - Vector2(13, 13)
+		var tw := c.create_tween()
+		tw.tween_property(c, "position", mid - Vector2(13, 13), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "position", end, 0.42 + i * 0.03).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(c, "scale", Vector2(0.7, 0.7), 0.42)
+		tw.tween_callback(func():
+			Sfx.play("coin")
+			c.queue_free())
+		await get_tree().create_timer(0.05).timeout
+	await get_tree().create_timer(0.7).timeout
+
+## for screenshots: ui=open_ready opens the sheet of an achievement waiting for its claim (and switches to its tab)
+func _open_ready() -> void:
+	for e in LIST:
+		if _state(e) == "ready":
+			if tab != String(e.tab):
+				tab = String(e.tab)
+				await render()
+			_sheet(e)
+			return
 
 ## for screenshots: ui=open_first opens the sheet of the first strip of the tab
 func _open_first() -> void:
