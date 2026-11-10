@@ -231,6 +231,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	# opens; inside the panel, so its rounded clip cuts the ribbon's top, the rim lies over it
 	if mark and chips_max == 0 and not s.has("name_as") and is_record(s):
 		info.add_child(RecordRibbon.make(card, info))
+	# the last kept stone with a gene an achievement shows (Awards.last_genes): a shorter green ribbon in the left corner
+	var lastg := Awards.last_genes(s) if chips_max == 0 and not s.has("name_as") else PackedStringArray()
+	if not lastg.is_empty():
+		info.add_child(RecordRibbon.make(card, info, true))
 	card.add_child(_info_rim(card, info))
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)
@@ -276,6 +280,13 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		flow.add_child(c)
 	if flow.get_child_count():
 		v.add_child(flow)
+	if not lastg.is_empty():
+		# which genes (many have no badge: the life on a stone is shown by its callouts only)
+		var lg := UI.label("Last one kept with " + ", ".join(lastg).to_lower(), 13, UI.body, Color(0.62, 0.78, 0.6))
+		lg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(lg)
 	# then only what really grew on it stays (a gene the stone's form had no room for is not named),
 	# and a tap on a badge (or on the stone) draws threads from name plates to where each grew
 	view.built.connect(func(p: Node3D) -> void:

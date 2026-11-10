@@ -229,6 +229,57 @@ static func summary(s: Dictionary, a: int, dl: int) -> Dictionary:
 ## for each gene, the finest stone that shows it among those kept now (tag -> the stone); built once a render
 static var _kept: Dictionary = {}
 
+## the genes the achievements' collections show (tag -> its name there), as _got lists them
+static var _tracked: Dictionary = {}
+static func tracked() -> Dictionary:
+	if _tracked.is_empty():
+		for e: Dictionary in LIST:
+			if not (e.has("tags") or e.get("legends", false)): continue
+			var tags: Array = e.tags if e.has("tags") else SpecLegend.FX_N.keys().map(func(k: String) -> String: return "fx:" + k)
+			var names: Array = e.names if e.has("names") else SpecLegend.FX_N.values().map(func(v: String) -> String: return v.capitalize())
+			for i in tags.size(): _tracked[String(tags[i])] = String(names[i]) if i < names.size() else String(tags[i])
+	return _tracked
+
+## a stone's genes never change: worked out once per stone (genes_of builds its genome)
+static var _gof: Dictionary = {}
+static func _genes_cached(s: Dictionary) -> Array:
+	var id := int(s.get("id", 0))
+	if not _gof.has(id): _gof[id] = genes_of(s)
+	return _gof[id]
+
+## ids of the stones that keep an achievement's gene in the inventory: the finest kept stone with each (selling
+## duplicates leaves them)
+static func keepers() -> Dictionary:
+	var best := {}
+	var tr := tracked()
+	for o in Save.d.coll:
+		for t in _genes_cached(o):
+			if tr.has(t) and (not best.has(t) or int(o.value) > int(best[t].value)): best[t] = o
+	var out := {}
+	for t in best: out[int(best[t].id)] = true
+	return out
+
+## the genes an achievement shows that no other kept stone has: sold, the achievement's picture of them turns grey.
+## The card hangs a green ribbon for it (RecordRibbon, last_of), names them, and Sell warns.
+static func last_genes(s: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	if not s.has("id"): return out
+	var mine := int(s.id)
+	var kept := false
+	for o in Save.d.coll:
+		if int(o.get("id", 0)) == mine: kept = true
+	if not kept: return out
+	var tr := tracked()
+	for t in _genes_cached(s):
+		if not tr.has(t): continue
+		var other := false
+		for o in Save.d.coll:
+			if int(o.get("id", 0)) != mine and _genes_cached(o).has(t):
+				other = true
+				break
+		if not other and not out.has(tr[t]): out.append(tr[t])
+	return out
+
 static func kept_best() -> Dictionary:
 	if _kept.is_empty():
 		_kept = {none = true}

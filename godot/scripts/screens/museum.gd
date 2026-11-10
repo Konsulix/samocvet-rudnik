@@ -328,8 +328,10 @@ func _dupes() -> Array:
 		var gid := Stones.atlas_id(st)
 		if not best.has(gid) or int(st.value) > int(best[gid].value): best[gid] = st
 	var out := []
+	var keep := Awards.keepers()    # nor the last one with a gene an achievement shows
 	for st in Save.d.coll:
 		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "": continue
+		if keep.has(int(st.get("id", 0))): continue
 		out.append(st)
 	return out
 
@@ -346,7 +348,7 @@ func _sell_bar(dup: Array) -> Control:
 	return m
 
 func _sell_dupes(dup: Array, sum: int) -> void:
-	Ov.panel("Sell duplicates?", "%d stones go, the best of every species stays. Legendary and cut stones are never sold here." % dup.size(), [
+	Ov.panel("Sell duplicates?", "%d stones go, the best of every species stays, and the best with every gene the awards show. Legendary and cut stones are never sold here." % dup.size(), [
 		["Sell · " + UI.coins(sum), "gold", func():
 			for st in dup:
 				Save.gone(st)
@@ -397,6 +399,18 @@ func _open_uncut() -> void:
 			_open_stone(s)
 			return
 
+## for screenshots: ui=open_last - a stone that is the last kept with an achievement's gene (the green ribbon), the one
+## with most such genes
+func _open_last() -> void:
+	var pick := {}
+	var most := 0
+	for s in Save.d.coll:
+		var n := Awards.last_genes(s).size()
+		if n > most:
+			most = n
+			pick = s
+	if most: _open_stone(pick)
+
 ## for screenshots: ui=open_record - a stone that is its species' atlas record (the "best of its kind" mark)
 func _open_record() -> void:
 	for s in Save.d.coll:
@@ -415,7 +429,19 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	if cut_done:
 		v.add_child(Ov.text("Cut: " + String(Data.CUTN[s.cut]), 13))
 	var price := roundi(float(s.value) * Save.coin_mul())
+	# the last kept stone with an achievement's gene, or the species' record: the first press only warns, the second sells
+	var lose := Awards.last_genes(s)
+	var warn := ""
+	if not lose.is_empty(): warn = "Last one with %s: sold, it turns grey in the awards" % ", ".join(lose).to_lower()
+	elif Reveal.is_record(s): warn = "Your best %s: sold, it turns grey in the atlas" % String(Data.SP[s.sid].n)
+	var armed := [warn == ""]
+	var sell_b := Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0)
 	var sell := func():
+		if not armed[0]:
+			armed[0] = true
+			sell_b.text = "Sell anyway"
+			Ov.toast(warn)
+			return
 		Save.gone(s)
 		Save.d.coll.erase(s)
 		Save.d.coins += price
@@ -423,7 +449,6 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 		Sfx.play("coin")
 		Ov.close()
 		render()
-	var sell_b := Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0)
 	if cut_done:
 		sell_b.custom_minimum_size = Vector2(0, 48)
 		sell_b.pressed.connect(sell)

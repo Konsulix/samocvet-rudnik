@@ -25,13 +25,27 @@ const FRINGE := 0.45     # its soft edge (a screen pixel or so on the phone)
 
 var card: Control
 var info: Control
+## the second ribbon (last_of): the last kept stone with a gene an achievement shows - in the left corner, moss green,
+## shorter, a brass bead instead of the wreath
+var left := false
+var len_ := L
+var c_silk := SILK
+var c_dark := SILK_DARK
+var c_sheen := SILK_SHEEN
 var _t := -DELAY
 static var _weave: ImageTexture
 static var _laurel: ImageTexture
 
 ## goes into the info panel itself (after its content): the panel's rounded clip cuts its top into the corner
-static func make(card_: Control, info_: Control) -> RecordRibbon:
+static func make(card_: Control, info_: Control, last_of := false) -> RecordRibbon:
 	var r := RecordRibbon.new()
+	if last_of:
+		r.left = true
+		r.len_ = 37.0
+		r._t -= 0.25      # after the record's, if both hang
+		r.c_silk = Color(0.12, 0.25, 0.14)
+		r.c_dark = Color(0.035, 0.085, 0.045)
+		r.c_sheen = Color(0.2, 0.37, 0.21)
 	r.card = card_
 	r.info = info_
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -167,15 +181,15 @@ func _line(s: float) -> Vector2:
 		# the gust: the whole ribbon swings from its top, a wave runs down it; both die away
 		var sw := 0.26 * exp(-t / 0.55) * sin(8.5 * t)
 		var wave := 5.0 * exp(-t / 0.5) * pow(s, 1.4) * sin(15.0 * t - 3.4 * s)
-		var y := s * L * k
+		var y := s * len_ * k
 		return Vector2(y * sin(sw) + wave, y * cos(sw))
-	return Vector2(0.0, s * L)
+	return Vector2(0.0, s * len_)
 
 func _draw() -> void:
 	if not is_instance_valid(info) or _t < 0.0: return     # the card opens first, then the ribbon drops
 	var to_me := get_global_transform().affine_inverse()
 	var ig: Rect2 = to_me * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
-	var top := Vector2(ig.end.x - IN_X, ig.position.y - UP)
+	var top := Vector2(ig.position.x + IN_X if left else ig.end.x - IN_X, ig.position.y - UP)
 	var mid := PackedVector2Array()
 	var lean := PackedFloat32Array()
 	for i in N + 1:
@@ -195,7 +209,7 @@ func _draw() -> void:
 		if i == 0:
 			across = Vector2.RIGHT
 			w = W
-		var cut := NOTCH * clampf((s - (1.0 - NOTCH / L)) / (NOTCH / L), 0.0, 1.0)
+		var cut := NOTCH * clampf((s - (1.0 - NOTCH / len_)) / (NOTCH / len_), 0.0, 1.0)
 		for c in ACROSS.size():
 			var a: float = ACROSS[c]
 			var up := cut * (1.0 - absf(a) * 2.0)               # the V: deepest in the middle, none at the corners
@@ -231,8 +245,17 @@ func _draw() -> void:
 	# the worked brass edging down both sides and round the swallowtail, on the silk's edge
 	_strip(outline, EDGE_W, brass(), 40.0)    # ~as many texels along as across: no muddy mipmap
 	# the laurel near the end, turning with the silk
-	var at := int(round(N * (1.0 - (NOTCH + 10.5) / L)))
+	var at := int(round(N * (1.0 - (NOTCH + 10.5) / len_)))
 	var tilt := -atan(lean[at])
+	if left:
+		# a brass bead, lit from the top left
+		var b := mid[at]
+		draw_circle(b + Vector2(0.3, 0.6), 4.6, Color(0, 0, 0, 0.35))
+		draw_circle(b, 4.2, Color(0.13, 0.06, 0.02))
+		draw_circle(b, 3.5, Color(0.63, 0.5, 0.28))
+		draw_circle(b + Vector2(-0.6, -0.6), 2.4, Color(0.86, 0.72, 0.42))
+		draw_circle(b + Vector2(-1.2, -1.3), 0.9, Color(1.0, 0.94, 0.75))
+		return
 	draw_set_transform(mid[at] + Vector2(0, 0), tilt, Vector2.ONE * (WREATH_PT / 96.0))
 	var lt := laurel()
 	draw_texture_rect(lt, Rect2(-Vector2(48, 50), Vector2(96, 96)), false)
@@ -241,16 +264,16 @@ func _draw() -> void:
 ## the silk's colour at a vertex: column c (0 left edge .. 4 right edge), a satin sheen a third of the way across,
 ## darker to the edges and up under the rim, lighter where it leans to the light (top left)
 func _shade(c: int, lean_: float, i: int) -> Color:
-	var col := SILK
+	var col := c_silk
 	match c:
-		0: col = SILK.lerp(SILK_DARK, 0.2)
-		1: col = SILK.lerp(SILK_SHEEN, 0.28)
-		2: col = SILK.lerp(SILK_SHEEN, 0.12)
-		4: col = SILK.lerp(SILK_DARK, 0.3)
+		0: col = c_silk.lerp(c_dark, 0.2)
+		1: col = c_silk.lerp(c_sheen, 0.28)
+		2: col = c_silk.lerp(c_sheen, 0.12)
+		4: col = c_silk.lerp(c_dark, 0.3)
 	var l := clampf(-lean_ * 0.8, -0.5, 0.5)
-	col = col.lerp(SILK_SHEEN, l) if l > 0.0 else col.lerp(SILK_DARK, -l)
+	col = col.lerp(c_sheen, l) if l > 0.0 else col.lerp(c_dark, -l)
 	var s := float(i) / N
-	col = col.lerp(SILK_DARK, clampf(0.55 - s * 2.2, 0.0, 0.55))     # the shade of the rim over its top
+	col = col.lerp(c_dark, clampf(0.55 - s * 2.2, 0.0, 0.55))     # the shade of the rim over its top
 	return col
 
 ## the wreath, painted once into a 96 px texture (smooth edges at any size): two sprays of pointed leaves round an
