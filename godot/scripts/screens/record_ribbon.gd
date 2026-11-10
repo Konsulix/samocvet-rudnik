@@ -26,7 +26,7 @@ const FRINGE := 0.45     # its soft edge (a screen pixel or so on the phone)
 var card: Control
 var info: Control
 ## the second ribbon (last_of): the last kept stone with a gene an achievement shows - in the left corner, moss green,
-## shorter, a brass bead instead of the wreath
+## as long as the record's, a brass bead instead of the wreath
 var left := false
 var len_ := L
 var c_silk := SILK
@@ -41,7 +41,6 @@ static func make(card_: Control, info_: Control, last_of := false) -> RecordRibb
 	var r := RecordRibbon.new()
 	if last_of:
 		r.left = true
-		r.len_ = 37.0
 		r._t -= 0.25      # after the record's, if both hang
 		r.c_silk = Color(0.12, 0.25, 0.14)
 		r.c_dark = Color(0.035, 0.085, 0.045)
