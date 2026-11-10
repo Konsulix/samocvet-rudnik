@@ -109,8 +109,7 @@ func tell() -> void:
 	if rule_id != "" and not Save.told(rule_id):
 		var r := Kit.label(rule, 12, UI.body, Kit.DIM)
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		r.custom_minimum_size = Vector2(170, 0)
+		# (one line, no wrapping: a wrapping label is as tall as at its narrowest, a blank line under it on a wide sheet)
 		vb.add_child(r)
 		Save.tell(rule_id)
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
