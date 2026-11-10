@@ -608,7 +608,7 @@ var _maiden_go := true
 func _maiden_intro() -> void:
 	_maiden_go = false
 	MaidenCard.show(["She leaps out of the prospectors' fire and dances. Wherever she lands, the stone turns to gold."],
-		"Break the stone she dances on to catch her. Five times - and she leaves you her own gold.",
+		"",
 		[["Dance!", "green", func():
 			_maiden_go = true
 			Ov.close()], ["Not now", "dark", func(): Ov.close()]])
