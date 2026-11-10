@@ -729,7 +729,6 @@ func _tick_events() -> void:
 	_start_event(pool[_rng.randi() % pool.size()])
 
 func _start_event(ev: String) -> void:
-	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	_events[ev] = t
 	match ev:
 		"heart":
@@ -791,6 +790,7 @@ func _events_live(c: CanvasItem) -> void:
 					if _crew_ok("brother"):
 						var sz := _size(fr)
 						_put(c, fr, Vector2(float(bp[0]) - sz.x / 2, float(J.sky) + float(bp[1]) - sz.y), false, al)
+						_spot(ev, Vector2(float(bp[0]), float(J.sky) + float(bp[1]) - sz.y / 2), sz / 2 + Vector2(40, 40))
 						_light(c, Vector2(float(bp[0]) + sz.x * 0.25, float(J.sky) + float(bp[1]) - sz.y * 0.35), 40, Color(1.0, 0.72, 0.35, 0.5 * al))
 			"lantern":
 				# his lantern far down the abyss, below the deepest open level, going on down
@@ -869,6 +869,7 @@ func _events_live(c: CanvasItem) -> void:
 					var rng := RandomNumberGenerator.new()
 					rng.seed = 77
 					var cen := Vector2(float(dw.eyes[0][0]) + 6.0, y + float(dw.eyes[0][1]))
+					_spot(ev, cen + Vector2(0, 60), Vector2(150, 190))
 					var grow := clampf((s - 0.6) / 1.4, 0.0, 1.0)
 					for j in 7:
 						var a := rng.randf_range(0, TAU)

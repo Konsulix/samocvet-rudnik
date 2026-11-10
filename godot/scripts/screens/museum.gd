@@ -330,7 +330,7 @@ func _dupes() -> Array:
 	var out := []
 	var keep := Awards.keepers()    # nor the last one with a gene an achievement shows
 	for st in Save.d.coll:
-		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "": continue
+		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "" or Save.is_gift(st): continue
 		if keep.has(int(st.get("id", 0))): continue
 		out.append(st)
 	return out
@@ -447,6 +447,15 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 		Sfx.play("coin")
 		Ov.close()
 		render()
+	if Save.is_gift(s):
+		# his gift: he asks first (the sale still goes through - Old Man's Gold is for those who meant it)
+		var plain := sell
+		sell = func():
+			Ov.panel("His gift", "\"You'd sell what I gave you? ...Well. It's yours to sell.\"", [
+				["Sell it · " + UI.coins(price), "gold", func():
+					Ov.close()
+					plain.call()],
+				["Keep it", "glass", func(): _open_stone(s, group)]])
 	if cut_done:
 		sell_b.custom_minimum_size = Vector2(0, 48)
 		sell_b.pressed.connect(sell)

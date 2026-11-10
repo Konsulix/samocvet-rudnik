@@ -139,10 +139,14 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 ## stone with the gene is kept, its niche shows the last one that went, grey (not an older one popping back)
 func gone(s: Dictionary) -> void:
 	if bool(s.get("legend", false)): Awards.once("sold_legend")
-	if int(s.get("id", 0)) in Home.GIFTS: Awards.once("sold_gift")
+	if is_gift(s): Awards.once("sold_gift")
 	d.aw_sold[String(s.sid)] = now_ms()
 	for t in Awards.genes_of(s):
 		d.gfirst[t] = Awards.summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
+
+## the old man's gift (the prologue's pyrite, Home.GIFTS): never a duplicate, sold only from its own card after he asks
+static func is_gift(s: Dictionary) -> bool:
+	return bool(s.get("gift", false)) or (int(s.get("id", 0)) in Home.GIFTS and String(s.get("sid", "")) == "pyrite")
 
 ## the tutorial (docs/onboarding.md): has this tip been shown
 func told(id: String) -> bool:

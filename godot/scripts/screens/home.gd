@@ -464,6 +464,10 @@ func _view_input(e: InputEvent) -> void:
 				Awards.once("ev:0:maiden")
 				accept_event()
 				return
+			if view.has_method("event_hit") and view.event_hit(lp):
+				# a rare event caught as it happens (the awards count only caught ones)
+				accept_event()
+				return
 			var stone := view.niche_at(lp)
 			if not stone.is_empty():
 				# the find on its pedestal: its card, as in the museum
@@ -629,6 +633,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 		_level_panel(dl + 1, sel))
 	drow.add_child(plus)
 	v.add_child(drow)
+	v.add_child(_veins_plaque(dl))
 	# pre-boosters to start with
 	var pre := HBoxContainer.new()
 	pre.add_theme_constant_override("separation", 8)
@@ -716,6 +721,50 @@ static func chest_text(c: Dictionary) -> String:
 	if c.get("pick", 0): return "pickaxe"
 	if c.get("bore_h", 0): return "rock drill"
 	return "a charge before the level"
+
+## what is left in the chosen depth's veins: a small inset tablet, iron and the mine's own ore side by side,
+## each an icon, the number left and "of N left"; nearly worked out — in rust, worked out — dim
+func _veins_plaque(dl: int) -> Control:
+	var cc := CenterContainer.new()
+	var box := PanelContainer.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.03, 0.03, 0.035, 0.45)
+	st.border_color = Color(Kit.AMBER, 0.35)
+	st.set_border_width_all(1)
+	st.set_corner_radius_all(8)
+	st.content_margin_left = 14; st.content_margin_right = 14
+	st.content_margin_top = 4; st.content_margin_bottom = 6
+	box.add_theme_stylebox_override("panel", st)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	var head := Kit.label("VEINS", 10, UI.body_bold, Color(Kit.AMBER, 0.8))
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(head)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	for i in 2:
+		var left := Level.vein_after(dl, i, 0)
+		var stock := maxi(Level.vein_stock(dl, i), left)
+		var fl := BoardModel.vein_floor(stock)
+		var out := left <= fl
+		var low := not out and float(left - fl) <= 0.25 * float(stock - fl)
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		var ic := Kit.res_icon("iron" if i == 0 else "ore", 30)
+		if out: ic.modulate = Color(1, 1, 1, 0.4)
+		h.add_child(ic)
+		var nv := VBoxContainer.new()
+		nv.add_theme_constant_override("separation", -4)
+		var fc := Color(0.7, 0.66, 0.6) if out else Color("#e8904c") if low else Kit.CREAM
+		nv.add_child(Kit.label("–" if out else str(left), 18, UI.display, fc))
+		var sub := "worked out" if out else "almost out" if low else "of %d left" % stock
+		nv.add_child(Kit.label(sub, 10, UI.body_bold, Color("#e8904c", 0.9) if low else Color(UI.MUTED, 0.85)))
+		h.add_child(nv)
+		row.add_child(h)
+	col.add_child(row)
+	box.add_child(col)
+	cc.add_child(box)
+	return cc
 
 func _open_tasks() -> void:
 	var a := ai()
@@ -1174,6 +1223,7 @@ func _rise() -> void:
 	Save.tell("g_hello_0")    # he has just said hello
 	# his gift: "gold" - a handpicked pyrite (GIFTS). The newcomer thanks him on the card's one button, he laughs
 	var gift := Stones.roll(GIFTS[randi() % GIFTS.size()], 0, 0.8, 1)
+	gift.gift = true
 	var rv := Reveal.new()
 	rv.name_as = "Gold?"
 	rv.reply = "Gold! Thank you!"

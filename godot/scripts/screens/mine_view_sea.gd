@@ -925,7 +925,6 @@ func _tick_events() -> void:
 	if ResourceLoader.exists(dir + "eel_strip.png") and eel_y > _seen.x and eel_y - EEL_BODY < _seen.y and (not _eel_shown or _rng.randf() < 0.4):
 		_eel_shown = true
 		_events["eel"] = t
-		Awards.once("ev:2:eel")
 		return
 	var pool := ["ink", "bubbles"]
 	for cr in J.cracks:
@@ -939,7 +938,6 @@ func _tick_events() -> void:
 		pool.append("sulphur")    # the herald of the next mine, the fiery one: nobody here knows what it means
 	var ev: String = pool[_rng.randi() % pool.size()]
 	_events[ev] = t
-	Awards.once("ev:%d:%s" % [area, ev])    # Awards: Glimpses of the Deep
 	if ev == "ink":
 		_ink.append([_ink_at(), t])
 	if ev == "tip":
@@ -1059,6 +1057,7 @@ func _events_live(c: CanvasItem) -> void:
 						var p := Vector2(float(tn[0]) + sin(j * 2.3) * 60.0 + sin(u * 8.0 + j) * 10.0, _sea_top() + float(tn[1]) - 40.0 - u * float(J.sea_life.rise))
 						c.draw_arc(p, 4.0 + (j % 4) * 2.5, 0, TAU, 12, Color(0.75, 0.95, 1.0, 0.6 * (1.0 - u)), 2.0)
 			"eel":
+				_spot(ev, EEL_AT + Vector2(140, -80 + _sea_top()), Vector2(200, 150))
 				if s > EEL_LEN: done = true
 				else: _eel(c, s)
 			"tip":
