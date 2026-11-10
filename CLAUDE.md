@@ -125,6 +125,10 @@
   (`Awards.tier_of`, `Save.d.boss_tier`; `LevelGen.boss_fight(a, tier)`: здоровье ×1/×1,35/×1,7, ходов −0/−3/−6, на третьем
   действия на ход раньше; атлас пишет «Next: Furious …»), строка на каждого босса (I·II·III, редкая жеода) и «Lord Below» —
   все боссы на третьем: 10 000 монет + редкая жеода + «golden gems». Проверено снимками: повтор Полоза — 3039 HP, 27 ходов.
+  9.11, **Огневушка-поскакушка** — бонусная погоня, всё в `docs/fire-maiden.md` (правила, арт `art/maiden/`, `MaidenView`,
+  `Level.MAIDEN`, ключи `-- maiden [ui=maiden_catch catches=N]`, тест `tests/maiden_check.tscn`). Вход — Play в листке
+  Where She Danced, раз в неделю. Доделано: карточки с портретом, звуки (колокольчиковый смех), огонёк в Old Adit (тап —
+  богатый уровень), ловит только её камень, 18 ходов по боту (`sim_maiden=N`). На iPhone не проверено.
 - 7.11, **рудник 8 Whispering Seam — Шубин и канарейка** (area 7, третий резервный: в цепочку не встроен; `-- area=7`). Всё —
   `docs/mine8-shubin.md` §5–6: угольная шахта ~1900 на меловом мысу над Доном (основа — правка пользователя `mine8/s_base.png`),
   через все глубины наискось идёт один пласт с уклоном (`mine8_layout.py`), по нему на канате ходит вагонетка, у устья звонит
@@ -1094,7 +1098,7 @@
   Музыку дома и уровней пользователь делает в Suno (как темы боссов), стиль — тёмное мифическое средневековье, без голоса.
   Свой трек рудника — ключ `home_<area>` / `level_<area>` в `Sfx.MUSIC` (иначе общий). Трек Suno → петля:
   `py prototype/tools/music_loop.py <in.mp3> <out.ogg>` (ищет похожие места, срезает концовку, сводит шов) → начало петли
-  в `Sfx.LOOP_AT`. Есть: `home_adit.ogg` (рудник 1, «Deep Mine Drones»), `home_copper.ogg` (рудник 2, «Spirit of the Deep»), `home_cove.ogg` (рудник 3, «Buoy Call», петля с 48,25 с). Бой с Кракеном — `boss_kraken.ogg` («tempest mariana», петля с 57,65 с). Рудник 4 — `home_fire.ogg` («Eolo Sotterraneo», петля с 49,35 с).
+  в `Sfx.LOOP_AT`. Есть: `home_adit.ogg` (рудник 1, «Deep Mine Drones»), `home_copper.ogg` (рудник 2, «Spirit of the Deep»), `home_cove.ogg` (рудник 3, «Buoy Call», петля с 48,25 с). Бой с Кракеном — `boss_kraken.ogg` («tempest mariana», петля с 57,65 с). Рудник 4 — `home_fire.ogg` («Eolo Sotterraneo», петля с 49,35 с). Рудники 5–8 — `home_proval/hollow/barrow/seam.ogg` («Frozen Silence», «銀山雨», «Curse of the Barrow», «Pit Bell Lullaby»; петли с 55,05 / 51,9 / 55,95 / 57,55 с). Своей музыки нет у боёв Brontes и Шубина (играет тема рудника).
   Пока одна тема на рудник и дома, и в уровнях (`level_0/1` = те же файлы; тот же трек при переходе не перезапускается). Тема босса угасает за 3,5 с с началом его падения
   (`Sfx.music_fade` в `LevelBoss.defeat`), к джинглу победы уже тишина.
   27.10: кирка на экране рудника тонула под музыкой — `MineAmb.DB.pick` −4, срез шины `Amb` 2200 Гц. Синтезированные звуки
