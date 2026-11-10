@@ -540,6 +540,32 @@ func _draw_marks() -> void:
 		var base := r.position.y + 51
 		c.draw_string(font, Vector2(x0, base), num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 		c.draw_string(font, Vector2(x0 + wn, base), " m", HORIZONTAL_ALIGNMENT_LEFT, -1, fm, Color(col, col.a * 0.7))
+		if not shut and area == Save.area():
+			_draw_veins(c, k, Vector2(r.end.x + 12, r.get_center().y))
+
+## what is left in the depth's veins, right of its plate: two small tablets, iron and the mine's own ore, each an icon
+## and the number left; nearly worked out — the number in rust, worked out — a dim icon and a dash
+func _draw_veins(c: CanvasItem, k: int, at: Vector2) -> void:
+	var font: Font = UI.body_bold
+	var h := 60.0
+	var x := at.x
+	for i in 2:
+		var left := Level.vein_after(k, i, 0)
+		var stock := maxi(Level.vein_stock(k, i), left)
+		var fl := BoardModel.vein_floor(stock)
+		var out := left <= fl
+		var low := not out and float(left - fl) <= 0.25 * float(stock - fl)
+		var txt := "–" if out else str(left)
+		var fs := 38
+		var wt := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var r := Rect2(x, at.y - h * 0.5, 14 + 44 + 8 + wt + 18, h)
+		c.draw_style_box(_plate(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 0), Rect2(r.position + Vector2(3, 5), r.size))
+		c.draw_style_box(_plate(Color(0.085, 0.06, 0.035, 0.9), Color("#c8913a", 0.75), 2), r)
+		var ic := Kit.tex("icons/" + ("iron" if i == 0 else Kit.res_name("ore")))
+		c.draw_texture_rect(ic, Rect2(r.position.x + 12, at.y - 22, 44, 44), false, Color(1, 1, 1, 0.4 if out else 1.0))
+		var col := Color(0.72, 0.68, 0.62, 0.7) if out else Color("#e8904c") if low else Color("#f0e6d2")
+		c.draw_string(font, Vector2(r.position.x + 64, at.y + 13), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+		x = r.end.x + 8
 
 ## a small pickaxe drawn in lines (the font has no pick sign): the handle, the curved head; a: how far it has come in
 func _draw_pick(c: CanvasItem, at: Vector2, a: float) -> void:
