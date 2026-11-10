@@ -111,7 +111,8 @@ func _ready() -> void:
 	size = get_viewport_rect().size
 	area = start_area
 	if area == -2:
-		area = Save.area() if Save.area() == 0 else -1
+		# the album (its pages open on the mine you dig in); the old screen of one mine only with the banners
+		area = -1 if BOARD else (Save.area() if Save.area() == 0 else -1)
 	start_area = -2
 	var bg := SlateBg.new()
 	bg.size = size
