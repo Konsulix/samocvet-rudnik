@@ -30,6 +30,45 @@ const KINDS := {
 	blue = ["blue", 0.55, Color(0.18, 0.18, 0.2), Color(0, 0, 0, 0), 0.8, 0.85, "flit", 0.0, 0.0, 2.5],
 }
 
+## their names on the card (a callout, one per kind: "Apollo ×2")
+const NAME := {morpho = "blue morpho", apollo = "Apollo", monarch = "monarch", deathshead = "death's-head moth",
+	glasswing = "glasswing", comet = "comet moth", mourning = "mourning cloak", blue = "mazarine blue"}
+## which of them live by each mine (its area): Old Adit's meadows, the Alpine Apollo of the copper mountain, the hawkmoth
+## of the Sicilian sulphur and of the coal seam, the Japanese valley's comet and glasswing; the barrow's skulls have all of
+## them (SpecSkull). The sea cove and the polar pit: none.
+const AREA_KINDS := {0: ["mourning", "blue"], 1: ["apollo"], 3: ["deathshead"], 5: ["comet", "glasswing"],
+	6: ["morpho", "apollo", "monarch", "deathshead", "glasswing", "comet", "mourning", "blue"], 7: ["deathshead"]}
+## how often a find (not a skull: those decide their own) has butterflies on it
+const FIND_P := 0.06
+
+static func label(kind: String, n: int) -> String:
+	return String(NAME.get(kind, kind)) + (" ×%d" % n if n > 1 else "")
+
+static var _area := {}
+## the mine a species is found in (each species belongs to one mine's pool); -1 none
+static func area_of(sid: String) -> int:
+	if _area.is_empty():
+		for i in Data.AREAS.size():
+			for s: String in (Data.AREAS[i] as Dictionary).get("pool", {}): _area[s] = i
+	return int(_area.get(sid, -1))
+
+## the butterflies on a find (its species' mine decides which), on their own random stream so no other gene moves;
+## pinned from outside: flies=N (0 none), fly_kind=<kind>
+static func for_find(seed_v: int, sid: String, o: Dictionary) -> Array:
+	var ks: Array = AREA_KINDS.get(area_of(sid), [])
+	if o.has("fly_kind") and String(o.fly_kind) != "": ks = [String(o.fly_kind)]
+	if ks.is_empty(): return []
+	var r := Rng32.new((seed_v * 2654435761 + 433) % 4294967296)
+	var n := 0 if r.next() >= FIND_P else 1 + int(pow(r.next(), 1.6) * 3.0)
+	if o.has("flies"): n = int(o.flies)
+	var out: Array = []
+	var one := String(_pick_of(r, ks)) if r.next() < 0.7 else ""
+	for k in n: out.append(one if one != "" else _pick_of(r, ks))
+	return out
+
+static func _pick_of(r: Rng32, ks: Array) -> String:
+	return Stones.pick_w(ks.map(func(k: String) -> Array: return [k, float(KINDS[k][9])]), r)
+
 static var _cards := {}
 static var _tex := {}
 

@@ -86,7 +86,7 @@ const INFO_R := 22.0         # the info panel's top corners
 const TITLE_H := 64.0        # the name in the corner covers this much of the stone's frame
 ## the life that grows on a find — moss, little trees, mushrooms, butterflies, flowers, lichen, fern fronds: named by
 ## callouts only, never a badge (a forest skull ran to nine badges)
-const LIFE := ["pompom", "straw", "lichen", "fronds", "flowers", "mushrooms", "fungi", "sk_moss", "sk_trees", "sk_flies"]
+const LIFE := ["pompom", "straw", "lichen", "fronds", "flowers", "mushrooms", "fungi", "sk_moss", "sk_trees"]   # + the butterflies, fly_<kind>
 const CHIPS_MAX := 5
 static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
 static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
@@ -269,6 +269,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	for a in gene.accents:
 		var fn := SpecFossil.gene_name(a, gene.get("fossil", {}))
 		if String(a).begins_with("sk_"): fn = SpecSkull.gene_name(a, SpecSkull.genes(int(so.seed), gene.get("skull", {})))
+		# butterflies by kind, how many of it: "Apollo ×2"
+		if String(a).begins_with("fly_"): fn = SpecButterfly.label(String(a).substr(4), (gene.get("fly_kinds", []) as Array).count(String(a).substr(4)))
 		# (a skull's crystals are its species: "pyrope crown", not "crystal crown")
 		if a in ["sk_crown", "sk_eyes", "sk_fangs"]:
 			var cn := fn if fn != "" else String(SpecGenome.ACC_N.get(a, a))
@@ -281,7 +283,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	# shown by its callout only — a tap on the stone opens them all
 	var chips := {}
 	for id: String in genes:
-		if id in LIFE or chips.size() >= CHIPS_MAX: continue
+		if id in LIFE or id.begins_with("fly_") or chips.size() >= CHIPS_MAX: continue
 		var c := chip(genes[id][0], genes[id][1], not (id in s.get("traits", [])) and id != "fx")
 		c.modulate.a = 0.0
 		chips[id] = c

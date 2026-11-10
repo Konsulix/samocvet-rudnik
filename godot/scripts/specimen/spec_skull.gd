@@ -289,6 +289,7 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 	var one: String = String(g.fly_kind) if String(g.fly_kind) != "" else ("" if fk.next() < 0.3 else SpecButterfly.pick(fk))
 	for k in int(g.flies): kinds.append(one if one != "" else SpecButterfly.pick(fk))
 	g.fly_kinds = kinds
+	g.fly_at = {}
 	if int(g.trees) < 0:
 		var tr := Rng32.new(int(g.moss_seed) + 5)
 		g.trees = 0 if g.moss == "none" or tr.next() < 0.45 else 1 + int(tr.next() * (4.0 if g.moss == "cap" else 2.0))
@@ -513,6 +514,9 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 			if int(sk.fly_mode) >= 0: flying = int(sk.fly_mode) == 1
 			var i: int = top[int(fr.next() * top.size())]
 			SpecButterfly.put(root, fr, id, cr.v[i], nr[i], (0.34 + fr.next() * 0.12) * 0.8, flying, perches)
+			# (each kind's callout points at a fixed spot — where the first of them came to the skull — not at the
+			# butterfly itself, which flies about)
+			if not (sk.fly_at as Dictionary).has(id): sk.fly_at[id] = [cr.v[i], nr[i]]
 	# obols, a diadem, fireflies inside, a pile; its own legend (SpecSkullFx)
 	SpecSkullFx.dress(b, sk, bones, nrs, bm, crystal, lean)
 	_forest(b, sk, cr, nr, gene)
@@ -576,10 +580,11 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 				at = cr.get_meta("hole") if cr.has_meta("hole") else cr.v[i_skin]
 			"frost", "wax":
 				if main: at = b.call("_mid", main, 0.6)
-			"flies":
-				var j: int = best.call(func(p: Vector3, nn: Vector3) -> float: return nn.y + p.y)
-				at = cr.v[j] + Vector3(0, 0.12, 0)
-				n = Vector3.UP
+			_:
+				if id.begins_with("fly_") and (sk.fly_at as Dictionary).has(id.substr(4)):
+					var fa: Array = sk.fly_at[id.substr(4)]
+					at = (fa[0] as Vector3) + (fa[1] as Vector3) * 0.06
+					n = fa[1]
 		if at != Vector3.INF:
 			mk.append([id, at, n])
 
@@ -605,7 +610,9 @@ static func accents(sk: Dictionary) -> Array:
 	if int(sk.trees) > 0: out.append("sk_trees")
 	if sk.stream and sk.skin in WET_SKINS: out.append("sk_stream")
 	if sk.roots: out.append("sk_roots")
-	if int(sk.flies) > 0: out.append("sk_flies")
+	# the butterflies by kind: "fly_apollo" (SpecButterfly.label names them, "Apollo ×2")
+	for k: String in sk.fly_kinds:
+		if not "fly_" + k in out: out.append("fly_" + k)
 	return out
 
 ## a badge's name, where it depends on the genes (the nacre's fire, the trees' crown, how much moss)

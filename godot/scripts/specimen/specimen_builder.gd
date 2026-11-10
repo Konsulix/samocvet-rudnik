@@ -2126,6 +2126,26 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			var n := (4 + int(fr.next() * 6)) if tiny else (2 + int(fr.next() * 4))
 			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), boxes)
 			if cap.size(): _mark("mushrooms", cap[0], cap[1])
+	# butterflies (SpecButterfly.for_find: the kinds of the species' mine), on their own stream: resting on the rock where
+	# a wing has room, or flying round the find; a skull places its own (SpecSkull)
+	var fks: Array = gene.get("fly_kinds", [])
+	var land: Array = rock_spots if rock_spots.size() else nest_spots
+	if fks.size() and String(gene.form) != "skull" and land.size():
+		var fl := Rng32.new((int(gene.shroom_seed) * 1664525 + 1013904223) % 4294967296)
+		var perches := land.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.45 and _free(q[0]))
+		if perches.is_empty(): perches = land.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.2)
+		var seen := {}
+		for id: String in fks:
+			if perches.is_empty(): break
+			var style: String = SpecButterfly.KINDS[id][6]
+			var flying := fl.next() < (0.7 if style in ["hover", "flit"] else 0.45)
+			var q: Array = perches[int(fl.next() * perches.size())]
+			SpecButterfly.put(root, fl, id, q[0], q[1], (0.28 + fl.next() * 0.1) * gs, flying, perches)
+			# (the callout points at a fixed spot — where the first of this kind came to the find — not at the
+			# butterfly, which flies about)
+			if not seen.has(id):
+				seen[id] = true
+				_mark("fly_" + id, (q[0] as Vector3) + (q[1] as Vector3) * 0.04 * gs, q[1])
 	if mat and main and gene.lustre == "glass":
 		if "inkspots" in acc:
 			var had := main.get_child_count()

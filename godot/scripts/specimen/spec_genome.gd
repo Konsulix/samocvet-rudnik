@@ -22,7 +22,8 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_gilt = "gold leaf", sk_gold = "molten gold", sk_silver = "molten silver", sk_copper = "molten copper", sk_kintsugi = "kintsugi",
 	sk_glass = "glass skull", sk_crown = "crystal crown", sk_frost = "cloudy crystals", sk_wax = "waxy crystals", sk_broken = "broken skull",
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
-	sk_flies = "butterflies", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
+	fly_morpho = "blue morpho", fly_apollo = "Apollo", fly_monarch = "monarch", fly_deathshead = "death's-head moth",
+	fly_glasswing = "glasswing", fly_comet = "comet moth", fly_mourning = "mourning cloak", fly_blue = "mazarine blue", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
@@ -235,6 +236,13 @@ static func of(o: Dictionary) -> Dictionary:
 		acc.append("mushrooms")
 	else:
 		shroom = -1
+	# butterflies resting on the find or flying round it — any find, the kinds of its species' mine (SpecButterfly), on
+	# their own stream; a skull decides its own below
+	var fly_kinds: Array = []
+	if o.get("form", "") != "skull" and not bare and not (habit == "fossil" and not on_rock):
+		fly_kinds = SpecButterfly.for_find(seed_v, sid, o)
+		for k: String in fly_kinds:
+			if not "fly_" + k in acc: acc.append("fly_" + k)
 	var size_k := int(Stones.pick_w([[0, 2.0], [1, 4.0], [2, 2.5], [3, 0.6]], rng))
 	# a skull's own genes (SpecSkull): its coat, crystals, moss and trees, stream, roots, butterflies — read once its
 	# legend is known (a fire in the eyes leaves no room for crystals there)
@@ -243,7 +251,9 @@ static func of(o: Dictionary) -> Dictionary:
 		for k in SpecSkull.KEYS:
 			if o.has(k): sk_o[k] = o[k]
 		sk_o.fx = fx
-		acc.append_array(SpecSkull.accents(SpecSkull.genes(seed_v, sk_o)))
+		var skg := SpecSkull.genes(seed_v, sk_o)
+		acc.append_array(SpecSkull.accents(skg))
+		fly_kinds = skg.fly_kinds
 	var anomaly := "anomaly" in tr
 	# a skull's own genes pinned from outside (tests, the admin): SpecSkull.genes reads them
 	var skull_o := {}
@@ -271,6 +281,7 @@ static func of(o: Dictionary) -> Dictionary:
 		palette = palette,
 		shroom = shroom,
 		shroom_seed = seed_v,
+		fly_kinds = fly_kinds,
 		dark_col = dark_col,
 		rock = rock,
 		size = size_k,

@@ -193,9 +193,9 @@ static func genes_of(s: Dictionary) -> Array:
 		"petrified_wood":
 			if f.get("fungi", false): out.append("shroom:4")    # honey fungus grows only on the wood
 	if sid == "gold": out.append("gold:" + String(g.form))     # the Fire Maiden's gold: nugget, vein, tree
-	if String(g.form) == "skull":
-		var sk := SpecSkull.genes(seed_v, g.skull)
-		for k in sk.fly_kinds: out.append("fly:" + String(k))
+	# the butterflies, of any find (a skull's or a stone's)
+	for k in g.get("fly_kinds", []):
+		if not "fly:" + String(k) in out: out.append("fly:" + String(k))
 	var look := SpecLooks.of(sid)
 	if look.has("palette"):
 		var pal: Array = look.palette
