@@ -204,7 +204,7 @@ const FIND_P := 0.6
 const BEATS := ["normal", "normal", "easy", "normal", "normal", "hard", "easy"]
 ## (super hard: fewer moves than the usual floor, MOVES.x - more cheap work alone hardly makes it harder)
 const BEAT := {"easy": {k = 1.55, load = 0.85}, "normal": {k = 1.32, load = 1.0},
-	"hard": {k = 1.02, load = 1.15}, "super": {k = 0.86, load = 1.3, floor = 8}}
+	"hard": {k = 1.02, load = 1.15}, "super": {k = 1.0, load = 1.3, floor = 8}}
 const HARD_FROM := 12    # no hard level before this one (Royal Match's first is level 39)
 const SUPER_FROM := 30
 ## the level's idea: one main work over a good part of the board, at most a little of another beside it. A soft

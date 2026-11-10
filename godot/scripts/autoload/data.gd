@@ -90,10 +90,12 @@ func continue_price(k: int, area: int) -> int:
 	return roundi(CONTINUE_BASE * (1.0 + CONTINUE_AREA * area) * pow(CONTINUE_STEP, k) / 50.0) * 50
 
 ## pre-boosters a win streak gives for free, as Royal Match's Butler's Gift: from the third win in a row, a step more
-## every two wins, kept till a level is lost (the levels are tuned with them: SimEconomy's smart bot gets them too)
-const STREAK_AT := {rocket = 3, bomb = 5, orb = 7}
+## later, kept till a level is lost. The levels are tuned WITHOUT them (LevelGen.WORK, 10.11): with all three (dynamite,
+## bundle, resonator from the 7th win) the smart bot won 95% of hard levels and the next loss reset it to nothing, so
+## the bundle comes a win later and the resonator only on a long streak, from the 10th win
+const STREAK_AT := {rocket = 3, bomb = 6, orb = 10}
 func streak_free(streak: int) -> Array:
 	var out := []
-	for k in ["rocket", "bomb", "orb"]:
+	for k: String in STREAK_AT:
 		if streak >= int(STREAK_AT[k]): out.append(k)
 	return out
