@@ -91,18 +91,30 @@ func tell() -> void:
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var h := Kit.label(head, 13, UI.body_bold, Kit.AMBER)
 	vb.add_child(h)
+	# a long list goes in two columns (a skull's swarm can carry half a dozen butterflies), so the sheet stays small
+	var list: Container = vb
+	if lines.size() > 4:
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 14)
+		grid.add_theme_constant_override("v_separation", 1)
+		grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(grid)
+		list = grid
 	for t in lines:
 		var l := Kit.label("•  " + t, 15, UI.body, Kit.CREAM)
-		vb.add_child(l)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		list.add_child(l)
 	if rule_id != "" and not Save.told(rule_id):
 		var r := Kit.label(rule, 12, UI.body, Kit.DIM)
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		r.custom_minimum_size = Vector2(170, 0)
 		vb.add_child(r)
 		Save.tell(rule_id)
-	for c in vb.get_children():
-		(c as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(vb)
 	card.add_child(p)
 	p.reset_size()
@@ -113,7 +125,7 @@ func tell() -> void:
 	var cr := card.get_global_rect()
 	var x := tip.x - W * 0.7 if left else tip.x + W * 0.7 - p.size.x
 	x = clampf(x, cr.position.x + 8.0, cr.end.x - 8.0 - p.size.x)
-	p.global_position = Vector2(x, tip.y)
+	p.global_position = Vector2(x, minf(tip.y, cr.end.y - 8.0 - p.size.y))   # (never past the card's foot)
 	p.pivot_offset = Vector2(0.0 if left else p.size.x, 0.0)
 	p.scale = Vector2(0.85, 0.85)
 	p.modulate.a = 0.0

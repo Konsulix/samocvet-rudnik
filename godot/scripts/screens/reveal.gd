@@ -237,7 +237,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	if not lastg.is_empty():
 		# a tap on it names them (many have no badge: the life on a stone is shown by its callouts only)
 		var lr := RecordRibbon.make(card, info, true)
-		lr.head = "Last examples of"
+		lr.head = "Last examples of:"
 		for t in lastg: lr.lines.append(t.substr(0, 1).to_upper() + t.substr(1))
 		lr.rule_id = "rule_awards"
 		lr.rule = "Sold, %s grey in the awards." % ("they turn" if lastg.size() > 1 else "it turns")
