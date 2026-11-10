@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://d11mq04nu46ya"
+path="res://.godot/imported/rock_04_disp_256.png-b19a6f7f5e815318ee7d308c7af31790.image"
+
+[deps]
+
+source_file="res://assets/textures/rock_04/rock_04_disp_256.png"
+dest_files=["res://.godot/imported/rock_04_disp_256.png-b19a6f7f5e815318ee7d308c7af31790.image"]
+
+[params]
+

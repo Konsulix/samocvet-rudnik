@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://dfuvg0v76er8t"
+path="res://.godot/imported/lichen_rock_disp_256.png-733e8ba5983a2360d37baacb69dfe1ee.image"
+
+[deps]
+
+source_file="res://assets/textures/lichen_rock/lichen_rock_disp_256.png"
+dest_files=["res://.godot/imported/lichen_rock_disp_256.png-733e8ba5983a2360d37baacb69dfe1ee.image"]
+
+[params]
+

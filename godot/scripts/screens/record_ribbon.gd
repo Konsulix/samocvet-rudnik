@@ -206,8 +206,10 @@ func _draw() -> void:
 	for i in N + 1: outline.append(cols[0][i])
 	outline.append(cols[2][N])     # the swallowtail: its two straight cuts, no points between (they kinked the edging)
 	for i in range(N, -1, -1): outline.append(cols[ACROSS.size() - 1][i])
-	# a soft shadow on the slate, down and to the left
-	for k in 3:
+	# a soft shadow on the slate, down and to the left (not on a frame where the outline folds over itself: the
+	# renderer can't fill that and logs an error per polygon — it happened on the frame the card opened)
+	var flat := Geometry2D.triangulate_polygon(outline).size() > 0
+	for k in (3 if flat else 0):
 		var off := Vector2(-0.8 - k * 0.9, 1.6 + k * 1.3)
 		var sh := PackedVector2Array()
 		for p in outline: sh.append(p + off)

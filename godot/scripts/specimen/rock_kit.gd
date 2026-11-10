@@ -372,11 +372,10 @@ const SCAN_OF := {limestone = 0, ironstone = 1, basalt = 2, slate = 3, quartzite
 ## height map of a scan, for pressing its relief into the geometry
 static func disp_img(i: int) -> Image:
 	if not _disp.has(i):
+		# (imported as an Image, already 256 px: a texture's get_image() on the build thread waits for the renderer —
+		# seconds on a phone, the first time a find stands on that rock. The file is the 1k scan resized as before.)
 		var nm: String = SpecMat.SCANS[i]
-		var img := (load("res://assets/textures/%s/%s_disp_1k.jpg" % [nm, nm]) as Texture2D).get_image()
-		if img.is_compressed(): img.decompress()
-		img.resize(256, 256)
-		_disp[i] = img
+		_disp[i] = load("res://assets/textures/%s/%s_disp_256.png" % [nm, nm]) as Image
 	return _disp[i]
 
 static func disp_at(img: Image, uv: Vector2) -> float:
