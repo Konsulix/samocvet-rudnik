@@ -29,6 +29,8 @@ const METALS := {
 ## the genes a skull may have pinned from outside (the save, tests, the admin): SpecGenome and Spec pass these on
 const KEYS := ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees",
 	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile"]
+## the skins water may run over (not cast metal, the mosaic or glass: there it would sit like a sticker)
+const WET_SKINS := ["bone", "nacre", "gilt", "agate", "opal", "pyrite", "geode"]
 ## the bones that are not bone any more (bone.gdshader skins 5–8)
 const STONE_SKINS := {agate = 5, opal = 6, pyrite = 7, geode = 8}
 
@@ -211,7 +213,7 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 		skin_seed = int(r.next() * 100000),
 		gilt_dir = [(r.next() - 0.5) * 2.0, r.next() - 0.3, r.next()],
 		# a stream out of an eye (mostly with moss), roots of a tree over the skull
-		stream = o.get("stream", r.next() < 0.12),
+		stream = o.get("stream", r.next() < 0.2),
 		stream_side = -1.0 if r.next() < 0.8 else 1.0,   # (mostly the side the card shows)
 		roots = o.get("roots", r.next() < 0.1),
 		# the crown of the trees on it: a flocked moss puff, leaves, blossom with buds, autumn, or bare
@@ -432,6 +434,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 	if sk.eyes != "none":
 		var em := _eyes(b, st, sk, cr, nr, earth_m, crystal, lean)
 		if main == null: main = em
+	_earth_done(b, earth_m)
 
 	# a geode: the crust broken away in patches, the bone hollowed there (crystals grow in them: SpecSkullFx.dress)
 	if sk.skin == "geode": sk.geode_pits = SpecSkullFx.dig(cr, nr, sk, float(seed_v % 97) * 1.37)
@@ -456,7 +459,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		_glass_flowers(b, sk)
 		main = mi
 	if sk.roots: _roots(b, sk, bones, nrs, cr)
-	if sk.stream and sk.skin in ["bone", "nacre", "gilt"]:
+	if sk.stream and sk.skin in WET_SKINS:
 		_stream(b, sk, bones, nrs)
 		# the bone it runs over, wet (the meshes rebuilt with the wetness in their vertex alpha)
 		cr._mesh = null
@@ -600,7 +603,7 @@ static func accents(sk: Dictionary) -> Array:
 	if sk.tone in ["grave", "ash"] and sk.skin == "bone": out.append("sk_" + String(sk.tone))
 	if sk.moss != "none": out.append("sk_moss")
 	if int(sk.trees) > 0: out.append("sk_trees")
-	if sk.stream and sk.skin in ["bone", "nacre", "gilt"]: out.append("sk_stream")
+	if sk.stream and sk.skin in WET_SKINS: out.append("sk_stream")
 	if sk.roots: out.append("sk_roots")
 	if int(sk.flies) > 0: out.append("sk_flies")
 	return out
@@ -1298,7 +1301,30 @@ static func _earth(b: RefCounted, at: Array, earth_m: Material, n: int) -> void:
 		var g := 0.01 + pow(rng.next(), 2.0) * 0.04
 		# (cut as finely, in pixels, as the biggest crumb at 16: a small one needs fewer triangles to look the same)
 		var dt := CRUMB_DETAIL if CRUMB_DETAIL > 0 else 16 if not SpecUtil.fast else clampi(ceili(16.0 * g / 0.05), 5, 16)
-		U.mesh(RockKit.crumble(rng, g, Vector3(1.3, 0.6, 1.0), dt), earth_m, b.root, p + nn * g * 0.2, Basis(U.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.next() * 6.3))
+		if not SpecUtil.fast:
+			U.mesh(RockKit.crumble(rng, g, Vector3(1.3, 0.6, 1.0), dt), earth_m, b.root, p + nn * g * 0.2, Basis(U.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.next() * 6.3))
+			continue
+		# straight into one heap (as SpecUtil.batch would glue them, without a mesh of its own for each crumb first)
+		var src := RockKit.crumb_shape(rng, Vector3(1.3, 0.6, 1.0), dt)
+		var t := Transform3D(Basis(U.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.next() * 6.3), p + nn * g * 0.2)
+		# (not SurfaceTool.append_from: it reads the crumb's mesh back, which on the build thread waits for the renderer)
+		var heap: Geo = earth_m.get_meta("heap") if earth_m.has_meta("heap") else Geo.new()
+		earth_m.set_meta("heap", heap)
+		var base := heap.v.size()
+		heap.v.append_array(t.scaled_local(Vector3(g, g, g)) * src.v)
+		heap.own_n.append_array(Transform3D(t.basis) * src.own_n)
+		heap.col.append_array(src.col)
+		var at_i := heap.idx.size()
+		heap.idx.append_array(src.idx)
+		for j in range(at_i, heap.idx.size()): heap.idx[j] += base
+
+## the earth heaped by _earth, as one mesh
+static func _earth_done(b: RefCounted, earth_m: Material) -> void:
+	if not earth_m.has_meta("heap"): return
+	var heap: Geo = earth_m.get_meta("heap")
+	earth_m.remove_meta("heap")
+	var mi := U.mesh(heap, earth_m, b.root)
+	mi.set_meta("box", heap.aabb())
 
 ## the bone's vertex nearest a point, on the outside of the head
 static func _snap(cr: Geo, nr: PackedVector3Array, w: Vector3, mid: Vector3) -> int:

@@ -72,6 +72,15 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	if habit == "prism" or habit == "blade":
 		g = Geo.lathe([Vector2(0, low), Vector2(r * 0.08 if dt else r, low if dt else 0.0), Vector2(r, 0), Vector2(r * (0.75 if scep else 1.0), h * 0.62),
 			Vector2(r * sc, h * 0.72), Vector2(r * sc, h), Vector2(r * 0.08, h + r * tip), Vector2(0, h + r * tip)], 6)
+	elif habit == "nailhead":
+		# calcite's nailhead spar: a short six-sided prism under a low flat cap
+		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.45), Vector2(r * 0.1, h * 0.45 + r * 0.42), Vector2(0, h * 0.45 + r * 0.42)], 6)
+	elif habit == "hexbevel":
+		# apatite: a stubby six-sided prism, its flat end ringed with small sloping faces
+		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.72), Vector2(r * 0.66, h * 0.86), Vector2(0, h * 0.86)], 6)
+	elif habit == "pyritohedron":
+		# pyrite's pentagonal dodecahedron: twelve five-sided faces, each with one long edge
+		g = Geo.dodeca(0.3).scale(1.0 + rng.next() * 0.12, 0.88, 1.08).translate(0, 0.27, 0)
 	elif habit == "barrel":
 		g = Geo.lathe([Vector2(0, 0), Vector2(r * 0.75, 0), Vector2(r * 1.05, h * 0.3), Vector2(r * 1.05, h * 0.7), Vector2(r * 0.8, h), Vector2(0, h)], 6)
 	elif habit == "scaleno":
@@ -127,6 +136,15 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = Geo.sphere(0.2, 20, 14).translate(0, 0.15, 0)
 	if habit == "blade":
 		g.scale(1.3, 1, 0.38)
+	# bent crystals (stibnite's swords, vivianite's flexible blades): each bowed its own way, more towards the tip
+	var bend: float = cfg.get("bend", 0.0)
+	if bend > 0.0:
+		var bk := bend * (rng.next() * 2.0 - 1.0)
+		var bz := bend * (rng.next() * 2.0 - 1.0) * 0.4
+		var hh := maxf(0.2, h)
+		for i in g.v.size():
+			var t := maxf(0.0, g.v[i].y) / hh
+			g.v[i] += Vector3(bk * t * t * hh * 0.3, 0, bz * t * t * hh * 0.3)
 	g.to_soup()
 	# small irregularities and a few knocked-off corners near the tips
 	var top := h * 0.82
@@ -462,9 +480,40 @@ static func rock(rng: Rng32, type: String, shape: String, detail := 32, loose :=
 ## a spongy, crumbling lump of native metal: frothy ridges, bubbles and deep pockets.
 ## Vertex colour carries the shading of the hollows.
 ## detail: how finely the ball is cut (16: ~5800 triangles — for a crumb a few pixels across on a phone, 6–8 do)
+## (crumbs come by the hundred and carving each from noise was a skull's slowest part: a crumb is one of
+## CRUMB_KINDS shapes for its stretch and fineness, carved once and kept at size 1 — the same draw from rng, so
+## nothing after it changes; small, turned every way and scattered, they never read as repeats)
+const CRUMB_KINDS := 12
+static var _crumbs := {}
+static var _crumb_lock := Mutex.new()
 static func crumble(rng: Rng32, r: float, sc := Vector3.ONE, detail := 16) -> Geo:
+	var src := crumb_shape(rng, sc, detail)
+	var g := Geo.new()
+	g.v = src.v.duplicate()
+	for i in g.v.size():
+		g.v[i] *= r
+	g.idx = src.idx.duplicate()
+	g.col = src.col.duplicate()
+	return g
+
+## the kept crumb itself (size 1, its normals in own_n): read it, never change it
+static func crumb_shape(rng: Rng32, sc := Vector3.ONE, detail := 16) -> Geo:
+	var sd := int(rng.next() * 1000000) % CRUMB_KINDS
+	var key := "%d %d %.4f %.4f %.4f" % [sd, detail, sc.x, sc.y, sc.z]
+	_crumb_lock.lock()
+	var src: Geo = _crumbs.get(key)
+	_crumb_lock.unlock()
+	if src == null:
+		src = _crumble(sd, sc, detail)
+		src.own_n = src.normals()
+		_crumb_lock.lock()
+		_crumbs[key] = src
+		_crumb_lock.unlock()
+	return src
+
+static func _crumble(sd: int, sc: Vector3, detail: int) -> Geo:
 	var g := ball(detail)
-	var sd := int(rng.next() * 1000000)
+	var r := 1.0
 	var form := FastNoiseLite.new()
 	form.seed = sd
 	form.frequency = 1.2

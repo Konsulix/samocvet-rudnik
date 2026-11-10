@@ -92,6 +92,7 @@ const FACTS := {
 	hyalite = "SiO₂·nH₂O · hardness 6 · glassy opal like drops of water; under a black lamp it glows green",
 	whewellite = "CaC₂O₄·H₂O · hardness 2.5 · a mineral born of living things, found in coal seams",
 	enhydro = "SiO₂ · hardness 7 · a quartz with a drop of water and a bubble of gas sealed in it millions of years ago",
+	millerite = "NiS · hardness 3 · brass-yellow hairs finer than a horse's, grown in the hollows of ironstone in the coal measures",
 	ember = "the colour of a firedamp flame: the old gas-burner's last coal, still warm",
 	needle = "a death on the needle's point, the needle in an egg, the egg in a duck, the duck in a hare...",
 }
@@ -238,8 +239,10 @@ func _banner(a: int) -> Control:
 			render())
 	return b
 
+## a tap is the finger lifted. Only the mouse stream: on the phone every touch also arrives as an emulated mouse
+## click, so counting the touch too opened every sheet twice (and closing it took two taps)
 static func _tapped(e: InputEvent) -> bool:
-	return (e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and not e.pressed)
+	return e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT
 
 ## a rounded box with a slice of the mine's picture (a = -1: bare rock), darkened to the left for text, a brass rim
 func _picture_box(a: int, h: float, dark: float) -> PanelContainer:
@@ -312,7 +315,8 @@ static func _mine_dir(a: int) -> String:
 static func _sign(a: int, open: bool) -> String:
 	if a < 0 or not open: return "lock"
 	if a < Save.d.boss_won.size() and bool(Save.d.boss_won[a]):
-		return ["poloz", "mistress", "kraken", "brontes"][clampi(a, 0, 3)]
+		var sg: String = {0: "poloz", 1: "mistress", 2: "kraken", 3: "brontes", 7: "shubin"}.get(a, "empty")
+		return sg if ResourceLoader.exists("res://assets/atlas/emblem_%s.png" % sg) else "empty"
 	return "empty"
 
 ## the boss's sign tapped: fight a beaten boss again (no hoard this time), or a word on where it waits
@@ -613,7 +617,7 @@ func _tile(id: String, w: float) -> Control:
 	pm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pm.add_child(img)
 	b.add_child(pm)
-	cutout(Spec.of_stone(e.best) if got else _sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+	cutout(Spec.of_stone(e.best) if got else _sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	var txt := VBoxContainer.new()
 	txt.add_theme_constant_override("separation", 2)
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -735,12 +739,14 @@ func _open_best() -> void:
 # ---------------------------------------------------------------- pictures
 
 ## a stone rendered once on a transparent ground, cropped to it
-static func cutout(o: Dictionary, cb: Callable) -> void:
+## owner: what the picture is for (its TextureRect); gone by the time its turn comes (the screen was left), the stone
+## isn't built at all - a screen left behind (the awards' 30-odd niches, skulls among them) no longer holds up the next one
+static func cutout(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var key := Spec.key_of(o)
 	if _cut.has(key):
 		cb.call(_cut[key])
 		return
-	_queue.append([o, cb])
+	_queue.append([o, cb, owner])
 	if not _busy:
 		_pump()
 
@@ -755,6 +761,8 @@ static func _pump() -> void:
 		var o: Dictionary = item[0]
 		var cb: Callable = item[1]
 		var key := Spec.key_of(o)
+		if not _cut.has(key) and _gone(item[2]):
+			continue
 		if not _cut.has(key):
 			var p: Node3D = await _studio.show_async(o)
 			if p == null:
@@ -772,6 +780,16 @@ static func _pump() -> void:
 		if cb.is_valid():
 			cb.call(_cut[key])
 	_busy = false
+
+## the picture's owner is freed or about to be (its screen was swapped out)
+static func _gone(owner: Variant) -> bool:
+	if owner == null: return false
+	if not is_instance_valid(owner): return true
+	return owner is Node and (owner as Node).is_queued_for_deletion()
+
+## a picture already made for this stone, or null (a card shows it while its live stone is built)
+static func cached(o: Dictionary) -> Texture2D:
+	return _cut.get(Spec.key_of(o))
 
 ## the game is closing: drop the pictures and the studio while the renderer is still up
 static func release() -> void:

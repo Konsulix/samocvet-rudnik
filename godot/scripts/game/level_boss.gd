@@ -9,7 +9,8 @@ extends RefCounted
 const ACTS := {coils = "Coils: timber on stones", rockfall = "Rockfall", breath = "Poison breath", hoard = "Hoard: heals on gold",
 	lizards = "Lizards: steal the greens", crust = "Malachite crust", flower = "Stone flower: blooms and heals",
 	tentacle = "Tentacle: grips stones", ink = "Ink: hides stones", tide = "Tide: floods the bottom",
-	hammer = "Hammer: scales stones", bellows = "Bellows: heats billets", pour = "Molten sulphur"}
+	hammer = "Hammer: scales stones", bellows = "Bellows: heats billets", pour = "Molten sulphur",
+	sigh = "Sigh: gas comes out", drift = "Drift: gas creeps to the bird", cough = "Cough: a burst of gas", knock = "Knock: rocks fall"}
 ## the stage over the board, pt; how far the boss' bottom tucks behind the frame; its sprite's left edge
 const STAGE := 190.0
 const SINK := 26.0
@@ -108,6 +109,12 @@ static func mount(lv: Level) -> void:
 	refresh_hp(lv)
 	v.set_phase(int(lv.model.boss.stage))
 	v.set_rest("rage" if int(lv.model.boss.stage) >= 2 else "idle")
+	# Shubin: the balance scale over the board, the canary on it; his look follows the needle
+	if lv.model.scale_on():
+		BossShubin.mount(lv)
+		lv.set_meta("shubin_mood", lv.model.shubin_mood())
+		v.set_phase(lv.model.shubin_mood())
+		v.set_rest("idle")
 
 ## put the boss, the frame and the health bar where the board is now
 static func place(lv: Level) -> void:
@@ -237,6 +244,9 @@ static func on_hit(lv: Level, e: Dictionary) -> void:
 static func after_turn(lv: Level) -> void:
 	_turn_dmg = 0
 	var m: BoardModel = lv.model
+	if m.scale_on():
+		await _shubin(lv)
+		return
 	if m.boss_stage_clear():
 		await next_board(lv)
 		return
@@ -672,7 +682,13 @@ static func defeat(lv: Level) -> void:
 	lv.board.over.queue_redraw()
 	var h := hud(lv)
 	h.clear_intent()
-	h.set_hp(0, int(lv.model.boss.hp_max))
+	if lv.model.scale_on():
+		# the song outweighs the gas: the canary sings him its lullaby, he yawns and falls asleep
+		BossShubin.lullaby(lv)
+		sound(lv, "song")
+		line(lv, "win")
+	else:
+		h.set_hp(0, int(lv.model.boss.hp_max))
 	frame(lv).swaying = false
 	# its theme dies with it, gone before the win jingle
 	Sfx.music_fade(3.5)
@@ -680,6 +696,128 @@ static func defeat(lv: Level) -> void:
 		get_tree_timer(lv, 1.1, sea(lv).drown)
 		get_tree_timer(lv, 1.2, func(): sound(lv, "drown"))
 	await v.defeat()
+
+# ---------------------------------------------------------------- Shubin
+
+## his mood follows the scale's needle: a new look (a dissolve) and a word when it changes
+static func _mood(lv: Level) -> void:
+	var m: BoardModel = lv.model
+	var md := m.shubin_mood()
+	var was := int(lv.get_meta("shubin_mood", 0))
+	if md == was: return
+	lv.set_meta("shubin_mood", md)
+	var v := view(lv)
+	if v: v.set_phase(md)
+	if md > was:
+		line(lv, "stir" if md == 1 else "cough")
+		sound(lv, "cough")
+	else:
+		line(lv, "sleep")
+
+## after the player's move: the canary sings (a note into its pan) or is silent; asleep - the level wins; his act
+## (gas out of the marked stones, the gas creeping towards the bird, rocks off the roof); then what falls and matches
+static func _shubin(lv: Level) -> void:
+	var m: BoardModel = lv.model
+	var v := view(lv)
+	var res := m.song_turn()
+	BossShubin.sang(lv, res)
+	# he feels the air: much gas cleared - he sinks deeper (eyes shut, a snore); the bird silenced - he frowns, stirs
+	var cleared := int(lv.get_meta("shubin_gas", m.gas_count())) - m.gas_count()
+	if v and cleared >= 2: v.show_for("blink", 1.4)
+	elif v and not bool(res.sang): v.show_for("hurt", 1.0)
+	if not bool(res.sang) and lv.get_meta("shubin_sang", true): sound(lv, "cheep")
+	lv.set_meta("shubin_sang", bool(res.sang))
+	_mood(lv)
+	if m.goals_done(): return
+	var acting := int(m.boss.timer) <= 1
+	if acting and v:
+		v.cast()
+		await lv._wait(0.35)
+	var r := m.boss_turn()
+	if not r.is_empty():
+		var b := lv.board
+		b.marks = []
+		for id in r.removed: b.remove_node(id)
+		b.redraw_under()
+		b.over.queue_redraw()
+		match String(r.act):
+			"sigh", "cough", "drift":
+				for p: Vector2i in r.cells: lv.fx.sparkle(p.x, p.y, Color("#a8d890"), 12)
+				BossShubin.gas_out(lv, r.cells)
+				sound(lv, "cough" if r.act == "cough" else "sigh")
+				if r.act == "cough":
+					var tw := lv.create_tween()
+					for k in 4:
+						tw.tween_property(lv.shaker, "position", Vector2(randf_range(-4, 4), randf_range(-3, 3)), 0.04)
+					tw.tween_property(lv.shaker, "position", Vector2.ZERO, 0.05)
+					tip(lv, "cough_told", "He coughs gas right by the cage - clear it before the bird falls silent")
+				elif r.act == "drift":
+					tip(lv, "drift_told", "The gas creeps towards the canary's song - keep the air round the cage clear")
+				else:
+					tip(lv, "sigh_told", "Every cloud of gas weighs on the scale. Match beside it to clear it")
+			"knock":
+				for p: Vector2i in r.cells: lv.fx.debris(p.x, p.y, Color("#3a3430"), 10)
+				lv.fx.shake = maxf(lv.fx.shake, 10.0)
+				sound(lv, "knock")
+		b.refresh()
+		await lv._wait(0.35)
+		await b.animate_collapse(m.collapse())
+		await lv._resolve([], [])
+		if not m.has_moves():
+			m.shuffle()
+			await b.animate_shuffle()
+	BossShubin.update_bird(lv)
+	_mood(lv)
+	lv.set_meta("shubin_gas", m.gas_count())
+	show_intent(lv)
+
+## the gas outweighed the song: he wakes, the canary falls from its perch onto its back. The fight is lost
+static func shubin_lost(lv: Level) -> void:
+	var v := view(lv)
+	lv.board.marks = []
+	lv.board.over.queue_redraw()
+	hud(lv).clear_intent()
+	BossShubin.fall(lv)
+	sound(lv, "cheep")
+	await lv._wait(1.2)
+	if v:
+		v.set_phase(2)
+		v.set_rest("rage")
+	sound(lv, "wake")
+	lv.fx.shake = maxf(lv.fx.shake, 14.0)
+	line(lv, "lose")
+	await lv._wait(2.4)
+
+## fresh air bought after the canary fell: the gas is blown out of the mine (all but a few far clouds), the bird
+## comes round and gets back on its perch, he sinks back into his doze
+static func shubin_revive(lv: Level) -> void:
+	var m: BoardModel = lv.model
+	var gas := []
+	for r in m.R:
+		for c in m.C:
+			if m.GAS[r][c]: gas.append(Vector2i(r, c))
+	gas.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return m.cage_dist(a.x, a.y) < m.cage_dist(b.x, b.y))
+	for i in maxi(0, gas.size() - 2):
+		var p: Vector2i = gas[i]
+		m.GAS[p.x][p.y] = 0
+		lv.fx.sparkle(p.x, p.y, Color("#dff4ff"), 10)
+	m.boss.song.notes = maxi(int(m.boss.song.notes), int(m.boss.B.scale.get("start", 4)))
+	m.scale_goal()
+	m.over = false
+	lv.board.redraw_under()
+	await lv.board.animate_collapse(m.collapse())
+	await lv._resolve([], [])
+	var c := BossShubin.cage_of(lv)
+	if c: c.set_state("sing")
+	sound(lv, "song")
+	var v := view(lv)
+	lv.set_meta("shubin_mood", m.shubin_mood())
+	if v:
+		v.set_rest("idle")
+		v.set_phase(m.shubin_mood())
+	line(lv, "sleep")
+	m.boss_plan()
+	show_intent(lv)
 
 ## the show for screenshots and checks on a phone: hits, a flinch, its turn, a lost board, the defeat
 static func demo(lv: Level) -> void:

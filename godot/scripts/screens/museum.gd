@@ -143,7 +143,7 @@ static func photo(o: Dictionary, px: float, round := false) -> TextureRect:
 			sh.code = "shader_type canvas_item;\nvoid fragment(){ vec4 c = texture(TEXTURE, UV); float d = length(UV - 0.5); c.a *= 1.0 - smoothstep(0.47, 0.5, d); COLOR = c * COLOR; }"
 			_round_mat.shader = sh
 		img.material = _round_mat
-	Spec.thumb(o, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+	Spec.thumb(o, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	return img
 
 # ---------------------------------------------------------------- cases
@@ -273,7 +273,7 @@ func _tile(g: Array, w: float) -> Control:
 	img.offset_left = w * 0.08
 	img.offset_right = -w * 0.08
 	b.add_child(img)
-	Atlas.cutout(Spec.of_stone(s0), func(tx: Texture2D): if is_instance_valid(img): img.texture = tx)
+	Atlas.cutout(Spec.of_stone(s0), func(tx: Texture2D): if is_instance_valid(img): img.texture = tx, img)
 	var txt := VBoxContainer.new()
 	txt.position = Vector2(9, 7)
 	txt.add_theme_constant_override("separation", 2)

@@ -19,6 +19,7 @@ var close_btn: Control
 var moves_box: Control
 var hp := [1, 1]             # left, max
 var hp_rect := Rect2()
+var no_hp := false           # Shubin has no health: a balance scale stands there instead (BossShubin)
 var bubble: Control
 var bubble_target := Vector2.ZERO
 var intent := {}             # {act, left}
@@ -109,6 +110,11 @@ func _ready() -> void:
 		_icons.bellows = load("res://assets/boss/brontes/billet_4.png")
 	if ResourceLoader.exists("res://assets/boss/brontes/hammer_icon.png"):
 		_icons.hammer = load("res://assets/boss/brontes/hammer_icon.png")
+	if ResourceLoader.exists("res://assets/board/pieces/gas.png"):
+		_icons.sigh = load("res://assets/board/pieces/gas.png")
+		_icons.drift = _icons.sigh
+		_icons.cough = _icons.sigh
+	_icons.knock = BoardSprites.blocker(BoardSprites.granite())
 	if ResourceLoader.exists("res://assets/boss/mistress/lizard_0.png"):
 		_icons.lizards = load("res://assets/boss/mistress/lizard_0.png")
 
@@ -150,7 +156,7 @@ func _process(dt: float) -> void:
 # ---------------------------------------------------------------- health on the frame
 
 func _draw() -> void:
-	if hp_rect.size.x <= 0: return
+	if hp_rect.size.x <= 0 or no_hp: return
 	var r := hp_rect
 	draw_style_box(plate(9), r)
 	var inner := r.grow(-5)
@@ -182,7 +188,9 @@ const ACT_NAMES := {coils = ["Coils", "locks stones"], rockfall = ["Rockfall", "
 	breath = ["Breath", "spreads gas"], hoard = ["Hoard", "heals on gold"], lizards = ["Lizards", "steal greens"],
 	crust = ["Crust", "locks stones"], flower = ["Flower", "blooms: heals"],
 	tentacle = ["Tentacle", "grips stones"], ink = ["Ink", "hides stones"], tide = ["Tide", "floods the bottom"],
-	hammer = ["Hammer", "scales stones"], bellows = ["Bellows", "heats billets"], pour = ["Sulphur", "pours, spreads"]}
+	hammer = ["Hammer", "scales stones"], bellows = ["Bellows", "heats billets"], pour = ["Sulphur", "pours, spreads"],
+	sigh = ["Sigh", "gas comes out"], drift = ["Drift", "gas to the bird"], cough = ["Cough", "gas bursts"],
+	knock = ["Knock", "rocks fall"]}
 
 func bubble_rect() -> Rect2:
 	var vp := lv.get_viewport_rect().size

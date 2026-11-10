@@ -272,7 +272,7 @@ func _move(g: Geode, to: Vector2, sz: float, fade: float, dur: float) -> void:
 	tw.tween_method(func(v: float): g.fade = v, g.fade, fade, dur * 0.8)
 
 func _input_at(e: InputEvent) -> void:
-	var tap: bool = (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed)
+	var tap: bool = e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT
 	if not tap or auto: return
 	var p: Vector2 = e.position
 	if _focus:

@@ -170,6 +170,22 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		for t: String in more:
 			if mr.next() < float(more[t]) and not t in traits and traits.size() < 4:
 				traits.append(t)
+	# the species' say over the shared traits (SpecLooks.AFFINITY): the loved ones rolled again on their own stream,
+	# and none it never takes — nor any its body cannot show (a phantom in gold, a twin on an ammonite)
+	var lv := SpecLooks.love(sid)
+	if lv.size():
+		var lr := Rng32.new((seed_id * 3266489917 + 303) % 4294967296)
+		for t: Dictionary in Data.TRAITS:
+			if lv.has(t.id):
+				if lr.next() < float(t.p) * (float(lv[t.id]) - 1.0) and not t.id in traits and traits.size() < 4:
+					traits.append(t.id)
+	var nv := SpecLooks.never(sid)
+	traits = traits.filter(func(t: String) -> bool: return not t in nv)
+	# now and then a layout not the species' own (SpecLooks.odd), its own stream: a little rarity for the collector,
+	# and where the generator's lesser-used shapes live on
+	if kind in ["crystal", "druse"] and SpecLooks.odd(sid).size() and not "floater" in traits:
+		if Rng32.new((seed_id * 2654435761 + 409) % 4294967296).next() < SpecLooks.ATYPICAL_P:
+			traits.append("atypical")
 	# the traits add up (multiplied, three rare ones made a jackpot of a common stone)
 	var tm := 1.0
 	for t in traits:
@@ -229,6 +245,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			skull = pick_w(at, sr)
 			kind = "druse"
 			kind_m *= float(SKULL_V[skull])
+			traits.erase("atypical")   # (a skull is its own form)
 			g = roundi(900.0 * (1.0 + sr.next() * 0.8))
 	var value: float = float(Data.SP[sid].v) * VALUE_K * tm * kind_m
 	# a living effect is worth the same on any body: added, not multiplied, so a legendary pyrite

@@ -80,7 +80,7 @@ func setup(bb: AABB, seed_v: int, glow: Color, surf := PackedVector3Array()) -> 
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	extra_cull_margin = 4.0
 	arcs = MeshInstance3D.new()
-	_arc_mat = _mat.duplicate() as ShaderMaterial
+	_arc_mat = SpecUtil.mat_copy(_mat)
 	_arc_mat.set_shader_parameter("fps", 20.0)
 	arcs.material_override = _arc_mat
 	arcs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

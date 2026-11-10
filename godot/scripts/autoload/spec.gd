@@ -118,7 +118,8 @@ func cached(o: Dictionary) -> Texture2D:
 ## machines never change: their pictures are baked into the project (bake_thumbs key), not rendered on the phone
 const BAKED := "res://assets/thumbs/machine_%s.png"
 
-func thumb(o: Dictionary, cb: Callable) -> void:
+## owner: as Atlas.cutout's - left behind with its screen, the thumbnail isn't built
+func thumb(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var t := cached(o)
 	if t:
 		cb.call(t)
@@ -128,7 +129,7 @@ func thumb(o: Dictionary, cb: Callable) -> void:
 		_cache[key_of(o)] = bt
 		cb.call(bt)
 		return
-	_queue.append([o, cb])
+	_queue.append([o, cb, owner])
 	if not _busy:
 		_pump()
 
@@ -139,6 +140,8 @@ func _pump() -> void:
 		var o: Dictionary = item[0]
 		var cb: Callable = item[1]
 		var key := key_of(o)
+		if not _cache.has(key) and Atlas._gone(item[2]):
+			continue
 		if not _cache.has(key):
 			var p: Node3D = await studio.show_async(o)
 			if p == null:

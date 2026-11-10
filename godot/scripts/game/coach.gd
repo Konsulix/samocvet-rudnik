@@ -68,7 +68,7 @@ static func note(at: Node, id: String, text: String, hole := Rect2()) -> void:
 var close_on_hole := false
 func _input(e: InputEvent) -> void:
 	if not close_on_hole or not visible: return
-	var pressed: bool = (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed)
+	var pressed: bool = e is InputEventMouseButton and e.pressed
 	if not pressed: return
 	for h in holes:
 		if h.has_point(e.position):
@@ -128,7 +128,7 @@ func _cut() -> void:
 		_blocks.append(b)
 
 func _block_input(e: InputEvent) -> void:
-	var pressed: bool = (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed)
+	var pressed: bool = e is InputEventMouseButton and e.pressed
 	if not pressed: return
 	if tap_any and modulate.a > 0.6:
 		close()

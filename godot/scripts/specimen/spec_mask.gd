@@ -104,7 +104,25 @@ static func spots(meshes: Array, root: Node3D, score: Callable, n := 3, budget :
 		var uvs := PackedVector2Array()
 		var uv2s := PackedVector2Array()
 		var cols := PackedColorArray()
-		if mi.mesh:
+		var src: Geo = mi.get_meta("geo") if mi.has_meta("geo") else null
+		if mi.mesh and src and src.v.size() == mi.mesh.surface_get_array_len(0):
+			# the mesh's own arrays, as Geo.to_mesh() gave them (reading them back from the mesh waits for the renderer:
+			# ~130 ms a mesh on the build thread)
+			vs = src.v
+			ns = src.own_n if src.own_n.size() == src.v.size() else src.normals()
+			if src.col.size() == src.v.size():
+				# as the renderer keeps them (8 bits a channel): what the shader tests against its thresholds
+				cols = src.col.duplicate()
+				for i in cols.size():
+					var c := cols[i]
+					cols[i] = Color(roundf(c.r * 255.0) / 255.0, roundf(c.g * 255.0) / 255.0, roundf(c.b * 255.0) / 255.0, roundf(c.a * 255.0) / 255.0)
+			if src.rp.size() == src.v.size():
+				uvs.resize(vs.size())
+				uv2s.resize(vs.size())
+				for i in vs.size():
+					uvs[i] = Vector2(src.rp[i].x, src.rp[i].y)
+					uv2s[i] = Vector2(src.rp[i].z, 0.0)
+		elif mi.mesh:
 			var arr := mi.mesh.surface_get_arrays(0)
 			vs = arr[Mesh.ARRAY_VERTEX]
 			ns = arr[Mesh.ARRAY_NORMAL]

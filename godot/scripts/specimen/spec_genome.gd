@@ -9,7 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
-	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
+	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", septaria = "septarian nodule", hair = "hair sprays", coxcomb = "cockscomb", starburst = "star discs", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
@@ -24,7 +24,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
 	sk_flies = "butterflies", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
-	flower = "flower", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
+	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -32,6 +32,13 @@ const EXTRA_TRAITS := [
 	{id = "eroded", n = "etched", p = 0.06, m = 1.3},
 	{id = "goldfleck", n = "gold flecks", p = 0.07, m = 1.7},
 	{id = "anomaly", n = "anomalous", p = 0.03, m = 2.5},
+	# never rolled with the others: the species' own stream gives it (Stones.roll, SpecLooks.odd)
+	{id = "atypical", n = "atypical habit", p = 0.0, m = 1.5},
+	# a pocket of water sealed in the crystal, its gas bubble rising as the stone turns (SpecimenBuilder.Enhydro)
+	{id = "enhydro", n = "enhydro", p = 0.025, m = 1.7},
+	# a ghost of green chlorite inside the crystal; rusty limonite stains climbing its foot
+	{id = "chlorite", n = "chlorite phantom", p = 0.03, m = 1.4},
+	{id = "limonite", n = "limonite stains", p = 0.04, m = 1.15},
 ]
 
 static func of(o: Dictionary) -> Dictionary:
@@ -45,13 +52,20 @@ static func of(o: Dictionary) -> Dictionary:
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
+	var odd_habit := ""
 	var look := SpecLooks.of(sid)
 	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else SpecObsidian.genes(seed_v, o) if habit == "obsidian" else {}
 	if habit == "fossil": form = sid
 	elif habit == "obsidian": form = "obsidian"
 	elif kind == "geode": form = "geode"
 	elif habit == "nugget": form = "nugget"
-	elif habit == "botryoid": form = "botryoid"
+	# (some lumps are sawn and polished: malachite's eyes — SpecLooks sawn, its own stream)
+	elif habit == "botryoid": form = "sawn" if Rng32.new((seed_v * 2246822519 + 31) % 4294967296).next() < float(look.get("sawn", 0.0)) else "botryoid"
+	elif "atypical" in tr and SpecLooks.odd(sid).size():
+		# a layout not the species' own (SpecLooks.odd), sometimes with another crystal: the body stays its own
+		var odd: Array = Stones.pick_w(SpecLooks.odd(sid).map(func(f: Array) -> Array: return [f, float(f[1])]), rng)
+		form = String(odd[0])
+		if odd.size() > 2: odd_habit = String(odd[2])
 	elif "floater" in tr and elongated: form = "floater"
 	else:
 		var opts := []
@@ -83,7 +97,7 @@ static func of(o: Dictionary) -> Dictionary:
 	else: rock = Stones.pick_w(look.get("rock", [["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]]), rng)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
 	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
-	if not metal and not (form in ["geode", "nugget", "botryoid"]) and rng.next() < float(look.get("dark", 0.05)) and habit != "fossil":
+	if not metal and not (form in ["geode", "nugget", "botryoid", "sawn"]) and rng.next() < float(look.get("dark", 0.05)) and habit != "fossil":
 		lustre = "dark"
 	var dark_cols := [Color(0.012, 0.045, 0.045), Color(0.015, 0.035, 0.02), Color(0.012, 0.018, 0.045), Color(0.04, 0.026, 0.018), Color(0.02, 0.02, 0.022)]
 	var dark_col: Color = dark_cols[int(rng.next() * dark_cols.size())]
@@ -96,9 +110,13 @@ static func of(o: Dictionary) -> Dictionary:
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
-	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein"]):
+	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
-	if form in ["geode", "botryoid"]:
+	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
+	# (on a sawn and polished lump only the small things, round its back: big puffs and ferns would reach over the face)
+	if form == "sawn":
+		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "flowers", "dust"])
+	if form in ["geode", "botryoid"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
@@ -109,9 +127,13 @@ static func of(o: Dictionary) -> Dictionary:
 		apool = []
 	# the species' own say (SpecLooks): accents that do not suit it, and how often anything grows on it at all — or
 	# nothing does where its rock is hidden (the desert and iron roses)
-	var no_acc: Array = look.get("no_acc", [])
+	var no_acc: Array = SpecLooks.never(sid)
 	if no_acc.size():
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in no_acc))
+	# the accents it loves weigh more (SpecLooks.AFFINITY)
+	var lv := SpecLooks.love(sid)
+	if lv.size():
+		apool = apool.map(func(a: Array) -> Array: return [a[0], float(a[1]) * float(lv.get(a[0], 1.0))])
 	# a skull (SpecSkull) takes the quiet ones: lichen, fronds, flowers — no puffs, straw or needles on bone
 	if o.get("form", "") == "skull":
 		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "fronds", "flowers", "inkspots", "clouds"])
@@ -121,6 +143,7 @@ static func of(o: Dictionary) -> Dictionary:
 			if o.has(k): sko[k] = o[k]
 		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass"]:
 			apool = []
+	# (a sawn and polished face keeps nothing growing on it)
 	var bare := form == "rosette" and look.has("rose")
 	if o.get("form", "") == "skull" and apool.is_empty(): bare = true   # (a gold / mosaic / glass skull: no mushrooms either)
 	if Rng32.new((seed_v * 1103515245 + 13) % 4294967296).next() > float(look.get("growths", 1.0)):
@@ -135,6 +158,9 @@ static func of(o: Dictionary) -> Dictionary:
 		var a: String = Stones.pick_w(apool, rng)
 		if not a in acc: acc.append(a)
 	acc.append_array(SpecFossil.accents(fossil))
+	# emerald's trapiche: a rare one with a dark six-spoked wheel through it (its own stream)
+	if look.has("trapiche") and form in ["single", "columnar"] and Rng32.new((seed_v * 3266489917 + 151) % 4294967296).next() < float(look.trapiche):
+		acc.append("trapiche")
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
 	# own stream, so no other gene moves
 	var withs: Array = look.get("with", [])
@@ -158,7 +184,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# a legendary find always carries one living effect, one that suits its body
 	var fx := ""
 	var fpool := ["fluor", "levitate", "jellyfish"]
-	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget"]): fpool.append("lava")
+	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget", "sawn"]): fpool.append("lava")
 	if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
 	# a fulgurite's own: the lightning that made it runs through it still
 	if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
@@ -177,7 +203,7 @@ static func of(o: Dictionary) -> Dictionary:
 		fpool.append_array(["borealis", "borealis", "frost", "frost"])
 	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
 	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
-	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget"])
+	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget", "sawn"])
 	if lustre == "glass" and glassy:
 		fpool.append_array(in_glass)
 	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
@@ -198,7 +224,13 @@ static func of(o: Dictionary) -> Dictionary:
 	# mushrooms on the host rock: decided on their own random stream, so adding this gene changed
 	# no other gene of any stone that already existed
 	var shroom: int = o.get("shroom", SpecFungi.roll(seed_v))
-	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"]) and not "mushrooms" in acc \
+	# a species that loves them (vivianite on its bog bones) gets a second roll; one that never takes them, none
+	if shroom < 0 and lv.has("mushrooms") and not o.has("shroom"):
+		for k in int(float(lv.mushrooms)) - 1:
+			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
+			if shroom >= 0: break
+	if "mushrooms" in no_acc: shroom = -1
+	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:
@@ -218,7 +250,12 @@ static func of(o: Dictionary) -> Dictionary:
 	for k in SpecSkull.KEYS:
 		if o.has(k): skull_o[k] = o[k]
 	skull_o.fx = fx
+	# the species' own crystals by turns (SpecLooks habits: calcite's rhombs, nailheads and dogteeth), on their own
+	# stream so no other gene moves
+	if odd_habit == "" and look.has("habits"):
+		odd_habit = String(Stones.pick_w((look.habits as Array).map(func(h: Array) -> Array: return [h[0], float(h[1])]), Rng32.new((seed_v * 2246822519 + 97) % 4294967296)))
 	return {
+		habit = odd_habit if odd_habit != "" else habit,
 		skull = skull_o,
 		form = form,
 		fossil = fossil,

@@ -629,7 +629,7 @@ func _niche(it: Array, sz: float) -> Control:
 	if s.begins_with("g:"):
 		var o: Dictionary = _shown(s)[0]
 		if o.is_empty(): img.texture = _tex(String(it[2]))
-		else: Atlas.cutout(Spec.of_stone(o) if o.has("value") else o, func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+		else: Atlas.cutout(Spec.of_stone(o) if o.has("value") else o, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	elif s.begins_with("i:"):
 		img.texture = _tex(s.trim_prefix("i:"))
 		pass   # the drawings are coloured: shown as they are, muted like the finds
@@ -640,7 +640,7 @@ func _niche(it: Array, sz: float) -> Control:
 	elif s.begins_with("sp:"):
 		var id := s.trim_prefix("sp:")
 		var e: Dictionary = Save.d.atlas.get(id, {})
-		Atlas.cutout(Spec.of_stone(e.best) if e.has("best") else Atlas._sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t)
+		Atlas.cutout(Spec.of_stone(e.best) if e.has("best") else Atlas._sample(id), func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	return c
 
 static var _fade_m: Array = [null, null]
@@ -879,7 +879,7 @@ func _sheet(e: Dictionary) -> void:
 	bx.content_margin_bottom = 22
 	p.add_theme_stylebox_override("panel", bx)
 	p.custom_minimum_size = Vector2(w, 0)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.mouse_filter = Control.MOUSE_FILTER_STOP   # a tap on the sheet itself keeps it open
 	lay.add_child(p)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -957,9 +957,16 @@ func _sheet(e: Dictionary) -> void:
 		v.add_child(b)
 	await get_tree().process_frame
 	p.position = (size - p.size) / 2.0
-	lay.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
-		Sfx.play("tab")
-		lay.queue_free())
+	# closed by the ✕ in its corner or by a tap anywhere outside it
+	var close := func() -> void:
+		if not lay.is_queued_for_deletion():
+			Sfx.play("tab")
+			lay.queue_free()
+	var x := Kit.icon_button("close", 34)
+	x.position = p.position + Vector2(p.size.x - 34 - 10, 10)
+	x.pressed.connect(close)
+	lay.add_child(x)
+	dim.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev): close.call())
 
 ## what an achievement gives, as it reads: coins and geodes as their picture with a number, the rest (a series,
 ## a frame, a title…) in words — those names are a lure of their own. A condition (Bosses, Mastery) stays words too

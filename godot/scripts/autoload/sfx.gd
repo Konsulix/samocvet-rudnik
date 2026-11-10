@@ -72,6 +72,14 @@ const SAMPLES := {
 	gas = {f = ["gas_0", "gas_1", "gas_2"], db = -8.0},
 	# the Kraken (Whalebone Cove): the sea's own recordings (amb/sea, a path with "/" is under assets/audio/) and the
 	# creature roars taken deeper; "all" plays the takes together
+	# Shubin (Whispering Seam): his cough (a recording, amb/seam), the gas's hiss, three knocks, the canary
+	sh_cough = {f = ["amb/seam/cough_0", "amb/seam/cough_1", "amb/seam/cough_2"], db = -2.0},
+	sh_sigh = {f = ["amb/seam/hiss"], db = -6.0, pitch = 0.8},
+	sh_knock = {f = ["amb/seam/knock"], db = -2.0},
+	sh_flame = {f = ["amb/seam/flame"], db = -3.0},
+	sh_song = {f = ["amb/seam/canary_0", "amb/seam/canary_1", "amb/seam/canary_2", "amb/seam/canary_3", "amb/seam/canary_4", "amb/seam/canary_5"], db = -10.0},
+	sh_cheep = {f = ["amb/seam/cheep"], db = -6.0},
+	sh_wake = {f = ["amb/seam/cough_0", "roar_05"], all = true, db = -2.0, pitch = 0.6},
 	kr_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -3.0, pitch = 0.62},
 	kr_phase = {f = ["amb/sea/crash_0", "roar_05"], all = true, db = -2.0, pitch = 0.8},
 	kr_rise = {f = ["amb/sea/crash_1", "amb/sea/crash_2"], db = -3.0, pitch = 0.85},
@@ -106,13 +114,19 @@ const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://as
 	home_1 = ["res://assets/audio/music/home_copper.ogg"], level_1 = ["res://assets/audio/music/home_copper.ogg"],
 	home_2 = ["res://assets/audio/music/home_cove.ogg"], level_2 = ["res://assets/audio/music/home_cove.ogg"],
 	home_3 = ["res://assets/audio/music/home_fire.ogg"], level_3 = ["res://assets/audio/music/home_fire.ogg"],
+	home_4 = ["res://assets/audio/music/home_proval.ogg"], level_4 = ["res://assets/audio/music/home_proval.ogg"],
+	home_5 = ["res://assets/audio/music/home_hollow.ogg"], level_5 = ["res://assets/audio/music/home_hollow.ogg"],
+	home_6 = ["res://assets/audio/music/home_barrow.ogg"], level_6 = ["res://assets/audio/music/home_barrow.ogg"],
+	home_7 = ["res://assets/audio/music/home_seam.ogg"], level_7 = ["res://assets/audio/music/home_seam.ogg"],
 	# a boss's own theme: "boss_<id>"
 	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"],
 	boss_mistress = ["res://assets/audio/music/boss_mistress.mp3"],
 	boss_kraken = ["res://assets/audio/music/boss_kraken.ogg"]}
 ## where a Suno track's loop starts (s): its intro plays once (prototype/tools/music_loop.py finds the cut)
 const LOOP_AT := {"res://assets/audio/music/home_adit.ogg": 11.7, "res://assets/audio/music/home_copper.ogg": 19.3, "res://assets/audio/music/home_cove.ogg": 48.25,
-	"res://assets/audio/music/boss_kraken.ogg": 57.65, "res://assets/audio/music/home_fire.ogg": 49.35}
+	"res://assets/audio/music/boss_kraken.ogg": 57.65, "res://assets/audio/music/home_fire.ogg": 49.35,
+	"res://assets/audio/music/home_proval.ogg": 55.05, "res://assets/audio/music/home_hollow.ogg": 51.9,
+	"res://assets/audio/music/home_barrow.ogg": 55.95, "res://assets/audio/music/home_seam.ogg": 57.55}
 const MUSIC_DB := -14.0
 ## the home screen's ambience (MineAmb): far off and behind rock — muffled, a little cave reverb, well under the music
 const AMB_BUS := "Amb"
@@ -221,11 +235,17 @@ func music_fade(sec: float) -> void:
 	tw.tween_property(p, "volume_db", -60.0, sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(p.stop)
 
-func _music_db() -> float:
-	return -80.0 if Save.d.get("mute", false) else MUSIC_DB
+## the music off ("effects only" in the settings, or `nomusic` for a test run - not saved)
+var no_music := false
+func music_off() -> bool:
+	return no_music or Save.d.get("mute", false) or Save.d.get("no_music", false)
 
-## sound switched on or off
+func _music_db() -> float:
+	return -80.0 if music_off() else MUSIC_DB
+
+## sound switched on or off, or the music alone
 func apply_mute() -> void:
+	if _fade and _fade.is_valid(): _fade.kill()
 	_music[_cur].volume_db = _music_db()
 	var b := AudioServer.get_bus_index(AMB_BUS)
 	if b >= 0: AudioServer.set_bus_mute(b, Save.d.get("mute", false))
@@ -255,9 +275,18 @@ func pick_stream() -> AudioStream:
 	var takes: Array = SAMPLES.rock.f
 	return _sample(takes[randi() % takes.size()])
 
-## light taps for hits, a longer thump for blasts
+## light taps for hits, a longer thump for blasts.
+## On iPhone every call starts its own haptic player; a burst of overlapping ones (a cascade of blasts) now and then
+## left one running for good, until the app was put away. So: one at a time, never longer than BUZZ_MAX
+const BUZZ_MAX := 120
+var _buzz_until := 0
+
 func buzz(ms := 20) -> void:
 	if Save.d.get("mute", false): return
+	var now := Time.get_ticks_msec()
+	if now < _buzz_until: return
+	ms = clampi(ms, 1, BUZZ_MAX)
+	_buzz_until = now + ms + 40
 	Input.vibrate_handheld(ms)
 
 # ---------------------------------------------------------------- synth

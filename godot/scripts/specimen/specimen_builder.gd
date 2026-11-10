@@ -15,6 +15,7 @@ var root: Node3D
 var dt := {}            # where the crystals turn into rock; final values are applied in _finish()
 var dt_mats := []
 var crust_ok := true
+var crust_once := false   # split the crust only once (a skull: see _finish)
 var gene_m := {}
 var trs := []             # the find's traits
 var green_spots := []
@@ -131,11 +132,20 @@ func _crystal_boxes(main: MeshInstance3D, mat: ShaderMaterial) -> Array:
 	return out
 
 ## a spot on the rock with no crystal over it
+## other things lying on the rock that nothing may grow through (hyalite's drops, opal patches, millerite's sprays,
+## wavellite's stars, wire silver, a jade sunk in it): [centre, radius] in root space
+var keep_out := []
+
 func _free(p: Vector3) -> bool:
+	for ko: Array in keep_out:
+		if p.distance_to(ko[0]) < float(ko[1]):
+			return false
 	for b: Dictionary in boxes:
 		if (b.bounds as AABB).has_point((b.inverse as Transform3D) * p):
 			return false
 	return true
+
+var st_ref := {}
 
 func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 	return Transform3D(U.eul(e.x, e.y, e.z) * Basis.from_scale(sc), p)
@@ -151,6 +161,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var gi: int = int(o.get("gi", 1))
 	trs = tr
 	var legend: bool = o.get("legend", false)
+	keep_out = []
 	root = Node3D.new()
 	var col := SpecMat.lin_s(sp.c)
 	col = SpecMat.offset_hsl(col, (rng.next() - 0.5) * 0.03, (rng.next() - 0.5) * 0.15, (rng.next() - 0.5) * 0.06)
@@ -158,6 +169,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		col = col.lerp(SpecMat.lin(0xb8b4ac), 0.25 - gi * 0.1)
 	var gene := SpecGenome.of(o)
 	gene_m = gene
+	# an atypical find may grow another crystal than its species (SpecLooks.odd: apatite as a barrel)
+	habit = String(gene.get("habit", habit))
 	# the traits the species always has (amethyst and fluorite are zoned): its look, on top of what it rolled
 	var look := SpecLooks.of(sid)
 	# the species' own colours (fluorite: green, purple, blue, yellow, colourless, pink), picked on their own stream
@@ -206,8 +219,10 @@ func _specimen(o: Dictionary) -> Node3D:
 	var cB := col
 	# with the species' proportions (SpecLooks: hk, wk, blunt), which every crystal and column takes
 	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
-		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false))}
+		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false)),
+		bend = float(look.get("bend", 0.0))}
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
+	var limonite := "limonite" in tr
 	var kind: String = o.get("kind", "crystal")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var needs_rock := "moss" in tr or "coral" in tr
@@ -226,7 +241,13 @@ func _specimen(o: Dictionary) -> Node3D:
 
 	var st := {rocky = false, pick = func() -> Vector3: return Vector3.ZERO, nrm = func(v: Vector3) -> Vector3: return v.normalized(), rock = null, irk = irk,
 		detail = 2 if layout in ["single", "columnar", "floater"] else 0 if layout == "geode" else 1, hollows = [], agate = look.get("agate", [])}
+	st_ref = st
 	var stria := 1.0 if elongated else 0.0
+	# the species' own striations (SpecLooks stria: [strength, mode]) — across quartz, along the beryls, crossed on pyrite
+	var st_mode := 0.0
+	if look.has("stria"):
+		stria = float(look.stria[0])
+		st_mode = float(look.stria[1])
 	var cmat_spec := func() -> Dictionary:
 		var irk2: float = st.irk
 		if metal:
@@ -234,17 +255,17 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (hematite: dark steel — SpecLooks metal_col)
 			if look.has("metal_col"):
 				# hematite's steel: darker, less mirror, its tarnish a rainbow in patches
-				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = 0.4, dirt = dt, prio = 2}
-			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = 1.0, dirt = dt, prio = 2}
+				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = stria if look.has("stria") else 0.4, st_mode = st_mode, dirt = dt, prio = 2}
+			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = stria if look.has("stria") else 1.0, st_mode = st_mode, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		# an opaque species (SpecLooks opaque: aragonite's wax, realgar's resin): no glass, a lit surface of its colour
 		if look.has("opaque"):
 			var oq: Dictionary = look.opaque
-			return {col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, st = stria,
+			return {col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, st = stria, st_mode = st_mode,
 				dirt = dt, prio = 2, env = 1.3, grain = float(oq.get("grain", 0.1)), lava = 1.0 if gene.fx == "lava" else 0.0}
 		# (SpecLooks ir: how much rainbow film and sheen the species takes — none on realgar's red or aragonite's milk)
 		var irm := float(look.get("ir", 1.0))
-		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, dirt = dt, prio = 2,
+		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, st_mode = st_mode, dirt = dt, prio = 2,
 			holo = float(gene.holo) * irm, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
 			lava = 1.0 if gene.fx == "lava" else 0.0,
 			frost = float((look.get("glass", {}) as Dictionary).get("frost", 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25)), thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
@@ -505,8 +526,17 @@ func _specimen(o: Dictionary) -> Node3D:
 			main = _nugget(sid, col)
 		"vein":
 			main = _vein(sid, col)
+		"septaria":
+			main = _septaria(crystal, st)
 		"botryoid":
-			_botryoid(sid, col, irk)
+			# the lumpy species each grow their own way (docs/species-genes.md F11–F15); the rest keep the bubbly lump
+			var look_b := SpecLooks.of(sid)
+			if sid == "jadeite": main = _jade(col, use_rock, st, gs)
+			elif sid == "carnelian": main = _pebble(sid, col, look_b.get("opaque", {}))
+			elif sid == "flintstone": main = _flint(col, crystal, st)
+			elif sid == "hyalite": main = _beads(col, use_rock, st, gs)
+			elif sid == "opal": main = _opal_seam(col, use_rock, st, gs, seed_v)
+			else: _botryoid(sid, col, irk)
 		"single":
 			use_rock.call("small" if rng.next() < 0.6 else "chunk")
 			var at := Vector3((rng.next() - 0.5) * 0.15, 0.22 if elongated else 0.1, (rng.next() - 0.5) * 0.15)
@@ -516,10 +546,119 @@ func _specimen(o: Dictionary) -> Node3D:
 			for k in int(floor(rng.next() * 3)):
 				var p: Vector3 = st.pick.call()
 				crystal.call(0.45 + rng.next() * 0.5, 0.5 + rng.next() * 0.4, p, lean.call((st.nrm.call(p) as Vector3).lerp(UP, 0.5), 0.6))
-			if "twin" in tr:
+			if sid == "japan_quartz":
+				# the Japan-law twin (F7): two flattened crystals joined at their feet at 84°, a heart turned to the
+				# viewer — the first crystal swung over into the twin's left arm
+				var zv := (VIEW_DIR + Vector3((rng.next() - 0.5) * 0.3, 0.1, 0)).normalized()
+				var arms: Array[MeshInstance3D] = [main, crystal.call(1.0 + rng.next() * 0.25, 1.15, at, UP)]
+				var tilt := deg_to_rad(42.3) + (rng.next() - 0.5) * 0.06
+				for ai in 2:
+					var sgn := -1.0 if ai == 0 else 1.0
+					var yv := (Basis(zv, sgn * tilt) * UP).normalized()
+					var xv := yv.cross(zv).normalized()
+					var s := arms[ai].transform.basis.get_scale().y
+					arms[ai].transform = Transform3D(Basis(xv, yv, xv.cross(yv)) * Basis.from_scale(Vector3(s * 1.3, s, s * 0.5)), at)
+				_mark("twin", _mid(arms[1], 0.6))
+			elif "twin" in tr:
 				var t: MeshInstance3D = crystal.call(1.0 + rng.next() * 0.4, 1.05, at, lean.call(Vector3(0.8, 1, 0.3), 0.3))
 				t.rotate_object_local(Vector3.BACK, 0.6)
 				_mark("twin", _mid(t, 0.7))
+		"hair":
+			# millerite (F8): brassy hairs in sprays out of the rock, fine as a brush, catching the light one by one
+			main = use_rock.call("chunk")
+			var hm: ShaderMaterial = any_cmat.call()
+			var hairs := []
+			for spr in 2 + int(rng.next() * 3):
+				var p: Vector3 = st.pick.call()
+				for t in 8:
+					var q: Vector3 = st.pick.call()
+					if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
+				var nn: Vector3 = st.nrm.call(p)
+				keep_out.append([p, 0.16 * gs])
+				var reach := 0.4 + rng.next() * 0.35
+				for k in 50 + int(rng.next() * 70):
+					var d := (nn + _rv() * 1.6).normalized()
+					if d.dot(nn) < 0.15: d = (d + nn).normalized()
+					var ln := (0.12 + pow(rng.next(), 0.7) * 0.42) * gs * reach
+					var r := (0.0028 + rng.next() * 0.0022) * gs
+					hairs.append(Transform3D(Basis(quat_to_l(UP, d)) * Basis.from_scale(Vector3(r, ln, r)), p - nn * 0.01))
+			U.inst(Geo.cylinder(1.0, 0.35, 1.0, 5).translate(0, 0.5, 0), hm, hairs.size(), func(i: int) -> Array: return [hairs[i], Color(1, 1, 1)], root)
+		"coxcomb":
+			# marcasite's cockscomb (F5): thin blades grown side by side in a crest, fanned out, each facing its
+			# neighbour, the middle ones tallest
+			use_rock.call("slab")
+			var xv := UP.cross(VIEW_DIR).normalized()
+			for crest in 1 + int(rng.next() < 0.5):
+				var c0: Vector3 = st.pick.call()
+				for t in 10:
+					var q: Vector3 = st.pick.call()
+					if q.y - absf(q.dot(xv)) * 0.5 > c0.y - absf(c0.dot(xv)) * 0.5: c0 = q
+				c0 += VIEW_DIR * (0.12 * gs * float(crest))
+				var nb := 7 + int(rng.next() * 6)
+				var fan := 0.8 + rng.next() * 0.5
+				var span := (0.45 + rng.next() * 0.2) * gs
+				for k in nb:
+					var f := float(k) / float(nb - 1) - 0.5
+					var at := c0 + xv * f * span
+					var dv := (Basis(VIEW_DIR, -f * fan) * UP).normalized()
+					var c: MeshInstance3D = crystal.call((0.55 + (1.0 - absf(f) * 2.0) * 0.4) * (0.85 + rng.next() * 0.3), 0.95, at, dv, {habit = "blade"})
+					var s := c.transform.basis.get_scale().y
+					var zt := (xv - dv * xv.dot(dv)).normalized()
+					c.transform = Transform3D(Basis(dv.cross(zt), dv, zt) * Basis.from_scale(Vector3.ONE * s), at)
+					if not main: main = c
+		"starburst":
+			# wavellite (F10): flat discs of radiating needles on the broken face of the slab — green stars
+			use_rock.call("slab")
+			# (silky fibres: lit, glossy, a little glow of their green — glass needles this thin read black)
+			var cm := SpecMat.make({col = col, rough = 0.28, coat = 0.6, coat_r = 0.15, env = 1.4, emis = col * 0.32})
+			var needles := []
+			var nstar := 4 + int(rng.next() * 6)
+			for sk in nstar:
+				var p: Vector3 = st.pick.call()
+				for t in 6:
+					var q: Vector3 = st.pick.call()
+					if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
+				var nn: Vector3 = st.nrm.call(p)
+				var t1 := nn.cross(UP if absf(nn.y) < 0.9 else Vector3.RIGHT).normalized()
+				var t2 := nn.cross(t1)
+				var R := (0.08 + rng.next() * 0.1) * gs
+				keep_out.append([p, R * 1.15])
+				var cnt := 34 + int(rng.next() * 24)
+				for k in cnt:
+					var a := (float(k) + rng.next() * 0.6) / float(cnt) * TAU
+					var d := (t1 * cos(a) + t2 * sin(a) + nn * (0.08 + rng.next() * 0.12)).normalized()
+					var ln := R * (0.75 + rng.next() * 0.25)
+					var r := R * 0.045
+					needles.append(Transform3D(Basis(quat_to_l(UP, d)) * Basis.from_scale(Vector3(r, ln, r)), p + nn * r))
+			U.inst(Geo.cylinder(1.0, 0.25, 1.0, 6).translate(0, 0.5, 0).fill_color(col), cm, needles.size(), func(i: int) -> Array: return [needles[i], Color(1, 1, 1)], root)
+		"sawn":
+			# a stalactite or a crust sawn through and polished: its growth rings as eyes (rhodochrosite's rose bands)
+			main = _sawn(sid, col)
+		"gwindel":
+			# smoky quartz's gwindel (F6): a row of flattened crystals side by side, each turned a little further
+			# about the row than the last — a twisted plate, its face to the viewer
+			use_rock.call("small")
+			var zv := VIEW_DIR
+			var xv := UP.cross(zv).normalized()
+			var nn := 5 + int(rng.next() * 4)
+			var twist := 0.2 + rng.next() * 0.2
+			var hh := 1.15 + rng.next() * 0.35
+			var w0 := 0.11 * gs
+			for k in nn:
+				var f := float(k) / float(nn - 1) - 0.5
+				var at := Vector3(0, 0.2, 0) + xv * f * w0 * float(nn) * 0.8
+				var c: MeshInstance3D = crystal.call(hh * (1.0 - absf(f) * 0.35), 1.2, at, UP)
+				var s := c.transform.basis.get_scale().y
+				var yv := (Basis(xv, f * twist * 2.0) * UP).normalized()
+				var z2 := xv.cross(yv).normalized()
+				c.transform = Transform3D(Basis(xv, yv, z2) * Basis.from_scale(Vector3(s * 0.9, s, s * 0.45)), at)
+				if k == nn / 2: main = c
+			# (smoky glass, not a rainbow: thin plates took the holographic sheen over)
+			if main and main.material_override is ShaderMaterial:
+				(main.material_override as ShaderMaterial).set_shader_parameter("holo_k", 0.0)
+				(main.material_override as ShaderMaterial).set_shader_parameter("ir_k", 0.03)
+			dt.h = 0.3
+			dt.a = 0.35
 		"cluster":
 			# a druse: a crumbling plate bristling with crystals of every size, their feet frosted and crusted over
 			use_rock.call("slab" if rng.next() < 0.6 else "long")
@@ -576,7 +715,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var n := 4 + int(floor(rng.next() * 4)) if kind == "druse" else 1 + int(floor(rng.next() * 3))
 			var cm: ShaderMaterial = any_cmat.call()
 			# a column whose foot misses the rock broke off: it lies at the foot of the block, clean of the crust
-			var loose_m := cm.duplicate() as ShaderMaterial
+			var loose_m := U.mat_copy(cm)
 			for k in n:
 				var at := Vector3((rng.next() - 0.5) * 0.55 if k else 0.0, -0.05, (rng.next() - 0.5) * 0.4 if k else 0.0)
 				var lying := _off_rock(at, rb) != Vector3.ZERO
@@ -703,7 +842,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var rk: MeshInstance3D = use_rock.call("chunk" if rng.next() < 0.5 else "small")
 			var rb: AABB = rk.transform * (rk.get_meta("geo") as Geo).aabb()
 			var cm: ShaderMaterial = any_cmat.call()
-			var loose_m := cm.duplicate() as ShaderMaterial
+			var loose_m := U.mat_copy(cm)
 			var axis: Vector3 = lean.call(UP, 0.5)
 			var common := Basis(quat_to_l(UP, axis)) * Basis(UP, rng.next() * TAU)
 			var n := 3 + int(rng.next() * 4)
@@ -875,6 +1014,36 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (the spray puts its sulphur in its own gaps)
 			if String(w[3]) in gene.accents and not (layout == "spray" and String(w[3]) == "sulphur"):
 				_companion(String(w[0]), SpecMat.lin(int(w[1])), String(w[3]), st)
+	# acanthite's wire silver (F9): bright curls of native silver sprouting from the rock among the dark crystals
+	if look.get("wire", false) and st.rocky:
+		var wm := SpecMat.make({col = SpecMat.lin(0xdfe2e6), metal = 1.0, rough = 0.16, env = 2.6})
+		for k in 3 + int(rng.next() * 4):
+			var p: Vector3 = st.pick.call()
+			for t in 6:
+				var q: Vector3 = st.pick.call()
+				if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) > (st.nrm.call(p) as Vector3).dot(VIEW_DIR): p = q
+			var d: Vector3 = st.nrm.call(p)
+			var ax := d.cross(_rv()).normalized()
+			var pts := [p - d * 0.01]
+			var q := p
+			for i in 14 + int(rng.next() * 10):
+				d = (Basis(ax, 0.35 + rng.next() * 0.3) * d + _rv() * 0.25).normalized()
+				ax = (ax + _rv() * 0.3).normalized()
+				q += d * 0.05 * gs
+				pts.append(q)
+			U.mesh(Geo.tube(pts, 64, (0.02 + rng.next() * 0.012) * gs, 7), wm, root)
+			for pi in range(0, pts.size(), 3): keep_out.append([pts[pi], 0.05 * gs])
+	# almandine's schist (SpecLooks mica): the rock round the crystals glitters with silvery flakes of mica
+	if look.get("mica", false) and st.rocky:
+		var fm := SpecMat.make({col = SpecMat.lin(0x8c8478), metal = 0.65, rough = 0.22, env = 2.2})
+		var flakes := []
+		for k in 420 + int(rng.next() * 200):
+			var p: Vector3 = st.pick.call()
+			var nn: Vector3 = st.nrm.call(p)
+			var s := (0.005 + pow(rng.next(), 2.5) * 0.014) * gs
+			var b := Basis(quat_to_l(UP, (nn + _rv() * 0.9).normalized())) * Basis(UP, rng.next() * TAU)
+			flakes.append(Transform3D(b * Basis.from_scale(Vector3(s, s * 0.08, s)), p + nn * 0.004))
+		U.inst(Geo.cylinder(1, 1, 1, 6), fm, flakes.size(), func(i: int) -> Array: return [flakes[i], Color(1, 1, 1)], root)
 	# fluorite's phantom cubes (SpecLooks core): a cube of another colour inside every crystal, seen through the glass
 	if look.has("core") and main and layout != "geode":
 		var cc: Array = look.core
@@ -887,9 +1056,10 @@ func _specimen(o: Dictionary) -> Node3D:
 			var inner := Geo.box(bb.size.x * float(cc[1]), bb.size.y * float(cc[1]), bb.size.z * float(cc[1]))
 			U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
 	# genes that shape or colour the crystals themselves: there only if crystals grew
-	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid"])
+	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid", "sawn"])
 	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))
 	if "floater" in tr and layout == "floater": _mark("floater", _mid(main, 0.15))
+	if "atypical" in tr and main: _mark_on("atypical", main)
 	if "zoned" in tr and crystals: _mark_on("zoned", main)
 	if "eroded" in tr and crystals and layout != "geode": _mark_on("eroded", main)
 	for ti in ["irid", "aurora"]:
@@ -911,7 +1081,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	boxes = _crystal_boxes(main, mat)
 	st.pick_any = st.pick
 	st.hollows_all = st.hollows
-	if boxes.size():
+	if boxes.size() or keep_out.size():
 		var raw: Callable = st.pick
 		st.pick = func() -> Vector3:
 			var q: Vector3 = raw.call()
@@ -929,7 +1099,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			SpecLegend.heart(root, main, rng, col)
 			if main and main.material_override is ShaderMaterial:
 				# the core glows through the main crystal's own glass, whatever the angle
-				var hm := (main.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+				var hm := U.mat_copy(main.material_override as ShaderMaterial)
 				var bb: AABB = (main.get_meta("geo") as Geo).aabb()
 				var hc := SpecLegend.heart_color(col) * 2.0
 				hm.set_shader_parameter("heart_pos", bb.get_center() + Vector3(0, bb.size.y * 0.05, 0))
@@ -953,6 +1123,7 @@ func _specimen(o: Dictionary) -> Node3D:
 					gm.set_shader_parameter("fluor_k", 1.0)
 					gm.set_shader_parameter("fluor_col", Vector3(fc.r, fc.g, fc.b))
 	crust_ok = layout != "geode"
+	crust_once = layout == "skull"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)
 	if gene.gold:
 		_gold(main, mat, st)
@@ -965,6 +1136,12 @@ func _specimen(o: Dictionary) -> Node3D:
 		SpecFern.lean(self, gene)
 	elif layout == "skull":
 		SpecSkull.lean(self, gene)
+	if limonite:
+		# rusty limonite stains (G3): the crust at the crystals' feet turned rust-brown and climbing higher up them
+		dt.col = SpecMat.lin(0x7a3a12)
+		dt.h = maxf(float(dt.h), 0.25) + 0.12
+		dt.a = 0.5
+		if main: _mark_on("limonite", main)
 	_finish()
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
@@ -976,6 +1153,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		root.set_meta("glow", U.raw(0xe4ae39))
 	# hundreds of soil crumbs and moss sprigs drawn as a few objects (the same picture, far fewer draw calls)
 	U.batch(root)
+	st_ref = {}   # (its closures hold the builder: let it go)
 	return root
 
 # native metal: soft rounded lumps, hammered and pitted, with iron-oxide (or green patina on copper) packed into the hollows
@@ -1087,10 +1265,11 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 func _botryoid(sid: String, col: Color, irk: float) -> void:
 	var banded := sid in ["malachite", "azurite", "chrysocolla"]
 	var crust := SpecMat.lin(0x8a7a68 if sid == "opal" else 0x2a1a10 if banded else 0x4a3424)
-	var bc := col * 0.6 if banded else col
+	# (malachite deep green, its bands near black; the others a little darker than their own colour)
+	var bc := SpecMat.lin(0x0f6a34) if sid == "malachite" else col * 0.6 if banded else col
 	bc.a = 1.0
 	var bm := SpecMat.make({col = bc, rough = 0.12 if sid == "opal" else 0.22, coat = 0.8, coat_r = 0.15, env = 1.4,
-		ir = 0.95 if sid == "opal" else maxf(irk, 0.12), bd = 0.3 if banded else 0.0, dirt = {h = -0.3, a = 0.35, col = crust, fr = 0.0, isl = 0.08, fb = 0.0}})
+		ir = 0.95 if sid == "opal" else maxf(irk, 0.12), bd = 0.75 if sid == "malachite" else 0.3 if banded else 0.0, dirt = {h = -0.3, a = 0.35, col = crust, fr = 0.0, isl = 0.08, fb = 0.0}})
 	if sid == "chalcedony":
 		# blue chalcedony: waxy, translucent — lit a little from within, fine bands round each bubble, a soft sheen
 		bm = SpecMat.make({col = col * 0.85, rough = 0.16, coat = 0.9, coat_r = 0.1, env = 1.5, ir = 0.22, bd = 0.18, emis = col * 0.22,
@@ -1111,6 +1290,466 @@ func _botryoid(sid: String, col: Color, irk: float) -> void:
 			var L := RockKit.lump(rng, {r = 0.16 + rng.next() * 0.12, wave = 0.06, k = 160.0, bumps = [[16, 0.5, 0.26], [40, 0.18, 0.08]], seg = 48})
 			U.mesh(RockKit.tint_cav(L[0], L[1], 0.6), bm, root, Vector3(rng.next() - 0.5, rng.next() * 0.6, rng.next() - 0.5).normalized() * 0.5)
 
+## the side every find is shown from (turned 0.6 about y)
+const VIEW_DIR := Vector3(-0.5646, 0.0, 0.8253)
+
+# press every vertex past a plane onto it: a sawn and polished face (or a broken one)
+func _saw(g: Geo, at: Vector3, p0: Vector3, n: Vector3) -> PackedByteArray:
+	var on := PackedByteArray()
+	on.resize(g.v.size())
+	for i in g.v.size():
+		var d := (g.v[i] + at - p0).dot(n)
+		if d > 0.0:
+			g.v[i] -= n * d
+			on[i] = 1
+	return on
+
+# one mesh's triangles split in two by which vertices lie on the face: [the face, the rest] (they share the vertices)
+func _split(g: Geo, on: PackedByteArray) -> Array:
+	var a := Geo.new()
+	var b := Geo.new()
+	for x: Geo in [a, b]:
+		x.v = g.v
+		x.col = g.col
+	if not g.indexed():
+		g.idx.resize(g.v.size())
+		for i in g.v.size(): g.idx[i] = i
+	for t in range(0, g.idx.size(), 3):
+		var f := on[g.idx[t]] == 1 and on[g.idx[t + 1]] == 1 and on[g.idx[t + 2]] == 1
+		var x := a if f else b
+		x.idx.append_array([g.idx[t], g.idx[t + 1], g.idx[t + 2]])
+	return [a, b]
+
+# malachite sawn through and polished (F13): a few bubbly lumps cut by one plane facing the viewer; each lump's
+# own bands (bd_k: rings round its middle) show on the face as an "eye", and where two meet one face covers the other
+func _sawn(sid: String, col: Color) -> MeshInstance3D:
+	# malachite: bright green against near-black green; rhodochrosite: rose against pale pink
+	var rho := sid == "rhodochrosite"
+	var bc := col.lerp(Color(1, 1, 1), 0.1) if rho else SpecMat.lin(0x1e8e50)
+	bc.a = 1.0
+	var bm := SpecMat.make({col = bc, rough = 0.1, coat = 0.95, coat_r = 0.05, env = 1.6, ir = 0.12, bd = 0.5 if rho else 0.88,
+		dirt = {h = -99.0, a = 0.35, col = col * 0.22, fr = 0.0, isl = 0.08, fb = 0.0}})   # (no crust over the polished face)
+	var n := (VIEW_DIR + UP * 0.45).normalized()
+	var main: MeshInstance3D = null
+	# many lumps, big and small, grown into each other: on the face their bands meet as a crowd of eyes
+	var nl := 6 + int(rng.next() * 6)
+	var back := Geo.new()
+	for k in nl:
+		var r := 0.16 + pow(rng.next(), 1.5) * 0.3 if k > 0 else 0.42
+		var at := Vector3((rng.next() - 0.5) * 1.15, (rng.next() - 0.5) * 0.7, 0.0) if k > 0 else Vector3.ZERO
+		at = at.slide(n) - n * (rng.next() * r * 0.7)
+		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 64})
+		var g: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
+		# (each next lump's face a hair further out: no two faces fight on the same plane)
+		var on := _saw(g, at, n * (0.0015 * k), n)
+		for i in g.v.size():
+			if on[i] == 1: g.col[i] = Color(1, 1, 1)
+		var m := U.mesh(g, bm, root, at)
+		if not main: main = m
+		for i in g.v.size():
+			back.v.append(g.v[i] + at)
+			back.col.append(g.col[i])
+	# its bubbly back and sides are the ground the shared layer grows on — never the polished face
+	_rind_as_rock(main, back, n, -0.22, 0.0)
+	return main
+
+# a water-worn pebble (F12): jadeite in its brown weathered rind with a window ground and polished into it;
+# carnelian whole and glowing through, faint bands
+func _pebble(sid: String, col: Color, _oq: Dictionary) -> MeshInstance3D:
+	# lit through like amber (shaders/amber.gdshader): its colour swallowed along the way through, deeper where thick,
+	# milky veils of chalcedony in it; jadeite under a weathered skin, a window ground and polished through it
+	var jade := sid == "jadeite"
+	var main: MeshInstance3D = null
+	var np := 1 if jade or rng.next() < 0.55 else 2 + int(rng.next() * 2)
+	# how fast the stone swallows red, green and blue: from its own colour (thin it is pale, thick it deepens)
+	var sig := Vector3(-log(maxf(col.r, 0.015)), -log(maxf(col.g, 0.015)), -log(maxf(col.b, 0.015))) * (0.75 if jade else 0.37)
+	for k in np:
+		var f := {host = "amber", seed = int(rng.next() * 9000.0), crust = 0.0, window = jade, cloud = 1.6 if jade else 0.55, spangle = false}
+		var g := SpecFlower._resin(rng, f)
+		var m := SpecFlower.amber_mat(f, g)
+		m.set_shader_parameter("sigma", sig)
+		m.set_shader_parameter("light_col", Vector3(0.95, 1.0, 0.95) if jade else Vector3(1.0, 0.88, 0.72))
+		m.set_shader_parameter("flow_k", 0.0 if jade else 0.15)
+		m.set_shader_parameter("debris_k", 0.0)
+		m.set_shader_parameter("bubble_k", 0.0)
+		m.set_shader_parameter("dirt_k", 0.1 if jade else 0.2)
+		m.set_shader_parameter("spangle_k", 0.0)
+		if jade:
+			# the boulder's skin: ochre and rust-brown, crazed, the polished window through it to the green
+			m.set_shader_parameter("crust_k", 0.7 + rng.next() * 0.15)
+			m.set_shader_parameter("crust_lo", Vector3(0.045, 0.028, 0.012))
+			m.set_shader_parameter("crust_hi", Vector3(0.19, 0.11, 0.045))
+			m.set_shader_parameter("base_k", 0.6)
+		var holder := Node3D.new()
+		root.add_child(holder)
+		var face := (VIEW_DIR + UP * (0.7 if jade else 0.3)).normalized()
+		var turn := Basis(quat_to_l(Vector3.BACK, face)) * Basis(Vector3.BACK, (rng.next() - 0.5) * 1.2)
+		var at := Vector3.ZERO if k == 0 else Vector3((rng.next() - 0.5) * 1.3, -0.12, (rng.next() - 0.5) * 0.7)
+		var sz := (0.62 if jade else 0.42) * (1.0 if k == 0 else 0.55 + rng.next() * 0.3)
+		holder.transform = Transform3D(turn * Basis.from_scale(Vector3.ONE * sz), at)
+		var mi := U.mesh(g, m, holder)
+		if not main: main = mi
+	return main
+
+# jadeite (F12): a jewel grown into rough rock — a lens of jade sunk in the stone, its top ground flat and polished,
+# lit from within: milky, glowing apple-green (or lavender, or snow-white), the rough rock round it for contrast
+func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshInstance3D:
+	var rk: MeshInstance3D = use_rock.call("chunk")
+	var p: Vector3 = st.pick.call()
+	for t in 12:
+		var q: Vector3 = st.pick.call()
+		if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(p) as Vector3).dot(VIEW_DIR) + p.y: p = q
+	var nn: Vector3 = st.nrm.call(p)
+	var f := {host = "amber", seed = int(rng.next() * 9000.0), crust = 0.0, window = true, cloud = 0.0, spangle = false}
+	var g := SpecFlower._resin(rng, f)
+	# its pattern drawn in the stone's own space (shaders/jade.gdshader), in one of the ways jadeite comes (own stream):
+	# imperial — vivid green all through; moss in snow — white with green patches and veins; lavender or icy white with
+	# flecks of green
+	var bc := col
+	var green := SpecMat.lin(0x2e9a52)
+	var r3 := Rng32.new(int(rng.next() * 100000.0))
+	var lum := bc.get_luminance()
+	var style := 0 if lum < 0.15 and r3.next() < 0.6 else 1 if lum < 0.15 else 2
+	var cb: Color
+	var cp: Color
+	var cv: Color
+	var pk := 0.4
+	match style:
+		0:
+			cb = bc
+			cp = bc.lerp(Color(0.25, 0.85, 0.35), 0.35)
+			cv = bc * 0.45
+			pk = 0.35
+		1:
+			cb = Color(0.72, 0.8, 0.72)
+			cp = green.lerp(bc, 0.3)
+			cv = green * 0.6
+			pk = 0.5
+		_:
+			# (lavender soft and milky, not violet)
+			cb = bc.lerp(Color(0.85, 0.85, 0.9), 0.35) if bc.b > bc.g else bc
+			cp = green
+			cv = green * 0.7
+			pk = 0.22
+	var m := ShaderMaterial.new()
+	m.shader = JADE
+	m.set_shader_parameter("c_base", cb)
+	m.set_shader_parameter("c_patch", cp)
+	m.set_shader_parameter("c_vein", cv)
+	m.set_shader_parameter("patch_k", pk)
+	m.set_shader_parameter("vein_k", 0.3 + r3.next() * 0.5)
+	m.set_shader_parameter("glow_k", 0.32 * (1.0 - 0.6 * cb.get_luminance()))
+	m.set_shader_parameter("seed", r3.next() * 40.0)
+	m.set_shader_parameter("scale", 0.9 + r3.next() * 0.5)
+	var zw := -INF
+	for v in g.v: zw = maxf(zw, v.z)
+	var face := (nn * 0.55 + VIEW_DIR * 0.45 + UP * 0.25).normalized()
+	var sz := (0.26 + rng.next() * 0.08) * gs
+	var holder := Node3D.new()
+	root.add_child(holder)
+	# sunk so only the polished top and a little of its rounded shoulder stand out of the rock
+	holder.transform = Transform3D(Basis(quat_to_l(Vector3.BACK, face)) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * sz), p - face * zw * sz * 0.7)
+	U.mesh(g, m, holder)
+	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(col, 0.6))
+	# (nothing of the shared layer grows up through the jade: the rock under it is no ground)
+	var jc := holder.position
+	var jr := 1.4 * sz
+	keep_out.append([jc, jr])
+	var pick0: Callable = st.pick
+	st.pick = func() -> Vector3:
+		var q: Vector3 = pick0.call()
+		for t in 12:
+			if q.distance_to(jc) > jr: break
+			q = pick0.call()
+		return q
+	var hol: Array = st.get("hollows", [])
+	st.hollows = hol.filter(func(h: Array) -> bool: return (h[0] as Vector3).distance_to(jc) > jr)
+	return rk
+
+const FACE := preload("res://shaders/face.gdshader")
+const OPAL_SEAM := preload("res://shaders/opal_seam.gdshader")
+
+## precious opal's own play of colour (shaders/opal_seam.gdshader): black, white or crystal body, its fire's colour
+func _opal_mat(r: Rng32, scale: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = OPAL_SEAM
+	m.set_shader_parameter("opal_body", int(Stones.pick_w([[0, 4.0], [1, 1.5], [2, 1.5]], r)))
+	m.set_shader_parameter("fire_h", r.next())
+	m.set_shader_parameter("fire_spread", 0.3 + r.next() * 0.3)
+	m.set_shader_parameter("fire_scale", scale)
+	m.set_shader_parameter("seed", r.next() * 40.0)
+	m.set_shader_parameter("flow_k", 1.0 if gene_m.fx == "dragonfire" else 0.0)
+	return m
+const JADE := preload("res://shaders/jade.gdshader")
+
+## a nodule's rind as the rock the shared layer grows on (lichen, moss, mushrooms, puffs): the points of it that face
+## up or towards the viewer, well off the face (plane n·p = d)
+func _rind_as_rock(mi: MeshInstance3D, g: Geo, n: Vector3, d: float, margin := 0.05) -> void:
+	var top := []
+	var hol := []
+	for i in g.v.size():
+		var v := g.v[i]
+		if v.dot(n) > d - margin: continue
+		var o := v.normalized()
+		if o.dot(UP) > 0.1 or o.dot(VIEW_DIR) > 0.35:
+			top.append(v)
+			if g.col.size() > i and g.col[i].g > 0.55: hol.append([v, o])
+	if top.is_empty(): return
+	st_ref.rocky = true
+	st_ref.rock = mi
+	st_ref.pick = func() -> Vector3: return top[int(rng.next() * top.size())]
+	st_ref.nrm = func(w: Vector3) -> Vector3: return w.normalized()
+	st_ref.hollows = hol
+
+## the face shader (shaders/face.gdshader) set to a face's own plane
+func _face_mat(mode: int, fc: Vector3, n: Vector3, r: float) -> ShaderMaterial:
+	var t1 := n.cross(UP if absf(n.y) < 0.95 else Vector3.RIGHT).normalized()
+	var m := ShaderMaterial.new()
+	m.shader = FACE
+	m.set_shader_parameter("mode", mode)
+	m.set_shader_parameter("face_c", fc)
+	m.set_shader_parameter("face_t1", t1)
+	m.set_shader_parameter("face_t2", n.cross(t1))
+	m.set_shader_parameter("face_r", maxf(r, 0.01))
+	m.set_shader_parameter("face_n", n)
+	m.set_shader_parameter("face_d", fc.dot(n))
+	m.set_shader_parameter("seed", rng.next() * 50.0)
+	return m
+
+# a septarian nodule sawn in half (F18): clay cells crazed by golden calcite veins — drawn pixel by pixel in the face
+# shader — and a dark crack at its heart where the species' crystals stand: "dragon stone"
+func _septaria(crystal: Callable, st: Dictionary) -> MeshInstance3D:
+	# one half of the egg, built facing +z: a plump nodule sawn through near its middle
+	var L := RockKit.lump(rng, {r = 0.6, sx = 1.25 + rng.next() * 0.2, sy = 0.95, sz = 1.0, wave = 0.12, k = 80.0,
+		bumps = [[8, 0.8, 0.12], [30, 0.3, 0.05]], seg = 110})
+	var g: Geo = L[0]
+	var cav: PackedFloat32Array = L[1]
+	g.col.resize(g.v.size())
+	var n := (Vector3.BACK + UP * 0.25).normalized()
+	var off := (rng.next() - 0.5) * 0.08
+	var on := _saw(g, Vector3.ZERO, n * off, n)
+	var fc := n * off
+	var rmax := 0.0
+	for i in g.v.size():
+		if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
+	# the cave at its heart, where the cracks meet: deep, lined with crystals
+	var hole := rmax * (0.24 + rng.next() * 0.1)
+	var spots := []
+	for i in g.v.size():
+		if on[i] != 1:
+			g.col[i] = Color(0.0, cav[i] if cav.size() > i else 0.5, 0.0, 1.0)
+			continue
+		var q := g.v[i] - fc
+		# (the cave's outline wanders)
+		var ang := atan2(q.dot(n.cross(UP).normalized()), q.dot(UP))
+		var hr := hole * (1.0 + 0.25 * sin(ang * 3.0 + off * 50.0) + 0.12 * sin(ang * 7.0))
+		var rr := q.length()
+		var hk := 1.0 - smoothstep(hr * 0.8, hr, rr)
+		if rr < hr:
+			g.v[i] -= n * rmax * 0.3 * sqrt(1.0 - pow(rr / hr, 2.0))
+			spots.append([g.v[i], rr / hr])
+		g.col[i] = Color(1.0, rr / rmax, hk, 1.0)
+	var face := _face_mat(0, fc, n, rmax)
+	face.set_shader_parameter("scan", load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg"))
+	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(1, "diff"))
+	# its colours (own stream): the classic brown clay with yellow calcite, black clay with white, or honey-red
+	var kind := int(Stones.pick_w([[0, 5.0], [1, 2.5], [2, 1.5]], Rng32.new(int(rng.next() * 100000.0))))
+	var KINDS := [[0x7a6a58, 0x3a3028, 0xe8b040, 0x6a5440], [0x34302c, 0x141210, 0xf0ece0, 0x3a3430], [0x9a5a34, 0x4a2214, 0xf4c868, 0x6a4028]]
+	var kd: Array = KINDS[kind]
+	for kv in [["c_a", 0], ["c_b", 1], ["c_vein", 2], ["c_rind", 3]]:
+		var c := Color.hex(int(kd[kv[1]]) << 8 | 0xff)
+		face.set_shader_parameter(kv[0], c)
+	# one half, or both side by side like an opened book (one pattern, mirrored)
+	var pair := rng.next() < 0.35
+	var view := Basis(UP, -0.6)
+	var xr := view * Vector3.RIGHT
+	# (tipped back and turned a little, so the rind's thickness shows under the face — a stone, not a tile)
+	var halves := [Transform3D(view * Basis(UP, 0.35 * (1.0 if rng.next() < 0.5 else -1.0)) * Basis(Vector3.RIGHT, -0.5), Vector3(0, 0.05, 0))]
+	# the other half: the same mesh mirrored (its pattern the mirror image, as the two halves of one stone are)
+	var gm := Geo.new()
+	gm.col = g.col
+	for i in g.v.size(): gm.v.append(Vector3(-g.v[i].x, g.v[i].y, g.v[i].z))
+	if g.indexed():
+		for t in range(0, g.idx.size(), 3): gm.idx.append_array([g.idx[t], g.idx[t + 2], g.idx[t + 1]])
+	if pair:
+		halves = [Transform3D(view * Basis(UP, 0.55) * Basis(Vector3.RIGHT, -0.45) * Basis.from_scale(Vector3.ONE * 0.72), -xr * 0.62),
+			Transform3D(view * Basis(UP, -0.55) * Basis(Vector3.RIGHT, -0.45) * Basis.from_scale(Vector3.ONE * 0.72), xr * 0.62)]
+	var main: MeshInstance3D = null
+	var cal := SpecMat.make({col = Color.hex(int(kd[2]) << 8 | 0xff).srgb_to_linear(), flat = true, glass = true, ir = 0.15, rf = 0.3, thick = 1.2,
+		frost = 0.12, prio = 2, tint_body = 0.55, tint_glow = 0.25})
+	for hi in halves.size():
+		var T: Transform3D = halves[hi]
+		var mi := U.mesh(gm if hi == 1 else g, face, root)
+		mi.transform = T
+		# (on the mirrored half, its spots and their directions mirrored too)
+		var mx := Basis.from_scale(Vector3(-1, 1, 1)) if hi == 1 else Basis()
+		T = T * Transform3D(mx, Vector3.ZERO)
+		if not main:
+			main = mi
+			var wg := Geo.new()
+			for i in g.v.size():
+				wg.v.append(T * g.v[i])
+			wg.col = g.col
+			_rind_as_rock(mi, wg, (T.basis * n).normalized(), (T * fc).dot((T.basis * n).normalized()), 0.12)
+		if spots.is_empty(): continue
+		# the cave's lining: honey dogtooth calcite, small and many, pointing in towards the middle
+		var k2 := 0
+		for k in 26 + int(rng.next() * 16):
+			var sp: Array = spots[int(rng.next() * spots.size())]
+			var p: Vector3 = sp[0]
+			var dir := (n * (1.0 - float(sp[1])) * 1.4 + (fc - p).normalized() * 0.6 + _rv() * 0.5).normalized()
+			var f := pow(rng.next(), 1.6)
+			var c: MeshInstance3D = crystal.call(0.12 + f * 0.16, 0.16 + f * 0.14, T * (p - n * 0.01), (T.basis * dir).normalized(), {habit = "scaleno"}, cal)
+			k2 += 1
+		# and the species' own crystals, a few, standing out of the cave
+		for k in 2 + int(rng.next() * 3):
+			var sp: Array = spots[int(rng.next() * spots.size())]
+			var p: Vector3 = sp[0]
+			var dir := (n * 1.3 + (p - fc).normalized() * 0.5 + _rv() * 0.4).normalized()
+			crystal.call(0.2 + rng.next() * 0.16, 0.3 + rng.next() * 0.16, T * (p - n * 0.02), (T.basis * dir).normalized())
+	return main
+
+# a flint nodule out of the chalk, broken open (F11): a knobbly lump in its white chalk rind (the limestone scan), the
+# break glassy black, conchoidal rings in the light (face shader); half of them hollow, a cave of real quartz crystals
+func _flint(col: Color, crystal: Callable, st: Dictionary) -> MeshInstance3D:
+	var L := RockKit.lump(rng, {r = 0.55, sx = 1.35 + rng.next() * 0.25, sy = 0.8, sz = 1.0, wave = 0.25, k = 120.0,
+		bumps = [[9, 0.7, 0.3], [40, 0.25, 0.1]], seg = 150})
+	var g: Geo = L[0]
+	var cav: PackedFloat32Array = L[1]
+	g.col.resize(g.v.size())
+	var n := (VIEW_DIR + UP * 0.9 + Vector3((rng.next() - 0.5) * 0.5, 0, 0)).normalized()
+	var mx := -INF
+	for v in g.v: mx = maxf(mx, v.dot(n))
+	var off := mx * (0.55 + rng.next() * 0.15)
+	var on := _saw(g, Vector3.ZERO, n * off, n)
+	var fc := Vector3.ZERO
+	var nf := 0
+	for i in g.v.size():
+		if on[i] == 1:
+			fc += g.v[i]
+			nf += 1
+	fc /= maxf(1.0, float(nf))
+	var rmax := 0.0
+	for i in g.v.size():
+		if on[i] == 1: rmax = maxf(rmax, (g.v[i] - fc).length())
+	var hollow := rng.next() < 0.5
+	var R := rmax * (0.4 + rng.next() * 0.15)
+	var dep := R * (0.6 + rng.next() * 0.3)
+	var lining := []
+	var chalk := SpecMat.lin(0xe6e0d0)
+	for i in g.v.size():
+		if on[i] != 1:
+			g.col[i] = Color(0.0, cav[i] if cav.size() > i else 0.5, 0.0, 1.0)
+			continue
+		var rr := (g.v[i] - fc).length()
+		var hk := 0.0
+		if hollow and rr < R:
+			var t := rr / R
+			g.v[i] -= n * dep * (1.0 - t * t)
+			hk = 1.0 - smoothstep(0.8, 1.0, t)
+			if t < 0.85: lining.append(g.v[i])
+		g.col[i] = Color(1.0, 0.0, hk, 1.0)
+	# how deep in from the break's edge each point of it lies: the bands follow the nodule's outline
+	var edge := []
+	for i in g.v.size():
+		if on[i] == 1 and (g.v[i] - fc).length() > rmax * 0.55: edge.append(g.v[i])
+	var dmax := 0.001
+	var dist := PackedFloat32Array()
+	dist.resize(g.v.size())
+	for i in g.v.size():
+		if on[i] != 1: continue
+		var best := INF
+		for k in range(0, edge.size(), 3):
+			best = minf(best, g.v[i].distance_squared_to(edge[k]))
+		dist[i] = sqrt(best) if edge.size() else 0.0
+		dmax = maxf(dmax, dist[i])
+	for i in g.v.size():
+		if on[i] == 1: g.col[i].g = clampf(dist[i] / dmax, 0.0, 1.0)
+	var face := _face_mat(1, fc, n, rmax)
+	var bc := col
+	# its kind (own stream): striped like the Krzemionki flint, honey-translucent round a black heart, jet-black, or red
+	var kind := int(Stones.pick_w([[0, 3.5], [1, 2.5], [2, 2.5], [3, 1.5]], Rng32.new(int(rng.next() * 100000.0))))
+	var KINDS := [[0x1a1a20, 0x6a6a70, 0xc8c8cc, 0.85, 26.0], [0x120a06, 0x8a4a14, 0xe0a040, 0.75, 16.0],
+		[0x0c0c10, 0x34383e, 0x50545a, 0.25, 18.0], [0x2a0c08, 0xa83818, 0xe0a070, 0.7, 20.0]]
+	var kd: Array = KINDS[kind]
+	var ca := SpecMat.lin(int(kd[0]))
+	var cb := SpecMat.lin(int(kd[1]))
+	var cc := SpecMat.lin(int(kd[2]))
+	face.set_shader_parameter("c_a", Vector3(ca.r, ca.g, ca.b))
+	face.set_shader_parameter("c_b", Vector3(cb.r, cb.g, cb.b))
+	face.set_shader_parameter("c_vein", Vector3(cc.r, cc.g, cc.b))
+	face.set_shader_parameter("band_k", float(kd[3]))
+	face.set_shader_parameter("band_f", float(kd[4]))
+	var a0 := rng.next() * TAU
+	face.set_shader_parameter("hit", Vector2(cos(a0), sin(a0)) * (0.6 + rng.next() * 0.3))
+	face.set_shader_parameter("rind_scan", SpecMat.scan_tex(0, "diff"))
+	face.set_shader_parameter("c_rind", Color(0.8, 0.76, 0.67))
+	var main := U.mesh(g, face, root)
+	_rind_as_rock(main, g, n, fc.dot(n), 0.1)
+	if lining.size():
+		# the geode inside: real quartz points of every size, clear glass, pointing out of the cave
+		var qm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.25, rf = 0.3, thick = 1.2, frost = 0.04, holo = 0.15, seed = 5.0, prio = 2})
+		for k in 18 + int(rng.next() * 14):
+			var p: Vector3 = lining[int(rng.next() * lining.size())]
+			var out := (n * 1.2 + (fc - p).normalized() * 0.0 + _rv() * 0.9).normalized()
+			var f := pow(rng.next(), 1.8)
+			crystal.call(0.12 + f * 0.22, 0.18 + f * 0.2, p - out * 0.01, out, {habit = "prism", blunt = false}, qm)
+	return main
+
+# hyalite (F14): glassy beads and drops of water-clear opal over a dark rock, clustered, glowing green
+func _beads(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshInstance3D:
+	var rk: MeshInstance3D = use_rock.call("chunk")
+	var bc := col
+	bc.a = 1.0
+	# (water-clear: the dark rock seen through each drop, a hard glint on top, a breath of green)
+	var gm := SpecMat.make({col = bc, glass = true, thick = 0.45, ir = 0.05, prio = 2, tint_body = 0.1, tint_glow = 0.75})
+	var spots := []
+	for k in 4 + int(rng.next() * 4):
+		var best: Vector3 = st.pick.call()
+		for t in 8:
+			var q: Vector3 = st.pick.call()
+			if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) + q.y > (st.nrm.call(best) as Vector3).dot(VIEW_DIR) + best.y: best = q
+		spots.append(best)
+	var beads := []
+	for p: Vector3 in spots:
+		keep_out.append([p, 0.22 * gs])
+		var nn: Vector3 = st.nrm.call(p)
+		var t1 := nn.cross(UP if absf(nn.y) < 0.9 else Vector3.RIGHT).normalized()
+		var t2 := nn.cross(t1)
+		for k in 6 + int(rng.next() * 16):
+			var a := rng.next() * TAU
+			var rr := sqrt(rng.next()) * 0.16 * gs
+			var s := (0.022 + pow(rng.next(), 2.0) * 0.08) * gs
+			var q := p + (t1 * cos(a) + t2 * sin(a)) * rr
+			beads.append(Transform3D(Basis(quat_to_l(UP, nn)) * Basis.from_scale(Vector3(s, s * 0.62, s)), q + nn * s * 0.2))
+	U.inst(Geo.sphere(1, 18, 12), gm, beads.size(), func(i: int) -> Array: return [beads[i], Color(1, 1, 1)], root)
+	return rk
+
+# precious opal in its brown ironstone (F15, "boulder opal"): patches and thin seams of opal over the broken face,
+# play of colour flashing in them (the opal-fire flakes of the glass shader)
+func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed_v: int) -> MeshInstance3D:
+	var rk: MeshInstance3D = use_rock.call("chunk")
+	var r2 := Rng32.new((seed_v * 3266489917 + 59) % 4294967296)
+	var gm := _opal_mat(r2, 3.0)
+	var main: MeshInstance3D = null
+	for k in 4 + int(rng.next() * 4):
+		var best: Vector3 = st.pick.call()
+		for t in 8:
+			var q: Vector3 = st.pick.call()
+			if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) > (st.nrm.call(best) as Vector3).dot(VIEW_DIR): best = q
+		var nn := ((st.nrm.call(best) as Vector3) + best.normalized()).normalized()
+		# a patch, or a short seam, sunk in the rock so only its face shows (made bigger and scaled down: the
+		# opal's flakes are cells of its own coordinates: this size gives flashes a few to a patch)
+		var seam := rng.next() < 0.35
+		var L := RockKit.lump(rng, {r = 0.8, sx = 1.0, sy = 0.3, sz = 0.7, wave = 0.2, k = 60.0, bumps = [[6, 0.8, 0.15]], seg = 40})
+		var w := (0.2 + rng.next() * 0.18) * gs
+		var sc := Vector3(w * (1.6 if seam else 1.0), w * 0.7, w * (0.45 if seam else 0.85)) * 0.625
+		keep_out.append([best, w * 1.3])
+		var m := U.mesh(L[0], gm, root)
+		m.transform = Transform3D(Basis(quat_to_l(UP, nn)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(sc), best - nn * w * 0.07)
+		if not main: main = m
+	return main if main else rk
+
 # a cracked-open geode: rough shell, agate rind, a cave of crystals inside
 func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated: bool, metal: bool, cmat_spec: Callable, make_cmat: Callable, crystal: Callable, st: Dictionary) -> MeshInstance3D:
 	var shell := Node3D.new()
@@ -1121,9 +1760,27 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var om := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}})
 	om.set_meta("rock", true)
 	var outer_mesh := U.mesh(outer, om, shell)
-	var ic := col.lerp(Color(0.25, 0.27, 0.3), 0.6) * 0.35
+	# the cave's wall: the warped shell itself, a little in (a round bowl inside poked out through the shell where it
+	# was warped in, and lit pale it read as a sheet of glass over the cave); dark, so what grows on it shows
+	var wr := []
+	for i in range(0, outer.v.size(), 3):
+		if outer.v[i].length() > 0.05: wr.append([outer.v[i].normalized(), outer.v[i].length()])
+	var wall_r := func(d: Vector3) -> float:
+		var best := -2.0
+		var r := 0.9
+		for e: Array in wr:
+			var dd := d.dot(e[0])
+			if dd > best:
+				best = dd
+				r = float(e[1])
+		return r * 0.9
+	var ic := col.lerp(Color(0.12, 0.13, 0.15), 0.8) * 0.25
 	ic.a = 1.0
-	U.mesh(Geo.sphere(0.9, 40, 20, 0, TAU, 0, PI / 2), SpecMat.make({col = ic, rough = 0.92, spec = 0.3, side = "back"}), shell)
+	var inner_g := Geo.new()
+	inner_g.v = outer.v.duplicate()
+	inner_g.idx = outer.idx.duplicate()
+	for i in inner_g.v.size(): inner_g.v[i] *= 0.9
+	U.mesh(inner_g, SpecMat.make({col = ic, rough = 0.85, spec = 0.2, side = "back"}), shell)
 	# a glittering carpet of tiny crystals over the cave wall
 	var place := func(k: int) -> Array:
 		var d := Vector3(rng.next() - 0.5, rng.next() * 0.98 + 0.02, rng.next() - 0.5).normalized()
@@ -1131,7 +1788,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		var s := 0.008 + rng.next() * 0.014
 		var c := col * (0.6 + rng.next() * 0.5)
 		c.a = 1.0
-		return [_rot_inst(d * 0.885, e, Vector3(s, s * 1.7, s)), c]
+		return [_rot_inst(d * (wall_r.call(d) as float) * 0.985, e, Vector3(s, s * 1.7, s)), c]
 	U.inst(Geo.octa(1), SpecMat.make({rough = 0.08, coat = 1.0, flat = true, env = 2.4}), 800, place, shell)
 	# agate rind: fine bands from the dark outer crust through grey and milky layers to a hint of the stone's own colour
 	var hue := SpecMat.get_hsl(Color(sp.c)).x
@@ -1192,7 +1849,21 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		c_tip = Color(0.95, 0.96, 0.98).lerp(col, 0.35)
 	var prismy := elongated or habit == "cube"
 	var main: MeshInstance3D = null
-	for k in 80 + int(floor(rng.next() * 40)):
+	if habit == "botryoid" and inner == habit:
+		# a lumpy species (opal) lines its cave with bubbles sunk half into the wall — a lining, not a cave filled
+		# with balls of glass; opal's play of colour flashing in them
+		var bm := _opal_mat(rng, 2.5)
+		var bub := []
+		for k in 120 + int(rng.next() * 60):
+			# (kept off the lip and sunk only into the wall's inner half, so none shows through the outside)
+			var d := Vector3(rng.next() - 0.5, rng.next() * 0.8 + 0.2, rng.next() - 0.5).normalized()
+			var s := 0.04 + pow(rng.next(), 2.0) * 0.09
+			bub.append(Transform3D(Basis(quat_to_l(UP, -d)) * Basis.from_scale(Vector3(s, s * 0.55, s)), d * (wall_r.call(d) as float) * 0.97))
+		main = U.mesh(Geo.sphere(1, 20, 14), bm, shell)
+		main.transform = bub[0]
+		main.set_meta("local", true)
+		U.inst(Geo.sphere(1, 16, 12), bm, bub.size() - 1, func(i: int) -> Array: return [bub[i + 1], Color(1, 1, 1)], shell)
+	for k in (0 if main else 80 + int(floor(rng.next() * 40))):
 		var d := Vector3(rng.next() - 0.5, rng.next() * 0.95 + 0.05, rng.next() - 0.5).normalized()
 		var f := pow(rng.next(), 1.6)
 		var dir := ((-d).lerp(UP, 0.15) + Vector3((rng.next() - 0.5) * 0.45, (rng.next() - 0.5) * 0.2, (rng.next() - 0.5) * 0.45)).normalized()
@@ -1202,9 +1873,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			var h := w * 1.4 if habit == "cube" else minf(0.42, w * (2.4 + rng.next() * 2.2))
 			var g := RockKit.prism(rng, {sides = 4 if habit == "cube" else 6, w = w, d = w * (0.8 + rng.next() * 0.3), h = h, point = habit != "cube", y0 = -w * 0.4}, {cA = c_root, cB = c_tip, zk = 1.0})
 			c = U.mesh(g, gm, shell)
-			_place(c, d * 0.86, dir, 1.0, rng.next() * 6.28)
+			_place(c, d * (wall_r.call(d) as float) * 0.96, dir, 1.0, rng.next() * 6.28)
 		else:
-			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * 0.86, dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
+			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * (wall_r.call(d) as float) * 0.96, dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
 		c.set_meta("local", true)
 		if not main: main = c
 	shell.transform = Transform3D(U.eul(-PI / 2 - 0.55, 0.35, 0), Vector3.ZERO)
@@ -1218,10 +1889,39 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 
 # inside the main crystal: a ghost of an earlier crystal, golden rutile hairs, a milky core, inclusions and veils
 func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Color, gi: int, tr: Array, legend: bool, layout: String, seed_v: int) -> void:
-	var ok := main != null and mat != null
+	# (nothing "inside the crystal" in a lump, a pebble or a polished face: those are no crystal)
+	var ok := main != null and mat != null and not (layout in ["botryoid", "sawn", "septaria"])
 	var h := 1.2
 	var g: Geo = main.get_meta("geo") if main else null
 	var bb := g.aabb() if g else AABB()
+	if ok and "trapiche" in (gene_m.accents as Array):
+		# emerald's trapiche (a rare one): six dark spokes running the length of the crystal from a dark core, a wheel
+		# seen in its flat end and through its sides
+		var dm := SpecMat.make({col = SpecMat.lin(0x10140c), rough = 0.7})
+		# (clearer glass, so the wheel shows sharp through it)
+		mat.set_shader_parameter("frost_k", 0.0)
+		mat.set_shader_parameter("holo_k", 0.0)
+		mat.set_shader_parameter("thick", 0.6)
+		var w := minf(bb.size.x, bb.size.z)
+		var hh := bb.end.y - maxf(0.0, bb.position.y)
+		var y0 := maxf(0.0, bb.position.y) + hh * 0.5
+		var cx := Vector3(bb.get_center().x, y0, bb.get_center().z)
+		U.mesh(Geo.cylinder(w * 0.12, w * 0.12, hh * 0.97, 6), dm, main, cx)
+		for k in 6:
+			var a := TAU * float(k) / 6.0 + PI / 6.0
+			U.mesh(Geo.box(w * 0.42, hh * 0.97, w * 0.07), dm, main, cx + Vector3(cos(a), 0, -sin(a)) * w * 0.23, Basis(Vector3.UP, a))
+		_mark("trapiche", Vector3(cx.x, bb.end.y, cx.z))
+	if ok and "chlorite" in tr:
+		# a ghost of green chlorite dust: an earlier crystal's faces, dusted over, inside the clear one (G2)
+		var cm := SpecMat.make({col = SpecMat.lin(0x3a6a2a), rough = 0.8, grain = 0.6, flat = true})
+		# (the crystal's own shape shrunk inside it, so it never pokes out)
+		var cg := Geo.new()
+		cg.v = g.v.duplicate()
+		cg.idx = g.idx.duplicate()
+		var c0 := Vector3(bb.get_center().x, maxf(0.0, bb.position.y), bb.get_center().z)
+		for i in cg.v.size(): cg.v[i] = c0 + (cg.v[i] - c0) * Vector3(0.55, 0.62, 0.55)
+		var ch := U.mesh(cg, cm, main)
+		_mark("chlorite", _mid(ch))
 	if ok and "phantom" in tr:
 		var pc := SpecMat.offset_hsl(col, 0.05, 0.2, -0.15)
 		var ph := U.mesh(RockKit.crystal(habit, rng, {h = h * 0.7}), SpecMat.make({col = pc * 0.8, rough = 0.6, flat = true}), main)
@@ -1236,6 +1936,24 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 			var at := Vector3(bb.get_center().x + (rng.next() - 0.5) * w * 0.4, maxf(0.0, bb.position.y) + hh * (0.25 + rng.next() * 0.45), bb.get_center().z + (rng.next() - 0.5) * w * 0.4)
 			U.mesh(Geo.cylinder(0.004, 0.004, len, 4), gm, main, at, U.eul((rng.next() - 0.5) * 0.8, rng.next() * 3, (rng.next() - 0.5) * 0.8))
 		_mark("rutile", _mid(main, 0.55))
+	if ok and "enhydro" in tr:
+		# a pocket of water in the crystal (G1): only its far wall is drawn — pale, watery — and in it the gas bubble,
+		# a bright bead, drifting up whichever way the stone is turned
+		var w := minf(bb.size.x, bb.size.z)
+		var hh := bb.end.y - maxf(0.0, bb.position.y)
+		var cav := Enhydro.new()
+		cav.rad = Vector3(w * 0.27, minf(hh * 0.2, w * 0.45), w * 0.17)
+		cav.position = Vector3(bb.get_center().x, maxf(0.0, bb.position.y) + hh * (0.45 + rng.next() * 0.15), bb.get_center().z)
+		cav.rotation = Vector3((rng.next() - 0.5) * 0.4, rng.next() * TAU, (rng.next() - 0.5) * 0.4)
+		main.add_child(cav)
+		var wall := SpecMat.make({col = SpecMat.lin(0x9fbccc), rough = 0.12, coat = 1.0, coat_r = 0.05, env = 1.8, side = "back", emis = SpecMat.lin(0x10181c)})
+		U.mesh(Geo.sphere(1, 28, 18), wall, cav).scale = cav.rad
+		var br := minf(cav.rad.x, minf(cav.rad.y, cav.rad.z)) * 0.68
+		cav.bubble = U.mesh(Geo.sphere(1, 20, 14), SpecMat.make({col = Color(0.95, 0.97, 1.0), rough = 0.08, coat = 1.0, env = 2.4, emis = SpecMat.lin(0x6a7880)}), cav)
+		cav.bubble.scale = Vector3.ONE * br
+		cav.br = br
+		cav.settle()
+		_mark("enhydro", main.transform * cav.position)
 	if ok and gi < 2:
 		# a milky core: the glass clouds over inside
 		mat.set_shader_parameter("frost_k", 1.1 - gi * 0.35)
@@ -1324,7 +2042,8 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		if c is MeshInstance3D and c.get_meta("col", false):
 			cols.append(c)
 	# (a fossil leaf's main mesh is the film on the split face: nothing grows on that)
-	if main and not main in cols and layout != "fern":
+	# (nor on a nodule's face, a polished lump or a pebble: their main mesh is the stone itself, not a crystal)
+	if main and not main in cols and layout != "fern" and not layout in ["botryoid", "sawn", "septaria"]:
 		cols.append(main)
 	var on_rock := func() -> Array:
 		if not st.rock:
@@ -1500,7 +2219,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var L: Array = list[k]
 			return [Transform3D(Basis(U.quat_to(UP, L[1])) * Basis.from_scale(Vector3(L[3], L[2], L[3])), L[0]), L[4]]
 		U.inst(geo, m, list.size(), place, root)
-	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian"]) and not (gene_m.lustre == "fossil" and not st.rock)
+	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria"]) and not (gene_m.lustre == "fossil" and not st.rock)
 	var strong := "coral" in tr
 	var style := -1
 	if has_base:
@@ -1630,12 +2349,20 @@ func _finish() -> void:
 		gg.bary = g.bary.duplicate()
 		# where a crystal turns into rock the surface swells into a lumpy crust
 		var crusty: bool = (n as MeshInstance3D).material_override in dt_mats and crust_ok
-		if crusty and gg.tri_count() < 2500:
-			gg.subdivide(1 if gg.tri_count() > 500 else 2)
 		var local: bool = n.get_meta("local", false)
 		var bb := gg.aabb()
 		var hgt := maxf(0.001, bb.size.y)
 		var t := U.rel_xform(n, root)
+		if crusty and gg.tri_count() < 2500:
+			# finer only where the crust moves the surface (rock-line height below dt.h + 0.1); the rest of the crystal
+			# stays as it was — splitting it whole made a skull's ~100 crystals 7x the vertices
+			var top: float = dt.h + 0.1 + 0.001
+			# (a skull's crystals stand in soil, their feet hidden: once is as good as twice there, at a third of the points)
+			var lv := 1 if gg.tri_count() > 500 or crust_once else 2
+			if local:
+				gg.subdivide(lv, Vector3.UP, bb.position.y + top * hgt)
+			else:
+				gg.subdivide(lv, Vector3(t.basis.x.y, t.basis.y.y, t.basis.z.y), top - t.origin.y)
 		var rp := PackedVector3Array()
 		rp.resize(gg.v.size())
 		for i in gg.v.size():
@@ -1647,11 +2374,37 @@ func _finish() -> void:
 			fn.fractal_octaves = 3
 			var line: float = dt.h
 			var amp := 0.05 * (hgt if local else 1.0) / maxf(0.2, t.basis.get_scale().x)
+			# (a split crystal is a plain triangle list: each corner is there about six times over — its noise once)
+			var seen := {}
 			for i in gg.v.size():
 				var w := 1.0 - smoothstep(line - 0.14, line + 0.1, rp[i].y)
 				if w > 0.0:
 					var p := gg.v[i]
-					var q := p * 9.0
-					gg.v[i] = p + Vector3(fn.get_noise_3dv(q), fn.get_noise_3dv(q + Vector3(19, 0, 0)), fn.get_noise_3dv(q + Vector3(0, 0, 41))) * amp * w
+					var d: Variant = seen.get(p)
+					if d == null:
+						var q := p * 9.0
+						d = Vector3(fn.get_noise_3dv(q), fn.get_noise_3dv(q + Vector3(19, 0, 0)), fn.get_noise_3dv(q + Vector3(0, 0, 41)))
+						seen[p] = d
+					gg.v[i] = p + (d as Vector3) * amp * w
 		gg.rp = rp
 		(n as MeshInstance3D).mesh = gg.to_mesh()
+
+## an enhydro's pocket (G1): the gas bubble keeps to the top of its water, the top being wherever "up" is now
+class Enhydro extends Node3D:
+	var rad := Vector3.ONE
+	var br := 0.05
+	var bubble: MeshInstance3D
+	func _target() -> Vector3:
+		var up := (global_transform.basis.inverse() * Vector3.UP) if is_inside_tree() else Vector3.UP
+		if up.length() < 1e-5: up = Vector3.UP
+		var d := up.normalized()
+		# the point of the pocket's wall that way, the bubble's own radius in from it
+		var k := 1.0 / sqrt(pow(d.x / rad.x, 2.0) + pow(d.y / rad.y, 2.0) + pow(d.z / rad.z, 2.0))
+		return d * maxf(0.0, k - br * 1.05)
+	func settle() -> void:
+		if bubble: bubble.position = _target()
+	func _ready() -> void:
+		settle()
+	func _process(dt: float) -> void:
+		if bubble:
+			bubble.position = bubble.position.lerp(_target(), 1.0 - exp(-dt * 1.6))
