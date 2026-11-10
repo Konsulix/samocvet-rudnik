@@ -133,12 +133,8 @@ static func bed_material(tint: Color) -> ShaderMaterial:
 		_bed_mat.set_shader_parameter("bed", load("res://assets/plants/moss_bed/moss_bed_diff.png"))
 		_bed_mat.set_shader_parameter("bed_n", load("res://assets/plants/moss_bed/moss_bed_nrm.png"))
 		_bed_mat.set_shader_parameter("bed_h", load("res://assets/plants/moss_bed/moss_bed_height.png"))
-	# (made afresh, not _bed_mat.duplicate(): a copy asks the renderer for the shader's parameters, and on the build
-	# thread that waits for it — a fifth of a second a cushion, seconds for a mossy skull)
-	var m := ShaderMaterial.new()
-	m.shader = _bed_mat.shader
-	for p in ["bed", "bed_n", "bed_h"]:
-		m.set_shader_parameter(p, _bed_mat.get_shader_parameter(p))
+	# (not _bed_mat.duplicate(): on the build thread that waits for the renderer — seconds for a mossy skull)
+	var m := SpecUtil.mat_copy(_bed_mat)
 	m.set_shader_parameter("tint", Vector3(tint.r, tint.g, tint.b))
 	return m
 

@@ -25,6 +25,48 @@ static func eul(x: float, y: float, z: float) -> Basis:
 static func eul_zxy(x: float, y: float, z: float) -> Basis:
 	return Basis(Vector3.BACK, z) * Basis(Vector3.RIGHT, x) * Basis(Vector3.UP, y)
 
+## a copy of a shader material, as duplicate() makes it, without asking the renderer: duplicate() lists the shader's
+## parameters through it, and on the build thread that waits for the renderer (a quarter of a second a copy). The
+## names come from the shader's own text (its #includes too), the values from the material.
+static var _uniforms := {}
+static var _uni_lock := Mutex.new()
+static var _uni_re: RegEx
+static func mat_copy(m: ShaderMaterial) -> ShaderMaterial:
+	var c := ShaderMaterial.new()
+	c.shader = m.shader
+	c.render_priority = m.render_priority
+	c.next_pass = m.next_pass
+	for k in m.get_meta_list(): c.set_meta(k, m.get_meta(k))
+	if m.shader:
+		for p: String in uniforms(m.shader):
+			var v: Variant = m.get_shader_parameter(p)
+			if v != null: c.set_shader_parameter(p, v)
+	return c
+
+static func uniforms(sh: Shader) -> PackedStringArray:
+	_uni_lock.lock()
+	var got: Variant = _uniforms.get(sh)
+	if got == null:
+		if _uni_re == null:
+			_uni_re = RegEx.create_from_string("(?m)^\\s*uniform\\s+(?:(?:highp|mediump|lowp)\\s+)?\\w+\\s+(\\w+)")
+		var names := PackedStringArray()
+		_scan(sh.code, names, {})
+		_uniforms[sh] = names
+		got = names
+	_uni_lock.unlock()
+	return got
+
+static func _scan(code: String, names: PackedStringArray, seen: Dictionary) -> void:
+	for r in _uni_re.search_all(code):
+		if not r.get_string(1) in names: names.append(r.get_string(1))
+	for line in code.split("\n"):
+		var t := line.strip_edges()
+		if t.begins_with("#include"):
+			var path := t.get_slice("\"", 1)
+			if seen.has(path) or not ResourceLoader.exists(path): continue
+			seen[path] = true
+			_scan((load(path) as ShaderInclude).code, names, seen)
+
 static func mesh(geo: Geo, mat: Material, parent: Node3D, at := Vector3.ZERO, basis := Basis.IDENTITY) -> MeshInstance3D:
 	var m := MeshInstance3D.new()
 	m.set_meta("geo", geo)

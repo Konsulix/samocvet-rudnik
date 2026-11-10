@@ -883,7 +883,7 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 			var sz: float = nd0.transform.basis.get_scale().x
 			var pk := SpecSea.bubbles(holder, [pc + Vector3(sz * 0.5, 0, 0.1 * sz), pc + Vector3(-sz * 0.5, 0, -0.1 * sz), pc + Vector3(0, 0, sz * 0.55)], Vector3.UP, sz * 1.1, sz * 0.012, 14)
 			for it: Array in pk.items:
-				var bm := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+				var bm := U.mat_copy((it[0] as MeshInstance3D).material_override as ShaderMaterial)
 				bm.set_shader_parameter("tint", Color(0.5, 1.6, 1.4))
 				(it[0] as MeshInstance3D).material_override = bm
 		"hunter":

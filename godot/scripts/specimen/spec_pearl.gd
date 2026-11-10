@@ -271,7 +271,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 			for i in bg.v.size():
 				bg.v[i].y *= 0.7
 				bg.rp.append(bg.v[i].normalized())
-			var bm := pm.duplicate() as ShaderMaterial
+			var bm := U.mat_copy(pm)
 			bm.set_shader_parameter("blister_k", 1.0)
 			var bl := U.mesh(bg, bm, oy, Vector3(-sp.x, -_inner_y(sp.x, sp.y) - s * 0.12, sp.y), Basis.from_scale(Vector3.ONE * s))
 			bl.set_meta("col", true)
@@ -423,7 +423,7 @@ static func moon_glow(root: Node3D, parent: Node3D, pearl: Node3D, reach: float)
 	var pc := pearl.position
 	var pk := SpecSea.bubbles(parent, [pc + Vector3(0.4, -0.2, 0.2), pc + Vector3(-0.5, -0.2, 0.1), pc + Vector3(0.1, -0.1, -0.4)], Vector3.UP, 2.6, 0.016, 14)
 	for it: Array in pk.items:
-		var bm2 := ((it[0] as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+		var bm2 := U.mat_copy((it[0] as MeshInstance3D).material_override as ShaderMaterial)
 		bm2.set_shader_parameter("tint", Color(0.9, 1.0, 1.0) * 2.2)
 		(it[0] as MeshInstance3D).material_override = bm2
 

@@ -161,7 +161,7 @@ static func lightning(main: Node3D, rng: Rng32) -> void:
 	main.add_child(bolt)
 	# a storm in the glass: the crystal turns smoky blue-violet so the lightning stands out
 	if main is MeshInstance3D and (main as MeshInstance3D).material_override is ShaderMaterial:
-		var gm := ((main as MeshInstance3D).material_override as ShaderMaterial).duplicate() as ShaderMaterial
+		var gm := SpecUtil.mat_copy((main as MeshInstance3D).material_override as ShaderMaterial)
 		gm.set_shader_parameter("smoke_k", 1.0)
 		gm.set_shader_parameter("smoke_col", Vector3(0.06, 0.07, 0.16))
 		gm.set_shader_parameter("frost_k", 0.15)

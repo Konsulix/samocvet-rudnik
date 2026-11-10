@@ -715,7 +715,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var n := 4 + int(floor(rng.next() * 4)) if kind == "druse" else 1 + int(floor(rng.next() * 3))
 			var cm: ShaderMaterial = any_cmat.call()
 			# a column whose foot misses the rock broke off: it lies at the foot of the block, clean of the crust
-			var loose_m := cm.duplicate() as ShaderMaterial
+			var loose_m := U.mat_copy(cm)
 			for k in n:
 				var at := Vector3((rng.next() - 0.5) * 0.55 if k else 0.0, -0.05, (rng.next() - 0.5) * 0.4 if k else 0.0)
 				var lying := _off_rock(at, rb) != Vector3.ZERO
@@ -842,7 +842,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var rk: MeshInstance3D = use_rock.call("chunk" if rng.next() < 0.5 else "small")
 			var rb: AABB = rk.transform * (rk.get_meta("geo") as Geo).aabb()
 			var cm: ShaderMaterial = any_cmat.call()
-			var loose_m := cm.duplicate() as ShaderMaterial
+			var loose_m := U.mat_copy(cm)
 			var axis: Vector3 = lean.call(UP, 0.5)
 			var common := Basis(quat_to_l(UP, axis)) * Basis(UP, rng.next() * TAU)
 			var n := 3 + int(rng.next() * 4)
@@ -1099,7 +1099,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			SpecLegend.heart(root, main, rng, col)
 			if main and main.material_override is ShaderMaterial:
 				# the core glows through the main crystal's own glass, whatever the angle
-				var hm := (main.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+				var hm := U.mat_copy(main.material_override as ShaderMaterial)
 				var bb: AABB = (main.get_meta("geo") as Geo).aabb()
 				var hc := SpecLegend.heart_color(col) * 2.0
 				hm.set_shader_parameter("heart_pos", bb.get_center() + Vector3(0, bb.size.y * 0.05, 0))
