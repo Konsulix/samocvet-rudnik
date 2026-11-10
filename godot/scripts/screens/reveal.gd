@@ -49,13 +49,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Ov.close()
 		Ov.toast("Added to the inventory")
 		finished.emit()
-	var atl: Dictionary = Save.d.atlas.get(String(s.sid), {})
-	if reply == "" and chips_max == 0 and atl.has("best") and int(atl.best.id) == int(s.id):
-		# the species' new record stone: sold, the atlas keeps its records but shows it grey
-		var only := Kit.label("Your best %s yet: sold, it turns grey in the atlas" % Data.SP[s.sid].n, 12, UI.body, Kit.DIM)
-		only.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		only.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(only)
+	# (a new record says so by its ribbon - a tap on it tells the rule the first time - not by a line on every find)
 	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)
 	if reply != "":
 		var b := Kit.button(reply, "btn_gold", 17, 4.0)
@@ -231,15 +225,24 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	# opens; inside the panel, so its rounded clip cuts the ribbon's top, the rim lies over it
 	if mark and chips_max == 0 and not s.has("name_as") and is_record(s):
 		var rr := RecordRibbon.make(card, info)
-		rr.said = "The finest %s you have found: the atlas shows it. Sold, its page turns grey" % String(Data.SP[s.sid].n)
+		rr.head = "Atlas record"
+		rr.lines = PackedStringArray(["Your finest " + String(Data.SP[s.sid].n)])
+		# (the atlas's own first note says it already)
+		rr.rule_id = "" if Save.told("c_atlas") else "rule_atlas"
+		rr.rule = "Sold, its atlas page turns grey."
 		info.add_child(rr)
+		v.set_meta("ribbon_rec", rr)
 	# the last kept stone with a gene an achievement shows (Awards.last_genes): a shorter green ribbon in the left corner
 	var lastg := Awards.last_genes(s) if chips_max == 0 and not s.has("name_as") else PackedStringArray()
 	if not lastg.is_empty():
 		# a tap on it names them (many have no badge: the life on a stone is shown by its callouts only)
 		var lr := RecordRibbon.make(card, info, true)
-		lr.said = "The last one you keep with %s. Sold, %s grey in the awards" % [", ".join(lastg).to_lower(), "they turn" if lastg.size() > 1 else "it turns"]
+		lr.head = "Last examples of"
+		for t in lastg: lr.lines.append(t.substr(0, 1).to_upper() + t.substr(1))
+		lr.rule_id = "rule_awards"
+		lr.rule = "Sold, %s grey in the awards." % ("they turn" if lastg.size() > 1 else "it turns")
 		info.add_child(lr)
+		v.set_meta("ribbon_last", lr)
 	card.add_child(_info_rim(card, info))
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)

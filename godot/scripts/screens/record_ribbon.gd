@@ -32,8 +32,14 @@ var len_ := L
 var c_silk := SILK
 var c_dark := SILK_DARK
 var c_sheen := SILK_SHEEN
-## a tap on the ribbon tells this (a toast)
-var said := ""
+## a tap on the ribbon opens a little sheet under it (tell): a heading, one line each, and the first time only the rule
+## behind it (rule_id: Save.told) - after that the rule is known and only the list is shown
+var head := ""
+var lines := PackedStringArray()
+var rule_id := ""
+var rule := ""
+var _tip: Control
+var _shut_at := -1000
 var _t := -DELAY
 static var _weave: ImageTexture
 static var _laurel: ImageTexture
@@ -52,10 +58,9 @@ static func make(card_: Control, info_: Control, last_of := false) -> RecordRibb
 	r.info = info_
 	r.mouse_filter = Control.MOUSE_FILTER_STOP     # only over the ribbon itself (_has_point)
 	r.gui_input.connect(func(e: InputEvent):
-		if r.said != "" and Atlas._tapped(e):
+		if r.head != "" and Atlas._tapped(e):
 			r.accept_event()
-			Sfx.play("click")
-			Ov.toast(r.said))
+			r.tell())
 	r.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	info_.item_rect_changed.connect(r.queue_redraw)
@@ -69,7 +74,68 @@ func _hang() -> Rect2:
 	return Rect2(x - W, ig.position.y - UP, W * 2.0, len_ + UP + 8.0)
 
 func _has_point(p: Vector2) -> bool:
-	return said != "" and is_instance_valid(info) and _hang().has_point(p)
+	return head != "" and is_instance_valid(info) and _hang().has_point(p)
+
+## the sheet under the ribbon (again: it folds away)
+func tell() -> void:
+	if is_instance_valid(_tip) or Time.get_ticks_msec() - _shut_at < 350:
+		_shut()
+		return
+	Sfx.play("click")
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", Kit.box("btn_dark", 10.0))
+	p.top_level = true                 # (over the card, not clipped by the panel, not laid out by it)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 1)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := Kit.label(head, 13, UI.body_bold, Kit.AMBER)
+	vb.add_child(h)
+	for t in lines:
+		var l := Kit.label("•  " + t, 15, UI.body, Kit.CREAM)
+		vb.add_child(l)
+	if rule_id != "" and not Save.told(rule_id):
+		var r := Kit.label(rule, 12, UI.body, Kit.DIM)
+		r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		r.custom_minimum_size = Vector2(170, 0)
+		vb.add_child(r)
+		Save.tell(rule_id)
+	for c in vb.get_children():
+		(c as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(vb)
+	card.add_child(p)
+	p.reset_size()
+	# hung from the ribbon's tip, on its side of the card, kept inside the card
+	var hang := _hang()
+	var g := get_global_transform()
+	var tip := g * Vector2(hang.get_center().x, hang.position.y + UP + len_ + 2.0)
+	var cr := card.get_global_rect()
+	var x := tip.x - W * 0.7 if left else tip.x + W * 0.7 - p.size.x
+	x = clampf(x, cr.position.x + 8.0, cr.end.x - 8.0 - p.size.x)
+	p.global_position = Vector2(x, tip.y)
+	p.pivot_offset = Vector2(0.0 if left else p.size.x, 0.0)
+	p.scale = Vector2(0.85, 0.85)
+	p.modulate.a = 0.0
+	var tw := p.create_tween().set_parallel()
+	tw.tween_property(p, "modulate:a", 1.0, 0.15)
+	tw.tween_property(p, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tip = p
+	get_tree().create_timer(6.0).timeout.connect(func(): if _tip == p: _shut())
+
+func _shut() -> void:
+	if not is_instance_valid(_tip): return
+	var p := _tip
+	_tip = null
+	_shut_at = Time.get_ticks_msec()
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 0.0, 0.15)
+	tw.tween_callback(p.queue_free)
+
+## any touch folds the sheet away (and goes on to whatever it was for)
+func _input(e: InputEvent) -> void:
+	if is_instance_valid(_tip) and e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
+		_shut()
 
 func _process(dt: float) -> void:
 	_t += dt

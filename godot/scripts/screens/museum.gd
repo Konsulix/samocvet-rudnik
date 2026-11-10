@@ -429,18 +429,16 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	if cut_done:
 		v.add_child(Ov.text("Cut: " + String(Data.CUTN[s.cut]), 13))
 	var price := roundi(float(s.value) * Save.coin_mul())
-	# the last kept stone with an achievement's gene, or the species' record: the first press only warns, the second sells
-	var lose := Awards.last_genes(s)
-	var warn := ""
-	if not lose.is_empty(): warn = "Last one with %s: sold, it turns grey in the awards" % ", ".join(lose).to_lower()
-	elif Reveal.is_record(s): warn = "Your best %s: sold, it turns grey in the atlas" % String(Data.SP[s.sid].n)
-	var armed := [warn == ""]
+	# the last kept stone with an achievement's gene, or the species' record: the first press opens its ribbon's sheet
+	# (what would be lost), the second sells
+	var rib: RecordRibbon = v.get_meta("ribbon_last", v.get_meta("ribbon_rec", null))
+	var armed := [rib == null]
 	var sell_b := Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0)
 	var sell := func():
 		if not armed[0]:
 			armed[0] = true
 			sell_b.text = "Sell anyway"
-			Ov.toast(warn)
+			if is_instance_valid(rib): rib.tell.call_deferred()    # (after this press, which folds any sheet away)
 			return
 		Save.gone(s)
 		Save.d.coll.erase(s)
