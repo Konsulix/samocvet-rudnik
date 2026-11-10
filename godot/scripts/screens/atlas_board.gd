@@ -383,7 +383,7 @@ func _hub() -> void:
 func _island_far(isl: Dictionary) -> void:
 	var c: Vector2 = isl.c
 	var open: bool = isl.open
-	_disc(c, PATCH, Color(1, 0.94, 0.84, 0.06 if open else 0.035), Color(1, 0.94, 0.84, 0.0))
+	_scene(isl)
 	for i in isl.pos.size():
 		var id := String(isl.ids[i])
 		var p: Vector2 = isl.pos[i]
@@ -414,7 +414,7 @@ func _island(isl: Dictionary) -> void:
 	var dim := 1.0 if open else 0.6
 	var sg := SIGN
 	# a barely lighter patch of slate under it
-	_disc(c, PATCH, Color(1, 0.94, 0.84, 0.055 * dim), Color(1, 0.94, 0.84, 0.0))
+	_scene(isl)
 	var sc := c + Vector2(0, SIGN_Y)
 	# threads like the gene callouts on the specimen card (SpecCallouts): a hair-thin light line on a soft shade, out
 	# from under the sign (drawn before it), a tiny ring with a point a little off the card's edge; the same width on
@@ -505,6 +505,51 @@ func _species(id: String, p: Vector2, open: bool, _names: bool) -> void:
 		var rt := String(Data.RAR[tier])
 		var rw := fnt.get_string_size(rt, HORIZONTAL_ALIGNMENT_LEFT, -1, 7).x
 		draw_string(fnt, Vector2(p.x - rw / 2.0, r.end.y - 5), rt, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(rc.lerp(Kit.DIM, 0.55), 0.85))
+
+## the island's ground: a round window into the mine's own painted surface (its mine screen's picture), fading into
+## the slate at its edge, dimmed so the cards and the sign read over it; a locked mine's is dark and cold
+const SCENE_R := 214.0
+static var _scenes := {}
+func _scene(isl: Dictionary) -> void:
+	var a: int = isl.a
+	if a < 0:
+		_disc(isl.c, PATCH, Color(1, 0.94, 0.84, 0.04), Color(1, 0.94, 0.84, 0.0))
+		return
+	if not _scenes.has(a):
+		var path := "res://assets/mine/%s/surface.png" % Atlas._mine_dir(a)
+		if not ResourceLoader.exists(path):
+			_scenes[a] = null
+		else:
+			var img: Image = (load(path) as Texture2D).get_image()
+			if img.is_compressed(): img.decompress()
+			var w := img.get_width()
+			# a square out of the picture: its upper middle, where the mine's buildings stand
+			var y0 := clampi(int(img.get_height() * 0.16), 0, maxi(0, img.get_height() - w))
+			var sq := img.get_region(Rect2i(0, y0, w, w))
+			sq.resize(384, 384, Image.INTERPOLATE_LANCZOS)
+			_scenes[a] = ImageTexture.create_from_image(sq)
+	var tx: Texture2D = _scenes[a]
+	if tx == null:
+		_disc(isl.c, PATCH, Color(1, 0.94, 0.84, 0.05), Color(1, 0.94, 0.84, 0.0))
+		return
+	var open: bool = isl.open
+	var tint := Color(0.85, 0.82, 0.78) if open else Color(0.36, 0.37, 0.41)
+	const N := 64
+	var c: Vector2 = isl.c
+	var r := SCENE_R
+	for i in N:
+		var a0 := TAU * i / N
+		var a1 := TAU * (i + 1) / N
+		var u0 := Vector2(cos(a0), sin(a0))
+		var u1 := Vector2(cos(a1), sin(a1))
+		for ring in [[0.0, 0.62, 1.0, 1.0], [0.62, 0.85, 1.0, 0.75], [0.85, 1.0, 0.75, 0.0]]:
+			var r0: float = ring[0]
+			var r1: float = ring[1]
+			var k0 := Color(tint, float(ring[2]))
+			var k1 := Color(tint, float(ring[3]))
+			var pts := PackedVector2Array([c + u0 * r * r0, c + u0 * r * r1, c + u1 * r * r1, c + u1 * r * r0])
+			var uvs := PackedVector2Array([Vector2(0.5, 0.5) + u0 * 0.5 * r0, Vector2(0.5, 0.5) + u0 * 0.5 * r1, Vector2(0.5, 0.5) + u1 * 0.5 * r1, Vector2(0.5, 0.5) + u1 * 0.5 * r0])
+			draw_polygon(pts, PackedColorArray([k0, k1, k1, k0]), uvs, tx)
 
 ## the emblem as a plain image texture: drawn straight from the imported file it came out a white square here
 static var _em := {}

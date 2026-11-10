@@ -13,6 +13,7 @@ signal replay(a: int)
 ## which screen opens: -1 the mines, N a mine; -2 decides (straight into the mine while only one is open)
 static var start_area := -2
 static var BOARD := true   # the mines as one board of islands (AtlasBoard); false: the old list of banners
+static var PAGES := true   # the board as pages, one mine a page, swiped (AtlasPages); false: the board of islands (AtlasBoard)
 ## a banner's width to its height
 const BANNER_K := 3.9
 
@@ -138,7 +139,7 @@ func render() -> void:
 	if area < 0 and BOARD:
 		# the atlas as one board of islands (AtlasBoard), full width between the bars
 		pad.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var bd := AtlasBoard.new(self)
+		var bd: Control = AtlasPages.new(self) if PAGES else AtlasBoard.new(self)
 		bd.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		root.add_child(bd)
 		root.add_child(Chrome.nav_bar("atlas", func(id: String): go.emit(id)))
@@ -746,7 +747,7 @@ static func cutout(o: Dictionary, cb: Callable) -> void:
 static func _pump() -> void:
 	_busy = true
 	if _studio == null:
-		_studio = SpecStudio.make(256, Viewport.MSAA_4X, true)
+		_studio = SpecStudio.make(384, Viewport.MSAA_4X, true)
 		_studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		Spec.add_child(_studio.vp)
 	while _queue.size():
