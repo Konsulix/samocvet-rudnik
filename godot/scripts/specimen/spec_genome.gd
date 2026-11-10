@@ -24,7 +24,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
 	fly_morpho = "blue morpho", fly_apollo = "Apollo", fly_monarch = "monarch", fly_deathshead = "death's-head moth",
 	fly_glasswing = "glasswing", fly_comet = "comet moth", fly_mourning = "mourning cloak", fly_blue = "mazarine blue", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
-	sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
+	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
@@ -142,7 +142,7 @@ static func of(o: Dictionary) -> Dictionary:
 		var sko := {}
 		for k in ["skin"]:
 			if o.has(k): sko[k] = o[k]
-		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass"]:
+		if String(SpecSkull.genes(seed_v, sko).skin) in ["gold", "silver", "copper", "kintsugi", "glass", "lapis", "feathers"]:
 			apool = []
 	# (a sawn and polished face keeps nothing growing on it)
 	var bare := form == "rosette" and look.has("rose")

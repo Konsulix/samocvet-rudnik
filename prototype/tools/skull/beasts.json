@@ -1,0 +1,762 @@
+{
+ "alligator": {
+  "src": "второй/alligator_skull.glb",
+  "rot": [
+   0,
+   0,
+   180
+  ],
+  "fwd": [
+   0,
+   -1,
+   0
+  ],
+  "up": [
+   0,
+   0,
+   1
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.12,
+     0.2,
+     -0.25
+    ],
+    [
+     0.3,
+     1,
+     0
+    ]
+   ],
+   "yaw": -0.7,
+   "lean": 0.45,
+   "maw": [
+    [
+     0,
+     0.08,
+     0.15
+    ],
+    [
+     0,
+     0.12,
+     0.62
+    ],
+    0.2
+   ]
+  },
+  "credit": "Alligator Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/alligator-skull-47e21ba8ab594048a5e6174938a46665"
+ },
+ "spoonbill": {
+  "src": "второй/spoonbill_skull.glb",
+  "rot": [
+   0,
+   0,
+   180
+  ],
+  "fwd": [
+   1,
+   0,
+   0
+  ],
+  "up": [
+   0,
+   1,
+   0
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.08,
+     -0.1,
+     -0.62
+    ],
+    [
+     1,
+     0,
+     0
+    ]
+   ],
+   "yaw": -0.9,
+   "lean": 0.15
+  },
+  "credit": "Spoonbill Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/spoonbill-skull-8ea93751572f491bb23181a4b4cd9d5d"
+ },
+ "deer": {
+  "src": "второй/white-tailed_deer_skull_with_antlers.glb",
+  "rot": [
+   -90,
+   0,
+   0
+  ],
+  "fwd": [
+   0,
+   -0.5,
+   -1
+  ],
+  "up": [
+   0,
+   -1,
+   0.3
+  ],
+  "horns": [
+   [
+    [
+     0.17,
+     -0.24,
+     -0.24
+    ],
+    [
+     0.8,
+     0.4,
+     -0.4
+    ]
+   ],
+   [
+    [
+     -0.17,
+     -0.24,
+     -0.24
+    ],
+    [
+     -0.8,
+     0.4,
+     -0.4
+    ]
+   ]
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.22,
+     0.0,
+     -0.2
+    ],
+    [
+     1,
+     0.2,
+     0.3
+    ]
+   ],
+   "lean": 0.0,
+   "mount": true
+  },
+  "display": [
+   70,
+   0,
+   0
+  ],
+  "flags": [
+   "antlers"
+  ],
+  "credit": "White-Tailed Deer Skull With Antlers by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/white-tailed-deer-skull-with-antlers-29bccce82a184e93bea39933d33b4760"
+ },
+ "mouflon": {
+  "src": "второй/sheep_with_horns.glb",
+  "rot": [
+   -90,
+   0,
+   0
+  ],
+  "fwd": [
+   -1,
+   0.6,
+   0
+  ],
+  "up": [
+   0.6,
+   1,
+   0
+  ],
+  "horns": [
+   [
+    [
+     0.12,
+     0.05,
+     -0.02
+    ],
+    [
+     0.5,
+     0.4,
+     -0.75
+    ]
+   ],
+   [
+    [
+     -0.12,
+     0.05,
+     -0.02
+    ],
+    [
+     -0.5,
+     0.4,
+     -0.75
+    ]
+   ]
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.22,
+     -0.1,
+     -0.13
+    ],
+    [
+     1,
+     0.2,
+     0.3
+    ]
+   ],
+   "lean": 0.0,
+   "mount": true
+  },
+  "display": [
+   70,
+   0,
+   0
+  ],
+  "flags": [
+   "ridged"
+  ],
+  "credit": "Sheep with horns by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/sheep-with-horns-6f0e5b4cc09f4b4f94fdae5cb9719c21"
+ },
+ "ram": {
+  "src": "первый/realistic_goat_skull.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   -1,
+   -0.3,
+   0
+  ],
+  "up": [
+   0,
+   1,
+   0
+  ],
+  "horns": [
+   [
+    [
+     0.2,
+     0.15,
+     -0.35
+    ],
+    [
+     0.8,
+     0.3,
+     -0.5
+    ]
+   ],
+   [
+    [
+     -0.2,
+     0.15,
+     -0.35
+    ],
+    [
+     -0.8,
+     0.3,
+     -0.5
+    ]
+   ]
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.27,
+     0.13,
+     -0.19
+    ],
+    [
+     1,
+     0.2,
+     0.4
+    ]
+   ],
+   "lean": 0.0,
+   "mount": true
+  },
+  "display": [
+   70,
+   0,
+   0
+  ],
+  "flags": [
+   "ridged"
+  ],
+  "credit": "Realistic Goat Skull by Blu, CC BY 4.0, https://sketchfab.com/3d-models/realistic-goat-skull-b70e79378a2d4eada8484a194433b013"
+ },
+ "longhorn": {
+  "src": "первый/cow_skull.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   0,
+   0,
+   1
+  ],
+  "up": [
+   0,
+   -1,
+   0
+  ],
+  "horns": [
+   [
+    [
+     0.28,
+     0.12,
+     -0.45
+    ],
+    [
+     1,
+     0.1,
+     0
+    ]
+   ],
+   [
+    [
+     -0.28,
+     0.12,
+     -0.45
+    ],
+    [
+     -1,
+     0.1,
+     0
+    ]
+   ]
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.3,
+     0.13,
+     -0.13
+    ],
+    [
+     1,
+     0.2,
+     0.4
+    ]
+   ],
+   "lean": 0.0,
+   "mount": true
+  },
+  "display": [
+   70,
+   0,
+   0
+  ],
+  "credit": "Cow Skull by teachingtechie, CC BY 4.0, https://sketchfab.com/3d-models/cow-skull-83f4ee24948a4d338aad0afe1a3f41ed"
+ },
+ "musk_ox": {
+  "src": "второй/musk_ox_skull.glb",
+  "rot": [
+   0,
+   0,
+   -90
+  ],
+  "fwd": [
+   1,
+   0,
+   0
+  ],
+  "up": [
+   0,
+   1,
+   0
+  ],
+  "horns": [
+   [
+    [
+     0.27,
+     0.2,
+     -0.3
+    ],
+    [
+     1,
+     0,
+     0
+    ]
+   ],
+   [
+    [
+     -0.27,
+     0.2,
+     -0.3
+    ],
+    [
+     -1,
+     0,
+     0
+    ]
+   ]
+  ],
+  "pitch": -20,
+  "lm": {
+   "eye": [
+    [
+     0.3,
+     -0.22,
+     -0.45
+    ],
+    [
+     1,
+     0,
+     0.2
+    ]
+   ],
+   "lean": 0.0,
+   "mount": true
+  },
+  "display": [
+   70,
+   0,
+   0
+  ],
+  "credit": "Musk Ox Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/musk-ox-skull-a40b10b4e4064ad2b0080333ad60e913"
+ },
+ "wolf": {
+  "src": "первый/wolf_skull_-_fw2415.glb",
+  "rot": [
+   0,
+   0,
+   -90
+  ],
+  "jaw": true,
+  "fwd": [
+   0,
+   1,
+   0
+  ],
+  "up": [
+   0,
+   0,
+   1
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.24,
+     0.15,
+     0.0
+    ],
+    [
+     1,
+     0.4,
+     0.5
+    ]
+   ],
+   "yaw": -0.6,
+   "lean": 0.25,
+   "maw": [
+    [
+     0,
+     -0.15,
+     0.0
+    ],
+    [
+     0,
+     -0.27,
+     0.45
+    ],
+    0.22
+   ],
+   "hinge": [
+    0,
+    -0.03,
+    -0.34
+   ],
+   "open": 0.45
+  },
+  "credit": "Wolf Skull - FW2415 by osuecampus, CC BY 4.0, https://sketchfab.com/3d-models/wolf-skull-fw2415-1566e56e6a7e47f890b9b389457346a8"
+ },
+ "bear": {
+  "src": "второй/black_bear_skull.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   0,
+   -0.5,
+   -1
+  ],
+  "up": [
+   0,
+   0.3,
+   1
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.25,
+     0.05,
+     0.0
+    ],
+    [
+     1,
+     0.3,
+     0.5
+    ]
+   ],
+   "yaw": -0.8,
+   "lean": 0.25
+  },
+  "credit": "Black Bear Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/black-bear-skull-a446f356ccbc49e19ef53c306b1c679d"
+ },
+ "fox": {
+  "src": "второй/red_fox_skull.glb",
+  "rot": [
+   0,
+   0,
+   90
+  ],
+  "fwd": [
+   -1,
+   0,
+   0
+  ],
+  "up": [
+   0,
+   1,
+   1
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.2,
+     0.1,
+     -0.08
+    ],
+    [
+     1,
+     0.4,
+     0.5
+    ]
+   ],
+   "yaw": -0.6,
+   "lean": 0.25
+  },
+  "credit": "Red Fox Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/red-fox-skull-9677e2e2eb384a2a82f3b242fa5e925f"
+ },
+ "horse": {
+  "src": "второй/horse_skull.glb",
+  "rot": [
+   0,
+   0,
+   -90
+  ],
+  "fwd": [
+   1,
+   0,
+   -0.6
+  ],
+  "up": [
+   0,
+   1,
+   0
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.25,
+     0.0,
+     -0.4
+    ],
+    [
+     1,
+     0.2,
+     0.2
+    ]
+   ],
+   "yaw": -1.15,
+   "lean": 0.2
+  },
+  "credit": "Horse Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/horse-skull-0834c74e6b744f5999af04ad681dc73f"
+ },
+ "lion": {
+  "src": "первый/lion_skull.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   1,
+   -0.2,
+   0
+  ],
+  "up": [
+   0,
+   1,
+   -0.5
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.2,
+     0.1,
+     -0.05
+    ],
+    [
+     1,
+     0.3,
+     0.6
+    ]
+   ],
+   "yaw": -0.85,
+   "lean": 0.25
+  },
+  "credit": "Lion Skull by University of Dundee Museum Collections, CC0 1.0, https://sketchfab.com/3d-models/lion-skull-b7b59f40f37b4ea99a59a16e17d033f9"
+ },
+ "raven": {
+  "src": "второй/bird_skull.glb",
+  "rot": [
+   0,
+   0,
+   -90
+  ],
+  "fwd": [
+   1,
+   0,
+   -0.6
+  ],
+  "up": [
+   0,
+   1,
+   0
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.12,
+     -0.03,
+     -0.3
+    ],
+    [
+     1,
+     0.1,
+     0.1
+    ]
+   ],
+   "yaw": -0.9,
+   "lean": 0.15
+  },
+  "credit": "Bird Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/bird-skull-4507a5ff637246859fa4f7b2744b1055"
+ },
+ "hornbill": {
+  "src": "второй/white-thighed_hornbill_skull.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   -0.9,
+   0,
+   -0.45
+  ],
+  "up": [
+   0.45,
+   0,
+   -0.9
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.1,
+     0.06,
+     -0.38
+    ],
+    [
+     1,
+     0,
+     0
+    ]
+   ],
+   "yaw": -0.9,
+   "lean": 0.15
+  },
+  "credit": "White-thighed Hornbill Skull by RISD Nature Lab, CC BY 4.0, https://sketchfab.com/3d-models/white-thighed-hornbill-skull-3adca717270b41cb9286280ec779b067"
+ },
+ "trex": {
+  "src": "второй/vertebrate_tyrannosaurus_rex_skull_mote.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   0,
+   -1,
+   0
+  ],
+  "up": [
+   -1,
+   0,
+   1
+  ],
+  "lm": {
+   "eye": [
+    [
+     0.22,
+     0.32,
+     -0.05
+    ],
+    [
+     1,
+     0.2,
+     0.2
+    ]
+   ],
+   "yaw": -0.55,
+   "lean": 0.2,
+   "maw": [
+    [
+     0,
+     -0.05,
+     0.0
+    ],
+    [
+     0,
+     -0.3,
+     0.55
+    ],
+    0.19
+   ]
+  },
+  "credit": "Vertebrate: Tyrannosaurus rex skull (MOTE) by Digital Atlas of Ancient Life, CC0 1.0, https://sketchfab.com/3d-models/vertebrate-tyrannosaurus-rex-skull-mote-cf48487de55d454b8adc92dce2840a0d"
+ },
+ "triceratops": {
+  "src": "второй/triceratops_skull.glb",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "fwd": [
+   1,
+   0,
+   0
+  ],
+  "up": [
+   0,
+   1,
+   0
+  ],
+  "pitch": 30,
+  "lm": {
+   "yaw": -0.6,
+   "lean": 0.15
+  },
+  "credit": "Triceratops Skull by James, CC BY 4.0, https://sketchfab.com/3d-models/triceratops-skull-00099fa513df45a8a6e1f70013e0f695"
+ }
+}

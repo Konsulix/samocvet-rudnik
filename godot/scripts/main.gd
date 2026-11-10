@@ -227,6 +227,14 @@ func _ready() -> void:
 		# skulls=metal: cast in gold, copper and silver, two of each (one on a rock)
 		if String(args.skulls) == "metal":
 			pins = [{skin = "gold"}, {skin = "copper"}, {skin = "silver"}, {skin = "gold", show = "rock"}, {skin = "copper", show = "rock"}, {skin = "silver", show = "rock"}]
+		# skulls=beasts: an animal's skull of every kind (SpecSkull.BEASTS), their genes as they fall
+		if String(args.skulls) == "beasts":
+			pins = []
+			var skins := ["bone", "lapis", "bone", "feathers", "sugar", "bone", "rhodo", "gilt", "bone", "kintsugi", "nacre", "bone", "gold", "agate", "bone", "opal"]
+			for k in SpecSkull.BEASTS.size(): pins.append({beast = SpecSkull.BEASTS[k], skin = skins[k % skins.size()]})
+			# (the open-mouthed and the jawed ones with a druse in the maw)
+			for pn: Dictionary in pins:
+				if pn.beast in ["wolf", "alligator", "trex"]: pn.maw = true
 		var n := int(args.skulls) if String(args.skulls).is_valid_int() and int(args.skulls) > 1 else pins.size()
 		for i in n:
 			var st := Stones.roll(90000 + i * 13, 0, 1.2, i % 6)
@@ -324,11 +332,11 @@ func _ready() -> void:
 		# a skull and its genes: form=skull skin=gold moss=cap ...
 		if args.get("form", "") == "skull":
 			st.form = "skull"
-			for k in ["skin", "moss", "eyes", "milk", "tone", "show", "rock_kind", "dmg", "fangs", "tree_kind"]:
+			for k in ["skin", "moss", "eyes", "milk", "tone", "show", "rock_kind", "dmg", "fangs", "tree_kind", "beast", "horn"]:
 				if args.has(k): st[k] = args[k]
 			for k in ["trees", "flies", "bloom_pal"]:
 				if args.has(k): st[k] = int(args[k])
-			for k in ["stream", "roots", "bloom", "crown"]:
+			for k in ["stream", "roots", "bloom", "crown", "maw"]:
 				if args.has(k): st[k] = args[k] == "1"
 		if args.has("legend"):
 			st.legend = true

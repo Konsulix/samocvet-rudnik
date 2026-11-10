@@ -25,7 +25,7 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 	var eyes := []
 	if fx in ["yaga", "watching"] or sk.get("coins", false) or sk.get("lantern", false):
 		for sx: float in [-1.0, 1.0]:
-			var e := eye(surf, sx)
+			var e := eye(surf, sx, sk)
 			if not e.is_empty(): eyes.append(e)
 	if sk.get("coins", false) and eyes.size() == 2: _coins(root, sk, r, eyes)
 	if sk.get("diadem", false): _diadem(root, sk, r, surf)
@@ -46,7 +46,13 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 ## an eye socket of this skull, found on the skull itself (as SpecSkull._lip): rays straight at the face fall deep into
 ## the opening and stop short on the bone round it. {front: centre on the rim's plane, deep: centre at the socket's
 ## floor, r: the opening's radius, sx}
-static func eye(surf: SpecSurf, sx: float) -> Dictionary:
+static func eye(surf: SpecSurf, sx: float, sk: Dictionary = {}) -> Dictionary:
+	if String(sk.get("beast", "")) != "":
+		var lm: Dictionary = SpecSkull.body(String(sk.beast)).lm
+		if not lm.has("eye_front"): return {}
+		var fr := SpecSkull.lm_v(lm, "eye_front", sx)
+		var dp := SpecSkull.lm_v(lm, "eye_deep", sx)
+		return {front = fr, deep = dp.lerp(fr, 0.15), r = clampf(float(lm.eye_r) * 0.85, 0.04, 0.16), sx = sx}
 	var hits := []
 	var zf := -INF
 	for yi in 14:

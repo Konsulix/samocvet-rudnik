@@ -19,6 +19,25 @@ const FALL := preload("res://shaders/skull_fall.gdshader")
 const GLASS := preload("res://shaders/skull_glass.gdshader")
 const BARK := preload("res://shaders/bark.gdshader")
 const METAL_RUN := preload("res://shaders/metal_run.gdshader")
+## animal skulls (RISD Nature Lab & co., CC BY — prototype/tools/skull/beast_prep.py → assets/specimen/beasts/<id>.json):
+## already in generator units, face toward +Z as the viewer is to see it; their landmarks (eye sockets, the breach) in "lm"
+const BEAST_DIR := "res://assets/specimen/beasts/"
+const HORN := preload("res://shaders/horn.gdshader")
+## the beasts there are (ids = file names)
+const BEASTS := ["alligator", "spoonbill", "deer", "mouflon", "ram", "longhorn", "musk_ox", "wolf", "bear", "fox", "horse", "lion",
+	"raven", "hornbill", "trex", "triceratops"]
+## their names on the card ("Wolf Skull")
+const BEAST_N := {alligator = "Alligator", spoonbill = "Spoonbill", deer = "Stag", mouflon = "Mouflon", ram = "Ram", longhorn = "Longhorn",
+	musk_ox = "Musk Ox", wolf = "Wolf", bear = "Bear", fox = "Fox", horse = "Horse", lion = "Lion", raven = "Raven", hornbill = "Hornbill",
+	trex = "Tyrannosaur", triceratops = "Triceratops"}
+## how their horns are dressed: [id, weight] (keratin as grown, cast metal as the skull or gold, engraved brass, green
+## with verdigris and wrapped in gold wire at the base)
+const HORNS := [["natural", 5.0], ["gold", 1.3], ["brass", 1.1], ["dressed", 1.3], ["silver", 0.5]]
+## a beast's own skins (its own draw, ~30% of bone ones): a mosaic of lapis, turquoise and labradorite on gold seams,
+## a cloak of iridescent feathers, a sugar druse crusting it, rhodochrosite bone banded pink
+const BEAST_SKINS := [["lapis", 1.0], ["feathers", 0.9], ["sugar", 1.2], ["rhodo", 0.9]]
+## the sugar druse's colours: lime, amethyst, rose, ice
+const DRUSE := [Color(0.45, 0.85, 0.3), Color(0.55, 0.3, 0.85), Color(0.95, 0.45, 0.6), Color(0.6, 0.85, 1.0)]
 ## the cast metals: [colour, roughness, (patina colour)]
 const METALS := {
 	gold = [Color(0.95, 0.68, 0.28), 0.16],
@@ -28,7 +47,8 @@ const METALS := {
 
 ## the genes a skull may have pinned from outside (the save, tests, the admin): SpecGenome and Spec pass these on
 const KEYS := ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees",
-	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile"]
+	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile",
+	"beast", "horn", "maw"]
 ## the skins water may run over (not cast metal, the mosaic or glass: there it would sit like a sticker)
 const WET_SKINS := ["bone", "nacre", "gilt", "agate", "opal", "pyrite", "geode"]
 ## the bones that are not bone any more (bone.gdshader skins 5–8)
@@ -36,6 +56,154 @@ const STONE_SKINS := {agate = 5, opal = 6, pyrite = 7, geode = 8}
 
 static var _parts := {}
 static var _lock := Mutex.new()
+static var _beasts := {}
+
+## the body of a skull: the human scan (parts()) or a beast's — the same keys (cranium, teeth_up(_each), mandible,
+## teeth_low(_each)), and for a beast its horns (with "u" along them in rp.x), landmarks "lm" and "flags"
+static func body(id: String) -> Dictionary:
+	if id == "": return parts()
+	_lock.lock()
+	if not _beasts.has(id):
+		var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(BEAST_DIR + id + ".json"))
+		var ps: Dictionary = d.parts
+		var out := {lm = d.get("lm", {}), flags = d.get("flags", []), teeth_up = Geo.new(), teeth_low = Geo.new(), teeth_up_each = [],
+			teeth_low_each = []}
+		for k: String in ps:
+			var p: Dictionary = ps[k]
+			var fv: Array = p.v
+			var ff: Array = p.f
+			var g := Geo.new()
+			g.v.resize(fv.size() / 3)
+			for i in g.v.size():
+				g.v[i] = Vector3(float(fv[i * 3]), float(fv[i * 3 + 1]), float(fv[i * 3 + 2]))
+			g.idx.resize(ff.size())
+			for i in ff.size():
+				g.idx[i] = int(ff[i])
+			_shade(g)
+			if k == "horns":
+				var u: Array = p.u
+				g.rp.resize(g.v.size())
+				for i in g.v.size(): g.rp[i] = Vector3(float(u[i]), 0.0, 0.0)
+			out[k] = g
+		_breach_lines(out)
+		# (a thin skull — a bird's — lets the rays through to the other socket: the floor no deeper than 0.2)
+		var lm: Dictionary = out.lm
+		if lm.has("eye_front"):
+			var fr := lm_v(lm, "eye_front")
+			var dp := lm_v(lm, "eye_deep")
+			if fr.distance_to(dp) > 0.2:
+				dp = fr + (dp - fr).normalized() * 0.2
+				lm.eye_deep = [dp.x, dp.y, dp.z]
+		_beasts[id] = out
+	_lock.unlock()
+	return _beasts[id]
+
+## where a beast's crystals break out, unless its landmarks say: found on the skull (symmetric about x = 0, as the
+## viewer is to see it before its yaw). crest: from the top of the head along the midline toward the viewer (forward
+## over the brow of a wolf, down the forehead of a mounted bull); side: from beside the top down to the temple (+x)
+static func _breach_lines(out: Dictionary) -> void:
+	var lm: Dictionary = out.lm
+	var cr: Geo = out.cranium
+	var bb := cr.aabb()
+	var sz := bb.size
+	var nr := cr.normals()
+	var a := -1
+	for i in cr.v.size():
+		var p := cr.v[i]
+		# (the braincase, not the tip of a raised snout or an open beak: the front 40% left out)
+		if absf(p.x) < sz.x * 0.06 and nr[i].y > 0.2 and p.z < bb.position.z + sz.z * 0.6 and (a < 0 or p.y > cr.v[a].y): a = i
+	if a < 0: return
+	var A := cr.v[a]
+	var L := maxf(sz.x, sz.z) * 0.3
+	if not lm.has("crest"):
+		var b := -1
+		for i in cr.v.size():
+			var p := cr.v[i]
+			var d := p.distance_to(A)
+			if absf(p.x) < sz.x * 0.06 and d > L * 0.8 and d < L * 1.3 and nr[i].dot(Vector3(0, 0.6, 0.8)) > 0.0 and (b < 0 or p.z > cr.v[b].z): b = i
+		if b >= 0: lm.crest = [[A.x, A.y, A.z], [cr.v[b].x, cr.v[b].y, cr.v[b].z], sz.x * 0.3, sz.x * 0.22]
+	if not lm.has("side"):
+		var s := -1
+		var best := INF
+		var want := Vector3(sz.x * 0.46, bb.position.y + sz.y * 0.5, A.z + L * 0.2)
+		for i in cr.v.size():
+			if nr[i].x < 0.3: continue
+			var d := cr.v[i].distance_squared_to(want)
+			if d < best:
+				best = d
+				s = i
+		var top := A + Vector3(sz.x * 0.12, 0, 0)
+		if s >= 0: lm.side = [[top.x, top.y, top.z], [cr.v[s].x, cr.v[s].y, cr.v[s].z], sz.x * 0.38, sz.x * 0.2]
+
+## a landmark of a beast's (Vector3 from [x, y, z]), mirrored to side sx
+static func lm_v(lm: Dictionary, key: String, sx := 1.0) -> Vector3:
+	var a: Array = lm[key]
+	return Vector3(float(a[0]) * sx, float(a[1]), float(a[2]))
+
+## a beast's own say on its genes (on their own draws: the human skull's genes stay as they were): what its body cannot
+## show is left out (teeth are fused to the bone; a jaw only if the scan has one; no human sutures, obols or diadem),
+## the horns' dressing chosen
+static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
+	var bd := body(String(g.beast))
+	var lm: Dictionary = bd.lm
+	var r := Rng32.new(int(g.skin_seed) * 7 + 901)
+	g.fangs = "none"
+	if not bd.has("mandible"): g.jaw = false
+	g.diadem = false
+	g.pile = 0
+	g.lantern = false
+	g.coins = false
+	g.sutures = [0.0, 0.0, 0.0, 0.0]
+	if not lm.has("eye_front"):
+		g.eyes = "none"
+		g.stream = false
+		if g.fx in ["yaga", "watching"]: g.fx = "fireflies"
+	if not (lm.has("crest") or lm.has("side")):
+		g.crown = false
+		if g.eyes == "none" and lm.has("eye"): g.eyes = "both"
+	elif g.eyes == "none" and not o.has("crown"): g.crown = true
+	if lm.has("crest") and not lm.has("side"): g.breach = "crest"
+	if lm.has("side") and not lm.has("crest"): g.breach = "side"
+	# a druse in the open mouth (a scan with the mouth open, or a jaw that can drop open): its own draw
+	g.maw = bool(o.get("maw", lm.has("maw") and (bd.has("mandible") or not lm.has("hinge")) and r.next() < 0.4))
+	if g.maw and lm.has("hinge"): g.jaw = true
+	if g.maw and not o.has("crown") and r.next() < 0.6:
+		g.crown = false
+	var horned := bd.has("horns")
+	var sr := Rng32.new(int(g.skin_seed) * 11 + 4077)
+	if not o.has("skin") and g.skin == "bone" and sr.next() < 0.3: g.skin = Stones.pick_w(BEAST_SKINS, sr)
+	# (a glass skull reads as crumpled cellophane on a beast's thin bones: a mosaic or a druse instead)
+	if g.skin == "glass":
+		g.skin = "lapis" if sr.next() < 0.5 else "sugar"
+		g.crown = true
+	if g.show == "rock" and not o.has("show") and sr.next() < 0.35: g.show = "loose"
+	# (a skull held face-on as on a wall, its horns spread, is not laid on a rock: it would stand on the back of its head)
+	if lm.get("mount", false): g.show = "loose"
+	# (a long skull balanced on a pillar of stone looks absurd: on a slab)
+	if g.rock_kind == "perched" and not o.has("rock_kind"): g.rock_kind = "slab"
+	# a bouquet the size of the head (a heron's or a fox's is narrow)
+	var cw: float = (bd.cranium as Geo).aabb().size.x
+	g.bloom_k = clampf(cw / 0.9, 0.5, 1.0)
+	g.druse = int(o.get("druse", int(sr.next() * DRUSE.size())))
+	if g.skin in ["lapis", "feathers"]:
+		g.moss = "none"
+		g.trees = 0
+		g.stream = false
+		g.roots = false
+		g.bloom = false
+	if g.skin == "sugar": g.stream = false
+	g.horn = String(o.get("horn", Stones.pick_w(HORNS, r)))
+	# (a mosaic skull wears dressed or gold horns, as on the reference)
+	if g.skin == "lapis" and g.horn == "natural" and not o.has("horn") and sr.next() < 0.7: g.horn = "dressed" if sr.next() < 0.6 else "gold"
+	if g.skin in ["gold", "silver", "copper"] and not o.has("horn"): g.horn = "cast"
+	if horned:
+		# (great horns or antlers and a skull lying on its side or face down: they would go through the rock)
+		if g.lie in ["side", "up", "down"] and not o.has("lie"): g.lie = "tilt" if r.next() < 0.5 else "upright"
+		if g.fx == "deathless": g.fx = "flutter"
+		if g.fx == "flutter":
+			g.flies = 7
+			g.fly_mode = 0
+
 
 ## the scan's parts (cranium, teeth_up, mandible, teeth_low) as Geo, with the pits shaded into vertex red
 ## (and the ridges into green), loaded once
@@ -293,6 +461,10 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 	if int(g.trees) < 0:
 		var tr := Rng32.new(int(g.moss_seed) + 5)
 		g.trees = 0 if g.moss == "none" or tr.next() < 0.45 else 1 + int(tr.next() * (4.0 if g.moss == "cap" else 2.0))
+	g.beast = String(o.get("beast", ""))
+	g.horn = ""
+	g.maw = false
+	if g.beast != "": _beast_genes(g, o)
 	var dr := Rng32.new(int(g.dmg_seed) * 7 + 1)
 	var nl := 0 if g.dmg == "none" else 1 + int(dr.next() * 4) if g.dmg == "worn" else 3 + int(dr.next() * 7)
 	var lost := []
@@ -343,7 +515,7 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 		m.set_shader_parameter("suture_k", 1.0)
 	m.set_shader_parameter("seed", float(seed_v % 97) * 1.37)
 	var su: Array = sk.sutures
-	m.set_shader_parameter("suture_k", 1.0 if String(sk.get("fx", "")) == "deathless" else float(su[0]))
+	m.set_shader_parameter("suture_k", 1.0 if String(sk.get("fx", "")) == "deathless" and String(sk.get("beast", "")) == "" else float(su[0]))
 	m.set_shader_parameter("sut_shift", Vector3(float(su[1]), float(su[2]), float(su[3])))
 	match String(sk.skin):
 		"gilt": m.set_shader_parameter("skin", 1)
@@ -366,7 +538,19 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 			# (a stone skull is polished or weathered, its crust cracked: fewer bone cracks)
 			m.set_shader_parameter("crack_k", 0.15)
 		"nacre": m.set_shader_parameter("skin", 4)
+		"lapis":
+			m.set_shader_parameter("skin", 3)
+			m.set_shader_parameter("mosaic_pal", 1)
+		"feathers": m.set_shader_parameter("skin", 9)
+		"sugar":
+			m.set_shader_parameter("skin", 10)
+			m.set_shader_parameter("druse_col", DRUSE[int(sk.get("druse", 0)) % DRUSE.size()])
+		"rhodo":
+			m.set_shader_parameter("skin", 5)
+			m.set_shader_parameter("agate_pal", 1)
+			m.set_shader_parameter("crack_k", 0.15)
 	m.set_shader_parameter("skin_k", 0.25 + float(sk.skin_k) * 0.6)
+	if sk.skin in ["rhodo"]: m.set_shader_parameter("skin_k", float(sk.skin_k))
 	m.set_shader_parameter("fire", [0.0, 0.33, 0.6, 0.75][int(float(sk.skin_k) * 997.0) % 4])
 	var gd: Array = sk.gilt_dir
 	m.set_shader_parameter("gilt_dir", Vector3(float(gd[0]), float(gd[1]), float(gd[2])))
@@ -385,6 +569,45 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 	m.set_meta("rock", true)   # (ultraviolet lights crystals, never the host)
 	return m
 
+## a beast's horns: keratin as grown (ridged on a ram, streaked on a bull), antler bark and ivory tips, cast metal,
+## engraved brass, or gone green and wrapped in gold wire at the base (shaders/horn.gdshader)
+static func horn_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = HORN
+	var flags: Array = body(String(sk.beast)).flags
+	var r := Rng32.new(int(sk.skin_seed) * 3 + 77)
+	m.set_shader_parameter("seed", float(seed_v % 97) * 1.37)
+	m.set_shader_parameter("age", float(sk.age))
+	var kind := String(sk.horn)
+	var antler := "antlers" in flags
+	if kind == "natural":
+		if antler:
+			m.set_shader_parameter("mode", 1)
+		else:
+			m.set_shader_parameter("mode", 0)
+			var ridged := "ridged" in flags
+			m.set_shader_parameter("ring_k", (0.7 + r.next() * 0.3) if ridged else (0.15 + r.next() * 0.25))
+			m.set_shader_parameter("rings", (34.0 + r.next() * 14.0) if ridged else (14.0 + r.next() * 18.0))
+			# (bone-pale at the base going dark to the tip; grey-green; honey; nearly black)
+			var pal := [[Color(0.55, 0.5, 0.42), Color(0.12, 0.1, 0.08)], [Color(0.5, 0.5, 0.44), Color(0.22, 0.22, 0.2)],
+				[Color(0.6, 0.48, 0.3), Color(0.25, 0.16, 0.08)], [Color(0.3, 0.27, 0.24), Color(0.07, 0.06, 0.05)]]
+			var pc: Array = pal[int(r.next() * pal.size())]
+			m.set_shader_parameter("base_col", pc[0])
+			m.set_shader_parameter("tip_col", pc[1])
+	elif kind in ["gold", "silver", "cast"]:
+		m.set_shader_parameter("mode", 2)
+		var mt: Array = METALS[String(sk.skin) if kind == "cast" else kind]
+		var mc: Color = mt[0]
+		m.set_shader_parameter("metal_col", Vector3(mc.r, mc.g, mc.b))
+		m.set_shader_parameter("metal_rough", float(mt[1]))
+	elif kind == "brass":
+		m.set_shader_parameter("mode", 3)
+		m.set_shader_parameter("metal_col", Vector3(0.92, 0.7, 0.36))
+	else:
+		m.set_shader_parameter("mode", 4)
+		m.set_shader_parameter("metal_col", Vector3(0.95, 0.72, 0.34))
+	return m
+
 ## the body: lays the skull in as the find's rock (st.pick, st.nrm, st.hollows, st.rock, st.rock_geo, like use_rock),
 ## then grows the crystals out through it. Returns the largest crystal.
 static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Callable, crystal: Callable, lean: Callable, use_rock: Callable) -> MeshInstance3D:
@@ -393,7 +616,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 	var before := root.get_children()
 	var seed_v := int(gene.get("shroom_seed", 1))
 	var sk := genes(seed_v, gene.get("skull", {}))
-	var P := parts()
+	var P := body(String(sk.beast))
 	var bm: Material = bone_mat(sk, seed_v)
 	if sk.skin == "glass":
 		var gm := ShaderMaterial.new()
@@ -415,7 +638,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		var want := Vector3((rr.next() - 0.5) * 0.15, bbx.position.y + bbx.size.y + 0.05, (rr.next() - 0.3) * 0.2)
 		(sk.reserve as Array).append([want, 0.26])
 	# crystals from the crown and/or the eyes (never neither)
-	var crown: bool = sk.crown or sk.eyes == "none"
+	var crown: bool = sk.crown or (sk.eyes == "none" and not sk.get("maw", false))
 	var main: MeshInstance3D = null
 	if crown and sk.skin != "glass":
 		if sk.bloom:
@@ -442,12 +665,29 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 	var mi := U.mesh(cr, bm, root)
 	sk.cr_mi = mi
 	mi.set_meta("base", Color(0.6, 0.55, 0.45))
+	# a beast's horns or antlers: their own material, along them from base to tip (rp.x)
+	if P.has("horns"):
+		var hg := _copy(P.horns)
+		hg.rp = (P.horns as Geo).rp.duplicate()
+		_shape(hg, sk.shape)
+		sk.horn_mi = U.mesh(hg, horn_mat(sk, seed_v), root)
+		# (the horns' badge points two thirds up the one on the viewer's side)
+		var hn := hg.normals()
+		var hb := -1
+		for i in range(0, hg.v.size(), 3):
+			if absf(hg.rp[i].x - 0.6) < 0.08 and (hb < 0 or hg.v[i].z + hn[i].z * 0.1 > hg.v[hb].z + hn[hb].z * 0.1): hb = i
+		if hb >= 0: (sk.marks as Array).append(["sk_horn", hg.v[hb], hn[hb]])
 	var tu := _teeth(P.teeth_up_each, _gone(sk, P.teeth_up_each.size(), 0, false))
 	if tu.v.size(): U.mesh(_shape(tu, sk.shape), bm, root)
 	_fangs(b, sk, P.teeth_up_each, _gone(sk, P.teeth_up_each.size(), 0, true), true, crystal, lean)
 	var bones: Array[Geo] = [cr]
 	if sk.jaw:
 		var jaw := _shape(_copy(P.mandible), sk.shape)
+		# a beast's jaw dropped open for the druse in its mouth: turned about the hinge
+		if sk.maw and P.lm.has("hinge"):
+			var hp := lm_v(P.lm, "hinge")
+			var tb := Basis(Vector3.RIGHT, float(P.lm.get("open", 0.45)))
+			for i in jaw.v.size(): jaw.v[i] = hp + tb * (jaw.v[i] - hp)
 		var jaw_mi := U.mesh(jaw, bm, root)
 		sk.jaw_mi = jaw_mi
 		var tl := _teeth(P.teeth_low_each, _gone(sk, P.teeth_low_each.size(), 100, false))
@@ -455,6 +695,10 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		_fangs(b, sk, P.teeth_low_each, _gone(sk, P.teeth_low_each.size(), 100, true), false, crystal, lean)
 		bones.append(jaw)
 	var nrs: Array = bones.map(func(g: Geo) -> PackedVector3Array: return g.normals())
+	if sk.maw and sk.skin != "glass":
+		var mm := _maw(b, sk, bones, nrs, earth_m, crystal, lean)
+		if main == null: main = mm
+		_earth_done(b, earth_m)
 	if sk.skin in METALS: _drips(b, sk, bones, nrs)
 	if sk.skin == "glass":
 		_glass_flowers(b, sk)
@@ -562,7 +806,7 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 		var at := Vector3.INF
 		var n := Vector3.FORWARD
 		match id.get_slice("_", 1):
-			"gilt", "gold", "silver", "copper", "kintsugi", "nacre", "glass", "agate", "opal", "pyrite", "geode":
+			"gilt", "gold", "silver", "copper", "kintsugi", "nacre", "glass", "agate", "opal", "pyrite", "geode", "lapis", "feathers", "sugar", "rhodo":
 				at = cr.v[i_skin]
 				n = nr[i_skin]
 			"grave", "ash":
@@ -573,9 +817,9 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 				n = Vector3.UP
 			"eyes":
 				var sx := -1.0 if sk.eyes == "both" else float(sk.eye_side)
-				at = Vector3(0.26 * sx, 0.06, 0.42)
+				at = Vector3(0.26 * sx, 0.06, 0.42) if sk.beast == "" else lm_v(P.lm, "eye_front", sx)
 			"fangs":
-				at = (P.teeth_up as Geo).aabb().get_center() + Vector3(0, -0.02, 0.08)
+				if (P.teeth_up as Geo).v.size(): at = (P.teeth_up as Geo).aabb().get_center() + Vector3(0, -0.02, 0.08)
 			"broken", "chipped":
 				at = cr.get_meta("hole") if cr.has_meta("hole") else cr.v[i_skin]
 			"frost", "wax":
@@ -593,15 +837,16 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 static func accents(sk: Dictionary) -> Array:
 	var out := []
 	match String(sk.skin):
-		"gilt", "gold", "silver", "copper", "kintsugi", "glass", "nacre", "agate", "opal", "pyrite", "geode": out.append("sk_" + String(sk.skin))
+		"gilt", "gold", "silver", "copper", "kintsugi", "glass", "nacre", "agate", "opal", "pyrite", "geode", "lapis", "feathers", "sugar", "rhodo": out.append("sk_" + String(sk.skin))
 	if sk.get("coins", false): out.append("sk_coins")
 	if sk.get("diadem", false): out.append("sk_diadem")
 	if sk.get("lantern", false): out.append("sk_lantern")
 	if int(sk.get("pile", 0)) > 0: out.append("sk_pile")
 	if sk.skin != "glass":
-		if sk.crown or sk.eyes == "none": out.append("sk_bloom" if sk.bloom else "sk_crown")
+		if sk.crown or (sk.eyes == "none" and not sk.get("maw", false)): out.append("sk_bloom" if sk.bloom else "sk_crown")
 		if sk.eyes != "none": out.append("sk_eyes")
 		if sk.fangs != "none": out.append("sk_fangs")
+		if sk.get("maw", false): out.append("sk_maw")
 		if sk.milk != "clear": out.append("sk_" + String(sk.milk))
 		if sk.dmg == "broken": out.append("sk_broken")
 		elif sk.dmg == "worn": out.append("sk_chipped")
@@ -610,6 +855,7 @@ static func accents(sk: Dictionary) -> Array:
 	if int(sk.trees) > 0: out.append("sk_trees")
 	if sk.stream and sk.skin in WET_SKINS: out.append("sk_stream")
 	if sk.roots: out.append("sk_roots")
+	if String(sk.get("horn", "")) in ["gold", "silver", "brass", "dressed"] and body(String(sk.beast)).has("horns"): out.append("sk_horn")
 	# the butterflies by kind: "fly_apollo" (SpecButterfly.label names them, "Apollo ×2")
 	for k: String in sk.fly_kinds:
 		if not "fly_" + k in out: out.append("fly_" + k)
@@ -619,6 +865,8 @@ static func accents(sk: Dictionary) -> Array:
 static func gene_name(id: String, sk: Dictionary) -> String:
 	match id:
 		"sk_nacre": return ["red", "green", "blue", "violet"][int(float(sk.skin_k) * 997.0) % 4] + " nacre"
+		"sk_sugar": return ["green", "amethyst", "rose", "icy"][int(sk.get("druse", 0)) % 4] + " sugar druse"
+		"sk_horn": return {gold = "golden horns", silver = "silver horns", cast = "cast horns", brass = "engraved brass horns", dressed = "gilded horns"}.get(String(sk.horn), "horns")
 		"sk_trees": return {moss = "bonsai trees", leaves = "little trees", blossom = "trees in blossom", autumn = "autumn trees", bare = "bare trees"}.get(String(sk.tree_kind), "trees")
 		"sk_moss": return "moss cap" if sk.moss == "cap" else "moss"
 		"sk_bloom": return ["crimson and gold", "white and lilac", "pink and cream", "blue and silver", "orange and yellow"][int(sk.bloom_pal) % 5] + " bouquet"
@@ -646,6 +894,8 @@ static func _on_rock(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, bod
 	var rg: Geo = st.rock_geo
 	var sd := float(sk.side)
 	var rs: Vector3 = {slab = Vector3.ONE, buried = Vector3(1.15, 1.0, 1.1), boulder = Vector3(1.65, 1.5, 1.0), perched = Vector3(0.75, 1.6, 0.75)}[kind]
+	# (a beast's skull is low and long: a lower rock, so the skull on it is the find and not a pebble on a hill)
+	if String(sk.beast) != "" and kind != "perched": rs *= Vector3(1.0, 0.6, 1.0)
 	# (a boulder stands behind the skull, a little to one side: the skull lies at its foot, in front)
 	var roff := Vector3(-sd * 0.08, 0, -0.3) if kind == "boulder" else Vector3.ZERO
 	for i in rg.v.size():
@@ -680,6 +930,7 @@ static func _on_rock(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, bod
 	# the skull's pose: how it lies (upright, tipped, on its side, face up, chin down) and turned
 	var a: Array = sk.lie_a
 	var s := 0.7 if kind == "perched" else 0.78
+	if String(sk.beast) != "": s *= 1.2
 	var bas := Basis(Vector3.UP, float(a[0])) * Basis(Vector3.BACK, float(a[1])) * Basis(Vector3.RIGHT, float(a[2])) * Basis.from_scale(Vector3.ONE * s)
 	var low := INF
 	var high := -INF
@@ -786,6 +1037,7 @@ static func _on_rock(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, bod
 
 static func _gone(sk: Dictionary, n: int, off: int, crystal: bool) -> Dictionary:
 	var fell := {}
+	if n == 0: return fell
 	for x: int in sk.lost:
 		fell[(x + off) % n] = true
 	var cry := {}
@@ -1116,7 +1368,18 @@ static func _breach(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: 
 	var B: Vector3
 	var R0: float
 	var R1: float
-	if sk.breach == "crest":
+	var blm: Dictionary = body(String(sk.beast)).get("lm", {})
+	if sk.beast != "" and blm.has(String(sk.breach)):
+		# a beast's: along the line its landmarks give (the side one mirrored to this side), as wide as they say
+		var ln: Array = blm[String(sk.breach)]
+		var t0 := float(sk.crown_at) * 0.3
+		var a0 := Vector3(float(ln[0][0]) * sd, float(ln[0][1]), float(ln[0][2]))
+		var b0 := Vector3(float(ln[1][0]) * sd, float(ln[1][1]), float(ln[1][2]))
+		A = a0.lerp(b0, t0)
+		B = b0
+		R0 = float(ln[2]) if ln.size() > 2 else sz.x * 0.27
+		R1 = float(ln[3]) if ln.size() > 3 else R0 * 0.75
+	elif sk.breach == "crest":
 		# a crest along the top of the head, front to back
 		var z0 := lerpf(0.22, 0.05, float(sk.crown_at))
 		A = Vector3(sd * 0.03, lo.y + sz.y, z0)
@@ -1253,6 +1516,10 @@ static func _eyes(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: Pa
 	var best := 0.0
 	var which: Array = [-1.0, 1.0] if sk.eyes == "both" else [float(sk.eye_side)]
 	for sx: float in which:
+		if sk.beast != "":
+			var em := _beast_eye(b, st, sk, cr, nr, earth_m, crystal, lean, sx)
+			if em and (main == null or rng.next() < 0.5): main = em
+			continue
 		var cen := Vector3(sx * 0.26, 0.06, 0.36)
 		var spot: Array[int] = []
 		for i in cr.v.size():
@@ -1295,6 +1562,109 @@ static func _eyes(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: Pa
 				main = cm
 		if sk.earth and pts.size():
 			_earth(b, pts, earth_m, 20 + int(rng.next() * 20))
+	return main
+
+## a beast's eye socket (its landmarks: the rim's middle eye_front, the floor eye_deep, the opening's radius eye_r):
+## a druse lining it, points reaching out of the opening, the biggest low in it
+static func _beast_eye(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: PackedVector3Array, earth_m: Material, crystal: Callable, lean: Callable, sx: float) -> MeshInstance3D:
+	var rng: Rng32 = b.rng
+	var lm: Dictionary = body(String(sk.beast)).lm
+	var fr := lm_v(lm, "eye_front", sx)
+	var dp := lm_v(lm, "eye_deep", sx)
+	var rad := float(lm.eye_r)
+	var ax := (fr - dp).normalized()
+	var depth := fr.distance_to(dp)
+	var inside := func(p: Vector3) -> Vector2:
+		var t := (p - dp).dot(ax)
+		var rr := (p - dp - ax * t).length()
+		return Vector2(1.0 - rr / rad if t > -0.03 and t < depth + 0.02 else -1.0, t / maxf(depth, 0.01))
+	var near := PackedByteArray()
+	near.resize(cr.v.size())
+	var spot: Array[int] = []
+	for i in cr.v.size():
+		var wv: Vector2 = inside.call(cr.v[i])
+		if wv.x > -0.15 and nr[i].dot(dp + ax * depth * 0.5 - cr.v[i]) > -0.3 * rad and _alive(cr, i):
+			near[i] = 1
+			spot.append(i)
+			var c := cr.col[i]
+			c.b = maxf(c.b, 0.5 + rng.next() * 0.4)
+			cr.col[i] = c
+	if spot.is_empty(): return null
+	if not st.has("foot_pick"):
+		st.foot_pick = func() -> Vector3:
+			var j: int = spot[int(floor(rng.next() * spot.size()))]
+			return cr.v[j] + nr[j] * 0.01
+	var n := int(float(sk.eye_n) * (0.75 + rng.next() * 0.5) * clampf(rad / 0.1, 0.6, 1.6))
+	var pts := _sample(cr, nr, near, inside, n, rng, sk.reserve)
+	(sk.taken as Array).append_array(pts)
+	var main: MeshInstance3D = null
+	var best := 0.0
+	for q: Array in pts:
+		var p: Vector3 = q[0]
+		var nn: Vector3 = q[1]
+		var low := clampf((dp.y - p.y) / rad * 0.5 + 0.5, 0.0, 1.0)
+		var f := clampf((0.22 + low * 0.3) * (0.6 + rng.next() * 0.5) * clampf(rad / 0.1, 0.7, 1.4), 0.0, 0.6) * 0.72
+		var out := ((p - (dp - ax * depth * 0.6)).normalized() * 0.7 + nn * 0.3).normalized()
+		var cm: MeshInstance3D = crystal.call(f, p - nn * 0.005, lean.call(out, 0.7))
+		if f > best:
+			best = f
+			main = cm
+	if sk.earth and pts.size():
+		_earth(b, pts, earth_m, 16 + int(rng.next() * 16))
+	return main
+
+## a druse in the open mouth (ref.: amethyst in a black wolf's jaws, green sugar druse in a gaping skull): the palate
+## and the inside of the jaw round the mouth's line (landmark maw: [back, front, radius]) crowded with crystals, the big
+## points reaching out of the gape, small ones lining it, a few spilling over the teeth
+static func _maw(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, earth_m: Material, crystal: Callable, lean: Callable) -> MeshInstance3D:
+	var rng := Rng32.new(int(sk.skin_seed) * 5 + 613)
+	var lm: Dictionary = body(String(sk.beast)).lm
+	var ln: Array = lm.maw
+	var A := Vector3(float(ln[0][0]), float(ln[0][1]), float(ln[0][2]))
+	var B := Vector3(float(ln[1][0]), float(ln[1][1]), float(ln[1][2]))
+	if sk.maw and lm.has("hinge") and lm.has("maw_open"):
+		var mo: Array = lm.maw_open
+		A = Vector3(float(mo[0][0]), float(mo[0][1]), float(mo[0][2]))
+		B = Vector3(float(mo[1][0]), float(mo[1][1]), float(mo[1][2]))
+	var R := float(ln[2])
+	var main: MeshInstance3D = null
+	var best := 0.0
+	var all_pts := []
+	for k in bones.size():
+		var g: Geo = bones[k]
+		var nr: PackedVector3Array = nrs[k]
+		var wfn := func(p: Vector3) -> Vector2:
+			var sg := _seg_d(p, A, B)
+			return Vector2(1.0 - sg.x / (R * (1.0 + 0.3 * sin(sg.y * 9.0))), sg.y)
+		var near := PackedByteArray()
+		near.resize(g.v.size())
+		for i in g.v.size():
+			var sg := _seg_d(g.v[i], A, B)
+			# inside the mouth: near its line, the bone facing in toward it
+			var axis_pt := A.lerp(B, sg.y)
+			if sg.x < R and nr[i].dot(axis_pt - g.v[i]) > -0.02 and _alive(g, i): near[i] = 1
+		var pts := _sample(g, nr, near, wfn, 120 + int(rng.next() * 60), rng)
+		for q: Array in pts:
+			var p: Vector3 = q[0]
+			var nn: Vector3 = q[1]
+			var w: float = q[2]
+			var sg := _seg_d(p, A, B)
+			var axis_pt := A.lerp(B, sg.y)
+			# toward the middle of the mouth and out of it (forward, to the viewer)
+			var out := ((axis_pt - p).normalized() * 0.55 + nn * 0.35 + Vector3(0, 0, 0.45)).normalized()
+			var f := clampf((0.14 + w * 0.4) * (0.55 + rng.next() * 0.75), 0.05, 0.6)
+			if rng.next() < 0.09 and w > 0.3: f = 0.5 + rng.next() * 0.25
+			var cm: MeshInstance3D = crystal.call(f, p - nn * 0.004, lean.call(out, 0.75))
+			if f > best:
+				best = f
+				main = cm
+		all_pts.append_array(pts)
+	(sk.taken as Array).append_array(all_pts)
+	if all_pts.size():
+		var mid: Array = all_pts[int(all_pts.size() * 0.5)]
+		(sk.marks as Array).append(["sk_maw", mid[0], mid[1]])
+	if sk.earth and all_pts.size():
+		_earth(b, all_pts, earth_m, 20 + int(rng.next() * 20))
 	return main
 
 ## loose earth at the feet of the crystals
@@ -1699,7 +2069,7 @@ static func _stream(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array) -> 
 	var lip := []
 	var score := -INF
 	for sx: float in [-1.0, 1.0]:
-		var l := _lip(surf, sx, down)
+		var l := _lip(surf, sx, down, sk)
 		if l.is_empty(): continue
 		var vis := (bas * (l[1] as Vector3)).z + (0.25 if sx == float(sk.stream_side) else 0.0)
 		if vis > score:
@@ -1751,7 +2121,9 @@ static func _stream(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array) -> 
 ## round it; the opening's middle is the middle of the deep hits, its rim — along each of 32 ways out from there — the
 ## first ray that stops on the bone in front. The lip is the rim's lowest point (the nose's corner kept out of it).
 ## Returns [point, normal, outward (away from the opening), sx] or []
-static func _lip(surf: SpecSurf, sx: float, down: Vector3) -> Array:
+static func _lip(surf: SpecSurf, sx: float, down: Vector3, sk: Dictionary = {}) -> Array:
+	if String(sk.get("beast", "")) != "":
+		return _beast_lip(surf, sx, down, body(String(sk.beast)).lm)
 	var hits := []
 	var zf := -INF
 	for yi in 16:
@@ -1793,6 +2165,30 @@ static func _lip(surf: SpecSurf, sx: float, down: Vector3) -> Array:
 					best = [pt, h[1], Vector3(dv.x, dv.y, 0.0), sx]
 				break
 			r += 0.006
+	return best
+
+## a beast's eye's lip: round its rim (landmarks), each way out from the opening's middle a ray back at the head finds
+## the bone; the lowest of those
+static func _beast_lip(surf: SpecSurf, sx: float, down: Vector3, lm: Dictionary) -> Array:
+	if not lm.has("eye_front"): return []
+	var fr := lm_v(lm, "eye_front", sx)
+	var dp := lm_v(lm, "eye_deep", sx)
+	var ax := (fr - dp).normalized()
+	var u := ax.cross(Vector3.UP if absf(ax.y) < 0.9 else Vector3.RIGHT).normalized()
+	var w := ax.cross(u)
+	var rad := float(lm.eye_r)
+	var best := []
+	var bs := -INF
+	for k in 32:
+		var a := TAU * k / 32.0
+		var dv := u * cos(a) + w * sin(a)
+		var h := surf.ray(fr + dv * rad * 1.15 + ax * 0.4, -ax, 0.8)
+		if h.is_empty(): continue
+		var pt: Vector3 = h[0]
+		var sc := pt.dot(down)
+		if sc > bs:
+			bs = sc
+			best = [pt, h[1], dv, sx]
 	return best
 
 ## lays what a run of water did (SpecSurf.run): a sheet over each stretch (its middle moved toward `toward` by a third
@@ -2169,17 +2565,24 @@ static func _glass_flowers(b: RefCounted, sk: Dictionary) -> void:
 ## how the find is held up to the viewer (lean): on its rock tipped a little, a loose one tipping its head too (half the
 ## pose: it floats, nothing holds it on its side)
 static func lean_basis(sk: Dictionary) -> Basis:
+	var tip := 0.3
+	var turn := Basis.IDENTITY
+	if String(sk.get("beast", "")) != "":
+		# a beast: tipped as it shows best, turned (a long snout in three-quarters, a bird nearly in profile)
+		var blm: Dictionary = body(String(sk.beast)).get("lm", {})
+		tip = float(blm.get("lean", 0.3))
+		turn = Basis(Vector3.UP, float(blm.get("yaw", 0.0)))
 	if sk.show == "rock":
-		return Basis(Vector3.RIGHT, 0.18)
+		return Basis(Vector3.RIGHT, tip * 0.6) * turn
 	var la: Array = sk.lie_a
-	return Basis(Vector3.RIGHT, 0.3) * Basis(Vector3.BACK, float(la[1]) * 0.5) * Basis(Vector3.RIGHT, float(la[2]) * 0.4)
+	return Basis(Vector3.RIGHT, tip) * turn * Basis(Vector3.BACK, float(la[1]) * 0.5) * Basis(Vector3.RIGHT, float(la[2]) * 0.4)
 
 ## one flower of the bouquet at a spot of the breach: chrysanthemums (some in gold), hydrangea balls, cosmos, buds and
 ## gold wires with beads, bigger in the middle of the breach (f), on a short stem leaning out of it
 static func _flower(bt: Dictionary, r: Rng32, sk: Dictionary, f: float, at: Vector3, dir: Vector3) -> void:
 	if r.next() < 0.08: return
 	var pal: Array = SpecBloom.PALETTES[int(sk.bloom_pal) % SpecBloom.PALETTES.size()]
-	var s := 0.24 + f * 0.3 + r.next() * 0.1
+	var s := (0.24 + f * 0.3 + r.next() * 0.1) * float(sk.get("bloom_k", 1.0))
 	var kind: String = Stones.pick_w([["mum", 3.0], ["hydrangea", 3.0], ["cosmos", 2.0], ["bud", 1.0], ["sprig", 0.6]], r)
 	var tip := at + dir * s * (0.05 + r.next() * 0.2)
 	SpecBloom.stem(bt, r, at, tip, s * 0.03)

@@ -82,12 +82,14 @@ const SKULL_SP := ["vivianite", "apatite", "morion", "pyrope", "venom"]   # (pri
 const SKULL_SKINS := ["bone", "pyrite", "agate", "nacre", "gilt", "geode", "kintsugi", "opal", "glass", "gold", "silver", "copper"]
 const SKULL_N := {bone = "Bone Skull", nacre = "Nacre Skull", gilt = "Gilded Skull", kintsugi = "Kintsugi Skull", glass = "Crystal Skull",
 	gold = "Golden Skull", silver = "Silver Skull", copper = "Copper Skull", agate = "Agate Skull", opal = "Opal Skull", pyrite = "Pyrite Skull",
-	geode = "Geode Skull"}
-const SKULL_V := {agate = 2.8, opal = 4.2, pyrite = 2.2, geode = 3.0, bone = 1.6, nacre = 2.4, gilt = 2.6, kintsugi = 3.2, glass = 3.8, gold = 5.5, silver = 4.5, copper = 4.0}
-const SKULL_TIER := {agate = 2, opal = 3, pyrite = 2, geode = 3, bone = 1, nacre = 2, gilt = 2, kintsugi = 3, glass = 3, gold = 3, silver = 3, copper = 3}
+	geode = "Geode Skull", lapis = "Lapis Skull", feathers = "Feathered Skull", sugar = "Sugared Skull", rhodo = "Rhodochrosite Skull"}
+const SKULL_V := {agate = 2.8, opal = 4.2, pyrite = 2.2, geode = 3.0, bone = 1.6, nacre = 2.4, gilt = 2.6, kintsugi = 3.2, glass = 3.8, gold = 5.5, silver = 4.5, copper = 4.0,
+	lapis = 3.6, feathers = 3.0, sugar = 2.6, rhodo = 2.9}
+const SKULL_TIER := {agate = 2, opal = 3, pyrite = 2, geode = 3, bone = 1, nacre = 2, gilt = 2, kintsugi = 3, glass = 3, gold = 3, silver = 3, copper = 3, lapis = 3, feathers = 3, sugar = 2, rhodo = 2}
 const SKULL_COL := {bone = Color("#cfc2a4"), nacre = Color("#9fb6c9"), gilt = Color("#d9b25a"), kintsugi = Color("#c9744f"),
 	glass = Color("#bfe3ef"), gold = Color("#e8c35a"), silver = Color("#d8dbe2"), copper = Color("#d0805a"), agate = Color("#c27a45"),
-	opal = Color("#6f7fd0"), pyrite = Color("#bfa452"), geode = Color("#8a62c4")}
+	opal = Color("#6f7fd0"), pyrite = Color("#bfa452"), geode = Color("#8a62c4"), lapis = Color("#3a5fc8"), feathers = Color("#3f9a6a"),
+	sugar = Color("#9fd36a"), rhodo = Color("#e07a9c")}
 ## the skins at each depth of the barrow (index = depth): [skin, weight]
 const SKULL_AT := [
 	[["bone", 1.0]], [["bone", 1.0]],
@@ -123,6 +125,12 @@ static func first_find(area: int, luck: float, dl: int) -> Variant:
 
 ## a find's name: the species, or for a skull its kind ("Gilded Skull")
 static func name_of(s: Dictionary) -> String:
+	# an animal's: "Wolf Skull", "Gilded Stag Skull" (its crystal shows on the card)
+	if String(s.get("form", "")) == "skull" and String(s.get("beast", "")) != "":
+		var bn := String(SpecSkull.BEAST_N.get(String(s.beast), "Beast"))
+		var skin := String(s.get("skin", "bone"))
+		if skin == "bone": return "%s Skull" % bn
+		return String(SKULL_N.get(skin, "Skull")).replace("Skull", bn + " Skull")
 	if String(s.get("form", "")) == "skull" and s.has("skin"):
 		# (a plain bone one is named by its crystal: "Pyrope Skull"; the rest by what they are: "Gilded Skull")
 		if s.skin == "bone": return "%s Skull" % Data.SP[s.sid].n
@@ -131,6 +139,8 @@ static func name_of(s: Dictionary) -> String:
 
 ## the page of the atlas (and the pile in the inventory) a find belongs to: its species, or skull_<kind>
 static func atlas_id(s: Dictionary) -> String:
+	# (an animal's skull: one page / pile per animal, whatever it is dressed in)
+	if String(s.get("form", "")) == "skull" and String(s.get("beast", "")) != "": return "beast_" + String(s.beast)
 	if String(s.get("form", "")) == "skull" and s.has("skin"): return "skull_" + String(s.skin)
 	return String(s.sid)
 

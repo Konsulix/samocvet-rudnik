@@ -94,8 +94,11 @@ func _warm() -> void:
 
 static func key_of(o: Dictionary) -> String:
 	var j: Dictionary = o.get("jewel", {})
+	var tail := ""
+	if o.get("form", "") == "skull":
+		tail = "|skull" + ("|" + String(o.beast) if o.has("beast") else "")
 	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
-		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("fx", "")] + ("|skull" if o.get("form", "") == "skull" else "")
+		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("fx", "")] + tail
 
 ## the description of a stone from the save, as the builder wants it
 static func of_stone(s: Dictionary) -> Dictionary:

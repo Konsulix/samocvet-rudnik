@@ -324,9 +324,14 @@ func _ready() -> void:
 				if args.has("tr"): e.traits = Array(String(args.tr).split(","))
 				if args.has("shroom"): e.shroom = int(args.shroom)
 				if args.has("bloom_pal"): e.bloom_pal = int(args.bloom_pal)
-				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind"]:
+				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind", "horn"]:
 					if args.has(sk): e[sk] = args[sk]
+				# a beast's skull: beast=wolf | a,b,c (in turn) | all (SpecSkull.BEASTS in turn)
+				if args.has("beast"):
+					var bl: Array = SpecSkull.BEASTS if args.beast == "all" else Array(String(args.beast).split(","))
+					e.beast = bl[list.size() % bl.size()]
 				if args.has("crown"): e.crown = args.crown == "1"
+				if args.has("maw"): e.maw = args.maw == "1"
 				if args.has("trees"): e.trees = int(args.trees)
 				if args.has("stream"): e.stream = args.stream == "1"
 				if args.has("wine"): e.wine = args.wine == "1"

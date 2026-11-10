@@ -34,10 +34,17 @@ uniform vec3 patina_col = vec3(0.25, 0.55, 0.45); // in the pits: verdigris on c
 uniform vec3 wet_col = vec3(1.0);   // what wet bone turns (a scarlet spring stains it red)
 uniform float patina_k = 0.0;    // nacre: the hue of its fire (as ammolite: red 0, green 0.33, blue 0.6, violet 0.75)     // ridges rubbed lighter (a dark skull still reads as bone)
 
+uniform int mosaic_pal = 0;   // kintsugi: 0 carnelian, opal, amethyst, peach; 1 lapis, turquoise, labradorite, chrysocolla
+uniform int agate_pal = 0;    // agate: 0 cream, carnelian, rust, smoke; 1 rhodochrosite pinks with grey and white
+uniform vec3 druse_col : source_color = vec3(0.45, 0.85, 0.3);   // skin 10: the sugar druse's colour
+// (skin 9: feathers — an iridescent cloak of overlapping feathers; skin 10: a sugar druse crusting the bone in patches)
+
 varying vec3 mp;
+varying vec3 mn;
 
 void vertex() {
 	mp = VERTEX;
+	mn = NORMAL;
 }
 
 // 3D cells: distance to the border between the two nearest
@@ -90,7 +97,7 @@ void fragment() {
 	float glowline = 0.0;
 	if (skin == 3) {
 		// kintsugi: a mosaic of polished stone pieces — carnelian, opal, amethyst, moonstone — set in raised gold seams
-		vec3 wq = q * 4.2 + vec3(fbm(q * 3.0), fbm(q * 3.0 + 5.0), fbm(q * 3.0 + 9.0)) * 0.6;
+		vec3 wq = q * (mosaic_pal == 1 ? 3.1 : 4.2) + vec3(fbm(q * 3.0), fbm(q * 3.0 + 5.0), fbm(q * 3.0 + 9.0)) * 0.6;
 		vec2 cc = cell3(wq);
 		float seam = 1.0 - smoothstep(0.03, 0.07, cc.x);
 		float id = cc.y;
@@ -99,8 +106,28 @@ void fragment() {
 		else if (id < 0.55) st = mix(vec3(0.62, 0.58, 0.62), vec3(0.4, 0.36, 0.44), fbm(q * 7.0 + id * 20.0));  // opal / moonstone
 		else if (id < 0.75) st = mix(vec3(0.1, 0.05, 0.22), vec3(0.32, 0.18, 0.45), fbm(q * 8.0 + id * 20.0));  // amethyst
 		else st = mix(vec3(0.5, 0.2, 0.14), vec3(0.75, 0.42, 0.32), fbm(q * 8.0 + id * 20.0));                  // rose / peach
+		if (mosaic_pal == 1) {
+			float f9 = fbm(q * 9.0 + id * 20.0);
+			if (id < 0.4) {
+				// lapis: deep ultramarine, white calcite streaks, gold pyrite flecks
+				st = mix(vec3(0.03, 0.06, 0.32), vec3(0.1, 0.2, 0.62), f9);
+				st = mix(st, vec3(0.7, 0.74, 0.8), smoothstep(0.62, 0.72, fbm(q * vec3(4.0, 22.0, 4.0) + id * 9.0)) * 0.6);
+				st = mix(st, gold * 1.2, step(0.86, vn(q * 70.0 + id * 30.0)) * 0.9);
+			} else if (id < 0.68) {
+				// turquoise: sky blue-green, a web of dark matrix
+				st = mix(vec3(0.12, 0.5, 0.52), vec3(0.32, 0.72, 0.7), f9);
+				st = mix(st, vec3(0.16, 0.1, 0.06), (1.0 - smoothstep(0.0, 0.05, cell3(q * 14.0 + id * 7.0).x)) * 0.8);
+			} else if (id < 0.86) {
+				// labradorite: grey stone, a blue-teal flash that comes and goes as it turns
+				float lf = pow(0.5 + 0.5 * sin(id * 40.0 + fr * 8.0 + fbm(q * 4.0) * 5.0), 3.0);
+				st = mix(vec3(0.16, 0.18, 0.2) * (0.7 + 0.6 * f9), vec3(0.1, 0.45, 0.75), lf * 0.85);
+			} else {
+				// chrysocolla: teal with darker blue
+				st = mix(vec3(0.02, 0.3, 0.36), vec3(0.08, 0.5, 0.55), f9);
+			}
+		}
 		// play of colour: a rainbow sheen sliding with the view, strongest on the opals
-		float play = (id >= 0.35 && id < 0.55 ? 0.8 : 0.0) * (0.3 + 0.7 * fr);
+		float play = (mosaic_pal == 0 && id >= 0.35 && id < 0.55 ? 0.8 : 0.0) * (0.3 + 0.7 * fr);
 		vec3 rb = hue(fract(id * 3.0 + fr * 1.3 + fbm(q * 5.0) * 0.8));
 		st = mix(st, st * 0.6 + rb * st * 1.4 + rb * 0.05, play * 0.5);
 		// the stone's own figure: carnelian bands, moonstone cloud, amethyst zones
@@ -223,9 +250,10 @@ void fragment() {
 				float sel = fract(floor(t) * 0.618 + skin_k);
 				// four colours of band: cream, carnelian, rust-brown, smoke
 				vec3 ag = sel < 0.3 ? vec3(0.86, 0.78, 0.62) : sel < 0.55 ? vec3(0.78, 0.3, 0.08) : sel < 0.8 ? vec3(0.38, 0.19, 0.08) : vec3(0.42, 0.45, 0.5);
+				if (agate_pal == 1) ag = sel < 0.35 ? vec3(0.78, 0.16, 0.38) : sel < 0.55 ? vec3(0.95, 0.45, 0.6) : sel < 0.72 ? vec3(0.36, 0.33, 0.42) : sel < 0.84 ? vec3(0.92, 0.88, 0.9) : vec3(0.55, 0.06, 0.24);
 				// (stone, not plastic: muted, fine growth lines inside each band, a waxy translucent milkiness that
 				// varies, crystal grain, a few pale quartz-filled hollows)
-				ag = mix(ag, vec3(0.62, 0.55, 0.47), 0.25);
+				ag = mix(ag, agate_pal == 1 ? vec3(0.8, 0.6, 0.66) : vec3(0.62, 0.55, 0.47), agate_pal == 1 ? 0.12 : 0.25);
 				ag *= 0.8 + 0.25 * smoothstep(0.1, 0.9, bnd) + (sin(t * 38.0) * 0.5 + 0.5) * 0.08;
 				ag = mix(ag, vec3(0.88, 0.84, 0.76), (1.0 - smoothstep(0.0, 0.05, bnd)) * 0.55);
 				ag = mix(ag, ag * 1.25 + vec3(0.05), smoothstep(0.45, 0.8, fbm(q * 4.0 + 3.0)) * 0.35);
@@ -282,8 +310,64 @@ void fragment() {
 			}
 		}
 	}
+	if (skin == 9) {
+		// feathers: overlapping like roof tiles, rows running down the head, each a pointed oval with a pale shaft,
+		// barbs fanning from it, an oil-slick sheen (green to blue to violet) that slides with the view
+		vec3 an = abs(normalize(mn));
+		vec2 uv = an.x > max(an.y, an.z) ? vec2(mp.z, mp.y) : an.y > an.z ? vec2(mp.x, mp.z) : vec2(mp.x, mp.y);
+		uv = uv * 7.5 + vec2(fbm(q * 2.0), fbm(q * 2.0 + 4.0)) * 0.6;
+		uv.y = -uv.y;
+		float best = -1e9, fid = 0.0;
+		vec2 loc = vec2(0.0);
+		for (int k = -1; k <= 1; k++) {
+			float row = floor(uv.y) + float(k);
+			float off = mod(row, 2.0) * 0.5;
+			float col = floor(uv.x - off);
+			for (int j = 0; j <= 1; j++) {
+				vec2 cen = vec2(col + float(j) + off, row + 0.15);
+				vec2 d = (uv - cen) / vec2(0.62, 1.05);
+				// (the lower row lies on top: the last that holds the point wins)
+				if (length(d) < 1.0 && d.y > -0.35 && row >= best) { best = row; loc = d; fid = h3(vec3(cen, 3.0)); }
+			}
+		}
+		{
+			float r = length(loc);
+			float shaft = 1.0 - smoothstep(0.02, 0.07, abs(loc.x)) * 1.0;
+			float barb = 0.5 + 0.5 * sin(atan(loc.x, loc.y + 0.6) * 46.0);
+			// (green to teal to blue only: a magpie's or a peacock's sheen, not a rainbow)
+			float th = 0.3 + fid * 0.08 + fr * 0.22 + (fbm(q * 6.0) - 0.5) * 0.08 + (1.0 - r) * 0.05;
+			vec3 sheen = hue(fract(th));
+			float lit = 0.06 + 0.42 * pow(fr, 1.3) + 0.1 * smoothstep(0.2, 0.9, r);
+			vec3 fe = vec3(0.008, 0.02, 0.014) + sheen * sheen * lit * (0.55 + 0.45 * barb);
+			fe = mix(fe, vec3(0.08, 0.1, 0.07), shaft * 0.6 * smoothstep(1.0, 0.3, r));
+			fe *= mix(0.15, 1.0, smoothstep(1.0, 0.7, r));   // the edge in the shade of the one over it
+			float cover = smoothstep(0.28, 0.34, fbm(q * 1.1 + 2.0) * 0.5 + skin_k * 0.75 + open * 0.15);
+			c = mix(c, fe, cover);
+			rough = mix(rough, 0.38, cover);
+			spec = mix(spec, 0.55, cover);
+			metal = mix(metal, 0.25, cover);
+			h = mix(h, (1.0 - r * r) * 1.4 + barb * 0.15 - shaft * 0.2, cover);
+		}
+	}
+	if (skin == 10) {
+		// a sugar druse: tiny crystal faces crowded over the bone in big patches, each catching the light at its own
+		// angle (they twinkle as the find sways), paler at the rim of a patch, bone between
+		float cov = smoothstep(0.5, 0.56, fbm(q * 1.4 + 6.0) * 0.6 + skin_k * 0.5 + cav * 0.2);
+		vec2 g1 = cell3(q * 70.0);
+		vec2 g2 = cell3(q * 24.0 + 3.0);
+		float tw = pow(0.5 + 0.5 * sin(g1.y * 90.0 + fr * 22.0 + g2.y * 9.0), 14.0);
+		vec3 dr = druse_col * (0.35 + 0.65 * g1.y) * (0.75 + 0.5 * g2.y);
+		dr = mix(dr, vec3(0.9), (1.0 - smoothstep(0.0, 0.06, g1.x)) * 0.25);
+		dr += druse_col * tw * 0.9 + vec3(tw * 0.4);
+		float rim = smoothstep(0.5, 0.56, fbm(q * 1.4 + 6.0) * 0.6 + skin_k * 0.5 + cav * 0.2) - smoothstep(0.56, 0.62, fbm(q * 1.4 + 6.0) * 0.6 + skin_k * 0.5 + cav * 0.2);
+		dr = mix(dr, vec3(0.85, 0.88, 0.85), rim * 0.4);
+		c = mix(c, dr, cov);
+		rough = mix(rough, 0.12, cov);
+		spec = mix(spec, 0.75, cov);
+		h = mix(h, g1.x * 2.0 + g2.x * 1.2 + 0.8, cov);
+	}
 	// a stone skull wet where water runs: darker and glossy too (its skin painted over the bone's own wetness)
-	if (skin >= 5) {
+	if (skin >= 5 && skin < 9) {
 		c = mix(c, c * 0.5 * wet_col, wet);
 		rough = mix(rough, 0.1, wet);
 	}

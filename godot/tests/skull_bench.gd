@@ -39,7 +39,12 @@ func _ready() -> void:
 	else:
 		for sd in String(args.get("seeds", "501,508,515,522,529,536,543,550")).split(","):
 			for sk in String(args.get("skins", "bone")).split(","):
-				list.append({seed = int(sd), sid = args.get("sid", "amethyst"), kind = "druse", gi = 2, traits = [], form = "skull", skin = sk})
+				var o := {seed = int(sd), sid = args.get("sid", "amethyst"), kind = "druse", gi = 2, traits = [], form = "skull", skin = sk}
+				# beasts=all | wolf,deer: an animal's skull each (SpecSkull.BEASTS in turn)
+				if args.has("beasts"):
+					var bl: Array = SpecSkull.BEASTS if args.beasts == "all" else Array(String(args.beasts).split(","))
+					o.beast = bl[list.size() % bl.size()]
+				list.append(o)
 	var n := int(args.get("frames", "40"))
 	for o: Dictionary in list:
 		var t0 := Time.get_ticks_msec()
@@ -57,7 +62,7 @@ func _ready() -> void:
 			tris = RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
 			calls = RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
 		var sk: Dictionary = SpecSkull.genes(int(o.seed), {})
-		print("BENCH %s#%s skin=%s gpu %.2f ms  tris %dk  calls %d  build %d ms  | crown=%s trees=%s moss=%s flies=%s stream=%s roots=%s" % [o.sid, o.seed, o.get("skin", sk.get("skin")), gpu / n, tris / 1000, calls, bt, sk.get("crown"), sk.get("trees"), sk.get("moss"), sk.get("flies"), sk.get("stream"), sk.get("roots")])
+		print("BENCH %s %s#%s skin=%s gpu %.2f ms  tris %dk  calls %d  build %d ms  | crown=%s trees=%s moss=%s flies=%s stream=%s roots=%s" % [o.get("beast", "human"), o.sid, o.seed, o.get("skin", sk.get("skin")), gpu / n, tris / 1000, calls, bt, sk.get("crown"), sk.get("trees"), sk.get("moss"), sk.get("flies"), sk.get("stream"), sk.get("roots")])
 		remove_child(p)
 		p.free()
 	get_tree().quit()
