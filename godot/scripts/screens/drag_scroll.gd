@@ -16,6 +16,9 @@ var _start := 0.0
 var _last := Vector2.ZERO
 var _vel := 0.0
 var _releasing := false
+## true while the list lets go of the press it took over: a control that reads raw releases as taps (Atlas._tapped)
+## must not take this one for a tap (it came to the strip under the finger, which held the press)
+static var cancelling := false
 
 func _horiz() -> bool:
 	return vertical_scroll_mode == SCROLL_MODE_DISABLED
@@ -75,7 +78,9 @@ func _cancel_press() -> void:
 	off.position = Vector2(-10000, -10000)
 	off.global_position = off.position
 	_releasing = true
+	cancelling = true
 	get_viewport().push_input(off)
+	cancelling = false
 	_releasing = false
 
 ## the press is ours only if no window is open over the list (a list inside the window itself is fine)

@@ -242,7 +242,8 @@ func _banner(a: int) -> Control:
 ## a tap is the finger lifted. Only the mouse stream: on the phone every touch also arrives as an emulated mouse
 ## click, so counting the touch too opened every sheet twice (and closing it took two taps)
 static func _tapped(e: InputEvent) -> bool:
-	return e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT
+	# (not the release a scrolling list makes when the finger starts dragging it: DragScroll.cancelling)
+	return e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not DragScroll.cancelling
 
 ## a rounded box with a slice of the mine's picture (a = -1: bare rock), darkened to the left for text, a brass rim
 func _picture_box(a: int, h: float, dark: float) -> PanelContainer:
