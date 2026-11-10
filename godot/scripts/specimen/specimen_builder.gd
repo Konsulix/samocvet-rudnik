@@ -2347,12 +2347,18 @@ func _finish() -> void:
 		gg.bary = g.bary.duplicate()
 		# where a crystal turns into rock the surface swells into a lumpy crust
 		var crusty: bool = (n as MeshInstance3D).material_override in dt_mats and crust_ok
-		if crusty and gg.tri_count() < 2500:
-			gg.subdivide(1 if gg.tri_count() > 500 else 2)
 		var local: bool = n.get_meta("local", false)
 		var bb := gg.aabb()
 		var hgt := maxf(0.001, bb.size.y)
 		var t := U.rel_xform(n, root)
+		if crusty and gg.tri_count() < 2500:
+			# finer only where the crust moves the surface (rock-line height below dt.h + 0.1); the rest of the crystal
+			# stays as it was — splitting it whole made a skull's ~100 crystals 7x the vertices
+			var top: float = dt.h + 0.1 + 0.001
+			if local:
+				gg.subdivide(1 if gg.tri_count() > 500 else 2, Vector3.UP, bb.position.y + top * hgt)
+			else:
+				gg.subdivide(1 if gg.tri_count() > 500 else 2, Vector3(t.basis.x.y, t.basis.y.y, t.basis.z.y), top - t.origin.y)
 		var rp := PackedVector3Array()
 		rp.resize(gg.v.size())
 		for i in gg.v.size():

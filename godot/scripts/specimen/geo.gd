@@ -190,9 +190,12 @@ func weld() -> Geo:
 	idx = ni
 	return self
 
-## split every triangle into four (a plain triangle list); shared edges split at the same points
-func subdivide(levels := 1) -> Geo:
+## split every triangle into four (a plain triangle list); shared edges split at the same points.
+## With `dir`: only triangles with a corner where dir·p < lim (the rest are copied as they are) — where only that
+## side gets moved afterwards, the unsplit side stays flat anyway, and a split edge's middle stays on the edge
+func subdivide(levels := 1, dir := Vector3.ZERO, lim := 0.0) -> Geo:
 	to_soup()
+	var some := dir != Vector3.ZERO
 	for l in levels:
 		var nv := PackedVector3Array()
 		var nc := PackedColorArray()
@@ -203,6 +206,11 @@ func subdivide(levels := 1) -> Geo:
 			var a := v[k]
 			var b := v[k + 1]
 			var c := v[k + 2]
+			if some and dir.dot(a) >= lim and dir.dot(b) >= lim and dir.dot(c) >= lim:
+				nv.append_array([a, b, c])
+				if has_c: nc.append_array([col[k], col[k + 1], col[k + 2]])
+				if has_b: nb.append_array([bary[k], bary[k + 1], bary[k + 2]])
+				continue
 			var ab := (a + b) * 0.5
 			var bc := (b + c) * 0.5
 			var ca := (c + a) * 0.5
