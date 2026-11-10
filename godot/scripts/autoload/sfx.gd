@@ -106,13 +106,19 @@ const MUSIC := {home = ["res://assets/audio/music/home.ogg"], level = ["res://as
 	home_1 = ["res://assets/audio/music/home_copper.ogg"], level_1 = ["res://assets/audio/music/home_copper.ogg"],
 	home_2 = ["res://assets/audio/music/home_cove.ogg"], level_2 = ["res://assets/audio/music/home_cove.ogg"],
 	home_3 = ["res://assets/audio/music/home_fire.ogg"], level_3 = ["res://assets/audio/music/home_fire.ogg"],
+	home_4 = ["res://assets/audio/music/home_proval.ogg"], level_4 = ["res://assets/audio/music/home_proval.ogg"],
+	home_5 = ["res://assets/audio/music/home_hollow.ogg"], level_5 = ["res://assets/audio/music/home_hollow.ogg"],
+	home_6 = ["res://assets/audio/music/home_barrow.ogg"], level_6 = ["res://assets/audio/music/home_barrow.ogg"],
+	home_7 = ["res://assets/audio/music/home_seam.ogg"], level_7 = ["res://assets/audio/music/home_seam.ogg"],
 	# a boss's own theme: "boss_<id>"
 	boss_poloz = ["res://assets/audio/music/boss_poloz.mp3"],
 	boss_mistress = ["res://assets/audio/music/boss_mistress.mp3"],
 	boss_kraken = ["res://assets/audio/music/boss_kraken.ogg"]}
 ## where a Suno track's loop starts (s): its intro plays once (prototype/tools/music_loop.py finds the cut)
 const LOOP_AT := {"res://assets/audio/music/home_adit.ogg": 11.7, "res://assets/audio/music/home_copper.ogg": 19.3, "res://assets/audio/music/home_cove.ogg": 48.25,
-	"res://assets/audio/music/boss_kraken.ogg": 57.65, "res://assets/audio/music/home_fire.ogg": 49.35}
+	"res://assets/audio/music/boss_kraken.ogg": 57.65, "res://assets/audio/music/home_fire.ogg": 49.35,
+	"res://assets/audio/music/home_proval.ogg": 55.05, "res://assets/audio/music/home_hollow.ogg": 51.9,
+	"res://assets/audio/music/home_barrow.ogg": 55.95, "res://assets/audio/music/home_seam.ogg": 57.55}
 const MUSIC_DB := -14.0
 ## the home screen's ambience (MineAmb): far off and behind rock — muffled, a little cave reverb, well under the music
 const AMB_BUS := "Amb"
