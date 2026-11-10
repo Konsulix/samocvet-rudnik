@@ -15,6 +15,7 @@ var root: Node3D
 var dt := {}            # where the crystals turn into rock; final values are applied in _finish()
 var dt_mats := []
 var crust_ok := true
+var crust_once := false   # split the crust only once (a skull: see _finish)
 var gene_m := {}
 var trs := []             # the find's traits
 var green_spots := []
@@ -1122,6 +1123,7 @@ func _specimen(o: Dictionary) -> Node3D:
 					gm.set_shader_parameter("fluor_k", 1.0)
 					gm.set_shader_parameter("fluor_col", Vector3(fc.r, fc.g, fc.b))
 	crust_ok = layout != "geode"
+	crust_once = layout == "skull"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)
 	if gene.gold:
 		_gold(main, mat, st)
@@ -2355,10 +2357,12 @@ func _finish() -> void:
 			# finer only where the crust moves the surface (rock-line height below dt.h + 0.1); the rest of the crystal
 			# stays as it was — splitting it whole made a skull's ~100 crystals 7x the vertices
 			var top: float = dt.h + 0.1 + 0.001
+			# (a skull's crystals stand in soil, their feet hidden: once is as good as twice there, at a third of the points)
+			var lv := 1 if gg.tri_count() > 500 or crust_once else 2
 			if local:
-				gg.subdivide(1 if gg.tri_count() > 500 else 2, Vector3.UP, bb.position.y + top * hgt)
+				gg.subdivide(lv, Vector3.UP, bb.position.y + top * hgt)
 			else:
-				gg.subdivide(1 if gg.tri_count() > 500 else 2, Vector3(t.basis.x.y, t.basis.y.y, t.basis.z.y), top - t.origin.y)
+				gg.subdivide(lv, Vector3(t.basis.x.y, t.basis.y.y, t.basis.z.y), top - t.origin.y)
 		var rp := PackedVector3Array()
 		rp.resize(gg.v.size())
 		for i in gg.v.size():
@@ -2370,12 +2374,18 @@ func _finish() -> void:
 			fn.fractal_octaves = 3
 			var line: float = dt.h
 			var amp := 0.05 * (hgt if local else 1.0) / maxf(0.2, t.basis.get_scale().x)
+			# (a split crystal is a plain triangle list: each corner is there about six times over — its noise once)
+			var seen := {}
 			for i in gg.v.size():
 				var w := 1.0 - smoothstep(line - 0.14, line + 0.1, rp[i].y)
 				if w > 0.0:
 					var p := gg.v[i]
-					var q := p * 9.0
-					gg.v[i] = p + Vector3(fn.get_noise_3dv(q), fn.get_noise_3dv(q + Vector3(19, 0, 0)), fn.get_noise_3dv(q + Vector3(0, 0, 41))) * amp * w
+					var d: Variant = seen.get(p)
+					if d == null:
+						var q := p * 9.0
+						d = Vector3(fn.get_noise_3dv(q), fn.get_noise_3dv(q + Vector3(19, 0, 0)), fn.get_noise_3dv(q + Vector3(0, 0, 41)))
+						seen[p] = d
+					gg.v[i] = p + (d as Vector3) * amp * w
 		gg.rp = rp
 		(n as MeshInstance3D).mesh = gg.to_mesh()
 
