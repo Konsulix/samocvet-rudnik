@@ -111,14 +111,14 @@ const AREA_TIERS := {1: [
 ]}
 const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i"}
 ## gas spreads and timber pins stones: a little of either goes a long way
-const CAP := {gas = 6, lock = 10, crust = 10, ice = 14}
+const CAP := {gas = 6, lock = 10, crust = 10, ice = 14, granite = 6}
 ## Copper Mountain's malachite nodules (mine -> how many at the first depth, one more every other depth, at most):
 ## the mine's own ore grows in them, so its boards carry less of the other obstacles (NOD_LOAD)
 const NODULES := {1: Vector2i(2, 4), 4: Vector2i(2, 3)}
 const NOD_LOAD := 0.7
 ## the moves a level needs: BASE + WORK of each obstacle cell (a nugget, the geode, a stone of a colour goal), fitted
 ## on the smart autoplayer (it looks a move ahead for its goals) by the moves it needs with no limit (`-- sim_gen=N
-## sim_depth=D smart streak=7 sim_rows sim_free`); what a level asks for is kept within NEED_MAX
+## sim_depth=D smart streak=0 sim_rows sim_free`); what a level asks for is kept within NEED_MAX
 ## the gallery's works (BoardModel: cart, keg, dark, belt, bucket) - one of them on most levels, two now and then
 ## deeper down. Each mine has only its own (AREA_FEATS: work -> the depth it comes in at, shown alone on the second
 ## level played there): Copper Mountain the belt, the cove the bucket, the fire the kegs, Proval brings the cove's and
@@ -128,17 +128,19 @@ const AREA_FEATS := {1: {belt = 3}, 2: {bucket = 2}, 3: {keg = 2}, 4: {bucket = 
 const FEATURE_P := 0.8
 ## a feature takes over part of a level's work: the plain obstacles shrink to this share of their load
 const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 1.0, bucket = 0.8}
-## 2.11 refitted on the dense one-idea boards (smart bot with the streak's gifts, no move limit, 300 levels): on a
-## board mostly under one soft obstacle nearly every match takes some of it, so a soft cell costs next to nothing
-const WORK := {sand = 0.1, granite = 0.35, mud = 0.0, gas = 0.12, lock = 0.12, crust = 0.05, ice = 0.35, nod = 0.23, nug = 1.2, geo = 2.1, colour = 0.03, cart = 0.39, keg = 0.64, kegs = -0.4, dark = 0.0, belt = -2.76, bucket = 0.49}
-const BASE := 7.1
+## 10.11 refitted WITHOUT the streak's gifts (smart bot, no move limit, 408 levels of mines 1-5): the gifts are a
+## reward that makes a level easier, not something it is built to need - a lost level resets the streak, and the
+## retry was near hopeless without them (playtest 10.11). Granite was far underpriced (0.35 a cell, 16 of them took
+## the bot ~40 moves): a cell costs 0.51, and each layer it lies behind the face of its wall 0.48 more (`*_deep`,
+## _deep); cart, dark and gas are not in the data (no mine has them) and keep their old prices
+const WORK := {sand = 0.18, granite = 0.51, sand_deep = 0.03, granite_deep = 0.48, mud = 0.07, gas = 0.12, lock = 0.3, crust = 0.04, ice = 0.3, nod = 0.2, nug = 1.57, geo = 3.16, colour = 0.055, cart = 0.39, keg = 0.25, kegs = -0.2, dark = 0.0, belt = -1.97, bucket = 1.46}
+const BASE := 6.4
 ## a shape that is slower to work through than its cells say: a lower tier behind a throat
-const SCHEME_WORK := {tiers = 6.7}
-## moves over what the smart bot needs WITH the win streak's gifts (a player mostly has them, Data.streak_free), on a
-## normal level, half a move tighter a depth (TIGHT); the beats move it (BEAT). Tuned 2.11 (`-- sim_gen=28 sim_depth=D
-## smart streak=7 sim_rows`): easy 97%, normal 82%, hard 53%, super hard 34% (a live player wins less)
-const MARGIN := 2.5
-const TIGHT := 0.5
+const SCHEME_WORK := {tiers = 5.4}
+## the moves given are the need times the beat's k (BEAT): the bot's spread grows with the need (sd 3 moves on a
+## 10-move level, 8.5 on a 22-move one), so a margin of a fixed few moves was generous on small levels and cruel on
+## big ones. A move less every ~3 depths (TIGHT)
+const TIGHT := 0.3
 const FIRST_EASE := 0.0
 const NEED_MAX := 28.0
 const MOVES := Vector2i(10, 34)
@@ -196,11 +198,13 @@ static func _veins_poor(dl: int) -> bool:
 const FIND_P := 0.6
 ## the rhythm of the levels (Royal Match's way, docs: research 2.11): mostly normal, a breather now and then, a hard one
 ## every seventh level, every third of those super hard. Save.d.level only grows on a win, so a hard level stays hard
-## until it is beaten. BEAT: moves over the need (on MARGIN) and how much work the level carries
+## until it is beaten. BEAT: k - the moves given over the need, and how much work the level carries. k is the
+## quantile of the bot's need over the fitted one (10.11, no gifts): easy ~93% of levels won, normal ~80%, hard ~55%,
+## super ~35% - with the streak's gifts and the boosters a player does better
 const BEATS := ["normal", "normal", "easy", "normal", "normal", "hard", "easy"]
 ## (super hard: fewer moves than the usual floor, MOVES.x - more cheap work alone hardly makes it harder)
-const BEAT := {"easy": {moves = 4.0, load = 0.85}, "normal": {moves = 0.0, load = 1.0},
-	"hard": {moves = -4.0, load = 1.15}, "super": {moves = -10.0, load = 1.3, floor = 8}}
+const BEAT := {"easy": {k = 1.55, load = 0.85}, "normal": {k = 1.32, load = 1.0},
+	"hard": {k = 1.02, load = 1.15}, "super": {k = 0.86, load = 1.3, floor = 8}}
 const HARD_FROM := 12    # no hard level before this one (Royal Match's first is level 39)
 const SUPER_FROM := 30
 ## the level's idea: one main work over a good part of the board, at most a little of another beside it. A soft
@@ -301,10 +305,16 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	var reserve := nod_want * float(WORK.nod) + float(SCHEME_WORK.get(scheme, 0.0)) + fwork
 	# no more work than a level may ask for: the heavier group gives up a pair at a time
 	var est := func() -> float:
+		var g2: Array = grid.duplicate(true)
 		var w := 0.0
 		for g in ["a", "b"]:
-			if want[g] != "": w += groups[g].size() * float(WORK[want[g]])
-		return w
+			if want[g] == "": continue
+			for p: Vector2i in groups[g]:
+				if g2[p.x][p.y] != ".": continue
+				g2[p.x][p.y] = CH[want[g]]
+				w += float(WORK[want[g]])
+		var dp := _deep(g2)
+		return w + int(dp.sand) * float(WORK.sand_deep) + int(dp.granite) * float(WORK.granite_deep)
 	while BASE + reserve + float(est.call()) > NEED_MAX:
 		var ga: float = groups.a.size() * float(WORK.get(want.a, 0.0))
 		var gb: float = groups.b.size() * float(WORK.get(want.b, 0.0))
@@ -321,6 +331,12 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 			work += float(WORK[kind])
 			used[kind] = true
 			count[kind] = int(count.get(kind, 0)) + 1
+	# a wall is broken from its face inwards: the layers behind the face cost moves of their own
+	var deep := _deep(grid)
+	for k in ["sand", "granite"]:
+		if int(deep[k]) > 0:
+			count[k + "_deep"] = int(deep[k])
+			work += int(deep[k]) * float(WORK[k + "_deep"])
 	var goals := []
 	if used.has("sand") or used.has("granite"): goals.append(["rock"])
 	for k in ["mud", "gas", "lock", "crust", "ice"]:
@@ -366,7 +382,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 		rows.append("".join(grid[r]).replace("+", ".").replace("=", "."))
 	for f: String in feats: count[f] = fdef.get("n_" + f, 1)
 	# two works at once ask for more thought than their sum: a couple of moves more
-	var moves := clampi(roundi(BASE + work + MARGIN + float(bk.moves) - TIGHT * dl + (FIRST_EASE if dl == 0 else 0.0)) + (3 if intro or feat_intro else 0) + (2 if feats.size() > 1 else 0) + (2 if area > 0 and not feats.is_empty() else 0), int(bk.get("floor", MOVES.x)), MOVES.y)
+	var moves := clampi(roundi((BASE + work - TIGHT * dl + (FIRST_EASE if dl == 0 else 0.0)) * float(bk.k)) + (3 if intro or feat_intro else 0) + (2 if feats.size() > 1 else 0) + (2 if area > 0 and not feats.is_empty() else 0), int(bk.get("floor", MOVES.x)), MOVES.y)
 	var out := {map = "|".join(rows), goals = goals, moves = moves, hard = beat in ["hard", "super"], beat = beat, gen = true, colors = 5,
 		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme, feats = feats, feat_intro = feat_intro,
 		find = wins == 0 or rich or beat in ["hard", "super"] or rng.randf() < FIND_P}
@@ -581,10 +597,10 @@ static func _scheme(rng: RandomNumberGenerator, scheme: String, grid: Array, gro
 			if rng.randf() < 0.4: _hole(grid, R - 1, 0)
 			geo_at.append(Vector2i(r0 + h, half - 1))
 		"tiers":
-			# two boards, one over the other, joined by a throat in the middle (or not at all: each fills from its
-			# top); the lower one mostly blocks
+			# two boards, one over the other, joined by a throat in the middle; the lower one mostly blocks. Always a
+			# throat: two boards cut apart left the upper one with nothing to do (playtest 10.11)
 			var rt := rng.randi_range(R / 2 - 1, R / 2)
-			var throat := rng.randi_range(0, 2)
+			var throat := rng.randi_range(1, 2)
 			for c in half - throat: _hole(grid, rt, c)
 			if rng.randf() < 0.5: _hole(grid, rt - 1, 0)
 			for r in range(rt + 1, R):
@@ -691,6 +707,39 @@ static func _has_square(grid: Array, patch: Array) -> bool:
 		if p.x + 1 < R and p.y + 1 < C and grid[p.x + 1][p.y] == "#" and grid[p.x][p.y + 1] == "#" and grid[p.x + 1][p.y + 1] == "#":
 			return true
 	return false
+
+## cells no match can be made in: holes, rock, the geode, the gallery's works
+const SHUT := ["#", "r", "R", "G", "+", "W", "K", "L", "B"]
+## how far rock lies behind the face of its wall: {sand, granite} = the sum over their cells of the layers in front of
+## each (a cell touching the open board is 0, the one behind it 1...). A match only hits rock beside it, so a wall
+## three deep needs its face broken before the next layer can be touched
+static func _deep(grid: Array) -> Dictionary:
+	var dist := {}
+	var q := []
+	for r in R:
+		for c in C:
+			if not grid[r][c] in ["r", "R"]: continue
+			for d: Vector2i in BoardModel.DIRS4:
+				var n := Vector2i(r, c) + d
+				if n.x >= 0 and n.y >= 0 and n.x < R and n.y < C and not grid[n.x][n.y] in SHUT:
+					dist[Vector2i(r, c)] = 0
+					q.append(Vector2i(r, c))
+					break
+	var i := 0
+	while i < q.size():
+		var p: Vector2i = q[i]
+		i += 1
+		for d: Vector2i in BoardModel.DIRS4:
+			var n := p + d
+			if n.x >= 0 and n.y >= 0 and n.x < R and n.y < C and grid[n.x][n.y] in ["r", "R"] and not dist.has(n):
+				dist[n] = int(dist[p]) + 1
+				q.append(n)
+	var out := {sand = 0, granite = 0}
+	for r in R:
+		for c in C:
+			if grid[r][c] in ["r", "R"]:
+				out["granite" if grid[r][c] == "R" else "sand"] += mini(int(dist.get(Vector2i(r, c), 4)), 4)
+	return out
 
 ## a hole and its mirror image
 static func _hole(grid: Array, r: int, c: int) -> void:
