@@ -136,6 +136,11 @@ static func open() -> void:
 	mk.add_child(_btn("Skull speedups: %s" % ("on" if SpecUtil.fast else "OFF (old)"), not SpecUtil.fast, func():
 		SpecUtil.fast = not SpecUtil.fast
 		_reopen()))
+	# on: the panel's finds count as found in a mine (genes, the atlas, achievements); off: only into the inventory
+	var counts: bool = Save.d.get("adm_count", false)
+	mk.add_child(_btn("Finds count for awards: %s" % ("yes" if counts else "no"), counts, func():
+		Save.d.adm_count = not counts
+		_saved()))
 	mk.add_child(_btn("Remove test finds", false, func():
 		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("test", false))
 		_saved()))
@@ -191,7 +196,7 @@ static func _finds(n: int) -> void:
 	var names := []
 	for k in n:
 		var st := _find(1 + randi() % 999999, f_sid, f_fx)
-		Save.d.coll.append(st)
+		_add(st)
 		names.append(String(Data.SP[st.sid].n) + (" · " + String(SpecLegend.FX_N.get(st.get("fx", ""), "legendary")) if st.legend else ""))
 	Save.persist()
 	Ov.toast("Added: " + ", ".join(names))
@@ -245,7 +250,7 @@ static func _skull_set() -> void:
 		st.area = 0
 		st.dl = 0
 		st.test = true
-		Save.d.coll.append(st)
+		_add(st)
 	if not "amethyst" in Save.d.seen: Save.d.seen.append("amethyst")
 	Save.persist()
 	Ov.toast("Added 6 test skulls: bone ×3, gold, mosaic, glass")
@@ -267,7 +272,7 @@ static func _ammonites() -> void:
 	var sd := 1 + randi() % 900000
 	for k in want.size():
 		while not (want[k] as Callable).call(SpecFossil.genes(sd, "ammonite", [])): sd += 1
-		Save.d.coll.append(_find(sd, "ammonite", fxs[k]))
+		_add(_find(sd, "ammonite", fxs[k]))
 		sd += 1
 	Save.persist()
 	Ov.toast("Added 8 ammonites")
@@ -289,12 +294,19 @@ static func _alive() -> void:
 		if not has.has(k):
 			var st := _find(1 + randi() % 999999, "", "")
 			st.dl = k
-			Save.d.coll.append(st)
+			_add(st)
 	# straight to the mine: the panel closes so the screen can be watched
 	Save.persist()
 	Ov.close()
 	_refresh()
 	Ov.toast("The whole mine is alive")
+
+## a panel's find into the inventory; with "Finds count for awards" on, noted as a find in a mine too (Save.note_find:
+## its genes, the atlas, the achievements a find brings)
+static func _add(st: Dictionary) -> void:
+	Save.d.coll.append(st)
+	if Save.d.get("adm_count", false):
+		Save.note_find(st, int(st.get("area", Save.area())), int(st.get("dl", 0)))
 
 static func _give(key: String, n: int) -> void:
 	Save.d[key] = int(Save.d[key]) + n
