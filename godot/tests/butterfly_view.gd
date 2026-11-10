@@ -1,6 +1,7 @@
 extends Node3D
 ## Every kind of SpecButterfly side by side, seen from above and in front, for checking the wings:
-##   godot --path godot --resolution 1600x400 res://tests/butterfly_view.tscn -- shot=user://bf.png [t=1.5]
+##   godot --path godot --resolution 1600x400 res://tests/butterfly_view.tscn -- shot=user://bf.png [t=1.5] [ang=… flex=…]
+##   [bg] a stone floor under them; camera cx cy cz tx fov
 
 func _ready() -> void:
 	var args := {}
@@ -19,6 +20,18 @@ func _ready() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation = Vector3(-0.9, 0.5, 0)
 	w.add_child(sun)
+	# bg=1: a stone floor under them, to see through a glasswing
+	if args.has("bg"):
+		var fl := MeshInstance3D.new()
+		var pm := PlaneMesh.new()
+		pm.size = Vector2(12, 4)
+		fl.mesh = pm
+		var fm := StandardMaterial3D.new()
+		fm.albedo_texture = load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg")
+		fm.uv1_scale = Vector3(6, 2, 1)
+		fl.material_override = fm
+		fl.position.y = -0.25
+		w.add_child(fl)
 	var rng := Rng32.new(7)
 	var ids: Array = SpecButterfly.KINDS.keys()
 	var n := ids.size()

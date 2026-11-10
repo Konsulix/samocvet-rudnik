@@ -6,6 +6,7 @@ extends RefCounted
 ## A butterfly either rests on the find (opening and closing its wings) or flies round it — each kind in its own way.
 
 const SHADER := preload("res://shaders/butterfly.gdshader")
+const SHADER_GLASS := preload("res://shaders/butterfly_glass.gdshader")
 const DIR := "res://assets/specimen/butterflies/"
 
 ## id: [wing file, span (x), body colour, band colour (0 none), body thickness, abdomen length, how it flies,
@@ -14,13 +15,14 @@ const DIR := "res://assets/specimen/butterflies/"
 ##   float — big slow beats and long glides on wide loops (morpho, apollo)
 ##   glide — a few strong beats, then a sail (monarch, mourning cloak)
 ##   flit  — quick, small and jerky, close round the find, hopping (the blues)
-##   hover — wings a blur, darts and hangs in the air (the hawkmoth)
+##   hover — fast buzzing beats, darts and hangs in the air (the hawkmoth; its real 26 a second would strobe at 60
+##           frames — wing and frame almost in step — so it beats at 14, short strokes)
 ##   drift — slow heavy beats, the long tails trailing, gentle wide loops (the comet moth)
 ##   weave — fluttering, wandering this way and that (the glasswing)
 const KINDS := {
 	morpho = ["morpho", 1.25, Color(0.06, 0.05, 0.05), Color(0, 0, 0, 0), 1.0, 1.0, "float", 1.0, 0.0, 3.0],
 	apollo = ["apollo", 1.0, Color(0.15, 0.14, 0.13), Color(0, 0, 0, 0), 1.2, 0.9, "float", 0.0, 0.0, 2.5],
-	monarch = ["monarch", 1.05, Color(0.04, 0.03, 0.03), Color(0.9, 0.9, 0.85, 0.3), 1.0, 1.0, "glide", 0.0, 0.0, 2.5],
+	monarch = ["monarch", 1.05, Color(0.04, 0.03, 0.03), Color(0, 0, 0, 0), 1.0, 1.0, "glide", 0.0, 0.0, 2.5],
 	deathshead = ["deathshead", 1.1, Color(0.1, 0.08, 0.06), Color(0.85, 0.65, 0.12, 1.0), 2.2, 1.2, "hover", 0.0, 0.0, 1.5],
 	glasswing = ["glasswing", 0.8, Color(0.12, 0.08, 0.06), Color(0, 0, 0, 0), 0.8, 0.95, "weave", 0.0, 1.0, 1.5],
 	comet = ["comet", 1.5, Color(0.75, 0.42, 0.12), Color(0.55, 0.25, 0.08, 0.4), 1.6, 1.0, "drift", 0.0, 0.0, 1.2],
@@ -85,13 +87,16 @@ static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3,
 	# the card is 1 long, 2·aspect across: scale it to the span
 	var s := span * float(k[1]) / (2.0 * asp)
 	var m := ShaderMaterial.new()
-	m.shader = SHADER
+	# a glasswing is blended (its clear panes), drawn after the find's own glass so that does not paint over it
+	var glassy := float(k[8]) > 0.0
+	m.shader = SHADER_GLASS if glassy else SHADER
+	if glassy: m.render_priority = 90
 	if not _tex.has(id): _tex[id] = load(DIR + String(k[0]) + ".png")
 	m.set_shader_parameter("wing", _tex[id])
 	m.set_shader_parameter("iri", float(k[7]))
-	m.set_shader_parameter("glass", float(k[8]))
 	m.set_shader_parameter("seed", rng.next() * 50.0)
 	m.set_shader_parameter("curve", 0.15 + rng.next() * 0.2)
+	m.set_shader_parameter("root", float(card[2]))
 	var wings := Node3D.new()
 	wings.scale = Vector3.ONE * s
 	b.add_child(wings)
@@ -104,77 +109,241 @@ static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3,
 	var body := Node3D.new()
 	body.scale = Vector3.ONE * span * float(k[1]) * 0.5 / (1.5 if String(k[0]) == "comet" else 1.0)
 	b.add_child(body)
-	_body(body, k)
+	b.body_mat = _body(body, k, id)
 	b.setup(rng, m, String(k[6]), flying, at, n, perches if perches.size() else [[at, n]], s)
 	return b
 
-## thorax, a tapering abdomen (banded on some), the head, two clubbed antennae (feathery on the moths: straight here)
-static func _body(hold: Node3D, k: Array) -> void:
+## the body's look, by kind: the fur colour (the hair catching the light at the edges), the pattern (0 plain, 1 white
+## dots — the monarch's, 2 the death's-head's skull on the back and its blue-grey stripe down the banded abdomen),
+## how furry, and the antennae (club: a butterfly's; feather: a silk moth's combs; spindle: a hawkmoth's)
+const BODY := {
+	morpho = {fur = Color(0.3, 0.24, 0.18), pat = 0, hair = 0.7, ant = "club"},
+	apollo = {fur = Color(0.62, 0.62, 0.6), pat = 0, hair = 1.0, ant = "club"},
+	monarch = {fur = Color(0.25, 0.2, 0.18), pat = 1, hair = 0.5, ant = "club"},
+	deathshead = {fur = Color(0.55, 0.42, 0.25), pat = 2, hair = 0.9, ant = "spindle"},
+	glasswing = {fur = Color(0.45, 0.3, 0.18), pat = 0, hair = 0.5, ant = "club"},
+	comet = {fur = Color(1.0, 0.85, 0.45), pat = 0, hair = 1.0, ant = "feather"},
+	mourning = {fur = Color(0.35, 0.26, 0.2), pat = 0, hair = 0.9, ant = "club"},
+	blue = {fur = Color(0.55, 0.62, 0.85), pat = 0, hair = 1.0, ant = "club"},
+}
+const BODY_SHADER := preload("res://shaders/butterfly_body.gdshader")
+static var _bodies := {}
+static var _body_lock := Mutex.new()
+
+## the whole body as one mesh (one draw, where its dozen spheres and tubes were a dozen): abdomen, thorax and head
+## turned on one profile, the eyes, six legs folded under, the antennae and the coiled tongue. UV.x along the part,
+## UV.y round it (0 the back), UV2.x the part: 0 abdomen, 1 thorax, 2 head, 3 legs, 4 antennae and tongue, 5 eyes,
+## 6 a feathered antenna's comb (a flat strip the shader cuts into barbs)
+static func _body(hold: Node3D, k: Array, id: String) -> ShaderMaterial:
+	var bm := ShaderMaterial.new()
+	bm.shader = BODY_SHADER
+	var bd: Dictionary = BODY.get(id, BODY.morpho)
 	var col: Color = k[2]
 	var band: Color = k[3]
+	bm.set_shader_parameter("c_body", col)
+	bm.set_shader_parameter("c_fur", bd.fur)
+	bm.set_shader_parameter("c_band", Color(band.r, band.g, band.b))
+	bm.set_shader_parameter("band_k", band.a)
+	bm.set_shader_parameter("pat", int(bd.pat))
+	bm.set_shader_parameter("hair", float(bd.hair))
+	# (the abdomen swings from the waist: SpecButterfly.Fly sets "swing")
+	bm.set_shader_parameter("waist", -0.045 * float(k[4]) * 0.9)
+	var mi := MeshInstance3D.new()
+	mi.mesh = _body_mesh(id, k, String(bd.ant))
+	mi.material_override = bm
+	hold.add_child(mi)
+	return bm
+
+static func _body_mesh(id: String, k: Array, ant: String) -> ArrayMesh:
+	_body_lock.lock()
+	var got: ArrayMesh = _bodies.get(id)
+	_body_lock.unlock()
+	if got: return got
 	var th := 0.045 * float(k[4])
 	var ln := 0.55 * float(k[5])
-	var bm := StandardMaterial3D.new()
-	bm.albedo_color = col
-	bm.roughness = 0.95
-	var thorax := SphereMesh.new()
-	thorax.radius = th * 1.1
-	thorax.height = th * 2.6
-	var t := MeshInstance3D.new()
-	t.mesh = thorax
-	t.material_override = bm
-	t.rotation.z = PI * 0.5
-	t.position = Vector3(0.0, 0.03, 0)
-	hold.add_child(t)
-	var head := MeshInstance3D.new()
-	var hm := SphereMesh.new()
-	hm.radius = th * 0.75
-	hm.height = th * 1.5
-	head.mesh = hm
-	head.material_override = bm
-	head.position = Vector3(th * 1.5, 0.03, 0)
-	hold.add_child(head)
-	# the abdomen: segments narrowing to the tip, the band colour on alternate ones
-	var segs := 6
-	for i in segs:
-		var f := float(i) / segs
-		var seg := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = th * (0.95 - f * 0.55)
-		sm.height = ln / segs * 1.9
-		seg.mesh = sm
-		var mm := bm
-		if band.a > 0.0 and i % 2 == 1:
-			mm = StandardMaterial3D.new()
-			mm.albedo_color = col.lerp(Color(band.r, band.g, band.b), band.a)
-			mm.roughness = 0.95
-		seg.material_override = mm
-		seg.rotation.z = PI * 0.5
-		seg.position = Vector3(-th * 1.0 - (f + 0.5 / segs) * ln, 0.03 - f * 0.01, 0)
-		hold.add_child(seg)
-	# the antennae: from the top of the head, forward and apart, a gentle curve, a club at the tip
-	var am := StandardMaterial3D.new()
-	am.albedo_color = col.darkened(0.3)
-	am.roughness = 0.9
-	var hp := Vector3(th * 1.5, 0.03 + th * 0.4, 0.0)
+	var y0 := 0.03
+	var g := Geo.new()
+	# the profile tail to head: [x, radius, part, u along the part]
+	var prof := []
+	var tail := -th * 1.0 - ln
+	var na := 24
+	for i in na + 1:
+		var f := float(i) / na
+		# the abdomen: fat near the waist, tapering to a blunt tip; each segment swells a little
+		var x := lerpf(tail, -th * 0.9, f)
+		var r := th * (0.2 + 0.8 * pow(sin(minf(1.0, f * 1.25) * PI * 0.5), 0.6)) * 0.9
+		r *= 1.0 + 0.06 * cos(f * 6.0 * TAU)
+		prof.append([x, r if i > 0 else 0.0, 0, f])
+	# the waist, then the thorax: a plump furry barrel
+	var nt := 12
+	for i in nt + 1:
+		var f := float(i) / nt
+		var x := lerpf(-th * 0.9, th * 1.0, f)
+		var r := th * 0.25 + th * 0.9 * sqrt(maxf(0.0, 1.0 - pow(f * 2.0 - 1.0, 2.0)))
+		prof.append([x, r, 1, f])
+	# the neck and the head
+	var nh := 10
+	for i in nh + 1:
+		var f := float(i) / nh
+		var x := lerpf(th * 1.0, th * 2.15, f)
+		var r := th * 0.72 * sqrt(maxf(0.0, 1.0 - pow(f * 2.0 - 1.0, 2.0)))
+		prof.append([x, maxf(r, th * 0.3) if i < nh else 0.0, 2, f])
+	_revolve(g, prof, 20, Vector3(0, y0, 0))
+	# the fur: a looser shell round the thorax, the head and the abdomen's first segments, which the shader cuts
+	# into tufts — the body's outline goes soft and hairy (part 7)
+	var shell := []
+	for q: Array in prof:
+		var pt: int = q[2]
+		var fu: float = q[3]
+		if pt == 0 and fu < 0.55: continue
+		var r: float = q[1]
+		var grow := 1.35 if pt == 1 else 1.22 if pt == 2 else 1.18
+		shell.append([q[0], r * grow + th * 0.04 if r > 0.0 else 0.0, 7, (float(q[0]) - tail) / (th * 2.15 - tail)])
+	_revolve(g, shell, 20, Vector3(0, y0, 0))
+	# the eyes: big domes on the head's sides
+	var hx := th * 1.6
 	for sd: float in [1.0, -1.0]:
-		var pts: Array[Vector3] = []
-		for j in 6:
-			var f := float(j) / 5.0
-			pts.append(hp + Vector3(f * 0.2, f * 0.07 + f * f * 0.03, sd * (0.012 + f * 0.08)))
-		var g := Geo.tube(pts, 8, 0.004, 4)
-		var ant := MeshInstance3D.new()
-		ant.mesh = g.to_mesh()
-		ant.material_override = am
-		hold.add_child(ant)
-		var club := MeshInstance3D.new()
-		var clm := SphereMesh.new()
-		clm.radius = 0.011
-		clm.height = 0.03
-		club.mesh = clm
-		club.material_override = am
-		club.position = pts[pts.size() - 1]
-		hold.add_child(club)
+		var e := Geo.sphere(th * 0.4, 10, 8)
+		var c := Vector3(hx + th * 0.12, y0 + th * 0.08, sd * th * 0.48)
+		var b := g.v.size()
+		for i in e.v.size():
+			var n := e.v[i].normalized()
+			g.v.append(c + e.v[i])
+			g.own_n.append(n)
+			g.rp.append(Vector3(0.5 + n.x * 0.5, 0.5 + n.y * 0.5, 5.0))
+		for j in e.idx: g.idx.append(b + j)
+	# six legs from under the thorax, out and down, the feet below the body (it stands on them)
+	for li in 3:
+		var xs := th * (0.6 - 0.6 * li)
+		var fw := 0.5 - li * 0.5
+		for sd: float in [1.0, -1.0]:
+			# (short and folded close: long thin ones read as a spider's)
+			var p0 := Vector3(xs, y0 - th * 0.6, sd * th * 0.3)
+			var p1 := Vector3(xs + th * fw * 0.7, y0 - th * 0.35, sd * th * 1.25)
+			var p2 := Vector3(xs + th * fw * 1.4, y0 - th * 1.05, sd * th * 1.7)
+			var p3 := Vector3(xs + th * fw * 1.7, y0 - th * 1.4, sd * th * 1.85)
+			_strand(g, [p0, p1, p2, p3], [th * 0.14, th * 0.12, th * 0.09, th * 0.06], 3.0)
+	# the antennae: from the top of the head, forward and apart, a gentle curve
+	var hp := Vector3(th * 1.85, y0 + th * 0.55, 0.0)
+	var al := 0.2 if ant != "spindle" else 0.1
+	for sd: float in [1.0, -1.0]:
+		var pts := []
+		var rad := []
+		for j in 9:
+			var f := float(j) / 8.0
+			pts.append(hp + Vector3(f * al, f * al * 0.35 + f * f * al * 0.15, sd * (0.01 + f * al * 0.4)))
+			match ant:
+				"club": rad.append(0.0045 + 0.009 * smoothstep(0.7, 0.95, f) * (1.0 - smoothstep(0.97, 1.0, f) * 0.6))
+				"spindle": rad.append(0.004 + 0.007 * sin(f * PI))
+				_: rad.append(0.004 * (1.0 - f * 0.6))
+		_strand(g, pts, rad, 4.0)
+		if ant == "feather":
+			# the silk moth's combs: a flat strip either side of the shaft, widest in the middle
+			_comb(g, pts, al * 0.22)
+	# the tongue, coiled like a watch spring under the head (not on the hawkmoth)
+	if ant != "spindle":
+		var sp := []
+		var srad := []
+		for j in 22:
+			var f := float(j) / 21.0
+			var w := f * TAU * 2.2
+			var rr := th * 0.42 * (1.0 - f * 0.8)
+			sp.append(Vector3(th * 2.2 + rr * sin(w), y0 - th * 0.45 - rr * (1.0 - cos(w)) * 0.9, 0.0))
+			srad.append(th * 0.05)
+		_strand(g, sp, srad, 4.0)
+	var m := g.to_mesh()
+	_body_lock.lock()
+	_bodies[id] = m
+	_body_lock.unlock()
+	return m
+
+## a profile turned round the x axis: prof [x, radius, part, u]; normals worked from the profile's slope
+static func _revolve(g: Geo, prof: Array, seg: int, at: Vector3) -> void:
+	var n := prof.size()
+	var b := g.v.size()
+	for i in seg + 1:
+		var ph := float(i) / seg * TAU
+		var cy := cos(ph)
+		var sz := sin(ph)
+		for j in n:
+			var q: Array = prof[j]
+			var x: float = q[0]
+			var r: float = q[1]
+			var a: Array = prof[maxi(j - 1, 0)]
+			var c: Array = prof[mini(j + 1, n - 1)]
+			var dx := float(c[0]) - float(a[0])
+			var dr := (float(c[1]) - float(a[1])) / dx if absf(dx) > 1e-6 else 0.0
+			# (the two ends, where the radius closes to 0, point along the axis)
+			var nr := Vector3(-dr, cy, sz).normalized()
+			if r <= 0.0: nr = Vector3(-1.0 if j == 0 else 1.0, 0, 0)
+			g.v.append(at + Vector3(x, r * cy, r * sz))
+			g.own_n.append(nr)
+			g.rp.append(Vector3(float(q[3]), float(i) / seg, float(q[2])))
+	for i in seg:
+		for j in n - 1:
+			var a0 := b + i * n + j
+			var a1 := a0 + n
+			g.idx.append_array([a0, a0 + 1, a1, a1, a0 + 1, a1 + 1])
+
+## a thin tube down a few points (legs, antennae, the tongue), its radius at each point
+static func _strand(g: Geo, pts: Array, rad: Array, part: float) -> void:
+	var rs := 5
+	var path := []
+	var rr := []
+	var sub := 3
+	for i in pts.size() - 1:
+		for s2 in sub:
+			var f := float(s2) / sub
+			var p0: Vector3 = pts[maxi(i - 1, 0)]
+			var p3: Vector3 = pts[mini(i + 2, pts.size() - 1)]
+			path.append((pts[i] as Vector3).cubic_interpolate(pts[i + 1], p0, p3, f))
+			rr.append(lerpf(float(rad[i]), float(rad[i + 1]), f))
+	path.append(pts[pts.size() - 1])
+	rr.append(rad[rad.size() - 1])
+	var b := g.v.size()
+	var nm := Vector3.UP
+	var cnt := path.size()
+	for k in cnt:
+		var tg := ((path[mini(k + 1, cnt - 1)] as Vector3) - (path[maxi(k - 1, 0)] as Vector3)).normalized()
+		nm = (nm - tg * nm.dot(tg)).normalized()
+		if nm.length_squared() < 0.5: nm = tg.cross(Vector3.FORWARD).normalized()
+		var bi := tg.cross(nm)
+		for j in rs + 1:
+			var w := float(j) / rs * TAU
+			var d := nm * cos(w) + bi * sin(w)
+			g.v.append((path[k] as Vector3) + d * float(rr[k]))
+			g.own_n.append(d)
+			g.rp.append(Vector3(float(k) / (cnt - 1), float(j) / rs, part))
+	for k in cnt - 1:
+		for j in rs:
+			var a0 := b + k * (rs + 1) + j
+			var a1 := a0 + rs + 1
+			g.idx.append_array([a0, a1, a0 + 1, a1, a1 + 1, a0 + 1])
+
+## a feathered antenna's comb: a strip either side of the shaft, tilted down; the shader cuts it into barbs
+static func _comb(g: Geo, pts: Array, w: float) -> void:
+	var b := g.v.size()
+	var n := pts.size()
+	for k in n:
+		var f := float(k) / (n - 1)
+		var p: Vector3 = pts[k]
+		var tg := ((pts[mini(k + 1, n - 1)] as Vector3) - (pts[maxi(k - 1, 0)] as Vector3)).normalized()
+		var out := tg.cross(Vector3.UP).normalized()
+		var ww := w * sin(clampf(f * 1.1, 0.0, 1.0) * PI) + w * 0.05
+		var dn := Vector3(0, -0.45, 0)
+		var nm := tg.cross(out).normalized()
+		for sd: float in [-1.0, 1.0]:
+			g.v.append(p + (out * sd + dn).normalized() * ww)
+			g.own_n.append(nm)
+			g.rp.append(Vector3(f, 0.5 + sd * 0.5, 6.0))
+		g.v.append(p)
+		g.own_n.append(nm)
+		g.rp.append(Vector3(f, 0.5, 6.0))
+	for k in n - 1:
+		var a0 := b + k * 3
+		var a1 := a0 + 3
+		g.idx.append_array([a0, a1, a0 + 2, a0 + 2, a1, a1 + 2])
+		g.idx.append_array([a0 + 2, a1 + 2, a0 + 1, a0 + 1, a1 + 2, a1 + 1])
 
 ## how each way of flying moves: wingbeats a second, the stroke (top and bottom root angle), cruising speed (in spans
 ## a second), how often it sails with the wings held out, how jerky its path, how long it flies and sits (s),
@@ -183,7 +352,7 @@ const STYLE := {
 	float = {hz = 3.2, up = 1.5, dn = -0.55, speed = 1.3, glide = 0.45, jerk = 0.2, fly = [5.0, 9.0], sit = [3.0, 7.0], sun = 0.7, rest = 1.5},
 	glide = {hz = 4.5, up = 1.5, dn = -0.5, speed = 1.6, glide = 0.35, jerk = 0.25, fly = [4.0, 8.0], sit = [2.5, 6.0], sun = 0.5, rest = 1.5},
 	flit = {hz = 9.0, up = 1.45, dn = -0.4, speed = 1.8, glide = 0.0, jerk = 1.0, fly = [2.0, 4.5], sit = [1.5, 3.5], sun = 0.6, rest = 1.5},
-	hover = {hz = 26.0, up = 0.9, dn = -0.35, speed = 2.6, glide = 0.0, jerk = 0.5, fly = [6.0, 11.0], sit = [4.0, 8.0], sun = 0.0, rest = -0.08},
+	hover = {hz = 14.0, up = 0.85, dn = -0.35, speed = 2.6, glide = 0.0, jerk = 0.5, fly = [6.0, 11.0], sit = [4.0, 8.0], sun = 0.0, rest = -0.08},
 	drift = {hz = 2.0, up = 1.35, dn = -0.5, speed = 0.9, glide = 0.15, jerk = 0.1, fly = [6.0, 10.0], sit = [4.0, 8.0], sun = 0.0, rest = 0.2},
 	weave = {hz = 6.0, up = 1.45, dn = -0.45, speed = 1.2, glide = 0.05, jerk = 0.7, fly = [3.0, 6.0], sit = [2.0, 4.5], sun = 0.3, rest = 1.5},
 }
@@ -194,6 +363,9 @@ const STYLE := {
 class Fly extends Node3D:
 	enum { FLY, LAND, SIT, OFF }
 	var mat: ShaderMaterial
+	var body_mat: ShaderMaterial
+	var pitch := 0.0        # nose up (+) — tips with each stroke in the air
+	var bob := 0.0          # the body's rise and fall on each stroke, in spans
 	var st: Dictionary
 	var rng: Rng32
 	var size := 0.2
@@ -334,7 +506,15 @@ class Fly extends Node3D:
 		var a := mid + amp * c
 		# the tip trails the stroke: bent up going down, bent down going up
 		_wings(a, sin(phase) * 0.55 * k)
+		# the body answers each stroke: it jumps on the downstroke and drops on the up, the nose tips up and down,
+		# the abdomen swinging behind, a beat late (a butterfly's flight is all bounce)
+		pitch = (0.14 + sin(phase) * 0.12) * k
+		bob = sin(phase) * 0.05 * k
+		_swing(-sin(phase - 0.9) * 0.45 * k)
 		return maxf(0.0, sin(phase)) * k
+
+	func _swing(v: float) -> void:
+		if body_mat: body_mat.set_shader_parameter("swing", v)
 
 	func _wings(a: float, f: float) -> void:
 		mat.set_shader_parameter("ang", a)
@@ -352,6 +532,9 @@ class Fly extends Node3D:
 		if gliding > 0.5:
 			_wings(0.12 + 0.05 * sin(phase), 0.0)
 			phase += dt * 2.0
+			pitch = lerpf(pitch, 0.04, minf(1.0, dt * 3.0))
+			bob = lerpf(bob, 0.0, minf(1.0, dt * 3.0))
+			_swing(sin(phase) * 0.06)
 		else:
 			g = _flap(dt, hz)
 		# steer for the target; a jerky one changes its mind often
@@ -458,6 +641,10 @@ class Fly extends Node3D:
 		var clap := sin(timer * 2.2) * 0.12 * sun + sin(timer * 17.0) * 0.015
 		_wings(open + clap, 0.0)
 		bank = 0.0
+		pitch = 0.0
+		bob = 0.0
+		# (breathing: the abdomen rises and falls a little)
+		_swing(sin(timer * 1.7) * 0.08)
 		if timer <= 0.0:
 			state = OFF
 			timer = 0.6
@@ -505,6 +692,6 @@ class Fly extends Node3D:
 		up = side.cross(fwd).normalized()
 		var bas := Basis(side, up, -fwd).orthonormalized()
 		# the card's head is +x: turn it to face along fwd; bank into the turn
-		bas = bas * Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, bank)
+		bas = bas * Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, bank) * Basis(Vector3.BACK, pitch)
 		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
-		transform = into * Transform3D(bas, pos)
+		transform = into * Transform3D(bas, pos + up * bob * size)
