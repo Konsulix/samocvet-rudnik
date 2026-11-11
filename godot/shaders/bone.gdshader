@@ -40,6 +40,8 @@ uniform vec3 druse_col : source_color = vec3(0.45, 0.85, 0.3);   // skin 10: the
 uniform float lava = 0.0;         // a beast's legend: the bone dark basalt, lava breathing in its cracks
 uniform float ember = 0.0;        // a beast's legend: phoenix feathers smouldering
 uniform float ember_flare = 0.0;  // ... and flaring up once a round
+uniform float burn_front = 2.0;   // phoenix: feathers placed past this (0 the back of the head .. 1 the nose) have burnt
+uniform float regrow_front = -1.0; // ... and those placed before this have grown again
 uniform int feather_pal = 0;  // skin 9: 0 magpie, 1 starling, 2 pheasant, 3 peacock, 4 owl
 // skin 9: how far the feathers reach — a feather grows where fe_field() of its place is over fe_t (SpecSkull._feather_cover
 // picks fe_t so that a share feather_k of the head is covered); the head's box: fe_c, fe_s
@@ -93,6 +95,11 @@ float suture(float s, vec3 q) {
 
 // where on the head feathers grow first: the crown and the back of the head, forward and down from there, a ragged
 // edge (the same formula in SpecSkull.fe_field)
+// where a feather sits from the back of the head (0) to the nose (1): the phoenix burns and regrows by it
+float fe_pz(vec3 p) {
+	return clamp((p.z - fe_c.z) / fe_s.z + 0.5, 0.0, 1.0);
+}
+
 float fe_field(vec3 p) {
 	vec3 u = (p - fe_c) / fe_s;
 	return u.y - u.z * 0.6 - abs(u.x) * 0.25 + 0.1 * sin(u.x * 9.0 + fe_ph) + 0.09 * sin(u.z * 11.0 + fe_ph * 1.7)
@@ -351,6 +358,8 @@ void fragment() {
 		float top = -1e9;
 		vec2 loc = vec2(0.0, 0.0);
 		float fid = 0.0;
+		float fe_fire = 0.0;
+		float fe_fresh = 0.0;
 		for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
 			vec3 g = base + vec3(float(x), float(y), float(z));
 			vec3 cen = g + vec3(h3(g), h3(g + 17.0), h3(g + 31.0)) * 0.8 + 0.1;
@@ -362,7 +371,13 @@ void fragment() {
 			// (the one whose root is furthest forward lies on top)
 			float front = dot(cen, -F) + h3(g + 3.0) * 0.4;
 			// (only feathers rooted where the cloak reaches: its edge runs feather by feather)
-			if (r < 1.0 && front > top && fe_field(cen / sc) > fe_t) { top = front; loc = vec2(lx, ly); fid = h3(g + 41.0); }
+			// (the phoenix: a feather catching fire shrinks as it burns; one growing again swells to its size)
+			float pz = fe_pz(cen / sc);
+			float gone = step(burn_front, pz) * (1.0 - step(pz, regrow_front));
+			float catching = burn_front < 1.5 && regrow_front < -0.5 ? clamp((pz - (burn_front - 0.16)) / 0.16, 0.0, 1.0) : 0.0;
+			float grow = regrow_front > -0.5 && pz < regrow_front ? clamp((regrow_front - pz) / 0.22, 0.0, 1.0) : 1.0;
+			float rmax = gone > 0.5 ? 0.0 : (1.0 - catching * 0.55) * (0.2 + 0.8 * grow);
+			if (r < rmax && front > top && fe_field(cen / sc) > fe_t) { top = front; loc = vec2(lx, ly); fid = h3(g + 41.0); fe_fire = catching; fe_fresh = 1.0 - grow; }
 		}
 		// where a feather in front ends over this one: a soft shadow under its edge
 		float shade = 1.0;
@@ -371,6 +386,8 @@ void fragment() {
 			vec3 cen = g + vec3(h3(g), h3(g + 17.0), h3(g + 31.0)) * 0.8 + 0.1;
 			float front = dot(cen, -F) + h3(g + 3.0) * 0.4;
 			if (front <= top + 0.001 || fe_field(cen / sc) <= fe_t) continue;
+			float pz2 = fe_pz(cen / sc);
+			if (step(burn_front, pz2) * (1.0 - step(pz2, regrow_front)) > 0.5) continue;
 			vec3 d = fq - cen;
 			float k = 0.8 + 0.4 * h3(g + 5.0);
 			float ly = dot(d, F) / (L * k) + 0.5;
@@ -453,6 +470,17 @@ void fragment() {
 				vec3 hot = mix(vec3(1.0, 0.3, 0.05), vec3(1.0, 0.75, 0.25), wave);
 				emis += hot * cover * ember * (edge * (0.4 + 1.6 * pow(wave, 3.0)) + 0.08 + ember_flare * 1.2 * (0.3 + edge));
 				c = mix(c, c * 0.5, ember * cover * 0.4);
+				// catching fire: the whole feather blazes, white-hot at its edge, and shrivels
+				emis += mix(vec3(1.0, 0.45, 0.08), vec3(1.0, 0.9, 0.6), fe_fire) * cover * fe_fire * (1.4 + 2.0 * smoothstep(0.5, 1.0, r));
+				// a feather just grown: pale gold, glowing softly as it unfurls
+				emis += vec3(1.0, 0.6, 0.22) * cover * fe_fresh * 0.3;
+				// where the feathers have burnt away: charred bone, embers creeping in its pits
+				if (cover < 0.5 && burn_front < 1.5) {
+					float burnt = 1.0 - step(fe_pz(mp), burn_front);
+					float coal = smoothstep(0.55, 0.85, fbm(q * 9.0 + vec3(0.0, TIME * 0.3, 0.0)));
+					c = mix(c, vec3(0.03, 0.025, 0.02), burnt * 0.9);
+					emis += vec3(1.0, 0.35, 0.05) * burnt * coal * (0.6 + cav * 1.4);
+				}
 			}
 		}
 	}

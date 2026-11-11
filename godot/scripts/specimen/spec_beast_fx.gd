@@ -15,6 +15,7 @@ const MOON := preload("res://shaders/beast_moon.gdshader")
 const STEAM := preload("res://shaders/beast_steam.gdshader")
 const PETALS := preload("res://shaders/beast_petals.gdshader")
 const GHOST := preload("res://shaders/beast_ghost.gdshader")
+const STAR_HORN := preload("res://shaders/horn_star.gdshader")
 const GHOST_DIR := "res://assets/specimen/ghosts/"
 const U := preload("res://scripts/specimen/spec_util.gd")
 
@@ -401,18 +402,25 @@ class Blossom extends Node3D:
 	func _process(dt: float) -> void:
 		t += dt
 		var ph := fmod(t, 15.0)
+		var open := 0.0
 		for f: Array in flowers:
 			var d := float(f[1])
 			# open (0–3 s), full (3–9), shedding and closing (9–13), bare (13–15)
 			var k := smoothstep(d, d + 2.5, ph) * (1.0 - smoothstep(9.5 + d, 12.5 + d * 0.5, ph))
 			(f[0] as Node3D).scale = Vector3.ONE * maxf(0.01, k)
-		if petals: petals.set_shader_parameter("shed", 0.25 + 0.75 * smoothstep(7.0, 9.5, ph) * (1.0 - smoothstep(12.0, 13.5, ph)))
+			open += k
+		open /= maxf(1.0, flowers.size())
+		# (petals only off open flowers: a few on the air while they bloom, a shower as they drop, none once bare)
+		var shower := smoothstep(7.0, 9.5, ph) * (1.0 - smoothstep(11.5, 13.0, ph))
+		if petals: petals.set_shader_parameter("shed", clampf(minf(1.0, open * 1.6) * (0.2 + 0.8 * shower), 0.0, 1.0))
 
 ## starlit horns: the horns turned to dark glass with a night sky deep in them (horn.gdshader mode 5)
 static func _starhorn(sk: Dictionary) -> void:
 	if not sk.has("horn_mi"): return
-	var m := (sk.horn_mi as MeshInstance3D).material_override as ShaderMaterial
-	if m: m.set_shader_parameter("mode", 5)
+	var m := ShaderMaterial.new()
+	m.shader = STAR_HORN
+	m.set_shader_parameter("seed", float(int(sk.skin_seed) % 97) * 0.7)
+	(sk.horn_mi as MeshInstance3D).material_override = m
 	if sk.has("horn_geo"):
 		var tips := _horn_tips(sk)
 		if tips.size(): (sk.marks as Array).append(["fx", tips[0], Vector3.UP])
@@ -485,12 +493,23 @@ static func _phoenix(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, bone_m: Ma
 class Flare extends Node:
 	var light: OmniLight3D
 	var mat: ShaderMaterial
-	func _process(_dt: float) -> void:
-		var t := Time.get_ticks_msec() / 1000.0
-		var ph := fmod(t / 9.0, 1.0)
-		var flare := exp(-pow((ph - 0.5) * 9.0, 2.0))
-		if mat: mat.set_shader_parameter("ember_flare", flare)
-		light.light_energy = 0.5 + 0.25 * sin(t * 7.0) * sin(t * 3.1) + flare * 2.5
+	var t := 0.0
+	func _process(dt: float) -> void:
+		t += dt
+		# smoulder (0–4 s), the fire runs from the nose back over the head (4–6.5), charred and glowing (6.5–8), the
+		# feathers grow again from the back of the head to the nose (8–11), whole (11–12)
+		var ph := fmod(t, 12.0)
+		var burn := 2.0
+		var regrow := -1.0
+		if ph >= 4.0 and ph < 11.0:
+			burn = lerpf(1.15, -0.2, smoothstep(4.0, 6.5, ph))
+			if ph >= 8.0: regrow = lerpf(-0.2, 1.2, smoothstep(8.0, 11.0, ph))
+		var blaze := smoothstep(3.6, 4.4, ph) * (1.0 - smoothstep(6.2, 7.2, ph))
+		if mat:
+			mat.set_shader_parameter("burn_front", burn)
+			mat.set_shader_parameter("regrow_front", regrow)
+			mat.set_shader_parameter("ember_flare", blaze * 0.6)
+		light.light_energy = 0.5 + 0.25 * sin(t * 7.0) * sin(t * 3.1) + blaze * 3.0
 
 ## the raven's eye: a living eye in its socket — black, wet, a dark gold ring — following you as the skull turns,
 ## blinking; and two small ravens wheel round the head
@@ -551,67 +570,135 @@ static func _raveneye(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 	root.add_child(ey)
 	# two ravens
 	var fl := Ravens.new()
-	fl.c = bb.get_center() + Vector3(0, s * 0.25, 0)
-	fl.rad = s * 0.85
+	fl.c = bb.get_center() + Vector3(0, s * 0.42, 0)
+	fl.rad = s * 0.68
 	root.add_child(fl)
 	for k in 2:
-		var bird := _raven(s * 0.32)
+		var bird := _raven(s * 0.42)
 		fl.add_child(bird)
-		fl.birds.append({node = bird, ph = float(k) * PI + r.next(), sp = 0.55 + r.next() * 0.2, h = (r.next() - 0.5) * s * 0.3})
+		fl.birds.append({node = bird, ph = float(k) * PI + r.next(), sp = 0.5 + r.next() * 0.15, h = float(k) * s * 0.12})
 	if ey.eyes.size(): (sk.marks as Array).append(["fx", ey.eyes[0][1], ey.eyes[0][2]])
 
-## a small raven, seen as a dark shape against the light: a tapering body, a wedge of a head with a heavy beak, long
-## fingered wings (their own nodes, to flap), a wedge tail — matte black, a little blue sheen
+## a raven: a smooth spindle of a body, a domed head with a heavy, slightly hooked beak and a bright eye; each wing an
+## arm with its row of secondaries and a hand (its own node, to bend) fanned into six long fingered primaries; a wedge tail
+## of seven feathers. Blue-black, glossy, a violet sheen on the turn
 static func _raven(s: float) -> Node3D:
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.012, 0.012, 0.016)
-	m.roughness = 0.75
-	m.metallic_specular = 0.3
+	m.albedo_color = Color(0.016, 0.018, 0.03)
+	m.metallic = 0.2
+	m.roughness = 0.55
+	m.rim_enabled = true
+	m.rim = 0.35
+	m.rim_tint = 0.2
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var n := Node3D.new()
-	var mesh := func(pts: PackedVector3Array, tris: PackedInt32Array) -> ArrayMesh:
-		var g := Geo.new()
-		g.v = pts
-		g.idx = tris
-		return g.to_mesh()
-	# the body: a spindle, thick at the breast, drawn out to the tail and to the neck
+	# the body
 	var body := Geo.new()
-	var ring := 8
-	var prof := [[-0.3, 0.0], [-0.22, 0.05], [-0.08, 0.1], [0.06, 0.11], [0.16, 0.09], [0.24, 0.07], [0.32, 0.06], [0.4, 0.035], [0.48, 0.0]]
+	var ring := 12
+	var prof := [[-0.27, 0.025], [-0.2, 0.06], [-0.1, 0.095], [0.02, 0.115], [0.12, 0.108], [0.2, 0.085], [0.25, 0.07], [0.3, 0.075],
+		[0.36, 0.078], [0.41, 0.068], [0.45, 0.045]]
 	for k in prof.size():
 		var z := float(prof[k][0]) * s
 		var rr := float(prof[k][1]) * s
+		var lift := smoothstep(0.18, 0.34, float(prof[k][0])) * 0.035 * s
 		for j in ring:
 			var a := float(j) / ring * TAU
-			body.v.append(Vector3(cos(a) * rr * 1.1, sin(a) * rr * 0.9 + (0.02 * s if z > 0.25 * s else 0.0), z))
+			body.v.append(Vector3(cos(a) * rr * 1.05, sin(a) * rr * 0.88 + lift, z))
 	for k in prof.size() - 1:
 		for j in ring:
 			var a0 := k * ring + j
 			var a1 := k * ring + (j + 1) % ring
 			body.idx.append_array([a0, a0 + ring, a1, a1, a0 + ring, a1 + ring])
+	# the beak: a heavy cone, its tip hooked down
+	var bk0 := body.v.size()
+	for k in 5:
+		var f := float(k) / 4.0
+		var z := (0.44 + f * 0.17) * s
+		var rr := (0.042 * (1.0 - f) + 0.002) * s
+		var y := 0.035 * s - f * f * 0.03 * s
+		for j in ring:
+			var a := float(j) / ring * TAU
+			body.v.append(Vector3(cos(a) * rr * 0.85, sin(a) * rr + y, z))
+	for k in 4:
+		for j in ring:
+			var a0 := bk0 + k * ring + j
+			var a1 := bk0 + k * ring + (j + 1) % ring
+			body.idx.append_array([a0, a0 + ring, a1, a1, a0 + ring, a1 + ring])
 	var bm := MeshInstance3D.new()
 	bm.mesh = body.to_mesh()
 	bm.material_override = m
 	n.add_child(bm)
+	# the eyes
+	var em := StandardMaterial3D.new()
+	em.albedo_color = Color(0.0, 0.0, 0.0)
+	em.roughness = 0.05
+	em.metallic_specular = 1.0
+	for sd in [-1.0, 1.0]:
+		var e := MeshInstance3D.new()
+		var es := SphereMesh.new()
+		es.radius = 0.016 * s
+		es.height = 0.032 * s
+		es.radial_segments = 8
+		es.rings = 4
+		e.mesh = es
+		e.material_override = em
+		e.position = Vector3(sd * 0.055 * s, 0.06 * s, 0.4 * s)
+		n.add_child(e)
 	for sd in [-1.0, 1.0]:
 		var w := Node3D.new()
 		w.name = "wing_l" if sd < 0.0 else "wing_r"
-		w.position = Vector3(sd * s * 0.06, s * 0.03, s * 0.08)
+		w.position = Vector3(sd * s * 0.07, s * 0.05, s * 0.07)
 		n.add_child(w)
-		var wm := MeshInstance3D.new()
-		# a broad arm, then the hand with its fingered primaries
-		var pts := PackedVector3Array([Vector3(0, 0, s * 0.1), Vector3(0, 0, -s * 0.12), Vector3(sd * s * 0.35, s * 0.03, -s * 0.12),
-			Vector3(sd * s * 0.35, s * 0.03, s * 0.08), Vector3(sd * s * 0.7, -s * 0.02, -s * 0.1), Vector3(sd * s * 0.78, -s * 0.03, -s * 0.04),
-			Vector3(sd * s * 0.62, -s * 0.01, s * 0.04), Vector3(sd * s * 0.74, -s * 0.03, -s * 0.15)])
-		wm.mesh = mesh.call(pts, PackedInt32Array([0, 1, 2, 0, 2, 3, 3, 2, 4, 3, 4, 6, 6, 4, 5, 2, 7, 4]))
-		wm.material_override = m
-		w.add_child(wm)
+		var arm := Geo.new()
+		# the arm's panel, its trailing edge in five secondaries
+		_blade(arm, Vector3(0, 0, 0.06 * s), Vector3(sd, 0, -0.1).normalized(), 0.34 * s, 0.07 * s, 0.05 * s)
+		for k in 5:
+			var x: float = sd * (0.03 + float(k) * 0.065) * s
+			_blade(arm, Vector3(x, -0.004 * s, 0.02 * s), Vector3(sd * 0.12, 0, -1).normalized(), (0.17 - float(k) * 0.008) * s, 0.06 * s, 0.03 * s)
+		var am := MeshInstance3D.new()
+		am.mesh = arm.to_mesh()
+		am.material_override = m
+		w.add_child(am)
+		var hand := Node3D.new()
+		hand.name = "hand"
+		hand.position = Vector3(sd * 0.33 * s, 0, 0.03 * s)
+		w.add_child(hand)
+		var hg := Geo.new()
+		# the hand's covert, then six primaries fanned from the wrist, the outer ones longest, splayed as fingers
+		_blade(hg, Vector3(0, 0, 0.03 * s), Vector3(sd, 0, -0.35).normalized(), 0.16 * s, 0.07 * s, 0.03 * s)
+		for k in 6:
+			var f := float(k) / 5.0
+			var dir := Vector3(sd * (0.45 + f * 0.55), 0, -(1.0 - f) * 0.9 - 0.1).normalized()
+			_blade(hg, Vector3(sd * f * 0.05 * s, -0.003 * s * f, 0.02 * s - f * 0.02 * s), dir, (0.3 + f * 0.14) * s, 0.045 * s, 0.012 * s)
+		var hm := MeshInstance3D.new()
+		hm.mesh = hg.to_mesh()
+		hm.material_override = m
+		hand.add_child(hm)
+	var tg := Geo.new()
+	for k in 7:
+		var f := (float(k) - 3.0) / 3.0
+		_blade(tg, Vector3(f * 0.02 * s, 0, -0.22 * s), Vector3(f * 0.32, 0, -1).normalized(), (0.27 - absf(f) * 0.07) * s, 0.055 * s, 0.025 * s)
 	var tail := MeshInstance3D.new()
-	tail.mesh = mesh.call(PackedVector3Array([Vector3(-s * 0.04, 0, -s * 0.25), Vector3(s * 0.04, 0, -s * 0.25), Vector3(s * 0.11, -s * 0.01, -s * 0.5),
-		Vector3(0, -s * 0.01, -s * 0.46), Vector3(-s * 0.11, -s * 0.01, -s * 0.5)]), PackedInt32Array([0, 1, 3, 1, 2, 3, 0, 3, 4]))
+	tail.mesh = tg.to_mesh()
 	tail.material_override = m
 	n.add_child(tail)
 	return n
+
+## a feather blade (flat, lying in the xz plane) from `at` along `dir`: w0 wide at its root, swelling to w at a third
+## of its length, rounded to a narrow tip, a slight downward curve
+static func _blade(g: Geo, at: Vector3, dir: Vector3, ln: float, w: float, w0: float) -> void:
+	var side := dir.cross(Vector3.UP).normalized()
+	var i0 := g.v.size()
+	var n := 6
+	for k in n + 1:
+		var f := float(k) / n
+		var wd := lerpf(w0, w, smoothstep(0.0, 0.35, f)) * (1.0 - smoothstep(0.6, 1.0, f) * 0.85)
+		var c := at + dir * ln * f + Vector3(0, -f * f * ln * 0.08, 0)
+		g.v.append(c - side * wd * 0.5)
+		g.v.append(c + side * wd * 0.5)
+	for k in n:
+		var a := i0 + k * 2
+		g.idx.append_array([a, a + 1, a + 2, a + 1, a + 3, a + 2])
 
 class BirdEye extends Node:
 	var eyes := []   # [node, centre, the socket's axis]
@@ -644,22 +731,34 @@ class Ravens extends Node3D:
 	var rad := 0.6
 	var birds := []
 	var t := 0.0
+	## where a bird is at time tt: a slow wandering loop round the head, rising and dipping
+	func _at(b: Dictionary, tt: float) -> Vector3:
+		var a := float(b.ph) + tt * float(b.sp)
+		var rr := rad * (1.0 + 0.18 * sin(tt * 0.37 + float(b.ph) * 2.0))
+		return c + Vector3(cos(a) * rr, float(b.h) + sin(tt * 0.6 + float(b.ph)) * rad * 0.18, sin(a) * rr * 0.8)
 	func _process(dt: float) -> void:
 		t += dt
 		for b: Dictionary in birds:
-			var a := float(b.ph) + t * float(b.sp)
-			var rr := rad * (1.0 + 0.15 * sin(t * 0.4 + float(b.ph)))
-			var p := c + Vector3(cos(a) * rr, float(b.h) + sin(t * 0.9 + float(b.ph)) * rad * 0.12, sin(a) * rr * 0.75)
-			var a2 := a + 0.05
-			var q := c + Vector3(cos(a2) * rr, float(b.h) + sin((t + 0.05) * 0.9 + float(b.ph)) * rad * 0.12, sin(a2) * rr * 0.75)
+			var p := _at(b, t)
+			var q := _at(b, t + 0.08)
+			var q2 := _at(b, t + 0.16)
 			var n: Node3D = b.node
 			n.position = p
 			var fwd := (q - p).normalized()
-			n.basis = Basis.looking_at(-fwd, Vector3.UP) * Basis(Vector3.BACK, -0.35)
-			# flap, then glide
-			var flap := sin(t * 11.0 + float(b.ph)) * (0.5 + 0.5 * smoothstep(-0.2, 0.4, sin(t * 0.7 + float(b.ph))))
-			(n.get_node("wing_l") as Node3D).rotation = Vector3(0, 0, -flap * 0.7)
-			(n.get_node("wing_r") as Node3D).rotation = Vector3(0, 0, flap * 0.7)
+			# banking into the turn
+			var turn := fwd.cross((q2 - q).normalized()).y
+			var climb := (q - p).y / maxf(0.0001, (q - p).length())
+			n.basis = Basis.looking_at(-fwd, Vector3.UP) * Basis(Vector3.BACK, clampf(-turn * 9.0, -0.8, 0.8)) * Basis(Vector3.RIGHT, -climb * 0.3)
+			# flapping in bursts, gliding between: the hand trails the arm, bending on the downstroke
+			var burst := smoothstep(-0.3, 0.3, sin(t * 0.55 + float(b.ph) * 3.0))
+			var ph := t * 9.5 + float(b.ph)
+			var arm := sin(ph) * 0.62 * burst + 0.12
+			var hand := sin(ph - 0.9) * 0.5 * burst - 0.05
+			for nm in ["wing_l", "wing_r"]:
+				var sd := -1.0 if nm == "wing_l" else 1.0
+				var w := n.get_node(nm) as Node3D
+				w.rotation = Vector3(0, 0, sd * arm)
+				(w.get_node("hand") as Node3D).rotation = Vector3(0, 0, sd * hand)
 
 # ---------------------------------------------------------------- the old reptiles
 

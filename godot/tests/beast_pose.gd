@@ -31,7 +31,7 @@ func _ready() -> void:
 		add_child(root)
 		var holder := Node3D.new()
 		root.add_child(holder)
-		holder.basis = SpecSkull.pose_basis(sk)
+		holder.basis = Basis.IDENTITY if args.has("raw") else SpecSkull.pose_basis(sk)
 		var bb := AABB()
 		var first := true
 		for k in ["cranium", "mandible", "horns"]:
