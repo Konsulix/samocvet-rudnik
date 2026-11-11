@@ -924,7 +924,7 @@ class Fly extends Node3D:
 					if want_glide:
 						wing = 2
 						# (the beat that ends in the sail is a soft one: it floats into it, not shoots up)
-						stroke *= 0.5
+						stroke *= 0.8
 						want_glide = false
 					else:
 						ct = 0.42 + (ct - 0.11)
@@ -993,11 +993,11 @@ class Fly extends Node3D:
 			var acc := (want_v - hv) * 3.0
 			var ay := -GRAV * size - vel.y * 1.5
 			if lift > 0.0: ay += 2.2 * GRAV * size * stroke
-			var sailing := wing == 3 or (wing == 2 and ct > 0.2)
+			var sailing := wing == 3 or wing == 4 or (wing == 2 and ct > 0.17)
 			if sailing:
 				# wings held out: they carry it while it has speed, it keeps its way and loses height slowly
-				# (spread wings also brake its fall, like a parachute)
-				ay += GRAV * size * (minf(0.98, 0.92 + hv.length() / (size * 40.0)) if pos.y < way.y + size * 0.8 else 0.8) - vel.y * 4.0
+				# spread wings carry it: whatever it was doing, it eases into a slow sink (most of a half-span a second)
+				ay = (-0.8 * size - vel.y) * 12.0
 				acc = (fwd * hv.length() - hv) * 2.0 - hv * 0.25
 				glide_left -= h
 				if wing == 3 and (glide_left <= 0.0 or pos.y < way.y - size * 0.7 or d < size * 1.5): wing = 4
