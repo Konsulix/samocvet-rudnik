@@ -10,6 +10,8 @@ extends Control
 signal go(screen: String)
 
 const DIR := "res://assets/awards/"
+## (the script, not the autoload: Save notes finds while loading, before the Spec autoload exists)
+const SPEC := preload("res://scripts/autoload/spec.gd")
 const FELL := "res://assets/fonts/IMFellEnglish.ttf"
 const INK := Color("#2b2218")
 const INK_SOFT := Color("#6a5238")
@@ -167,7 +169,7 @@ var tabs_at := 0.0
 ## "ob:snowflake", "fire:blue", "insect:ant", "bloom:rose", "plant:ginkgo", "pearl:golden", "pal:fluorite:3",
 ## "tr:moss", "acc:lichen"... Read from the genome alone (no meshes): cheap enough for every find
 static func genes_of(s: Dictionary) -> Array:
-	var o := Spec.of_stone(s)
+	var o := SPEC.of_stone(s)
 	var g := SpecGenome.of(o)
 	var out: Array = []
 	var seed_v := maxi(1, int(o.get("seed", 1)))
@@ -209,7 +211,7 @@ static func find_marks(s: Dictionary, gs: Array) -> Array:
 	var out: Array = []
 	if gs.filter(func(t: String) -> bool: return not t.begins_with("pal:")).size() >= 8: out.append("five_genes")
 	var sid := String(s.get("sid", ""))
-	if OWN_ROCK.has(sid) and String(SpecGenome.of(Spec.of_stone(s)).rock) == String(OWN_ROCK[sid]): out.append("same_rock")
+	if OWN_ROCK.has(sid) and String(SpecGenome.of(SPEC.of_stone(s)).rock) == String(OWN_ROCK[sid]): out.append("same_rock")
 	if gs.has("fx:yaga") and gs.any(func(t: String) -> bool: return t.begins_with("fly:")): out.append("moth_flame")
 	var moss := gs.has("tr:moss") or gs.has("acc:moss") or gs.has("acc:lichen")
 	if moss and gs.any(func(t: String) -> bool: return t.begins_with("shroom:")) and gs.has("acc:flowers"): out.append("overgrown")

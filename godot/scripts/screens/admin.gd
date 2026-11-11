@@ -132,6 +132,7 @@ static func open() -> void:
 	mk.add_child(_btn("+5 like this", false, func(): _finds(5)))
 	mk.add_child(_btn("+8 ammonites, every kind", false, func(): _ammonites()))
 	mk.add_child(_btn("+6 test skulls (same every time)", false, func(): _skull_set()))
+	mk.add_child(_btn("+16 beast skulls, one each", false, func(): _beast_set()))
 	# before / after on one install: the old bone shader and no batching of soil and moss (reopen the card to rebuild)
 	mk.add_child(_btn("Skull speedups: %s" % ("on" if SpecUtil.fast else "OFF (old)"), not SpecUtil.fast, func():
 		SpecUtil.fast = not SpecUtil.fast
@@ -254,6 +255,36 @@ static func _skull_set() -> void:
 	if not "amethyst" in Save.d.seen: Save.d.seen.append("amethyst")
 	Save.persist()
 	Ov.toast("Added 6 test skulls: bone ×3, gold, mosaic, glass")
+	_reopen()
+
+## an animal's skull of every kind (SpecSkull.BEASTS), one each; the skins and crystals vary, so every new look shows
+## (bone, lapis, feathers, sugar druse, rhodochrosite, gilt...), the open-mouthed ones with a druse in the maw
+static func _beast_set() -> void:
+	var skins := ["bone", "lapis", "bone", "feathers", "sugar", "bone", "rhodo", "gilt", "bone", "kintsugi", "nacre", "bone", "gold", "agate", "bone", "opal"]
+	var sps := ["amethyst", "venom", "celestine", "morion", "quartz", "fluorite", "cinnabar", "smoky"]
+	for k in SpecSkull.BEASTS.size():
+		var sd := 96000 + k * 17
+		var st := Stones.roll(sd, 0, 1.5, 3)
+		st.id = sd
+		st.sid = sps[k % sps.size()]
+		st.kind = "druse"
+		st.gi = 2 + k % 3
+		st.traits = []
+		st.legend = false
+		st.erase("fx")
+		st.form = "skull"
+		st.beast = SpecSkull.BEASTS[k]
+		st.skin = skins[k % skins.size()]
+		if st.beast in ["wolf", "alligator", "trex"]: st.maw = true
+		st.tier = maxi(Stones.tier_of(st.sid, int(st.gi), false), int(Stones.SKULL_TIER.get(st.skin, 1)))
+		st.value = roundi(float(Data.SP[st.sid].v) * Stones.VALUE_K * float(Stones.SKULL_V.get(st.skin, 1.6)) * 1.5)
+		st.area = 0
+		st.dl = 0
+		st.test = true
+		_add(st)
+		if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+	Save.persist()
+	Ov.toast("Added 16 beast skulls, one of each")
 	_reopen()
 
 ## eight ammonites, one of each look: sawn, a matched pair, crystal-lined chambers, a brood, crushed in shale, a
