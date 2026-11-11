@@ -121,6 +121,7 @@ void fragment() {
 	float h;
 	float glowline = 0.0;
 	float feather_rim = 0.0;
+	vec3 rhodo_glow = vec3(0.0);
 	vec3 emis = vec3(0.0);
 	if (skin == 3) {
 		// kintsugi: a mosaic of polished stone pieces — carnelian, opal, amethyst, moonstone — set in raised gold seams
@@ -273,22 +274,30 @@ void fragment() {
 				// agate: the bone turned to banded chalcedony — bands following the head's shape, warped, cream, honey,
 				// rust and smoke, polished, a little translucent at the thin edges
 				float t = length(mp * vec3(1.0, 1.15, 0.95)) * 34.0 + fbm(q * 1.8) * 7.0 + fbm(q * 6.0) * 1.2;
+				// (rhodochrosite: finer bands, scalloped like lace — the stalactite's rings cut across)
+				if (agate_pal == 1) t = length(mp * vec3(1.0, 1.15, 0.95)) * 58.0 + fbm(q * 1.5) * 13.0 + abs(sin(fbm(q * 3.5) * 9.0)) * 1.6 + fbm(q * 9.0) * 0.8;
 				float bnd = fract(t);
 				float sel = fract(floor(t) * 0.618 + skin_k);
 				// four colours of band: cream, carnelian, rust-brown, smoke
 				vec3 ag = sel < 0.3 ? vec3(0.86, 0.78, 0.62) : sel < 0.55 ? vec3(0.78, 0.3, 0.08) : sel < 0.8 ? vec3(0.38, 0.19, 0.08) : vec3(0.42, 0.45, 0.5);
-				if (agate_pal == 1) ag = sel < 0.35 ? vec3(0.78, 0.16, 0.38) : sel < 0.55 ? vec3(0.95, 0.45, 0.6) : sel < 0.72 ? vec3(0.36, 0.33, 0.42) : sel < 0.84 ? vec3(0.92, 0.88, 0.9) : vec3(0.55, 0.06, 0.24);
+				if (agate_pal == 1) ag = sel < 0.34 ? vec3(0.34, 0.012, 0.05) : sel < 0.62 ? vec3(0.55, 0.06, 0.13) : sel < 0.8 ? vec3(0.72, 0.22, 0.28) : sel < 0.87 ? vec3(0.85, 0.66, 0.66) : vec3(0.17, 0.003, 0.02);
 				// (stone, not plastic: muted, fine growth lines inside each band, a waxy translucent milkiness that
 				// varies, crystal grain, a few pale quartz-filled hollows)
-				ag = mix(ag, agate_pal == 1 ? vec3(0.8, 0.6, 0.66) : vec3(0.62, 0.55, 0.47), agate_pal == 1 ? 0.12 : 0.25);
+				ag = mix(ag, agate_pal == 1 ? vec3(0.8, 0.6, 0.66) : vec3(0.62, 0.55, 0.47), agate_pal == 1 ? 0.04 : 0.25);
 				ag *= 0.8 + 0.25 * smoothstep(0.1, 0.9, bnd) + (sin(t * 38.0) * 0.5 + 0.5) * 0.08;
-				ag = mix(ag, vec3(0.88, 0.84, 0.76), (1.0 - smoothstep(0.0, 0.05, bnd)) * 0.55);
+				ag = mix(ag, vec3(0.88, 0.84, 0.76), (1.0 - smoothstep(0.0, 0.05, bnd)) * (agate_pal == 1 ? 0.3 : 0.55));
 				ag = mix(ag, ag * 1.25 + vec3(0.05), smoothstep(0.45, 0.8, fbm(q * 4.0 + 3.0)) * 0.35);
 				ag *= 0.88 + 0.24 * vn(q * 120.0);
 				c = mix(ag * mix(1.0, 0.55, cav), pit_col * 0.5, max(crack, sut) * 0.5);
 				rough = mix(0.34, 0.7, cav) + vn(q * 40.0) * 0.12;
 				spec = 0.32;
 				h = bnd * 0.25 + vn(q * 90.0) * 0.25 - max(crack, sut) * 0.4;
+				if (agate_pal == 1) {
+					// cut and polished, the light going a little way into it
+					rough = mix(0.14, 0.6, cav) + vn(q * 40.0) * 0.05;
+					spec = 0.55;
+					rhodo_glow = ag * (0.03 + 0.14 * fr) * open;
+				}
 			} else if (skin == 6) {
 				// opal: the bone become precious opal — a dark body, play of colour in patches that flash and change as
 				// it turns (pinfire small, harlequin larger), the pits dull potch
@@ -527,7 +536,7 @@ void fragment() {
 	if (!FRONT_FACING) c = c * vec3(0.32, 0.28, 0.24);
 	ALBEDO = c;
 	// deathless: light runs over the cracks and sutures in slow waves, as if they were healing
-	EMISSION = emis;
+	EMISSION = emis + rhodo_glow;
 	if (deathless > 0.0) {
 		float wave = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 0.9 - mp.y * 7.0 + mp.x * 3.0), 3.0);
 		EMISSION += life_col * glowline * wave * deathless * 6.0;
