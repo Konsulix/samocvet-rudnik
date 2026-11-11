@@ -301,8 +301,14 @@ func _ready() -> void:
 	# slow: build as before 7.11 (admin "Skull speedups: off") — the old bone shader, no batching
 	if args.has("slow"): SpecUtil.fast = false
 	if args.has("crumb"): SpecSkull.CRUMB_DETAIL = int(args.crumb)
-	# adm_beasts: the admin's 16 beast skulls, as the inventory shows them
-	if args.has("adm_beasts"):
+	# beastfx=fox:foxfire,wolf:wolfmoon: an animal's skull with each legend (SpecBeastFx), bare enough to see it
+	if args.has("beastfx"):
+		list = []
+		for pair: String in String(args.beastfx).split(","):
+			var pq := pair.split(":")
+			list.append({seed = 700 + list.size() * 11, sid = String(args.get("sp", "amethyst")), kind = "druse", gi = 3, traits = [], form = "skull",
+				beast = pq[0], legend = true, fx = pq[1], moss = "none", trees = 0, flies = 0, show = "loose"})
+	elif args.has("adm_beasts"):
 		list = []
 		var bs: Array = Admin.beast_stones()
 		# adm_beasts=lion,raven: only those

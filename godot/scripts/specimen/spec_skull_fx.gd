@@ -42,6 +42,7 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 		"fireflies": _swarm(root, r)
 		"flutter": _flock(root, r)
 		"deathless": _shatter(root, sk, r, bones[0], bone_m)
+	if fx in SpecBeastFx.ALL: SpecBeastFx.dress(b, sk, bones, nrs, bone_m, surf)
 
 ## an eye socket of this skull, found on the skull itself (as SpecSkull._lip): rays straight at the face fall deep into
 ## the opening and stop short on the bone round it. {front: centre on the rim's plane, deep: centre at the socket's

@@ -268,6 +268,35 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 	# (a beast's skull on its side, face up or face down reads as upside down — a long snout above all — and great horns
 	# would go through the rock: upright or tipped only)
 	if g.lie in ["side", "up", "down"] and not o.has("lie"): g.lie = "tilt" if r.next() < 0.5 else "upright"
+	# a beast's own legends (SpecBeastFx) and what each wants of the rest
+	match String(g.fx):
+		"raveneye", "wolfmoon":
+			if not lm.has("eye_front"): g.fx = "fireflies"
+			elif g.fx == "raveneye":
+				# (the eye lives in the socket: nothing else there)
+				g.eyes = "none"
+				g.stream = false
+				g.crown = true
+		"phoenix":
+			g.skin = "feathers"
+			g.feather_k = maxf(float(g.feather_k), 0.75)
+			if not o.has("feather_pal"): g.feather_pal = [2, 2, 0, 3][int(sr.next() * 4.0)]
+		"lavaborn":
+			if not o.has("skin"): g.skin = "bone"
+			g.moss = "none"
+			g.trees = 0
+			g.stream = false
+			g.bloom = false
+			g.roots = false
+		"amberdrop":
+			g.show = "loose"
+			g.trees = 0
+			g.flies = 0
+			g.roots = false
+			g.stream = false
+		"blossom", "starhorn", "thunder":
+			if not horned: g.fx = "fireflies"
+			elif g.fx == "starhorn" and not o.has("horn"): g.horn = "natural"
 	if horned:
 		if g.fx == "deathless": g.fx = "flutter"
 		if g.fx == "flutter":
@@ -802,6 +831,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		hg.rp = (P.horns as Geo).rp.duplicate()
 		_shape(hg, sk.shape)
 		sk.horn_mi = U.mesh(hg, horn_mat(sk, seed_v), root)
+		sk.horn_geo = hg
 		# (the horns' badge points two thirds up the one on the viewer's side)
 		var hn := hg.normals()
 		var hb := -1

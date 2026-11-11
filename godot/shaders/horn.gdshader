@@ -5,6 +5,8 @@
 // mode 2 cast metal (gold, silver, copper): polished, hammered, dark in the hollows
 // mode 3 engraved brass: scrolls and leaves cut into old brass
 // mode 4 dressed: weathered horn gone green with verdigris, gold wire wrapped round the base, flecks of leaf higher up
+// mode 5 starlit (a beast's legend): dark glass with a night sky deep inside — stars at three depths, nebulae, now and
+// then a falling star running up the horn
 shader_type spatial;
 render_mode cull_disabled;
 #include "res://shaders/opal.gdshaderinc"
@@ -20,9 +22,11 @@ uniform float seed = 0.0;
 uniform float age = 0.5;
 
 varying vec3 mp;
+varying vec3 cam_m;
 
 void vertex() {
 	mp = VERTEX;
+	cam_m = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
 }
 
 void fragment() {
@@ -97,11 +101,42 @@ void fragment() {
 		rough = mix(rough, 0.18, sleeve);
 		h = streak * 0.5 + sleeve * turns * 0.6 + flake * 0.3;
 	}
+	vec3 emis = vec3(0.0);
+	if (mode == 5) {
+		// the sky inside: looked into along the ray from the eye, at three depths
+		vec3 rd = normalize(mp - cam_m);
+		vec3 sky = vec3(0.0);
+		for (int k = 0; k < 3; k++) {
+			float dep = 0.02 + float(k) * 0.035;
+			vec3 sp = (mp + rd * dep) * (26.0 - float(k) * 5.0) + float(k) * 13.0 + seed;
+			vec3 cell = floor(sp);
+			vec3 fp = fract(sp) - 0.5 - (vec3(h3(cell), h3(cell + 7.0), h3(cell + 13.0)) - 0.5) * 0.6;
+			float on = step(0.72, h3(cell + 3.0));
+			float tw = 0.6 + 0.4 * sin(TIME * (1.0 + h3(cell + 5.0) * 3.0) + h3(cell) * 30.0);
+			vec3 sc = mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.85, 0.6), h3(cell + 9.0));
+			sky += sc * on * tw * (smoothstep(0.12, 0.0, length(fp)) * 5.0 + smoothstep(0.3, 0.0, length(fp)) * 0.4) * (1.6 - float(k) * 0.4);
+		}
+		vec3 nq = (mp + rd * 0.05) * 8.0 + seed;
+		float neb = fbm(nq) * fbm(nq * 2.1 + 3.0);
+		sky += mix(vec3(0.25, 0.05, 0.45), vec3(0.05, 0.25, 0.5), fbm(nq * 0.7 + 9.0)) * smoothstep(0.12, 0.35, neb) * 0.8;
+		// a falling star: once in a while one runs up the horn
+		float fs = fract(TIME * 0.11 + seed * 0.1);
+		float head = fs * 1.6 - 0.3;
+		float streak = smoothstep(0.06, 0.0, abs(u - head)) * smoothstep(head - 0.25, head, u) * step(fs, 0.6);
+		sky += vec3(1.0, 0.95, 0.85) * streak * smoothstep(0.55, 0.85, fbm(mp * 30.0 + seed)) * 3.0;
+		emis = sky;
+		c = vec3(0.006, 0.007, 0.02);
+		rough = 0.18;
+		spec = 0.35;
+		metal = 0.0;
+		h = 0.0;
+	}
 	// down in the hollows: dark
 	c *= mix(0.35, 1.0, cav);
 	ALBEDO = c;
 	METALLIC = metal;
 	ROUGHNESS = rough;
 	SPECULAR = spec;
+	EMISSION = emis;
 	NORMAL = bump(NORMAL, VERTEX, h * 0.004, 1.0);
 }

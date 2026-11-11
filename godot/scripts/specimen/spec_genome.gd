@@ -210,6 +210,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
 	# follow you, cracks healing with light, a cloud of butterflies, a swarm of fireflies
 	if form == "skull": fpool = ["yaga", "yaga", "candle", "watching", "deathless", "flutter", "fireflies"]
+	# an animal's skull: its own kind's legends (SpecBeastFx), and a swarm of fireflies
+	if form == "skull" and String(o.get("beast", "")) != "":
+		fpool = (SpecBeastFx.POOL.get(String(o.beast), []) as Array) + ["fireflies"]
 	if o.get("legend", false):
 		fx = fpool[int(rng.next() * fpool.size())]
 	# an effect given from outside (the admin's finds, tests) is kept when the body can show it — a glass effect on a

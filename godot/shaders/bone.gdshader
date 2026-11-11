@@ -37,6 +37,9 @@ uniform float patina_k = 0.0;    // nacre: the hue of its fire (as ammolite: red
 uniform int mosaic_pal = 0;   // kintsugi: 0 carnelian, opal, amethyst, peach; 1 lapis, turquoise, labradorite, chrysocolla
 uniform int agate_pal = 0;    // agate: 0 cream, carnelian, rust, smoke; 1 rhodochrosite pinks with grey and white
 uniform vec3 druse_col : source_color = vec3(0.45, 0.85, 0.3);   // skin 10: the sugar druse's colour
+uniform float lava = 0.0;         // a beast's legend: the bone dark basalt, lava breathing in its cracks
+uniform float ember = 0.0;        // a beast's legend: phoenix feathers smouldering
+uniform float ember_flare = 0.0;  // ... and flaring up once a round
 uniform int feather_pal = 0;  // skin 9: 0 magpie, 1 starling, 2 pheasant, 3 peacock, 4 owl
 // skin 9: how far the feathers reach — a feather grows where fe_field() of its place is over fe_t (SpecSkull._feather_cover
 // picks fe_t so that a share feather_k of the head is covered); the head's box: fe_c, fe_s
@@ -111,6 +114,7 @@ void fragment() {
 	float h;
 	float glowline = 0.0;
 	float feather_rim = 0.0;
+	vec3 emis = vec3(0.0);
 	if (skin == 3) {
 		// kintsugi: a mosaic of polished stone pieces — carnelian, opal, amethyst, moonstone — set in raised gold seams
 		vec3 wq = q * (mosaic_pal == 1 ? 3.1 : 4.2) + vec3(fbm(q * 3.0), fbm(q * 3.0 + 5.0), fbm(q * 3.0 + 9.0)) * 0.6;
@@ -442,6 +446,14 @@ void fragment() {
 			// each feather a gentle bulge rising toward its tip, the barbs a fine grain, a step down under the next
 			h = mix(h, ly * 0.9 * inside + (1.0 - r * r) * 0.5 + barb * 0.12 - shaft * 0.1 - (1.0 - shade) * 0.6, cover);
 			feather_rim = cover;
+			if (ember > 0.0) {
+				// phoenix: embers along each feather's edge and shaft, in slow waves running back over the head
+				float wave = 0.5 + 0.5 * sin(TIME * 1.4 - mp.z * 9.0 + fid * 4.0);
+				float edge = smoothstep(0.7, 0.98, r) + shaft * 0.6;
+				vec3 hot = mix(vec3(1.0, 0.3, 0.05), vec3(1.0, 0.75, 0.25), wave);
+				emis += hot * cover * ember * (edge * (0.4 + 1.6 * pow(wave, 3.0)) + 0.08 + ember_flare * 1.2 * (0.3 + edge));
+				c = mix(c, c * 0.5, ember * cover * 0.4);
+			}
 		}
 	}
 	if (skin == 10) {
@@ -461,6 +473,23 @@ void fragment() {
 		spec = mix(spec, 0.75, cov);
 		h = mix(h, g1.x * 2.0 + g2.x * 1.2 + 0.8, cov);
 	}
+	if (lava > 0.0) {
+		// basalt: the bone gone dark and rough; lava in a net of cracks, brighter in the deep ones, breathing slowly
+		vec3 lq = q * 4.5 + vec3(fbm(q * 3.0), fbm(q * 3.0 + 5.0), fbm(q * 3.0 + 9.0)) * 0.7;
+		float e = cell_edge(lq);
+		float e2 = cell_edge(lq * 2.3 + 4.0);
+		float crack = (1.0 - smoothstep(0.0, 0.08, e)) + (1.0 - smoothstep(0.0, 0.05, e2)) * 0.5;
+		crack = clamp(crack + cav * 0.6 * step(0.5, crack), 0.0, 1.0);
+		float flow = 0.55 + 0.45 * sin(TIME * 1.2 - q.y * 6.0 + fbm(q * 2.0) * 6.0);
+		vec3 basalt = vec3(0.035, 0.032, 0.03) * (0.7 + 0.6 * fbm(q * 14.0));
+		c = mix(c, basalt, lava);
+		c = mix(c, vec3(0.3, 0.05, 0.01), crack * lava);
+		rough = mix(rough, 0.85, lava);
+		spec = mix(spec, 0.25, lava);
+		metal = mix(metal, 0.0, lava);
+		emis += mix(vec3(1.0, 0.25, 0.03), vec3(1.0, 0.7, 0.2), crack * flow) * crack * lava * (1.2 + 2.2 * flow);
+		h = mix(h, -crack * 1.5 + fbm(q * 14.0) * 0.6, lava);
+	}
 	// a stone skull wet where water runs: darker and glossy too (its skin painted over the bone's own wetness)
 	if (skin >= 5 && skin < 9) {
 		c = mix(c, c * 0.5 * wet_col, wet);
@@ -470,9 +499,10 @@ void fragment() {
 	if (!FRONT_FACING) c = c * vec3(0.32, 0.28, 0.24);
 	ALBEDO = c;
 	// deathless: light runs over the cracks and sutures in slow waves, as if they were healing
+	EMISSION = emis;
 	if (deathless > 0.0) {
 		float wave = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 0.9 - mp.y * 7.0 + mp.x * 3.0), 3.0);
-		EMISSION = life_col * glowline * wave * deathless * 6.0;
+		EMISSION += life_col * glowline * wave * deathless * 6.0;
 	}
 	METALLIC = metal;
 	ROUGHNESS = rough;
