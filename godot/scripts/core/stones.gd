@@ -25,10 +25,15 @@ static func pick_w(entries: Array, rng: Rng32) -> Variant:
 			return e[0]
 	return entries[-1][0]
 
+## the deeper, the finer the finds (11.11): a find's price is the stone alone — not where it was dug — but deeper
+## stones grow bigger (DEPTH_G a depth: price by size, Stones.price) and carry more rare traits (TRAIT_DEPTH a depth)
+const DEPTH_G := 0.62
+const TRAIT_DEPTH := 0.25
+
 ## rare traits: each one changes the look and the price
-static func roll_traits(id: int, legend: bool, gi: int) -> Array:
+static func roll_traits(id: int, legend: bool, gi: int, dl := 0) -> Array:
 	var rng := Rng32.new(id * 7919 + 13)
-	var luck: float = 1.3 + Save.d.lab * 0.1 + (1.2 if legend else 0.0)
+	var luck: float = 1.3 + Save.d.lab * 0.1 + (1.2 if legend else 0.0) + dl * TRAIT_DEPTH
 	var out := []
 	for t in Data.TRAITS:
 		if rng.next() < t.p * luck:
@@ -191,7 +196,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	# `gi` is now only how clear the stone is (SpecimenBuilder: milkier below 2), rolled as the grade was so the
 	# stones look as they did; it no longer touches the price or the rarity
 	var legend := rng.next() < LEGEND_P * (1.0 + luck)
-	var traits := roll_traits(seed_id, legend, gi)
+	var traits := roll_traits(seed_id, legend, gi, dl)
 	# the traits a species rolls more often (amethyst's sceptres, rock crystal's phantoms): their own stream
 	var more: Dictionary = SpecLooks.of(sid).get("more", {})
 	if more.size():
@@ -215,9 +220,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	if kind in ["crystal", "druse"] and SpecLooks.odd(sid).size() and not "floater" in traits:
 		if Rng32.new((seed_id * 2654435761 + 409) % 4294967296).next() < SpecLooks.ATYPICAL_P:
 			traits.append("atypical")
-	var base_g := 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 250.0 if kind == "fossil" else 60.0
-	if sid == "pearl": base_g = 30.0   # its oyster, mostly
-	var g := roundi(base_g * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * 0.35))
+	var g := roundi(base_g(kind, sid) * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * DEPTH_G))
 	# the barrow: now and then a skull (see SKULL_AREAS)
 	var skull := ""
 	if SKULL_AREAS.has(area) and sid in SKULL_SP:
@@ -227,7 +230,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			skull = pick_w(at, sr)
 			kind = "druse"
 			traits.erase("atypical")   # (a skull is its own form)
-			g = roundi(900.0 * (1.0 + sr.next() * 0.8))
+			g = roundi(900.0 * (1.0 + sr.next() * 0.8) * (1.0 + dl * DEPTH_G * 0.5))
 	var beast := ""
 	if BEAST_AREAS.has(area) and skull == "" and not kind in ["nugget", "fossil"] and dl >= beast_from(area) 			and String(Data.HABIT.get(sid, "prism")) in BEAST_HABITS and not sid in BEAST_NOT:
 		var br := Rng32.new((seed_id * 2246822519 + 13) % 4294967296)
@@ -236,7 +239,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			skull = pick_w(BEAST_SKIN, br)
 			kind = "druse"
 			traits.erase("atypical")
-			g = roundi(700.0 * (1.0 + br.next() * 1.4))
+			g = roundi(700.0 * (1.0 + br.next() * 1.4) * (1.0 + dl * DEPTH_G * 0.5))
 	# the price is its beauty (Worth): the body by species, squeezed, and every gene's points on top — the same on any
 	# body, so a common stone rich in genes outprices a plain rare one. The genes are read as the builder will grow them.
 	var go := {seed = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend}
@@ -261,7 +264,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 ## a find's price (Worth: its beauty): the body by species, squeezed — a skull's by what it is cast in — and every gene's
 ## points on top, the same on any body, a living effect by its spectacle; then the depth. One place for every find:
 ## rolled, the admin's, a story's gift — a stone changed after its roll (made a skull, made legendary) is priced again here
-static func price(st: Dictionary, area: int, dl: int) -> int:
+static func price(st: Dictionary, area: int, _dl := 0) -> int:
 	var sid := String(st.sid)
 	var kind := String(st.get("kind", "crystal"))
 	var traits: Array = st.get("traits", [])
@@ -274,8 +277,20 @@ static func price(st: Dictionary, area: int, dl: int) -> int:
 	var value: float = (Worth.body(sid) * kind_m + Worth.UNIT * pts) * VALUE_K
 	if bool(st.get("legend", false)) and String(gene.fx) != "":
 		value += Worth.fx_value(String(gene.fx))
-	value *= 1.3 * (1.0 + dl * 0.25) * Worth.PRICE
+	# a bigger stone is dearer (the square root of its weight against its kind's middle size): deeper ones grow bigger
+	value *= 1.3 * size_k(st) * Worth.PRICE
 	return roundi(capped(value, area))
+
+## a find's usual weight before its size and depth (grams)
+static func base_g(kind: String, sid: String) -> float:
+	if sid == "pearl": return 30.0   # its oyster, mostly
+	return 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 250.0 if kind == "fossil" else 60.0
+
+## how much its size adds: √(weight / the middle weight of its kind), the middle of the top depth's sizes ×1
+static func size_k(st: Dictionary) -> float:
+	var ref := base_g(String(st.get("kind", "crystal")), String(st.sid)) * 2.79
+	if String(st.get("form", "")) == "skull": ref = 900.0 * 1.4 if not st.has("beast") else 700.0 * 1.7
+	return clampf(sqrt(float(st.get("g", ref)) / ref), 0.5, 3.5)
 
 ## what a skull is cast in: its pinned skin, or the one its genes draw (SpecSkull.genes)
 static func skin_of(st: Dictionary) -> String:
