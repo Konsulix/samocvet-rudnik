@@ -1044,6 +1044,8 @@ func _sheet(e: Dictionary) -> void:
 	tz.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tz.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tz.custom_minimum_size = Vector2(w - 44, 0)
+	# (a long collection — every legend — scrolls inside the sheet, which keeps to the screen)
+	var gs: DragScroll = null
 	if not hidden and not e.get("one", false):
 		var grid := GridContainer.new()
 		grid.columns = 3 if g.size() <= 6 or g.size() == 9 else 4
@@ -1076,7 +1078,13 @@ func _sheet(e: Dictionary) -> void:
 			nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			cell.add_child(nm)
 			grid.add_child(cell)
-		v.add_child(grid)
+		gs = DragScroll.new()
+		gs.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		gs.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		gs.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		gs.custom_minimum_size = grid.get_combined_minimum_size()
+		gs.add_child(grid)
+		v.add_child(gs)
 	v.add_child(tz)
 	if _state(e) == "ready":
 		var cb := Kit.button("Claim", "btn_green", 20, 6.0)
@@ -1100,14 +1108,19 @@ func _sheet(e: Dictionary) -> void:
 			else: Ov.toast("%s: coming soon" % e.r))
 		v.add_child(b)
 	await get_tree().process_frame
+	var room := size.y - 24.0
+	if gs and p.size.y > room:
+		gs.custom_minimum_size.y = maxf(120.0, gs.custom_minimum_size.y - (p.size.y - room))
+		p.reset_size()
+		await get_tree().process_frame
 	p.position = (size - p.size) / 2.0
 	# closed by the ✕ in its corner or by a tap anywhere outside it
 	var close := func() -> void:
 		if not lay.is_queued_for_deletion() and not _busy:
 			Sfx.play("tab")
 			lay.queue_free()
-	var x := Kit.icon_button("close", 34)
-	x.position = p.position + Vector2(p.size.x - 34 - 10, 10)
+	var x := _ink_close()
+	x.position = p.position + Vector2(p.size.x - 34 - 12, 12)
 	x.pressed.connect(close)
 	lay.add_child(x)
 	dim.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev): close.call())
@@ -1312,6 +1325,32 @@ func _coins_fly(from: Vector2, n: int) -> void:
 func _open_ready() -> void:
 	for e in LIST:
 		if _state(e) == "ready":
+			if tab != String(e.tab):
+				tab = String(e.tab)
+				await render()
+			_sheet(e)
+			return
+
+## the sheet's ✕: two thin strokes of ink in a faint ink ring, drawn on the parchment (as the stone card's thin ✕,
+## Reveal.thin_close, is drawn for the dark)
+func _ink_close() -> Button:
+	var b := Button.new()
+	b.size = Vector2(34, 34)
+	b.focus_mode = Control.FOCUS_NONE
+	for st in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	b.draw.connect(func():
+		var c := b.size / 2
+		var k := 0.6 if b.button_pressed else 1.0
+		b.draw_arc(c, 13.0, 0, TAU, 40, Color(INK_SOFT, 0.45 * k), 1.0, true)
+		var d := 5.0
+		for v2: Vector2 in [Vector2(d, d), Vector2(d, -d)]:
+			b.draw_line(c - v2, c + v2, Color(INK, 0.85 * k), 1.6, true))
+	return b
+
+## for screenshots: ui=open_legends opens Once in a Blue Moon (the longest collection: its grid scrolls in the sheet)
+func _open_legends() -> void:
+	for e in LIST:
+		if e.get("legends", false):
 			if tab != String(e.tab):
 				tab = String(e.tab)
 				await render()
