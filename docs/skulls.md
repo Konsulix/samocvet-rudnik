@@ -332,3 +332,14 @@ Quaternius (CC0) — `prototype/tools/skull/ghost_prep.py <obj> <json> <cut_z> [
 Проверка: ключ `flytrace` печатает путь (`FLY t x y z state ct wing`, в полукрыльях) — смотреть высоту по времени;
 игра `-- save=flies skulls=flies screen=stones` (по черепу на вид), `skulls=monarchs`. На iPhone не проверено.
 
+**11.11, все бабочки — модели** (`SpecButterfly.MODELS`, авторы и лицензии — `assets/specimen/butterflies/CREDITS.md`;
+шесть — CC BY-SA, используются без изменений). Виды (8): monarch, apollo, peacock, swallowtail, bluetiger, birdwing,
+glasswing (Clearwing Swallowtail), hawkmoth (Elephant Hawk-moth); морфо, траурница, голубянка, комета и мёртвая голова
+убраны вместе с нарисованными крыльями, телом и их шейдерами. По рудникам (`AREA_KINDS`): Old Adit — peacock, swallowtail;
+Медная гора — apollo; Fire Horizon и Шубин — hawkmoth; Spider Hollow — bluetiger, birdwing; курган — все.
+У монарха свои клипы посадки/сидения/взлёта (`full`); у остальных один клип полёта: он читается один раз в таблицу
+«подъём крыла по времени клипа» (`Fly._m_table`: кость крыла `LeftUpperWing` или `tip/base` из MODELS) и показывается по
+углу взмаха (`Fly._wings`) — и в полёте, и сидя (верх взмаха — крылья сложены; у hawkmoth и bluetiger сидит свой `idle`).
+Витрина: `tests/butterfly_view.tscn -- shot=user://bf.png` (сидит + три момента взмаха). Glasswing тёмная и прозрачная —
+на тёмном фоне почти не видна. На iPhone не проверено (11 тыс. треугольников у birdwing/glasswing, по 3 на находке).
+

@@ -2137,7 +2137,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		var seen := {}
 		for id: String in fks:
 			if perches.is_empty(): break
-			var style: String = SpecButterfly.KINDS[id][6]
+			var style := SpecButterfly.style(id)
 			var flying := fl.next() < (0.7 if style in ["hover", "flit"] else 0.45)
 			var q: Array = perches[int(fl.next() * perches.size())]
 			SpecButterfly.put(root, fl, id, q[0], q[1], (0.28 + fl.next() * 0.1) * gs, flying, perches)

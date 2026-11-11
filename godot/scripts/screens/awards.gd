@@ -45,8 +45,8 @@ static var LIST := [
 	{tab = "tales", icon = "oyster_moon", n = "Moonlit Sea", t = "It waited four hundred million years for the moon.", r = "pearl gems", items = ["i:oyster_moon"], one = true, ev = "gene:fx:moon"},
 
 	{tab = "coll", icon = "butterfly", n = "Pinned by Nature", t = "They landed on the stone and never left.", r = "butterfly board frame",
-		tags = ["fly:morpho", "fly:apollo", "fly:monarch", "fly:deathshead", "fly:glasswing", "fly:comet", "fly:mourning", "fly:blue"],
-		names = ["Morpho", "Apollo", "Monarch", "Death's-head", "Glasswing", "Comet moth", "Mourning cloak", "Common blue"]},
+		tags = ["fly:monarch", "fly:apollo", "fly:peacock", "fly:swallowtail", "fly:bluetiger", "fly:birdwing", "fly:glasswing", "fly:hawkmoth"],
+		names = ["Monarch", "Apollo", "Peacock", "Swallowtail", "Blue tiger", "Birdwing", "Clearwing", "Hawk-moth"]},
 	{tab = "coll", icon = "mushrooms", n = "Fairy Ring", t = "Something grows down here. Several somethings.", r = "the mushroom world", opens = true,
 		tags = ["shroom:0", "shroom:1", "shroom:2", "shroom:3", "shroom:4"], names = ["Fly agaric", "Chanterelle", "Porcini", "Glowing mycena", "Honey fungus"]},
 	{tab = "coll", icon = "moss_stone", n = "A Rolling Stone", t = "Gathers no moss. Yours did.", r = "coins and a geode",

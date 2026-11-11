@@ -29,6 +29,5 @@ Cut out of low-poly animals by Quaternius (quaternius.com), CC0 1.0 — `prototy
 - wolf, fox, horse, deer (Stag), longhorn and musk_ox (Bull) — *Ultimate Animated Animals* (July 2021)
 - trex, triceratops — *Dinosaur Animated Pack* (Dec 2018)
 
-## Monarch (`butterflies/monarch.glb`, SpecButterfly.MODELS)
-"Monarch Butterfly (Danaus plexippus) - Animated" by animalanimator, CC BY 4.0 —
-https://sketchfab.com/3d-models/9682aebc9f93491b9cf1d0b2f021a87f (its flight, landing, perched and take-off animations)
+## Butterflies
+See `butterflies/CREDITS.md`.

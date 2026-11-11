@@ -22,8 +22,8 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_gilt = "gold leaf", sk_gold = "molten gold", sk_silver = "molten silver", sk_copper = "molten copper", sk_kintsugi = "kintsugi",
 	sk_glass = "glass skull", sk_crown = "crystal crown", sk_frost = "cloudy crystals", sk_wax = "waxy crystals", sk_broken = "broken skull",
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
-	fly_morpho = "blue morpho", fly_apollo = "Apollo", fly_monarch = "monarch", fly_deathshead = "death's-head moth",
-	fly_glasswing = "glasswing", fly_comet = "comet moth", fly_mourning = "mourning cloak", fly_blue = "mazarine blue", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
+	fly_monarch = "monarch", fly_apollo = "Apollo", fly_peacock = "peacock butterfly", fly_swallowtail = "swallowtail",
+	fly_bluetiger = "blue tiger", fly_birdwing = "birdwing", fly_glasswing = "clearwing swallowtail", fly_hawkmoth = "elephant hawk-moth", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 

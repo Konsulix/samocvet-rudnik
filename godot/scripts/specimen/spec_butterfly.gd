@@ -1,48 +1,57 @@
 class_name SpecButterfly
 extends RefCounted
-## Butterflies and moths on a find (Koschei's skulls, docs/skulls.md). The wings are museum specimens photographed
-## from above (Wikimedia Commons, CC BY-SA — assets/specimen/butterflies/CREDITS.md), cut out by
-## prototype/tools/skull/cut_butterfly.py; the body, antennae and the way each one moves are ours.
-## A butterfly either rests on the find (opening and closing its wings) or flies round it — each kind in its own way.
+## Butterflies and moths on a find (any find: SpecButterfly.for_find; Koschei's skulls decide their own, docs/skulls.md).
+## Each kind is a whole animated model (wings on bones, a furred body, legs, antennae — assets/specimen/CREDITS.md);
+## the way it flies is ours (Fly, below): it flies round the find by forces, beat by beat, lands on it, sits, takes off.
 
-const SHADER := preload("res://shaders/butterfly.gdshader")
-const SHADER_GLASS := preload("res://shaders/butterfly_glass.gdshader")
 const DIR := "res://assets/specimen/butterflies/"
 
-## id: [wing file, span (x), body colour, band colour (0 none), body thickness, abdomen length, how it flies,
-##      iridescent, see-through, weight, can perch]
-## how it flies:
-##   float — big slow beats and long glides on wide loops (morpho, apollo)
-##   glide — a few strong beats, then a sail (monarch, mourning cloak)
-##   flit  — quick, small and jerky, close round the find, hopping (the blues)
-##   hover — fast buzzing beats, darts and hangs in the air (the hawkmoth; its real 26 a second would strobe at 60
-##           frames — wing and frame almost in step — so it beats at 14, short strokes)
-##   drift — slow heavy beats, the long tails trailing, gentle wide loops (the comet moth)
-##   weave — fluttering, wandering this way and that (the glasswing)
+## id: its size (wingspan, against the span the find gives), how it flies (STYLE), how common
 const KINDS := {
-	morpho = ["morpho", 1.25, Color(0.06, 0.05, 0.05), Color(0, 0, 0, 0), 1.0, 1.0, "float", 1.0, 0.0, 3.0],
-	apollo = ["apollo", 1.0, Color(0.15, 0.14, 0.13), Color(0, 0, 0, 0), 1.2, 0.9, "float", 0.0, 0.0, 2.5],
-	monarch = ["monarch", 1.05, Color(0.04, 0.03, 0.03), Color(0, 0, 0, 0), 1.0, 1.0, "glide", 0.0, 0.0, 2.5],
-	deathshead = ["deathshead", 1.1, Color(0.1, 0.08, 0.06), Color(0.85, 0.65, 0.12, 1.0), 2.2, 1.2, "hover", 0.0, 0.0, 1.5],
-	glasswing = ["glasswing", 0.8, Color(0.12, 0.08, 0.06), Color(0, 0, 0, 0), 0.8, 0.95, "weave", 0.0, 1.0, 1.5],
-	comet = ["comet", 1.5, Color(0.75, 0.42, 0.12), Color(0.55, 0.25, 0.08, 0.4), 1.6, 1.0, "drift", 0.0, 0.0, 1.2],
-	mourning = ["mourning", 1.0, Color(0.06, 0.04, 0.04), Color(0, 0, 0, 0), 1.1, 0.95, "glide", 0.0, 0.0, 2.0],
-	blue = ["blue", 0.55, Color(0.18, 0.18, 0.2), Color(0, 0, 0, 0), 0.8, 0.85, "flit", 0.0, 0.0, 2.5],
+	monarch = {span = 1.05, style = "glide", w = 2.5},
+	apollo = {span = 1.0, style = "float", w = 2.5},
+	peacock = {span = 0.85, style = "glide", w = 2.5},
+	swallowtail = {span = 1.1, style = "float", w = 2.5},
+	bluetiger = {span = 1.0, style = "glide", w = 2.0},
+	birdwing = {span = 1.35, style = "float", w = 1.5},
+	glasswing = {span = 0.95, style = "weave", w = 1.5},
+	hawkmoth = {span = 1.0, style = "hover", w = 1.5},
 }
 
 ## their names on the card (a callout, one per kind: "Apollo ×2")
-const NAME := {morpho = "blue morpho", apollo = "Apollo", monarch = "monarch", deathshead = "death's-head moth",
-	glasswing = "glasswing", comet = "comet moth", mourning = "mourning cloak", blue = "mazarine blue"}
-## which of them live by each mine (its area): Old Adit's meadows, the Alpine Apollo of the copper mountain, the hawkmoth
-## of the Sicilian sulphur and of the coal seam, the Japanese valley's comet and glasswing; the barrow's skulls have all of
-## them (SpecSkull). The sea cove and the polar pit: none.
-const AREA_KINDS := {0: ["mourning", "blue"], 1: ["apollo"], 3: ["deathshead"], 5: ["comet", "glasswing"],
-	6: ["morpho", "apollo", "monarch", "deathshead", "glasswing", "comet", "mourning", "blue"], 7: ["deathshead"]}
+const NAME := {monarch = "monarch", apollo = "Apollo", peacock = "peacock butterfly", swallowtail = "swallowtail",
+	bluetiger = "blue tiger", birdwing = "birdwing", glasswing = "clearwing swallowtail", hawkmoth = "elephant hawk-moth"}
+## which of them live by each mine (its area): Old Adit's meadows (peacock, swallowtail), the Alpine Apollo of the copper
+## mountain, the hawk-moth of the Sicilian sulphur and of the coal seam, the far-eastern valley's blue tiger and
+## birdwing; the barrow's skulls have all of them (SpecSkull). The sea cove and the polar pit: none.
+const AREA_KINDS := {0: ["peacock", "swallowtail"], 1: ["apollo"], 3: ["hawkmoth"], 5: ["bluetiger", "birdwing"],
+	6: ["monarch", "apollo", "peacock", "swallowtail", "bluetiger", "birdwing", "glasswing", "hawkmoth"], 7: ["hawkmoth"]}
 ## how often a find (not a skull: those decide their own) has butterflies on it
 const FIND_P := 0.06
 
+## the models: file; its wingspan in its own units; the turn that brings its head to +x (as Fly wants it); how far its
+## flight clip holds the body nose-up already (ours is added to it); its clips — fly (a wingbeat: Fly shows it stroke
+## by stroke), sit (if it has one: else it sits in the top of its stroke, wings over its back), and for a model with
+## everything (the monarch) land, off and the sail in its flight; tip/base — the bones its wing's rise is read from
+## (else the wing bone "LeftUpperWing", whose own axis lies along the wing)
+const MODELS := {
+	monarch = {file = "monarch.glb", span = 2.6, yaw = 0.0, pitch = 0.0, clips = {fly = "Danaus_plexippus_Flight",
+		land = "Danaus_plexippus_Landing_InPlace", sit = "Danaus_plexippus_Perched_Idle", off = "Danaus_plexippus_Takeoff_InPlace"}},
+	apollo = {file = "apollo.glb", span = 2.995, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	peacock = {file = "peacock.glb", span = 2.389, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	swallowtail = {file = "swallowtail.glb", span = 2.369, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	birdwing = {file = "birdwing.glb", span = 2.457, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	glasswing = {file = "glasswing.glb", span = 2.266, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	hawkmoth = {file = "hawkmoth.glb", span = 2.691, yaw = -PI / 2, pitch = 0.25, clips = {fly = "fly", sit = "idle"}},
+	bluetiger = {file = "bluetiger.glb", span = 0.12, yaw = PI / 2, pitch = 0.15, clips = {fly = "hover", sit = "idle"},
+		tip = "r_frnt_wings08", base = "chest_jnt"},
+}
+
 static func label(kind: String, n: int) -> String:
 	return String(NAME.get(kind, kind)) + (" ×%d" % n if n > 1 else "")
+
+static func style(kind: String) -> String:
+	return String((KINDS.get(kind, {}) as Dictionary).get("style", "glide"))
 
 static var _area := {}
 ## the mine a species is found in (each species belongs to one mine's pool); -1 none
@@ -56,7 +65,7 @@ static func area_of(sid: String) -> int:
 ## pinned from outside: flies=N (0 none), fly_kind=<kind>
 static func for_find(seed_v: int, sid: String, o: Dictionary) -> Array:
 	var ks: Array = AREA_KINDS.get(area_of(sid), [])
-	if o.has("fly_kind") and String(o.fly_kind) != "": ks = [String(o.fly_kind)]
+	if o.has("fly_kind") and KINDS.has(String(o.fly_kind)): ks = [String(o.fly_kind)]
 	if ks.is_empty(): return []
 	var r := Rng32.new((seed_v * 2654435761 + 433) % 4294967296)
 	var n := 0 if r.next() >= FIND_P else 1 + int(pow(r.next(), 1.6) * 3.0)
@@ -67,346 +76,35 @@ static func for_find(seed_v: int, sid: String, o: Dictionary) -> Array:
 	return out
 
 static func _pick_of(r: Rng32, ks: Array) -> String:
-	return Stones.pick_w(ks.map(func(k: String) -> Array: return [k, float(KINDS[k][9])]), r)
-
-static var _cards := {}
-static var _tex := {}
+	return Stones.pick_w(ks.map(func(k: String) -> Array: return [k, float(KINDS[k].w)]), r)
 
 static func pick(rng: Rng32) -> String:
-	return Stones.pick_w(KINDS.keys().map(func(k: String) -> Array: return [k, float(KINDS[k][9])]), rng)
-
-## the wing cards of a kind: both sides, a grid so the wing can bend; the body axis is x (head +), the wing joins at x 0
-static func _card(id: String) -> Array:
-	if _cards.has(id):
-		return _cards[id]
-	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DIR + String(KINDS[id][0]) + ".json"))
-	var asp := float(meta.aspect)
-	var root := float(meta.root)
-	var nu := 10
-	var nv := 12
-	var v := PackedVector3Array()
-	var uv := PackedVector2Array()
-	var nm := PackedVector3Array()
-	var idx := PackedInt32Array()
-	for side: float in [1.0, -1.0]:
-		var b := v.size()
-		for j in nv + 1:
-			for i in nu + 1:
-				var u := float(i) / nu
-				var w := float(j) / nv
-				v.append(Vector3((root - w) * 1.0, 0.0, u * asp * side))
-				uv.append(Vector2(u, w))
-				nm.append(Vector3.UP)
-		for j in nv:
-			for i in nu:
-				var a := b + j * (nu + 1) + i
-				var c := a + nu + 1
-				if side > 0: idx.append_array([a, c, a + 1, a + 1, c, c + 1])
-				else: idx.append_array([a, a + 1, c, a + 1, c + 1, c])
-	var arr := []
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = v
-	arr[Mesh.ARRAY_NORMAL] = nm
-	arr[Mesh.ARRAY_TEX_UV] = uv
-	arr[Mesh.ARRAY_INDEX] = idx
-	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	# (the card's length along the body is 1; its reach out is the aspect)
-	_cards[id] = [m, asp, root]
-	return _cards[id]
+	return Stones.pick_w(KINDS.keys().map(func(k: String) -> Array: return [k, float(KINDS[k].w)]), rng)
 
 ## a butterfly on a find: starting perched at `at` on normal `n`, or flying round it; perches: [point, normal] where it
 ## may land (in the parent's space); span: its wingspan in find units before the kind's own size
 static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3, span: float, flying: bool, perches := []) -> Node3D:
-	var k: Array = KINDS[id]
-	# a kind with a whole animated model (MODELS): that, its own flight, landing, perching and take-off
-	if MODELS.has(id) and ResourceLoader.exists(String(MODELS[id][0])):
-		var fb := Fly.new()
-		parent.add_child(fb)
-		var model := (load(String(MODELS[id][0])) as PackedScene).instantiate() as Node3D
-		model.scale = Vector3.ONE * span * float(k[1]) / float(MODELS[id][1])
-		fb.add_child(model)
-		fb.ap = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
-		fb.anim = MODELS[id][2]
-		var s0 := span * float(k[1]) / 2.0
-		fb.setup(rng, null, String(k[6]), flying, at, n, perches if perches.size() else [[at, n]], s0)
-		return fb
-	var card: Array = _card(id)
-	var asp: float = card[1]
-	var b := Fly.new()
-	parent.add_child(b)
-	# the card is 1 long, 2·aspect across: scale it to the span
-	var s := span * float(k[1]) / (2.0 * asp)
-	var m := ShaderMaterial.new()
-	# a glasswing is blended (its clear panes), drawn after the find's own glass so that does not paint over it
-	var glassy := float(k[8]) > 0.0
-	m.shader = SHADER_GLASS if glassy else SHADER
-	if glassy: m.render_priority = 90
-	if not _tex.has(id): _tex[id] = load(DIR + String(k[0]) + ".png")
-	m.set_shader_parameter("wing", _tex[id])
-	m.set_shader_parameter("iri", float(k[7]))
-	m.set_shader_parameter("seed", rng.next() * 50.0)
-	m.set_shader_parameter("curve", 0.15 + rng.next() * 0.2)
-	m.set_shader_parameter("root", float(card[2]))
-	var wings := Node3D.new()
-	wings.scale = Vector3.ONE * s
-	b.add_child(wings)
-	var w := MeshInstance3D.new()
-	w.mesh = card[0]
-	w.material_override = m
-	w.position = Vector3(0, 0.035, 0)
-	wings.add_child(w)
-	# (the body goes by the span, not by the card: a comet's card is long with its tails)
-	var body := Node3D.new()
-	body.scale = Vector3.ONE * span * float(k[1]) * 0.5 / (1.5 if String(k[0]) == "comet" else 1.0)
-	b.add_child(body)
-	b.body_mat = _body(body, k, id)
-	b.setup(rng, m, String(k[6]), flying, at, n, perches if perches.size() else [[at, n]], span * float(k[1]) * 0.5)
-	return b
+	if not KINDS.has(id): id = "monarch"   # (a kind there is no more, in an old find)
+	var k: Dictionary = KINDS[id]
+	var md: Dictionary = MODELS[id]
+	var fb := Fly.new()
+	parent.add_child(fb)
+	var model := (load(DIR + String(md.file)) as PackedScene).instantiate() as Node3D
+	var turn := Node3D.new()
+	turn.rotation = Vector3(0, float(md.yaw), 0)
+	turn.scale = Vector3.ONE * span * float(k.span) / float(md.span)
+	fb.add_child(turn)
+	turn.add_child(model)
+	fb.ap = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	fb.anim = md.clips
+	fb.kind = id
+	fb.model = model
+	fb.setup(rng, null, String(k.style), flying, at, n, perches if perches.size() else [[at, n]], span * float(k.span) / 2.0)
+	return fb
 
-## kinds with a whole animated model instead of a wing card: [file, its wingspan in its own units, its animations by state:
-## fly, glide, land, sit, off] (the head along +x, up +y, as the cards). The monarch: "Monarch Butterfly (Danaus plexippus)
-## - Animated" by animalanimator, CC BY 4.0 (assets/specimen/CREDITS.md)
-const MODELS := {
-	monarch = ["res://assets/specimen/butterflies/monarch.glb", 2.6, {fly = "Danaus_plexippus_Flight", glide = "Danaus_plexippus_Pose_Wings_Spread",
-		land = "Danaus_plexippus_Landing_InPlace", sit = "Danaus_plexippus_Perched_Idle", off = "Danaus_plexippus_Takeoff_InPlace"}],
-}
-
-## the body's look, by kind: the fur colour (the hair catching the light at the edges), the pattern (0 plain, 1 white
-## dots — the monarch's, 2 the death's-head's skull on the back and its blue-grey stripe down the banded abdomen),
-## how furry, and the antennae (club: a butterfly's; feather: a silk moth's combs; spindle: a hawkmoth's)
-const BODY := {
-	morpho = {fur = Color(0.3, 0.24, 0.18), pat = 0, hair = 0.7, ant = "club"},
-	apollo = {fur = Color(0.62, 0.62, 0.6), pat = 0, hair = 1.0, ant = "club"},
-	monarch = {fur = Color(0.25, 0.2, 0.18), pat = 1, hair = 0.5, ant = "club"},
-	deathshead = {fur = Color(0.55, 0.42, 0.25), pat = 2, hair = 0.9, ant = "spindle"},
-	glasswing = {fur = Color(0.45, 0.3, 0.18), pat = 0, hair = 0.5, ant = "club"},
-	comet = {fur = Color(1.0, 0.85, 0.45), pat = 0, hair = 1.0, ant = "feather"},
-	mourning = {fur = Color(0.35, 0.26, 0.2), pat = 0, hair = 0.9, ant = "club"},
-	blue = {fur = Color(0.55, 0.62, 0.85), pat = 0, hair = 1.0, ant = "club"},
-}
-const BODY_SHADER := preload("res://shaders/butterfly_body.gdshader")
-static var _bodies := {}
-static var _body_lock := Mutex.new()
-
-## the whole body as one mesh (one draw, where its dozen spheres and tubes were a dozen): abdomen, thorax and head
-## turned on one profile, the eyes, six legs folded under, the antennae and the coiled tongue. UV.x along the part,
-## UV.y round it (0 the back), UV2.x the part: 0 abdomen, 1 thorax, 2 head, 3 legs, 4 antennae and tongue, 5 eyes,
-## 6 a feathered antenna's comb (a flat strip the shader cuts into barbs)
-static func _body(hold: Node3D, k: Array, id: String) -> ShaderMaterial:
-	var bm := ShaderMaterial.new()
-	bm.shader = BODY_SHADER
-	var bd: Dictionary = BODY.get(id, BODY.morpho)
-	var col: Color = k[2]
-	var band: Color = k[3]
-	bm.set_shader_parameter("c_body", col)
-	bm.set_shader_parameter("c_fur", bd.fur)
-	bm.set_shader_parameter("c_band", Color(band.r, band.g, band.b))
-	bm.set_shader_parameter("band_k", band.a)
-	bm.set_shader_parameter("pat", int(bd.pat))
-	bm.set_shader_parameter("hair", float(bd.hair))
-	# (the abdomen swings from the waist: SpecButterfly.Fly sets "swing")
-	bm.set_shader_parameter("waist", -0.045 * float(k[4]) * 0.9)
-	var mi := MeshInstance3D.new()
-	mi.mesh = _body_mesh(id, k, String(bd.ant))
-	mi.material_override = bm
-	hold.add_child(mi)
-	return bm
-
-static func _body_mesh(id: String, k: Array, ant: String) -> ArrayMesh:
-	_body_lock.lock()
-	var got: ArrayMesh = _bodies.get(id)
-	_body_lock.unlock()
-	if got: return got
-	var th := 0.045 * float(k[4])
-	var ln := 0.55 * float(k[5])
-	var y0 := 0.03
-	var g := Geo.new()
-	# the profile tail to head: [x, radius, part, u along the part]
-	var prof := []
-	var tail := -th * 1.0 - ln
-	var na := 24
-	for i in na + 1:
-		var f := float(i) / na
-		# the abdomen: fat near the waist, tapering to a blunt tip; each segment swells a little
-		var x := lerpf(tail, -th * 0.9, f)
-		var r := th * (0.2 + 0.8 * pow(sin(minf(1.0, f * 1.25) * PI * 0.5), 0.6)) * 0.9
-		r *= 1.0 + 0.06 * cos(f * 6.0 * TAU)
-		prof.append([x, r if i > 0 else 0.0, 0, f])
-	# the waist, then the thorax: a plump furry barrel
-	var nt := 12
-	for i in nt + 1:
-		var f := float(i) / nt
-		var x := lerpf(-th * 0.9, th * 1.0, f)
-		var r := th * 0.25 + th * 0.9 * sqrt(maxf(0.0, 1.0 - pow(f * 2.0 - 1.0, 2.0)))
-		prof.append([x, r, 1, f])
-	# the neck and the head
-	var nh := 10
-	for i in nh + 1:
-		var f := float(i) / nh
-		var x := lerpf(th * 1.0, th * 2.15, f)
-		var r := th * 0.72 * sqrt(maxf(0.0, 1.0 - pow(f * 2.0 - 1.0, 2.0)))
-		prof.append([x, maxf(r, th * 0.3) if i < nh else 0.0, 2, f])
-	_revolve(g, prof, 20, Vector3(0, y0, 0))
-	# the fur: a looser shell round the thorax, the head and the abdomen's first segments, which the shader cuts
-	# into tufts — the body's outline goes soft and hairy (part 7)
-	var shell := []
-	for q: Array in prof:
-		var pt: int = q[2]
-		var fu: float = q[3]
-		if pt == 0 and fu < 0.55: continue
-		var r: float = q[1]
-		var grow := 1.35 if pt == 1 else 1.22 if pt == 2 else 1.18
-		shell.append([q[0], r * grow + th * 0.04 if r > 0.0 else 0.0, 7, (float(q[0]) - tail) / (th * 2.15 - tail)])
-	_revolve(g, shell, 20, Vector3(0, y0, 0))
-	# the eyes: big domes on the head's sides
-	var hx := th * 1.6
-	for sd: float in [1.0, -1.0]:
-		var e := Geo.sphere(th * 0.4, 10, 8)
-		var c := Vector3(hx + th * 0.12, y0 + th * 0.08, sd * th * 0.48)
-		var b := g.v.size()
-		for i in e.v.size():
-			var n := e.v[i].normalized()
-			g.v.append(c + e.v[i])
-			g.own_n.append(n)
-			g.rp.append(Vector3(0.5 + n.x * 0.5, 0.5 + n.y * 0.5, 5.0))
-		for j in e.idx: g.idx.append(b + j)
-	# six legs from under the thorax, out and down, the feet below the body (it stands on them)
-	for li in 3:
-		var xs := th * (0.6 - 0.6 * li)
-		var fw := 0.5 - li * 0.5
-		for sd: float in [1.0, -1.0]:
-			# (short and folded close: long thin ones read as a spider's)
-			var p0 := Vector3(xs, y0 - th * 0.6, sd * th * 0.3)
-			var p1 := Vector3(xs + th * fw * 0.7, y0 - th * 0.35, sd * th * 1.25)
-			var p2 := Vector3(xs + th * fw * 1.4, y0 - th * 1.05, sd * th * 1.7)
-			var p3 := Vector3(xs + th * fw * 1.7, y0 - th * 1.4, sd * th * 1.85)
-			_strand(g, [p0, p1, p2, p3], [th * 0.14, th * 0.12, th * 0.09, th * 0.06], 3.0)
-	# the antennae: from the top of the head, forward and apart, a gentle curve
-	var hp := Vector3(th * 1.85, y0 + th * 0.55, 0.0)
-	var al := 0.2 if ant != "spindle" else 0.1
-	for sd: float in [1.0, -1.0]:
-		var pts := []
-		var rad := []
-		for j in 9:
-			var f := float(j) / 8.0
-			pts.append(hp + Vector3(f * al, f * al * 0.35 + f * f * al * 0.15, sd * (0.01 + f * al * 0.4)))
-			match ant:
-				"club": rad.append(0.0045 + 0.009 * smoothstep(0.7, 0.95, f) * (1.0 - smoothstep(0.97, 1.0, f) * 0.6))
-				"spindle": rad.append(0.004 + 0.007 * sin(f * PI))
-				_: rad.append(0.004 * (1.0 - f * 0.6))
-		_strand(g, pts, rad, 4.0)
-		if ant == "feather":
-			# the silk moth's combs: a flat strip either side of the shaft, widest in the middle
-			_comb(g, pts, al * 0.22)
-	# the tongue, coiled like a watch spring under the head (not on the hawkmoth)
-	if ant != "spindle":
-		var sp := []
-		var srad := []
-		for j in 22:
-			var f := float(j) / 21.0
-			var w := f * TAU * 2.2
-			var rr := th * 0.42 * (1.0 - f * 0.8)
-			sp.append(Vector3(th * 2.2 + rr * sin(w), y0 - th * 0.45 - rr * (1.0 - cos(w)) * 0.9, 0.0))
-			srad.append(th * 0.05)
-		_strand(g, sp, srad, 4.0)
-	var m := g.to_mesh()
-	_body_lock.lock()
-	_bodies[id] = m
-	_body_lock.unlock()
-	return m
-
-## a profile turned round the x axis: prof [x, radius, part, u]; normals worked from the profile's slope
-static func _revolve(g: Geo, prof: Array, seg: int, at: Vector3) -> void:
-	var n := prof.size()
-	var b := g.v.size()
-	for i in seg + 1:
-		var ph := float(i) / seg * TAU
-		var cy := cos(ph)
-		var sz := sin(ph)
-		for j in n:
-			var q: Array = prof[j]
-			var x: float = q[0]
-			var r: float = q[1]
-			var a: Array = prof[maxi(j - 1, 0)]
-			var c: Array = prof[mini(j + 1, n - 1)]
-			var dx := float(c[0]) - float(a[0])
-			var dr := (float(c[1]) - float(a[1])) / dx if absf(dx) > 1e-6 else 0.0
-			# (the two ends, where the radius closes to 0, point along the axis)
-			var nr := Vector3(-dr, cy, sz).normalized()
-			if r <= 0.0: nr = Vector3(-1.0 if j == 0 else 1.0, 0, 0)
-			g.v.append(at + Vector3(x, r * cy, r * sz))
-			g.own_n.append(nr)
-			g.rp.append(Vector3(float(q[3]), float(i) / seg, float(q[2])))
-	for i in seg:
-		for j in n - 1:
-			var a0 := b + i * n + j
-			var a1 := a0 + n
-			g.idx.append_array([a0, a0 + 1, a1, a1, a0 + 1, a1 + 1])
-
-## a thin tube down a few points (legs, antennae, the tongue), its radius at each point
-static func _strand(g: Geo, pts: Array, rad: Array, part: float) -> void:
-	var rs := 5
-	var path := []
-	var rr := []
-	var sub := 3
-	for i in pts.size() - 1:
-		for s2 in sub:
-			var f := float(s2) / sub
-			var p0: Vector3 = pts[maxi(i - 1, 0)]
-			var p3: Vector3 = pts[mini(i + 2, pts.size() - 1)]
-			path.append((pts[i] as Vector3).cubic_interpolate(pts[i + 1], p0, p3, f))
-			rr.append(lerpf(float(rad[i]), float(rad[i + 1]), f))
-	path.append(pts[pts.size() - 1])
-	rr.append(rad[rad.size() - 1])
-	var b := g.v.size()
-	var nm := Vector3.UP
-	var cnt := path.size()
-	for k in cnt:
-		var tg := ((path[mini(k + 1, cnt - 1)] as Vector3) - (path[maxi(k - 1, 0)] as Vector3)).normalized()
-		nm = (nm - tg * nm.dot(tg)).normalized()
-		if nm.length_squared() < 0.5: nm = tg.cross(Vector3.FORWARD).normalized()
-		var bi := tg.cross(nm)
-		for j in rs + 1:
-			var w := float(j) / rs * TAU
-			var d := nm * cos(w) + bi * sin(w)
-			g.v.append((path[k] as Vector3) + d * float(rr[k]))
-			g.own_n.append(d)
-			g.rp.append(Vector3(float(k) / (cnt - 1), float(j) / rs, part))
-	for k in cnt - 1:
-		for j in rs:
-			var a0 := b + k * (rs + 1) + j
-			var a1 := a0 + rs + 1
-			g.idx.append_array([a0, a1, a0 + 1, a1, a1 + 1, a0 + 1])
-
-## a feathered antenna's comb: a strip either side of the shaft, tilted down; the shader cuts it into barbs
-static func _comb(g: Geo, pts: Array, w: float) -> void:
-	var b := g.v.size()
-	var n := pts.size()
-	for k in n:
-		var f := float(k) / (n - 1)
-		var p: Vector3 = pts[k]
-		var tg := ((pts[mini(k + 1, n - 1)] as Vector3) - (pts[maxi(k - 1, 0)] as Vector3)).normalized()
-		var out := tg.cross(Vector3.UP).normalized()
-		var ww := w * sin(clampf(f * 1.1, 0.0, 1.0) * PI) + w * 0.05
-		var dn := Vector3(0, -0.45, 0)
-		var nm := tg.cross(out).normalized()
-		for sd: float in [-1.0, 1.0]:
-			g.v.append(p + (out * sd + dn).normalized() * ww)
-			g.own_n.append(nm)
-			g.rp.append(Vector3(f, 0.5 + sd * 0.5, 6.0))
-		g.v.append(p)
-		g.own_n.append(nm)
-		g.rp.append(Vector3(f, 0.5, 6.0))
-	for k in n - 1:
-		var a0 := b + k * 3
-		var a1 := a0 + 3
-		g.idx.append_array([a0, a1, a0 + 2, a0 + 2, a1, a1 + 2])
-		g.idx.append_array([a0 + 2, a1 + 2, a0 + 1, a0 + 1, a1 + 2, a1 + 1])
-
-## how each way of flying moves: wingbeats a second, the stroke (top and bottom root angle), cruising speed (in spans
-## a second), how often it sails with the wings held out, how jerky its path, how long it flies and sits (s),
-## how often it opens its wings to the sun when it sits, and its resting wings (closed up, or a moth's flat roof)
+## how each kind lives: its wingbeats a second, the top and bottom of its stroke (a drawn wing's angles: the model's
+## own stroke is fitted to them), how fast it flies, how readily it sails (0 never) and changes its mind, how long it
+## flies and sits, how often it opens its wings to the sun as it sits, and how they rest (1.5 closed over the back)
 const STYLE := {
 	float = {hz = 3.2, up = 1.5, dn = -0.55, speed = 1.3, glide = 0.45, jerk = 0.2, fly = [5.0, 9.0], sit = [3.0, 7.0], sun = 0.7, rest = 1.5},
 	glide = {hz = 4.5, up = 1.5, dn = -0.5, speed = 1.6, glide = 0.35, jerk = 0.25, fly = [4.0, 8.0], sit = [2.5, 6.0], sun = 0.5, rest = 1.5},
@@ -458,6 +156,12 @@ class Fly extends Node3D:
 	var ap: AnimationPlayer
 	var anim := {}
 	var _playing := ""
+	var kind := ""
+	var model: Node3D
+	var full := false       # a model with its own landing, sitting and take-off (the monarch)
+	var tb := {}            # else: its flight clip as a table, the wing's rise by the clip's time (_m_table)
+	var last_a := 9.0
+	var going_down := true
 	var touch := 0.0        # landing: seconds since the feet came down
 	# a model's flight (the _m_ functions below)
 	var yaw := 0.0
@@ -577,96 +281,87 @@ class Fly extends Node3D:
 		dt = minf(dt, 0.05)
 		timer -= dt
 		_m_process(dt)
-		return
-		match state:
-			FLY: _fly(dt)
-			LAND: _land(dt)
-			SIT: _sit(dt)
-			_: _off(dt)
-		_place()
 
-	## a wingbeat: the stroke between the top (wings almost meeting over the back) and the bottom (below the body),
-	## the tip lagging the root; returns the lift of this moment (the body rises on the downstroke)
-	func _flap(dt: float, hz: float, k := 1.0) -> float:
-		phase += dt * hz * TAU
-		var up := float(st.up)
-		var dn := float(st.dn)
-		var mid := (up + dn) * 0.5
-		var amp := (up - dn) * 0.5 * k
-		# the downstroke a little faster than the upstroke
-		var c := cos(phase + 0.25 * sin(phase))
-		var a := mid + amp * c
-		# the tip trails the stroke: bent up going down, bent down going up
-		_wings(a, sin(phase) * 0.55 * k)
-		# the body answers each stroke: it jumps on the downstroke and drops on the up, the nose tips up and down,
-		# the abdomen swinging behind, a beat late (a butterfly's flight is all bounce)
-		pitch = (0.14 + sin(phase) * 0.12) * k
-		bob = sin(phase) * 0.05 * k
-		_swing(-sin(phase - 0.9) * 0.45 * k)
-		return maxf(0.0, sin(phase)) * k
+	func _swing(_v: float) -> void:
+		pass
 
-	func _swing(v: float) -> void:
-		if body_mat: body_mat.set_shader_parameter("swing", v)
+	## the wings at a stroke's angle (st.up at the top .. st.dn at the bottom): the model's flight clip shown at the
+	## moment its own wings are there — on its downstroke if ours is coming down, on its upstroke if going up
+	func _wings(a: float, _f: float) -> void:
+		if full or tb.is_empty() or _playing != "fly": return
+		if a < last_a - 1e-4: going_down = true
+		elif a > last_a + 1e-4: going_down = false
+		last_a = a
+		var u := clampf((a - float(st.dn)) / (float(st.up) - float(st.dn)), 0.0, 1.0)
+		var e := lerpf(float(tb.lo), float(tb.hi), u)
+		var tab: Array = tb.down if going_down else tb.up
+		var t: float = tab[tab.size() - 1][0]
+		for i in range(1, tab.size()):
+			var e0: float = tab[i - 1][1]
+			var e1: float = tab[i][1]
+			if (going_down and e1 <= e) or (not going_down and e1 >= e):
+				var f := 0.0 if is_equal_approx(e0, e1) else clampf((e - e0) / (e1 - e0), 0.0, 1.0)
+				t = lerpf(float(tab[i - 1][0]), float(tab[i][0]), f)
+				break
+		ap.seek(fmod(t, float(tb.len)), true)
 
-	func _wings(a: float, f: float) -> void:
-		if mat == null: return
-		mat.set_shader_parameter("ang", a)
-		mat.set_shader_parameter("flex", f)
-
-	func _fly(dt: float) -> void:
-		var hz: float = float(st.hz)
-		# now and then it sails, wings held out a little above flat
-		glide_t -= dt
-		if glide_t <= 0.0:
-			var sail := rng.next() < float(st.glide)
-			glide_t = (0.5 + rng.next() * 0.9) if sail else (0.6 + rng.next() * 1.2)
-			gliding = 1.0 if sail else 0.0
-		var g := 0.0
-		if gliding > 0.5:
-			_wings(0.12 + 0.05 * sin(phase), 0.0)
-			phase += dt * 2.0
-			pitch = lerpf(pitch, 0.04, minf(1.0, dt * 3.0))
-			bob = lerpf(bob, 0.0, minf(1.0, dt * 3.0))
-			_swing(sin(phase) * 0.06)
-		else:
-			g = _flap(dt, hz)
-		# steer for the target; a jerky one changes its mind often
-		retarget -= dt
-		if pos.distance_to(target) < size * 1.5 or retarget <= 0.0:
-			target = _shell()
-			retarget = (0.3 + rng.next() * 0.5) / maxf(0.2, float(st.jerk)) if float(st.jerk) > 0.6 else 1.5 + rng.next() * 2.0
-		var speed := size * float(st.speed) * (0.85 if gliding > 0.5 else 1.0)
-		var want := (target - pos).normalized() * speed
-		var turn := 2.0 + float(st.jerk) * 6.0
-		var old := vel
-		vel = vel.lerp(want, minf(1.0, dt * turn))
-		# each downstroke lifts it, a sail sinks it
-		vel.y += (g * 1.6 - 0.55) * size * dt * (1.0 if gliding < 0.5 else 0.4)
-		pos += vel * dt
-		_keep_out()
-		# and out of each other's way
-		for n: Node in get_parent().get_children():
-			if n != self and n is Fly:
-				var o := (n as Fly).pos
-				var dd := pos.distance_to(o)
-				if dd < size * 1.2 and dd > 1e-4: pos += (pos - o).normalized() * (size * 1.2 - dd) * 0.5
-		var lat := (vel - old).cross(Vector3.UP).y if dt > 0.0 else 0.0
-		bank = lerpf(bank, clampf(-lat * 20.0 / maxf(size, 0.01), -0.7, 0.7), minf(1.0, dt * 4.0))
-		if vel.length() > 1e-4:
-			heading = Vector3(vel.x, vel.y * 0.6, vel.z).normalized()
-		# time to land: pick a spot on the find
-		if timer <= 0.0 and perch.size():
-			var pick := _free_spot()
-			if pick.is_empty():
-				timer = 1.0 + rng.next()
-				return
-			spot = pick
-			_claim(spot[0], true)
-			state = LAND
-			land_from = pos
-			timer = 0.0
-			touch = 0.0
-			retarget = 0.0
+	## a model's flight clip read once: its wing's rise at 120 moments, and from them one stroke — from a top down to
+	## the bottom after it (down) and up to the next top (up) — as [clip time, rise] tables
+	static var _tables := {}
+	func _m_table() -> Dictionary:
+		if _tables.has(kind): return _tables[kind]
+		var md: Dictionary = SpecButterfly.MODELS[kind]
+		var sk := model.find_child("Skeleton3D", true, false) as Skeleton3D
+		var nm := String(anim.fly)
+		var out := {}
+		if sk == null or not ap.has_animation(nm):
+			_tables[kind] = out
+			return out
+		var find := func(prefix: String) -> int:
+			for i in sk.get_bone_count():
+				if sk.get_bone_name(i).begins_with(prefix): return i
+			return -1
+		var tip: int = find.call(String(md.get("tip", "LeftUpperWing")))
+		var base: int = find.call(String(md.base)) if md.has("base") else -1
+		var rel := model.global_transform.affine_inverse() * sk.global_transform
+		var L := ap.get_animation(nm).length
+		var N := 120
+		var e := PackedFloat32Array()
+		ap.play(nm)
+		ap.speed_scale = 0.0
+		for i in N:
+			ap.seek(L * i / N, true)
+			var bp := rel * sk.get_bone_global_pose(tip)
+			if base >= 0:
+				var d := bp.origin - (rel * sk.get_bone_global_pose(base)).origin
+				e.append(atan2(d.y, absf(d.x)))
+			else:
+				e.append(asin(clampf(bp.basis.y.normalized().y, -1.0, 1.0)))
+		var top := 0
+		for i in N:
+			if e[i] > e[top]: top = i
+		var lo := e[top]
+		var hi := e[top]
+		for v in e:
+			lo = minf(lo, v)
+		var mid := (lo + hi) * 0.5
+		# down from the top to the first turn below the middle, then up to the first turn above it
+		var j := top
+		var down := [[L * top / N, hi]]
+		for step in N:
+			var nx := j + 1
+			if e[nx % N] > e[j % N] + 0.002 and e[j % N] < mid: break
+			j = nx
+			down.append([L * j / N, minf(e[j % N], float(down[down.size() - 1][1]))])
+		var up := [[L * j / N, e[j % N]]]
+		for step in N:
+			var nx := j + 1
+			if e[nx % N] < e[j % N] - 0.002 and e[j % N] > mid: break
+			j = nx
+			up.append([L * j / N, maxf(e[j % N], float(up[up.size() - 1][1]))])
+		out = {down = down, up = up, lo = float(down[down.size() - 1][1]), hi = hi, len = L}
+		_tables[kind] = out
+		return out
 
 	## the flies on this find share their landing spots: a spot one has taken (or is coming in to) is no one else's
 	func _taken() -> Array:
@@ -693,36 +388,6 @@ class Fly extends Node3D:
 			if ok: return q
 		return []
 
-	## coming in: flies at the spot from above it, slowing, wings fluttering, then folds them as the feet touch
-	func _land(dt: float) -> void:
-		var p: Vector3 = spot[0]
-		var n: Vector3 = spot[1]
-		var hover := p + n * size * 0.8
-		var d := pos.distance_to(hover)
-		retarget -= dt
-		if d > size * 0.25 and retarget > -4.0:
-			var speed := size * float(st.speed) * clampf(d / size, 0.4, 1.0)
-			vel = vel.lerp((hover - pos).normalized() * speed, minf(1.0, dt * 4.0))
-			pos += vel * dt
-			_keep_out(p)
-			heading = Vector3(vel.x, 0.0, vel.z).normalized() if Vector2(vel.x, vel.z).length() > 1e-4 else heading
-			_flap(dt, float(st.hz) * 1.15)
-			bank = lerpf(bank, 0.0, minf(1.0, dt * 4.0))
-		else:
-			# settle down onto the spot over half a second, a few short beats
-			# (its own clock: `timer` runs down every frame, and counting it back up here went nowhere — a butterfly
-			# that came in to land hung over its spot for good)
-			if touch <= 0.0: land_from = pos
-			touch += dt
-			var f := clampf(touch / 0.5, 0.0, 1.0)
-			pos = land_from.lerp(p + n * size * 0.08, f * f)
-			_flap(dt, float(st.hz) * 0.8, 1.0 - f * 0.7)
-			if f >= 1.0:
-				state = SIT
-				timer = _rnd(st.sit)
-				sun = 0.0
-				sun_t = 0.5 + rng.next()
-
 	## sitting: wings closed over the back (a moth's flat roof), opened to the sun for a while, a slow clap now and then
 	func _sit(dt: float) -> void:
 		var rest := float(st.rest)
@@ -747,19 +412,6 @@ class Fly extends Node3D:
 			vel = (spot[1] as Vector3) * size * float(st.speed) * 0.8
 			_claim(spot[0], false)
 
-	## taking off: a few strong beats straight up off the spot, then away
-	func _off(dt: float) -> void:
-		var g := _flap(dt, float(st.hz) * 1.2, 1.1)
-		vel = vel.lerp(((spot[1] as Vector3) + Vector3.UP).normalized() * size * float(st.speed) * 1.2, minf(1.0, dt * 3.0))
-		vel.y += g * size * dt
-		pos += vel * dt
-		if timer <= 0.0:
-			state = FLY
-			timer = _rnd(st.fly)
-			target = _shell()
-			gliding = 0.0
-			glide_t = 0.6
-
 	## keep out of every piece of the find (but for the one being landed on, near its spot)
 	func _keep_out(near := Vector3.INF) -> void:
 		for o: Array in obst:
@@ -775,23 +427,6 @@ class Fly extends Node3D:
 				var nrm := (out - oc).normalized()
 				pos = out
 				vel -= nrm * minf(0.0, vel.dot(nrm))
-
-	func _place() -> void:
-		if not looked: return
-		var up := Vector3.UP
-		var fwd := heading
-		if state == SIT or (state == LAND and timer > 0.0):
-			up = spot[1]
-			fwd = (heading - up * heading.dot(up)).normalized()
-			if fwd.length() < 1e-3: fwd = up.cross(Vector3.RIGHT).normalized()
-		var side := fwd.cross(up).normalized()
-		up = side.cross(fwd).normalized()
-		var bas := Basis(side, up, -fwd).orthonormalized()
-		# the card's head is +x: turn it to face along fwd; bank into the turn
-		# (a model bounces in its own animation: our stroke's pitch and bob are the wing cards')
-		bas = bas * Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, bank) * Basis(Vector3.BACK, pitch)
-		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
-		transform = into * Transform3D(bas, pos + up * bob * size)
 
 	# ---------------------------------------------------------------- a model's flight
 	# A whole animated model (SpecButterfly.MODELS) flies by forces, not along a rail: gravity all the time, a push up
@@ -813,8 +448,10 @@ class Fly extends Node3D:
 
 	func _m_init() -> void:
 		trace = OS.get_cmdline_user_args().has("flytrace")
+		full = anim.has("land")
+		if not full: tb = _m_table()
 		# a model beats at the pace its clip reads well; a drawn one at its kind's (STYLE hz), each a little off the rest
-		beat_t = 0.19 + rng.next() * 0.06 if ap else (1.0 / float(st.hz)) * (0.9 + rng.next() * 0.25)
+		beat_t = 0.19 + rng.next() * 0.06 if full else (1.0 / float(st.hz)) * (0.9 + rng.next() * 0.25)
 		grav = 75.0 * pow(0.21 / beat_t, 1.4)
 		sail_k = 0.7 + rng.next() * 0.7
 		wph = rng.next()
@@ -823,9 +460,12 @@ class Fly extends Node3D:
 		yaw = atan2(vel.x, vel.z) if state == FLY else atan2(heading.x, heading.z)
 		if state == FLY:
 			_m_next()
-			if ap: _m_play("fly", 0.0, 0.0, 0.0)
-		elif ap:
-			_m_play("sit", 0.0, rng.next() * 5.0)
+			_m_play("fly", 0.0, 0.0, 0.0)
+		elif anim.has("sit"):
+			_m_play("sit", 0.0, rng.next() * 2.0)
+		else:
+			_m_play("fly", 0.0, 0.0, 0.0)
+			_wings(float(st.rest), 0.0)
 		quat = _m_basis().get_rotation_quaternion()
 
 	func _m_process(dt: float) -> void:
@@ -847,17 +487,19 @@ class Fly extends Node3D:
 						retarget = 6.0
 			LAND: _m_land(dt)
 			SIT:
-				if ap:
+				if full:
 					if timer <= 0.0:
 						state = OFF
 						off_t = 0.0
 						_claim(spot[0], false)
 						_m_play("off", 0.1)
 				else:
-					# a drawn one sits as it did (wings closed, opened to the sun, a slow clap) and jumps off on a hard beat
+					# it sits in its own idle if it has one, else in its stroke (wings closed, opened to the sun, a slow
+					# clap), and jumps off on a hard beat
 					_sit(dt)
 					if state == OFF:
 						state = FLY
+						_m_play("fly", 0.0, 0.0, 0.0)
 						vel = ((spot[1] as Vector3) * 2.5 + Vector3.UP * 3.0) * size
 						wing = 0
 						wph = 0.0
@@ -886,7 +528,7 @@ class Fly extends Node3D:
 		up = side.cross(fwd).normalized()
 		var bas := Basis(side, up, -fwd).orthonormalized() * Basis(Vector3.UP, PI * 0.5)
 		# (a model's clip holds its body nose up already; a drawn one's card lies flat)
-		if not down: bas = bas * Basis(Vector3.RIGHT, mroll) * Basis(Vector3.BACK, mpitch + (0.0 if ap else 0.4))
+		if not down: bas = bas * Basis(Vector3.RIGHT, mroll) * Basis(Vector3.BACK, mpitch + float((SpecButterfly.MODELS[kind] as Dictionary).pitch))
 		return bas
 
 	## the next point to make for: mostly a hover over some spot on the find, sometimes out on the shell round it, now
@@ -933,7 +575,7 @@ class Fly extends Node3D:
 
 	## the wings: the clip's time moved on by one step; sets lift (the wings are coming down) and beat (one has begun)
 	func _m_wings(h: float) -> void:
-		if ap == null:
+		if not full:
 			_m_wings_drawn(h)
 			return
 		var r := 0.11 / beat_t
@@ -1039,7 +681,7 @@ class Fly extends Node3D:
 
 	## in the air for dt: wings, pilot and forces in small steps
 	func _m_air(dt: float) -> void:
-		if ap and _playing != "fly": _m_play("fly", 0.0, 0.0, 0.0)
+		if _playing != "fly": _m_play("fly", 0.0, 0.0, 0.0)
 		var n := ceili(dt / 0.008)
 		var h := dt / n
 		for k in n:
@@ -1080,7 +722,7 @@ class Fly extends Node3D:
 				if dwell <= 0.0 or retarget <= 0.0: _m_next()
 		# (on its way down onto its spot nothing holds it off: the spot is among the find's pieces)
 		if not (state == LAND and stage == 1): _keep_out((spot[0] as Vector3) if state == LAND and spot.size() else Vector3.INF)
-		if ap: ap.seek(ct, true)
+		if full: ap.seek(ct, true)
 
 	## coming in: to a hover over the spot, down onto it — beating all the way, the body standing up as it slows — and
 	## the feet down: the model's own landing from there on (the last flicks of the wings as it settles), then it sits
@@ -1107,24 +749,24 @@ class Fly extends Node3D:
 				touch = 0.0
 				land_from = pos
 				vel = Vector3.ZERO
-				if ap: _m_play("land", 0.12, 0.5)
+				if full: _m_play("land", 0.12, 0.5)
 		else:
 			touch += dt
-			pos = land_from.lerp(p + n * size * (0.02 if ap else 0.08), smoothstep(0.0, 0.22, touch))
+			pos = land_from.lerp(p + n * size * 0.02, smoothstep(0.0, 0.22, touch))
 			mpitch = 0.0
 			mroll = 0.0
 			# (a drawn one: a few dying flicks of the wings, settling to how it rests)
-			if ap == null:
+			if not full:
 				var f := clampf(touch / 0.6, 0.0, 1.0)
 				_wings(lerpf(float(st.up) * 0.6, float(st.rest), f) + sin(touch * 26.0) * 0.35 * (1.0 - f), 0.0)
 				_swing(0.0)
-			if touch >= (0.85 if ap else 0.6):
+			if touch >= (0.85 if full else 0.6):
 				state = SIT
 				land_key = Vector3.INF
 				timer = _rnd(st.sit)
 				sun = 0.0
 				sun_t = 0.5 + rng.next()
-				if ap: _m_play("sit", 0.3)
+				if anim.has("sit"): _m_play("sit", 0.3, 0.0 if full else rng.next() * 2.0)
 
 	## taking off: the model's own take-off — it gathers itself, jumps on the first stroke, three beats up and away
 	func _m_off(dt: float) -> void:

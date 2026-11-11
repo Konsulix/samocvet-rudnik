@@ -1,50 +1,55 @@
 extends Node3D
-## Every kind of SpecButterfly side by side, seen from above and in front, for checking the wings:
-##   godot --path godot --resolution 1600x400 res://tests/butterfly_view.tscn -- shot=user://bf.png [t=1.5] [ang=… flex=…]
-##   [bg] a stone floor under them; camera cx cy cz tx fov
-
+## Every kind of butterfly (SpecButterfly.KINDS) up close: sitting (top row), and held at three moments of its stroke —
+## wings up, level, down (the rows below).
+##   godot --path godot --resolution 1600x1000 res://tests/butterfly_view.tscn -- shot=user://bf.png
 func _ready() -> void:
 	var args := {}
 	for a in OS.get_cmdline_user_args():
-		var kv := a.split("=", true, 1)
+		var kv := a.split("=")
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	var w := Node3D.new()
-	add_child(w)
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
-	env.environment.background_color = Color(0.08, 0.07, 0.1)
-	env.environment.ambient_light_color = Color(0.5, 0.5, 0.55)
+	env.environment.background_color = Color(0.1, 0.1, 0.13)
+	env.environment.ambient_light_color = Color(0.7, 0.7, 0.72)
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	w.add_child(env)
+	add_child(env)
 	var sun := DirectionalLight3D.new()
-	sun.rotation = Vector3(-0.9, 0.5, 0)
-	w.add_child(sun)
-	# bg=1: a stone floor under them, to see through a glasswing
-	if args.has("bg"):
-		var fl := MeshInstance3D.new()
-		var pm := PlaneMesh.new()
-		pm.size = Vector2(12, 4)
-		fl.mesh = pm
-		var fm := StandardMaterial3D.new()
-		fm.albedo_texture = load("res://assets/textures/rock_surface/rock_surface_diff_1k.jpg")
-		fm.uv1_scale = Vector3(6, 2, 1)
-		fl.material_override = fm
-		fl.position.y = -0.25
-		w.add_child(fl)
-	var rng := Rng32.new(7)
+	sun.rotation = Vector3(-1.0, 0.4, 0)
+	add_child(sun)
 	var ids: Array = SpecButterfly.KINDS.keys()
-	var n := ids.size()
-	for k in n:
-		var b := SpecButterfly.put(w, rng, ids[k], Vector3((k - (n - 1) * 0.5) * 1.05, 0, 0), Vector3.UP, 1.0, false)
-		b.set_process(false)
-		b.rotation.y = PI * 0.5
-		(b.mat as ShaderMaterial).set_shader_parameter("ang", float(args.get("ang", "0.05")))
+	var held := []
+	for i in ids.size():
+		for row in 4:
+			var hold := Node3D.new()
+			hold.position = Vector3(i * 1.25 - (ids.size() - 1) * 0.625, 1.9 - row * 1.25, 0)
+			hold.rotation = Vector3(0.55, 0.6, 0)
+			hold.set_meta("grown", {})
+			add_child(hold)
+			var fb: SpecButterfly.Fly = SpecButterfly.put(hold, Rng32.new(7 + i), String(ids[i]), Vector3.ZERO, Vector3.UP, 1.0 / float(SpecButterfly.KINDS[ids[i]].span), false, [[Vector3.ZERO, Vector3.UP]])
+			if row > 0: held.append([fb, [1.5, 0.3, -0.5][row - 1]])
+		var l := Label3D.new()
+		l.text = String(ids[i])
+		l.font_size = 36
+		l.position = Vector3(i * 1.25 - (ids.size() - 1) * 0.625, 2.75, 1)
+		add_child(l)
 	var cam := Camera3D.new()
-	w.add_child(cam)
-	cam.look_at_from_position(Vector3(float(args.get("cx", "0")), float(args.get("cy", "4.2")), float(args.get("cz", "0.4"))), Vector3(float(args.get("tx", "0")), 0, 0))
-	cam.fov = float(args.get("fov", "60"))
-	await get_tree().create_timer(float(args.get("t", "1.5"))).timeout
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = 6.4
+	cam.position = Vector3(0, 0.1, 20)
+	add_child(cam)
+	await get_tree().create_timer(float(args.get("t", "1.0"))).timeout
+	for h: Array in held:
+		var fb: SpecButterfly.Fly = h[0]
+		fb.set_process(false)
+		if fb.full:
+			fb._m_play("fly", 0.0, 0.0, 0.0)
+			fb.ap.seek([0.0, 0.03, 0.05][[1.5, 0.3, -0.5].find(h[1])], true)
+		else:
+			fb._m_play("fly", 0.0, 0.0, 0.0)
+			fb.last_a = 9.0
+			fb._wings(float(fb.st.dn) + (float(fb.st.up) - float(fb.st.dn)) * [1.0, 0.45, 0.0][[1.5, 0.3, -0.5].find(h[1])], 0.0)
+	for k in 3: await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(String(args.get("shot", "user://bf.png")))
 	get_tree().quit()

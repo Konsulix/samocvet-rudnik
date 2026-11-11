@@ -917,7 +917,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 			if nr[j].y > 0.45: perches.append([cr.v[j], nr[j]])
 		for k in int(sk.flies):
 			var id: String = sk.fly_kinds[k]
-			var style: String = SpecButterfly.KINDS[id][6]
+			var style := SpecButterfly.style(id)
 			var flying := fr.next() < (0.7 if style in ["hover", "flit"] else 0.45)
 			if int(sk.fly_mode) >= 0: flying = int(sk.fly_mode) == 1
 			var i: int = top[int(fr.next() * top.size())]

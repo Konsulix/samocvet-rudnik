@@ -109,7 +109,7 @@ const SKULL_AT := [
 ## the very first find in a mine with skulls is one picked by eye (the seed and genes as `spec_gallery -- area=6
 ## sp=pyrope form=skull base=700 skin=bone moss=cap tree_kind=blossom stream=1 wine=1` draws its second): a dark skull,
 ## a crown of pyrope, moss, a scarlet spring from the eye, three blue butterflies — the mine shows what it holds at once. Null if already found.
-const FIRST_SKULL := {6: {seed = 708, sid = "pyrope", gi = 3, skin = "bone", moss = "cap", tree_kind = "blossom", stream = true, wine = true, flies = 3, fly_kind = "blue"}}
+const FIRST_SKULL := {6: {seed = 708, sid = "pyrope", gi = 3, skin = "bone", moss = "cap", tree_kind = "blossom", stream = true, wine = true, flies = 3, fly_kind = "bluetiger"}}
 static func first_find(area: int, luck: float, dl: int) -> Variant:
 	if not FIRST_SKULL.has(area) or Save.told("first_find_%d" % area): return null
 	var f: Dictionary = FIRST_SKULL[area]
