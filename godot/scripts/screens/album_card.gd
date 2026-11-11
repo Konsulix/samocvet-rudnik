@@ -16,7 +16,9 @@ var stone: Texture2D
 var _col := Color.WHITE
 var _tier := 0
 var _flash := 0.0
+const BONES_RY := 0.46       # the bones back's recess, its middle down the card
 static var _back: Texture2D
+static var _bones: Texture2D   # a beast's skull: its own back, bones round the recess (art/ui_redesign/collection/gen_bone_back.sh)
 
 func setup(sid: String, sz: Vector2, o: bool, a: int, d: int, g: bool, sold: bool) -> void:
 	id = sid
@@ -105,12 +107,15 @@ func _face(r: Rect2) -> void:
 		draw_string(f, Vector2((size.x - w) / 2.0, size.y - 6), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Kit.DIM)
 
 func _back_side(r: Rect2) -> void:
+	var bone := id.begins_with("beast_")
 	if _back == null:
 		var p := "res://assets/atlas/album/back.png"
 		_back = load(p) if ResourceLoader.exists(p) else null
+		_bones = load("res://assets/atlas/album/back_bones.png")
 	var a := 1.0 if open else 0.55
-	if _back:
-		draw_texture_rect(_back, r, false, Color(1, 1, 1, a))
+	var bk := _bones if bone else _back
+	if bk:
+		draw_texture_rect(bk, r, false, Color(1, 1, 1, a))
 	else:
 		var st := StyleBoxFlat.new()
 		st.bg_color = Color("#16171b")
@@ -123,15 +128,10 @@ func _back_side(r: Rect2) -> void:
 	var em := AtlasBoard._emblem(Atlas._sign(area, open) if open else "lock")
 	# in the back's round recess (its middle at 0.445 of the height, 0.54 of the width across)
 	var d := size.x * 0.46
-	draw_texture_rect(em, Rect2(Vector2((size.x - d) / 2.0, size.y * 0.445 - d / 2.0), Vector2(d, d)), false, Color(1, 1, 1, 0.7 * a))
+	var ry := BONES_RY if bone else 0.445
+	draw_texture_rect(em, Rect2(Vector2((size.x - d) / 2.0, size.y * ry - d / 2.0), Vector2(d, d)), false, Color(1, 1, 1, 0.7 * a))
 	if open:
 		var f: Font = UI.body_bold
-		# a beast's skull says whose it is (the row of bones is a hunt for those two)
-		if id.begins_with("beast_"):
-			var bn := name_of(id)
-			var bw := f.get_string_size(bn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-			draw_string(f, Vector2((size.x - bw) / 2.0 + 1, size.y - 26), bn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0, 0, 0, 0.8))
-			draw_string(f, Vector2((size.x - bw) / 2.0, size.y - 27), bn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Kit.CREAM)
 		var t := "from %d m" % Data.depth_m(area, dl)
 		var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 		draw_string(f, Vector2((size.x - w) / 2.0 + 1, size.y - 13), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0, 0, 0, 0.8))
