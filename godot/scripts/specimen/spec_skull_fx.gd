@@ -867,6 +867,7 @@ class Flock extends Node:
 						f.land_from = f.pos
 						f.timer = 0.0
 						f.retarget = 0.0
+						f.land_key = Vector3.INF
 			if t <= 0.0:
 				phase = 1
 				t = 3.5 + r.next() * 1.5
