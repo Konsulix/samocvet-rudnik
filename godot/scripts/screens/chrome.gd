@@ -294,22 +294,47 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	return bar
 
 ## the map of mines (for now a card): the mines in order, the one being worked marked, the next ones shut
-static func mines_card() -> void:
+## the Mines tab: every mine, the ones reached open to go back to (on_pick(mine) — Main switches and shows it); each
+## row says how far it is dug: its jobs built, its boss
+static func mines_card(on_pick: Callable = Callable()) -> void:
 	var v := Ov.card(330)
 	v.add_child(UI.title("Mines", 22))
 	var cur := Save.area()
+	var far := Save.reached()
 	for a in Data.AREAS.size():
 		var A: Dictionary = Data.AREAS[a]
 		var row := PanelContainer.new()
 		row.add_theme_stylebox_override("panel", Kit.box("tab_on" if a == cur else "card", 12.0))
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 10)
-		h.add_child(Kit.icon("mine" if a <= cur else "lock", 34))
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(Kit.icon("mine" if a <= far else "lock", 34))
 		var t := VBoxContainer.new()
 		t.add_theme_constant_override("separation", 0)
-		t.add_child(Kit.label(String(A.n), 16, UI.display, Kit.AMBER if a == cur else Kit.CREAM if a < cur else Kit.DIM))
-		t.add_child(Kit.label("worked now" if a == cur else "worked out" if a < cur else "not yet reached", 12, UI.body, Kit.DIM))
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.add_child(Kit.label(String(A.n), 16, UI.display, Kit.AMBER if a == cur else Kit.CREAM if a <= far else Kit.DIM))
+		var jobs: Array = A.get("tasks", [])
+		var built := 0
+		for j: Array in jobs:
+			if (Save.d.built[a] as Array).has(j[0]): built += 1
+		var st := "not yet reached"
+		if a <= far:
+			st = "%d of %d jobs built" % [built, jobs.size()] if jobs.size() else ""
+			if not (A.get("boss", {}) as Dictionary).is_empty() and bool(Save.d.boss_won[a]): st += " · %s beaten" % String(A.boss.n)
+			if a == cur: st = "working here · " + st
+		t.add_child(Kit.label(st, 12, UI.body, Kit.DIM))
 		h.add_child(t)
+		if a <= far and a != cur:
+			var go := Kit.label("›", 26, UI.display, Kit.AMBER)
+			go.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(go)
+			row.mouse_filter = Control.MOUSE_FILTER_STOP
+			var k := a
+			row.gui_input.connect(func(ev: InputEvent): if Atlas._tapped(ev):
+				Sfx.play("click")
+				Ov.close()
+				if on_pick.is_valid(): on_pick.call(k))
 		row.add_child(h)
 		v.add_child(row)
 	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))

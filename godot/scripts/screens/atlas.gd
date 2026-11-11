@@ -169,7 +169,7 @@ static func found_in(a: int) -> int:
 	return n
 
 static func is_open(a: int) -> bool:
-	return a <= Save.area()
+	return a <= Save.reached()
 
 # ---------------------------------------------------------------- the mines
 

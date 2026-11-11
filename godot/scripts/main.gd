@@ -549,9 +549,16 @@ func show_home() -> void:
 	h.play.connect(func(n: int, pre: Array, dl: int): show_level(n, pre, dl, LevelGen.current(dl)))
 	h.go.connect(go)
 
+## back to a mine already dug, or on to the furthest one (the Mines tab): its own ore, veins and depths come back
+func _go_mine(a: int) -> void:
+	var sold := Save.open_mine(a)
+	Save.persist()
+	show_home()
+	Ov.toast("Back in %s" % Data.AREAS[a].n + (" · leftover ore sold for %s" % UI.coins(sold) if sold else ""))
+
 func go(id: String) -> void:
 	match id:
-		"map": Chrome.mines_card()
+		"map": Chrome.mines_card(_go_mine)
 		"home": show_home()
 		"depot":
 			var d := Depot.new()

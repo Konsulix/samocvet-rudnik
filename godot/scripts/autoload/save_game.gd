@@ -35,6 +35,9 @@ func blank() -> Dictionary:
 		# the highest tier each boss was beaten at (a replay from the atlas fights the next one)
 		boss_tier = [],
 		maiden_day = -100,   # the day the Fire Maiden last danced (once a week)
+		# the mines: the furthest one reached, and what each mine left behind keeps till the player comes back to it
+		# (its own ore, its veins, its wins by depth: open_mine)
+		reached = 0, mines = {},
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
@@ -92,6 +95,7 @@ func _init() -> void:
 	if int(d.area_back) >= 0:
 		d.area = int(d.area_back)
 		d.area_back = -1
+	d.reached = maxi(int(d.reached), int(d.area))
 	# the atlas came after the collection: the stones already kept are its first entries
 	if d.atlas.is_empty():
 		for s in d.coll:
@@ -211,17 +215,42 @@ func fresh_veins(a: int) -> Array:
 		out.append([int(D.fe), int(D.au)])
 	return out
 
-## the next mine: what is left of this one's own ore is sold, the new one starts with full veins
+## another mine, the next one or one already dug (the Mines tab): the one left keeps its ore, veins and wins for when
+## the player comes back (d.mines); a mine come to for the first time starts with full veins. Ore left in a mine with
+## every job built has nothing to buy there any more: it is sold (the coins returned)
 func open_mine(a: int) -> int:
-	var sold := int(d.ore) * ORE_PRICE
-	d.coins += sold
-	d.ore = 0
+	var was := area()
+	if a == was: return 0
+	d.reached = reached()   # (the mine being left counts as reached: set straight by a test key, it may not be yet)
+	var sold := 0
+	var jobs: Array = Data.AREAS[was].get("tasks", [])
+	if jobs.size() and jobs.all(func(t: Array) -> bool: return (d.built[was] as Array).has(t[0])):
+		sold = int(d.ore) * ORE_PRICE
+		d.coins += sold
+		d.ore = 0
+	d.mines[str(was)] = {ore = int(d.ore), vein = d.vein, dwins = d.dwins}
+	var m: Dictionary = d.mines.get(str(a), {})
+	d.mines.erase(str(a))
 	d.area = a
-	d.vein = fresh_veins(a)
-	d.dwins = fresh_wins(a)
+	d.reached = maxi(int(d.reached), a)
+	d.ore = int(m.get("ore", 0))
+	var fv := fresh_veins(a)
+	var vs: Array = []
+	for i in fv.size():
+		var old: Array = (m.vein as Array)[i] if m.has("vein") and i < (m.vein as Array).size() else fv[i]
+		vs.append([int(old[0]), int(old[1])])
+	d.vein = vs
+	var ws: Array = []
+	for i in fv.size():
+		ws.append(int((m.dwins as Array)[i]) if m.has("dwins") and i < (m.dwins as Array).size() else 0)
+	d.dwins = ws
 	d.rich = 0
 	d.lrich = false
 	return sold
+
+## the mines the player can go to (the Mines tab): every one up to the furthest reached
+func reached() -> int:
+	return maxi(int(d.get("reached", 0)), area())
 
 func fresh_wins(a: int) -> Array:
 	var out := []
