@@ -34,7 +34,7 @@ void fragment() {
 	float a = phase * 6.2832;
 	vec3 sun = normalize((VIEW_MATRIX * vec4(sin(a), 0.0, -cos(a), 0.0)).xyz);
 	vec3 n = normalize(NORMAL);
-	float lit = smoothstep(-0.08, 0.12, dot(n, sun));
+	float lit = smoothstep(-0.22, 0.3, dot(n, sun));
 	float limb = pow(max(dot(n, VIEW), 0.0), 0.35);
 	ALBEDO = base * (lit * 1.25 + 0.06) * limb;
 }

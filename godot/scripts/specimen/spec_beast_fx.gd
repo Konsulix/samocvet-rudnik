@@ -191,7 +191,7 @@ static func _wolfmoon(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 	var bb := _box(cr)
 	var s := maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
 	var mo := MoonNode.new()
-	var at := Vector3(bb.get_center().x + s * 0.32, bb.end.y + s * 0.32, bb.get_center().z - s * 0.25)
+	var at := Vector3(bb.get_center().x, bb.end.y + s * 0.34, bb.get_center().z - s * 0.2)
 	var ball := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = s * 0.13
@@ -217,10 +217,15 @@ static func _wolfmoon(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 		var e := SpecSkullFx.eye(surf, sx, sk)
 		if e.is_empty(): continue
 		var em := _glow_mat(Color(0.75, 0.9, 1.0), 0.0, r.next() * 9.0)
-		_quad(mo, float(e.r) * 2.6, em, (e.deep as Vector3).lerp(e.front, 0.6))
+		_quad(root, float(e.r) * 2.6, em, (e.deep as Vector3).lerp(e.front, 0.6))
 		mo.eyes.append(em)
 	mo.t = r.next() * 30.0
+	mo.at = at
+	mo.sway = s * 0.15
+	mo.ball = ball
 	root.add_child(mo)
+	# dust in its light, rising slowly
+	SpecSkullFx._fireflies(root, r, bb.get_center() + Vector3(0, s * 0.1, 0), s * 0.7, 18, 0.03, false, Color(0.5, 0.65, 1.0), s * 0.5)
 	(sk.marks as Array).append(["fx", at, Vector3.BACK])
 
 class MoonNode extends Node3D:
@@ -229,9 +234,17 @@ class MoonNode extends Node3D:
 	var light: OmniLight3D
 	var eyes := []
 	var t := 0.0
+	var at := Vector3.ZERO
+	var sway := 0.3
+	var ball: MeshInstance3D
 	func _process(dt: float) -> void:
 		t += dt
 		var ph := fmod(t / 30.0, 1.0)              # 0 new, 0.5 full
+		# it crosses the sky over the head as the month goes: rising at one side, highest at the full, setting
+		var arc := (ph - 0.5) * 2.0
+		var p := at + Vector3(arc * sway * 2.0, -arc * arc * sway * 0.9, 0.0)
+		for ch in get_children():
+			if ch is MeshInstance3D or ch is OmniLight3D: (ch as Node3D).position = p - (Vector3(0, 0, 0.02) if ch != ball and ch is MeshInstance3D else Vector3.ZERO)
 		var full := 0.5 - 0.5 * cos(ph * TAU)
 		moon.set_shader_parameter("phase", ph)
 		halo.set_shader_parameter("power", 0.15 + full * 0.9)
@@ -251,7 +264,7 @@ static func _breath(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo) -> void:
 	var uv2 := PackedVector2Array()
 	var cl := PackedColorArray()
 	var idx := PackedInt32Array()
-	for k in 26:
+	for k in 44:
 		var c := Color(r.next(), r.next(), r.next(), float(k % 2))
 		var i0 := v.size()
 		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
@@ -274,8 +287,8 @@ static func _breath(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo) -> void:
 	var m := ShaderMaterial.new()
 	m.shader = STEAM
 	m.set_shader_parameter("dir", Vector3(0, 0.25, 1).normalized())
-	m.set_shader_parameter("reach", s * 0.4)
-	m.set_shader_parameter("size", s * 0.07)
+	m.set_shader_parameter("reach", s * 0.34)
+	m.set_shader_parameter("size", s * 0.035)
 	m.render_priority = 3
 	mi.material_override = m
 	root.add_child(mi)
@@ -645,20 +658,27 @@ class JawHeat extends Node:
 ## the amber drop: the whole skull sealed in a drop of amber (SpecFlower's resin), and in it old insects drifting slowly
 ## round the head, as if the amber had not set
 static func _amberdrop(root: Node3D, sk: Dictionary, r: Rng32, bones: Array) -> void:
-	var cr: Geo = bones[0]
-	var bb := cr.aabb()
-	for g: Geo in bones: bb = bb.merge(g.aabb())
+	# everything on the skull so far (the bone, its crystals, its horns) goes inside
+	var bb := (bones[0] as Geo).aabb()
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		if n.has_meta("geo"): bb = bb.merge(U.rel_xform(n as Node3D, root) * (n.get_meta("geo") as Geo).aabb())
 	var c := bb.get_center()
 	var hs := bb.size * 0.5
-	var f := {host = "amber", tone = "lemon", crust = 0.0, window = false, seed = int(r.next() * 10000), cloud = 0.05, spangle = r.next() < 0.5}
-	var g := SpecFlower._resin(r, f)
-	# (the resin's pebble, stretched round the skull with room to spare)
-	var ext := Vector3(hs.x * 1.3 + 0.05, hs.y * 1.3 + 0.05, hs.z * 1.25 + 0.05)
-	var gb := g.aabb()
-	var gs := gb.size * 0.5
+	var f := {host = "amber", tone = ["honey", "lemon", "cognac"][int(r.next() * 3.0)], crust = 0.0, window = false, seed = int(r.next() * 10000), cloud = 0.03, spangle = r.next() < 0.5}
+	# a drop as resin runs: round and heavy below, drawn up to a blunt point where it hung, its skin gently uneven
+	var ext := Vector3(hs.x * 1.42 + 0.06, hs.y * 1.3 + 0.06, hs.z * 1.42 + 0.06)
+	var g := Geo.icosa(1.0, 5).to_soup()
+	var nz := FastNoiseLite.new()
+	nz.seed = int(f.seed)
+	nz.frequency = 0.7
 	for i in g.v.size():
-		var p := (g.v[i] - gb.get_center()) / gs
+		var d := g.v[i].normalized()
+		var up := smoothstep(0.1, 1.0, d.y)
+		var p := Vector3(d.x * (1.0 - 0.42 * up), d.y * (1.0 + 0.5 * up * up) - 0.1, d.z * (1.0 - 0.42 * up))
+		p *= 1.0 + nz.get_noise_3dv(d * 1.5) * 0.06
 		g.v[i] = c + p * ext
+	g.col.resize(g.v.size())
+	g.orient_out()
 	SpecFlower._smooth(g, -1.0)
 	var drop := U.mesh(g, SpecFlower.amber_mat(f, g), root)
 	drop.set_meta("col", true)
@@ -714,9 +734,18 @@ static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: S
 	for i in g.v.size(): uv.append(Vector2(float(fu[i]) if i < fu.size() else 1.0, 0.0))
 	# the skull's own axis, back of the head to the nose: forward, or down for one hung face-on on a wall
 	var lm: Dictionary = SpecSkull.body(String(sk.beast)).get("lm", {})
-	var axis := Vector3(0, -0.94, 0.34).normalized() if lm.get("mount", false) else Vector3.BACK
+	var axis := Vector3.BACK
 	var bb: AABB = (bones[0] as Geo).aabb()
 	for b: Geo in bones: bb = bb.merge(b.aabb())
+	if lm.get("mount", false) and lm.has("eye_front"):
+		# (hung face-on: its nose is the point of its midline furthest below the eyes)
+		var e := SpecSkull.lm_v(lm, "eye_front")
+		e.x = 0.0
+		var far := 0.0
+		for p in (bones[0] as Geo).v:
+			if absf(p.x) < bb.size.x * 0.08 and p.y < e.y and p.distance_to(e) > far:
+				far = p.distance_to(e)
+				axis = (p - e).normalized()
 	var lo := INF
 	var hi := -INF
 	for b: Geo in bones:

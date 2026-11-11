@@ -324,6 +324,12 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 			g.trees = 0
 			g.flies = 0
 		"amberdrop":
+			# (a clean skull in the resin: nothing growing on it, its crystals in the eyes if it has eyes)
+			g.moss = "none"
+			g.bloom = false
+			if lm.has("eye_front"):
+				g.crown = false
+				g.eyes = "both"
 			g.show = "loose"
 			g.trees = 0
 			g.flies = 0
@@ -956,6 +962,14 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		for q in (140 if String(sk.get("fx", "")) == "flutter" else 40):
 			var j: int = top[int(fr.next() * top.size())]
 			if nr[j].y > 0.45: perches.append([cr.v[j], nr[j]])
+		# a skull in bloom: they land on the flowers, not on the bone hidden under them
+		if sk.has("bloom_tops"):
+			var tops: Array = sk.bloom_tops
+			perches = perches.filter(func(q: Array) -> bool:
+				for t: Array in tops:
+					if (q[0] as Vector3).distance_to(t[0]) < float(t[2]) * 0.9 + 0.08: return false
+				return true)
+			for t: Array in tops: perches.append([t[0], t[1]])
 		for k in int(sk.flies):
 			var id: String = sk.fly_kinds[k]
 			var style := SpecButterfly.style(id)
@@ -2805,6 +2819,10 @@ static func _flower(bt: Dictionary, r: Rng32, sk: Dictionary, f: float, at: Vect
 	var tip := at + dir * s * (0.05 + r.next() * 0.2)
 	SpecBloom.stem(bt, r, at, tip, s * 0.03)
 	var face := (dir + Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5) * 0.5).normalized()
+	# (the top of each open flower: where a butterfly lands on a skull in bloom — the bone under the bouquet is hidden)
+	if kind in ["mum", "hydrangea", "cosmos"] and face.y > 0.25:
+		if not sk.has("bloom_tops"): sk.bloom_tops = []
+		(sk.bloom_tops as Array).append([tip + face * s * 0.14, face.lerp(Vector3.UP, 0.5).normalized(), s])
 	match kind:
 		"mum":
 			var gold := r.next() < 0.45

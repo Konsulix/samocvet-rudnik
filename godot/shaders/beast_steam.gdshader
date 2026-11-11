@@ -15,8 +15,8 @@ varying float seed;
 
 void vertex() {
 	float ph = fract(TIME / 4.0);
-	float born = COLOR.r * 0.3;
-	age = (ph - born) / 0.7;
+	float born = COLOR.r * 0.42;
+	age = (ph - born) / 0.5;
 	vec3 c = VERTEX;
 	float a = clamp(age, 0.0, 1.0);
 	vec3 side = normalize(cross(dir, vec3(0.0, 1.0, 0.0)) + vec3(1e-4));
@@ -24,7 +24,7 @@ void vertex() {
 		+ side * (COLOR.g - 0.5) * reach * 0.5 * a + vec3(0.0, (COLOR.b - 0.5) * reach * 0.2 * a, 0.0);
 	float sc = length(MODEL_MATRIX[0].xyz);
 	vec4 vc = MODELVIEW_MATRIX * vec4(c, 1.0);
-	vc.xy += UV2 * size * sc * (0.35 + 1.5 * a);
+	vc.xy += UV2 * size * sc * (0.4 + 3.2 * a);
 	POSITION = PROJECTION_MATRIX * vc;
 	cor = UV2;
 	seed = COLOR.r * 40.0 + COLOR.g * 13.0;
@@ -34,7 +34,7 @@ void fragment() {
 	float d = length(cor);
 	float n = fbm(vec3(cor * 1.6 + seed, TIME * 0.4));
 	float a = smoothstep(1.0, 0.1, d + (n - 0.5) * 0.9) * (0.6 + 0.8 * fbm(vec3(cor * 3.0 + seed * 2.0, TIME * 0.6)));
-	float life = step(0.0, age) * (1.0 - smoothstep(0.35, 1.0, age)) * smoothstep(0.0, 0.08, age);
+	float life = step(0.0, age) * (1.0 - smoothstep(0.2, 1.0, age)) * smoothstep(0.0, 0.06, age);
 	ALBEDO = vec3(0.86, 0.88, 0.9);
-	ALPHA = clamp(a * life * 0.24, 0.0, 1.0);
+	ALPHA = clamp(a * life * 0.22, 0.0, 1.0);
 }

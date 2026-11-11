@@ -41,7 +41,7 @@ const MODELS := {
 	peacock = {file = "peacock.glb", scales = true, span = 2.389, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
 	swallowtail = {file = "swallowtail.glb", scales = true, span = 2.369, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
 	birdwing = {file = "birdwing.glb", scales = true, span = 2.457, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
-	glasswing = {file = "glasswing.glb", span = 2.266, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	glasswing = {file = "glasswing.glb", scales = true, span = 2.266, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
 	hawkmoth = {file = "hawkmoth.glb", scales = true, span = 2.691, yaw = -PI / 2, pitch = 0.25, clips = {fly = "fly", sit = "idle"}},
 	bluetiger = {file = "bluetiger.glb", span = 0.12, yaw = PI / 2, pitch = 0.15, clips = {fly = "hover", sit = "idle"},
 		tip = "r_frnt_wings08", base = "chest_jnt"},
@@ -133,8 +133,28 @@ static func _scales(model: Node3D, id: String) -> void:
 		for si in mi.mesh.get_surface_count():
 			var src := mi.mesh.surface_get_material(si) as BaseMaterial3D
 			if src == null or src.albedo_texture == null: continue
-			# (a see-through wing — the clearwing's — stays as it is)
-			if src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA: continue
+			# (a see-through wing — the clearwing's — keeps its glass, but is lit from within a little and catches the
+			# light at its edge: dark glass over a dark card was all but invisible)
+			if src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA:
+				_scale_lock.lock()
+				var gk := id + ":glass" + str(si)
+				if not _scale_mats.has(gk):
+					var gm := StandardMaterial3D.new()
+					gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+					gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+					gm.albedo_texture = src.albedo_texture
+					gm.albedo_color = Color(1.5, 1.5, 1.6, 1.0)
+					gm.emission_enabled = true
+					gm.emission_texture = src.albedo_texture
+					gm.emission_energy_multiplier = 0.9
+					gm.roughness = 0.25
+					gm.rim_enabled = true
+					gm.rim = 0.8
+					gm.rim_tint = 0.3
+					_scale_mats[gk] = gm
+				_scale_lock.unlock()
+				mi.set_surface_override_material(si, _scale_mats[gk])
+				continue
 			_scale_lock.lock()
 			var key := id + ":" + str(si)
 			if not _scale_mats.has(key):
