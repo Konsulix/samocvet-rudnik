@@ -878,13 +878,31 @@ static func _hat(H: Dictionary, x: float, z: float, smooth := false) -> float:
 	var j := int(fz)
 	var tx := fx - i
 	var tz := fz - j
+	# (the four corners in turn, written out: a list of lists here was twenty small arrays made per point of the film,
+	# and a frond of half a million points took ten seconds to lay down)
+	var k := j * nx + i
 	var sum := 0.0
 	var wsum := 0.0
-	for c in [[0, 0, (1.0 - tx) * (1.0 - tz)], [1, 0, tx * (1.0 - tz)], [0, 1, (1.0 - tx) * tz], [1, 1, tx * tz]]:
-		var v := arr[(j + int(c[1])) * nx + i + int(c[0])]
-		if v > -1e8:
-			sum += v * float(c[2])
-			wsum += float(c[2])
+	var v := arr[k]
+	var w := (1.0 - tx) * (1.0 - tz)
+	if v > -1e8:
+		sum += v * w
+		wsum += w
+	v = arr[k + 1]
+	w = tx * (1.0 - tz)
+	if v > -1e8:
+		sum += v * w
+		wsum += w
+	v = arr[k + nx]
+	w = (1.0 - tx) * tz
+	if v > -1e8:
+		sum += v * w
+		wsum += w
+	v = arr[k + nx + 1]
+	w = tx * tz
+	if v > -1e8:
+		sum += v * w
+		wsum += w
 	return sum / wsum if wsum > 0.0001 else float(H.fall)
 
 static func _hnorm(H: Dictionary, x: float, z: float) -> Vector3:

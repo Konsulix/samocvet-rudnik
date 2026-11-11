@@ -202,19 +202,31 @@ func subdivide(levels := 1, dir := Vector3.ZERO, lim := 0.0) -> Geo:
 		var has_c := col.size() == v.size()
 		var has_b := bary.size() == v.size()
 		var nb := PackedVector3Array()
-		for k in range(0, v.size(), 3):
+		# (room for every triangle split, cut back at the end: adding twelve points at a time through a list was the slow part)
+		var n := v.size()
+		nv.resize(n * 4)
+		if has_c: nc.resize(n * 4)
+		if has_b: nb.resize(n * 4)
+		var w := 0
+		for k in range(0, n, 3):
 			var a := v[k]
 			var b := v[k + 1]
 			var c := v[k + 2]
 			if some and dir.dot(a) >= lim and dir.dot(b) >= lim and dir.dot(c) >= lim:
-				nv.append_array([a, b, c])
-				if has_c: nc.append_array([col[k], col[k + 1], col[k + 2]])
-				if has_b: nb.append_array([bary[k], bary[k + 1], bary[k + 2]])
+				nv[w] = a; nv[w + 1] = b; nv[w + 2] = c
+				if has_c:
+					nc[w] = col[k]; nc[w + 1] = col[k + 1]; nc[w + 2] = col[k + 2]
+				if has_b:
+					nb[w] = bary[k]; nb[w + 1] = bary[k + 1]; nb[w + 2] = bary[k + 2]
+				w += 3
 				continue
 			var ab := (a + b) * 0.5
 			var bc := (b + c) * 0.5
 			var ca := (c + a) * 0.5
-			nv.append_array([a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca])
+			nv[w] = a; nv[w + 1] = ab; nv[w + 2] = ca
+			nv[w + 3] = ab; nv[w + 4] = b; nv[w + 5] = bc
+			nv[w + 6] = ca; nv[w + 7] = bc; nv[w + 8] = c
+			nv[w + 9] = ab; nv[w + 10] = bc; nv[w + 11] = ca
 			if has_c:
 				var x := col[k]
 				var y := col[k + 1]
@@ -222,7 +234,10 @@ func subdivide(levels := 1, dir := Vector3.ZERO, lim := 0.0) -> Geo:
 				var xy := x.lerp(y, 0.5)
 				var yz := y.lerp(z, 0.5)
 				var zx := z.lerp(x, 0.5)
-				nc.append_array([x, xy, zx, xy, y, yz, zx, yz, z, xy, yz, zx])
+				nc[w] = x; nc[w + 1] = xy; nc[w + 2] = zx
+				nc[w + 3] = xy; nc[w + 4] = y; nc[w + 5] = yz
+				nc[w + 6] = zx; nc[w + 7] = yz; nc[w + 8] = z
+				nc[w + 9] = xy; nc[w + 10] = yz; nc[w + 11] = zx
 			if has_b:
 				var x2 := bary[k]
 				var y2 := bary[k + 1]
@@ -230,7 +245,14 @@ func subdivide(levels := 1, dir := Vector3.ZERO, lim := 0.0) -> Geo:
 				var xy2 := (x2 + y2) * 0.5
 				var yz2 := (y2 + z2) * 0.5
 				var zx2 := (z2 + x2) * 0.5
-				nb.append_array([x2, xy2, zx2, xy2, y2, yz2, zx2, yz2, z2, xy2, yz2, zx2])
+				nb[w] = x2; nb[w + 1] = xy2; nb[w + 2] = zx2
+				nb[w + 3] = xy2; nb[w + 4] = y2; nb[w + 5] = yz2
+				nb[w + 6] = zx2; nb[w + 7] = yz2; nb[w + 8] = z2
+				nb[w + 9] = xy2; nb[w + 10] = yz2; nb[w + 11] = zx2
+			w += 12
+		nv.resize(w)
+		if has_c: nc.resize(w)
+		if has_b: nb.resize(w)
 		v = nv
 		col = nc
 		bary = nb
@@ -240,31 +262,45 @@ func subdivide(levels := 1, dir := Vector3.ZERO, lim := 0.0) -> Geo:
 ## diagonals that split a flat face; store per-vertex barycentrics where only real edges reach zero
 func mark_edges(angle_deg := 14.0) -> Geo:
 	to_soup()
-	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 5000.0), roundi(p.y * 5000.0), roundi(p.z * 5000.0))
-	var nt := v.size() / 3
+	var n := v.size()
+	var nt := n / 3
+	# (corners that share a place get one number, an edge is the pair of its ends' numbers: whole numbers as keys -
+	# they used to be text made from the two places, six strings a triangle)
+	var ids := PackedInt32Array()
+	ids.resize(n)
+	var places := {}
+	for i in n:
+		var p := v[i]
+		var pk := Vector3i(roundi(p.x * 5000.0), roundi(p.y * 5000.0), roundi(p.z * 5000.0))
+		var id: int = places.get(pk, -1)
+		if id < 0:
+			id = places.size()
+			places[pk] = id
+		ids[i] = id
 	var fn := PackedVector3Array()
 	fn.resize(nt)
+	var ek := PackedInt64Array()
+	ek.resize(n)
 	var edges := {}
 	for t in nt:
-		fn[t] = (v[t * 3 + 1] - v[t * 3]).cross(v[t * 3 + 2] - v[t * 3]).normalized()
+		var i0 := t * 3
+		fn[t] = (v[i0 + 1] - v[i0]).cross(v[i0 + 2] - v[i0]).normalized()
 		for e in 3:
-			var a: Vector3i = key.call(v[t * 3 + (e + 1) % 3])
-			var b: Vector3i = key.call(v[t * 3 + (e + 2) % 3])
-			var k2 := [a, b] if (a.x < b.x or (a.x == b.x and (a.y < b.y or (a.y == b.y and a.z < b.z)))) else [b, a]
-			var ks := str(k2)
-			if not edges.has(ks): edges[ks] = []
-			edges[ks].append(t)
+			var a := ids[i0 + (e + 1) % 3]
+			var b := ids[i0 + (e + 2) % 3]
+			var k := a * n + b if a < b else b * n + a
+			ek[i0 + e] = k
+			var ts: Variant = edges.get(k)
+			if ts == null: edges[k] = [t]
+			else: (ts as Array).append(t)
 	var cos_lim := cos(deg_to_rad(angle_deg))
 	bary.resize(v.size())
 	for t in nt:
 		var add := Vector3.ZERO
 		for e in 3:
-			var a: Vector3i = key.call(v[t * 3 + (e + 1) % 3])
-			var b: Vector3i = key.call(v[t * 3 + (e + 2) % 3])
-			var k2 := [a, b] if (a.x < b.x or (a.x == b.x and (a.y < b.y or (a.y == b.y and a.z < b.z)))) else [b, a]
-			var ts: Array = edges[str(k2)]
+			var ts: Array = edges[ek[t * 3 + e]]
 			var real := ts.size() < 2
-			for o in ts:
+			for o: int in ts:
 				if o != t and absf(fn[o].dot(fn[t])) < cos_lim:
 					real = true
 			if not real:

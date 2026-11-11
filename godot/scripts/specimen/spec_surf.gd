@@ -13,6 +13,9 @@ var na := PackedVector3Array()
 var nb := PackedVector3Array()
 var nc := PackedVector3Array()
 var cells := {}
+## each triangle's bounding ball (centre, radius): closest() passes over one that cannot be nearer than what it has
+var tm := PackedVector3Array()
+var tr := PackedFloat32Array()
 
 ## adds a mesh (its vertex normals; t: into the surface's space); a skull's dead vertices (meta "alive") are left out
 func add(g: Geo, nr: PackedVector3Array, t := Transform3D.IDENTITY) -> void:
@@ -31,6 +34,9 @@ func add(g: Geo, nr: PackedVector3Array, t := Transform3D.IDENTITY) -> void:
 		ta.append(p0)
 		tb.append(p1)
 		tc.append(p2)
+		var mid := (p0 + p1 + p2) / 3.0
+		tm.append(mid)
+		tr.append(sqrt(maxf(mid.distance_squared_to(p0), maxf(mid.distance_squared_to(p1), mid.distance_squared_to(p2)))) * 1.001 + 1e-5)
 		na.append((t.basis * nr[i0]).normalized())
 		nb.append((t.basis * nr[i1]).normalized())
 		nc.append((t.basis * nr[i2]).normalized())
@@ -52,20 +58,24 @@ func closest(p: Vector3) -> Array:
 	var best := INF
 	var bp := Vector3.ZERO
 	var bn := Vector3.UP
+	# (a dense scan has a thousand triangles in these cells: most are passed over by their bounding ball - farther
+	# than the best so far, they cannot win; one met again in another cell is no nearer than itself, so no list of
+	# those seen is kept. The answer is the same triangle as before.)
+	var reach := INF
 	for r in [1, 2]:
-		var seen := {}
 		for x in range(-r, r + 1):
 			for y in range(-r, r + 1):
 				for z in range(-r, r + 1):
 					var key := c0 + Vector3i(x, y, z)
-					if not cells.has(key): continue
-					for ti: int in cells[key]:
-						if seen.has(ti): continue
-						seen[ti] = true
+					var list: Variant = cells.get(key)
+					if list == null: continue
+					for ti: int in list:
+						if p.distance_to(tm[ti]) - tr[ti] > reach: continue
 						var q := _on_tri(p, ta[ti], tb[ti], tc[ti])
 						var d := p.distance_squared_to(q[0])
 						if d < best:
 							best = d
+							reach = sqrt(d) * 1.0001 + 1e-6
 							bp = q[0]
 							var w: Vector3 = q[1]
 							bn = (na[ti] * w.x + nb[ti] * w.y + nc[ti] * w.z).normalized()

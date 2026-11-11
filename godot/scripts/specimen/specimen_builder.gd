@@ -140,10 +140,37 @@ func _free(p: Vector3) -> bool:
 	for ko: Array in keep_out:
 		if p.distance_to(ko[0]) < float(ko[1]):
 			return false
-	for b: Dictionary in boxes:
-		if (b.bounds as AABB).has_point((b.inverse as Transform3D) * p):
+	# (asked tens of thousands of times a stone: each box's ball in root space is tried first - a point outside it
+	# is outside the box - and the boxes are kept as plain lists beside `boxes`)
+	if _fb_n != boxes.size() or not is_same(_fb_of, boxes):
+		_fb_of = boxes
+		_fb_n = boxes.size()
+		_fb_inv.clear()
+		_fb_bb.clear()
+		_fb_c.resize(_fb_n)
+		_fb_r.resize(_fb_n)
+		for i in _fb_n:
+			var bd: Dictionary = boxes[i]
+			var bb: AABB = bd.bounds
+			var inv: Transform3D = bd.inverse
+			var fw := inv.affine_inverse()
+			_fb_inv.append(inv)
+			_fb_bb.append(bb)
+			_fb_c[i] = fw * bb.get_center()
+			var sc := fw.basis.get_scale()
+			_fb_r[i] = bb.size.length() * 0.5 * maxf(sc.x, maxf(sc.y, sc.z)) * 1.01 + 1e-4
+	for i in _fb_n:
+		if p.distance_to(_fb_c[i]) > _fb_r[i]: continue
+		if _fb_bb[i].has_point(_fb_inv[i] * p):
 			return false
 	return true
+
+var _fb_of: Array
+var _fb_n := -1
+var _fb_inv: Array[Transform3D] = []
+var _fb_bb: Array[AABB] = []
+var _fb_c := PackedVector3Array()
+var _fb_r := PackedFloat32Array()
 
 var st_ref := {}
 
