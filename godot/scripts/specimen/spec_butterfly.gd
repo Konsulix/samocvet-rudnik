@@ -478,6 +478,9 @@ class Fly extends Node3D:
 	var off_t := 0.0
 	var quat := Quaternion.IDENTITY
 	var trace := false
+	var beat_t := 0.2       # seconds a wingbeat: its own (no two beat in step)
+	var beats_left := 4     # beats till it next sails
+	var sail_k := 1.0       # how much of a sailer this one is
 
 	func setup(r: Rng32, m: ShaderMaterial, how: String, fly: bool, at: Vector3, n: Vector3, perches: Array, s: float) -> void:
 		rng = r
@@ -796,7 +799,6 @@ class Fly extends Node3D:
 	# ends in a glide, 0.11–0.36 s), so every push falls on a wing coming down and a glide is a glide. By a find it
 	# forages: short hops between points over the find, hovering at each, landing now and then; a long leg out past the
 	# find and back is the only place it sails. Units: its half-span (size) and seconds.
-	const BEAT := 0.16       # seconds a wingbeat (the clip's own 0.11 s strobes on a small butterfly)
 	const GRAV := 75.0      # half-spans / s²
 
 	func _m_play(key: String, blend := 0.15, at := 0.0, speed := 1.0) -> void:
@@ -810,6 +812,10 @@ class Fly extends Node3D:
 
 	func _m_init() -> void:
 		trace = OS.get_cmdline_user_args().has("flytrace")
+		beat_t = 0.19 + rng.next() * 0.06
+		sail_k = 0.7 + rng.next() * 0.7
+		beats_left = 1 + int(rng.next() * 5.0)
+		ct = rng.next() * 0.1
 		yaw = atan2(vel.x, vel.z) if state == FLY else atan2(heading.x, heading.z)
 		if state == FLY:
 			_m_next()
@@ -909,7 +915,7 @@ class Fly extends Node3D:
 
 	## the wings: the clip's time moved on by one step; sets lift (the wings are coming down) and beat (one has begun)
 	func _m_wings(h: float) -> void:
-		var r := 0.11 / BEAT
+		var r := 0.11 / beat_t
 		beat = false
 		match wing:
 			0:
@@ -917,6 +923,8 @@ class Fly extends Node3D:
 				if ct >= 0.11:
 					if want_glide:
 						wing = 2
+						# (the beat that ends in the sail is a soft one: it floats into it, not shoots up)
+						stroke *= 0.5
 						want_glide = false
 					else:
 						ct = 0.42 + (ct - 0.11)
@@ -946,15 +954,23 @@ class Fly extends Node3D:
 	func _m_pilot() -> void:
 		var to := way - pos
 		var e := to.y / size
-		stroke = clampf(1.0 + 0.45 * e - 0.1 * vel.y / size, 0.6, 1.7) * (0.9 + rng.next() * 0.2)
+		stroke = clampf(1.0 + 0.45 * e - 0.1 * vel.y / size, 0.5, 1.7) * (0.9 + rng.next() * 0.2)
 		var flat := Vector2(to.x, to.z)
 		var want := atan2(to.x, to.z) if flat.length() > size * 0.6 else yaw + (rng.next() - 0.5) * 1.6
 		var err := wrapf(want - yaw, -PI, PI) + (rng.next() - 0.5) * 0.5
-		yaw_rate = clampf(err / BEAT * 0.7, -7.0, 7.0)
+		yaw_rate = clampf(err / beat_t * 0.7, -6.0, 6.0)
 		var hs := Vector2(vel.x, vel.z).length()
-		if far and wing == 0 and flat.length() > size * 3.5 and e < 0.4 and hs > size * 3.5 and rng.next() < 0.5:
-			want_glide = true
-			glide_left = 0.3 + rng.next() * 0.45
+		# its rhythm: a few beats, then it sails a moment — the last beat before a sail a strong one, so it rises into it
+		# (not while it hovers on a point or comes down to land, nor when it is low)
+		if wing == 0:
+			beats_left -= 1
+			var room := flat.length() > size * 1.3 and e < 0.5 and not (state == LAND and stage == 1)
+			if beats_left <= 0 and room:
+				want_glide = true
+				glide_left = rng.next() * 0.5 * sail_k + (0.3 if far else 0.0)
+				beats_left = 2 + int(rng.next() * 4.0 / sail_k)
+			elif beats_left <= 0:
+				beats_left = 1
 
 	## in the air for dt: wings, pilot and forces in small steps
 	func _m_air(dt: float) -> void:
@@ -980,7 +996,8 @@ class Fly extends Node3D:
 			var sailing := wing == 3 or (wing == 2 and ct > 0.2)
 			if sailing:
 				# wings held out: they carry it while it has speed, it keeps its way and loses height slowly
-				ay += GRAV * size * minf(0.96, 0.5 + hv.length() / (size * 6.0))
+				# (spread wings also brake its fall, like a parachute)
+				ay += GRAV * size * (minf(0.98, 0.92 + hv.length() / (size * 40.0)) if pos.y < way.y + size * 0.8 else 0.8) - vel.y * 4.0
 				acc = (fwd * hv.length() - hv) * 2.0 - hv * 0.25
 				glide_left -= h
 				if wing == 3 and (glide_left <= 0.0 or pos.y < way.y - size * 0.7 or d < size * 1.5): wing = 4
@@ -1007,10 +1024,11 @@ class Fly extends Node3D:
 		if stage < 2:
 			_m_air(dt)
 			var hd := Vector2(pos.x - way.x, pos.z - way.z).length()
-			if stage == 0 and ((hd < size * 0.6 and absf(pos.y - way.y) < size) or retarget < 3.5):
+			if stage == 0 and ((hd < size * 0.8 and absf(pos.y - way.y) < size * 1.2) or retarget < 4.0):
 				stage = 1
+				retarget = 4.0
 				way = p + n * size * 0.2
-			elif stage == 1 and ((hd < size * 0.5 and pos.y - way.y < size * 0.45) or retarget < 2.0):
+			elif stage == 1 and ((hd < size * 0.5 and pos.y - way.y < size * 0.45) or retarget < 2.8):
 				stage = 2
 				touch = 0.0
 				land_from = pos
