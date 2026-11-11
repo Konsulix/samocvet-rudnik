@@ -19,6 +19,11 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if args.has("slow"): Diag.slow_ms = int(args.slow)
+	if args.has("bake_skulls"):
+		# the skull bodies (human and beasts) shaded once and stored as .bin: the phone skips the json and the smoothing
+		print("baked %d skull bodies" % SpecSkull.bake())
+		get_tree().quit()
+		return
 	if args.has("bake_shaders"):
 		# the shaders written as text, as files for the export's shader baker (ShaderFiles); the iOS build runs this
 		print("baked %d shaders into %s" % [ShaderFiles.bake(), ShaderFiles.DIR])

@@ -64,39 +64,99 @@ static func body(id: String) -> Dictionary:
 	if id == "": return parts()
 	_lock.lock()
 	if not _beasts.has(id):
-		var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(BEAST_DIR + id + ".json"))
-		var ps: Dictionary = d.parts
-		var out := {lm = d.get("lm", {}), flags = d.get("flags", []), teeth_up = Geo.new(), teeth_low = Geo.new(), teeth_up_each = [],
-			teeth_low_each = []}
-		for k: String in ps:
-			var p: Dictionary = ps[k]
-			var fv: Array = p.v
-			var ff: Array = p.f
-			var g := Geo.new()
-			g.v.resize(fv.size() / 3)
-			for i in g.v.size():
-				g.v[i] = Vector3(float(fv[i * 3]), float(fv[i * 3 + 1]), float(fv[i * 3 + 2]))
-			g.idx.resize(ff.size())
-			for i in ff.size():
-				g.idx[i] = int(ff[i])
-			_shade(g)
-			if k == "horns":
-				var u: Array = p.u
-				g.rp.resize(g.v.size())
-				for i in g.v.size(): g.rp[i] = Vector3(float(u[i]), 0.0, 0.0)
-			out[k] = g
-		_breach_lines(out)
-		# (a thin skull — a bird's — lets the rays through to the other socket: the floor no deeper than 0.2)
-		var lm: Dictionary = out.lm
-		if lm.has("eye_front"):
-			var fr := lm_v(lm, "eye_front")
-			var dp := lm_v(lm, "eye_deep")
-			if fr.distance_to(dp) > 0.2:
-				dp = fr + (dp - fr).normalized() * 0.2
-				lm.eye_deep = [dp.x, dp.y, dp.z]
-		_beasts[id] = out
+		var bk := _baked(BEAST_DIR + id + ".json")
+		if bk.size():
+			_beasts[id] = _unpack(bk, {teeth_up = Geo.new(), teeth_low = Geo.new(), teeth_up_each = [], teeth_low_each = []})
+		else:
+			_beasts[id] = _beast_read(id)
 	_lock.unlock()
 	return _beasts[id]
+
+## a beast from its json (bake_skulls stores the result as .bin: the phone reads that, no parsing, no 30 smoothing passes)
+static func _beast_read(id: String) -> Dictionary:
+	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(BEAST_DIR + id + ".json"))
+	var ps: Dictionary = d.parts
+	var out := {lm = d.get("lm", {}), flags = d.get("flags", []), teeth_up = Geo.new(), teeth_low = Geo.new(), teeth_up_each = [],
+		teeth_low_each = []}
+	for k: String in ps:
+		var p: Dictionary = ps[k]
+		var fv: Array = p.v
+		var ff: Array = p.f
+		var g := Geo.new()
+		g.v.resize(fv.size() / 3)
+		for i in g.v.size():
+			g.v[i] = Vector3(float(fv[i * 3]), float(fv[i * 3 + 1]), float(fv[i * 3 + 2]))
+		g.idx.resize(ff.size())
+		for i in ff.size():
+			g.idx[i] = int(ff[i])
+		_shade(g)
+		if k == "horns":
+			var u: Array = p.u
+			g.rp.resize(g.v.size())
+			for i in g.v.size(): g.rp[i] = Vector3(float(u[i]), 0.0, 0.0)
+		out[k] = g
+	_breach_lines(out)
+	# (a thin skull — a bird's — lets the rays through to the other socket: the floor no deeper than 0.2)
+	var lm: Dictionary = out.lm
+	if lm.has("eye_front"):
+		var fr := lm_v(lm, "eye_front")
+		var dp := lm_v(lm, "eye_deep")
+		if fr.distance_to(dp) > 0.2:
+			dp = fr + (dp - fr).normalized() * 0.2
+			lm.eye_deep = [dp.x, dp.y, dp.z]
+	return out
+
+## the baked body next to a json (<name>.bin, written by bake_skulls), or {} if there is none or the json is newer
+static func _baked(json: String) -> Dictionary:
+	var bin := json.get_basename() + ".bin"
+	if not FileAccess.file_exists(bin): return {}
+	var tj := FileAccess.get_modified_time(json)
+	var tb := FileAccess.get_modified_time(bin)
+	if tj > 0 and tb > 0 and tj > tb: return {}
+	var f := FileAccess.open(bin, FileAccess.READ)
+	if f == null: return {}
+	var d: Variant = f.get_var()
+	return d if d is Dictionary else {}
+
+## a body as plain arrays: its Geo parts, landmarks, flags
+static func _pack(body_d: Dictionary) -> Dictionary:
+	var ps := {}
+	for k: String in body_d:
+		var g: Variant = body_d[k]
+		if g is Geo and (g as Geo).v.size(): ps[k] = [(g as Geo).v, (g as Geo).idx, (g as Geo).col, (g as Geo).rp]
+	return {parts = ps, lm = body_d.get("lm", {}), flags = body_d.get("flags", [])}
+
+static func _unpack(d: Dictionary, out: Dictionary) -> Dictionary:
+	var ps: Dictionary = d.parts
+	for k: String in ps:
+		var a: Array = ps[k]
+		var g := Geo.new()
+		g.v = a[0]
+		g.idx = a[1]
+		g.col = a[2]
+		g.rp = a[3]
+		out[k] = g
+	if d.has("lm"): out.lm = d.lm
+	if d.has("flags"): out.flags = d.flags
+	return out
+
+## bake_skulls: every skull body as .bin next to its json (the iOS build runs this before export)
+static func bake() -> int:
+	var n := 0
+	_lock.lock()
+	_parts.clear()
+	_parts_read()
+	_lock.unlock()
+	var jobs := [[SRC, _parts]]
+	for id: String in BEASTS: jobs.append([BEAST_DIR + id + ".json", _beast_read(id)])
+	for j: Array in jobs:
+		var pk := _pack(j[1])
+		if j[0] == SRC: pk.erase("lm"); pk.erase("flags")
+		var f := FileAccess.open(ProjectSettings.globalize_path(String(j[0]).get_basename() + ".bin"), FileAccess.WRITE)
+		f.store_var(pk)
+		f.close()
+		n += 1
+	return n
 
 ## where a beast's crystals break out, unless its landmarks say: found on the skull (symmetric about x = 0, as the
 ## viewer is to see it before its yaw). crest: from the top of the head along the midline toward the viewer (forward
@@ -213,26 +273,37 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 static func parts() -> Dictionary:
 	_lock.lock()
 	if _parts.is_empty():
-		var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SRC))
-		var ps: Dictionary = d.parts
-		for k: String in ps:
-			var p: Dictionary = ps[k]
-			var fv: Array = p.v
-			var ff: Array = p.f
-			var g := Geo.new()
-			g.v.resize(fv.size() / 3)
-			for i in g.v.size():
-				g.v[i] = Vector3(float(fv[i * 3]), float(fv[i * 3 + 1]) - LIFT, float(fv[i * 3 + 2])) * K
-			g.idx.resize(ff.size())
-			for i in ff.size():
-				g.idx[i] = int(ff[i])
-			_shade(g)
-			_parts[k] = g
-			# each tooth on its own, so a skull can lose some
-			if k.begins_with("teeth"):
-				_parts[k + "_each"] = _split(g)
+		var bk := _baked(SRC)
+		if bk.size():
+			_unpack(bk, _parts)
+			_parts.erase("lm")
+			_parts.erase("flags")
+			for k: String in _parts.keys():
+				if k.begins_with("teeth"): _parts[k + "_each"] = _split(_parts[k])
+		else:
+			_parts_read()
 	_lock.unlock()
 	return _parts
+
+static func _parts_read() -> void:
+	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SRC))
+	var ps: Dictionary = d.parts
+	for k: String in ps:
+		var p: Dictionary = ps[k]
+		var fv: Array = p.v
+		var ff: Array = p.f
+		var g := Geo.new()
+		g.v.resize(fv.size() / 3)
+		for i in g.v.size():
+			g.v[i] = Vector3(float(fv[i * 3]), float(fv[i * 3 + 1]) - LIFT, float(fv[i * 3 + 2])) * K
+		g.idx.resize(ff.size())
+		for i in ff.size():
+			g.idx[i] = int(ff[i])
+		_shade(g)
+		_parts[k] = g
+		# each tooth on its own, so a skull can lose some
+		if k.begins_with("teeth"):
+			_parts[k + "_each"] = _split(g)
 
 ## how deep in a pit each point lies: the mesh smoothed hard pulls out of its hollows (eye sockets, the nose,
 ## between the teeth, the sutures) and sinks over its ridges; the gap along the normal is the shading

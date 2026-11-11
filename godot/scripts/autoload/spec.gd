@@ -31,6 +31,7 @@ func _ready() -> void:
 	studio = SpecStudio.make(PX, Viewport.MSAA_4X)
 	studio.vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(studio.vp)
+	_disk_init()
 	_warm()
 
 ## compile the specimen shaders right at launch, while the boot splash is still up (the first one takes
@@ -118,12 +119,60 @@ static func of_jewel(j: Dictionary) -> Dictionary:
 func cached(o: Dictionary) -> Texture2D:
 	return _cache.get(key_of(o))
 
+# ---------------------------------------------------------------- pictures kept on disk
+## a picture made once is saved (user://thumbs) and read back next launch: a full inventory of skulls is ~1 s
+## per stone to build on a phone, a png ~ms. Each build of the game starts afresh (the generator changes between
+## builds): its stamp (res://build_stamp.gd, written by the iOS build) is kept beside the pictures. Without a stamp
+## (the editor, test runs) the disk is not used, unless `thumbs_disk` asks (stamp "dev")
+const DISK := "user://thumbs/"
+const DISK_V := 1    # bump when the pictures' framing changes
+static var _stamp := ""
+
+static func _disk_init() -> void:
+	if ResourceLoader.exists("res://build_stamp.gd"):
+		_stamp = str((load("res://build_stamp.gd") as GDScript).get_script_constant_map().get("ID", ""))
+	elif OS.get_cmdline_user_args().has("thumbs_disk"):
+		_stamp = "dev"
+	if _stamp == "": return
+	_stamp += "|%d" % DISK_V
+	DirAccess.make_dir_recursive_absolute(DISK)
+	var sf := DISK + "stamp.txt"
+	var was := FileAccess.get_file_as_string(sf) if FileAccess.file_exists(sf) else ""
+	if was != _stamp:
+		var n := 0
+		for f in DirAccess.get_files_at(DISK):
+			if f.ends_with(".png"):
+				DirAccess.remove_absolute(DISK + f)
+				n += 1
+		var w := FileAccess.open(sf, FileAccess.WRITE)
+		if w: w.store_string(_stamp)
+		Diag.note("thumbs on disk: new build, %d old pictures dropped" % n)
+
+static func _disk_path(kind: String, key: String) -> String:
+	return DISK + kind + "_" + key.md5_text() + ".png"
+
+## a picture saved earlier (kind: "t" thumbnails, "c" the atlas's cutouts), or null
+static func disk_get(kind: String, key: String) -> Texture2D:
+	if _stamp == "": return null
+	var p := _disk_path(kind, key)
+	if not FileAccess.file_exists(p): return null
+	var img := Image.load_from_file(p)
+	if img == null or img.is_empty(): return null
+	return ImageTexture.create_from_image(img)
+
+static func disk_put(kind: String, key: String, img: Image) -> void:
+	if _stamp == "" or img == null: return
+	img.save_png(_disk_path(kind, key))
+
 ## machines never change: their pictures are baked into the project (bake_thumbs key), not rendered on the phone
 const BAKED := "res://assets/thumbs/machine_%s.png"
 
 ## owner: as Atlas.cutout's - left behind with its screen, the thumbnail isn't built
 func thumb(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var t := cached(o)
+	if t == null and not o.has("bake"):
+		t = disk_get("t", key_of(o))
+		if t: _cache[key_of(o)] = t
 	if t:
 		cb.call(t)
 		return
@@ -153,7 +202,9 @@ func _pump() -> void:
 			for i in 2:
 				studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 				await RenderingServer.frame_post_draw
-			_cache[key] = ImageTexture.create_from_image(studio.vp.get_texture().get_image())
+			var img := studio.vp.get_texture().get_image()
+			_cache[key] = ImageTexture.create_from_image(img)
+			if not o.has("bake") and not o.has("machine"): disk_put("t", key, img)
 			studio.clear()
 		if cb.is_valid():
 			cb.call(_cache[key])

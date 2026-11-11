@@ -1,6 +1,10 @@
 # Godot
 godot/.godot/
 godot/build/
+# made by the build: skull bodies (bake_skulls) and the build stamp
+godot/assets/specimen/*.bin
+godot/assets/specimen/beasts/*.bin
+godot/build_stamp.gd
 *.tmp
 
 # heavy source renders for the prototype images (the game uses the webp copies in prototype/web/img)

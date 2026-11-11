@@ -745,6 +745,9 @@ func _open_best() -> void:
 ## isn't built at all - a screen left behind (the awards' 30-odd niches, skulls among them) no longer holds up the next one
 static func cutout(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var key := Spec.key_of(o)
+	if not _cut.has(key):
+		var dt := Spec.disk_get("c", key)
+		if dt: _cut[key] = dt
 	if _cut.has(key):
 		cb.call(_cut[key])
 		return
@@ -778,7 +781,9 @@ static func _pump() -> void:
 			_studio.clear()
 			if used.size.x < 3:
 				continue
-			_cut[key] = ImageTexture.create_from_image(img.get_region(used))
+			var cut := img.get_region(used)
+			_cut[key] = ImageTexture.create_from_image(cut)
+			Spec.disk_put("c", key, cut)
 		if cb.is_valid():
 			cb.call(_cut[key])
 	_busy = false
@@ -791,7 +796,11 @@ static func _gone(owner: Variant) -> bool:
 
 ## a picture already made for this stone, or null (a card shows it while its live stone is built)
 static func cached(o: Dictionary) -> Texture2D:
-	return _cut.get(Spec.key_of(o))
+	var key := Spec.key_of(o)
+	if not _cut.has(key):
+		var dt := Spec.disk_get("c", key)
+		if dt: _cut[key] = dt
+	return _cut.get(key)
 
 ## the game is closing: drop the pictures and the studio while the renderer is still up
 static func release() -> void:
