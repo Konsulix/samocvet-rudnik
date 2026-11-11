@@ -240,6 +240,11 @@ func _ready() -> void:
 			# (the open-mouthed and the jawed ones with a druse in the maw)
 			for pn: Dictionary in pins:
 				if pn.beast in ["wolf", "alligator", "trex"]: pn.maw = true
+		# skulls=feathers: feathered beasts, every bird's coat twice (magpie, starling, pheasant, peacock, owl)
+		if String(args.skulls) == "feathers":
+			pins = []
+			var who := ["raven", "fox", "mouflon", "wolf", "hornbill", "deer", "lion", "spoonbill", "ram", "horse"]
+			for k in who.size(): pins.append({beast = who[k], skin = "feathers", feather_pal = k % 5})
 		var n := int(args.skulls) if String(args.skulls).is_valid_int() and int(args.skulls) > 1 else pins.size()
 		for i in n:
 			var st := Stones.roll(90000 + i * 13, 0, 1.2, i % 6)
