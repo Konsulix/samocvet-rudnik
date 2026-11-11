@@ -557,6 +557,37 @@ class Fly extends Node3D:
 		_place()
 		if ap: _animate()
 
+	## the lift of the model's wingbeat at this moment: how fast its forewing tip is coming down (sampled once per model
+	## from its own flight loop, 48 steps), 0..1; between the beats (its own glide) none
+	static var _lift := {}
+	func _model_lift() -> float:
+		var nm := String(anim.get("fly", ""))
+		if nm == "" or not ap.has_animation(nm) or ap.current_animation != nm: return 0.0
+		var a := ap.get_animation(nm)
+		if not _lift.has(nm):
+			var sk := ap.get_parent().find_child("Skeleton3D", true, false) as Skeleton3D
+			var tip := -1
+			var com := -1
+			for bi in sk.get_bone_count():
+				if sk.get_bone_name(bi).begins_with("forewing_L_03"): tip = bi
+				if sk.get_bone_name(bi).begins_with("COM"): com = bi
+			var keep := ap.current_animation_position
+			var ys := PackedFloat32Array()
+			for i in 49:
+				ap.seek(a.length * i / 48.0, true)
+				ys.append(sk.get_bone_global_pose(tip).origin.y - sk.get_bone_global_pose(com).origin.y if tip >= 0 and com >= 0 else 0.0)
+			ap.seek(keep, true)
+			var out := PackedFloat32Array()
+			var hi := 0.0001
+			for i in 48:
+				var v := maxf(0.0, ys[i] - ys[i + 1])
+				out.append(v)
+				hi = maxf(hi, v)
+			for i in 48: out[i] /= hi
+			_lift[nm] = out
+		var l: PackedFloat32Array = _lift[nm]
+		return l[int(ap.current_animation_position / a.length * 48.0) % 48]
+
 	## the model's own animation for what it is doing (a landing and a take-off played once, the rest looped)
 	func _animate() -> void:
 		var want := "fly"
@@ -572,7 +603,7 @@ class Fly extends Node3D:
 		var a := ap.get_animation(nm)
 		if want in ["fly", "sit"]: a.loop_mode = Animation.LOOP_LINEAR
 		ap.speed_scale = 1.0 if want != "land" else 1.4
-		ap.play(nm, 0.15)
+		ap.play(nm, 0.3)
 		if want == "sit": ap.seek(rng.next() * a.length, true)
 
 	## a wingbeat: the stroke between the top (wings almost meeting over the back) and the bottom (below the body),
@@ -612,6 +643,8 @@ class Fly extends Node3D:
 			glide_t = (0.5 + rng.next() * 0.9) if sail else (0.6 + rng.next() * 1.2)
 			gliding = 1.0 if sail else 0.0
 		var g := 0.0
+		# (a model sails in its own flight loop: no frozen pose for it)
+		if ap: gliding = 0.0
 		if gliding > 0.5:
 			_wings(0.12 + 0.05 * sin(phase), 0.0)
 			phase += dt * 2.0
@@ -620,6 +653,7 @@ class Fly extends Node3D:
 			_swing(sin(phase) * 0.06)
 		else:
 			g = _flap(dt, hz)
+			if ap: g = _model_lift()
 		# steer for the target; a jerky one changes its mind often
 		retarget -= dt
 		if pos.distance_to(target) < size * 1.5 or retarget <= 0.0:
@@ -700,7 +734,8 @@ class Fly extends Node3D:
 		else:
 			# settle down onto the spot over half a second, a few short beats
 			timer += dt
-			var f := clampf(timer / 0.5, 0.0, 1.0)
+			# (a model settles over its own landing: 1.4 s at 1.4×)
+			var f := clampf(timer / (1.0 if ap else 0.5), 0.0, 1.0)
 			if timer <= dt: land_from = pos
 			pos = land_from.lerp(p + n * size * 0.08, f * f)
 			_flap(dt, float(st.hz) * 0.8, 1.0 - f * 0.7)
@@ -737,6 +772,7 @@ class Fly extends Node3D:
 	## taking off: a few strong beats straight up off the spot, then away
 	func _off(dt: float) -> void:
 		var g := _flap(dt, float(st.hz) * 1.2, 1.1)
+		if ap: g = _model_lift() * 1.1
 		vel = vel.lerp(((spot[1] as Vector3) + Vector3.UP).normalized() * size * float(st.speed) * 1.2, minf(1.0, dt * 3.0))
 		vel.y += g * size * dt
 		pos += vel * dt
@@ -777,8 +813,10 @@ class Fly extends Node3D:
 		# the card's head is +x: turn it to face along fwd; bank into the turn
 		# (a model bounces in its own animation: our stroke's pitch and bob are the wing cards')
 		if ap:
-			pitch = 0.0
-			bob = 0.0
+			# the body jumps on each downstroke and noses up (flying), still otherwise
+			var l := _model_lift() if state == FLY or state == OFF else 0.0
+			pitch = lerpf(pitch, 0.06 + l * 0.18, 0.25)
+			bob = lerpf(bob, l * 0.05, 0.3)
 		bas = bas * Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, bank) * Basis(Vector3.BACK, pitch)
 		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
 		transform = into * Transform3D(bas, pos + up * bob * size)

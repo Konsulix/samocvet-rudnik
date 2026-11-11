@@ -11,7 +11,9 @@ signal done
 const MIN_TIME := 1.3
 ## loaded on background threads while the bar fills, and kept in memory for the whole session
 const EXTRA := ["res://assets/audio/music/home_adit.ogg", "res://assets/audio/music/home_copper.ogg", "res://assets/audio/music/home_cove.ogg", "res://assets/audio/music/home.ogg", "res://assets/audio/music/level1.ogg",
-	"res://assets/audio/music/level2.ogg"]
+	"res://assets/audio/music/level2.ogg",
+	# (the animated monarch: ~2 s to load the first time a find has one)
+	"res://assets/specimen/butterflies/monarch.glb"]
 
 static var cache := []
 ## the stone on show is a pre-rendered turn (main.gd bake_boot), not a live 3D view: a live one needs
