@@ -835,6 +835,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		_shape(hg, sk.shape)
 		sk.horn_mi = U.mesh(hg, horn_mat(sk, seed_v), root)
 		sk.horn_geo = hg
+		(sk.horn_mi as MeshInstance3D).set_meta("ground", true)   # (part of the body: a butterfly may land beside it)
 		# (the horns' badge points two thirds up the one on the viewer's side)
 		var hn := hg.normals()
 		var hb := -1
@@ -842,7 +843,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 			if absf(hg.rp[i].x - 0.6) < 0.08 and (hb < 0 or hg.v[i].z + hn[i].z * 0.1 > hg.v[hb].z + hn[hb].z * 0.1): hb = i
 		if hb >= 0: (sk.marks as Array).append(["sk_horn", hg.v[hb], hn[hb]])
 	var tu := _teeth(P.teeth_up_each, _gone(sk, P.teeth_up_each.size(), 0, false))
-	if tu.v.size(): U.mesh(_shape(tu, sk.shape), bm, root)
+	if tu.v.size(): U.mesh(_shape(tu, sk.shape), bm, root).set_meta("ground", true)
 	_fangs(b, sk, P.teeth_up_each, _gone(sk, P.teeth_up_each.size(), 0, true), true, crystal, lean)
 	var bones: Array[Geo] = [cr]
 	if sk.jaw:
@@ -854,8 +855,9 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 			for i in jaw.v.size(): jaw.v[i] = hp + tb * (jaw.v[i] - hp)
 		var jaw_mi := U.mesh(jaw, bm, root)
 		sk.jaw_mi = jaw_mi
+		jaw_mi.set_meta("ground", true)
 		var tl := _teeth(P.teeth_low_each, _gone(sk, P.teeth_low_each.size(), 100, false))
-		if tl.v.size(): U.mesh(_shape(tl, sk.shape), bm, root)
+		if tl.v.size(): U.mesh(_shape(tl, sk.shape), bm, root).set_meta("ground", true)
 		_fangs(b, sk, P.teeth_low_each, _gone(sk, P.teeth_low_each.size(), 100, true), false, crystal, lean)
 		bones.append(jaw)
 	var nrs: Array = bones.map(func(g: Geo) -> PackedVector3Array: return g.normals())

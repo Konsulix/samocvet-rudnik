@@ -18,6 +18,8 @@ func _ready() -> void:
 	sun.rotation = Vector3(-1.0, 0.4, 0)
 	add_child(sun)
 	var ids: Array = SpecButterfly.KINDS.keys()
+	# kind=birdwing,apollo: only those; zoom=2: closer
+	if args.has("kind"): ids = Array(String(args.kind).split(","))
 	var held := []
 	for i in ids.size():
 		for row in 4:
@@ -38,7 +40,8 @@ func _ready() -> void:
 		add_child(l)
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = 6.4
+	cam.size = 6.4 / float(args.get("zoom", "1"))
+	if args.has("zoom"): cam.position.y = 1.0
 	cam.position = Vector3(0, 0.1, 20)
 	add_child(cam)
 	await get_tree().create_timer(float(args.get("t", "1.0"))).timeout
