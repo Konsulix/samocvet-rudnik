@@ -20,6 +20,13 @@ uniform vec3 metal_col = vec3(0.95, 0.68, 0.28);
 uniform float metal_rough = 0.2;
 uniform float seed = 0.0;
 uniform float age = 0.5;
+// the scans (SpecSkull.horn_mat) and the horn's length; UV.y, UV2.x: the cosine and sine of the angle round the horn
+uniform sampler2D fib_tex : source_color, repeat_enable, filter_linear_mipmap_anisotropic;
+uniform sampler2D ring_tex : source_color, repeat_enable, filter_linear_mipmap_anisotropic;
+uniform sampler2D ring_disp : repeat_enable, filter_linear_mipmap_anisotropic;
+uniform sampler2D bark_tex : source_color, repeat_enable, filter_linear_mipmap_anisotropic;
+uniform sampler2D bark_disp : repeat_enable, filter_linear_mipmap_anisotropic;
+uniform float horn_len = 1.0;
 
 varying vec3 mp;
 varying vec3 cam_m;
@@ -29,40 +36,70 @@ void vertex() {
 	cam_m = (inverse(MODEL_MATRIX) * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
 }
 
+// a scan laid on the horn: `uv` — along and round it (round: -0.5..0.5, jumping at the seam); gx, gy — how uv changes
+// across a pixel, taken from the unbroken along and cosine/sine (the jump at the seam would pick the smallest mip)
+vec4 on_horn(sampler2D t, vec2 uv, vec2 gx, vec2 gy) {
+	return textureGrad(t, uv, gx, gy);
+}
+
 void fragment() {
 	float u = clamp(UV.x, 0.0, 1.0);
+	float along = u * horn_len;
+	vec2 cs = vec2(UV.y, UV2.x);
+	float ang = atan(cs.y, cs.x) / 6.2832;
+	// (the angle's own slope, from its cosine and sine: no jump in it)
+	vec2 g_al = vec2(dFdx(along), dFdy(along));
+	vec2 g_an = vec2(cs.x * dFdx(cs.y) - cs.y * dFdx(cs.x), cs.x * dFdy(cs.y) - cs.y * dFdy(cs.x)) / (6.2832 * max(dot(cs, cs), 1e-4));
 	float cav = COLOR.r;
 	vec3 q = mp * 9.0 + seed;
 	vec3 c;
 	float rough = 0.5, metal = 0.0, spec = 0.4, h = 0.0;
 	// streaks along the horn: noise stretched along it (u) and fine across it (position)
 	float streak = fbm(vec3(u * 3.0, 0.0, 0.0) + mp * vec3(26.0, 26.0, 26.0) * 0.6 + seed);
-	float ring = 0.5 + 0.5 * sin(u * rings * 6.2832 + fbm(q * 0.7) * 3.0);
+	float ring = 0.5 + 0.5 * sin(u * rings * 6.2832 + fbm(q * 0.5) * 1.3 + fbm(vec3(u * 14.0, seed, 0.0)) * 2.5);
 	if (mode == 0) {
-		vec3 b = mix(base_col, tip_col, smoothstep(0.25, 1.0, u));
-		// long dark streaks and pale bands along the horn, a waxy grain
-		float st2 = fbm(vec3(u * 9.0, 0.0, 0.0) + mp * 34.0 + seed);
-		b *= 0.62 + 0.7 * streak * st2;
-		b = mix(b, b * vec3(0.55, 0.5, 0.45), smoothstep(0.55, 0.75, fbm(mp * 7.0 + u * 4.0)) * 0.6);
-		b = mix(b, b * 0.72, (1.0 - ring) * ring_k);
-		// dust and grime at the base, the tip polished smooth
-		b = mix(b, b * vec3(0.8, 0.74, 0.66), smoothstep(0.2, 0.0, u) * 0.6);
+		// keratin: fine fibres along the horn (a veneer's grain), growth bands round it (a cherry bark's), the rings'
+		// own swell where the horn is ridged; pale and dry at the base, darker and worn smoother to the tip
+		vec2 fuv = vec2(along * 1.1 + seed, ang * 1.0);
+		float fib = on_horn(fib_tex, fuv, vec2(g_al.x * 1.1, g_an.x), vec2(g_al.y * 1.1, g_an.y)).r;
+		fib = clamp((fib - 0.3) * 7.0, 0.0, 1.0);
+		vec2 ruv = vec2(ang * 1.0 + seed * 0.3, along * 2.6);
+		float band = dot(on_horn(ring_tex, ruv, vec2(g_an.x, g_al.x * 2.6), vec2(g_an.y, g_al.y * 2.6)).rgb, vec3(0.333));
+		float bdisp = on_horn(ring_disp, ruv, vec2(g_an.x, g_al.x * 2.6), vec2(g_an.y, g_al.y * 2.6)).r;
+		band = clamp(band * 3.2, 0.0, 1.0);
+		float ridge = pow(ring, 2.2);
+		vec3 b = mix(base_col, tip_col, smoothstep(0.2, 0.95, u));
+		b *= 0.4 + 0.85 * fib;
+		b *= 0.7 + 0.5 * band;
+		// the grooves between the rings and the bands' own cracks: dark, dusty
+		float groove = (1.0 - ridge) * ring_k + (1.0 - smoothstep(0.25, 0.5, bdisp)) * 0.5;
+		b = mix(b, b * vec3(0.5, 0.45, 0.4), clamp(groove, 0.0, 1.0) * 0.7);
+		b = mix(b, b * vec3(0.55, 0.5, 0.45), smoothstep(0.55, 0.75, fbm(mp * 7.0 + u * 4.0)) * 0.5);
+		b = mix(b, mix(b, vec3(0.5, 0.45, 0.38), 0.45), smoothstep(0.25, 0.0, u));
 		c = b;
-		rough = mix(0.62, 0.22, smoothstep(0.5, 1.0, u));
-		spec = 0.45;
-		h = streak * 0.6 + ring * ring_k * 1.2;
+		float worn = smoothstep(0.55, 1.0, u);
+		rough = mix(0.82, 0.58, worn) - fib * 0.08;
+		spec = 0.28;
+		h = (fib * 1.1 + bdisp * 1.6) * mix(1.0, 0.6, worn) + ridge * ring_k * 1.3;
 	} else if (mode == 1) {
-		float fur = fbm(q * vec3(1.0, 1.0, 1.0) * 2.4);
-		vec3 bark = mix(vec3(0.16, 0.1, 0.06), vec3(0.4, 0.29, 0.19), fur);
-		vec3 rubbed = mix(vec3(0.42, 0.33, 0.24), vec3(0.62, 0.54, 0.43), streak);
-		float tip = smoothstep(0.8, 0.97, u);
-		c = mix(bark, rubbed, smoothstep(0.2, 0.85, u) * 0.6 + fur * 0.2);
-		c = mix(c, vec3(0.86, 0.82, 0.74), tip);
+		// antler: bone furrowed along its beams (a willow bark's furrows), deep and stained brown at the burr, shallower
+		// up the beam, the ridges rubbed to ivory; the tines' ends polished pale; pearling round the burr
+		vec2 buv = vec2(ang * 1.0 + seed * 0.3, along * 0.8);
+		float lum = dot(on_horn(bark_tex, buv, vec2(g_an.x, g_al.x * 0.8), vec2(g_an.y, g_al.y * 0.8)).rgb, vec3(0.333));
+		float disp = on_horn(bark_disp, buv, vec2(g_an.x, g_al.x * 0.8), vec2(g_an.y, g_al.y * 0.8)).r;
+		float tip = smoothstep(0.8, 0.98, u);
+		float deep = mix(1.0, 0.6, smoothstep(0.1, 0.8, u)) * (1.0 - tip * 0.75);
+		float furrow = 1.0 - smoothstep(0.32, 0.72, disp);
+		vec3 ivory = mix(vec3(0.4, 0.3, 0.19), vec3(0.62, 0.52, 0.37), clamp(lum * 2.4, 0.0, 1.0));
+		vec3 stain = mix(vec3(0.08, 0.045, 0.025), vec3(0.24, 0.14, 0.07), clamp(lum * 2.2, 0.0, 1.0));
+		c = mix(ivory, stain, clamp(furrow * deep * 1.15 + (1.0 - smoothstep(0.0, 0.3, u)) * 0.35, 0.0, 1.0));
+		c = mix(c, vec3(0.78, 0.72, 0.6), tip * 0.85);
 		// pearling: knobs at the burr
 		float knob = smoothstep(0.55, 0.85, vn(q * 3.5)) * smoothstep(0.25, 0.0, u);
 		c = mix(c, vec3(0.7, 0.62, 0.5), knob * 0.5);
-		rough = mix(0.85, 0.45, tip);
-		h = fur * 1.2 + knob * 1.5 + streak * 0.5;
+		rough = mix(0.85, 0.5, tip) - (1.0 - furrow) * 0.1;
+		spec = 0.3;
+		h = disp * 4.5 * deep + knob * 1.5 + streak * 0.3;
 	} else if (mode == 2) {
 		vec2 cl = vor2(vec2(u * 30.0, fbm(q) * 6.0)).xy;
 		float ham = vn(q * 3.0);

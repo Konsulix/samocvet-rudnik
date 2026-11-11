@@ -95,6 +95,7 @@ static func _beast_read(id: String) -> Dictionary:
 			var u: Array = p.u
 			g.rp.resize(g.v.size())
 			for i in g.v.size(): g.rp[i] = Vector3(float(u[i]), 0.0, 0.0)
+			out.lm.horn_len = _horn_wrap(g)
 		out[k] = g
 	_breach_lines(out)
 	# (a thin skull — a bird's — lets the rays through to the other socket: the floor no deeper than 0.2)
@@ -106,6 +107,37 @@ static func _beast_read(id: String) -> Dictionary:
 			dp = fr + (dp - fr).normalized() * 0.2
 			lm.eye_deep = [dp.x, dp.y, dp.z]
 	return out
+
+## a horn's own coordinates for its scans (horn.gdshader): along it — rp.x, 0 at the skull .. 1 at the tip, as given —
+## and round it: the angle of each point's normal about the horn's own run there, kept as its cosine and sine (rp.y,
+## rp.z: an angle itself would jump across a triangle at the seam), measured from the side toward the viewer (so the
+## seam is at the back). Returns the horn's length (a unit of rp.x in space)
+static func _horn_wrap(g: Geo) -> float:
+	var n := g.v.size()
+	var nr := g.normals()
+	var run := PackedVector3Array()
+	run.resize(n)
+	var lens := PackedFloat32Array()
+	for t in g.idx.size() / 3:
+		for e in 3:
+			var a := g.idx[t * 3 + e]
+			var b := g.idx[t * 3 + (e + 1) % 3]
+			var du := g.rp[b].x - g.rp[a].x
+			var dp := g.v[b] - g.v[a]
+			run[a] += dp * du
+			run[b] += dp * du
+			if absf(du) > 0.004: lens.append(dp.length() / absf(du))
+	for i in n:
+		var T := run[i].normalized() if run[i].length() > 1e-9 else Vector3.UP
+		var rz := Vector3.BACK - T * T.dot(Vector3.BACK)
+		var ry := Vector3.UP - T * T.dot(Vector3.UP)
+		var w := smoothstep(0.2, 0.5, rz.length())
+		var R := (rz.normalized() * w + ry.normalized() * (1.0 - w)).normalized() if ry.length() > 1e-4 else rz.normalized()
+		var cs := Vector2(nr[i].dot(R), nr[i].dot(T.cross(R)))
+		cs = cs.normalized() if cs.length() > 1e-5 else Vector2(1, 0)
+		g.rp[i] = Vector3(g.rp[i].x, cs.x, cs.y)
+	lens.sort()
+	return lens[lens.size() / 2] if lens.size() else 1.0
 
 ## the baked body next to a json (<name>.res, written by bake_skulls: a native resource, exported like any other),
 ## or {} if there is none or the json is newer
@@ -742,17 +774,24 @@ static func horn_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 	m.set_shader_parameter("age", float(sk.age))
 	var kind := String(sk.horn)
 	var antler := "antlers" in flags
+	# the scans it is dressed in (oak veneer: fine fibres along; cherry bark: bands round; willow bark: furrows along)
+	m.set_shader_parameter("horn_len", float((body(String(sk.beast)).lm as Dictionary).get("horn_len", 1.0)))
+	m.set_shader_parameter("fib_tex", load("res://assets/textures/grey_oak_veneer_02/grey_oak_veneer_02_diff_1k.jpg"))
+	m.set_shader_parameter("ring_tex", load("res://assets/textures/sakura_bark/sakura_bark_diff_1k.jpg"))
+	m.set_shader_parameter("ring_disp", load("res://assets/textures/sakura_bark/sakura_bark_disp_1k.jpg"))
+	m.set_shader_parameter("bark_tex", load("res://assets/textures/bark_willow_02/bark_willow_02_diff_1k.jpg"))
+	m.set_shader_parameter("bark_disp", load("res://assets/textures/bark_willow_02/bark_willow_02_disp_1k.jpg"))
 	if kind == "natural":
 		if antler:
 			m.set_shader_parameter("mode", 1)
 		else:
 			m.set_shader_parameter("mode", 0)
 			var ridged := "ridged" in flags
-			m.set_shader_parameter("ring_k", (0.7 + r.next() * 0.3) if ridged else (0.15 + r.next() * 0.25))
+			m.set_shader_parameter("ring_k", (0.55 + r.next() * 0.25) if ridged else (0.12 + r.next() * 0.2))
 			m.set_shader_parameter("rings", (34.0 + r.next() * 14.0) if ridged else (14.0 + r.next() * 18.0))
 			# (bone-pale at the base going dark to the tip; grey-green; honey; nearly black)
-			var pal := [[Color(0.55, 0.5, 0.42), Color(0.12, 0.1, 0.08)], [Color(0.5, 0.5, 0.44), Color(0.22, 0.22, 0.2)],
-				[Color(0.6, 0.48, 0.3), Color(0.25, 0.16, 0.08)], [Color(0.3, 0.27, 0.24), Color(0.07, 0.06, 0.05)]]
+			var pal := [[Color(0.62, 0.55, 0.44), Color(0.2, 0.16, 0.12)], [Color(0.56, 0.55, 0.48), Color(0.26, 0.25, 0.22)],
+				[Color(0.66, 0.52, 0.32), Color(0.3, 0.19, 0.1)], [Color(0.36, 0.32, 0.28), Color(0.12, 0.1, 0.085)]]
 			var pc: Array = pal[int(r.next() * pal.size())]
 			m.set_shader_parameter("base_col", pc[0])
 			m.set_shader_parameter("tip_col", pc[1])
