@@ -1178,8 +1178,14 @@ func _where(e: Dictionary, item: String) -> String:
 	if item.begins_with("g:"):
 		var tag := item.trim_prefix("g:")
 		var kind := tag.get_slice(":", 0)
+		if kind == "fx" and tag.trim_prefix("fx:") in SpecBeastFx.ALL: return "Only a legendary beast's skull has it. Dig deep."
 		if kind == "fx": return "Only a legendary find has it. Every mine keeps a few."
-		if kind == "fly": return "They land where the dead lie: look on the skulls of a barrow."
+		if kind == "fly":
+			var fa: Array = []
+			for a in SpecButterfly.AREA_KINDS:
+				if (SpecButterfly.AREA_KINDS[a] as Array).has(tag.trim_prefix("fly:")): fa.append(a)
+			return _in_mines([], "It lands on the finds %s - and now and then on old bones anywhere.", fa)
+		if kind == "feather": return "A bird lends its coat to a beast's skull now and then, in any mine. Dig deep."
 		if tag == "shroom:4": return "It feeds on old wood. Look at the petrified kind."
 		if kind in ["shroom", "tr", "acc"]: return "It grows on the rock around a find. Damp, deep places suit it."
 		if kind == "pal": sids = [tag.get_slice(":", 1)]
@@ -1189,6 +1195,11 @@ func _where(e: Dictionary, item: String) -> String:
 		var id := item.trim_prefix("sp:")
 		if id.begins_with("skull_"):
 			return _in_mines([], "Dig among the bones %s." , Stones.SKULL_AREAS.keys())
+		if id.begins_with("beast_"):
+			var ba: Array = []
+			for a in Stones.BEAST_AREAS:
+				if (Stones.BEAST_AREAS[a] as Array).has(id.trim_prefix("beast_")): ba.append(a)
+			return _in_mines([], "Its bones lie deep %s, under a crystal crown.", ba)
 		sids = [id]
 	elif e.has("evs"):
 		match String(e.icon):
