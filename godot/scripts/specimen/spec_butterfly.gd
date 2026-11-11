@@ -577,7 +577,8 @@ class Fly extends Node3D:
 		quat = quat.slerp(q, 1.0 - exp(-dt * 11.0))
 		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
 		transform = into * Transform3D(Basis(quat), pos)
-		if trace: print("FLY %.3f %.4f %.4f %.4f %d %.3f %d" % [Time.get_ticks_msec() / 1000.0, pos.x / size, pos.y / size, pos.z / size, state, ct, wing])
+		# (flytrace: its path printed, for one butterfly on a find — printing is slow, several of them drag the frame)
+		if trace: print("FLY %.3f %.4f %.4f %.4f %d %.3f %d %d" % [Time.get_ticks_msec() / 1000.0, pos.x / size, pos.y / size, pos.z / size, state, ct, wing, get_instance_id() % 1000])
 
 	## where it is turned: along its heading, upright in the air (nose up when it hovers, down a little at speed, rolled
 	## into a turn), on the surface's own up once its feet are down

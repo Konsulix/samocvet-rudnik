@@ -870,7 +870,7 @@ class Flock extends Node:
 						f.land_key = Vector3.INF
 			if t <= 0.0:
 				phase = 1
-				t = 3.5 + r.next() * 1.5
+				t = 5.0 + r.next() * 2.0
 				for f in flies:
 					if f.state == SpecButterfly.Fly.SIT: f.timer = r.next() * 0.35
 		else:
@@ -878,7 +878,7 @@ class Flock extends Node:
 				if f.state == SpecButterfly.Fly.FLY: f.timer = maxf(f.timer, 0.5)
 			if t <= 0.0:
 				phase = 0
-				t = 7.0 + r.next() * 4.0
+				t = 11.0 + r.next() * 4.0
 
 	## a free place to sit: on the bone, a span from any other (crystals or not — it lands among them)
 	func _spot(f) -> Array:

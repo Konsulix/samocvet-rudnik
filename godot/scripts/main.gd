@@ -249,6 +249,12 @@ func _ready() -> void:
 		if String(args.skulls) == "flies":
 			pins = []
 			for fk: String in SpecButterfly.KINDS: pins.append({flies = 3, fly_kind = fk, fly_mode = 0})
+		# skulls=flock: the legend "butterfly cloud" — seven of a kind resting on the skull, all up at once, round it and
+		# down again — one skull for each of a few kinds (no bouquet: they would sit hidden under the flowers)
+		if String(args.skulls) == "flock":
+			pins = []
+			for fk: String in ["peacock", "monarch", "birdwing", "apollo", "bluetiger", "swallowtail"]:
+				pins.append({legend = true, fx = "flutter", fly_kind = fk, bloom = false, moss = "none", trees = 0})
 		# skulls=monarchs: skulls with monarch butterflies (an animated model, SpecButterfly.MODELS), some sitting, some flying
 		if String(args.skulls) == "monarchs":
 			pins = []
