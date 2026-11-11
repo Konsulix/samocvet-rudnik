@@ -29,3 +29,7 @@ Cut out of low-poly animals by Quaternius (quaternius.com), CC0 1.0 — `prototy
 - wolf, fox, horse, deer (Stag), longhorn and musk_ox (Bull) — *Ultimate Animated Animals* (July 2021)
 - trex, triceratops — *Dinosaur Animated Pack* (Dec 2018)
 
+## Crow (`raven/crow.glb`, the legend "raven's eye")
+"Crow Ascend" by Lahcen.el, CC BY 4.0 — https://sketchfab.com/3d-models/crow-ascend-e2e6d407b18547d2a9ed37a1707042e1
+(its take-off animation: the last wingbeat looped, the rising cancelled — `SpecBeastFx.Ravens`)
+

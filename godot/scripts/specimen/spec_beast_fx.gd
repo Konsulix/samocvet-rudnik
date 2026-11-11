@@ -16,6 +16,7 @@ const STEAM := preload("res://shaders/beast_steam.gdshader")
 const PETALS := preload("res://shaders/beast_petals.gdshader")
 const GHOST := preload("res://shaders/beast_ghost.gdshader")
 const STAR_HORN := preload("res://shaders/horn_star.gdshader")
+const CROW := "res://assets/specimen/raven/crow.glb"
 const GHOST_DIR := "res://assets/specimen/ghosts/"
 const U := preload("res://scripts/specimen/spec_util.gd")
 
@@ -570,14 +571,30 @@ static func _raveneye(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 	root.add_child(ey)
 	# two ravens
 	var fl := Ravens.new()
-	fl.c = bb.get_center() + Vector3(0, s * 0.42, 0)
-	fl.rad = s * 0.68
+	fl.c = bb.get_center() + Vector3(0, s * 0.32, 0)
+	fl.rad = s * 0.55
 	root.add_child(fl)
 	for k in 2:
-		var bird := _raven(s * 0.42)
+		var bird := _crow(s * 0.55)
 		fl.add_child(bird)
 		fl.birds.append({node = bird, ph = float(k) * PI + r.next(), sp = 0.5 + r.next() * 0.15, h = float(k) * s * 0.12})
 	if ey.eyes.size(): (sk.marks as Array).append(["fx", ey.eyes[0][1], ey.eyes[0][2]])
+
+## a crow from a model (assets/specimen/raven/crow.glb — "Crow Ascend" by Lahcen.el, CC BY 4.0): its own animation is a
+## take-off, three wingbeats rising; the last beat (1.2–1.6 s) loops, the body held still (its rising cancelled), the beak
+## turned to +Z. ln: its length, beak to tail
+static func _crow(ln: float) -> Node3D:
+	var n := Node3D.new()
+	var inner := Node3D.new()
+	inner.name = "inner"
+	n.add_child(inner)
+	var model := (load(CROW) as PackedScene).instantiate() as Node3D
+	model.name = "model"
+	inner.add_child(model)
+	# (the model is ~3.5 long in its own units, beak along +X)
+	model.rotation = Vector3(0, -PI / 2, 0)
+	inner.scale = Vector3.ONE * ln / 3.5
+	return n
 
 ## a raven: a smooth spindle of a body, a domed head with a heavy, slightly hooked beak and a bright eye; each wing an
 ## arm with its row of secondaries and a hand (its own node, to bend) fanned into six long fingered primaries; a wedge tail
@@ -739,26 +756,40 @@ class Ravens extends Node3D:
 	func _process(dt: float) -> void:
 		t += dt
 		for b: Dictionary in birds:
+			var n: Node3D = b.node
+			if not b.has("ap"):
+				b.ap = n.find_child("AnimationPlayer", true, false)
+				b.sk = n.find_child("Skeleton3D", true, false)
+				b.beat = 0.0
+				if b.ap and b.sk:
+					(b.ap as AnimationPlayer).play("Ascend")
+					# (where its body is at rest, on the ground before the take-off: held there)
+					(b.ap as AnimationPlayer).seek(0.0, true)
+					var inn := n.get_node("inner") as Node3D
+					b.ref = inn.global_transform.affine_inverse() * ((b.sk as Skeleton3D).global_transform * (b.sk as Skeleton3D).get_bone_global_pose(5).origin)
 			var p := _at(b, t)
 			var q := _at(b, t + 0.08)
 			var q2 := _at(b, t + 0.16)
-			var n: Node3D = b.node
 			n.position = p
 			var fwd := (q - p).normalized()
 			# banking into the turn
 			var turn := fwd.cross((q2 - q).normalized()).y
 			var climb := (q - p).y / maxf(0.0001, (q - p).length())
-			n.basis = Basis.looking_at(-fwd, Vector3.UP) * Basis(Vector3.BACK, clampf(-turn * 9.0, -0.8, 0.8)) * Basis(Vector3.RIGHT, -climb * 0.3)
-			# flapping in bursts, gliding between: the hand trails the arm, bending on the downstroke
-			var burst := smoothstep(-0.3, 0.3, sin(t * 0.55 + float(b.ph) * 3.0))
-			var ph := t * 9.5 + float(b.ph)
-			var arm := sin(ph) * 0.62 * burst + 0.12
-			var hand := sin(ph - 0.9) * 0.5 * burst - 0.05
-			for nm in ["wing_l", "wing_r"]:
-				var sd := -1.0 if nm == "wing_l" else 1.0
-				var w := n.get_node(nm) as Node3D
-				w.rotation = Vector3(0, 0, sd * arm)
-				(w.get_node("hand") as Node3D).rotation = Vector3(0, 0, sd * hand)
+			n.basis = Basis.looking_at(-fwd, Vector3.UP) * Basis(Vector3.BACK, clampf(-turn * 9.0, -0.7, 0.7)) * Basis(Vector3.RIGHT, -climb * 0.3)
+			# the wingbeat: its last one looped; gliding between bursts, held where the wings are spread
+			var ap: AnimationPlayer = b.ap
+			var sk: Skeleton3D = b.sk
+			if ap == null or sk == null: continue
+			var flapping := sin(t * 0.5 + float(b.ph) * 3.0) > -0.35
+			if flapping or float(b.beat) > 0.02:
+				b.beat = fmod(float(b.beat) + dt / 0.4, 1.0)
+			ap.seek(1.2 + float(b.beat) * 0.4, true)
+			# (its rising cancelled: the body bone kept where it is at the start of the beat)
+			var inner := n.get_node("inner") as Node3D
+			var bone := sk.global_transform * sk.get_bone_global_pose(5).origin
+			var at := inner.global_transform.affine_inverse() * bone
+			var model := inner.get_node("model") as Node3D
+			model.position -= (at - (b.ref as Vector3)) * Vector3(0, 1, 0)
 
 # ---------------------------------------------------------------- the old reptiles
 
