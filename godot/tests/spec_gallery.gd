@@ -340,6 +340,7 @@ func _ready() -> void:
 				if args.has("crown"): e.crown = args.crown == "1"
 				if args.has("maw"): e.maw = args.maw == "1"
 				if args.has("feather_pal"): e.feather_pal = int(args.feather_pal)
+				if args.has("feather_k"): e.feather_k = float(args.feather_k)
 				# a skull's legend: fx=yaga|candle|watching|deathless|flutter|fireflies
 				if args.has("fx"):
 					e.legend = true

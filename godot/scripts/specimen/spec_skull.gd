@@ -48,7 +48,7 @@ const METALS := {
 ## the genes a skull may have pinned from outside (the save, tests, the admin): SpecGenome and Spec pass these on
 const KEYS := ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees",
 	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile",
-	"beast", "horn", "maw", "feather_pal"]
+	"beast", "horn", "maw", "feather_pal", "feather_k"]
 ## the skins water may run over (not cast metal, the mosaic or glass: there it would sit like a sticker)
 const WET_SKINS := ["bone", "nacre", "gilt", "agate", "opal", "pyrite", "geode"]
 ## the bones that are not bone any more (bone.gdshader skins 5–8)
@@ -249,8 +249,11 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 	var cw: float = (bd.cranium as Geo).aabb().size.x
 	g.bloom_k = clampf(cw / 0.9, 0.5, 1.0)
 	g.druse = int(o.get("druse", int(sr.next() * DRUSE.size())))
-	# the feathers' bird (its own draw): magpie, starling, pheasant, peacock, owl
-	g.feather_pal = int(o.get("feather_pal", int(Stones.pick_w([[0, 3.0], [1, 2.0], [2, 2.0], [3, 1.5], [4, 1.5]], Rng32.new(int(g.skin_seed) * 13 + 77)))))
+	# the feathers' bird (its own draw): magpie, starling, pheasant, peacock, owl; and how much of the head they cloak —
+	# mostly the crown and the back of the head with bare bone in front, now and then nearly all (as nacre on an ammonite)
+	var fr := Rng32.new(int(g.skin_seed) * 13 + 77)
+	g.feather_pal = int(o.get("feather_pal", int(Stones.pick_w([[0, 3.0], [1, 2.0], [2, 2.0], [3, 1.5], [4, 1.5]], fr))))
+	g.feather_k = float(o.get("feather_k", 1.0 if fr.next() < 0.12 else 0.25 + pow(fr.next(), 0.9) * 0.65))
 	if g.skin in ["lapis", "feathers"]:
 		g.moss = "none"
 		g.trees = 0
@@ -271,6 +274,52 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 			g.flies = 7
 			g.fly_mode = 0
 
+
+## where on the head feathers grow first (bone.gdshader fe_field, the same formula): the crown and the back of the
+## head, forward and down from there, a ragged edge; c, sz: the head's box
+static func fe_field(p: Vector3, c: Vector3, sz: Vector3, ph: float) -> float:
+	var u := (p - c) / sz
+	return u.y - u.z * 0.6 - absf(u.x) * 0.25 + 0.1 * sin(u.x * 9.0 + ph) + 0.09 * sin(u.z * 11.0 + ph * 1.7) + 0.07 * sin(u.y * 15.0 + u.x * 5.0 + ph * 2.3)
+
+## the feather cloak's reach: the threshold that leaves a share feather_k of the head's surface feathered
+static func _feather_cover(m: ShaderMaterial, cr: Geo, sk: Dictionary, seed_v: int) -> void:
+	var bb := cr.aabb()
+	var c := bb.get_center()
+	var sz := bb.size.max(Vector3.ONE * 0.05)
+	var ph := float(seed_v % 89) * 0.71
+	m.set_shader_parameter("fe_c", c)
+	m.set_shader_parameter("fe_s", sz)
+	m.set_shader_parameter("fe_ph", ph)
+	var k := float(sk.get("feather_k", 1.0))
+	if k >= 0.99:
+		m.set_shader_parameter("fe_t", -10.0)
+		return
+	# (by area: each triangle's share given to its corners)
+	var f := PackedFloat32Array()
+	var w := PackedFloat32Array()
+	f.resize(cr.v.size())
+	w.resize(cr.v.size())
+	for i in cr.v.size(): f[i] = fe_field(cr.v[i], c, sz, ph)
+	for t in cr.idx.size() / 3:
+		var a := cr.idx[t * 3]
+		var b := cr.idx[t * 3 + 1]
+		var d := cr.idx[t * 3 + 2]
+		var ar := (cr.v[b] - cr.v[a]).cross(cr.v[d] - cr.v[a]).length() / 6.0
+		w[a] += ar
+		w[b] += ar
+		w[d] += ar
+	var order := range(f.size())
+	order.sort_custom(func(x: int, y: int) -> bool: return f[x] > f[y])
+	var total := 0.0
+	for x in w: total += x
+	var acc := 0.0
+	var t := -10.0
+	for i: int in order:
+		acc += w[i]
+		if acc >= total * k:
+			t = f[i]
+			break
+	m.set_shader_parameter("fe_t", t)
 
 ## the scan's parts (cranium, teeth_up, mandible, teeth_low) as Geo, with the pits shaded into vertex red
 ## (and the ridges into green), loaded once
@@ -706,6 +755,7 @@ static func build(b: RefCounted, gene: Dictionary, st: Dictionary, rock_mat: Cal
 		bm = gm
 	var cr := _shape(_copy(P.cranium), sk.shape)
 	_damage(cr, sk)
+	if sk.skin == "feathers" and bm is ShaderMaterial: _feather_cover(bm as ShaderMaterial, cr, sk, seed_v)
 	var nr := cr.normals()
 	# loose earth at the crystals' feet: plain dark soil (the rock material showed odd pale islands on it)
 	var earth_m := StandardMaterial3D.new()
@@ -950,7 +1000,10 @@ static func gene_name(id: String, sk: Dictionary) -> String:
 		"sk_horn": return {gold = "golden horns", silver = "silver horns", cast = "cast horns", brass = "engraved brass horns", dressed = "gilded horns"}.get(String(sk.horn), "horns")
 		"sk_trees": return {moss = "bonsai trees", leaves = "little trees", blossom = "trees in blossom", autumn = "autumn trees", bare = "bare trees"}.get(String(sk.tree_kind), "trees")
 		"sk_moss": return "moss cap" if sk.moss == "cap" else "moss"
-		"sk_feathers": return ["magpie feathers", "starling feathers", "pheasant feathers", "peacock feathers", "owl feathers"][int(sk.get("feather_pal", 0)) % 5]
+		"sk_feathers":
+			var bird: String = ["magpie", "starling", "pheasant", "peacock", "owl"][int(sk.get("feather_pal", 0)) % 5]
+			var fk := float(sk.get("feather_k", 1.0))
+			return "%s feathers" % bird if fk >= 0.99 else "%s feathers %d%%" % [bird, roundi(fk * 100.0)]
 		"sk_bloom": return ["crimson and gold", "white and lilac", "pink and cream", "blue and silver", "orange and yellow"][int(sk.bloom_pal) % 5] + " bouquet"
 		"sk_eyes": return "crystal eyes" if sk.eyes == "both" else "crystal eye"
 		"sk_stream": return "wine from the eye" if sk.get("wine", false) else "spring from the eye"

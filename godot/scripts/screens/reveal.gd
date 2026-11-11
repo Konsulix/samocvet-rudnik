@@ -66,6 +66,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 func unmask(s: Dictionary) -> void:
 	if is_instance_valid(_name_l):
 		_name_l.text = Stones.name_of(s)
+		TitleStrip.fit(_name_l, float(_name_l.get_meta("fit_w", 0.0)))
 		_name_l.visible_ratio = 0.0
 		_name_l.create_tween().tween_property(_name_l, "visible_ratio", 1.0, 0.6)
 	if is_instance_valid(_btn_row):
@@ -161,7 +162,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	name_l.add_theme_constant_override("outline_size", 0)
 	name_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
 	name_l.add_theme_constant_override("shadow_offset_y", 2)
-	head.add_child(name_l)
+	head.add_child(TitleStrip.wrap(name_l))
 	var rule := ColorRect.new()
 	rule.color = Data.rarity_color(int(s.tier)).lightened(0.15)
 	rule.custom_minimum_size = Vector2(28, 1.5)
@@ -169,6 +170,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	head.add_child(rule)
 	view.add_child(head)
+	# (a long name would run under the ✕: one line still, its end fading out before the ✕, slid along with a finger)
+	var fit := func() -> void: TitleStrip.fit(name_l, view.size.x - 18.0 - (58.0 if on_close.is_valid() else 18.0))
+	view.resized.connect(fit)
+	fit.call_deferred()
 	if on_close.is_valid():
 		var x := thin_close()
 		x.set_anchors_preset(Control.PRESET_TOP_RIGHT)

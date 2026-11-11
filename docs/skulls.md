@@ -296,4 +296,9 @@ horn=natural|gold|brass|dressed maw=1 fx=yaga]`; листы по 4 — `prototyp
 у каждого пера свой; птицы — ген `feather_pal`: magpie / starling / pheasant / peacock / owl (плашка «… feathers»).
 Проверки: `tests/beast_pose.tscn -- yaw=0.6` (голые тела в позе генератора), `tests/feather_view.tscn [-- close pal=N]`,
 `spec_gallery -- adm_beasts[=lion,raven]` (16 черепов админки, как в инвентаре).
+Перья — ещё ген `feather_k` (доля головы в перьях, свой поток: 12% — вся голова, иначе 25–90%): перья растут с темени и
+затылка вперёд и вниз, рваной кромкой по целым перьям (`fe_field` — одна формула в `bone.gdshader` и `SpecSkull`, порог
+`fe_t` подбирается по площади, `_feather_cover`), плашка «peacock feathers 60%». В имени перьев нет: «Mouflon Skull».
+Шапка карточки (`TitleStrip`, `screens/title_strip.gd`): длинное имя в одну строку гаснет перед ✕, листается пальцем,
+при открытии само доезжает до конца и обратно.
 

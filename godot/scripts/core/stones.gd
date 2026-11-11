@@ -134,7 +134,8 @@ static func name_of(s: Dictionary) -> String:
 	if String(s.get("form", "")) == "skull" and String(s.get("beast", "")) != "":
 		var bn := String(SpecSkull.BEAST_N.get(String(s.beast), "Beast"))
 		var skin := String(s.get("skin", "bone"))
-		if skin == "bone": return "%s Skull" % bn
+		# (feathers are a gene on its card, not a kind of skull: "Mouflon Skull")
+		if skin in ["bone", "feathers"]: return "%s Skull" % bn
 		return String(SKULL_N.get(skin, "Skull")).replace("Skull", bn + " Skull")
 	if String(s.get("form", "")) == "skull" and s.has("skin"):
 		# (a plain bone one is named by its crystal: "Pyrope Skull"; the rest by what they are: "Gilded Skull")

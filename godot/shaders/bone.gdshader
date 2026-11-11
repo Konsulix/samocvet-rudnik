@@ -38,6 +38,12 @@ uniform int mosaic_pal = 0;   // kintsugi: 0 carnelian, opal, amethyst, peach; 1
 uniform int agate_pal = 0;    // agate: 0 cream, carnelian, rust, smoke; 1 rhodochrosite pinks with grey and white
 uniform vec3 druse_col : source_color = vec3(0.45, 0.85, 0.3);   // skin 10: the sugar druse's colour
 uniform int feather_pal = 0;  // skin 9: 0 magpie, 1 starling, 2 pheasant, 3 peacock, 4 owl
+// skin 9: how far the feathers reach — a feather grows where fe_field() of its place is over fe_t (SpecSkull._feather_cover
+// picks fe_t so that a share feather_k of the head is covered); the head's box: fe_c, fe_s
+uniform vec3 fe_c = vec3(0.0);
+uniform vec3 fe_s = vec3(1.0);
+uniform float fe_t = -10.0;
+uniform float fe_ph = 0.0;
 // (skin 9: feathers — an iridescent cloak of overlapping feathers; skin 10: a sugar druse crusting the bone in patches)
 
 varying vec3 mp;
@@ -80,6 +86,14 @@ float suture(float s, vec3 q) {
 	if (abs(s) > 0.04) return 0.0;
 	float zz = (vn(q * 70.0) - 0.5) * 0.03 + (vn(q * 18.0) - 0.5) * 0.025;
 	return 1.0 - smoothstep(0.0025, 0.006, abs(s + zz));
+}
+
+// where on the head feathers grow first: the crown and the back of the head, forward and down from there, a ragged
+// edge (the same formula in SpecSkull.fe_field)
+float fe_field(vec3 p) {
+	vec3 u = (p - fe_c) / fe_s;
+	return u.y - u.z * 0.6 - abs(u.x) * 0.25 + 0.1 * sin(u.x * 9.0 + fe_ph) + 0.09 * sin(u.z * 11.0 + fe_ph * 1.7)
+		+ 0.07 * sin(u.y * 15.0 + u.x * 5.0 + fe_ph * 2.3);
 }
 
 void fragment() {
@@ -343,7 +357,8 @@ void fragment() {
 			float r = lx * lx + (ly - 0.5) * (ly - 0.5) * 4.0;
 			// (the one whose root is furthest forward lies on top)
 			float front = dot(cen, -F) + h3(g + 3.0) * 0.4;
-			if (r < 1.0 && front > top) { top = front; loc = vec2(lx, ly); fid = h3(g + 41.0); }
+			// (only feathers rooted where the cloak reaches: its edge runs feather by feather)
+			if (r < 1.0 && front > top && fe_field(cen / sc) > fe_t) { top = front; loc = vec2(lx, ly); fid = h3(g + 41.0); }
 		}
 		// where a feather in front ends over this one: a soft shadow under its edge
 		float shade = 1.0;
@@ -351,7 +366,7 @@ void fragment() {
 			vec3 g = base + vec3(float(x), float(y), float(z));
 			vec3 cen = g + vec3(h3(g), h3(g + 17.0), h3(g + 31.0)) * 0.8 + 0.1;
 			float front = dot(cen, -F) + h3(g + 3.0) * 0.4;
-			if (front <= top + 0.001) continue;
+			if (front <= top + 0.001 || fe_field(cen / sc) <= fe_t) continue;
 			vec3 d = fq - cen;
 			float k = 0.8 + 0.4 * h3(g + 5.0);
 			float ly = dot(d, F) / (L * k) + 0.5;
@@ -417,7 +432,9 @@ void fragment() {
 			fe = mix(fe, mix(dark, vec3(0.2, 0.19, 0.17), 0.3), down * 0.25 * shade);
 			// the shadow of the feather in front, and the edge itself a touch darker
 			fe *= mix(0.4, 1.0, shade) * mix(0.72, 1.0, inside);
-			float cover = smoothstep(0.28, 0.34, fbm(q * 1.1 + 2.0) * 0.5 + skin_k * 0.75 + open * 0.15);
+			// (no feather here: bare bone, a little shadow where the cloak's edge lies over it)
+			float cover = top > -1e8 ? 1.0 : 0.0;
+			c *= mix(1.0, 0.55, (1.0 - shade) * (1.0 - cover));
 			c = mix(c, fe, cover);
 			rough = mix(rough, 0.62 - gk * 0.15, cover);
 			spec = mix(spec, 0.16, cover);
