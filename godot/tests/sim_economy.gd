@@ -119,7 +119,29 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			if not m.has_moves(): m.shuffle()
 		if m.moves <= 0:
 			break
-	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), moves = used + maxi(0, m.moves),
+	# the win's finale as Level._finale plays it (the specials left go off, then the moves left turn into dynamite): it
+	# mines ore too, and a level won with moves to spare brings more of it (`mined_play` - before it; `no_finale` skips)
+	var mined_play: Dictionary = m.mined.duplicate()
+	var left_moves := maxi(0, m.moves)
+	if won and not m.boss_on() and not OS.get_cmdline_user_args().has("no_finale"):
+		m.colors = maxi(m.colors, 6)
+		m.finale = true
+		for round_ in 4:
+			var ev := []
+			for r in m.R:
+				for c in m.C:
+					var g: BoardModel.Gem = m.G[r][c]
+					if g and g.sp != "" and g.alive() and not m.LOCK[r][c]:
+						ev.append({t = ev.size() * 150.0, r = r, c = c, kind = "fx"})
+			if ev.is_empty(): break
+			_resolve(m, ev, [], broken)
+		if m.moves > 0:
+			var picks := m.finale_picks()
+			var ev := []
+			for i in picks.size():
+				ev.append({t = i * 120.0, r = picks[i].x, c = picks[i].y, kind = "fx"})
+			_resolve(m, ev, [], broken)
+	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), mined_play = mined_play, left_moves = left_moves, moves = used + left_moves,
 		caught = int(m.maiden.get("caught", 0)),
 		goal0 = goal0, left = _goals_left(m),
 		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0,
@@ -379,7 +401,7 @@ static func gen_report(per_depth: int, area := 0) -> String:
 			var r := play(1 + i % 20, dl, 77 + dl * 1000 + i, def, area)
 			given += int(def.moves)
 			if OS.get_cmdline_user_args().has("sim_rows"):
-				print("ROW ", JSON.stringify({dl = dl, beat = def.get("beat", ""), left = r.left, goal0 = r.goal0, moves = def.moves, given = given0, feats = def.get("feats", []), count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
+				print("ROW ", JSON.stringify({dl = dl, beat = def.get("beat", ""), left = r.left, ore = [int(r.mined.iron), int(r.mined.ore)], ore_play = [int(r.mined_play.iron), int(r.mined_play.ore)], spare = r.left_moves, rich = def.get("rich", false), goal0 = r.goal0, moves = def.moves, given = given0, feats = def.get("feats", []), count = def.count, won = r.won, used = r.used, scheme = def.get("scheme", ""), cells = String(def.map).replace("|", "").length() - String(def.map).count("#")}))
 			used += int(r.used)
 			if def.intro:
 				ii += 1

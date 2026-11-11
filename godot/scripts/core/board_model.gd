@@ -126,8 +126,12 @@ var area_i := 0
 var ore_col := {}    # colour -> "iron" | "ore"
 var ore_p := {}      # kind -> chance a new stone of its colour is ore-bearing
 var mined := {iron = 0, ore = 0}
-## a stone of an ore colour holds ore about one time in 3 (~12 of each ore a win); a vein worked down to its last tenth, a third as often
-const ORE_P := 0.33
+## the win's finale (Level._finale: the specials left and the moves left as dynamite) mines no ore - it brought ~5 of
+## each a win on top of the ~12 of play, and the more moves were left, the more (playtest 11.11: Old Adit in ~11 wins)
+var finale := false
+## a stone of an ore colour holds ore about one time in 3.5 (~10 of each ore a win); a vein worked down to its last
+## tenth, a third as often
+const ORE_P := 0.28
 const NOD_EVERY := 3    # a nodule grows a layer every this many moves
 const NOD_SPREAD := 2   # a full nodule that grows on crusts this many stones round it and starts again
 const ORE_POOR := 1.0 / 3.0
@@ -1810,7 +1814,7 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 	_cleared[k] = true
 	g.die_t = t
 	_fx(t, "clear", {id = g.id, r = r, c = c, sp = g.sp, color = g.t})
-	if g.ore != "" and g.sp == "":
+	if g.ore != "" and g.sp == "" and not finale:
 		mined[g.ore] += 1
 		if boss.is_empty(): _fx(t, "ore", {kind = g.ore, r = r, c = c})
 	if not boss.is_empty():

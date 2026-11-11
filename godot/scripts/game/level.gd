@@ -1579,6 +1579,7 @@ func _finale() -> void:
 	# the level is won: stones falling in now come in a sixth colour too, so the blasts' cascades die out sooner
 	# (with five, a big board kept cascading for 5-10 s before the win card)
 	if not model.boss_on(): model.colors = maxi(model.colors, 6)
+	model.finale = true    # what the finale breaks brings coins, not ore
 	if not model.boss_on():
 		for round_ in 4:
 			var ev := []
