@@ -37,6 +37,7 @@ uniform float patina_k = 0.0;    // nacre: the hue of its fire (as ammolite: red
 uniform int mosaic_pal = 0;   // kintsugi: 0 carnelian, opal, amethyst, peach; 1 lapis, turquoise, labradorite, chrysocolla
 uniform int agate_pal = 0;    // agate: 0 cream, carnelian, rust, smoke; 1 rhodochrosite pinks with grey and white
 uniform vec3 druse_col : source_color = vec3(0.45, 0.85, 0.3);   // skin 10: the sugar druse's colour
+uniform int feather_pal = 0;  // skin 9: 0 magpie, 1 starling, 2 pheasant, 3 peacock, 4 owl
 // (skin 9: feathers — an iridescent cloak of overlapping feathers; skin 10: a sugar druse crusting the bone in patches)
 
 varying vec3 mp;
@@ -95,6 +96,7 @@ void fragment() {
 	float spec;
 	float h;
 	float glowline = 0.0;
+	float feather_rim = 0.0;
 	if (skin == 3) {
 		// kintsugi: a mosaic of polished stone pieces — carnelian, opal, amethyst, moonstone — set in raised gold seams
 		vec3 wq = q * (mosaic_pal == 1 ? 3.1 : 4.2) + vec3(fbm(q * 3.0), fbm(q * 3.0 + 5.0), fbm(q * 3.0 + 9.0)) * 0.6;
@@ -311,42 +313,118 @@ void fragment() {
 		}
 	}
 	if (skin == 9) {
-		// feathers: overlapping like roof tiles, rows running down the head, each a pointed oval with a pale shaft,
-		// barbs fanning from it, an oil-slick sheen (green to blue to violet) that slides with the view
-		vec3 an = abs(normalize(mn));
-		vec2 uv = an.x > max(an.y, an.z) ? vec2(mp.z, mp.y) : an.y > an.z ? vec2(mp.x, mp.z) : vec2(mp.x, mp.y);
-		uv = uv * 7.5 + vec2(fbm(q * 2.0), fbm(q * 2.0 + 4.0)) * 0.6;
-		uv.y = -uv.y;
-		float best = -1e9, fid = 0.0;
-		vec2 loc = vec2(0.0);
-		for (int k = -1; k <= 1; k++) {
-			float row = floor(uv.y) + float(k);
-			float off = mod(row, 2.0) * 0.5;
-			float col = floor(uv.x - off);
-			for (int j = 0; j <= 1; j++) {
-				vec2 cen = vec2(col + float(j) + off, row + 0.15);
-				vec2 d = (uv - cen) / vec2(0.62, 1.05);
-				// (the lower row lies on top: the last that holds the point wins)
-				if (length(d) < 1.0 && d.y > -0.35 && row >= best) { best = row; loc = d; fid = h3(vec3(cen, 3.0)); }
-			}
+		// feathers: a cloak of small contour feathers growing from the snout back over the head, as on a bird — each
+		// a soft rounded vane on a shaft, the one in front lying over the root of the one behind (only tips show), its
+		// edge frayed, a shadow where the next lies over it. Matte barbs; the gloss (magpie, starling, peacock) only
+		// shows as the head turns. Grown in 3D cells round the head (no projection, no seams): each cell's feather is
+		// laid along the surface, pointing back
+		vec3 n0 = normalize(mn);
+		vec3 back = vec3(0.0, 0.0, -1.0);
+		vec3 F = back - n0 * dot(back, n0);
+		// (on the back of the head and the snout tip, where "back" is along the normal: pointing down instead)
+		vec3 F2 = vec3(0.0, -1.0, 0.0) - n0 * dot(vec3(0.0, -1.0, 0.0), n0);
+		F = normalize(mix(F2, F, smoothstep(0.15, 0.45, length(F))) + vec3(1e-4));
+		vec3 S = cross(n0, F);
+		float sc = 9.5;
+		vec3 fq = mp * sc + vec3(fbm(q * 2.2), fbm(q * 2.2 + 4.0), fbm(q * 2.2 + 8.0)) * 0.5;
+		vec3 base = floor(fq);
+		float L = 1.5;          // a feather's length and width, in cells (centred on its cell's point: within reach of the search)
+		float W = 1.05;
+		float top = -1e9;
+		vec2 loc = vec2(0.0, 0.0);
+		float fid = 0.0;
+		for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+			vec3 g = base + vec3(float(x), float(y), float(z));
+			vec3 cen = g + vec3(h3(g), h3(g + 17.0), h3(g + 31.0)) * 0.8 + 0.1;
+			vec3 d = fq - cen;
+			float k = 0.8 + 0.4 * h3(g + 5.0);
+			float ly = dot(d, F) / (L * k) + 0.5;
+			float lx = (dot(d, S) / (W * 0.5 * k) + (h3(g + 9.0) - 0.5) * 0.5 * ly);
+			float r = lx * lx + (ly - 0.5) * (ly - 0.5) * 4.0;
+			// (the one whose root is furthest forward lies on top)
+			float front = dot(cen, -F) + h3(g + 3.0) * 0.4;
+			if (r < 1.0 && front > top) { top = front; loc = vec2(lx, ly); fid = h3(g + 41.0); }
+		}
+		// where a feather in front ends over this one: a soft shadow under its edge
+		float shade = 1.0;
+		for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+			vec3 g = base + vec3(float(x), float(y), float(z));
+			vec3 cen = g + vec3(h3(g), h3(g + 17.0), h3(g + 31.0)) * 0.8 + 0.1;
+			float front = dot(cen, -F) + h3(g + 3.0) * 0.4;
+			if (front <= top + 0.001) continue;
+			vec3 d = fq - cen;
+			float k = 0.8 + 0.4 * h3(g + 5.0);
+			float ly = dot(d, F) / (L * k) + 0.5;
+			float lx = (dot(d, S) / (W * 0.5 * k) + (h3(g + 9.0) - 0.5) * 0.5 * ly);
+			float r = lx * lx + (ly - 0.5) * (ly - 0.5) * 4.0;
+			if (ly > 0.4) shade = min(shade, smoothstep(1.0, 1.7, r));
 		}
 		{
-			float r = length(loc);
-			float shaft = 1.0 - smoothstep(0.02, 0.07, abs(loc.x)) * 1.0;
-			float barb = 0.5 + 0.5 * sin(atan(loc.x, loc.y + 0.6) * 46.0);
-			// (green to teal to blue only: a magpie's or a peacock's sheen, not a rainbow)
-			float th = 0.3 + fid * 0.08 + fr * 0.22 + (fbm(q * 6.0) - 0.5) * 0.08 + (1.0 - r) * 0.05;
-			vec3 sheen = hue(fract(th));
-			float lit = 0.06 + 0.42 * pow(fr, 1.3) + 0.1 * smoothstep(0.2, 0.9, r);
-			vec3 fe = vec3(0.008, 0.02, 0.014) + sheen * sheen * lit * (0.55 + 0.45 * barb);
-			fe = mix(fe, vec3(0.08, 0.1, 0.07), shaft * 0.6 * smoothstep(1.0, 0.3, r));
-			fe *= mix(0.15, 1.0, smoothstep(1.0, 0.7, r));   // the edge in the shade of the one over it
+			float lx = loc.x;
+			float ly = loc.y;
+			float r = sqrt(lx * lx + (ly - 0.5) * (ly - 0.5) * 4.0);
+			// a frayed edge: splits in the vane, the barbs parting near the tip
+			float ang = atan(lx, ly - 0.5);
+			float fray = vn(vec3(ang * 5.0, fid * 40.0, 0.0)) * 0.22 + vn(vec3(ang * 17.0, fid * 40.0, 3.0)) * 0.1;
+			float inside = 1.0 - smoothstep(0.82 - fray, 1.0 - fray * 0.6, r);
+			float shaft = 1.0 - smoothstep(0.03, 0.08, abs(lx));
+			// barbs: fine lines angled back from the shaft, faded out where they get finer than a pixel (no moiré)
+			float bph = (ly * 2.3 - abs(lx) * 0.55) * 26.0;
+			float bw = fwidth(bph);
+			float barb = mix(0.5, 0.5 + 0.5 * sin(bph * 6.2832), clamp(1.6 - bw * 1.6, 0.0, 1.0));
+			// the downy root, pale and fluffy, where it shows
+			float down = 1.0 - smoothstep(0.08, 0.3, ly);
+			vec3 dark;
+			vec3 tip;
+			vec3 gl;
+			float gk;
+			float t = fid;
+			if (feather_pal == 0) {
+				// magpie: blue-black, green to violet gloss
+				dark = vec3(0.016, 0.018, 0.024); tip = dark; gl = hue(fract(0.42 + fr * 0.3 + t * 0.06)); gk = 0.55;
+			} else if (feather_pal == 1) {
+				// starling: black, purple and green gloss, a buff spot at each tip
+				dark = vec3(0.015, 0.012, 0.016); tip = vec3(0.38, 0.28, 0.15); gl = hue(fract(0.72 + fr * 0.28 + t * 0.08)); gk = 0.4;
+			} else if (feather_pal == 2) {
+				// pheasant: burnished copper, each feather edged in a dark scallop, a gold-green gloss
+				dark = mix(vec3(0.11, 0.025, 0.006), vec3(0.17, 0.05, 0.01), t); tip = vec3(0.01, 0.007, 0.005); gl = vec3(0.5, 0.45, 0.1); gk = 0.3;
+			} else if (feather_pal == 3) {
+				// peacock: deep teal and blue, a bronze-green gloss
+				dark = mix(vec3(0.0, 0.025, 0.035), vec3(0.004, 0.012, 0.05), t); tip = dark; gl = hue(fract(0.48 + fr * 0.2 + t * 0.05)); gk = 0.6;
+			} else {
+				// an owl's: tawny, barred dark, pale-edged; no gloss
+				dark = mix(vec3(0.045, 0.022, 0.009), vec3(0.085, 0.045, 0.02), t); tip = vec3(0.24, 0.19, 0.12); gl = vec3(0.0); gk = 0.0;
+			}
+			vec3 fe = dark * (0.7 + 0.6 * barb);
+			if (feather_pal == 4) {
+				float bar = smoothstep(0.45, 0.6, 0.5 + 0.5 * sin(ly * 16.0 + fid * 6.0 + abs(lx) * 3.0));
+				fe = mix(fe, vec3(0.012, 0.008, 0.005), bar * 0.85);
+				fe = mix(fe, tip, smoothstep(0.82, 0.97, r) * 0.6);
+			} else if (feather_pal == 1) {
+				// a small V-shaped spot just inside the tip
+				float spot = 1.0 - smoothstep(0.05, 0.12, length(vec2(lx * 0.8, ly - 0.86 + abs(lx) * 0.25)));
+				fe = mix(fe, tip * (0.8 + 0.3 * barb), spot);
+			} else if (feather_pal == 2) {
+				fe = mix(fe, tip, smoothstep(0.62, 0.8, r));
+			}
+			// the gloss: only on the vane, strongest as it turns from the eye, combed along the barbs
+			float gloss_a = gk * (0.12 + 0.88 * smoothstep(0.05, 0.75, fr)) * (0.55 + 0.45 * barb) * (1.0 - smoothstep(0.75, 1.0, r));
+			// (each feather lies at its own slant: catches the light on its own — what makes plumage read as feathers)
+			gloss_a *= 0.3 + 1.4 * h3(vec3(fid * 91.0, 2.0, 5.0));
+			fe += gl * gloss_a * 0.16;
+			// the shaft: a fine pale line down the middle, gone toward the tip
+			fe = mix(fe, dark * 1.8 + vec3(0.03, 0.028, 0.025), shaft * 0.55 * (1.0 - smoothstep(0.55, 0.9, ly)));
+			fe = mix(fe, mix(dark, vec3(0.2, 0.19, 0.17), 0.3), down * 0.25 * shade);
+			// the shadow of the feather in front, and the edge itself a touch darker
+			fe *= mix(0.4, 1.0, shade) * mix(0.72, 1.0, inside);
 			float cover = smoothstep(0.28, 0.34, fbm(q * 1.1 + 2.0) * 0.5 + skin_k * 0.75 + open * 0.15);
 			c = mix(c, fe, cover);
-			rough = mix(rough, 0.38, cover);
-			spec = mix(spec, 0.55, cover);
-			metal = mix(metal, 0.25, cover);
-			h = mix(h, (1.0 - r * r) * 1.4 + barb * 0.15 - shaft * 0.2, cover);
+			rough = mix(rough, 0.62 - gk * 0.15, cover);
+			spec = mix(spec, 0.16, cover);
+			metal = mix(metal, 0.0, cover);
+			// each feather a gentle bulge rising toward its tip, the barbs a fine grain, a step down under the next
+			h = mix(h, ly * 0.9 * inside + (1.0 - r * r) * 0.5 + barb * 0.12 - shaft * 0.1 - (1.0 - shade) * 0.6, cover);
+			feather_rim = cover;
 		}
 	}
 	if (skin == 10) {
@@ -383,4 +461,7 @@ void fragment() {
 	ROUGHNESS = rough;
 	SPECULAR = mix(spec, 0.7, wet * float(skin == 0 || skin == 4 || skin == 1 || skin >= 5));
 	NORMAL = bump(NORMAL, VERTEX, h * 0.004, 1.0);
+	// (feathers: a soft velvet sheen at the silhouette, as plumage has)
+	RIM = feather_rim * 0.25;
+	RIM_TINT = 0.6;
 }

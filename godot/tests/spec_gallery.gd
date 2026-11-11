@@ -301,7 +301,14 @@ func _ready() -> void:
 	# slow: build as before 7.11 (admin "Skull speedups: off") — the old bone shader, no batching
 	if args.has("slow"): SpecUtil.fast = false
 	if args.has("crumb"): SpecSkull.CRUMB_DETAIL = int(args.crumb)
-	if args.has("area"):
+	# adm_beasts: the admin's 16 beast skulls, as the inventory shows them
+	if args.has("adm_beasts"):
+		list = []
+		var bs: Array = Admin.beast_stones()
+		# adm_beasts=lion,raven: only those
+		for st: Dictionary in bs:
+			if args.adm_beasts == "1" or st.beast in String(args.adm_beasts).split(","): list.append(Spec.of_stone(st))
+	elif args.has("area"):
 		list = []
 		var pool: Dictionary = Data.AREAS[int(args.area)].pool
 		# sp=<species> n=<how many>: only that one; form=<layout>: every one in that layout
@@ -332,6 +339,7 @@ func _ready() -> void:
 					e.beast = bl[list.size() % bl.size()]
 				if args.has("crown"): e.crown = args.crown == "1"
 				if args.has("maw"): e.maw = args.maw == "1"
+				if args.has("feather_pal"): e.feather_pal = int(args.feather_pal)
 				# a skull's legend: fx=yaga|candle|watching|deathless|flutter|fireflies
 				if args.has("fx"):
 					e.legend = true

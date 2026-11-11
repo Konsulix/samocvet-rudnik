@@ -48,7 +48,7 @@ const METALS := {
 ## the genes a skull may have pinned from outside (the save, tests, the admin): SpecGenome and Spec pass these on
 const KEYS := ["eyes", "breach", "crown", "jaw", "earth", "milk", "tone", "show", "rock_kind", "lie", "dmg", "fangs", "moss", "trees",
 	"flies", "fly_kind", "fly_mode", "skin", "stream", "roots", "tree_kind", "bloom", "bloom_pal", "wine", "coins", "diadem", "lantern", "pile",
-	"beast", "horn", "maw"]
+	"beast", "horn", "maw", "feather_pal"]
 ## the skins water may run over (not cast metal, the mosaic or glass: there it would sit like a sticker)
 const WET_SKINS := ["bone", "nacre", "gilt", "agate", "opal", "pyrite", "geode"]
 ## the bones that are not bone any more (bone.gdshader skins 5–8)
@@ -249,6 +249,8 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 	var cw: float = (bd.cranium as Geo).aabb().size.x
 	g.bloom_k = clampf(cw / 0.9, 0.5, 1.0)
 	g.druse = int(o.get("druse", int(sr.next() * DRUSE.size())))
+	# the feathers' bird (its own draw): magpie, starling, pheasant, peacock, owl
+	g.feather_pal = int(o.get("feather_pal", int(Stones.pick_w([[0, 3.0], [1, 2.0], [2, 2.0], [3, 1.5], [4, 1.5]], Rng32.new(int(g.skin_seed) * 13 + 77)))))
 	if g.skin in ["lapis", "feathers"]:
 		g.moss = "none"
 		g.trees = 0
@@ -260,9 +262,10 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 	# (a mosaic skull wears dressed or gold horns, as on the reference)
 	if g.skin == "lapis" and g.horn == "natural" and not o.has("horn") and sr.next() < 0.7: g.horn = "dressed" if sr.next() < 0.6 else "gold"
 	if g.skin in ["gold", "silver", "copper"] and not o.has("horn"): g.horn = "cast"
+	# (a beast's skull on its side, face up or face down reads as upside down — a long snout above all — and great horns
+	# would go through the rock: upright or tipped only)
+	if g.lie in ["side", "up", "down"] and not o.has("lie"): g.lie = "tilt" if r.next() < 0.5 else "upright"
 	if horned:
-		# (great horns or antlers and a skull lying on its side or face down: they would go through the rock)
-		if g.lie in ["side", "up", "down"] and not o.has("lie"): g.lie = "tilt" if r.next() < 0.5 else "upright"
 		if g.fx == "deathless": g.fx = "flutter"
 		if g.fx == "flutter":
 			g.flies = 7
@@ -617,7 +620,9 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 		"lapis":
 			m.set_shader_parameter("skin", 3)
 			m.set_shader_parameter("mosaic_pal", 1)
-		"feathers": m.set_shader_parameter("skin", 9)
+		"feathers":
+			m.set_shader_parameter("skin", 9)
+			m.set_shader_parameter("feather_pal", int(sk.get("feather_pal", 0)))
 		"sugar":
 			m.set_shader_parameter("skin", 10)
 			m.set_shader_parameter("druse_col", DRUSE[int(sk.get("druse", 0)) % DRUSE.size()])
@@ -945,6 +950,7 @@ static func gene_name(id: String, sk: Dictionary) -> String:
 		"sk_horn": return {gold = "golden horns", silver = "silver horns", cast = "cast horns", brass = "engraved brass horns", dressed = "gilded horns"}.get(String(sk.horn), "horns")
 		"sk_trees": return {moss = "bonsai trees", leaves = "little trees", blossom = "trees in blossom", autumn = "autumn trees", bare = "bare trees"}.get(String(sk.tree_kind), "trees")
 		"sk_moss": return "moss cap" if sk.moss == "cap" else "moss"
+		"sk_feathers": return ["magpie feathers", "starling feathers", "pheasant feathers", "peacock feathers", "owl feathers"][int(sk.get("feather_pal", 0)) % 5]
 		"sk_bloom": return ["crimson and gold", "white and lilac", "pink and cream", "blue and silver", "orange and yellow"][int(sk.bloom_pal) % 5] + " bouquet"
 		"sk_eyes": return "crystal eyes" if sk.eyes == "both" else "crystal eye"
 		"sk_stream": return "wine from the eye" if sk.get("wine", false) else "spring from the eye"
@@ -1309,8 +1315,9 @@ static func _forest(b: RefCounted, sk: Dictionary, cr: Geo, nr: PackedVector3Arr
 	var n := 14 + int(r.next() * 6) if cap else 2 + int(r.next() * 4)
 	for k in n:
 		var c0: Vector3 = (pool[int(r.next() * pool.size())] as Array)[0]
-		var rad := (0.2 + r.next() * 0.1) if cap else (0.06 + r.next() * 0.07)
-		var top := SpecPlants.cushion(root, r, pool, c0, rad, 0.02 + r.next() * 0.015, tint)
+		# (smaller on a small or narrow head: a beast's)
+		var rad := ((0.2 + r.next() * 0.1) if cap else (0.06 + r.next() * 0.07)) * float(sk.get("bloom_k", 1.0))
+		var top := SpecPlants.cushion(root, r, pool, c0, rad, 0.02 + r.next() * 0.015, tint, true)
 		var on: Array = top if top.size() > 8 else pool
 		# (short and dense: a velvet carpet, not tufts)
 		SpecPlants.scatter(root, r, on, c0, rad * 0.95, (500 + int(r.next() * 200)) if cap else 240, "moss", 0.9 + r.next() * 0.4, 0.15, tint)
@@ -1796,6 +1803,8 @@ static func lean(b: RefCounted, gene: Dictionary) -> void:
 	var sk := genes(int(gene.get("shroom_seed", 1)), gene.get("skull", {}))
 	var root: Node3D = b.root
 	root.set_meta("face", true)
+	# (a beast held in profile or three-quarters sways less: further round, a long snout points at the viewer)
+	if String(sk.get("beast", "")) != "" and not body(String(sk.beast)).get("lm", {}).get("mount", false): root.set_meta("sway", 0.35)
 	var pv := Node3D.new()
 	var kids := root.get_children()
 	root.add_child(pv)
@@ -2640,6 +2649,9 @@ static func _glass_flowers(b: RefCounted, sk: Dictionary) -> void:
 
 ## how the find is held up to the viewer (lean): on its rock tipped a little, a loose one tipping its head too (half the
 ## pose: it floats, nothing holds it on its side)
+## how far the card, the thumbnails and the atlas turn every find round (SpecView, Spec.thumb, Atlas.cutout)
+const VIEW_YAW := 0.6
+
 static func lean_basis(sk: Dictionary) -> Basis:
 	var tip := 0.3
 	var turn := Basis.IDENTITY
@@ -2647,7 +2659,9 @@ static func lean_basis(sk: Dictionary) -> Basis:
 		# a beast: tipped as it shows best, turned (a long snout in three-quarters, a bird nearly in profile)
 		var blm: Dictionary = body(String(sk.beast)).get("lm", {})
 		tip = float(blm.get("lean", 0.3))
-		turn = Basis(Vector3.UP, float(blm.get("yaw", 0.0)))
+		# (its yaw is the view wanted on the card, which turns every find by VIEW_YAW itself: taken back, or a long
+		# snout swings round at the viewer and, tipped forward, reads as hanging upside down)
+		if blm.has("yaw"): turn = Basis(Vector3.UP, float(blm.yaw) - VIEW_YAW)
 	if sk.show == "rock":
 		return Basis(Vector3.RIGHT, tip * 0.6) * turn
 	var la: Array = sk.lie_a

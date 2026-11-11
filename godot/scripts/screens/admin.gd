@@ -260,6 +260,16 @@ static func _skull_set() -> void:
 ## an animal's skull of every kind (SpecSkull.BEASTS), one each; the skins and crystals vary, so every new look shows
 ## (bone, lapis, feathers, sugar druse, rhodochrosite, gilt...), the open-mouthed ones with a druse in the maw
 static func _beast_set() -> void:
+	for st: Dictionary in beast_stones():
+		_add(st)
+		if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+	Save.persist()
+	Ov.toast("Added 16 beast skulls, one of each")
+	_reopen()
+
+## the 16 beast skulls of the admin's button (also spec_gallery adm_beasts): one of each, coats and crystals varied
+static func beast_stones() -> Array:
+	var out := []
 	var skins := ["bone", "lapis", "bone", "feathers", "sugar", "bone", "rhodo", "gilt", "bone", "kintsugi", "nacre", "bone", "gold", "agate", "bone", "opal"]
 	var sps := ["amethyst", "venom", "celestine", "morion", "quartz", "fluorite", "cinnabar", "smoky"]
 	for k in SpecSkull.BEASTS.size():
@@ -281,11 +291,8 @@ static func _beast_set() -> void:
 		st.area = 0
 		st.dl = 0
 		st.test = true
-		_add(st)
-		if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
-	Save.persist()
-	Ov.toast("Added 16 beast skulls, one of each")
-	_reopen()
+		out.append(st)
+	return out
 
 ## eight ammonites, one of each look: sawn, a matched pair, crystal-lined chambers, a brood, crushed in shale, a
 ## heteromorph, dragon fire, jellyfish — seeds found that grow each

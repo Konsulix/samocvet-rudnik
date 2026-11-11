@@ -140,7 +140,8 @@ static func bed_material(tint: Color) -> ShaderMaterial:
 
 ## a cushion of moss hugging the rock around `center`: a thin shell textured with the baked moss bed,
 ## fraying at its rim. Returns points on its top for sprigs and blades to stand on.
-static func cushion(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, rad: float, thick: float, tint := Color(1, 1, 1)) -> Array:
+## strict (a skull's curved bone): where the disc would stretch, it frays and drops out instead
+static func cushion(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, rad: float, thick: float, tint := Color(1, 1, 1), strict := false) -> Array:
 	var near := []
 	for pn in pool:
 		if (pn[0] as Vector3).distance_to(center) < rad * 1.4:
@@ -182,7 +183,10 @@ static func cushion(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, ra
 			var pos := on + bn * lift
 			v.append(pos)
 			uv.append(Vector2(u, w) / tile + Vector2(ph, ph * 0.7))
-			uv2.append(Vector2(rr, 0))
+			# (where the disc lands far off its plane — over a ridge, down a steep wall of a curved bone — the bed would
+			# be stretched into streaks: there it frays out, as at its rim)
+			var off := strict and (bn.dot(n0) < 0.35 or (q - on).length() > rad * 0.35)
+			uv2.append(Vector2(1.0 if off else rr, 0))
 			if rr < 0.8:
 				out.append([pos, bn])
 			if ri == 0:
@@ -197,6 +201,16 @@ static func cushion(parent: Node3D, rng: Rng32, pool: Array, center: Vector3, ra
 		for si in segs:
 			var j := (si + 1) % segs
 			idx.append_array([a0 + si, a1 + si, a1 + j, a0 + si, a1 + j, a0 + j])
+	# (a triangle pulled long — its corners landed on different sides of a ridge — is left out)
+	var lim := rad * 0.4 if strict else INF
+	var kept := PackedInt32Array()
+	for t in idx.size() / 3:
+		var A := v[idx[t * 3]]
+		var Bq := v[idx[t * 3 + 1]]
+		var C := v[idx[t * 3 + 2]]
+		if A.distance_to(Bq) > lim or Bq.distance_to(C) > lim or C.distance_to(A) > lim: continue
+		kept.append_array([idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]])
+	idx = kept
 	var g := Geo.new()
 	g.v = v
 	g.idx = idx
