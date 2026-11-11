@@ -551,6 +551,9 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	for p: Vector3 in _leaves_at(inner):
 		b._mark("leaves", ix * p, Vector3.BACK)
 	b._mark("stone", U.rel_xform(holder, root) * Vector3(0.5, 0.6, 0.4), Vector3(0.5, 0.6, 0.6).normalized())
+	# the sun spangles: discs of light through the whole of the amber
+	if "spangles" in (gene.get("accents", []) as Array):
+		b._mark("spangles", U.rel_xform(holder, root) * Vector3(-0.35, 0.3, 0.45), Vector3(-0.4, 0.3, 0.8).normalized())
 	# simetite's blue glow is strongest at its rim
 	if f.host == "simetite":
 		b._mark("blue_glow", U.rel_xform(holder, root) * Vector3(-0.75, 0.15, 0.2), Vector3(-0.8, 0.1, 0.6).normalized())

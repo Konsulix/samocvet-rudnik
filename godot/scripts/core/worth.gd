@@ -10,7 +10,7 @@ extends RefCounted
 const UNIT := 60.0   # one point, in coins before the depth (≈ a plain amethyst)
 ## the whole price scaled so a mine's finds earn on average what they did before (tests/worth_sample: the mean over the
 ## five mines kept), only shared out by beauty
-const PRICE := 0.44
+const PRICE := 0.48
 
 ## the body: the species' value squeezed — 60 stays 60, 15 → 30, 600 → 190, 2000 → 346
 static func body(sid: String) -> float:
@@ -27,12 +27,13 @@ const ACC := {pompom = 0.6, straw = 0.7, lichen = 0.4, needles = 0.4, crust = 0.
 	barite = 0.6, pararealgar = 0.3, ob_black = 0.0, ob_snowflake = 0.9, ob_mahogany = 0.6, ob_rainbow = 2.2, ob_tears = 1.0,
 	# a skull's own (its skin is its body: SKULL_V)
 	sk_crown = 1.4, sk_eyes = 1.2, sk_fangs = 0.9, sk_stream = 1.8, sk_moss = 1.1, sk_trees = 1.6, sk_roots = 0.6, sk_coins = 1.6,
-	sk_diadem = 2.6, sk_maw = 1.6, sk_horn = 0.8, sk_bloom = 1.2, sk_frost = 0.4, sk_wax = 0.4, sk_lantern = 1.2, sk_pile = 1.0,
+	sk_diadem = 2.6, sk_maw = 1.6, sk_horn = 1.2, sk_bloom = 1.2, sk_frost = 0.4, sk_wax = 0.4, sk_lantern = 1.2, sk_pile = 1.0,
 	sk_broken = -0.4, sk_chipped = -0.2, sk_grave = 0.0, sk_ash = 0.3}
 
-## butterflies by kind (the showy and the rare dearer); each one more of a kind +0.3
-const FLY := {mourning = 1.0, blue = 1.0, apollo = 1.5, monarch = 1.3, morpho = 2.0, deathshead = 2.0, comet = 2.6, glasswing = 2.6,
-	peacock = 1.4, swallowtail = 1.4, bluetiger = 1.6, birdwing = 2.2, hawkmoth = 1.6}
+## butterflies by kind (SpecButterfly.KINDS: the commoner meadow ones less, the rare and showy more); each one more of
+## a kind +0.3
+const FLY := {peacock = 1.0, swallowtail = 1.1, monarch = 1.2, apollo = 1.3, bluetiger = 1.6, hawkmoth = 1.8, birdwing = 2.4,
+	glasswing = 2.4}
 
 ## a skull's skin is what it is: named by the card's title, but first among its badges
 const SKINS := ["sk_gilt", "sk_gold", "sk_silver", "sk_copper", "sk_kintsugi", "sk_glass", "sk_agate", "sk_opal", "sk_pyrite",
@@ -74,7 +75,9 @@ static func points(id: String, gene: Dictionary) -> float:
 ## all the points of a find: its traits and what grew on it
 static func gene_points(traits: Array, gene: Dictionary) -> float:
 	var p := 0.0
-	for t: String in traits: p += points(t, gene)
+	var lost: Array = gene.get("lost", [])
+	for t: String in traits:
+		if not t in lost: p += points(t, gene)
 	for a: String in gene.get("accents", []):
 		if not a in traits: p += points(a, gene)
 	return p

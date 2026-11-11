@@ -278,6 +278,10 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		go.skin = skull
 		if beast != "": go.beast = beast
 	var gene := SpecGenome.of(go)
+	# what this body cannot show is not rolled at all (a twin on a skull, rainbow film on metal); a fossil keeps its
+	# traits (they make its own genes: rainbow film is its ammolite) — they are only not priced twice
+	if kind != "fossil" and (gene.lost as Array).size():
+		traits = traits.filter(func(t: String) -> bool: return not t in gene.lost)
 	var pts := Worth.gene_points(traits, gene) + 2.0 * log(maxf(fm, 1.0))
 	var value: float = (Worth.body(sid) * kind_m + Worth.UNIT * pts) * VALUE_K
 	# a living effect: its own worth by spectacle, added on any body

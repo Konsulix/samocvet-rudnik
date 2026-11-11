@@ -695,4 +695,10 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 			var th := tmax - 0.9 * TAU - k * 0.15 * TAU
 			var sp: Array = _surf(f, a, b_log, th, 1.2)
 			b._mark("sutures", xf * (sp[0] as Vector3), (xf.basis * (sp[1] as Vector3)).normalized())
+	# the whole shell is it: a pyritized one, an uncoiled one (the price paid for them is named on the card)
+	if "pyrite_sh" in gene.accents:
+		var sp: Array = _surf(f, a, b_log, tmax - 0.6 * TAU, 0.9)
+		b._mark("pyrite_sh", xf * (sp[0] as Vector3), (xf.basis * (sp[1] as Vector3)).normalized())
+	if "hetero" in gene.accents:
+		b._mark("hetero", b._mid(shell, 0.55), Vector3.ZERO)
 	return shell

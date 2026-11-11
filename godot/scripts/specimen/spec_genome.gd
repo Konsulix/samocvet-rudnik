@@ -27,6 +27,9 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
+## the layouts without a rock floor (SpecimenBuilder: has_base)
+const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray"]
+
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
 	{id = "silver", n = "silver rim", p = 0.1, m = 1.35},
@@ -89,6 +92,10 @@ static func of(o: Dictionary) -> Dictionary:
 				_:
 					opts = [["single", 3.0], ["cluster", 4.0 if druse else 1.0], ["pile", 3.0]]
 		form = Stones.pick_w(opts, rng)
+	# a twin and a sceptre are built on a crystal standing alone (SpecimenBuilder "single"): a crowded layout gives way
+	# to one, or the gene would be rolled, priced and never grown (tests/grow_audit)
+	if form in ["cluster", "columnar", "pile", "slabs", "hexplates", "hopper"] and ("twin" in tr or ("scepter" in tr and habit in ["prism", "blade"])):
+		form = "single"
 	if ("moss" in tr or "coral" in tr) and form in ["floater", "radial"]:
 		form = "cluster" if druse else "single"
 	var rock: String
@@ -117,8 +124,17 @@ static func of(o: Dictionary) -> Dictionary:
 	# (on a sawn and polished lump only the small things, round its back: big puffs and ferns would reach over the face)
 	if form == "sawn":
 		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "flowers", "dust"])
-	if form in ["geode", "botryoid"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
+	# (a geode's shell takes puffs and straw; a bare botryoidal lump has nothing for them to stand on)
+	if form == "geode" and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
+	if form == "botryoid" and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
+		apool = []
+	# the layouts with no rock floor (SpecimenBuilder has_base): no crust, needles or dust to lie on it
+	if form in NO_BASE:
+		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["crust", "needles", "dust"]))
+	# and where there is no rock at all (a spray of needles, a vein, a floater) no lichen or plants either
+	if form in ["floater", "radial", "vein"]:
+		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["lichen", "fronds", "flowers"]))
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
 	if habit == "fossil" and not on_rock:
@@ -234,7 +250,7 @@ static func of(o: Dictionary) -> Dictionary:
 			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
-	if shroom >= 0 and not bare and not (form in ["floater", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:
@@ -267,7 +283,19 @@ static func of(o: Dictionary) -> Dictionary:
 	# stream so no other gene moves
 	if odd_habit == "" and look.has("habits"):
 		odd_habit = String(Stones.pick_w((look.habits as Array).map(func(h: Array) -> Array: return [h[0], float(h[1])]), Rng32.new((seed_v * 2246822519 + 97) % 4294967296)))
+	# the traits this body cannot show (tests/grow_audit): not priced, not named (Stones.roll drops them from the find)
+	var hb := odd_habit if odd_habit != "" else habit
+	var lost := []
+	if "twin" in tr and form != "single": lost.append("twin")
+	if "scepter" in tr and not (form in ["single", "floater"] and hb in ["prism", "blade"]): lost.append("scepter")
+	if "floater" in tr and form != "floater": lost.append("floater")
+	for t in ["irid", "aurora"]:
+		if t in tr and (lustre in ["metal", "dark", "fossil"] or habit == "obsidian") and form != "botryoid": lost.append(t)
+	if "bubbles" in tr and (form in ["radial", "floater", "obsidian", "simetite"] or (habit == "fossil" and not on_rock)): lost.append("bubbles")
+	if "moss" in tr and form in NO_BASE: lost.append("moss")
+	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
 	return {
+		lost = lost,
 		habit = odd_habit if odd_habit != "" else habit,
 		skull = skull_o,
 		form = form,

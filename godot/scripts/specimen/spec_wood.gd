@@ -703,7 +703,10 @@ static func _drift(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		lamp.position = mid + nmid * r0 * 0.5
 		holder.add_child(lamp)
 	if f.fungi and bark_pts.size():
-		_fungi(holder, rng, _front(holder, bark_pts), r0)
+		var fsp := _front(holder, bark_pts)
+		_fungi(holder, rng, fsp, r0)
+		var fat: Array = fsp[fsp.size() / 2]
+		b._mark("fungi", U.rel_xform(holder, b.root) * (fat[0] as Vector3), (U.rel_xform(holder, b.root).basis * (fat[1] as Vector3)).normalized())
 	_life(b, f, holder, m, rng, bark_pts, r0)
 	# callouts
 	var xf := U.rel_xform(holder, b.root)
