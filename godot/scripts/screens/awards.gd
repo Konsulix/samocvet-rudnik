@@ -66,6 +66,15 @@ static var LIST := [
 		tags = ["plant:fern", "plant:ginkgo", "plant:redwood", "plant:horsetail", "plant:palm", "plant:annularia", "plant:lepido"], names = ["Tree fern", "Ginkgo", "Dawn redwood", "Horsetail", "Palm", "Annularia", "Lepidodendron"]},
 	{tab = "coll", icon = "crowned_skull", n = "Alas, Poor Yorick", t = "I knew him well. In every skin he ever wore.", r = "the title Curator",
 		items = ["sp:skull_bone", "sp:skull_nacre", "sp:skull_gilt", "sp:skull_kintsugi", "sp:skull_glass", "sp:skull_agate", "sp:skull_opal", "sp:skull_pyrite", "sp:skull_geode", "sp:skull_copper", "sp:skull_silver", "sp:skull_gold"]},
+	{tab = "coll", icon = "bestiary", n = "Noah's Ark", t = "Two of every kind, from every mine. Only the bones came back.", r = "Every beast's skull, two from each mine",
+		give = {coins = 5000, geode = 2, unlock = "the title Naturalist"}, items = ["sp:beast_wolf", "sp:beast_bear", "sp:beast_alligator", "sp:beast_mouflon", "sp:beast_trex", "sp:beast_spoonbill", "sp:beast_ram", "sp:beast_longhorn", "sp:beast_musk_ox", "sp:beast_fox", "sp:beast_raven", "sp:beast_hornbill", "sp:beast_horse", "sp:beast_deer", "sp:beast_lion", "sp:beast_triceratops"]},
+	{tab = "coll", icon = "beast_spirit", n = "Spirits of the Wild", t = "The beasts are gone. Something of them stayed in the bone.", r = "a rare geode",
+		tags = ["fx:blossom", "fx:starhorn", "fx:thunder", "fx:foxfire", "fx:wolfmoon", "fx:breath", "fx:phoenix", "fx:raveneye", "fx:lavaborn", "fx:amberdrop", "fx:ghost"],
+		names = ["Blossoming horns", "Starlit horns", "Thunder horns", "Kitsune fire", "Wolf's moon", "Beast's breath", "Phoenix feathers", "Raven's eye", "Lava awakening", "Amber drop", "The beast's ghost"]},
+	{tab = "coll", icon = "feather", n = "Birds of a Feather", t = "Five birds lent their coats to the dead. None of them asked for it back.", r = "coins",
+		tags = ["feather:0", "feather:1", "feather:2", "feather:3", "feather:4"], names = ["Magpie", "Starling", "Pheasant", "Peacock", "Owl"]},
+	{tab = "coll", icon = "maw", n = "Bite Down", t = "It died with its mouth full. Of amethyst.", r = "A beast's skull with crystals in its jaws", one = true, ev = "maw", give = {geode = 1}, items = ["i:maw"]},
+	{tab = "coll", icon = "fledged", n = "Fully Fledged", t = "Not a bone showing. Will it fly?", r = "A skull three-quarters cloaked in feathers", one = true, ev = "fledged", give = {coins = 800}, items = ["i:feather"]},
 	{tab = "coll", icon = "pearls", n = "String of Pearls", t = "Every sea grows its own colour. Thread them on one string.", r = "a necklace recipe",
 		tags = ["pearl:akoya", "pearl:south_sea", "pearl:golden", "pearl:tahitian"], names = ["Akoya", "South Sea", "Golden", "Tahitian"]},
 	{tab = "coll", icon = "twin_peaks", n = "Twin Peaks", t = "Two stones, one recipe. The mountain repeats itself.", r = "Two finds of a kind with the same genes", one = true, ev = "twin_genes", give = {geode = 1}, items = ["i:twins"]},
@@ -85,6 +94,7 @@ static var LIST := [
 
 	{tab = "mines", icon = "glimpse", n = "Glimpses of the Deep", t = "The mines hide their masters. Sometimes they slip - catch them at it.", r = "a portrait frame",
 		items = ["i:lizard", "i:tentacle", "i:lightning", "i:moon", "i:twins"], evs = ["ev:1:reflection", "ev:2:eel", "ev:3:shadow", "ev:4:dwarf", "ev:4:brother"]},
+	{tab = "mines", icon = "worked_out", n = "Not a Crumb Left", t = "Iron and ore, down to the last crumb the rock will give.", r = "Work a depth's veins out", one = true, ev = "worked_out", give = {coins = 500, boost = {pick = 1}}, items = ["i:worked_out"]},
 	{tab = "mines", icon = "night_watch", n = "Night Watch", t = "Sit still long enough and the mine forgets you're there.", r = "Watch a mine for three minutes", one = true, ev = "night_watch", give = {lives = 2}, items = ["kit:heart"]},
 
 	{tab = "boss", icon = "serpent", n = "Snake Charmer", t = "He bit. You didn't flinch.", r = "Win against the Serpent first try", one = true, ev = "boss:0:first", give = {geode = 2}, items = ["kit:gold"]},
@@ -152,6 +162,9 @@ const SAY := {
 	"Frozen Bouquet": ["sad", "Flowers nobody will ever smell. Still, they're the prettiest thing in my atlas."],
 	"The Stone Herbarium": ["calm", "A forest older than the dinosaurs, pressed flat between two pages of slate."],
 	"Alas, Poor Yorick": ["worry", "Twelve kinds of skull. I'm not sure the barrow wanted them dug up."],
+	"Noah's Ark": ["shock", "Sixteen beasts. Wolves, lions, a tyrant lizard... Whatever lived above these mines, it all ended up below."],
+	"Spirits of the Wild": ["worry", "The bones remember being alive. I've stopped writing it off as the lamps."],
+	"Birds of a Feather": ["smile", "Magpie, starling, pheasant, peacock, owl. A whole aviary, and not one of them sings."],
 	"String of Pearls": ["smile", "Each sea paints its own. Now you have them all on one thread."],
 	"Rainbow in a Cube": ["curious", "One mineral, every colour. Fluorite never makes up its mind."],
 	"Every Stone of the Hill": ["resolve", "Every kind the hill gives up. The old man's list is finished - mine isn't."],
@@ -196,6 +209,16 @@ static func genes_of(s: Dictionary) -> Array:
 	# the butterflies, of any find (a skull's or a stone's)
 	for k in g.get("fly_kinds", []):
 		if not "fly:" + String(k) in out: out.append("fly:" + String(k))
+	# an animal's skull: the bird its feathers came from ("feather:3" a peacock's), and "fledged" when they cloak three quarters of it
+	if String(o.get("form", "")) == "skull" and String(o.get("beast", "")) != "":
+		var sk_o := {}
+		for k in SpecSkull.KEYS:
+			if o.has(k): sk_o[k] = o[k]
+		sk_o.fx = g.fx
+		var sk := SpecSkull.genes(seed_v, sk_o)
+		if String(sk.skin) == "feathers":
+			out.append("feather:%d" % (int(sk.feather_pal) % 5))
+			if float(sk.feather_k) >= 0.75: out.append("fledged")
 	var look := SpecLooks.of(sid)
 	if look.has("palette"):
 		var pal: Array = look.palette
@@ -226,6 +249,8 @@ static func find_marks(s: Dictionary, gs: Array) -> Array:
 	if gs.has("fx:yaga") and gs.any(func(t: String) -> bool: return t.begins_with("fly:")): out.append("moth_flame")
 	var moss := gs.has("tr:moss") or gs.has("acc:moss") or gs.has("acc:lichen")
 	if moss and gs.any(func(t: String) -> bool: return t.begins_with("shroom:")) and gs.has("acc:flowers"): out.append("overgrown")
+	if gs.has("acc:sk_maw"): out.append("maw")
+	if gs.has("fledged"): out.append("fledged")
 	return out
 
 ## what is kept of a find to show it again (the same fields as the atlas's best): enough to build it and to tell
@@ -234,6 +259,8 @@ static func summary(s: Dictionary, a: int, dl: int) -> Dictionary:
 	var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
 		g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
 	for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind"]:
+		if s.has(k): b[k] = s[k]
+	for k in SpecSkull.KEYS:
 		if s.has(k): b[k] = s[k]
 	return b
 
@@ -317,7 +344,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 5: return
+	if int(Save.d.get("gver", 0)) >= 6: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -327,7 +354,11 @@ static func backfill() -> void:
 				first[t] = summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	Save.d.genes = seen
 	Save.d.gfirst = first
-	Save.d.gver = 5
+	# (gver 6: the marks a kept find brings by itself — the beasts' ones came after the first finds)
+	for s in Save.d.coll:
+		for mk in find_marks(s, genes_of(s)):
+			if String(mk) in ["maw", "fledged"]: once(String(mk))
+	Save.d.gver = 6
 	Save.persist()
 
 func _ready() -> void:
@@ -553,6 +584,18 @@ static func _latch() -> void:
 	# every job of Old Adit built to its last step
 	var jobs: Array = Data.AREAS[0].get("tasks", [])
 	if jobs.size() and jobs.all(func(t: Array) -> bool: return (Save.d.built[0] as Array).has(t[0])): once("rigged:0")
+	# a depth of the mine worked to its floor, iron and ore both (the veins keep only the current mine's)
+	if n("worked_out") == 0:
+		var vs: Array = Save.d.get("vein", [])
+		for dl in vs.size():
+			if (vs[dl] as Array).size() < 2: continue
+			var out := true
+			for i in 2:
+				var stock := Level.vein_stock(dl, i)
+				if stock <= 0 or int(vs[dl][i]) > BoardModel.vein_floor(stock): out = false
+			if out:
+				once("worked_out")
+				break
 
 ## the achievements just completed: noticed once each (a toast now; the strip waits on the screen to be claimed).
 ## quiet: noticed without a word (the save's first look, so the old ones don't all speak at once)

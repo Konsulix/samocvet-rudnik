@@ -309,6 +309,8 @@ func _ready() -> void:
 		Save.persist()
 	if args.has("tab"):
 		Museum.start_tab = args.tab
+	if args.has("aw_tab"):   # the awards' tab (screen=awards): tales, coll, mines, boss, mastery, secrets
+		Awards.tab = args.aw_tab
 	if args.has("atlas"):
 		Atlas.start_area = int(args.atlas)
 	if args.has("screen"):

@@ -167,6 +167,11 @@ Play в листке ачивки. Где ещё показывать откры
 | череп с короной | **Alas, Poor Yorick** | I knew him well. All twelve of him. | все роды черепов кургана | титул «Curator» |
 | нить жемчуга | **String of Pearls** | Six seas, six colours, one string. | 6 тел жемчуга | рецепт украшения «ожерелье» |
 | куб флюорита | **Rainbow in a Cube** | Purple, green, blue… it can't decide. | все окраски флюорита | монеты |
+| два черепа-трофея | **Noah's Ark** | Two of every kind, from every mine. Only the bones came back. | все 16 черепов зверей (`sp:beast_*`, по 2 на рудник 1–8) | 5000 монет + редкая жеода ×2 + титул «Naturalist» (11.11) |
+| дух волка над черепом | **Spirits of the Wild** | The beasts are gone. Something of them stayed in the bone. | 11 легенд черепов зверей (`SpecBeastFx`) | редкая жеода |
+| перо | **Birds of a Feather** | Five birds lent their coats to the dead. | перья 5 птиц на черепах зверей (`feather:0..4`) | монеты |
+| череп с друзой в пасти | **Bite Down** | It died with its mouth full. Of amethyst. | череп зверя с друзой в пасти (`sk_maw`, ~25% черепов зверей) | жеода |
+| череп в перьях | **Fully Fledged** | Not a bone showing. Will it fly? | перья ≥75% черепа (~1,5% черепов зверей) | 800 монет |
 
 ### Mines — печати рудника (на каждый рудник; имена — пример Old Adit)
 | Иконка | Название | Текст | Условие | Награда |
@@ -177,6 +182,7 @@ Play в листке ачивки. Где ещё показывать откры
 | копёр | **Fully Rigged** | Every wheel turns, every lamp burns. | все задачи рудника на 3 шага | монеты |
 | свиток | **Notes from Below** | The guide wrote things down. Not everything was for you. | все записки проводника | сцена проводника |
 | глаз | **Eye of the Miner** | The mine moves when you're not looking. | видел все знаки рудника (змейка, глаза в завале, кольцо…) | рамка портрета рудника |
+| пустая вагонетка | **Not a Crumb Left** | Iron and ore, down to the last crumb the rock will give. | глубина выработана до дна жилы (железо и руда) | 500 монет + кирка (11.11) |
 
 ### Bosses — условия боя
 | Иконка | Название | Текст | Условие | Награда |

@@ -240,6 +240,7 @@
   `RockKit.surf_pts(main…)`) — ген был, бабочки нет, ачивка засчитывала; The Odd One — только случайные гены (`Awards.odd_genes`,
   `ODD_ACC`, ~0,2% находок); Glass Half Full — 100 монет (камень на своей породе — треть находок Old Adit). Частоты ачивок
   находок — `tests/award_odds.tscn -- n=N`. На iPhone не проверено.
+  11.11 (ветка `generator`; туда же перенесён коммит ачивок из `awards2`), **ачивки зверей и жил** (80 строк): Noah's Ark — все 16 черепов зверей (`sp:beast_*`; рудники 6–8 пока вне цепочки — выполнить нельзя), 5000 монет + редкая жеода + титул Naturalist; Spirits of the Wild — 11 легенд зверей; Birds of a Feather — перья 5 птиц (`feather:N` в `Awards.genes_of` из `SpecSkull.genes`); Bite Down — друза в пасти (~25% черепов зверей); Fully Fledged — перья ≥75% (~1,5% черепов зверей); Not a Crumb Left (Mines) — глубина выработана до дна жилы (`_latch`). `gver` 6 дочитывает перья и отметки уже лежащих находок. Значки — `gen_parts.sh icons4` → `cut_parts.py`. Ключ `aw_tab=coll`. Снимок: `-- save=awb adm_beasts adm_count screen=awards aw_tab=coll`. На iPhone не проверено.
   9.11, **Огневушка-поскакушка** — бонусная погоня, всё в `docs/fire-maiden.md` (правила, арт `art/maiden/`, `MaidenView`,
   `Level.MAIDEN`, ключи `-- maiden [ui=maiden_catch catches=N]`, тест `tests/maiden_check.tscn`). Вход — Play в листке
   Where She Danced, раз в неделю. Доделано: карточки с портретом, звуки (колокольчиковый смех), огонёк в Old Adit (тап —

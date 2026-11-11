@@ -19,6 +19,11 @@ func _ready() -> void:
 			hist[real.size()] = int(hist.get(real.size(), 0)) + 1
 			for t: String in real: tags[t] = int(tags.get(t, 0)) + 1
 			for m: String in Awards.find_marks(s, gs): marks[m] = int(marks.get(m, 0)) + 1
+			# the beasts' skulls: how many, and their feathers and legends
+			if String(s.get("beast", "")) != "":
+				marks["beast"] = int(marks.get("beast", 0)) + 1
+				for t: String in gs:
+					if t.begins_with("feather:") or (t.begins_with("fx:") and bool(s.get("legend", false))): marks[t] = int(marks.get(t, 0)) + 1
 		var ks := hist.keys(); ks.sort()
 		print("area %d genes: %s" % [area, ", ".join(ks.map(func(k: int) -> String: return "%d:%d" % [k, hist[k]]))])
 		print("   marks: %s" % str(marks))
