@@ -397,7 +397,12 @@ class Fly extends Node3D:
 			sun_t = 1.2 + rng.next() * 2.5
 		sun = move_toward(sun, sun_to, dt * 1.6)
 		# opened to the sun only to a V, never flat: flat wings dipped into the curve of the bone
-		var open := lerpf(rest, 0.5, smoothstep(0.0, 1.0, sun))
+		# (opened to the sun: a V, the wings ~35° above level — on a model, the stroke's angle at which its own wings
+		# stand so; never flat)
+		var vee := 0.5
+		if not tb.is_empty():
+			vee = lerpf(float(st.dn), float(st.up), clampf((0.6 - float(tb.lo)) / maxf(0.01, float(tb.hi) - float(tb.lo)), 0.0, 1.0))
+		var open := lerpf(rest, vee, smoothstep(0.0, 1.0, sun))
 		# a slow clap while open, a shiver while closed
 		var clap := sin(timer * 2.2) * 0.12 * sun + sin(timer * 17.0) * 0.015
 		_wings(open + clap, 0.0)

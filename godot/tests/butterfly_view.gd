@@ -28,6 +28,9 @@ func _ready() -> void:
 			add_child(hold)
 			var fb: SpecButterfly.Fly = SpecButterfly.put(hold, Rng32.new(7 + i), String(ids[i]), Vector3.ZERO, Vector3.UP, 1.0 / float(SpecButterfly.KINDS[ids[i]].span), false, [[Vector3.ZERO, Vector3.UP]])
 			if row > 0: held.append([fb, [1.5, 0.3, -0.5][row - 1]])
+			else:
+				# (the top row: sitting with its wings opened to the sun)
+				fb.set_meta("sunny", true)
 		var l := Label3D.new()
 		l.text = String(ids[i])
 		l.font_size = 36
@@ -39,6 +42,14 @@ func _ready() -> void:
 	cam.position = Vector3(0, 0.1, 20)
 	add_child(cam)
 	await get_tree().create_timer(float(args.get("t", "1.0"))).timeout
+	for n in find_children("*", "", true, false):
+		if n.has_meta("sunny") and not (n as SpecButterfly.Fly).full:
+			var sf := n as SpecButterfly.Fly
+			if sf.state != SpecButterfly.Fly.SIT: continue
+			sf.sun = 1.0
+			sf.sun_to = 1.0
+			sf.sun_t = 99.0
+			sf.timer = 99.0
 	for h: Array in held:
 		var fb: SpecButterfly.Fly = h[0]
 		fb.set_process(false)
