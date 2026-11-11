@@ -923,8 +923,8 @@ class Fly extends Node3D:
 				if ct >= 0.11:
 					if want_glide:
 						wing = 2
-						# (the beat that ends in the sail is a soft one: it floats into it, not shoots up)
-						stroke *= 0.8
+						# (the beat that ends in the sail is just hard enough to stop its rise or fall: it floats into the sail level)
+						stroke = clampf((1.0 - vel.y / (GRAV * size * 0.455 * beat_t)) / 2.2, 0.15, 1.5)
 						want_glide = false
 					else:
 						ct = 0.42 + (ct - 0.11)
