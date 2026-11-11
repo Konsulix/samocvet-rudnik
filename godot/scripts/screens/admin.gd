@@ -229,6 +229,11 @@ static func _find(sd: int, sid: String, fx: String) -> Dictionary:
 	st.area = a
 	st.dl = randi() % Data.depths(a).size()
 	st.test = true
+	# made a skull or legendary after its roll: named and priced for what it now is
+	if st.get("form", "") == "skull":
+		st.skin = Stones.skin_of(st)
+		st.tier = maxi(int(st.tier), int(Stones.SKULL_TIER.get(st.skin, 1)))
+	st.value = Stones.price(st, a, int(st.dl))
 	if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 	return st
 
@@ -251,6 +256,7 @@ static func _skull_set() -> void:
 		st.area = 0
 		st.dl = 0
 		st.test = true
+		st.value = Stones.price(st, 0, 3)
 		_add(st)
 	if not "amethyst" in Save.d.seen: Save.d.seen.append("amethyst")
 	Save.persist()
@@ -287,7 +293,7 @@ static func beast_stones() -> Array:
 		st.skin = skins[k % skins.size()]
 		if st.beast in ["wolf", "alligator", "trex"]: st.maw = true
 		st.tier = maxi(Stones.tier_of(st.sid, int(st.gi), false), int(Stones.SKULL_TIER.get(st.skin, 1)))
-		st.value = roundi(Worth.body(st.sid) * Stones.VALUE_K * float(Stones.SKULL_V.get(st.skin, 1.6)) * 1.5)
+		st.value = Stones.price(st, 0, 3)
 		st.area = 0
 		st.dl = 0
 		st.test = true
