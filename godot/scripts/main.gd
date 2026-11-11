@@ -245,6 +245,13 @@ func _ready() -> void:
 			pins = []
 			var who := ["raven", "fox", "mouflon", "wolf", "hornbill", "deer", "lion", "spoonbill", "ram", "horse"]
 			for k in who.size(): pins.append({beast = who[k], skin = "feathers", feather_pal = k % 5})
+		# skulls=monarchs: skulls with monarch butterflies (an animated model, SpecButterfly.MODELS), some sitting, some flying
+		if String(args.skulls) == "monarchs":
+			pins = []
+			for b: String in ["", "fox", "wolf", "deer", "", "horse"]:
+				var pn := {flies = 3, fly_kind = "monarch", fly_mode = 0}
+				if b != "": pn.beast = b
+				pins.append(pn)
 		# skulls=legends: an animal's skull with each of its own legends (SpecBeastFx), and the ghost of several
 		if String(args.skulls) == "legends":
 			pins = []
