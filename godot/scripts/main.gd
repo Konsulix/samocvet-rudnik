@@ -152,7 +152,7 @@ func _ready() -> void:
 			st.kind = "fossil"
 			st.traits = []
 			st.legend = false
-			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.tier = Stones.tier_of(st.sid, int(st.gi), bool(st.get("legend", false)))
 			st.area = 0
 			st.dl = i % 6
 			Save.d.coll.append(st)
@@ -245,6 +245,13 @@ func _ready() -> void:
 			pins = []
 			var who := ["raven", "fox", "mouflon", "wolf", "hornbill", "deer", "lion", "spoonbill", "ram", "horse"]
 			for k in who.size(): pins.append({beast = who[k], skin = "feathers", feather_pal = k % 5})
+		# skulls=legends: an animal's skull with each of its own legends (SpecBeastFx), and the ghost of several
+		if String(args.skulls) == "legends":
+			pins = []
+			for pr: Array in [["deer", "blossom"], ["ram", "starhorn"], ["longhorn", "thunder"], ["fox", "foxfire"], ["wolf", "wolfmoon"],
+				["bear", "breath"], ["raven", "phoenix"], ["raven", "raveneye"], ["trex", "lavaborn"], ["triceratops", "amberdrop"],
+				["horse", "ghost"], ["fox", "ghost"], ["longhorn", "ghost"], ["trex", "ghost"]]:
+				pins.append({beast = pr[0], legend = true, fx = pr[1]})
 		var n := int(args.skulls) if String(args.skulls).is_valid_int() and int(args.skulls) > 1 else pins.size()
 		for i in n:
 			var st := Stones.roll(90000 + i * 13, 0, 1.2, i % 6)
@@ -255,7 +262,7 @@ func _ready() -> void:
 			st.form = "skull"
 			st.test = true
 			st.merge(pins[i % pins.size()], true)
-			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.tier = Stones.tier_of(st.sid, int(st.gi), bool(st.get("legend", false)))
 			st.area = 0
 			st.dl = i % 6
 			Save.d.coll.append(st)
