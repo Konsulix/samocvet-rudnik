@@ -602,7 +602,9 @@ class Fly extends Node3D:
 		if nm == "" or not ap.has_animation(nm): return
 		var a := ap.get_animation(nm)
 		if want in ["fly", "sit"]: a.loop_mode = Animation.LOOP_LINEAR
-		ap.speed_scale = 1.0 if want != "land" else 1.4
+		# (its flight loop beats ~6 times a second: at the pace a find's butterfly crosses the card that reads as hovering on
+		# the spot — slowed to half, lazy as a monarch's flight looks)
+		ap.speed_scale = {fly = 0.5, land = 1.2, off = 0.8}.get(want, 1.0)
 		ap.play(nm, 0.3)
 		if want == "sit": ap.seek(rng.next() * a.length, true)
 
@@ -659,7 +661,7 @@ class Fly extends Node3D:
 		if pos.distance_to(target) < size * 1.5 or retarget <= 0.0:
 			target = _shell()
 			retarget = (0.3 + rng.next() * 0.5) / maxf(0.2, float(st.jerk)) if float(st.jerk) > 0.6 else 1.5 + rng.next() * 2.0
-		var speed := size * float(st.speed) * (0.85 if gliding > 0.5 else 1.0)
+		var speed := size * float(st.speed) * (0.85 if gliding > 0.5 else 1.0) * (1.5 if ap else 1.0)
 		var want := (target - pos).normalized() * speed
 		var turn := 2.0 + float(st.jerk) * 6.0
 		var old := vel
@@ -735,7 +737,7 @@ class Fly extends Node3D:
 			# settle down onto the spot over half a second, a few short beats
 			timer += dt
 			# (a model settles over its own landing: 1.4 s at 1.4×)
-			var f := clampf(timer / (1.0 if ap else 0.5), 0.0, 1.0)
+			var f := clampf(timer / (1.15 if ap else 0.5), 0.0, 1.0)
 			if timer <= dt: land_from = pos
 			pos = land_from.lerp(p + n * size * 0.08, f * f)
 			_flap(dt, float(st.hz) * 0.8, 1.0 - f * 0.7)

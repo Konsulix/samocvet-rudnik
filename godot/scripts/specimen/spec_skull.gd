@@ -1812,7 +1812,8 @@ static func _maw(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, earth_
 			# inside the mouth: near its line, the bone facing in toward it
 			var axis_pt := A.lerp(B, sg.y)
 			if sg.x < R and nr[i].dot(axis_pt - g.v[i]) > -0.02 and _alive(g, i): near[i] = 1
-		var pts := _sample(g, nr, near, wfn, 120 + int(rng.next() * 60), rng)
+		# (34–50 a bone, not 120–180: each crystal is built on its own (~10 ms), 360 of them took 4.5 s; bigger instead)
+		var pts := _sample(g, nr, near, wfn, 34 + int(rng.next() * 16), rng)
 		for q: Array in pts:
 			var p: Vector3 = q[0]
 			var nn: Vector3 = q[1]
@@ -1821,7 +1822,7 @@ static func _maw(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, earth_
 			var axis_pt := A.lerp(B, sg.y)
 			# toward the middle of the mouth and out of it (forward, to the viewer)
 			var out := ((axis_pt - p).normalized() * 0.55 + nn * 0.35 + Vector3(0, 0, 0.45)).normalized()
-			var f := clampf((0.14 + w * 0.4) * (0.55 + rng.next() * 0.75), 0.05, 0.6)
+			var f := clampf((0.2 + w * 0.52) * (0.55 + rng.next() * 0.75), 0.07, 0.7)
 			if rng.next() < 0.09 and w > 0.3: f = 0.5 + rng.next() * 0.25
 			var cm: MeshInstance3D = crystal.call(f, p - nn * 0.004, lean.call(out, 0.75))
 			if f > best:
