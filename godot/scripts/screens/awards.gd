@@ -253,6 +253,75 @@ static func find_marks(s: Dictionary, gs: Array) -> Array:
 	if gs.has("fledged"): out.append("fledged")
 	return out
 
+## the luck of the collector: a collection begun is never left to the dice alone. Every find that brings nothing new to
+## a collection already begun (one piece in hand, not finished) counts a miss (Save.d.aw_ev.pity, note_pity); after
+## PITY misses the next find on the board is chosen among the mine's own rolls (same mine, same depth, PITY_MS at
+## most) for one that brings a missing piece (pity_roll) — so the rare pieces come, but only from where they live,
+## and never a legendary (the living effects stay a jackpot)
+const PITY := 3
+const PITY_MS := 200
+const PITY_TRIES := 400
+
+## the pieces still missing from the collections begun: "g:<gene tag>" or "sp:<atlas id>" -> true
+static func wanted() -> Dictionary:
+	var out := {}
+	for e: Dictionary in LIST:
+		if e.get("one", false) or e.has("evs") or e.get("lords", false): continue
+		if not (e.has("tags") or e.get("legends", false) or e.has("items")): continue
+		var got := _got(e)
+		var have := got.filter(func(x: Array) -> bool: return bool(x[1])).size()
+		if have == 0 or have >= got.size(): continue
+		for x: Array in got:
+			var it := String(x[0])
+			if not bool(x[1]) and (it.begins_with("g:") or it.begins_with("sp:")): out[it] = true
+	return out
+
+## the wanted pieces a find brings
+static func brought(s: Dictionary, want: Dictionary, gs: Array = []) -> Array:
+	var out: Array = []
+	if want.is_empty(): return out
+	if want.has("sp:" + Stones.atlas_id(s)): out.append("sp:" + Stones.atlas_id(s))
+	for t in (gs if gs.size() else genes_of(s)):
+		if want.has("g:" + String(t)): out.append("g:" + String(t))
+	return out
+
+static func brings(s: Dictionary, want: Dictionary, gs: Array = []) -> bool:
+	return brought(s, want, gs).size() > 0
+
+## a find noted (Save.note_find, before its genes are kept): a miss for the collector's luck, or the count starts again
+static func note_pity(s: Dictionary, gs: Array) -> void:
+	var want := wanted()
+	if want.is_empty() or brings(s, want, gs): Save.d.aw_ev.pity = 0
+	else: Save.d.aw_ev.pity = int((Save.d.aw_ev as Dictionary).get("pity", 0)) + 1
+
+## the find on the board, once the misses have run out: of the mine's rolls (a fresh id each) in PITY_MS, one that
+## brings the piece that turned up least among them — the rare ones get their turn, not only a common skull — or the
+## one rolled if none brings anything (the count stays, the next find tries again)
+static func pity_roll(stone: Dictionary, area: int, luck: float, dl: int) -> Dictionary:
+	if int((Save.d.aw_ev as Dictionary).get("pity", 0)) < PITY: return stone
+	var want := wanted()
+	if want.is_empty() or brings(stone, want): return stone
+	var t0 := Time.get_ticks_msec()
+	var seen := {}       # piece -> how many rolls brought it
+	var cands: Array = []
+	for i in PITY_TRIES:
+		if Time.get_ticks_msec() - t0 > PITY_MS: break
+		var st := Stones.roll(Save.next_uid(), area, luck, dl)
+		# (never a legendary: those stay the dice's own jackpot)
+		if bool(st.get("legend", false)): continue
+		var br := brought(st, want)
+		if br.is_empty(): continue
+		for t in br: seen[t] = int(seen.get(t, 0)) + 1
+		cands.append([st, br])
+	var best: Dictionary = stone
+	var bk := 1 << 30
+	for c: Array in cands:
+		for t in c[1]:
+			if int(seen[t]) < bk:
+				bk = int(seen[t])
+				best = c[0]
+	return best
+
 ## what is kept of a find to show it again (the same fields as the atlas's best): enough to build it and to tell
 ## whether it is still in the inventory (id)
 static func summary(s: Dictionary, a: int, dl: int) -> Dictionary:

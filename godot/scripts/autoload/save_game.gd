@@ -106,6 +106,7 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	d.aw_last = String(s.sid)
 	# the achievements' collections (docs/achievements.md): every gene this find shows
 	var gs: Array = Awards.genes_of(s)
+	Awards.note_pity(s, gs)   # (before its genes count as seen: did it bring a missing piece?)
 	for t in gs:
 		if not d.genes.has(t): d.genes.append(t)
 		if not d.gfirst.has(t): d.gfirst[t] = Awards.summary(s, a, dl)

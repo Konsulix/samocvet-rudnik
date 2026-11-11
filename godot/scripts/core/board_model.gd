@@ -1196,6 +1196,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			while String(stone.sid) == "pyrite" and not Save.told("s_sister_meet") and tries < 40:
 				stone = Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 				tries += 1
+			# the collector's luck: after a run of finds with nothing new for a collection begun, one that brings a piece
+			if first == null and Save.told("s_sister_meet"):
+				stone = Awards.pity_roll(stone, area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			find = {r = s[0], c = s[1], w = fw, h = fh, hp = hp, hp_max = hp, integ = 100, stone = stone, done = false}
 			for p in cells_of(find):
 				FIND[p.x][p.y] = true
