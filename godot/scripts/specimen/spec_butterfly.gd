@@ -458,6 +458,26 @@ class Fly extends Node3D:
 	var ap: AnimationPlayer
 	var anim := {}
 	var _playing := ""
+	var touch := 0.0        # landing: seconds since the feet came down
+	# a model's flight (the _m_ functions below)
+	var yaw := 0.0
+	var yaw_rate := 0.0
+	var ct := 0.0           # the flight clip's time (driven from here, stroke by stroke)
+	var wing := 0           # 0, 1: the clip's two beats in turn; 2 into a glide; 3 gliding; 4 out of it
+	var lift := 0.0         # 1 while the wings come down
+	var beat := false       # a beat has just begun
+	var stroke := 1.0       # how hard this beat is
+	var way := Vector3.ZERO # where it is making for
+	var dwell := 0.0
+	var far := false        # a long leg, out past the find (it may sail on it)
+	var want_glide := false
+	var glide_left := 0.0
+	var mpitch := 0.0
+	var mroll := 0.0
+	var stage := 0          # landing: 0 coming to hover over the spot, 1 down onto it, 2 feet down
+	var off_t := 0.0
+	var quat := Quaternion.IDENTITY
+	var trace := false
 
 	func setup(r: Rng32, m: ShaderMaterial, how: String, fly: bool, at: Vector3, n: Vector3, perches: Array, s: float) -> void:
 		rng = r
@@ -547,66 +567,18 @@ class Fly extends Node3D:
 	func _process(dt: float) -> void:
 		if not looked:
 			_look_round()
+			if ap: _m_init()
 		dt = minf(dt, 0.05)
 		timer -= dt
+		if ap:
+			_m_process(dt)
+			return
 		match state:
 			FLY: _fly(dt)
 			LAND: _land(dt)
 			SIT: _sit(dt)
 			_: _off(dt)
 		_place()
-		if ap: _animate()
-
-	## the lift of the model's wingbeat at this moment: how fast its forewing tip is coming down (sampled once per model
-	## from its own flight loop, 48 steps), 0..1; between the beats (its own glide) none
-	static var _lift := {}
-	func _model_lift() -> float:
-		var nm := String(anim.get("fly", ""))
-		if nm == "" or not ap.has_animation(nm) or ap.current_animation != nm: return 0.0
-		var a := ap.get_animation(nm)
-		if not _lift.has(nm):
-			var sk := ap.get_parent().find_child("Skeleton3D", true, false) as Skeleton3D
-			var tip := -1
-			var com := -1
-			for bi in sk.get_bone_count():
-				if sk.get_bone_name(bi).begins_with("forewing_L_03"): tip = bi
-				if sk.get_bone_name(bi).begins_with("COM"): com = bi
-			var keep := ap.current_animation_position
-			var ys := PackedFloat32Array()
-			for i in 49:
-				ap.seek(a.length * i / 48.0, true)
-				ys.append(sk.get_bone_global_pose(tip).origin.y - sk.get_bone_global_pose(com).origin.y if tip >= 0 and com >= 0 else 0.0)
-			ap.seek(keep, true)
-			var out := PackedFloat32Array()
-			var hi := 0.0001
-			for i in 48:
-				var v := maxf(0.0, ys[i] - ys[i + 1])
-				out.append(v)
-				hi = maxf(hi, v)
-			for i in 48: out[i] /= hi
-			_lift[nm] = out
-		var l: PackedFloat32Array = _lift[nm]
-		return l[int(ap.current_animation_position / a.length * 48.0) % 48]
-
-	## the model's own animation for what it is doing (a landing and a take-off played once, the rest looped)
-	func _animate() -> void:
-		var want := "fly"
-		match state:
-			FLY: want = "glide" if gliding > 0.5 else "fly"
-			LAND: want = "land" if timer > 0.0 else "fly"
-			SIT: want = "sit"
-			_: want = "off"
-		if want == _playing: return
-		_playing = want
-		var nm := String(anim.get(want, ""))
-		if nm == "" or not ap.has_animation(nm): return
-		var a := ap.get_animation(nm)
-		if want in ["fly", "sit"]: a.loop_mode = Animation.LOOP_LINEAR
-		# (its flight loop beats ~6 times a second: at the pace a find's butterfly crosses the card that reads as hovering on
-		# the spot — slowed to half, lazy as a monarch's flight looks)
-		ap.speed_scale = {fly = 0.5, land = 1.2, off = 0.8}.get(want, 1.0)
-		ap.play(nm, 0.3)
-		if want == "sit": ap.seek(rng.next() * a.length, true)
 
 	## a wingbeat: the stroke between the top (wings almost meeting over the back) and the bottom (below the body),
 	## the tip lagging the root; returns the lift of this moment (the body rises on the downstroke)
@@ -645,8 +617,6 @@ class Fly extends Node3D:
 			glide_t = (0.5 + rng.next() * 0.9) if sail else (0.6 + rng.next() * 1.2)
 			gliding = 1.0 if sail else 0.0
 		var g := 0.0
-		# (a model sails in its own flight loop: no frozen pose for it)
-		if ap: gliding = 0.0
 		if gliding > 0.5:
 			_wings(0.12 + 0.05 * sin(phase), 0.0)
 			phase += dt * 2.0
@@ -655,13 +625,12 @@ class Fly extends Node3D:
 			_swing(sin(phase) * 0.06)
 		else:
 			g = _flap(dt, hz)
-			if ap: g = _model_lift()
 		# steer for the target; a jerky one changes its mind often
 		retarget -= dt
 		if pos.distance_to(target) < size * 1.5 or retarget <= 0.0:
 			target = _shell()
 			retarget = (0.3 + rng.next() * 0.5) / maxf(0.2, float(st.jerk)) if float(st.jerk) > 0.6 else 1.5 + rng.next() * 2.0
-		var speed := size * float(st.speed) * (0.85 if gliding > 0.5 else 1.0) * (1.5 if ap else 1.0)
+		var speed := size * float(st.speed) * (0.85 if gliding > 0.5 else 1.0)
 		var want := (target - pos).normalized() * speed
 		var turn := 2.0 + float(st.jerk) * 6.0
 		var old := vel
@@ -691,6 +660,7 @@ class Fly extends Node3D:
 			state = LAND
 			land_from = pos
 			timer = 0.0
+			touch = 0.0
 			retarget = 0.0
 
 	## the flies on this find share their landing spots: a spot one has taken (or is coming in to) is no one else's
@@ -735,10 +705,11 @@ class Fly extends Node3D:
 			bank = lerpf(bank, 0.0, minf(1.0, dt * 4.0))
 		else:
 			# settle down onto the spot over half a second, a few short beats
-			timer += dt
-			# (a model settles over its own landing: 1.4 s at 1.4×)
-			var f := clampf(timer / (1.15 if ap else 0.5), 0.0, 1.0)
-			if timer <= dt: land_from = pos
+			# (its own clock: `timer` runs down every frame, and counting it back up here went nowhere — a butterfly
+			# that came in to land hung over its spot for good)
+			if touch <= 0.0: land_from = pos
+			touch += dt
+			var f := clampf(touch / 0.5, 0.0, 1.0)
 			pos = land_from.lerp(p + n * size * 0.08, f * f)
 			_flap(dt, float(st.hz) * 0.8, 1.0 - f * 0.7)
 			if f >= 1.0:
@@ -774,7 +745,6 @@ class Fly extends Node3D:
 	## taking off: a few strong beats straight up off the spot, then away
 	func _off(dt: float) -> void:
 		var g := _flap(dt, float(st.hz) * 1.2, 1.1)
-		if ap: g = _model_lift() * 1.1
 		vel = vel.lerp(((spot[1] as Vector3) + Vector3.UP).normalized() * size * float(st.speed) * 1.2, minf(1.0, dt * 3.0))
 		vel.y += g * size * dt
 		pos += vel * dt
@@ -814,11 +784,261 @@ class Fly extends Node3D:
 		var bas := Basis(side, up, -fwd).orthonormalized()
 		# the card's head is +x: turn it to face along fwd; bank into the turn
 		# (a model bounces in its own animation: our stroke's pitch and bob are the wing cards')
-		if ap:
-			# the body jumps on each downstroke and noses up (flying), still otherwise
-			var l := _model_lift() if state == FLY or state == OFF else 0.0
-			pitch = lerpf(pitch, 0.06 + l * 0.18, 0.25)
-			bob = lerpf(bob, l * 0.05, 0.3)
 		bas = bas * Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, bank) * Basis(Vector3.BACK, pitch)
 		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
 		transform = into * Transform3D(bas, pos + up * bob * size)
+
+	# ---------------------------------------------------------------- a model's flight
+	# A whole animated model (SpecButterfly.MODELS) flies by forces, not along a rail: gravity all the time, a push up
+	# (and a little forward) on every downstroke — so its path bounces beat by beat, sinks when a beat is weak, climbs
+	# when one is strong — steering by turning the body in jerks, beat by beat. Its wings are the model's own flight clip,
+	# shown stroke by stroke from here (the clip holds two beats, 0–0.11 s and 0.42–0.53 s, and between them a beat that
+	# ends in a glide, 0.11–0.36 s), so every push falls on a wing coming down and a glide is a glide. By a find it
+	# forages: short hops between points over the find, hovering at each, landing now and then; a long leg out past the
+	# find and back is the only place it sails. Units: its half-span (size) and seconds.
+	const BEAT := 0.16       # seconds a wingbeat (the clip's own 0.11 s strobes on a small butterfly)
+	const GRAV := 75.0      # half-spans / s²
+
+	func _m_play(key: String, blend := 0.15, at := 0.0, speed := 1.0) -> void:
+		var nm := String(anim.get(key, ""))
+		if nm == "" or not ap.has_animation(nm): return
+		if key == "sit": ap.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
+		ap.play(nm, blend)
+		ap.speed_scale = speed
+		if at > 0.0: ap.seek(at, true)
+		_playing = key
+
+	func _m_init() -> void:
+		trace = OS.get_cmdline_user_args().has("flytrace")
+		yaw = atan2(vel.x, vel.z) if state == FLY else atan2(heading.x, heading.z)
+		if state == FLY:
+			_m_next()
+			_m_play("fly", 0.0, 0.0, 0.0)
+		else:
+			_m_play("sit", 0.0, rng.next() * 5.0)
+		quat = _m_basis().get_rotation_quaternion()
+
+	func _m_process(dt: float) -> void:
+		match state:
+			FLY:
+				_m_air(dt)
+				# time to land: pick a spot on the find
+				if timer <= 0.0 and perch.size():
+					var pick := _m_spot()
+					if pick.is_empty():
+						timer = 1.0 + rng.next()
+					else:
+						spot = pick
+						_claim(spot[0], true)
+						state = LAND
+						stage = 0
+						far = false
+						way = (spot[0] as Vector3) + (spot[1] as Vector3) * size * 1.1
+						retarget = 6.0
+			LAND: _m_land(dt)
+			SIT:
+				if timer <= 0.0:
+					state = OFF
+					off_t = 0.0
+					_claim(spot[0], false)
+					_m_play("off", 0.1)
+			_: _m_off(dt)
+		var q := _m_basis().get_rotation_quaternion()
+		quat = quat.slerp(q, 1.0 - exp(-dt * 11.0))
+		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
+		transform = into * Transform3D(Basis(quat), pos)
+		if trace: print("FLY %.3f %.4f %.4f %.4f %d %.3f %d" % [Time.get_ticks_msec() / 1000.0, pos.x / size, pos.y / size, pos.z / size, state, ct, wing])
+
+	## where it is turned: along its heading, upright in the air (nose up when it hovers, down a little at speed, rolled
+	## into a turn), on the surface's own up once its feet are down
+	func _m_basis() -> Basis:
+		var up := Vector3.UP
+		var fwd := Vector3(sin(yaw), 0.0, cos(yaw))
+		var down := state == SIT or (state == LAND and stage == 2) or (state == OFF and off_t < 0.2)
+		if down and spot.size():
+			up = spot[1]
+			fwd = (fwd - up * fwd.dot(up)).normalized()
+			if fwd.length() < 1e-3: fwd = up.cross(Vector3.RIGHT).normalized()
+		var side := fwd.cross(up).normalized()
+		up = side.cross(fwd).normalized()
+		var bas := Basis(side, up, -fwd).orthonormalized() * Basis(Vector3.UP, PI * 0.5)
+		if not down: bas = bas * Basis(Vector3.RIGHT, mroll) * Basis(Vector3.BACK, mpitch)
+		return bas
+
+	## the next point to make for: mostly a hover over some spot on the find, sometimes out on the shell round it, now
+	## and then a long leg out past it
+	func _m_next() -> void:
+		far = false
+		var roll := rng.next()
+		if perch.size() and roll < 0.6:
+			var q: Array = perch[int(rng.next() * perch.size())]
+			way = (q[0] as Vector3) + (q[1] as Vector3) * size * (1.2 + rng.next() * 1.6) + Vector3(rng.next() - 0.5, 0.0, rng.next() - 0.5) * size
+		elif roll < 0.72:
+			var sp := _shell()
+			var c := box.get_center()
+			way = c + (sp - c) * 1.45
+			way.y = sp.y + size * 0.5
+			far = true
+		else:
+			way = _shell()
+		way = _m_clear(way)
+		dwell = 0.3 + rng.next() * 1.1
+		retarget = 3.0
+
+	## a point moved out of the find's pieces (it could never be reached inside one: the butterfly hung against it)
+	func _m_clear(w: Vector3) -> Vector3:
+		for o: Array in obst:
+			var oc: Vector3 = o[0]
+			var oh: Vector3 = o[1]
+			var q := (w - oc) / oh
+			if q.length() < 1.15:
+				if q.length() < 1e-4: q = Vector3.UP
+				w = oc + q.normalized() * oh * 1.15
+		return w
+
+	## a spot to land on: any perch no other butterfly has taken
+	func _m_spot() -> Array:
+		var t := _taken()
+		for k in 10:
+			var q: Array = perch[int(rng.next() * perch.size())]
+			var ok := true
+			for o: Vector3 in t:
+				if o.distance_to(q[0]) < size * 1.3: ok = false
+			if ok: return q
+		return []
+
+	## the wings: the clip's time moved on by one step; sets lift (the wings are coming down) and beat (one has begun)
+	func _m_wings(h: float) -> void:
+		var r := 0.11 / BEAT
+		beat = false
+		match wing:
+			0:
+				ct += h * r
+				if ct >= 0.11:
+					if want_glide:
+						wing = 2
+						want_glide = false
+					else:
+						ct = 0.42 + (ct - 0.11)
+						wing = 1
+						beat = true
+			1:
+				ct += h * r
+				if ct >= 0.53:
+					ct -= 0.53
+					wing = 0
+					beat = true
+			2:
+				ct += h * r
+				if ct >= 0.36:
+					ct = 0.36
+					wing = 3
+			3: pass
+			_:
+				ct += h * r
+				if ct >= 0.42:
+					wing = 1
+					beat = true
+		lift = 1.0 if ct < 0.05 or (ct >= 0.42 and ct < 0.47) or (ct >= 0.11 and ct < 0.17) else 0.0
+
+	## the pilot, once a beat: how hard to beat (to hold its height: harder when low or sinking), which way to turn (in a
+	## jerk, never quite true), whether to sail
+	func _m_pilot() -> void:
+		var to := way - pos
+		var e := to.y / size
+		stroke = clampf(1.0 + 0.45 * e - 0.1 * vel.y / size, 0.6, 1.7) * (0.9 + rng.next() * 0.2)
+		var flat := Vector2(to.x, to.z)
+		var want := atan2(to.x, to.z) if flat.length() > size * 0.6 else yaw + (rng.next() - 0.5) * 1.6
+		var err := wrapf(want - yaw, -PI, PI) + (rng.next() - 0.5) * 0.5
+		yaw_rate = clampf(err / BEAT * 0.7, -7.0, 7.0)
+		var hs := Vector2(vel.x, vel.z).length()
+		if far and wing == 0 and flat.length() > size * 3.5 and e < 0.4 and hs > size * 3.5 and rng.next() < 0.5:
+			want_glide = true
+			glide_left = 0.3 + rng.next() * 0.45
+
+	## in the air for dt: wings, pilot and forces in small steps
+	func _m_air(dt: float) -> void:
+		if _playing != "fly": _m_play("fly", 0.0, 0.0, 0.0)
+		var n := ceili(dt / 0.008)
+		var h := dt / n
+		for k in n:
+			_m_wings(h)
+			if beat: _m_pilot()
+			yaw += yaw_rate * h
+			var fwd := Vector3(sin(yaw), 0.0, cos(yaw))
+			var to := way - pos
+			var flat := Vector3(to.x, 0.0, to.z)
+			var d := flat.length()
+			var dir := flat / d if d > 1e-4 else fwd
+			var vdes := clampf(d / size * 1.8, 0.0, 7.0 if far else 5.0) * size
+			var hv := Vector3(vel.x, 0.0, vel.z)
+			# it pulls itself along its own nose, and a little straight at the point (enough to hover on it)
+			var want_v := fwd * vdes * maxf(0.0, fwd.dot(dir)) * 0.7 + dir * vdes * 0.3
+			var acc := (want_v - hv) * 3.0
+			var ay := -GRAV * size - vel.y * 1.5
+			if lift > 0.0: ay += 2.2 * GRAV * size * stroke
+			var sailing := wing == 3 or (wing == 2 and ct > 0.2)
+			if sailing:
+				# wings held out: they carry it while it has speed, it keeps its way and loses height slowly
+				ay += GRAV * size * minf(0.96, 0.5 + hv.length() / (size * 6.0))
+				acc = (fwd * hv.length() - hv) * 2.0 - hv * 0.25
+				glide_left -= h
+				if wing == 3 and (glide_left <= 0.0 or pos.y < way.y - size * 0.7 or d < size * 1.5): wing = 4
+			vel += (acc + Vector3(0.0, ay, 0.0)) * h
+			pos += vel * h
+			var hsp := hv.length() / size
+			mpitch = lerpf(mpitch, lerpf(0.3, -0.3, clampf(hsp / 5.0, 0.0, 1.0)) + (0.1 if sailing else 0.0) * -3.0, minf(1.0, h * 6.0))
+			mroll = lerpf(mroll, clampf(yaw_rate * 0.07, -0.45, 0.45), minf(1.0, h * 8.0))
+			if state == FLY:
+				# there: it hovers a moment, then on to the next (also if it cannot get there)
+				retarget -= h
+				if d < size * 0.9 and absf(to.y) < size: dwell -= h
+				if dwell <= 0.0 or retarget <= 0.0: _m_next()
+		# (on its way down onto its spot nothing holds it off: the spot is among the find's pieces)
+		if not (state == LAND and stage == 1): _keep_out((spot[0] as Vector3) if state == LAND and spot.size() else Vector3.INF)
+		ap.seek(ct, true)
+
+	## coming in: to a hover over the spot, down onto it — beating all the way, the body standing up as it slows — and
+	## the feet down: the model's own landing from there on (the last flicks of the wings as it settles), then it sits
+	func _m_land(dt: float) -> void:
+		var p: Vector3 = spot[0]
+		var n: Vector3 = spot[1]
+		retarget -= dt
+		if stage < 2:
+			_m_air(dt)
+			var hd := Vector2(pos.x - way.x, pos.z - way.z).length()
+			if stage == 0 and ((hd < size * 0.6 and absf(pos.y - way.y) < size) or retarget < 3.5):
+				stage = 1
+				way = p + n * size * 0.2
+			elif stage == 1 and ((hd < size * 0.5 and pos.y - way.y < size * 0.45) or retarget < 2.0):
+				stage = 2
+				touch = 0.0
+				land_from = pos
+				vel = Vector3.ZERO
+				_m_play("land", 0.12, 0.5)
+		else:
+			touch += dt
+			pos = land_from.lerp(p + n * size * 0.02, smoothstep(0.0, 0.22, touch))
+			mpitch = 0.0
+			mroll = 0.0
+			if touch >= 0.85:
+				state = SIT
+				timer = _rnd(st.sit)
+				_m_play("sit", 0.3)
+
+	## taking off: the model's own take-off — it gathers itself, jumps on the first stroke, three beats up and away
+	func _m_off(dt: float) -> void:
+		off_t += dt
+		if off_t < 0.2: return
+		var n: Vector3 = spot[1]
+		vel += ((Vector3.UP * 0.9 + n * 0.3) * 14.0 * size - vel * 2.0) * dt
+		pos += vel * dt
+		mpitch = lerpf(mpitch, 0.3, minf(1.0, dt * 6.0))
+		if off_t >= 0.57:
+			state = FLY
+			timer = _rnd(st.fly)
+			ct = 0.0
+			wing = 0
+			_m_play("fly", 0.0, 0.0, 0.0)
+			_m_next()
+
