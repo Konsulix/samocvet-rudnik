@@ -2157,10 +2157,14 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 	# a wing has room, or flying round the find; a skull places its own (SpecSkull)
 	var fks: Array = gene.get("fly_kinds", [])
 	var land: Array = rock_spots if rock_spots.size() else nest_spots
-	if fks.size() and String(gene.form) != "skull" and land.size():
+	if fks.size() and String(gene.form) != "skull":
 		var fl := Rng32.new((int(gene.shroom_seed) * 1664525 + 1013904223) % 4294967296)
 		var perches := land.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.45 and _free(q[0]))
 		if perches.is_empty(): perches = land.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.2)
+		# no room on the rock (a lone prism on a stub, a find without rock): they sit on the crystal itself — the genome
+		# promised them, and the achievements count them
+		if perches.is_empty() and main:
+			perches = RockKit.surf_pts(main, 24, fl, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > 0.25, root)
 		var seen := {}
 		for id: String in fks:
 			if perches.is_empty(): break

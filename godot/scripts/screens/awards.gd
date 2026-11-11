@@ -70,7 +70,7 @@ static var LIST := [
 		tags = ["pearl:akoya", "pearl:south_sea", "pearl:golden", "pearl:tahitian"], names = ["Akoya", "South Sea", "Golden", "Tahitian"]},
 	{tab = "coll", icon = "twin_peaks", n = "Twin Peaks", t = "Two stones, one recipe. The mountain repeats itself.", r = "Two finds of a kind with the same genes", one = true, ev = "twin_genes", give = {geode = 1}, items = ["i:twins"]},
 	{tab = "coll", icon = "odd_one", n = "The Odd One", t = "A museum would sell its roof for this.", r = "A find with eight genes at once", one = true, ev = "five_genes", give = {coins = 1000}, items = ["kit:coin"]},
-	{tab = "coll", icon = "own_rock", n = "Glass Half Full", t = "It grew from its own kind.", r = "A crystal on a rock of its own mineral", one = true, ev = "same_rock", give = {coins = 500}, items = ["i:crystal"]},
+	{tab = "coll", icon = "own_rock", n = "Glass Half Full", t = "It grew from its own kind.", r = "A crystal on a rock of its own mineral", one = true, ev = "same_rock", give = {coins = 100}, items = ["i:crystal"]},
 	{tab = "coll", icon = "moth", n = "Moth to a Flame", t = "They know better. They come anyway.", r = "Butterflies on a skull that burns", one = true, ev = "moth_flame", give = {geode = 1}, items = ["i:butterfly"]},
 	{tab = "coll", icon = "overgrown", n = "Nature Takes Over", t = "Moss, mushrooms and flowers. Is there a stone under there?", r = "Moss, a mushroom and flowers on one find", one = true, ev = "overgrown", give = {coins = 600}, items = ["i:moss_stone"]},
 	{tab = "coll", icon = "fluorite", n = "Rainbow in a Cube", t = "It can't decide what colour to be. Neither will you.", r = "coins",
@@ -206,10 +206,21 @@ static func genes_of(s: Dictionary) -> Array:
 
 ## the achievements a find brings by itself (Save.note_find): eight genes, a crystal on its own rock, butterflies on a
 ## burning skull, a find overgrown — read from its genes and genome, no meshes
+## The Odd One counts only the genes a find gets by chance and shows as such — its traits, a legend, fungi, butterflies
+## and the growths any find may carry; not what the species' body is made of (an ammonite's nacre and sutures, a
+## fulgurite's sand and glass, a wood's bark and rings) nor its variety (genus, palette, fire colour)
+const ODD_ACC := ["pompom", "straw", "lichen", "needles", "crust", "dust", "inkspots", "clouds", "fronds", "flowers",
+	"celestine", "sulphur", "orpiment", "rockcrystal", "barite", "lilies", "moss"]
+const ODD_N := 8
+static func odd_genes(gs: Array) -> Array:
+	return gs.filter(func(t: String) -> bool:
+		if t.begins_with("tr:") or t.begins_with("fx:") or t.begins_with("shroom:") or t.begins_with("fly:"): return true
+		return t.begins_with("acc:") and t.trim_prefix("acc:") in ODD_ACC)
+
 const OWN_ROCK := {selenite = "gypsum", calcite = "limestone", quartz = "quartzite", amethyst = "quartzite", smoky = "quartzite"}
 static func find_marks(s: Dictionary, gs: Array) -> Array:
 	var out: Array = []
-	if gs.filter(func(t: String) -> bool: return not t.begins_with("pal:")).size() >= 8: out.append("five_genes")
+	if odd_genes(gs).size() >= ODD_N: out.append("five_genes")
 	var sid := String(s.get("sid", ""))
 	if OWN_ROCK.has(sid) and String(SpecGenome.of(SPEC.of_stone(s)).rock) == String(OWN_ROCK[sid]): out.append("same_rock")
 	if gs.has("fx:yaga") and gs.any(func(t: String) -> bool: return t.begins_with("fly:")): out.append("moth_flame")
