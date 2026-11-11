@@ -2,8 +2,8 @@
 godot/.godot/
 godot/build/
 # made by the build: skull bodies (bake_skulls) and the build stamp
-godot/assets/specimen/*.bin
-godot/assets/specimen/beasts/*.bin
+godot/assets/specimen/*.res
+godot/assets/specimen/beasts/*.res
 godot/build_stamp.gd
 *.tmp
 

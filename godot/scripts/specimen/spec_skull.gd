@@ -72,8 +72,9 @@ static func body(id: String) -> Dictionary:
 	_lock.unlock()
 	return _beasts[id]
 
-## a beast from its json (bake_skulls stores the result as .bin: the phone reads that, no parsing, no 30 smoothing passes)
+## a beast from its json (bake_skulls stores the result as .res: the phone reads that, no parsing, no 30 smoothing passes)
 static func _beast_read(id: String) -> Dictionary:
+	Diag.note("skull body %s: from json (no baked .res: bake_skulls)" % id)
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(BEAST_DIR + id + ".json"))
 	var ps: Dictionary = d.parts
 	var out := {lm = d.get("lm", {}), flags = d.get("flags", []), teeth_up = Geo.new(), teeth_low = Geo.new(), teeth_up_each = [],
@@ -106,16 +107,17 @@ static func _beast_read(id: String) -> Dictionary:
 			lm.eye_deep = [dp.x, dp.y, dp.z]
 	return out
 
-## the baked body next to a json (<name>.bin, written by bake_skulls), or {} if there is none or the json is newer
+## the baked body next to a json (<name>.res, written by bake_skulls: a native resource, exported like any other),
+## or {} if there is none or the json is newer
 static func _baked(json: String) -> Dictionary:
-	var bin := json.get_basename() + ".bin"
-	if not FileAccess.file_exists(bin): return {}
+	var res := json.get_basename() + ".res"
+	if not ResourceLoader.exists(res): return {}
 	var tj := FileAccess.get_modified_time(json)
-	var tb := FileAccess.get_modified_time(bin)
+	var tb := FileAccess.get_modified_time(res)
 	if tj > 0 and tb > 0 and tj > tb: return {}
-	var f := FileAccess.open(bin, FileAccess.READ)
-	if f == null: return {}
-	var d: Variant = f.get_var()
+	var r := ResourceLoader.load(res, "", ResourceLoader.CACHE_MODE_IGNORE)
+	if r == null or not r.has_meta("body"): return {}
+	var d: Variant = r.get_meta("body")
 	return d if d is Dictionary else {}
 
 ## a body as plain arrays: its Geo parts, landmarks, flags
@@ -140,7 +142,7 @@ static func _unpack(d: Dictionary, out: Dictionary) -> Dictionary:
 	if d.has("flags"): out.flags = d.flags
 	return out
 
-## bake_skulls: every skull body as .bin next to its json (the iOS build runs this before export)
+## bake_skulls: every skull body as .res next to its json (the iOS build runs this before export)
 static func bake() -> int:
 	var n := 0
 	_lock.lock()
@@ -152,10 +154,9 @@ static func bake() -> int:
 	for j: Array in jobs:
 		var pk := _pack(j[1])
 		if j[0] == SRC: pk.erase("lm"); pk.erase("flags")
-		var f := FileAccess.open(ProjectSettings.globalize_path(String(j[0]).get_basename() + ".bin"), FileAccess.WRITE)
-		f.store_var(pk)
-		f.close()
-		n += 1
+		var r := Resource.new()
+		r.set_meta("body", pk)
+		if ResourceSaver.save(r, String(j[0]).get_basename() + ".res", ResourceSaver.FLAG_COMPRESS) == OK: n += 1
 	return n
 
 ## where a beast's crystals break out, unless its landmarks say: found on the skull (symmetric about x = 0, as the
@@ -286,6 +287,7 @@ static func parts() -> Dictionary:
 	return _parts
 
 static func _parts_read() -> void:
+	Diag.note("skull body human: from json (no baked .res: bake_skulls)")
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SRC))
 	var ps: Dictionary = d.parts
 	for k: String in ps:

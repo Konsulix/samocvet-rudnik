@@ -39,7 +39,7 @@ jobs:
 const ID := "%s"
 ' "$GITHUB_SHA" > build_stamp.gd
           "$GODOT" --headless --import || true
-          # the skull bodies, shaded once, as .bin (SpecSkull.bake): no json parsing and smoothing on the phone
+          # the skull bodies, shaded once, as .res (SpecSkull.bake): no json parsing and smoothing on the phone
           "$GODOT" --headless -- bake_skulls
           # the shaders the game writes as text, as .gdshader files the baker sees (ShaderFiles), then import them
           "$GODOT" --headless -- bake_shaders

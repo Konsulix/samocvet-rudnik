@@ -20,7 +20,7 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if args.has("slow"): Diag.slow_ms = int(args.slow)
 	if args.has("bake_skulls"):
-		# the skull bodies (human and beasts) shaded once and stored as .bin: the phone skips the json and the smoothing
+		# the skull bodies (human and beasts) shaded once and stored as .res: the phone skips the json and the smoothing
 		print("baked %d skull bodies" % SpecSkull.bake())
 		get_tree().quit()
 		return
