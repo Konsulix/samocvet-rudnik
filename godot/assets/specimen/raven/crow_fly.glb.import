@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b85qq5vyjs6p5"
-path="res://.godot/imported/crow.glb-652779a02017bdfb727c2d62dbfbcd5c.scn"
+uid="uid://boehqwxni046d"
+path="res://.godot/imported/crow_fly.glb-0554c8523b1a0af063047e1c0b8cb74e.scn"
 
 [deps]
 
-source_file="res://assets/specimen/raven/crow.glb"
-dest_files=["res://.godot/imported/crow.glb-652779a02017bdfb727c2d62dbfbcd5c.scn"]
+source_file="res://assets/specimen/raven/crow_fly.glb"
+dest_files=["res://.godot/imported/crow_fly.glb-0554c8523b1a0af063047e1c0b8cb74e.scn"]
 
 [params]
 

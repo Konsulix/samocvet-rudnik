@@ -16,7 +16,7 @@ const STEAM := preload("res://shaders/beast_steam.gdshader")
 const PETALS := preload("res://shaders/beast_petals.gdshader")
 const GHOST := preload("res://shaders/beast_ghost.gdshader")
 const STAR_HORN := preload("res://shaders/horn_star.gdshader")
-const CROW := "res://assets/specimen/raven/crow.glb"
+const CROW := "res://assets/specimen/raven/crow_fly.glb"
 const GHOST_DIR := "res://assets/specimen/ghosts/"
 const U := preload("res://scripts/specimen/spec_util.gd")
 
@@ -571,8 +571,8 @@ static func _raveneye(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 	root.add_child(ey)
 	# two ravens
 	var fl := Ravens.new()
-	fl.c = bb.get_center() + Vector3(0, s * 0.32, 0)
-	fl.rad = s * 0.55
+	fl.c = bb.get_center() + Vector3(0, s * 0.22, 0)
+	fl.rad = s * 0.46
 	root.add_child(fl)
 	for k in 2:
 		var bird := _crow(s * 0.55)
@@ -580,9 +580,8 @@ static func _raveneye(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 		fl.birds.append({node = bird, ph = float(k) * PI + r.next(), sp = 0.5 + r.next() * 0.15, h = float(k) * s * 0.12, slow = 1.2 + r.next() * 0.25, beat = r.next()})
 	if ey.eyes.size(): (sk.marks as Array).append(["fx", ey.eyes[0][1], ey.eyes[0][2]])
 
-## a crow from a model (assets/specimen/raven/crow.glb — "Crow Ascend" by Lahcen.el, CC BY 4.0): its own animation is a
-## take-off, three wingbeats rising; one whole beat (0.95–1.525 s) loops, the body held still (its rising cancelled), the beak
-## turned to +Z. ln: its length, beak to tail
+## a crow from a model (assets/specimen/raven/crow_fly.glb — "crow_fly" by tech.service.allwe, CC BY 4.0): its own
+## flight loop (a wingbeat of 0.37 s, legs tucked), the beak turned to +Z. ln: its length, beak to tail
 static func _crow(ln: float) -> Node3D:
 	var n := Node3D.new()
 	var inner := Node3D.new()
@@ -591,9 +590,9 @@ static func _crow(ln: float) -> Node3D:
 	var model := (load(CROW) as PackedScene).instantiate() as Node3D
 	model.name = "model"
 	inner.add_child(model)
-	# (the model is ~3.5 long in its own units, beak along +X)
-	model.rotation = Vector3(0, -PI / 2, 0)
-	inner.scale = Vector3.ONE * ln / 3.5
+	# (the model is ~50 long in its own units, beak along -Z, back up)
+	model.rotation = Vector3(0, PI, 0)
+	inner.scale = Vector3.ONE * ln / 50.0
 	return n
 
 ## a raven: a smooth spindle of a body, a domed head with a heavy, slightly hooked beak and a bright eye; each wing an
@@ -760,11 +759,12 @@ class Ravens extends Node3D:
 			if not b.has("ap"):
 				b.ap = n.find_child("AnimationPlayer", true, false)
 				b.sk = n.find_child("Skeleton3D", true, false)
-				if b.ap and b.sk:
-					(b.ap as AnimationPlayer).play("Ascend")
-					# (where its body is at rest, on the ground before the take-off: held there)
-					(b.ap as AnimationPlayer).seek(0.0, true)
-					b.ref = (b.sk as Skeleton3D).get_bone_global_pose(5).origin
+				if b.ap:
+					var ap0 := b.ap as AnimationPlayer
+					var an: String = ap0.get_animation_list()[0]
+					ap0.get_animation(an).loop_mode = Animation.LOOP_LINEAR
+					ap0.play(an)
+					ap0.seek(float(b.beat) * ap0.get_animation(an).length, true)
 			var p := _at(b, t)
 			var q := _at(b, t + 0.08)
 			var q2 := _at(b, t + 0.16)
@@ -774,20 +774,10 @@ class Ravens extends Node3D:
 			var turn := fwd.cross((q2 - q).normalized()).y
 			var climb := (q - p).y / maxf(0.0001, (q - p).length())
 			n.basis = Basis.looking_at(-fwd, Vector3.UP) * Basis(Vector3.BACK, clampf(-turn * 9.0, -0.7, 0.7)) * Basis(Vector3.RIGHT, -climb * 0.3)
-			# the wingbeat: one whole beat of the model's own (wings up at 0.95 s, down at 1.175, up again at 1.525 — the
-			# two ends one pose, so it loops without a seam), a little slower, each bird at its own pace
+			# the wingbeat: the model's own loop, each bird at its own pace
 			var ap: AnimationPlayer = b.ap
-			var sk: Skeleton3D = b.sk
-			if ap == null or sk == null: continue
-			b.beat = fmod(float(b.beat) + dt / (0.575 * float(b.get("slow", 1.3))), 1.0)
-			ap.seek(0.95 + float(b.beat) * 0.575, true)
-			# (its rising cancelled: the body bone kept where it is at rest — set outright each frame, not nudged after the
-			# fact, so there is no jump when the beat starts over)
-			var inner := n.get_node("inner") as Node3D
-			var model := inner.get_node("model") as Node3D
-			var d := sk.get_bone_global_pose(5).origin - (b.ref as Vector3)
-			var dw := sk.global_transform.basis * d
-			model.position = -(inner.global_transform.basis.inverse() * dw)
+			if ap == null: continue
+			ap.speed_scale = 1.0 / float(b.get("slow", 1.3))
 
 # ---------------------------------------------------------------- the old reptiles
 
