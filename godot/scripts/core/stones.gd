@@ -3,8 +3,6 @@ extends RefCounted
 ## Rolling a mineral find: species from the mine's pool, kind, quality, rare traits, weight and price.
 ## Same formulas and seeds as the prototype.
 
-const LEGEND_V := 1300.0 # a living effect's own worth, before depth
-const LEGEND_K := 1.5    # and the stone under it counts this much more
 const LEGEND_P := 0.002  # how often a find is legendary, × (1 + luck): a jackpot, kept, but rare (was 0.02, playtest 31.10)
 const VALUE_K := 1.9     # the grade's old average worth, folded into every price when the grade went (playtest 31.10)
 
@@ -123,7 +121,7 @@ static func first_find(area: int, luck: float, dl: int) -> Variant:
 	st.erase("fx")
 	st.form = "skull"
 	for k in ["skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind"]: st[k] = f[k]
-	st.value = roundi(float(Data.SP[f.sid].v) * VALUE_K * float(SKULL_V[f.skin]) * 1.4 * 1.3)
+	st.value = roundi(Worth.body(f.sid) * VALUE_K * float(SKULL_V[f.skin]) * 1.4 * 1.3)
 	st.tier = maxi(tier_of(st.sid, st.gi, false), int(SKULL_TIER[f.skin]))
 	st.first_of = area
 	return st
@@ -158,7 +156,7 @@ static func maiden_gold(seed_id: int) -> Dictionary:
 		if String(s.sid) != "gold": continue
 		s.legend = true
 		s.fx = "lava"
-		s.value = roundi(float(s.value) * LEGEND_K + LEGEND_V)
+		s.value = roundi(float(s.value) + Worth.fx_value("lava") * 1.3 * (1.0 + 5 * 0.25))
 		s.tier = tier_of(String(s.sid), int(s.gi), true)
 		s.maiden = true
 		return s
@@ -202,56 +200,54 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	if kind in ["crystal", "druse"] and SpecLooks.odd(sid).size() and not "floater" in traits:
 		if Rng32.new((seed_id * 2654435761 + 409) % 4294967296).next() < SpecLooks.ATYPICAL_P:
 			traits.append("atypical")
-	# the traits add up (multiplied, three rare ones made a jackpot of a common stone)
-	var tm := 1.0
-	for t in traits:
-		tm += float(Data.TR[t].m) - 1.0
 	var base_g := 400.0 if kind == "druse" else 900.0 if kind == "geode" else 20.0 if kind == "nugget" else 250.0 if kind == "fossil" else 60.0
 	if sid == "pearl": base_g = 30.0   # its oyster, mostly
 	var g := roundi(base_g * pow(6.0, rng.next()) * (3.0 if legend else 1.0) * (1.0 + dl * 0.35))
 	var kind_m := 1.4 if kind == "druse" else 1.6 if kind == "geode" else 1.0
+	# a fossil's own worth (ammolite, a rare form, a pair, opal...): a multiplier, turned into points below
+	var fm := 1.0
 	if kind == "fossil":
 		# a shell nearly all ammolite is worth many plain ones
 		var fg := SpecFossil.genes(seed_id, sid, traits)
-		kind_m *= 1.0 + 8.0 * pow(float(fg.get("nacre", 0.0)), 3.0)
+		fm *= 1.0 + 8.0 * pow(float(fg.get("nacre", 0.0)), 3.0)
 		# and blue or violet fire is rarer, so dearer — the more nacre there is to show it
 		var fire_m: float = {red = 1.0, green = 1.3, blue = 2.0, violet = 2.6}.get(fg.get("fire", "red"), 1.0)
-		kind_m *= 1.0 + (fire_m - 1.0) * float(fg.get("nacre", 0.0))
+		fm *= 1.0 + (fire_m - 1.0) * float(fg.get("nacre", 0.0))
 		# a matched pair, a brood on one slab, a rare uncoiled form
-		if fg.get("pair", false): kind_m *= 1.6
-		kind_m *= 1.0 + 0.25 * int(fg.get("brood", 0))
-		if String(fg.get("hetero", "")) != "": kind_m *= 3.0
+		if fg.get("pair", false): fm *= 1.6
+		fm *= 1.0 + 0.25 * int(fg.get("brood", 0))
+		if String(fg.get("hetero", "")) != "": fm *= 3.0
 		# wood: opal in it, a crystal heart
-		kind_m *= 1.0 + 6.0 * pow(float(fg.get("opal", 0.0)), 2.0)
-		if String(fg.get("heart", "")) != "": kind_m *= 1.8
+		fm *= 1.0 + 6.0 * pow(float(fg.get("opal", 0.0)), 2.0)
+		if String(fg.get("heart", "")) != "": fm *= 1.8
 		# trilobites: spiny kinds are rare and hard to prepare; pyrite, legs, a moult, a bite, a whole plate
 		if sid == "trilobite":
-			kind_m *= {dicranurus = 2.5, walliserops = 3.0, asaphus = 1.8, phacops = 1.2}.get(fg.get("genus", ""), 1.0)
-			if int(fg.get("pal", 0)) == 4: kind_m *= 1.6
-			if fg.get("soft", false): kind_m *= 4.0
-			if fg.get("moult", false): kind_m *= 1.4
-			if fg.get("bite", false): kind_m *= 1.3
-			if fg.get("show", "") == "mass": kind_m *= 1.0 + 0.2 * int(fg.get("mass", 1))
-			if fg.get("show", "") == "nodule": kind_m *= 1.5
-			if int(fg.get("pal", 0)) == 6: kind_m *= 5.0
-			kind_m *= 1.0 + 0.8 * int(fg.get("oysters", 0))
+			fm *= {dicranurus = 2.5, walliserops = 3.0, asaphus = 1.8, phacops = 1.2}.get(fg.get("genus", ""), 1.0)
+			if int(fg.get("pal", 0)) == 4: fm *= 1.6
+			if fg.get("soft", false): fm *= 4.0
+			if fg.get("moult", false): fm *= 1.4
+			if fg.get("bite", false): fm *= 1.3
+			if fg.get("show", "") == "mass": fm *= 1.0 + 0.2 * int(fg.get("mass", 1))
+			if fg.get("show", "") == "nodule": fm *= 1.5
+			if int(fg.get("pal", 0)) == 6: fm *= 5.0
+			fm *= 1.0 + 0.8 * int(fg.get("oysters", 0))
 			# and how well it kept
-			kind_m *= 0.4 + 0.8 * float(fg.get("keep", 1.0))
+			fm *= 0.4 + 0.8 * float(fg.get("keep", 1.0))
 		# fossil leaves: gold or silver film, both halves of the split, a ginkgo
 		if sid == "fern":
-			kind_m *= [1.0, 1.9, 1.4, 1.1, 1.0, 1.3, 1.2, 2.4, 2.8][int(fg.get("film", 0))]
-			if String(fg.get("crystals", "")) != "": kind_m *= 1.5
-			if fg.get("pair", false): kind_m *= 1.6
-			kind_m *= {ginkgo = 1.2, palm = 1.4, annularia = 1.1, lepido = 1.1}.get(fg.get("plant", ""), 1.0)
+			fm *= [1.0, 1.9, 1.4, 1.1, 1.0, 1.3, 1.2, 2.4, 2.8][int(fg.get("film", 0))]
+			if String(fg.get("crystals", "")) != "": fm *= 1.5
+			if fg.get("pair", false): fm *= 1.6
+			fm *= {ginkgo = 1.2, palm = 1.4, annularia = 1.1, lepido = 1.1}.get(fg.get("plant", ""), 1.0)
 			# a split ironstone nodule; a dragonfly or a fish on the same slab
-			if fg.get("show", "") == "nodule": kind_m *= 1.3
-			kind_m *= {dragonfly = 2.2, fish = 1.8}.get(fg.get("guest", ""), 1.0)
+			if fg.get("show", "") == "nodule": fm *= 1.3
+			fm *= {dragonfly = 2.2, fish = 1.8}.get(fg.get("guest", ""), 1.0)
 		# pearls: the body (conch and melo are the rarest), roundness, luster, more than one
 		if sid == "pearl":
-			kind_m *= {tahitian = 1.5, golden = 1.4, south_sea = 1.3, conch = 3.0, melo = 2.5}.get(fg.get("body", ""), 1.0)
-			kind_m *= {round = 1.3, baroque = 0.8, circled = 0.8}.get(fg.get("shape", ""), 1.0)
-			kind_m *= 0.6 + float(fg.get("luster", 0.5))
-			if int(fg.get("count", 1)) > 1: kind_m *= 1.5
+			fm *= {tahitian = 1.5, golden = 1.4, south_sea = 1.3, conch = 3.0, melo = 2.5}.get(fg.get("body", ""), 1.0)
+			fm *= {round = 1.3, baroque = 0.8, circled = 0.8}.get(fg.get("shape", ""), 1.0)
+			fm *= 0.6 + float(fg.get("luster", 0.5))
+			if int(fg.get("count", 1)) > 1: fm *= 1.5
 	# the barrow: now and then a skull (see SKULL_AREAS)
 	var skull := ""
 	if SKULL_AREAS.has(area) and sid in SKULL_SP and not legend:
@@ -274,12 +270,20 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			kind_m *= float(SKULL_V[skull]) * 1.15
 			traits.erase("atypical")
 			g = roundi(700.0 * (1.0 + br.next() * 1.4))
-	var value: float = float(Data.SP[sid].v) * VALUE_K * tm * kind_m
-	# a living effect is worth the same on any body: added, not multiplied, so a legendary pyrite
-	# outprices a plain emerald (it is about as rare); the stone itself still counts a little more
+	# the price is its beauty (Worth): the body by species, squeezed, and every gene's points on top — the same on any
+	# body, so a common stone rich in genes outprices a plain rare one. The genes are read as the builder will grow them.
+	var go := {seed = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend}
+	if skull != "":
+		go.form = "skull"
+		go.skin = skull
+		if beast != "": go.beast = beast
+	var gene := SpecGenome.of(go)
+	var pts := Worth.gene_points(traits, gene) + 2.0 * log(maxf(fm, 1.0))
+	var value: float = (Worth.body(sid) * kind_m + Worth.UNIT * pts) * VALUE_K
+	# a living effect: its own worth by spectacle, added on any body
 	if legend:
-		value = value * LEGEND_K + LEGEND_V
-	value *= 1.3 * (1.0 + dl * 0.25)
+		value += Worth.fx_value(String(gene.fx))
+	value *= 1.3 * (1.0 + dl * 0.25) * Worth.PRICE
 	value = capped(value, area)
 	var out := {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, value = roundi(value), tier = tier_of(sid, gi, legend)}
 	if skull != "":

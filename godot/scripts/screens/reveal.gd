@@ -85,9 +85,6 @@ func unmask(s: Dictionary) -> void:
 const CARD_PAD := 7.0        # the card's frame to the stone: just inside the brass rim
 const INFO_R := 22.0         # the info panel's top corners
 const TITLE_H := 64.0        # the name in the corner covers this much of the stone's frame
-## the life that grows on a find — moss, little trees, mushrooms, butterflies, flowers, lichen, fern fronds: named by
-## callouts only, never a badge (a forest skull ran to nine badges)
-const LIFE := ["pompom", "straw", "lichen", "fronds", "flowers", "mushrooms", "fungi", "sk_moss", "sk_trees"]   # + the butterflies, fly_<kind>
 const CHIPS_MAX := 5
 static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
 static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
@@ -281,17 +278,26 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 			var cn := fn if fn != "" else String(SpecGenome.ACC_N.get(a, a))
 			fn = cn.replace("crystal", String(Data.SP[s.sid].n).to_lower())
 		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
+	# dearest first (Worth: the badges are what the price was paid for): the living effect, a skull's skin, then by points
+	var traits: Array = s.get("traits", [])
+	var order: Array = genes.keys()
+	order.sort_custom(func(x: String, y: String) -> bool: return Worth.rank(x, gene) > Worth.rank(y, gene))
 	if chips_max > 0:
-		for id: String in genes.keys().slice(chips_max): genes.erase(id)
-	# badges only for what makes the find what it is (its legend, its traits, the big genes), at most CHIPS_MAX, in that
-	# order; the life that grew on it (moss, trees, mushrooms, butterflies, flowers…) and anything past the limit is
-	# shown by its callout only — a tap on the stone opens them all
+		for id: String in order.slice(chips_max): genes.erase(id)
+		order = order.slice(0, chips_max)
+	# a badge for each gene that earns one (the small life — lichen, dust, a speck — only by its callout); the first
+	# CHIPS_MAX hold their place while the stone builds, the rest wait hidden: once it is built, what did not grow goes
+	# and the next ones move up, so the card always names the five dearest that are really there
 	var chips := {}
-	for id: String in genes:
-		if id in LIFE or id.begins_with("fly_") or chips.size() >= CHIPS_MAX: continue
-		var c := chip(genes[id][0], genes[id][1], not (id in s.get("traits", [])) and id != "fx")
+	var badged := []
+	for id: String in order:
+		if not Worth.badge(id, traits): continue
+		var rare: bool = genes[id][1] or (not id in traits and id != "fx" and Worth.rank(id, gene) >= 2.0)
+		var c := chip(genes[id][0], rare, not (id in traits) and id != "fx")
 		c.modulate.a = 0.0
+		c.visible = badged.size() < CHIPS_MAX
 		chips[id] = c
+		badged.append(id)
 		flow.add_child(c)
 	if flow.get_child_count():
 		v.add_child(flow)
@@ -300,12 +306,22 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	view.built.connect(func(p: Node3D) -> void:
 		var grown: Dictionary = p.get_meta("grown", {})
 		var list := []
-		for id: String in genes:
+		var shown := 0
+		for id: String in order:
 			var c: Label = chips.get(id)
 			if not grown.has(id):
-				if c: c.queue_free()
+				if c:
+					chips.erase(id)
+					c.queue_free()
 				continue
-			if c: c.create_tween().tween_property(c, "modulate:a", 1.0, 0.3)
+			if c:
+				if shown < CHIPS_MAX:
+					c.visible = true
+					c.create_tween().tween_property(c, "modulate:a", 1.0, 0.3)
+					shown += 1
+				else:
+					chips.erase(id)
+					c.queue_free()
 			list.append({id = id, name = genes[id][0], rare = genes[id][1], pts = grown[id]})
 		if list.is_empty():
 			flow.queue_free()

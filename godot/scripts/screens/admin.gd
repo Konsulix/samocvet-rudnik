@@ -287,7 +287,7 @@ static func beast_stones() -> Array:
 		st.skin = skins[k % skins.size()]
 		if st.beast in ["wolf", "alligator", "trex"]: st.maw = true
 		st.tier = maxi(Stones.tier_of(st.sid, int(st.gi), false), int(Stones.SKULL_TIER.get(st.skin, 1)))
-		st.value = roundi(float(Data.SP[st.sid].v) * Stones.VALUE_K * float(Stones.SKULL_V.get(st.skin, 1.6)) * 1.5)
+		st.value = roundi(Worth.body(st.sid) * Stones.VALUE_K * float(Stones.SKULL_V.get(st.skin, 1.6)) * 1.5)
 		st.area = 0
 		st.dl = 0
 		st.test = true
