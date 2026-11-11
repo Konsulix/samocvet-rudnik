@@ -75,9 +75,24 @@ static func pool_at(area: int, dl: int) -> Array:
 ## crystal growing out of it. What it is cast in, by depth (the tale's layers): plain bone near the top, nacre, gold leaf
 ## and the mosaic further down, glass by the duck's lake, cast gold, silver and copper only in the hoard — rare, so a
 ## golden skull stays an event. Its own random stream: the rest of the find rolls as before.
-## a mine of animal skulls (none yet — a future mine says here which beasts it holds): area → {chance (of its finds that
-## become one), beasts [[id, weight], ...]}; the crystal stays the find's species, the skin its own draw (BEAST_SKIN)
-const BEAST_AREAS := {}
+## the beasts' skulls of each mine (11.11, two a mine, by the place's own tale): area → [beasts]; a find of a species
+## that can crown one (BEAST_HABITS) turns into a skull of one of them now and then, from a third of the way down
+## (BEAST_FROM) — the crystal stays the find's species, the skin its own draw (BEAST_SKIN). The atlas page shows
+## them as a row under the mine's 8 species (AtlasPages).
+##   Old Adit — the Ural forest's wolf and bear; Copper Mountain — the Mistress's lizard grown huge, the mountain sheep;
+##   Whalebone Cove — the fossil shore's tyrant lizard, a wading bird; Fire Horizon — Polyphemus's ram and bull;
+##   Proval — the polar musk ox and fox; Spider Hollow — the yatagarasu raven, a hornbill; the barrow — its horses and
+##   the Scythian stag; Whispering Seam — the cave lion of the Don steppe and the chalk's horned dinosaur
+const BEAST_AREAS := {0: ["wolf", "bear"], 1: ["alligator", "mouflon"], 2: ["trex", "spoonbill"], 3: ["ram", "longhorn"],
+	4: ["musk_ox", "fox"], 5: ["raven", "hornbill"], 6: ["horse", "deer"], 7: ["lion", "triceratops"]}
+const BEAST_P := 0.15       # of the finds that can be one
+const BEAST_FROM := 0.34    # of the mine's depths
+const BEAST_HABITS := ["prism", "blade", "scaleno", "cube", "dodeca", "octa", "rhomb", "tetra", "dipyr"]
+const BEAST_NOT := ["needle", "ember", "japan_quartz", "millerite"]   # (the legends of a mine, a twin, a spray of hairs)
+
+## the depth a mine's beasts turn up from
+static func beast_from(area: int) -> int:
+	return int(Data.depths(area).size() * BEAST_FROM)
 const BEAST_SKIN := [["bone", 6.0], ["lapis", 1.0], ["feathers", 0.9], ["sugar", 1.2], ["rhodo", 0.9], ["gilt", 1.0], ["nacre", 1.0],
 	["kintsugi", 0.7], ["agate", 0.6], ["opal", 0.4], ["gold", 0.35], ["silver", 0.2], ["copper", 0.15]]
 const SKULL_AREAS := {6: 0.36}   # (of the finds that can be one: about every fourth find in all)
@@ -260,11 +275,10 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			traits.erase("atypical")   # (a skull is its own form)
 			g = roundi(900.0 * (1.0 + sr.next() * 0.8))
 	var beast := ""
-	if BEAST_AREAS.has(area) and skull == "" and not legend and not kind in ["nugget", "fossil"]:
+	if BEAST_AREAS.has(area) and skull == "" and not legend and not kind in ["nugget", "fossil"] and dl >= beast_from(area) 			and String(Data.HABIT.get(sid, "prism")) in BEAST_HABITS and not sid in BEAST_NOT:
 		var br := Rng32.new((seed_id * 2246822519 + 13) % 4294967296)
-		var ba: Dictionary = BEAST_AREAS[area]
-		if br.next() < float(ba.chance):
-			beast = pick_w(ba.beasts, br)
+		if br.next() < BEAST_P:
+			beast = String((BEAST_AREAS[area] as Array)[int(br.next() * (BEAST_AREAS[area] as Array).size())])
 			skull = pick_w(BEAST_SKIN, br)
 			kind = "druse"
 			kind_m *= float(SKULL_V[skull]) * 1.15

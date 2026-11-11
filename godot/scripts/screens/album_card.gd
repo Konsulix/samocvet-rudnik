@@ -29,9 +29,15 @@ func setup(sid: String, sz: Vector2, o: bool, a: int, d: int, g: bool, sold: boo
 	gone = sold
 	face = g
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_col = Data.sp_color(id) if not gone else Color(0.55, 0.54, 0.52)
 	var e: Dictionary = Save.d.atlas.get(id, {})
-	_tier = int(e.best.tier) if got else int(Data.SP[id].r)
+	var bone := id.begins_with("beast_")
+	_col = Color(0.55, 0.54, 0.52) if gone else (Stones.SKULL_COL.get(String(e.best.get("skin", "bone")) if got else "bone", Stones.SKULL_COL.bone) as Color) if bone else Data.sp_color(id)
+	_tier = int(e.best.tier) if got else 2 if bone else int(Data.SP[id].r)
+
+## a card's name: the species, or a beast's skull ("Wolf Skull")
+static func name_of(id: String) -> String:
+	if id.begins_with("beast_"): return "%s Skull" % String(SpecSkull.BEAST_N.get(id.substr(6), "Beast"))
+	return String(Data.SP[id].n)
 
 func set_stone(t: Texture2D) -> void:
 	stone = t
@@ -86,7 +92,7 @@ func _face(r: Rect2) -> void:
 		var s := stone.get_size() * k
 		draw_texture_rect(stone, Rect2(box.get_center() - s / 2.0, s), false, Color(0.62, 0.62, 0.62) if gone else Color.WHITE)
 	var f: Font = UI.body_bold
-	var nm := String(Data.SP[id].n)
+	var nm := name_of(id)
 	var fs := 10
 	while nm.length() > 3 and f.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 12:
 		nm = nm.substr(0, nm.length() - 2) + "…"
@@ -120,6 +126,12 @@ func _back_side(r: Rect2) -> void:
 	draw_texture_rect(em, Rect2(Vector2((size.x - d) / 2.0, size.y * 0.445 - d / 2.0), Vector2(d, d)), false, Color(1, 1, 1, 0.7 * a))
 	if open:
 		var f: Font = UI.body_bold
+		# a beast's skull says whose it is (the row of bones is a hunt for those two)
+		if id.begins_with("beast_"):
+			var bn := name_of(id)
+			var bw := f.get_string_size(bn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			draw_string(f, Vector2((size.x - bw) / 2.0 + 1, size.y - 26), bn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0, 0, 0, 0.8))
+			draw_string(f, Vector2((size.x - bw) / 2.0, size.y - 27), bn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Kit.CREAM)
 		var t := "from %d m" % Data.depth_m(area, dl)
 		var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 		draw_string(f, Vector2((size.x - w) / 2.0 + 1, size.y - 13), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0, 0, 0, 0.8))

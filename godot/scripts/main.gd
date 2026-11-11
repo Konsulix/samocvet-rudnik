@@ -343,6 +343,8 @@ func _ready() -> void:
 		# settings → Story so far, for a look: `-- screen=home tut=prologue,s_knock story_card`
 		get_tree().create_timer(float(args.get("ui_after", "1"))).timeout.connect(Chrome.story_card)
 	# the admin's "+16 beast skulls" at once (`-- save=x adm_beasts screen=stones`)
+	# (with adm_count they count as found: the atlas's rows of bones fill)
+	if args.has("adm_count"): Save.d.adm_count = true
 	if args.has("adm_beasts"): Admin._beast_set()
 	if args.has("admin"):
 		# the tester's panel, for a look: `-- screen=home admin`

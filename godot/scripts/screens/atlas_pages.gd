@@ -127,11 +127,14 @@ func _page(a: int, sz: Vector2) -> Control:
 	var at := Stones.opens_at(a)
 	var top := 54.0
 	var foot := 30.0
+	# the mine's beasts' skulls (Stones.BEAST_AREAS): a fourth row under the species, a counter between them
+	var beasts: Array = Stones.BEAST_AREAS.get(a, [])
+	var rows := 4 if beasts.size() else 3
 	var cw := (sz.x - PAD * 2 - GAP * 2) / 3.0
 	var ch := cw * CARD_K
 	var room := sz.y - top - foot
-	if ch * 3 + GAP * 2 > room:
-		ch = (room - GAP * 2) / 3.0
+	if ch * rows + GAP * (rows - 1) > room:
+		ch = (room - GAP * (rows - 1)) / rows
 		cw = ch / CARD_K
 	var x0 := (sz.x - cw * 3 - GAP * 2) / 2.0
 	var slots := [0, 1, 2, 3, 5, 6, 7, 8]
@@ -166,9 +169,25 @@ func _page(a: int, sz: Vector2) -> Control:
 		rp.position = Vector2(mid.x + (cw - rp.size.x) / 2.0, mid.y + ch - rp.size.y - 2)
 		p.add_child(rp)
 		_taps.append([rp, func(): atlas._boss_card(a)])
+	if beasts.size():
+		var y := top + (ch + GAP) * 3
+		var nb := 0
+		for k in beasts.size():
+			var bid := "beast_" + String(beasts[k])
+			if open and Save.d.atlas.has(bid): nb += 1
+			var bc := _card(bid, Vector2(cw, ch), open, a, Stones.beast_from(a))
+			bc.position = Vector2(x0 + (cw + GAP) * (0 if k == 0 else 2), y)
+			p.add_child(bc)
+		var bl := Atlas._shadowed("Bones
+%d/%d" % [nb, beasts.size()], 14, Kit.AMBER if nb == beasts.size() else Kit.CREAM)
+		bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		bl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		bl.position = Vector2(x0 + cw + GAP, y)
+		bl.size = Vector2(cw, ch)
+		p.add_child(bl)
 	var ft := Kit.label(("%s sealed: every kind found" if done else "Find every kind of %s to seal it") % String(A.n), 11, UI.body, Kit.AMBER if done else Kit.DIM)
 	ft.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ft.position = Vector2(0, top + ch * 3 + GAP * 2 + 8)
+	ft.position = Vector2(0, top + ch * rows + GAP * (rows - 1) + 8)
 	ft.size = Vector2(sz.x, 18)
 	p.add_child(ft)
 	return p
