@@ -255,6 +255,10 @@ func _ready() -> void:
 			pins = []
 			for fk: String in ["peacock", "monarch", "birdwing", "apollo", "bluetiger", "swallowtail"]:
 				pins.append({legend = true, fx = "flutter", fly_kind = fk, bloom = false, moss = "none", trees = 0})
+		# skulls=fireflies: the legend "firefly swarm" on a few skulls (a man's and beasts')
+		if String(args.skulls) == "fireflies":
+			pins = [{legend = true, fx = "fireflies", bloom = false}, {legend = true, fx = "fireflies", beast = "fox"},
+				{legend = true, fx = "fireflies", beast = "deer"}, {legend = true, fx = "fireflies", skin = "nacre"}]
 		# skulls=monarchs: skulls with monarch butterflies (an animated model, SpecButterfly.MODELS), some sitting, some flying
 		if String(args.skulls) == "monarchs":
 			pins = []

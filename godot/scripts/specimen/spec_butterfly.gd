@@ -45,6 +45,10 @@ const MODELS := {
 	hawkmoth = {file = "hawkmoth.glb", scales = true, span = 2.691, yaw = -PI / 2, pitch = 0.25, clips = {fly = "fly", sit = "idle"}},
 	bluetiger = {file = "bluetiger.glb", span = 0.12, yaw = PI / 2, pitch = 0.15, clips = {fly = "hover", sit = "idle"},
 		tip = "r_frnt_wings08", base = "chest_jnt"},
+	# not a butterfly: the fireflies of a skull's swarm (SpecSkullFx._swarm). Its one clip is its flight, the wings a
+	# blur: looped as it is (loop: at this speed); it stands 1.6 above its own origin; a flat helper plane hidden
+	firefly = {file = "res://assets/specimen/firefly/firefly.glb", span = 2.2, yaw = PI / 2, pitch = 0.1, clips = {fly = "Take 01"},
+		loop = 1.0, centre = Vector3(0.04, 1.64, 0.02), hide = ["1catalogue_Mesh"]},
 }
 
 static func label(kind: String, n: int) -> String:
@@ -86,21 +90,35 @@ static func pick(rng: Rng32) -> String:
 static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3, span: float, flying: bool, perches := []) -> Node3D:
 	if not KINDS.has(id): id = "monarch"   # (a kind there is no more, in an old find)
 	var k: Dictionary = KINDS[id]
+	return put_model(parent, rng, id, String(k.style), span * float(k.span), flying, at, n, perches)
+
+## any of the MODELS flying round a find the same way (a butterfly; a firefly of the swarm — SpecSkullFx): span — its
+## wingspan in find units; lands false — it never comes down (its points to hover over are the perches all the same)
+static func put_model(parent: Node3D, rng: Rng32, id: String, how: String, span: float, flying: bool, at: Vector3, n: Vector3,
+		perches := [], lands := true) -> Fly:
 	var md: Dictionary = MODELS[id]
 	var fb := Fly.new()
 	parent.add_child(fb)
-	var model := (load(DIR + String(md.file)) as PackedScene).instantiate() as Node3D
+	var file := String(md.file)
+	var model := (load(file if file.begins_with("res://") else DIR + file) as PackedScene).instantiate() as Node3D
 	var turn := Node3D.new()
 	turn.rotation = Vector3(0, float(md.yaw), 0)
-	turn.scale = Vector3.ONE * span * float(k.span) / float(md.span)
+	turn.scale = Vector3.ONE * span / float(md.span)
 	fb.add_child(turn)
 	turn.add_child(model)
+	# (a model not standing on its own origin: brought to it)
+	if md.has("centre"): model.position = -(md.centre as Vector3)
+	for nm: String in md.get("hide", []):
+		var hn := model.find_child(nm, true, false) as Node3D
+		if hn: hn.visible = false
 	if md.get("scales", false): _scales(model, id)
 	fb.ap = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	fb.anim = md.clips
 	fb.kind = id
 	fb.model = model
-	fb.setup(rng, null, String(k.style), flying, at, n, perches if perches.size() else [[at, n]], span * float(k.span) / 2.0)
+	fb.lands = lands
+	fb.loop_clip = float(md.get("loop", 0.0))
+	fb.setup(rng, null, how, flying, at, n, perches if perches.size() else [[at, n]], span / 2.0)
 	return fb
 
 ## a model's flat painted wings given a surface (shaders/butterfly_scales.gdshader: rows of scales, powder, a velvet
@@ -137,6 +155,8 @@ const STYLE := {
 	flit = {hz = 9.0, up = 1.45, dn = -0.4, speed = 1.8, glide = 0.0, jerk = 1.0, fly = [2.0, 4.5], sit = [1.5, 3.5], sun = 0.6, rest = 1.5},
 	hover = {hz = 23.0, up = 0.85, dn = -0.35, speed = 3.6, glide = 0.0, jerk = 0.1, fly = [7.0, 12.0], sit = [4.0, 8.0], sun = 0.0, rest = -0.08, dart = 1.0},
 	drift = {hz = 2.0, up = 1.35, dn = -0.5, speed = 0.9, glide = 0.15, jerk = 0.1, fly = [6.0, 10.0], sit = [4.0, 8.0], sun = 0.0, rest = 0.2},
+	# a firefly: a slow drift on blurred wings, level (grav: its own, hardly a bounce), wandering, never still for long
+	glow = {hz = 18.0, up = 0.85, dn = -0.35, speed = 1.5, glide = 0.0, jerk = 0.6, fly = [9.0, 9.0], sit = [1.0, 1.0], sun = 0.0, rest = 0.0, grav = 90.0},
 	weave = {hz = 6.0, up = 1.45, dn = -0.45, speed = 1.2, glide = 0.05, jerk = 0.7, fly = [3.0, 6.0], sit = [2.0, 4.5], sun = 0.3, rest = 1.5},
 }
 
@@ -183,6 +203,8 @@ class Fly extends Node3D:
 	var anim := {}
 	var _playing := ""
 	var kind := ""
+	var lands := true       # false: it never comes down (a firefly of the swarm)
+	var loop_clip := 0.0    # > 0: its flight clip simply loops, at this speed (wings too fast to show stroke by stroke)
 	var model: Node3D
 	var full := false       # a model with its own landing, sitting and take-off (the monarch)
 	var tb := {}            # else: its flight clip as a table, the wing's rise by the clip's time (_m_table)
@@ -369,6 +391,9 @@ class Fly extends Node3D:
 				if sk.get_bone_name(i).begins_with(prefix): return i
 			return -1
 		var tip: int = find.call(String(md.get("tip", "LeftUpperWing")))
+		if tip < 0:
+			_tables[kind] = out
+			return out
 		var base: int = find.call(String(md.base)) if md.has("base") else -1
 		var rel := model.global_transform.affine_inverse() * sk.global_transform
 		var L := ap.get_animation(nm).length
@@ -502,6 +527,10 @@ class Fly extends Node3D:
 		var nm := String(anim.get(key, ""))
 		if nm == "" or not ap.has_animation(nm): return
 		if key == "sit": ap.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
+		if key == "fly" and loop_clip > 0.0:
+			ap.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
+			speed = loop_clip
+			if at <= 0.0: at = rng.next() * ap.get_animation(nm).length
 		ap.play(nm, blend)
 		ap.speed_scale = speed
 		if at > 0.0: ap.seek(at, true)
@@ -511,12 +540,13 @@ class Fly extends Node3D:
 		trace = OS.get_cmdline_user_args().has("flytrace")
 		full = anim.has("land")
 		dart = float(st.get("dart", 0.0))
-		if not full: tb = _m_table()
+		if not full and loop_clip <= 0.0: tb = _m_table()
 		# a model beats at the pace its clip reads well; a drawn one at its kind's (STYLE hz), each a little off the rest
 		beat_t = 0.19 + rng.next() * 0.06 if full else (1.0 / float(st.hz)) * (0.9 + rng.next() * 0.25)
 		grav = 75.0 * pow(0.21 / beat_t, 1.4)
 		# (a hawk-moth's wings are a blur: it hangs level, no bounce to speak of)
 		if float(st.get("dart", 0.0)) > 0.0: grav = 170.0
+		if st.has("grav"): grav = float(st.grav)
 		sail_k = 0.7 + rng.next() * 0.7
 		wph = rng.next()
 		beats_left = 1 + int(rng.next() * 5.0)
@@ -537,7 +567,7 @@ class Fly extends Node3D:
 			FLY:
 				_m_air(dt)
 				# time to land: pick a spot on the find
-				if timer <= 0.0 and perch.size():
+				if timer <= 0.0 and perch.size() and lands:
 					var pick := _m_spot()
 					if pick.is_empty():
 						timer = 1.0 + rng.next()

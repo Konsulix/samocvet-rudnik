@@ -31,3 +31,8 @@ Cut out of low-poly animals by Quaternius (quaternius.com), CC0 1.0 — `prototy
 
 ## Butterflies
 See `butterflies/CREDITS.md`.
+
+## Firefly (`firefly/firefly.glb`, the legend "firefly swarm")
+"Firefly" by 1catalogue, CC BY 4.0 — https://sketchfab.com/3d-models/firefly-111cc8dc99c84940a8bd4dc83a4f430a
+(its flight clip looped; its lantern lit by the game — `SpecSkullFx._swarm`)
+

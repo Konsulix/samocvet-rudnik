@@ -39,7 +39,7 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 		"yaga": _yaga(root, sk, r, eyes)
 		"watching": _watching(root, r, eyes)
 		"candle": _candle(root, sk, r, bones, surf)
-		"fireflies": _swarm(root, r)
+		"fireflies": _swarm(root, r, bones[0], nrs[0])
 		"flutter": _flock(root, r)
 		"deathless": _shatter(root, sk, r, bones[0], bone_m)
 	if fx in SpecBeastFx.ALL: SpecBeastFx.dress(b, sk, bones, nrs, bone_m, surf)
@@ -405,71 +405,62 @@ static func _flame_mat(ca: Color, cb: Color, mode: int, power: float, seed: floa
 	m.set_shader_parameter("breath", breath)
 	return m
 
-## a swarm of fireflies round the skull: little dark beetles each with a glowing tail and a soft halo, flying in
-## wandering loops, their lights pulsing on and off each in its own rhythm; a light goes with two of them
-static func _swarm(root: Node3D, r: Rng32) -> void:
+## a swarm of fireflies round the skull: real ones (a model — "Firefly" by 1catalogue, CC BY 4.0 — flown as the
+## butterflies are, SpecButterfly.Fly: a slow level drift on blurred wings, wandering from point to point over the
+## head), each flashing its lantern in its own rhythm — a quick flare and a slow fade, a soft halo round it, the bone
+## lit by the nearest of them; and every so often the whole swarm falls into step, a wave of light crossing it
+const FIREFLY_N := 16
+static func _swarm(root: Node3D, r: Rng32, cr: Geo, nr: PackedVector3Array) -> void:
 	root.set_meta("dark", true)
+	var bb := cr.aabb()
+	# points to hover over: all round the head, not only its top
+	var haunts := []
+	for k in 400:
+		if haunts.size() >= 40: break
+		var i := int(r.next() * cr.v.size())
+		if nr[i].y < -0.2 or cr.v[i].y < bb.position.y + bb.size.y * 0.25: continue
+		# (spread over the head: the face is dense with points, they would all crowd before it)
+		var near := false
+		for h: Array in haunts:
+			if (h[0] as Vector3).distance_to(cr.v[i]) < 0.16: near = true
+		if not near: haunts.append([cr.v[i], nr[i]])
+	if haunts.is_empty(): haunts.append([bb.get_center() + Vector3(0, bb.size.y * 0.5, 0), Vector3.UP])
 	var sw := Swarm.new()
-	sw.r = r
+	sw.x0 = bb.position.x
+	sw.xs = maxf(bb.size.x, 0.1)
 	root.add_child(sw)
-	var body_m := StandardMaterial3D.new()
-	body_m.albedo_color = Color(0.1, 0.07, 0.05)
-	body_m.roughness = 0.4
-	var wing_m := StandardMaterial3D.new()
-	wing_m.albedo_color = Color(0.8, 0.85, 0.9, 0.25)
-	wing_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	wing_m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	wing_m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for k in 22:
-		var f := Node3D.new()
-		sw.add_child(f)
-		var body := MeshInstance3D.new()
-		var cm := CapsuleMesh.new()
-		cm.radius = 0.013
-		cm.height = 0.055
-		body.mesh = cm
-		body.material_override = body_m
-		body.rotation = Vector3(PI * 0.5, 0, 0)
-		f.add_child(body)
-		var tail := MeshInstance3D.new()
-		var tm := SphereMesh.new()
-		tm.radius = 0.015
-		tm.height = 0.03
-		tail.mesh = tm
-		var tmat := StandardMaterial3D.new()
-		tmat.albedo_color = Color(0.85, 1.0, 0.35)
-		tmat.emission_enabled = true
-		tmat.emission = Color(0.75, 1.0, 0.3)
-		tail.material_override = tmat
-		tail.position = Vector3(0, -0.004, -0.024)
-		f.add_child(tail)
-		var wings := []
-		for s in [-1.0, 1.0]:
-			var w := MeshInstance3D.new()
-			var wq := QuadMesh.new()
-			wq.size = Vector2(0.042, 0.022)
-			w.mesh = wq
-			w.material_override = wing_m
-			w.position = Vector3(s * 0.021, 0.008, 0.004)
-			w.rotation = Vector3(-PI * 0.5, 0, 0)
-			f.add_child(w)
-			wings.append(w)
-		var halo := MeshInstance3D.new()
-		var hq := QuadMesh.new()
-		hq.size = Vector2.ONE * 0.16
-		halo.mesh = hq
-		var hm := _flame_mat(Color(0.75, 1.0, 0.3), Color(0.75, 1.0, 0.3), 1, 1.0, r.next() * 20.0, -1.0)
-		hm.set_shader_parameter("shift", 0.0)
-		halo.material_override = hm
-		halo.position = Vector3(0, 0, -0.024)
-		f.add_child(halo)
-		sw.flies.append({node = f, tail = tmat, halo = hm, wings = wings, ph = r.next() * TAU, sp = 0.35 + r.next() * 0.4,
-			rad = 0.45 + r.next() * 0.35, hy = (r.next() - 0.3) * 0.5, tilt = (r.next() - 0.5) * 0.9, blink = 1.6 + r.next() * 1.8, bph = r.next() * 10.0})
-	for k in 2:
+	var col := Color(0.72, 1.0, 0.3)
+	for k in FIREFLY_N:
+		var q: Array = haunts[int(r.next() * haunts.size())]
+		var fly := SpecButterfly.put_model(root, Rng32.new(int(r.next() * 1000000.0)), "firefly", "glow", 0.085 + r.next() * 0.035, true, q[0], q[1], haunts, false)
+		# (no shadows off them: sixteen little crosses crawling over the bone)
+		for mm in fly.model.find_children("*", "MeshInstance3D", true, false): (mm as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# its lantern: the model's own glowing tail, a material of its own; and a halo round it
+		var lamp := StandardMaterial3D.new()
+		lamp.albedo_color = Color(0.5, 0.6, 0.2)
+		lamp.emission_enabled = true
+		lamp.emission = col
+		var tail := fly.model.find_child("firefly-fly_1", true, false) as MeshInstance3D
+		var at := Vector3(0, 1.63, -0.43)
+		if tail:
+			tail.set_surface_override_material(0, lamp)
+			at = tail.get_aabb().get_center()
+		var halo := _flame_mat(col, col, 1, 0.0, r.next() * 20.0, -1.0)
+		halo.set_shader_parameter("shift", 0.0)
+		var hq := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = Vector2.ONE * 5.5      # (in the model's own units: ~4 body lengths across)
+		hq.mesh = qm
+		hq.material_override = halo
+		hq.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		hq.position = at
+		(tail.get_parent() if tail else fly.model).add_child(hq)
+		sw.flies.append({fly = fly, lamp = lamp, halo = halo, period = 2.6 + r.next() * 3.2, ph = r.next() * 6.0, two = r.next() < 0.3})
+	for k in 3:
 		var l := OmniLight3D.new()
-		l.light_color = Color(0.7, 1.0, 0.35)
-		l.light_energy = 0.8
-		l.omni_range = 0.8
+		l.light_color = col
+		l.light_energy = 0.0
+		l.omni_range = 0.9
 		sw.add_child(l)
 		sw.lights.append(l)
 
@@ -814,35 +805,38 @@ class Flicker extends Node:
 
 ## the fireflies: each flies its own wandering loop round the skull, wings a blur, its tail pulsing on and off
 class Swarm extends Node3D:
-	var r: Rng32
 	var flies := []
 	var lights := []
+	var x0 := 0.0
+	var xs := 1.0
 	var t := 0.0
+	## a flash: up in a blink, a slow fade
+	static func _flash(u: float) -> float:
+		return 0.0 if u < 0.0 else smoothstep(0.0, 0.07, u) * exp(-u * 4.2)
 	func _process(dt: float) -> void:
 		t += dt
-		for i in flies.size():
-			var f: Dictionary = flies[i]
-			var n: Node3D = f.node
-			var a: float = t * float(f.sp) + float(f.ph)
-			var rad: float = f.rad
-			var p := Vector3(cos(a) * rad, float(f.hy) + sin(a * 1.7 + float(f.ph)) * 0.12, sin(a) * rad * 0.8)
-			p = Basis(Vector3.RIGHT, float(f.tilt)) * p
-			p += Vector3(sin(a * 3.1) * 0.04, sin(a * 2.3) * 0.03, cos(a * 2.7) * 0.04)
-			var prev := n.position
-			n.position = p
-			var v := p - prev
-			if v.length() > 1e-5: n.basis = Basis.looking_at(-v.normalized(), Vector3.UP)
-			# the light: on for a moment, off a while, each its own rhythm
-			var s := fmod(t + float(f.bph), float(f.blink)) / float(f.blink)
-			var on := smoothstep(0.0, 0.08, s) * (1.0 - smoothstep(0.25, 0.45, s))
-			var glow := 0.15 + on * 1.6
-			(f.tail as StandardMaterial3D).emission_energy_multiplier = glow * 2.0
-			(f.halo as ShaderMaterial).set_shader_parameter("power", glow)
-			for w: MeshInstance3D in f.wings:
-				w.rotation.z = sin(t * 60.0 + float(f.ph)) * 0.8 * (1.0 if w.position.x > 0 else -1.0)
-			if i < lights.size():
-				(lights[i] as OmniLight3D).position = p
-				(lights[i] as OmniLight3D).light_energy = 0.15 + on * 0.9
+		# every 22 s the swarm falls into step for a while: one beat every 1.5 s, sweeping across it
+		var c := fmod(t, 22.0)
+		var sync := smoothstep(13.0, 15.0, c) * (1.0 - smoothstep(20.0, 21.5, c))
+		var best := []
+		for f: Dictionary in flies:
+			var fly: SpecButterfly.Fly = f.fly
+			var u := fmod(t + float(f.ph), float(f.period))
+			var own := _flash(u)
+			if f.two: own = maxf(own, _flash(u - 0.42))
+			var delay := clampf((fly.pos.x - x0) / xs, 0.0, 1.0) * 0.55
+			var all := _flash(fmod(t - delay + 30.0, 1.5))
+			var b := lerpf(own, all, sync)
+			(f.lamp as StandardMaterial3D).emission_energy_multiplier = 0.25 + b * 7.0
+			(f.halo as ShaderMaterial).set_shader_parameter("power", 0.05 + b * 2.2)
+			best.append([b, fly.position])
+		# the light goes with the brightest of them
+		best.sort_custom(func(a: Array, z: Array) -> bool: return float(a[0]) > float(z[0]))
+		for i in lights.size():
+			var l: OmniLight3D = lights[i]
+			if i < best.size():
+				l.position = best[i][1]
+				l.light_energy = float(best[i][0]) * 1.3
 
 ## the cloud of butterflies: they sit on the skull opening and closing their wings, then all at once take off, whirl
 ## round it for a few seconds, and settle again. While they sit, any still flying is sent to a free spot of its own
