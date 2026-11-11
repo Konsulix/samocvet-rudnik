@@ -288,6 +288,9 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 			g.stream = false
 			g.bloom = false
 			g.roots = false
+		"ghost":
+			g.trees = 0
+			g.flies = 0
 		"amberdrop":
 			g.show = "loose"
 			g.trees = 0

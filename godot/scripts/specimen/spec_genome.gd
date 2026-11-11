@@ -212,7 +212,7 @@ static func of(o: Dictionary) -> Dictionary:
 	if form == "skull": fpool = ["yaga", "yaga", "candle", "watching", "deathless", "flutter", "fireflies"]
 	# an animal's skull: its own kind's legends (SpecBeastFx), and a swarm of fireflies
 	if form == "skull" and String(o.get("beast", "")) != "":
-		fpool = (SpecBeastFx.POOL.get(String(o.beast), []) as Array) + ["fireflies"]
+		fpool = SpecBeastFx.pool(String(o.beast)) + ["fireflies"]
 	if o.get("legend", false):
 		fx = fpool[int(rng.next() * fpool.size())]
 	# an effect given from outside (the admin's finds, tests) is kept when the body can show it — a glass effect on a

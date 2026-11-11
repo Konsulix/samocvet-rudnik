@@ -23,3 +23,9 @@
   - `hornbill` — "White-thighed Hornbill Skull" by RISD Nature Lab (https://sketchfab.com/RISDNaturelab), https://sketchfab.com/3d-models/white-thighed-hornbill-skull-3adca717270b41cb9286280ec779b067, CC BY 4.0
   - `trex` — "Vertebrate: Tyrannosaurus rex skull (MOTE)" by Digital Atlas of Ancient Life (https://sketchfab.com/DigitalAtlasOfAncientLife), https://sketchfab.com/3d-models/vertebrate-tyrannosaurus-rex-skull-mote-cf48487de55d454b8adc92dce2840a0d, CC0 1.0
   - `triceratops` — "Triceratops Skull" by James (https://sketchfab.com/james), https://sketchfab.com/3d-models/triceratops-skull-00099fa513df45a8a6e1f70013e0f695, CC BY 4.0
+
+## Ghost heads (`ghosts/`, the legend "the beast's ghost")
+Cut out of low-poly animals by Quaternius (quaternius.com), CC0 1.0 — `prototype/tools/skull/ghost_prep.py`:
+- wolf, fox, horse, deer (Stag), longhorn and musk_ox (Bull) — *Ultimate Animated Animals* (July 2021)
+- trex, triceratops — *Dinosaur Animated Pack* (Dec 2018)
+

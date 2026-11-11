@@ -14,6 +14,8 @@ const GLOW := preload("res://shaders/skull_glow.gdshader")
 const MOON := preload("res://shaders/beast_moon.gdshader")
 const STEAM := preload("res://shaders/beast_steam.gdshader")
 const PETALS := preload("res://shaders/beast_petals.gdshader")
+const GHOST := preload("res://shaders/beast_ghost.gdshader")
+const GHOST_DIR := "res://assets/specimen/ghosts/"
 const U := preload("res://scripts/specimen/spec_util.gd")
 
 ## which legends each beast can have (SpecGenome's pool for an animal's skull)
@@ -27,7 +29,13 @@ const POOL := {
 	horse = ["breath", "wolfmoon", "foxfire"],
 	raven = ["raveneye", "raveneye", "phoenix"], spoonbill = ["phoenix", "raveneye"], hornbill = ["phoenix", "phoenix", "raveneye"],
 	alligator = ["lavaborn", "amberdrop"], trex = ["lavaborn", "lavaborn", "amberdrop"], triceratops = ["amberdrop", "lavaborn"]}
-const ALL := ["blossom", "starhorn", "thunder", "foxfire", "wolfmoon", "breath", "phoenix", "raveneye", "lavaborn", "amberdrop"]
+const ALL := ["blossom", "starhorn", "thunder", "foxfire", "wolfmoon", "breath", "phoenix", "raveneye", "lavaborn", "amberdrop", "ghost"]
+
+## a beast's legends: its kind's, and its ghost if there is a head for it (assets/specimen/ghosts)
+static func pool(beast: String) -> Array:
+	var out: Array = (POOL.get(beast, []) as Array).duplicate()
+	if ResourceLoader.exists(GHOST_DIR + beast + ".json"): out.append_array(["ghost", "ghost"])
+	return out
 
 static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_m: Material, surf: SpecSurf) -> void:
 	var root: Node3D = b.root
@@ -44,6 +52,7 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 		"raveneye": _raveneye(root, sk, r, cr, surf)
 		"lavaborn": _lavaborn(root, sk, r, cr, bone_m)
 		"amberdrop": _amberdrop(root, sk, r, bones)
+		"ghost": _ghost(root, sk, r, bones, surf)
 
 ## the head's middle and size
 static func _box(cr: Geo) -> AABB:
@@ -748,3 +757,109 @@ class Drifters extends Node3D:
 			var e: Vector3 = it.e
 			(it.node as Node3D).position = c + Vector3(cos(a) * ext.x * e.x, e.y * ext.y + sin(t * 0.13 + float(it.ph)) * ext.y * 0.1, sin(a) * ext.z * e.z)
 			(it.inner as Node3D).rotation += (it.spin as Vector3) * dt
+
+# ---------------------------------------------------------------- every beast
+
+## the beast's ghost: every ten seconds the living head forms over the skull out of cold light — from the neck to the
+## nose — its eyes kindling in the sockets, holds a breath, and dissolves away into sparks (a low-poly head cut by
+## prototype/tools/skull/ghost_prep.py, fitted nose to nose, a little bigger than the bone)
+static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: SpecSurf) -> void:
+	var path := GHOST_DIR + String(sk.beast) + ".json"
+	if not ResourceLoader.exists(path): return
+	root.set_meta("dark", true)
+	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var fv: Array = d.v
+	var ff: Array = d.f
+	var fu: Array = d.get("u", [])
+	var g := Geo.new()
+	g.v.resize(fv.size() / 3)
+	for i in g.v.size(): g.v[i] = Vector3(float(fv[i * 3]), float(fv[i * 3 + 1]), float(fv[i * 3 + 2]))
+	for x in ff: g.idx.append(int(x))
+	var uv := PackedVector2Array()
+	for i in g.v.size(): uv.append(Vector2(float(fu[i]) if i < fu.size() else 1.0, 0.0))
+	# the skull's own axis, back of the head to the nose: forward, or down for one hung face-on on a wall
+	var lm: Dictionary = SpecSkull.body(String(sk.beast)).get("lm", {})
+	var axis := Vector3(0, -0.94, 0.34).normalized() if lm.get("mount", false) else Vector3.BACK
+	var bb: AABB = (bones[0] as Geo).aabb()
+	for b: Geo in bones: bb = bb.merge(b.aabb())
+	var lo := INF
+	var hi := -INF
+	for b: Geo in bones:
+		for p in b.v:
+			lo = minf(lo, p.dot(axis))
+			hi = maxf(hi, p.dot(axis))
+	var tip := Vector3.ZERO
+	var tn := 0
+	for b: Geo in bones:
+		for p in b.v:
+			if p.dot(axis) > hi - (hi - lo) * 0.05:
+				tip += p
+				tn += 1
+	tip /= maxf(1.0, tn)
+	# the ghost's nose and length (its axis is +Z), fitted nose to nose, a little bigger than the bone
+	var hb := g.aabb()
+	var gt := Vector3.ZERO
+	var gn := 0
+	for p in g.v:
+		if p.z > hb.end.z - hb.size.z * 0.05:
+			gt += p
+			gn += 1
+	gt /= maxf(1.0, gn)
+	var k := (hi - lo) * 1.1 / maxf(0.001, hb.size.z)
+	var R := Basis(SpecUtil.quat_to(Vector3.BACK, axis))
+	for i in g.v.size():
+		g.v[i] = tip + axis * (hi - lo) * 0.04 + R * ((g.v[i] - gt) * k)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = g.v
+	arr[Mesh.ARRAY_NORMAL] = g.normals()
+	arr[Mesh.ARRAY_TEX_UV] = uv
+	arr[Mesh.ARRAY_INDEX] = g.idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := ShaderMaterial.new()
+	m.shader = GHOST
+	var cols := [Color(0.4, 0.9, 1.0), Color(0.45, 1.0, 0.6), Color(1.0, 0.78, 0.35), Color(0.7, 0.5, 1.0)]
+	var col: Color = cols[int(r.next() * cols.size())]
+	m.set_shader_parameter("col", Vector3(col.r, col.g, col.b))
+	m.set_shader_parameter("seed", r.next() * 50.0)
+	m.render_priority = 5
+	mi.material_override = m
+	# (not part of the find's box: the studio frames the skull, the ghost may reach past it)
+	root.add_child(mi)
+	var gh := Ghost.new()
+	gh.mat = m
+	gh.t = 0.0   # (it forms as the card opens)
+	for sx: float in [-1.0, 1.0]:
+		var e := SpecSkullFx.eye(surf, sx, sk)
+		if e.is_empty(): continue
+		var em := _glow_mat(col.lerp(Color.WHITE, 0.3), 0.0, r.next() * 9.0)
+		_quad(root, float(e.r) * 3.0, em, (e.deep as Vector3).lerp(e.front, 0.7))
+		gh.eyes.append(em)
+	var l := OmniLight3D.new()
+	l.light_color = col
+	l.omni_range = bb.size.length() * 1.5
+	l.position = bb.get_center() + Vector3(0, bb.size.y * 0.3, bb.size.z * 0.3)
+	root.add_child(l)
+	gh.light = l
+	root.add_child(gh)
+	SpecSkullFx._fireflies(root, r, bb.get_center() + Vector3(0, bb.size.y * 0.2, 0), bb.size.length() * 0.3, 18, 0.03, false, col, bb.size.y * 1.2)
+	(sk.marks as Array).append(["fx", bb.get_center() + Vector3(0, bb.size.y * 0.45, bb.size.z * 0.2), Vector3.BACK])
+
+class Ghost extends Node:
+	var mat: ShaderMaterial
+	var light: OmniLight3D
+	var eyes := []
+	var t := 0.0
+	func _process(dt: float) -> void:
+		t += dt
+		var ph := fmod(t, 10.0)
+		# forms (0–1.8 s), holds, breathing (to 5.5), dissolves (5.5–7.3), gone (to 10)
+		var s := smoothstep(0.0, 1.8, ph) * (1.0 - smoothstep(5.5, 7.3, ph))
+		var breath := 1.0 + 0.08 * sin(t * 2.2) * s
+		mat.set_shader_parameter("show", s * breath)
+		light.light_energy = s * 1.4
+		for em: ShaderMaterial in eyes: em.set_shader_parameter("power", smoothstep(1.2, 2.2, ph) * (1.0 - smoothstep(5.0, 6.0, ph)) * 2.4)
