@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bmfed6hcsgn33"
-path="res://.godot/imported/crow_fly_3.jpg-b1e5ce3188bc2a9c07dff417a8f60f00.ctex"
+uid="uid://bdfowgx4hachw"
+path="res://.godot/imported/monarch_0.jpg-e5ce3ece967ebc3f7ddb9b7b2b4aa5ae.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "5618fd27d36428099c540e4bbac08dc8"
+"md5": "ff647c73c5485a03f647961a7aaa758a"
 }
 
 [deps]
 
-source_file="res://assets/specimen/raven/crow_fly_3.jpg"
-dest_files=["res://.godot/imported/crow_fly_3.jpg-b1e5ce3188bc2a9c07dff417a8f60f00.ctex"]
+source_file="res://assets/specimen/butterflies/monarch_0.jpg"
+dest_files=["res://.godot/imported/monarch_0.jpg-e5ce3ece967ebc3f7ddb9b7b2b4aa5ae.ctex"]
 
 [params]
 

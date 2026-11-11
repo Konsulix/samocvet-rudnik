@@ -119,6 +119,18 @@ static func _card(id: String) -> Array:
 ## may land (in the parent's space); span: its wingspan in find units before the kind's own size
 static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3, span: float, flying: bool, perches := []) -> Node3D:
 	var k: Array = KINDS[id]
+	# a kind with a whole animated model (MODELS): that, its own flight, landing, perching and take-off
+	if MODELS.has(id) and ResourceLoader.exists(String(MODELS[id][0])):
+		var fb := Fly.new()
+		parent.add_child(fb)
+		var model := (load(String(MODELS[id][0])) as PackedScene).instantiate() as Node3D
+		model.scale = Vector3.ONE * span * float(k[1]) / float(MODELS[id][1])
+		fb.add_child(model)
+		fb.ap = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+		fb.anim = MODELS[id][2]
+		var s0 := span * float(k[1]) / 2.0
+		fb.setup(rng, null, String(k[6]), flying, at, n, perches if perches.size() else [[at, n]], s0)
+		return fb
 	var card: Array = _card(id)
 	var asp: float = card[1]
 	var b := Fly.new()
@@ -151,6 +163,14 @@ static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3,
 	b.body_mat = _body(body, k, id)
 	b.setup(rng, m, String(k[6]), flying, at, n, perches if perches.size() else [[at, n]], s)
 	return b
+
+## kinds with a whole animated model instead of a wing card: [file, its wingspan in its own units, its animations by state:
+## fly, glide, land, sit, off] (the head along +x, up +y, as the cards). The monarch: "Monarch Butterfly (Danaus plexippus)
+## - Animated" by animalanimator, CC BY 4.0 (assets/specimen/CREDITS.md)
+const MODELS := {
+	monarch = ["res://assets/specimen/butterflies/monarch.glb", 2.6, {fly = "Danaus_plexippus_Flight", glide = "Danaus_plexippus_Pose_Wings_Spread",
+		land = "Danaus_plexippus_Landing_InPlace", sit = "Danaus_plexippus_Perched_Idle", off = "Danaus_plexippus_Takeoff_InPlace"}],
+}
 
 ## the body's look, by kind: the fur colour (the hair catching the light at the edges), the pattern (0 plain, 1 white
 ## dots — the monarch's, 2 the death's-head's skull on the back and its blue-grey stripe down the banded abdomen),
@@ -434,6 +454,10 @@ class Fly extends Node3D:
 	var obst := []
 	var stand: Array[AABB] = []
 	var looked := false
+	# a whole animated model (SpecButterfly.MODELS): its player and its animations by state
+	var ap: AnimationPlayer
+	var anim := {}
+	var _playing := ""
 
 	func setup(r: Rng32, m: ShaderMaterial, how: String, fly: bool, at: Vector3, n: Vector3, perches: Array, s: float) -> void:
 		rng = r
@@ -531,6 +555,25 @@ class Fly extends Node3D:
 			SIT: _sit(dt)
 			_: _off(dt)
 		_place()
+		if ap: _animate()
+
+	## the model's own animation for what it is doing (a landing and a take-off played once, the rest looped)
+	func _animate() -> void:
+		var want := "fly"
+		match state:
+			FLY: want = "glide" if gliding > 0.5 else "fly"
+			LAND: want = "land" if timer > 0.0 else "fly"
+			SIT: want = "sit"
+			_: want = "off"
+		if want == _playing: return
+		_playing = want
+		var nm := String(anim.get(want, ""))
+		if nm == "" or not ap.has_animation(nm): return
+		var a := ap.get_animation(nm)
+		if want in ["fly", "sit"]: a.loop_mode = Animation.LOOP_LINEAR
+		ap.speed_scale = 1.0 if want != "land" else 1.4
+		ap.play(nm, 0.15)
+		if want == "sit": ap.seek(rng.next() * a.length, true)
 
 	## a wingbeat: the stroke between the top (wings almost meeting over the back) and the bottom (below the body),
 	## the tip lagging the root; returns the lift of this moment (the body rises on the downstroke)
@@ -556,6 +599,7 @@ class Fly extends Node3D:
 		if body_mat: body_mat.set_shader_parameter("swing", v)
 
 	func _wings(a: float, f: float) -> void:
+		if mat == null: return
 		mat.set_shader_parameter("ang", a)
 		mat.set_shader_parameter("flex", f)
 
@@ -731,6 +775,10 @@ class Fly extends Node3D:
 		up = side.cross(fwd).normalized()
 		var bas := Basis(side, up, -fwd).orthonormalized()
 		# the card's head is +x: turn it to face along fwd; bank into the turn
+		# (a model bounces in its own animation: our stroke's pitch and bob are the wing cards')
+		if ap:
+			pitch = 0.0
+			bob = 0.0
 		bas = bas * Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.RIGHT, bank) * Basis(Vector3.BACK, pitch)
 		var into := SpecUtil.rel_xform(get_parent() as Node3D, top_n).affine_inverse() if get_parent() != top_n else Transform3D.IDENTITY
 		transform = into * Transform3D(bas, pos + up * bob * size)

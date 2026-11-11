@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://boehqwxni046d"
-path="res://.godot/imported/crow_fly.glb-0554c8523b1a0af063047e1c0b8cb74e.scn"
+uid="uid://ilt3ebesfimn"
+path="res://.godot/imported/monarch.glb-651667e28a4c743ab82419de09c5cb98.scn"
 
 [deps]
 
-source_file="res://assets/specimen/raven/crow_fly.glb"
-dest_files=["res://.godot/imported/crow_fly.glb-0554c8523b1a0af063047e1c0b8cb74e.scn"]
+source_file="res://assets/specimen/butterflies/monarch.glb"
+dest_files=["res://.godot/imported/monarch.glb-651667e28a4c743ab82419de09c5cb98.scn"]
 
 [params]
 

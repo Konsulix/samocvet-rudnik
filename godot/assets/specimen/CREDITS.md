@@ -29,6 +29,6 @@ Cut out of low-poly animals by Quaternius (quaternius.com), CC0 1.0 — `prototy
 - wolf, fox, horse, deer (Stag), longhorn and musk_ox (Bull) — *Ultimate Animated Animals* (July 2021)
 - trex, triceratops — *Dinosaur Animated Pack* (Dec 2018)
 
-## Crow (`raven/crow_fly.glb`, the legend "raven's eye")
-"crow_fly" by tech.service.allwe, CC BY 4.0 — https://sketchfab.com/3d-models/crow-fly-7d926019e3d34041b872a01b6fdd141c
-(its own flight loop, each bird at its own pace — `SpecBeastFx.Ravens`)
+## Monarch (`butterflies/monarch.glb`, SpecButterfly.MODELS)
+"Monarch Butterfly (Danaus plexippus) - Animated" by animalanimator, CC BY 4.0 —
+https://sketchfab.com/3d-models/9682aebc9f93491b9cf1d0b2f021a87f (its flight, landing, perched and take-off animations)
