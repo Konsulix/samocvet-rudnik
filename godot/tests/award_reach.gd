@@ -2,10 +2,9 @@ extends Node
 ## Can every achievement's collection be finished? Rolls finds of each mine as the board does (Stones.roll over its
 ## depths) and, from the same finds made legendary, their living effects; then for every collection of genes or
 ## species (Awards.LIST) prints what turns up only in the reserve mines (6–8) and what turns up nowhere, with how
-## rare each item is in the chain (mines 1–5: share of finds; a legend — share of legendary finds).
-##   godot --headless --path godot res://tests/award_reach.tscn -- [n=1500] [leg=300]
+## rare each item is in the chain (the chain: share of finds; a legend — share of legendary finds).
+##   godot --headless --path godot res://tests/award_reach.tscn -- [n=1500] [leg=300] [chain=8]
 
-const CHAIN := 5
 
 func _ready() -> void:
 	var args := {}
@@ -14,8 +13,10 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("n", "1500"))
 	var nl := int(args.get("leg", "300"))
-	var chain := {}     # tag -> finds in mines 1–5
-	var chain_l := {}   # fx tag -> legendary finds in mines 1–5
+	# the mines a player digs through (all eight: Proval, with no boss, leads on to Spider Hollow and so on); chain=5 — the first five
+	var CHAIN := int(args.get("chain", str(Data.AREAS.size())))
+	var chain := {}     # tag -> finds in the chain
+	var chain_l := {}   # fx tag -> legendary finds in the chain
 	var any := {}       # tag -> seen anywhere
 	for area in Data.AREAS.size():
 		var last := maxi(1, Data.depths(area).size())
@@ -72,7 +73,7 @@ func _ready() -> void:
 		rare.sort_custom(func(a: Array, b: Array) -> bool: return float(a[1]) < float(b[1]))
 		var line := "%-26s" % String(e.n)
 		if rare.size(): line += " rarest " + ", ".join(rare.slice(0, 3).map(func(r: Array) -> String: return "%s %.3f%%" % [r[0], float(r[1]) * 100.0]))
-		if reserve.size(): line += " | ONLY 6–8: " + ", ".join(reserve)
+		if reserve.size(): line += " | ONLY PAST CHAIN: " + ", ".join(reserve)
 		if never.size(): line += " | NEVER: " + ", ".join(never)
 		print(line)
 	get_tree().quit()
