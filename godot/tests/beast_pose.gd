@@ -6,7 +6,7 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=")
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	var ids: Array = SpecSkull.BEASTS
+	var ids: Array = SpecSkull.BEASTS if not args.has("ids") else Array(String(args.ids).split(","))
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
@@ -49,11 +49,14 @@ func _ready() -> void:
 		holder.scale = Vector3.ONE * (1.6 / sz)
 		holder.position = -(holder.basis * bb.get_center())
 		root.rotation.y = float(args.get("yaw", "0.6"))
-		root.position = Vector3((i % 4) * 2.2 - 3.3, 3.3 - (i / 4) * 2.2, 0)
+		var cols := ceili(sqrt(float(ids.size())))
+		var step := 8.8 / cols
+		root.scale = Vector3.ONE * (step / 2.2)
+		root.position = Vector3((i % cols) * step - 4.4 + step * 0.5, 4.4 - step * 0.5 - (i / cols) * step, 0)
 		var l := Label3D.new()
 		l.text = id
 		l.font_size = 48
-		l.position = root.position + Vector3(0, -0.95, 1)
+		l.position = root.position + Vector3(0, -0.95 * step / 2.2, 1)
 		add_child(l)
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
