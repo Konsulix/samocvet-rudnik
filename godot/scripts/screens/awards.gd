@@ -84,6 +84,22 @@ static var LIST := [
 	{tab = "coll", icon = "overgrown", n = "Nature Takes Over", t = "Moss, mushrooms and flowers. Is there a stone under there?", r = "Moss, a mushroom and flowers on one find", one = true, ev = "overgrown", give = {coins = 600}, items = ["i:moss_stone"]},
 	{tab = "coll", icon = "fluorite", n = "Rainbow in a Cube", t = "It can't decide what colour to be. Neither will you.", r = "coins",
 		tags = ["pal:fluorite:0", "pal:fluorite:1", "pal:fluorite:2", "pal:fluorite:3", "pal:fluorite:4", "pal:fluorite:5"], names = ["Green", "Purple", "Blue", "Yellow", "Colourless", "Pink"]},
+	# the showy minerals and the genes that tie two minerals together (docs/showy-minerals.md): the species have no mine yet
+	{tab = "coll", icon = "paintbox", n = "Paintbox", t = "Orange panes, red barrels, blue suns. The mountain ran out of crystals and started on the paints.", r = "Eight minerals that grow as anything but a crystal",
+		give = {coins = 4000, geode = 2, unlock = "the title Colourist"}, items = ["sp:wulfenite", "sp:vanadinite", "sp:crocoite", "sp:cavansite", "sp:dioptase", "sp:erythrite", "sp:smithsonite", "sp:bismuth"]},
+	{tab = "coll", icon = "pencils", n = "Pencil Case", t = "Eight colours, sharpened by a mountain.", r = "tourmaline gems",
+		tags = ["acc:tm_watermelon", "acc:tm_bicolour", "acc:tm_tricolour", "acc:tm_blue_cap", "acc:tm_rubellite", "acc:tm_indicolite", "acc:tm_verdelite", "acc:tm_paraiba"],
+		names = ["Watermelon", "Bicolour", "Tricolour", "Blue cap", "Rubellite", "Indicolite", "Verdelite", "Paraiba"]},
+	{tab = "coll", icon = "slice", n = "A Slice of Summer", t = "Pink heart, green rind. Do not bite.", r = "A tourmaline sawn across and polished", one = true, ev = "tm_slice", give = {coins = 600}, items = ["i:slice"]},
+	{tab = "coll", icon = "impostor", n = "Body Snatchers", t = "It took the shape. It took the place. The first owner left no forwarding address.", r = "a rare geode",
+		tags = ["pseudo:malachite", "pseudo:chrysocolla", "pseudo:nativecu", "pseudo:gold", "pseudo:goethite", "pseudo:chalcedony", "pseudo:opal", "pseudo:smithsonite"],
+		names = ["Malachite", "Chrysocolla", "Copper", "Gold", "Bog iron", "Agate", "Opal", "Smithsonite"]},
+	{tab = "coll", icon = "fool_right", n = "The Fool Was Right", t = "Brassy cubes. Everyone laughed. This time it really is gold.", r = "Gold in the shape of pyrite", one = true, ev = "gold_pyrite", give = {coins = 1500}, items = ["i:fool_right"]},
+	{tab = "coll", icon = "old_friends", n = "Old Friends", t = "Some stones are never found alone.", r = "coins and a geode", give = {coins = 1500, geode = 1},
+		tags = ["pair:gold+quartz", "pair:fluorite+pyrite", "pair:azurite+malachite", "pair:cuprite+nativecu", "pair:galena+sphalerite", "pair:cinnabar+stibnite", "pair:dogtooth+marcasite", "pair:vanadinite+wulfenite"],
+		names = ["Gold & quartz", "Pyrite & fluorite", "Azurite & malachite", "Copper & cuprite", "Galena & sphalerite", "Cinnabar & stibnite", "Marcasite & dogtooth", "Wulfenite & vanadinite"]},
+	{tab = "coll", icon = "midas", n = "Midas Touch", t = "Everything he touched. This crystal, for one.", r = "Gold grown on another mineral's crystal", one = true, ev = "perched_gold", give = {geode = 1}, items = ["i:midas"]},
+	{tab = "coll", icon = "matchmaker", n = "Matchmaker", t = "You keep introducing them. They keep getting on.", r = "Ten different pairs of minerals on one rock", one = true, ev = "pairs", need = 10, give = {coins = 2000, geode = 1}, items = ["i:matchmaker"]},
 
 	{tab = "mines", icon = "adit", n = "Every Stone of the Hill", t = "The old man knows them all. Do you?", r = "an artifact stand", items = ["mine:0"]},
 	{tab = "mines", icon = "serpent", n = "The Serpent Sleeps", t = "Gold doesn't come for free here.", r = "a trophy", one = true, boss = 0, items = ["i:serpent"]},
@@ -167,11 +183,16 @@ const SAY := {
 	"Birds of a Feather": ["smile", "Magpie, starling, pheasant, peacock, owl. A whole aviary, and not one of them sings."],
 	"String of Pearls": ["smile", "Each sea paints its own. Now you have them all on one thread."],
 	"Rainbow in a Cube": ["curious", "One mineral, every colour. Fluorite never makes up its mind."],
+	"Paintbox": ["smile", "Not one of them looks like a crystal, and every one of them is. I had to redraw half my atlas."],
+	"Pencil Case": ["curious", "One mineral, eight colours, sometimes three in a single crystal. It can't decide - and I love it for that."],
+	"Body Snatchers": ["worry", "A mineral in another's shape. The first dissolved grain by grain and something else moved in. Nobody noticed for a million years."],
+	"Old Friends": ["calm", "Find one and the other is never far. Miners knew that long before we had a word for it."],
 	"Every Stone of the Hill": ["resolve", "Every kind the hill gives up. The old man's list is finished - mine isn't."],
 	"Giant Slayer": ["resolve", "All of them. And still no sign of him. Keep digging."],
 }
 
 static var tab := "tales"
+static var start_scroll := 0
 
 var scroll: ScrollContainer
 var list: VBoxContainer
@@ -219,6 +240,18 @@ static func genes_of(s: Dictionary) -> Array:
 		if String(sk.skin) == "feathers":
 			out.append("feather:%d" % (int(sk.feather_pal) % 5))
 			if float(sk.feather_k) >= 0.75: out.append("fledged")
+	# a pseudomorph: who took the shape ("pseudo:malachite") and whose it was ("pseudo:gold:pyrite")
+	var ps := String(g.get("pseudo", ""))
+	if ps != "":
+		out.append("pseudo:" + sid)
+		out.append("pseudo:%s:%s" % [sid, ps])
+	# an association: the pair, whichever is the host ("pair:gold+quartz"); a metal grown on the crystal itself ("perched:gold")
+	var mate := String(g.get("assoc", ""))
+	if mate != "":
+		var pr: Array = [sid, mate]
+		pr.sort()
+		out.append("pair:%s+%s" % pr)
+		if SpecLooks.perches(seed_v, mate, String(g.form), String(g.lustre)): out.append("perched:" + mate)
 	var look := SpecLooks.of(sid)
 	if look.has("palette"):
 		var pal: Array = look.palette
@@ -251,6 +284,9 @@ static func find_marks(s: Dictionary, gs: Array) -> Array:
 	if moss and gs.any(func(t: String) -> bool: return t.begins_with("shroom:")) and gs.has("acc:flowers"): out.append("overgrown")
 	if gs.has("acc:sk_maw"): out.append("maw")
 	if gs.has("fledged"): out.append("fledged")
+	if gs.has("acc:tm_slice"): out.append("tm_slice")
+	if gs.has("pseudo:gold:pyrite"): out.append("gold_pyrite")
+	if gs.has("perched:gold"): out.append("perched_gold")
 	return out
 
 ## the luck of the collector: a collection begun is never left to the dice alone. Every find that brings nothing new to
@@ -413,7 +449,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 6: return
+	if int(Save.d.get("gver", 0)) >= 7: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -426,8 +462,10 @@ static func backfill() -> void:
 	# (gver 6: the marks a kept find brings by itself — the beasts' ones came after the first finds)
 	for s in Save.d.coll:
 		for mk in find_marks(s, genes_of(s)):
-			if String(mk) in ["maw", "fledged"]: once(String(mk))
-	Save.d.gver = 6
+			if String(mk) in ["maw", "fledged", "tm_slice", "gold_pyrite", "perched_gold"]: once(String(mk))
+	# (gver 7: pseudomorphs and pairs; the pairs seen so far, counted for Matchmaker)
+	Save.d.aw_ev.pairs = seen.filter(func(t: String) -> bool: return t.begins_with("pair:")).size()
+	Save.d.gver = 7
 	Save.persist()
 
 func _ready() -> void:
@@ -497,7 +535,7 @@ func render() -> void:
 	area.add_child(sticky)
 	scroll.get_v_scroll_bar().value_changed.connect(func(_v: float): sticky.visible = scroll.scroll_vertical > tb.position.y)
 	await get_tree().process_frame
-	scroll.scroll_vertical = keep
+	scroll.scroll_vertical = keep if keep > 0 else start_scroll   # (start_scroll: the test key aw_scroll=N)
 
 ## the title row: back to the cabinet, the plate, the count
 func _head() -> Control:
@@ -1256,8 +1294,10 @@ func _where(e: Dictionary, item: String) -> String:
 			return _in_mines([], "It lands on the finds %s - and now and then on old bones anywhere.", fa)
 		if kind == "feather": return "A bird lends its coat to a beast's skull now and then, in any mine. Dig deep."
 		if tag == "shroom:4": return "It feeds on old wood. Look at the petrified kind."
+		if tag.begins_with("acc:tm_"): return _in_mines(["tourmaline"], "A tourmaline's colour runs along it, a different way each time. Look %s.")
 		if kind in ["shroom", "tr", "acc"]: return "It grows on the rock around a find. Damp, deep places suit it."
-		if kind == "pal": sids = [tag.get_slice(":", 1)]
+		if kind == "pal" or kind == "pseudo": sids = [tag.get_slice(":", 1)]
+		elif kind == "pair": sids = Array(tag.get_slice(":", 1).split("+"))
 		else: sids = GENE_SP.get(kind, [])
 		if kind == "pearl": return _in_mines(sids, "Something on the old sea floor guards it, %s.")
 	elif item.begins_with("sp:"):

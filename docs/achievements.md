@@ -214,3 +214,32 @@ Play в листке ачивки. Где ещё показывать откры
 | клетка | **Don't Poke the Bird** | She's working. Let her work. | 10 тапов по канарейке | реплика канарейки |
 | луна | **Night Shift** | Miners don't sleep. Apparently, neither do you. | уровень между 3 и 4 часами ночи | ночной портрет |
 | два кристалла | **Déjà Vu** | Haven't we met? | две находки одного вида и формы подряд | жеода |
+
+## 12.11 — ачивки новых минералов и связей между минералами (88 строк)
+
+Восемь строк во вкладке Finds (`Awards.LIST`, после Rainbow in a Cube). Виды из `docs/showy-minerals.md` пока ни в одном
+руднике — их строки висят открытыми, как Noah's Ark; пары и замещения старых видов выпадают уже сейчас.
+
+| Иконка | Название | Текст | Условие | Награда |
+|---|---|---|---|---|
+| палитра с кристаллами | **Paintbox** | Orange panes, red barrels, blue suns. The mountain ran out of crystals and started on the paints. | 8 видов «не как кристалл»: вульфенит, ванадинит, крокоит, кавансит, диоптаз, эритрин, смитсонит, висмут | 4000 монет, редкая жеода, титул Colourist |
+| связка карандашей | **Pencil Case** | Eight colours, sharpened by a mountain. | 8 расцветок турмалина (`acc:tm_*`) | tourmaline gems |
+| арбузный срез | **A Slice of Summer** | Pink heart, green rind. Do not bite. | полированный срез турмалина (`tm_slice`) | 600 монет |
+| куб с маской | **Body Snatchers** | It took the shape. It took the place. The first owner left no forwarding address. | псевдоморфоза каждого из 8 видов (`pseudo:<вид>`) | редкая жеода |
+| кубы в колпаке шута | **The Fool Was Right** | Brassy cubes. Everyone laughed. This time it really is gold. | золото в форме пирита (`pseudo:gold:pyrite`) | 1500 монет |
+| два сросшихся кристалла | **Old Friends** | Some stones are never found alone. | 8 классических пар (`pair:a+b`): золото и кварц, пирит и флюорит, азурит и малахит, медь и куприт, галенит и сфалерит, киноварь и антимонит, марказит и кальцит-«собачий зуб», вульфенит и ванадинит | 1500 монет и жеода |
+| кристалл в самородках | **Midas Touch** | Everything he touched. This crystal, for one. | золото выросло на чужом кристалле (`perched:gold`) | жеода |
+| два кристалла с бантом | **Matchmaker** | You keep introducing them. They keep getting on. | 10 разных пар (счётчик `aw_ev.pairs`) | 2000 монет и жеода |
+
+Как считается (`Awards.genes_of`): псевдоморфоза даёт `pseudo:<вид>` и `pseudo:<вид>:<по кому>`; парагенезис — `pair:<a>+<b>`
+(виды по алфавиту, кто хозяин — неважно) и `perched:<металл>`, если металл растёт на самом кристалле. Последнее решает одно
+правило для построителя и ачивок — `SpecLooks.perch_roll` / `perches`. Новая пара считается в `Save.note_find`; сохранение
+дочитывает уже лежащие находки (`gver` 7). Подсказки у «?» — `Awards._where` (турмалин, `pseudo`, `pair`).
+
+Частоты (`tests/award_ties.tscn -- n=1500`, или `sp=<виды>` для видов без рудника): пара на руднике 5–8% находок с породой,
+15–20 разных пар на рудник (всего по 8 рудникам за 12 000 находок — 105); золото на кристалле в Old Adit 0,7% находок,
+золото по пириту 0,3%; псевдоморфозы в Медной горе ~7% (три вида), в остальных рудниках доли процента; арбузный срез — 15%
+турмалинов. Сейчас из Body Snatchers достижимы малахит, хризоколла, медь, золото, агат (рудники 1–5), опал — редко;
+из Old Friends — 5 пар из 8 (рудники 1–5).
+
+Значки — `art/ui_redesign/awards/gen_parts.sh <out> icons5` → `cut_parts.py <лист> icons5 godot/assets/awards`.

@@ -472,6 +472,17 @@ static func mates(sid: String) -> Array:
 const PERCH := ["gold", "nativecu", "pyrite", "marcasite"]
 const PERCH_FORMS := ["floater", "columnar", "radial", "single"]
 
+## does the metal grow on the crystal itself, not beside it: always where there is no rock, six times in ten where there is
+static func perch_roll(seed_v: int, rocky: bool) -> bool:
+	return not rocky or fposmod(seed_v * 0.6180339, 1.0) < 0.6
+
+## the same, told from the genome alone (the awards: Midas Touch) — the builder also wants a crystal of the species'
+## own glass to grow on, which these forms and lustres do not have
+const NO_PERCH := ["nugget", "botryoid", "vein", "sawn", "septaria", "balls", "fans", "staircase", "grapes", "slice", "geode", "obsidian"]
+static func perches(seed_v: int, mate: String, form: String, lustre: String) -> bool:
+	if not mate in PERCH or lustre in ["metal", "fossil"] or form in NO_PERCH: return false
+	return perch_roll(seed_v, not form in SpecGenome.NO_BASE)
+
 static func assoc_of(seed_v: int, sid: String, perch_only := false) -> String:
 	if sid in ASSOC_LONE or String(Data.HABIT.get(sid, "prism")) in ["fossil", "obsidian"]: return ""
 	var r := Rng32.new((seed_v * 2246822519 + 853) % 4294967296)

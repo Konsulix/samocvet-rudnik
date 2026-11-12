@@ -112,7 +112,9 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	var gs: Array = Awards.genes_of(s)
 	Awards.note_pity(s, gs)   # (before its genes count as seen: did it bring a missing piece?)
 	for t in gs:
-		if not d.genes.has(t): d.genes.append(t)
+		if not d.genes.has(t):
+			d.genes.append(t)
+			if String(t).begins_with("pair:"): d.aw_ev.pairs = int(d.aw_ev.get("pairs", 0)) + 1    # Awards: Matchmaker
 		if not d.gfirst.has(t): d.gfirst[t] = Awards.summary(s, a, dl)
 	# the achievements a find itself can bring (set straight in the save: this runs while the save loads too)
 	var mk: Array = Awards.find_marks(s, gs)

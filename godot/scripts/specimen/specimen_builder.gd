@@ -1136,7 +1136,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	if mate != "":
 		# a metal may grow on the crystal itself (gold clinging to quartz) — always where there is no rock to grow on
 		var perch: bool = mate in SpecLooks.PERCH and main != null and main.has_meta("geo") and mat != null and main.material_override == mat \
-			and (not st.rocky or fposmod(seed_v * 0.6180339, 1.0) < 0.6)
+			and SpecLooks.perch_roll(seed_v, bool(st.rocky))
 		if perch:
 			SpecForms.perch(self, mate, main, gs, seed_v)
 		elif st.rocky:
