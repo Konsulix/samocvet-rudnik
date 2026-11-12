@@ -324,6 +324,7 @@ func _ready() -> void:
 				st.shrooms = true
 				Save.d.coll.append(st)
 				if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+				Save.note_find(st, 0, int(st.dl))   # (the atlas and the achievements know them, as finds of a level)
 				made += 1
 		Save.persist()
 	if args.has("mine4"):

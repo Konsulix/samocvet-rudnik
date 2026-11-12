@@ -98,11 +98,14 @@ func _init() -> void:
 		d.area = int(d.area_back)
 		d.area_back = -1
 	d.reached = maxi(int(d.reached), int(d.area))
+	looks_to_board()
+
+func _ready() -> void:
 	# the atlas came after the collection: the stones already kept are its first entries
+	# (here and not in _init: the achievements read the save by its global name, which is not there until this is made)
 	if d.atlas.is_empty():
 		for s in d.coll:
 			note_find(s, int(s.get("area", 0)), int(s.get("dl", 0)))
-	looks_to_board()
 
 ## the atlas remembers every species ever found, whatever became of the stone: sid -> {best = the most valuable
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
