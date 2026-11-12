@@ -1,6 +1,6 @@
 extends Node3D
 ## The mushrooms alone, big: a cluster of every kind and every look of it on a dark stone, lit as a find is.
-## `"$G" --path godot --resolution 1560x780 res://tests/fungi_view.tscn -- shot=user://fungi.png [count=6] [dark]`
+## `"$G" --path godot --resolution 1560x780 res://tests/fungi_view.tscn -- shot=user://fungi.png [count=6] [dark] [kind=3]`
 ## (dark: the room goes dark, as under a fluorescent find's ultraviolet — the mycena's glow)
 
 func _ready() -> void:
@@ -31,9 +31,12 @@ func _ready() -> void:
 	add_child(fill)
 	var cells := []
 	for kind in SpecFungi.KINDS.size():
+		if args.has("kind") and int(args.kind) != kind: continue
 		for look in (SpecFungi.KINDS[kind].looks as Array).size():
-			cells.append([kind, look])
-	var cols := 6
+			# (kind=N: that kind alone, three clusters of it, close)
+			for rep in (3 if args.has("kind") else 1):
+				cells.append([kind, look])
+	var cols := mini(6, cells.size())
 	var rows := int(ceil(cells.size() / float(cols)))
 	var rock := SphereMesh.new()
 	rock.radius = 0.62
@@ -73,7 +76,7 @@ func _ready() -> void:
 	if dark:
 		RenderingServer.global_shader_parameter_set("fluor_uv", 1.0)
 	var cam := Camera3D.new()
-	cam.position = Vector3(0, 1.6, 9.5)
+	cam.position = Vector3(0, 1.6, 9.5) if cells.size() > 6 else Vector3(0, 0.75 + 0.1 * cols, 1.2 + 1.45 * cols)
 	cam.rotation = Vector3(-0.15, 0, 0)
 	cam.fov = 30
 	add_child(cam)

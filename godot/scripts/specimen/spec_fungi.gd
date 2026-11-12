@@ -3,8 +3,9 @@ extends RefCounted
 ## Mushrooms on the host rock (the "mushrooms" gene): eight kinds, every one a real mushroom — scans and models
 ## (assets/specimen/fungi, CREDITS.md there; made light by prototype/tools/mushrooms/shroom_prep.py), each mesh one unit
 ## tall on its foot, with its colour and relief baked into two textures and drawn by shaders/fungi_model.gdshader.
-## A kind may have several looks — the boletes four species, the fly agarics the red one and the golden — and a find
-## grows one of them; the panther caps come in three ages (grown, half open, a button), the honey fungus and the oysters
+## A kind may have several looks — the fly agarics the red one and the golden — and a find grows one of them; a look
+## may be several models mixed in one cluster (the boletes: four species side by side, or the same mushroom thrice over
+## catches the eye); the panther caps come in three ages (grown, half open, a button), the honey fungus and the oysters
 ## as whole tufts. The glowing mycena glows, more so when the studio goes dark.
 ## A cluster grows from one spot on the rock: a grown one and young ones of every size around it.
 ## Decisions and placement use their own random stream (seeded from the stone).
@@ -12,6 +13,8 @@ extends RefCounted
 const NAMES := ["fly agarics", "chanterelles", "boletes", "glowing mycena", "honey fungus", "morels", "blue oysters", "panther caps"]
 const DIR := "res://assets/specimen/fungi/"
 const SHADER: Shader = preload("res://shaders/fungi_model.gdshader")
+const HALO: Shader = preload("res://shaders/fungi_halo.gdshader")
+const GLOW_COL := Color(0.2, 1.0, 0.45)   # (the glowing ones' light on the rock round them)
 
 ## looks: the models of each look ([[name, ...], ...]; one look to a find, its models mixed in the cluster);
 ## k: how tall a grown one stands beside the size asked for; tuft: the model is a whole tuft (fewer of them, none tiny);
@@ -20,8 +23,8 @@ const SHADER: Shader = preload("res://shaders/fungi_model.gdshader")
 const KINDS := [
 	{looks = [["agaric_red"], ["agaric_gold_a", "agaric_gold_b"]], k = 1.0, rough = 0.4, gain = 0.95, sat = 1.15},
 	{looks = [["chanterelle"]], k = 0.66, gain = 1.25},
-	{looks = [["bolete_brown"], ["bolete_jack"], ["bolete_suede"], ["bolete_wine"]], k = 0.82, rough = 0.45},
-	{looks = [["mycena"]], k = 0.95, glow = 2.4, tint = Color(0.7, 1.0, 0.8), gain = 1.25, sat = 0.4},
+	{looks = [["bolete_brown", "bolete_jack", "bolete_suede", "bolete_wine"]], k = 0.82, rough = 0.45},
+	{looks = [["mycena"]], k = 0.95, glow = 2.6, tint = Color(0.82, 0.92, 0.84), gain = 0.75, sat = 0.3},
 	{looks = [["honey"]], k = 0.95, tuft = true, shelf = true, rough = 0.4},
 	{looks = [["morel"]], k = 0.9, gain = 1.15},
 	{looks = [["oyster"]], k = 0.85, tuft = true, shelf = true, rough = 0.45},
@@ -31,6 +34,8 @@ const KINDS := [
 static var _meshes := {}
 static var look_pin := -1
 static var _mats := {}
+static var _halo: ShaderMaterial
+static var _quad: QuadMesh
 
 ## does this stone grow mushrooms, and which kind (-1: none). Its own random stream, not the genome's.
 ## (the honey fungus grows on dead wood only: SpecWood asks for it by number)
@@ -39,6 +44,11 @@ static func roll(seed_v: int) -> int:
 	if r.next() > 0.14:
 		return -1
 	return int(Stones.pick_w([[0, 3.0], [1, 2.5], [2, 2.5], [3, 1.4], [5, 1.6], [6, 1.3], [7, 1.6]], r))
+
+## which look of its kind a find grows (one to a find, every cluster on it the same): from the stone's seed
+static func find_look(seed_v: int, kind: int) -> int:
+	var n: int = (KINDS[kind].looks as Array).size()
+	return mini(int(Rng32.new((seed_v * 40503 + 977) % 4294967296).next() * n), n - 1)
 
 static func model(name: String) -> Mesh:
 	if not _meshes.has(name):
@@ -72,12 +82,14 @@ static func material(kind: int) -> ShaderMaterial:
 ## one cluster of `kind` round a spot of `spots` ([pos, normal]); size: the height of a grown one
 ## blockers: the crystals ({bounds, inverse}: their box in their own axes, and the way into them) no cap may grow into.
 ## Gives the spot of the biggest cap, or an empty array when none found room
-static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array = []) -> Array:
+## pick: the look of the kind (find_look); -1 — any
+static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array = [], pick := -1) -> Array:
 	if spots.is_empty():
 		return []
 	var K: Dictionary = KINDS[kind]
 	var looks: Array = K.looks
 	var look: Array = looks[mini(int(rng.next() * looks.size()), looks.size() - 1)]
+	if pick >= 0: look = looks[mini(pick, looks.size() - 1)]
 	if look_pin >= 0: look = looks[mini(look_pin, looks.size() - 1)]   # (tests/fungi_view: this look and no other)
 	var tuft: bool = K.get("tuft", false)
 	var ages: bool = K.get("ages", false)
@@ -148,5 +160,39 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 		mi.multimesh = mm
 		mi.material_override = mat_of(name, kind)
 		parent.add_child(mi)
+	# the glowing ones: a soft light round every cap, and a little of it on the rock
+	if float(K.get("glow", 0.0)) > 0.0:
+		if _halo == null:
+			_halo = ShaderMaterial.new()
+			_halo.shader = HALO
+			_halo.render_priority = 100   # (after the crystals' glass, which draws over what is behind it)
+			_quad = QuadMesh.new()
+		var caps := []
+		for name: String in placed:
+			for xf: Transform3D in placed[name][0]:
+				caps.append(xf)
+		var hb := SpecUtil.mm_buf(caps.size())
+		for k in caps.size():
+			var cx: Transform3D = caps[k]
+			var s := cx.basis.y.length()
+			SpecUtil.put(hb, k, Transform3D(Basis.from_scale(Vector3.ONE * s * 1.25), cx * Vector3(0, 0.88, 0)), Color(rng.next(), 1, 1, 1))
+		var hm := MultiMesh.new()
+		hm.transform_format = MultiMesh.TRANSFORM_3D
+		hm.use_colors = true
+		hm.mesh = _quad
+		hm.instance_count = caps.size()
+		hm.buffer = hb
+		var hi := MultiMeshInstance3D.new()
+		hi.multimesh = hm
+		hi.material_override = _halo
+		hi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parent.add_child(hi)
+		var lt := OmniLight3D.new()
+		lt.light_color = GLOW_COL
+		lt.light_energy = 0.7
+		lt.omni_range = size * 2.6
+		lt.omni_attenuation = 1.4
+		lt.position = first[0] + (first[1] as Vector3) * size * 0.25
+		parent.add_child(lt)
 	# the middle of the biggest cap
 	return first

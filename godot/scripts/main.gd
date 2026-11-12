@@ -288,6 +288,44 @@ func _ready() -> void:
 			st.dl = i % 6
 			Save.d.coll.append(st)
 		Save.persist()
+	if args.has("shrooms"):
+		# test data: a find with every kind of mushroom and every look of it (SpecFungi.KINDS; the honey fungus on its
+		# driftwood): `-- save=shrooms screen=stones shrooms`; marked test, old ones from a previous run are replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("shrooms", false))
+		# (a lone crystal or a small pile on open rock: the mushrooms have room and are plain to see)
+		var hosts := ["garnet", "quartz", "fluorite", "calcite", "amethyst"]
+		var sd := 120000
+		var made := 0
+		for kind in SpecFungi.KINDS.size():
+			for look in (SpecFungi.KINDS[kind].looks as Array).size():
+				var st := {}
+				while true:
+					st = Stones.roll(sd, 0, 1.2, 2)
+					sd += 1
+					st.traits = []
+					st.legend = false
+					if kind == 4:
+						st.sid = "petrified_wood"
+						st.kind = "fossil"
+						var wg := SpecFossil.genes(int(st.id), "petrified_wood", [])
+						if String(wg.show) == "driftwood" and bool(wg.fungi): break
+						continue
+					st.sid = hosts[sd % hosts.size()]   # (a host that never grows them alone would hang the search)
+					st.kind = "crystal"
+					st.shroom = kind
+					if SpecFungi.find_look(int(st.id), kind) != look: continue
+					var gn := SpecGenome.of(Spec.of_stone(st))
+					if "mushrooms" in (gn.accents as Array) and String(gn.form) in ["single", "pile"]: break
+				st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+				st.area = 0
+				st.dl = made % 6
+				st.value = Stones.price(st, 0, int(st.dl))
+				st.test = true
+				st.shrooms = true
+				Save.d.coll.append(st)
+				if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+				made += 1
+		Save.persist()
 	if args.has("mine4"):
 		# test data: Fire Horizon's finds, a few of each species as the mine rolls them: `-- screen=stones mine4`;
 		# marked test (admin → Remove test finds), old ones from a previous run are replaced
