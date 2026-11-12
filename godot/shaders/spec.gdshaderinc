@@ -53,6 +53,7 @@ uniform vec3 heart_pos = vec3(0.0);
 uniform vec3 heart_col = vec3(2.0, 1.6, 1.2);
 global uniform float heart_beat;  // 0..1, a lub-dub heartbeat shared with the core, its halo and its light (Spec)
 uniform float oil_k = 0.0;      // dark lustrous stones: an oil-slick rainbow in their reflections
+uniform float peacock_k = 0.0;  // chalcopyrite: brass tarnished like a peacock's neck, in patches and whole faces (0.5 a little of it … 1.5 nearly all)
 uniform float rough_var = 0.0;  // metals: polished bumps, dull hollows
 uniform float d_ao = 0.0;       // rocks: vertex colour carries the shading of pits and ridges
 // photo-scanned rock, laid on from three sides (no UVs needed)
@@ -477,6 +478,36 @@ void fragment() {
 		// glinting scratches and chips along the faces
 		float sc = smoothstep(0.82, 0.9, vn(v_op * vec3(4.0, 40.0, 4.0)));
 		r = mix(r, 0.05, sc * 0.6);
+	}
+	if (peacock_k > 0.0) {
+		// peacock ore: the brass keeps its gold where the film is thin, and elsewhere goes magenta, purple, deep blue,
+		// teal — some faces wholly (one value to a flat face), others in patches. The film is on metal: it colours
+		// what the face mirrors, so the colours stay deep where no lamp is and flare where one is
+		// (the brass is the metal's colour alone: under the species' own brass in the vertices it came out orange —
+		// only how light the vertex is stays)
+		float pvl = clamp(max(COLOR.r, max(COLOR.g, COLOR.b)) * 1.6, 0.6, 1.0);
+		base = mix(base, albedo * pvl, pow(1.0 - dirt, 3.0));
+		vec3 pfn = normalize(cross(dFdx(v_op), dFdy(v_op)) + vec3(1e-6));
+		float pf = dot(pfn, vec3(1.7, 2.3, 1.1));
+		float plo = mix(0.64, 0.3, clamp(peacock_k - 0.5, 0.0, 1.0));
+		float pm = smoothstep(plo, plo + 0.24, fbm(v_op * 1.1 + 9.0) * 0.7 + 0.3 * (0.5 + 0.5 * sin(pf * 5.0))) * (1.0 - dirt);
+		// (the colour drifts slowly over a face and with the angle it is seen at, as a film's does)
+		float ph = fract(vn(v_op * 0.9 + 3.0) * 0.9 + vn(v_op * 2.6 + 7.0) * 0.25 + pf * 0.21 + o_fr * 0.35);
+		vec3 pc = ph < 0.2 ? mix(vec3(0.5, 0.3, 0.03), vec3(0.46, 0.02, 0.17), ph * 5.0)
+			: ph < 0.45 ? mix(vec3(0.46, 0.02, 0.17), vec3(0.17, 0.02, 0.44), (ph - 0.2) * 4.0)
+			: ph < 0.72 ? mix(vec3(0.17, 0.02, 0.44), vec3(0.02, 0.09, 0.5), (ph - 0.45) / 0.27)
+			: ph < 0.88 ? mix(vec3(0.02, 0.09, 0.5), vec3(0.02, 0.3, 0.34), (ph - 0.72) / 0.16)
+			: mix(vec3(0.02, 0.3, 0.34), vec3(0.5, 0.3, 0.03), (ph - 0.88) / 0.12);
+		base = mix(base, pc, pm);
+		m = mix(m, 1.0, pm);
+		r = mix(r, r * 0.7, pm);
+		e += pc * pm * (0.035 + 0.3 * o_fr * o_fr);
+		// the clean brass: a little uneven, so a face is not one flat tone, and lit a little from itself (a dark
+		// studio mirrored in gold reads as brown)
+		float pg = fbm(v_op * 7.0 + 1.0);
+		base *= mix(1.0, 0.78 + 0.34 * pg, 1.0 - pm);
+		r = clamp(r + (pg - 0.5) * 0.2, 0.04, 1.0);
+		e += base * (1.0 - pm) * (1.0 - dirt) * 0.11;
 	}
 	if (rough_var > 0.0) {
 		r = clamp(r + (fbm(v_op * 18.0) - 0.5) * rough_var + (1.0 - COLOR.g) * rough_var, 0.04, 1.0);

@@ -809,7 +809,7 @@ static func mat_of(sid: String, seed_v: int) -> ShaderMaterial:
 	var look := SpecLooks.of(sid)
 	if look.has("metal_col"):
 		return SpecMat.make({col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true,
-			env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), prio = 2})
+			env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), peacock = float(look.get("peacock", 0.0)) * (0.55 + 0.9 * fposmod(float(seed_v) * 0.6180339, 1.0)), prio = 2})
 	if sid in ["pyrite", "hematite", "galena"] or String(Data.HABIT.get(sid, "")) == "nugget":
 		return SpecMat.make({col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, prio = 2})
 	if look.has("opaque"):

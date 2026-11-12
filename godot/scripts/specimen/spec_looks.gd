@@ -24,6 +24,8 @@ extends RefCounted
 ## ir      how much rainbow film / holographic sheen the species takes (1 as before)
 ## metal_col  a metal species' own colour (hematite's dark steel)
 ## tarnish the rainbow tarnish over the metal (hematite's iridescent "rainbow hematite"), 0.5 when not set
+## peacock chalcopyrite's own tarnish: deep blue, purple and magenta in patches and whole faces, the brass left between
+##         (how much of the stone it takes differs stone to stone: from its seed)
 ## rose_metal  the rosette's blades in steel (hematite's iron rose)
 ## dense   how many crystals a druse packs (x)
 ## flat_top  its columns end flat or bevelled, never in a point (barite's tablets)
@@ -128,7 +130,7 @@ const LOOK := {
 	natrolite = {stria = [0.7, 1.0], zone = [0, 0.0, 0.0], forms = [["spray", 5.0], ["radial", 1.5]], kinds = [["druse", 4.0], ["crystal", 3.0], ["geode", 1.0]],
 		rock = [["basalt", 5.0]], hk = 2.6, wk = 0.25, dark = 0.0, glass = {frost = 0.3, tint = 0.15, glow = 0.12}, dense = 1.6, ir = 0.25},
 	chalcopyrite = {forms = [["cluster", 4.0], ["pile", 2.0]], kinds = [["druse", 5.0], ["crystal", 3.0]], rock = [["quartzite", 3.0], ["limestone", 1.0]],
-		metal_col = 0xc8a23a, mrough = 0.25, menv = 2.0, tarnish = 1.0, with = [["blades", 0xeef2f6, 0.35, "rockcrystal"]]},
+		metal_col = 0xe0c85c, mrough = 0.18, menv = 2.0, tarnish = 0.0, peacock = 1.0, stria = [0.5, 2.0], with = [["blades", 0xeef2f6, 0.35, "rockcrystal"]]},
 	japan_quartz = {forms = [["single", 4.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 2.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
 		hk = 1.0, wk = 1.15, dark = 0.0, sig = ["twin"], glass = {frost = 0.04}},
 	acanthite = {wire = true, forms = [["cluster", 4.0], ["pile", 2.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["quartzite", 3.0], ["slate", 1.0]],
@@ -408,7 +410,7 @@ const PSEUDO := {
 			palette = [[0x148a8a, 0x148a8a, 4.0], [0x3c9028, 0x3c9028, 2.0], [0xb83a74, 0xb83a74, 2.0], [0x6a48c0, 0x6a48c0, 1.5], [0xc08c0c, 0xc08c0c, 1.5]]}},
 }
 ## what a species' look says of its body, not of its crystals: none of it passes to its pseudomorph
-const BODY_KEYS := ["opaque", "glass", "metal_col", "mrough", "menv", "tarnish", "palette", "ir", "growths", "no_acc", "agate", "core", "zone", "sig",
+const BODY_KEYS := ["opaque", "glass", "metal_col", "mrough", "menv", "tarnish", "peacock", "palette", "ir", "growths", "no_acc", "agate", "core", "zone", "sig",
 	"more", "with", "wire", "mica", "trapiche", "rose", "rose_metal", "sawn", "dark", "kinds", "rock"]
 
 ## the species this find took the place of ("" for none): its own stream, so no other gene moves

@@ -282,7 +282,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			# (hematite: dark steel — SpecLooks metal_col)
 			if look.has("metal_col"):
 				# hematite's steel: darker, less mirror, its tarnish a rainbow in patches
-				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = stria if look.has("stria") else 0.4, st_mode = st_mode, dirt = dt, prio = 2}
+				return {col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true, env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), peacock = float(look.get("peacock", 0.0)) * (0.55 + 0.9 * fposmod(float(seed_v) * 0.6180339, 1.0)), ir = float(look.get("tarnish", 0.0)) * 0.2, st = stria if look.has("stria") else 0.4, st_mode = st_mode, dirt = dt, prio = 2}
 			return {col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, st = stria if look.has("stria") else 1.0, st_mode = st_mode, dirt = dt, prio = 2}
 		var op := 0.36 + (0.14 if gi < 2 else 0.0) if layout == "columnar" or layout == "cluster" else 0.8 if habit == "octa" or habit == "dodeca" else maxf(0.5, 0.82 - gi * 0.07)
 		# an opaque species (SpecLooks opaque: aragonite's wax, realgar's resin): no glass, a lit surface of its colour
