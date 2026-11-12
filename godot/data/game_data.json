@@ -407,6 +407,60 @@
    "c": "#6fe8d0",
    "v": 420,
    "r": 3
+  },
+  "wulfenite": {
+   "n": "Wulfenite",
+   "c": "#f08a1c",
+   "v": 90,
+   "r": 1
+  },
+  "vanadinite": {
+   "n": "Vanadinite",
+   "c": "#d0281a",
+   "v": 80,
+   "r": 1
+  },
+  "crocoite": {
+   "n": "Crocoite",
+   "c": "#f2440e",
+   "v": 160,
+   "r": 2
+  },
+  "cavansite": {
+   "n": "Cavansite",
+   "c": "#1478e0",
+   "v": 180,
+   "r": 2
+  },
+  "dioptase": {
+   "n": "Dioptase",
+   "c": "#0a9a78",
+   "v": 220,
+   "r": 2
+  },
+  "erythrite": {
+   "n": "Erythrite",
+   "c": "#c81e72",
+   "v": 110,
+   "r": 2
+  },
+  "smithsonite": {
+   "n": "Smithsonite",
+   "c": "#6accc8",
+   "v": 60,
+   "r": 1
+  },
+  "bismuth": {
+   "n": "Bismuth",
+   "c": "#b8a8c8",
+   "v": 300,
+   "r": 3
+  },
+  "tourmaline": {
+   "n": "Tourmaline",
+   "c": "#e0508a",
+   "v": 380,
+   "r": 3
   }
  },
  "GR": [
@@ -3101,7 +3155,16 @@
   "whewellite": "prism",
   "enhydro": "prism",
   "millerite": "prism",
-  "ember": "prism"
+  "ember": "prism",
+  "wulfenite": "tablet",
+  "vanadinite": "hexbarrel",
+  "crocoite": "prism",
+  "cavansite": "ball",
+  "dioptase": "rhombcap",
+  "erythrite": "blade",
+  "smithsonite": "grape",
+  "bismuth": "hopper",
+  "tourmaline": "prism"
  },
  "TRAITS": [
   {

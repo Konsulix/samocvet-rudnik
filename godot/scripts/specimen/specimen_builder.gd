@@ -297,7 +297,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			lava = 1.0 if gene.fx == "lava" else 0.0,
 			frost = float((look.get("glass", {}) as Dictionary).get("frost", 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25)), thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
 			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0)),
-			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06))}
+			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06)), deep_body = float((look.get("glass", {}) as Dictionary).get("deep", 0.0))}
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
 		var m := SpecMat.make(d)
@@ -356,7 +356,19 @@ func _specimen(o: Dictionary) -> Node3D:
 	var lean := func(d: Vector3, a: float) -> Vector3:
 		return (d + Vector3((rng.next() - 0.5) * a, 0, (rng.next() - 0.5) * a)).normalized()
 
+	# what the showy minerals' own layouts (SpecForms) need of all this
+	var sf := {st = st, col = col, gs = gs, look = look, zcfg = zcfg, kind = kind, gene = gene, ero = ero, seed = seed_v, sid = sid,
+		use_rock = use_rock, any_cmat = any_cmat, cmat_spec = cmat_spec, make_cmat = make_cmat, crystal = crystal, lean = lean}
 	match layout:
+		"tablets": main = SpecForms.tablets(self, sf)
+		"barrels": main = SpecForms.barrels(self, sf)
+		"jackstraw": main = SpecForms.jackstraw(self, sf)
+		"balls": main = SpecForms.balls(self, sf)
+		"fans": main = SpecForms.fans(self, sf)
+		"staircase": main = SpecForms.staircase(self, sf)
+		"pencils": main = SpecForms.pencils(self, sf)
+		"slice": main = SpecForms.slice(self, sf)
+		"grapes": main = SpecForms.grapes(self, sf)
 		"ammonite":
 			main = SpecFossil.ammonite(self, gene, use_rock)
 		"petrified_wood":
@@ -1083,7 +1095,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			var inner := Geo.box(bb.size.x * float(cc[1]), bb.size.y * float(cc[1]), bb.size.z * float(cc[1]))
 			U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
 	# genes that shape or colour the crystals themselves: there only if crystals grew
-	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid", "sawn"])
+	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid", "sawn", "balls", "fans", "staircase", "grapes"])
 	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))
 	if "floater" in tr and layout == "floater": _mark("floater", _mid(main, 0.15))
 	if "atypical" in tr and main: _mark_on("atypical", main)
@@ -1917,7 +1929,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 # inside the main crystal: a ghost of an earlier crystal, golden rutile hairs, a milky core, inclusions and veils
 func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Color, gi: int, tr: Array, legend: bool, layout: String, seed_v: int) -> void:
 	# (nothing "inside the crystal" in a lump, a pebble or a polished face: those are no crystal)
-	var ok := main != null and mat != null and not (layout in ["botryoid", "sawn", "septaria"])
+	var ok := main != null and mat != null and not (layout in ["botryoid", "sawn", "septaria", "balls", "fans", "staircase", "slice", "grapes"])
 	var h := 1.2
 	var g: Geo = main.get_meta("geo") if main else null
 	var bb := g.aabb() if g else AABB()
@@ -2270,7 +2282,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 			var L: Array = list[k]
 			return [Transform3D(Basis(U.quat_to(UP, L[1])) * Basis.from_scale(Vector3(L[3], L[2], L[3])), L[0]), L[4]]
 		U.inst(geo, m, list.size(), place, root)
-	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria"]) and not (gene_m.lustre == "fossil" and not st.rock)
+	var has_base: bool = not (layout in ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "staircase", "slice"]) and not (gene_m.lustre == "fossil" and not st.rock)
 	var strong := "coral" in tr
 	var style := -1
 	if has_base:

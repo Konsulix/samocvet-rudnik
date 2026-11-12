@@ -194,6 +194,45 @@ const LOOK := {
 	ember = {zone = [0, 0.0, 0.0], forms = [["single", 4.0], ["cluster", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
 		rock = [["slate", 3.0]], hk = 1.5, wk = 0.7, dark = 0.0, glass = {tint = 0.8, frost = 0.1, glow = 0.9}, ir = 0.25,
 		palette = [[0x6fe8d0, 0x6fe8d0, 4.0], [0x5ab8ff, 0x5ab8ff, 1.5]]},
+	# The showy ones (12.11, docs/showy-minerals.md) — minerals that do not read as "a crystal": each its own layout
+	# (SpecForms) and a colour no other species has. For the mines to come; in no pool yet.
+	# wulfenite: orange window-panes — thin square plates stood on edge and corner, bevelled, glowing like stained glass
+	wulfenite = {zone = [0, 0.0, 0.0], stria = [0.0, 0.0], forms = [["tablets", 1.0]], kinds = [["crystal", 4.0], ["druse", 4.0]],
+		rock = [["ironstone", 3.0], ["limestone", 2.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.3, deep = 0.7, frost = 0.0, glow = 0.2}, ir = 0.15, foot_frost = false,
+		palette = [[0xf06408, 0xf06408, 4.0], [0xf08a10, 0xf08a10, 3.0], [0xe83c0a, 0xe83c0a, 2.0], [0xf09410, 0xf09410, 1.5]],
+		with = [["crust", 0x8ec83a, 0.3, "mimetite"]]},
+	# vanadinite: red barrels — short six-sided prisms, flat-ended, crowding white barite or black gossan
+	vanadinite = {zone = [0, 0.0, 0.0], stria = [0.0, 0.0], forms = [["barrels", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
+		rock = [["gypsum", 3.0], ["ironstone", 3.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.5, deep = 0.95, frost = 0.0, glow = 0.09}, ir = 0.08, foot_frost = false,
+		hk = 0.8, wk = 1.0, palette = [[0xd0140a, 0xd0140a, 4.0], [0xe03a0c, 0xe03a0c, 3.0], [0xa81a0c, 0xa81a0c, 1.5], [0xe86410, 0xe86410, 1.0]],
+		with = [["blades", 0xf2ece0, 0.4, "barite"]]},
+	# crocoite: scarlet jackstraws — long thin square needles thrown across one another, on brown gossan
+	crocoite = {zone = [0, 0.0, 0.0], stria = [1.0, 1.0], forms = [["jackstraw", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0]],
+		rock = [["ironstone", 5.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.35, deep = 0.8, frost = 0.0, glow = 0.15}, ir = 0.1, foot_frost = false,
+		palette = [[0xf03406, 0xf03406, 4.0], [0xf85008, 0xf85008, 2.0], [0xe01a06, 0xe01a06, 1.5]]},
+	# cavansite: electric-blue balls of blades on a bed of white zeolite over black basalt
+	cavansite = {forms = [["balls", 1.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["basalt", 4.0], ["lava", 1.0]], dark = 0.0,
+		opaque = {rough = 0.22, coat = 0.75, grain = 0.02}, growths = 0.6, no_acc = ["pompom", "straw", "needles", "crust", "dust"],
+		palette = [[0x0646d8, 0x0646d8, 4.0], [0x0a6ae8, 0x0a6ae8, 2.0], [0x0688d0, 0x0688d0, 1.5]]},
+	# dioptase: stubby emerald-teal prisms under three-sided caps, a glittering crust of them on white calcite
+	dioptase = {zone = [0, 0.0, 0.0], stria = [0.0, 0.0], forms = [["barrels", 1.0]], kinds = [["druse", 1.0]],
+		rock = [["gypsum", 3.0], ["limestone", 2.0], ["ironstone", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.5, deep = 1.0, frost = 0.0, glow = 0.07}, ir = 0.06,
+		foot_frost = false, hk = 0.62, wk = 1.0, dense = 1.25, palette = [[0x04a070, 0x04a070, 4.0], [0x068a80, 0x068a80, 2.0], [0x08a858, 0x08a858, 1.5]],
+		with = [["blades", 0xf2efe8, 0.35, "rockcrystal"]]},
+	# erythrite, the cobalt bloom: fans and stars of magenta blades on dark rock, pink dust round them
+	erythrite = {forms = [["fans", 1.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["slate", 3.0], ["quartzite", 2.0], ["basalt", 1.0]], dark = 0.0,
+		opaque = {rough = 0.26, coat = 0.7, grain = 0.02}, growths = 0.6, no_acc = ["pompom", "straw", "needles", "crust", "dust"],
+		palette = [[0xc00c5c, 0xc00c5c, 4.0], [0x980a58, 0x980a58, 2.0], [0xd82478, 0xd82478, 1.5]]},
+	# smithsonite: pearly bubbles in pastels no other stone has: sea-teal, apple, rose, lavender, "turkey fat" yellow
+	smithsonite = {forms = [["grapes", 1.0]], kinds = [["crystal", 1.0]], rock = [["ironstone", 3.0], ["limestone", 1.0]], dark = 0.0, growths = 0.5,
+		opaque = {rough = 0.16, coat = 1.0, grain = 0.0}, no_acc = ["pompom", "straw", "needles", "crust", "dust"],
+		palette = [[0x1eb0b0, 0x1eb0b0, 4.0], [0x5ac040, 0x5ac040, 2.0], [0xe05a98, 0xe05a98, 2.0], [0x8a68e0, 0x8a68e0, 1.5], [0xe8b018, 0xe8b018, 1.5]]},
+	# bismuth: rainbow staircases, hopper crystals grown through one another; no rock, nothing grows on it
+	bismuth = {forms = [["staircase", 1.0]], kinds = [["crystal", 1.0]], dark = 0.0, metal_col = 0xd8c8d8, growths = 0.0},
+	# tourmaline: striped pencils in white feldspar with lilac mica (and now and then a polished watermelon slice)
+	tourmaline = {zone = [0, 0.0, 0.0], stria = [1.6, 1.0], forms = [["pencils", 5.0], ["slice", 0.8]], kinds = [["crystal", 5.0], ["druse", 2.0]],
+		rock = [["gypsum", 4.0], ["quartzite", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.45, deep = 0.85, frost = 0.0, glow = 0.1}, ir = 0.08, foot_frost = false,
+		with = [["blades", 0xeef2f6, 0.3, "rockcrystal"]]},
 }
 
 ## the species' say over the shared genes (docs/species-genes.md §4): `love` — {gene id: ×chance}, a rare trait
@@ -252,6 +291,16 @@ const AFFINITY := {
 	whewellite = {love = {twin = 3.0}, never = ["rutile"]},
 	millerite = {never = ["moss", "coral", "pompom", "straw", "needles"]},
 	ember = {never = ["irid"]},
+	wulfenite = {love = {zoned = 2.0, druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss", "coral"]},
+	vanadinite = {love = {druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss"]},
+	crocoite = {never = ["rutile", "phantom", "enhydro", "chlorite", "moss", "coral", "bubbles", "floater"]},
+	cavansite = {never = ["zoned", "eroded", "druzy", "bubbles", "limonite", "coral"]},
+	dioptase = {love = {druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss"]},
+	erythrite = {never = ["zoned", "eroded", "druzy", "bubbles", "limonite", "coral", "moss"]},
+	smithsonite = {never = ["bubbles", "phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]},
+	# bismuth stands alone, its rainbow its own
+	bismuth = {never = ["pompom", "straw", "lichen", "needles", "crust", "dust", "fronds", "flowers", "mushrooms", "inkspots", "clouds", "moss", "coral", "twin", "druzy", "bubbles", "rutile", "phantom", "irid", "aurora", "zoned", "eroded", "silver", "goldfleck", "anomaly", "enhydro", "chlorite", "limonite", "floater", "scepter"]},
+	tourmaline = {never = ["zoned", "rutile", "phantom", "chlorite", "moss", "coral", "eroded", "floater"]},
 }
 
 ## the traits that live in clear glass, and those that need crystals grown out of a rock
@@ -300,6 +349,7 @@ const ODD := {
 	celestine = [["rosette", 1.5], ["radial", 1.0]],
 	gypsum = [["pile", 1.0], ["columnar", 1.0]],
 	olivine = [], needle = [], millerite = [],
+	wulfenite = [], vanadinite = [], crocoite = [], cavansite = [], dioptase = [], erythrite = [], smithsonite = [], bismuth = [], tourmaline = [],
 }
 const ODD_BY_HABIT := {
 	prism = [["radial", 1.0], ["slabs", 1.0], ["floater", 0.7], ["columnar", 1.0], ["pile", 0.7]],

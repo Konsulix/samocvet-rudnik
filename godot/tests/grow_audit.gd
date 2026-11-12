@@ -4,6 +4,7 @@ extends Control
 ## animal skulls — and counts for each gene how often it was rolled and how often it really grew; the misses with the
 ## species and form, so the cause can be found. Out: user://grow_audit.txt (+ .jsonl, one line a find).
 ##   godot --path godot --resolution 400x400 res://tests/grow_audit.tscn -- [n=25] [skulls=40] [beasts=3] [legend=5] [only=areas|skulls|beasts]
+##   sp=wulfenite,bismuth n=12: only those species (in a pool or not), their kinds as the game rolls them
 
 func _ready() -> void:
 	var args := {}
@@ -14,6 +15,21 @@ func _ready() -> void:
 	var only := String(args.get("only", ""))
 	var finds := []
 	var rng := Rng32.new(int(args.get("base", "11")))
+	if args.has("sp"):
+		only = "sp"
+		var k := 0
+		for sid: String in String(args.sp).split(","):
+			for i in n:
+				var sd := 400000 + k * 7919
+				var s := Stones.roll(sd, 0, 1.5, int(rng.next() * 6))
+				s.sid = sid
+				s.kind = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else String(Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977)))
+				var nv := SpecLooks.never(sid)
+				s.traits = (s.traits as Array).filter(func(t: String) -> bool: return not t in nv)
+				s.legend = i % int(args.get("legend", "4")) == 0
+				for e in ["fx", "form", "skin", "beast"]: s.erase(e)
+				finds.append(s)
+				k += 1
 	if only in ["", "areas"]:
 		for area in Data.AREAS.size():
 			for i in n:

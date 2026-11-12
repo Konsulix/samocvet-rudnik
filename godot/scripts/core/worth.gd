@@ -24,7 +24,10 @@ const TRAIT := {irid = 0.8, aurora = 4.0, zoned = 1.6, phantom = 0.8, chlorite =
 ## what grows on it or with it (SpecGenome accents)
 const ACC := {pompom = 0.6, straw = 0.7, lichen = 0.4, needles = 0.4, crust = 0.5, dust = 0.2, inkspots = 0.4, clouds = 0.8,
 	fronds = 0.9, flowers = 1.0, mushrooms = 1.3, trapiche = 4.0, celestine = 0.8, sulphur = 0.6, orpiment = 0.6, rockcrystal = 0.6,
-	barite = 0.6, pararealgar = 0.3, ob_black = 0.0, ob_snowflake = 0.9, ob_mahogany = 0.6, ob_rainbow = 2.2, ob_tears = 1.0,
+	barite = 0.6, pararealgar = 0.3, mimetite = 0.6,
+	# a tourmaline's colours (SpecForms.TOURM): the plain ones little, a neon or a blue cap much; a polished slice
+	tm_verdelite = 0.4, tm_rubellite = 0.8, tm_indicolite = 1.0, tm_bicolour = 1.0, tm_watermelon = 1.3, tm_tricolour = 1.7, tm_blue_cap = 1.8,
+	tm_paraiba = 3.2, tm_slice = 2.0, ob_black = 0.0, ob_snowflake = 0.9, ob_mahogany = 0.6, ob_rainbow = 2.2, ob_tears = 1.0,
 	# a skull's own (its skin is its body: SKULL_V)
 	sk_crown = 1.4, sk_eyes = 1.2, sk_fangs = 0.9, sk_stream = 1.8, sk_moss = 1.1, sk_trees = 1.6, sk_roots = 0.6, sk_coins = 1.6,
 	sk_diadem = 2.6, sk_maw = 1.6, sk_horn = 1.2, sk_bloom = 1.2, sk_frost = 0.4, sk_wax = 0.4, sk_lantern = 1.2, sk_pile = 1.0,

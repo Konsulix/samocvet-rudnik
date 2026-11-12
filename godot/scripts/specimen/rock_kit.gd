@@ -57,6 +57,35 @@ static func cube_steps(rng: Rng32, s: float) -> Geo:
 		g.v.append_array(bx.v)
 	return g.translate(0, s * 0.25, 0)
 
+## wulfenite's tablet: a thin square plate, its rim bevelled to an edge all round (o.bevel, 0..0.5 of the half-width),
+## the corners cut or not (o.cut 0..0.4), thin along z, in the xy plane about the origin; `w` the half-width, `th` half
+## the thickness. Soup, wound outward
+static func tablet(w: float, th: float, o := {}) -> Geo:
+	var bev: float = o.get("bevel", 0.2)
+	var cut: float = o.get("cut", 0.0)
+	var ring := []
+	for k in 4:
+		var a := Vector2(1, 1).rotated(k * PI * 0.5)
+		var b := Vector2(1, 1).rotated((k + 1) * PI * 0.5)
+		if cut > 0.01:
+			ring.append(a.lerp(b, cut * 0.5))
+			ring.append(a.lerp(b, 1.0 - cut * 0.5))
+		else:
+			ring.append(a)
+	var n := ring.size()
+	var g := Geo.new()
+	for side: float in [1.0, -1.0]:
+		var c := Vector3(0, 0, th * side)
+		for k in n:
+			var p: Vector2 = ring[k]
+			var q: Vector2 = ring[(k + 1) % n]
+			var p1 := Vector3(p.x * w * (1.0 - bev), p.y * w * (1.0 - bev), th * side)
+			var q1 := Vector3(q.x * w * (1.0 - bev), q.y * w * (1.0 - bev), th * side)
+			var p0 := Vector3(p.x * w, p.y * w, 0)
+			var q0 := Vector3(q.x * w, q.y * w, 0)
+			g.v.append_array([c, p1, q1, p1, p0, q0, p1, q0, q1])
+	return g.orient_out()
+
 ## cfg: {h, tip, scepter, dt (both ends), cA, cB, zk (colour zoning)}
 static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	var r := 0.32 * float(cfg.get("wk", 1.0))
@@ -78,6 +107,45 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	elif habit == "hexbevel":
 		# apatite: a stubby six-sided prism, its flat end ringed with small sloping faces
 		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.72), Vector2(r * 0.66, h * 0.86), Vector2(0, h * 0.86)], 6)
+	elif habit == "hexbarrel":
+		# vanadinite: a short six-sided barrel, flat-ended, the end a little dished (its hollow "hopper" tops)
+		var dish := r * (0.1 + rng.next() * 0.22) if rng.next() < 0.6 else r * 0.02
+		g = Geo.lathe([Vector2(0, -r * 0.3), Vector2(r * 0.86, -r * 0.3), Vector2(r * 1.0, h * 0.25), Vector2(r * 1.03, h * 0.62), Vector2(r * 0.93, h),
+			Vector2(r * 0.6, h - dish * 0.25), Vector2(0, h - dish)], 6)
+	elif habit == "rhombcap":
+		# dioptase: a stubby six-sided prism under three rhomb faces meeting in a blunt point — the prism's top corners
+		# high and low by turns, each rhomb a kite from the apex down to a low corner
+		var sl := 0.75 + rng.next() * 0.3
+		var ya := h + r * sl
+		var bot := []
+		var top := []
+		for k in 6:
+			var a := float(k) / 6.0 * TAU
+			bot.append(Vector3(sin(a) * r, -r * 0.3, cos(a) * r))
+			top.append(Vector3(sin(a) * r, ya - sl * r * (1.0 if k % 2 == 0 else 0.5), cos(a) * r))
+		var ap := Vector3(0, ya, 0)
+		g = Geo.new()
+		for k in 6:
+			var j := (k + 1) % 6
+			g.v.append_array([bot[k], bot[j], top[j], bot[k], top[j], top[k]])
+			g.v.append_array([Vector3(0, -r * 0.3, 0), bot[j], bot[k]])
+		for k: int in [0, 2, 4]:
+			var i: int = (k + 5) % 6
+			var j: int = (k + 1) % 6
+			g.v.append_array([ap, top[i], top[k], ap, top[k], top[j]])
+		g.orient_out(Vector3(0, h * 0.4, 0))
+	elif habit == "tablet":
+		# wulfenite: a square plate stood on its edge or a corner, its foot sunk in
+		var tw := r * (1.1 + rng.next() * 0.5)
+		g = tablet(tw, tw * (0.1 + rng.next() * 0.1), {bevel = 0.14 + rng.next() * 0.2, cut = 0.0 if rng.next() < 0.5 else 0.12 + rng.next() * 0.25})
+		if rng.next() < 0.55:
+			g.xform(Transform3D(Basis(Vector3.BACK, PI * 0.25), Vector3.ZERO))
+			g.translate(0, tw * 1.0, 0)
+		else:
+			g.translate(0, tw * 0.72, 0)
+	elif habit == "hopper":
+		# bismuth, where a single crystal is asked for: a stepped skeletal cube
+		g = Geo.hopper(0.3, 3, 0.3).translate(0, 0.3, 0)
 	elif habit == "pyritohedron":
 		# pyrite's pentagonal dodecahedron: twelve five-sided faces, each with one long edge
 		g = Geo.dodeca(0.3).scale(1.0 + rng.next() * 0.12, 0.88, 1.08).translate(0, 0.27, 0)

@@ -58,7 +58,8 @@ const COMMON := [
 
 ## every variant the builder makes (COMMON first): each is written as a file for the shader baker (ShaderFiles).
 ## A variant missing here says so in Diag ("built at run time") — `-- stress=100` finds them
-const BAKE := COMMON + [[false, false, "back", true, true, false, false, false]]
+const BAKE := COMMON + [[false, false, "back", true, true, false, false, false], [true, false, "back", true, false, false, false, false],
+	[false, false, "back", true, false, false, false, false]]
 
 static func warm_materials() -> Array[ShaderMaterial]:
 	var out: Array[ShaderMaterial] = []
@@ -92,6 +93,7 @@ static func make(o: Dictionary) -> ShaderMaterial:
 		g.set_shader_parameter("dark_k", o.get("dark_body", 0.0))
 		g.set_shader_parameter("tint_k", o.get("tint_body", 0.0))
 		g.set_shader_parameter("tint_glow", o.get("tint_glow", 0.06))
+		g.set_shader_parameter("deep_k", o.get("deep_body", 0.0))
 		if o.get("kin", 0.0) > 0.0:
 			g.set_shader_parameter("gold_diff", load("res://assets/textures/gold/gold_diff.png"))
 			g.set_shader_parameter("gold_nrm", load("res://assets/textures/gold/gold_nrm.png"))

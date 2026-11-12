@@ -9,6 +9,7 @@ extends RefCounted
 const ROCK_N := {basalt = "basalt", slate = "black slate", ironstone = "ironstone", limestone = "limestone", quartzite = "quartzite", gypsum = "white gypsum rock", lava = "Etna lava"}
 const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "columnar", radial = "radial spray", rosette = "rosette",
 	floater = "floater", slabs = "slabs", hopper = "hopper cubes", pile = "rubble pile", hexplates = "hex plates",
+	tablets = "window panes", barrels = "barrels", jackstraw = "jackstraw needles", balls = "blade balls", fans = "blade fans", staircase = "hopper staircase", grapes = "bubble crust", pencils = "pencils", slice = "polished slice",
 	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", septaria = "septarian nodule", hair = "hair sprays", coxcomb = "cockscomb", starburst = "star discs", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
@@ -23,12 +24,16 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_glass = "glass skull", sk_crown = "crystal crown", sk_frost = "cloudy crystals", sk_wax = "waxy crystals", sk_broken = "broken skull",
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
 	fly_monarch = "monarch", fly_apollo = "Apollo", fly_peacock = "peacock butterfly", fly_swallowtail = "swallowtail",
+	mimetite = "mimetite crust", 	tm_watermelon = "watermelon", tm_bicolour = "bicolour", tm_tricolour = "tricolour", tm_blue_cap = "blue cap", tm_rubellite = "rubellite",
+	tm_indicolite = "indicolite", tm_verdelite = "verdelite", tm_paraiba = "Paraiba neon", tm_slice = "watermelon slice",
 	fly_bluetiger = "blue tiger", fly_birdwing = "birdwing", fly_glasswing = "clearwing swallowtail", fly_hawkmoth = "elephant hawk-moth", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## the layouts without a rock floor (SpecimenBuilder: has_base)
-const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray"]
+const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray", "staircase", "slice"]
+## the showy minerals built as one lit mesh (SpecForms): no glass to hold an effect, no crystal to twin
+const ONE_MESH := ["balls", "fans", "staircase", "grapes"]
 
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
@@ -133,7 +138,7 @@ static func of(o: Dictionary) -> Dictionary:
 	if form in NO_BASE:
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["crust", "needles", "dust"]))
 	# and where there is no rock at all (a spray of needles, a vein, a floater) no lichen or plants either
-	if form in ["floater", "radial", "vein"]:
+	if form in ["floater", "radial", "vein", "staircase", "slice"]:
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["lichen", "fronds", "flowers"]))
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
@@ -186,6 +191,9 @@ static func of(o: Dictionary) -> Dictionary:
 		if Rng32.new((seed_v * 2654435761 + 211 + wi * 97) % 4294967296).next() < float(w[2]):
 			acc.append(String(w[3]))
 	if habit == "obsidian": acc.append_array(SpecObsidian.accents(seed_v, o))
+	# the way a tourmaline's colour runs along it (SpecForms.TOURM), or a polished slice: its own gene
+	if sid == "tourmaline" and form in ["pencils", "slice"] and String(o.get("form", form)) == form:
+		acc.append("tm_slice" if form == "slice" else "tm_" + String(SpecForms.tourm_of(seed_v)[0]).replace(" ", "_"))
 	var palette := {
 		pompom = int(rng.next() * SpecAccents.POMPOM.size()),
 		straw = int(rng.next() * SpecAccents.STRAW.size()),
@@ -201,7 +209,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# a legendary find always carries one living effect, one that suits its body
 	var fx := ""
 	var fpool := ["fluor", "levitate", "jellyfish"]
-	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget", "sawn"]): fpool.append("lava")
+	if not (form in ["floater", "radial", "geode", "botryoid", "vein", "nugget", "sawn", "staircase", "slice"]): fpool.append("lava")
 	if habit == "fossil": fpool = ["dragonfire", "jellyfish"]
 	# a fulgurite's own: the lightning that made it runs through it still
 	if sid == "fulgurite": fpool = ["discharge", "jellyfish"]
@@ -220,7 +228,7 @@ static func of(o: Dictionary) -> Dictionary:
 		fpool.append_array(["borealis", "borealis", "frost", "frost"])
 	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
 	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
-	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget", "sawn"])
+	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget", "sawn"]) and not form in ONE_MESH
 	if lustre == "glass" and glassy:
 		fpool.append_array(in_glass)
 	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
@@ -250,7 +258,7 @@ static func of(o: Dictionary) -> Dictionary:
 			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
-	if shroom >= 0 and not bare and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not form in ["staircase", "slice"] and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:
