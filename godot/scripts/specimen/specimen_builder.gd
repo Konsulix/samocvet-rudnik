@@ -2186,8 +2186,9 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		var kind: int = gene.shroom
 		var tiny := kind == 3
 		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
-			var n := (4 + int(fr.next() * 6)) if tiny else (2 + int(fr.next() * 4))
-			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.22 + fr.next() * 0.14) * gs * (0.6 if tiny else 1.0), boxes)
+			var n := (5 + int(fr.next() * 6)) if tiny else (3 + int(fr.next() * 4))
+			# (real mushrooms are slighter than the turned ones were: they stand taller to read on a card)
+			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.38 + fr.next() * 0.22) * gs * (0.72 if tiny else 1.0), boxes)
 			if cap.size(): _mark("mushrooms", cap[0], cap[1])
 	# butterflies (SpecButterfly.for_find: the kinds of the species' mine), on their own stream: resting on the rock where
 	# a wing has room, or flying round the find; a skull places its own (SpecSkull)

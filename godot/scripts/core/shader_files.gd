@@ -33,7 +33,6 @@ static func sources() -> Dictionary:
 	var out := {}
 	for f in SpecMat.BAKE:
 		out[SpecMat.name_of(f)] = SpecMat.code_of(f)
-	out.fungi = SpecFungi.SHADER
 	out.jelly = SpecJelly.SHADER
 	out.legend_heart = SpecLegend.HEART
 	out.legend_over = SpecLegend.OVER

@@ -155,7 +155,7 @@ Play в листке ачивки. Где ещё показывать откры
 | Иконка | Название | Текст | Условие | Награда |
 |---|---|---|---|---|
 | бабочка | **Pinned by Nature** | They landed on the stone and never left. | все виды бабочек на находках | рамка поля «бабочки» |
-| грибы | **Fairy Ring** | Something grows down here. Several somethings. | все грибы (виды `SpecFungi` + опята) | пропуск: вход в грибной мир (арка 2) |
+| грибы | **Fairy Ring** | Something grows down here. Several somethings. | все 8 грибов (`SpecFungi.NAMES`: мухомор, лисичка, боровик, мицена, опята — на коряге, сморчок, вешенка, пантерный) | пропуск: вход в грибной мир (арка 2) |
 | камень во мху | **A Rolling Stone** | Gathers no moss. Yours did. | мох, лишайник, ксантория, папоротник на камне | монеты + жеода |
 | звезда в кристалле | **Once in a Blue Moon** | Some stones are alive. Find every one of them. | все легендарные эффекты | пропуск: «Зал легенд» / аномалии (эпик M) |
 | трилобит | **Crystal Eyes** | They saw the world through stone lenses. Six kinds still stare. | 6 родов трилобитов | портрет шахтёра «трилобит» |

@@ -331,7 +331,7 @@ func _ready() -> void:
 				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind"]:
 					pass
 				if args.has("bloom"): e.bloom = args.bloom == "1"
-				# the shared layer pinned: acc=flowers,fronds shroom=0..4
+				# the shared layer pinned: acc=flowers,fronds shroom=0..7
 				if args.has("acc"): e.accents = Array(String(args.acc).split(","))
 				# rare traits pinned: tr=atypical,phantom
 				if args.has("tr"): e.traits = Array(String(args.tr).split(","))

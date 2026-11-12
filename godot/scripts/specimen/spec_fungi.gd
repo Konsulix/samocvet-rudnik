@@ -1,182 +1,73 @@
 class_name SpecFungi
 extends RefCounted
-## Mushrooms on the host rock (the "mushrooms" gene), four kinds built from lathe profiles and shaded by one
-## shader: fly agaric (red, white warts, a ring on the stem), chanterelle (a golden funnel with a wavy rim and
-## ridges running down the stem), porcini (a brown bun on a fat stem, sponge underneath) and glowing mycena
-## (slender bells in clusters that glow softly, more so when the studio goes dark).
-## A cluster grows from one spot on the rock: a couple of grown caps and young ones of every size around them.
-## Decisions and placement use their own random stream (seeded from the stone), so stones that already
-## existed keep every other gene exactly as they were.
+## Mushrooms on the host rock (the "mushrooms" gene): eight kinds, every one a real mushroom — scans and models
+## (assets/specimen/fungi, CREDITS.md there; made light by prototype/tools/mushrooms/shroom_prep.py), each mesh one unit
+## tall on its foot, with its colour and relief baked into two textures and drawn by shaders/fungi_model.gdshader.
+## A kind may have several looks — the boletes four species, the fly agarics the red one and the golden — and a find
+## grows one of them; the panther caps come in three ages (grown, half open, a button), the honey fungus and the oysters
+## as whole tufts. The glowing mycena glows, more so when the studio goes dark.
+## A cluster grows from one spot on the rock: a grown one and young ones of every size around it.
+## Decisions and placement use their own random stream (seeded from the stone).
 
-const NAMES := ["fly agarics", "chanterelles", "porcini", "glowing mycena", "honey fungus"]
+const NAMES := ["fly agarics", "chanterelles", "boletes", "glowing mycena", "honey fungus", "morels", "blue oysters", "panther caps"]
+const DIR := "res://assets/specimen/fungi/"
+const SHADER: Shader = preload("res://shaders/fungi_model.gdshader")
 
-## profile points [r, y, region]: region 0 stem, 0.5 underside (gills or sponge), 1 cap.
-## Bottom to top, out along the underside, then over the cap back to the axis.
+## looks: the models of each look ([[name, ...], ...]; one look to a find, its models mixed in the cluster);
+## k: how tall a grown one stands beside the size asked for; tuft: the model is a whole tuft (fewer of them, none tiny);
+## ages: the look's models are one mushroom at three ages, grown to button; shelf: grows out of a steep face as gladly
+## as on a flat one (the rest keep to rock that faces up, where there is any); glow, tint, gain, sat, rough: the material
 const KINDS := [
-	{prof = [[0.0, 0.0, 0], [0.13, 0.0, 0], [0.12, 0.06, 0], [0.085, 0.16, 0], [0.075, 0.42, 0], [0.11, 0.47, 0], [0.072, 0.5, 0], [0.068, 0.6, 0],
-		[0.07, 0.6, 0.5], [0.25, 0.6, 0.5], [0.42, 0.58, 0.5], [0.44, 0.61, 1], [0.42, 0.7, 1], [0.34, 0.81, 1], [0.2, 0.88, 1], [0.0, 0.9, 1]],
-		cap_a = Color(0.55, 0.012, 0.008), cap_b = Color(0.82, 0.08, 0.015), gill = Color(0.93, 0.9, 0.82), stem = Color(0.92, 0.9, 0.84),
-		cap_r = 0.44, spots = 1.0, gills = 70.0, pores = 0.0, glow = 0.0, rough = 0.32, wave = 0.0},
-	{prof = [[0.0, 0.0, 0], [0.07, 0.0, 0], [0.065, 0.12, 0], [0.075, 0.26, 0.5], [0.12, 0.38, 0.5], [0.24, 0.48, 0.5], [0.38, 0.55, 0.5], [0.4, 0.58, 1],
-		[0.36, 0.6, 1], [0.22, 0.56, 1], [0.08, 0.5, 1], [0.0, 0.48, 1]],
-		cap_a = Color(0.72, 0.28, 0.02), cap_b = Color(0.85, 0.42, 0.05), gill = Color(0.8, 0.4, 0.06), stem = Color(0.78, 0.42, 0.1),
-		cap_r = 0.4, spots = 0.0, gills = 26.0, pores = 0.0, glow = 0.0, rough = 0.6, wave = 0.09},
-	{prof = [[0.0, 0.0, 0], [0.15, 0.0, 0], [0.19, 0.1, 0], [0.19, 0.2, 0], [0.15, 0.33, 0], [0.12, 0.44, 0],
-		[0.12, 0.44, 0.5], [0.3, 0.45, 0.5], [0.42, 0.47, 0.5], [0.44, 0.5, 1], [0.42, 0.6, 1], [0.33, 0.7, 1], [0.18, 0.76, 1], [0.0, 0.78, 1]],
-		cap_a = Color(0.1, 0.04, 0.015), cap_b = Color(0.24, 0.11, 0.045), gill = Color(0.72, 0.66, 0.3), stem = Color(0.82, 0.74, 0.55),
-		cap_r = 0.44, spots = 0.0, gills = 0.0, pores = 1.0, glow = 0.0, rough = 0.42, wave = 0.0},
-	{prof = [[0.0, 0.0, 0], [0.03, 0.0, 0], [0.024, 0.3, 0], [0.02, 0.7, 0], [0.02, 0.74, 0.5], [0.08, 0.76, 0.5], [0.15, 0.74, 0.5], [0.16, 0.76, 1],
-		[0.14, 0.84, 1], [0.09, 0.93, 1], [0.04, 0.98, 1], [0.0, 1.0, 1]],
-		cap_a = Color(0.5, 0.52, 0.38), cap_b = Color(0.72, 0.72, 0.55), gill = Color(0.75, 0.82, 0.6), stem = Color(0.7, 0.72, 0.6),
-		cap_r = 0.16, spots = 0.0, gills = 18.0, pores = 0.0, glow = 1.0, rough = 0.5, wave = 0.0},
-	# honey fungus: on dead wood only (driftwood), in crowded tufts — thin pale stems, rounded tawny caps
-	{prof = [[0.0, 0.0, 0], [0.045, 0.0, 0], [0.036, 0.25, 0], [0.032, 0.5, 0], [0.034, 0.56, 0], [0.034, 0.56, 0.5], [0.12, 0.58, 0.5],
-		[0.2, 0.57, 0.5], [0.22, 0.6, 1], [0.21, 0.67, 1], [0.16, 0.74, 1], [0.08, 0.78, 1], [0.0, 0.79, 1]],
-		cap_a = Color(0.2, 0.065, 0.018), cap_b = Color(0.48, 0.19, 0.05), gill = Color(0.46, 0.32, 0.17), stem = Color(0.42, 0.27, 0.14),
-		cap_r = 0.22, spots = 0.0, gills = 30.0, pores = 0.0, glow = 0.0, rough = 0.38, wave = 0.0},
+	{looks = [["agaric_red"], ["agaric_gold_a", "agaric_gold_b"]], k = 1.0, rough = 0.4, gain = 0.95, sat = 1.15},
+	{looks = [["chanterelle"]], k = 0.66, gain = 1.25},
+	{looks = [["bolete_brown"], ["bolete_jack"], ["bolete_suede"], ["bolete_wine"]], k = 0.82, rough = 0.45},
+	{looks = [["mycena"]], k = 0.95, glow = 2.4, tint = Color(0.7, 1.0, 0.8), gain = 1.25, sat = 0.4},
+	{looks = [["honey"]], k = 0.95, tuft = true, shelf = true, rough = 0.4},
+	{looks = [["morel"]], k = 0.9, gain = 1.15},
+	{looks = [["oyster"]], k = 0.85, tuft = true, shelf = true, rough = 0.45},
+	{looks = [["panther_0", "panther_1", "panther_2"]], k = 1.05, ages = true, gain = 0.8},
 ]
 
-const SHADER := """
-shader_type spatial;
-render_mode cull_disabled;
-uniform vec3 cap_a;
-uniform vec3 cap_b;
-uniform vec3 gill;
-uniform vec3 stem;
-uniform float cap_r = 0.4;
-uniform float spots = 0.0;
-uniform float gills_n = 40.0;
-uniform float pores = 0.0;
-uniform float glow = 0.0;
-uniform float rough_cap = 0.5;
-global uniform float fluor_uv;
-varying vec3 v_op;
-varying float v_reg;
-float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float vn(vec3 x) {
-	vec3 i = floor(x), f = fract(x);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-}
-void vertex() { v_op = VERTEX; v_reg = UV2.x; }
-void fragment() {
-	float capk = step(0.75, v_reg);
-	float underk = step(0.25, v_reg) * (1.0 - capk);
-	float stemk = 1.0 - capk - underk;
-	float rr = length(v_op.xz);
-	float ang = atan(v_op.z, v_op.x);
-	// cap: dark centre to a paler rim, mottled, with raised white warts on the agaric
-	vec3 cc = mix(cap_a, cap_b, smoothstep(0.15, 1.0, rr / cap_r)) * (0.82 + 0.3 * vn(v_op * 14.0));
-	// the cap's skin: fine radial fibres, a few darker streaks and blotches, a paler, thinner rim; a faint sheen
-	float fib = vn(vec3(ang * 38.0, rr * 9.0, 0.0)) * 0.6 + vn(vec3(ang * 90.0, rr * 30.0, 3.0)) * 0.4;
-	cc *= 0.82 + 0.3 * fib;
-	cc = mix(cc, cc * 0.6, smoothstep(0.62, 0.8, vn(v_op * 9.0 + 7.0)) * 0.6);
-	cc = mix(cc, mix(cc, vec3(0.9, 0.85, 0.75), 0.35), smoothstep(0.82, 1.0, rr / cap_r));
-	cc *= 1.0 - smoothstep(0.7, 0.9, vn(v_op * 60.0)) * 0.25;
-	float wart = smoothstep(0.66, 0.72, vn(v_op * 15.0)) * spots;
-	cc = mix(cc, vec3(0.94, 0.9, 0.82), wart);
-	// underside: fine radial gills or a sponge of pores
-	float g = 0.5 + 0.5 * sin(ang * gills_n);
-	vec3 uc = gill * mix(1.0, mix(0.5, 1.0, smoothstep(0.15, 0.85, g)), step(1.0, gills_n));
-	uc *= mix(1.0, 0.55 + 0.45 * smoothstep(0.35, 0.6, vn(v_op * 110.0)), pores);
-	// stem: lengthwise fibres
-	vec3 sc = stem * (0.82 + 0.25 * vn(vec3(v_op.x * 45.0, v_op.y * 5.0, v_op.z * 45.0)));
-	// stem: darker and dirtier toward its foot, a few fine scales
-	sc *= mix(0.55, 1.0, smoothstep(0.0, 0.25, v_op.y));
-	sc *= 1.0 - smoothstep(0.72, 0.85, vn(vec3(v_op.x * 80.0, v_op.y * 25.0, v_op.z * 80.0))) * 0.3;
-	vec3 c = sc * stemk + uc * underk + cc * capk;
-	ALBEDO = c * COLOR.rgb;
-	ROUGHNESS = mix(0.78, rough_cap, capk) - wart * 0.2;
-	// relief: the fibres and warts raised, the gills cut in
-	float hgt = capk * (fib * 0.5 + wart * 2.0) + underk * g * 0.6 + stemk * vn(vec3(v_op.x * 45.0, v_op.y * 5.0, v_op.z * 45.0)) * 0.4;
-	vec3 dpx = dFdx(VERTEX), dpy = dFdy(VERTEX);
-	vec3 r1 = cross(dpy, NORMAL), r2 = cross(NORMAL, dpx);
-	float det = dot(dpx, r1);
-	vec3 rn = abs(det) * NORMAL - sign(det) * (dFdx(hgt) * r1 + dFdy(hgt) * r2) * 0.004;
-	NORMAL = dot(rn, rn) > 1e-20 ? normalize(rn) : NORMAL;
-	SPECULAR = 0.35;
-	BACKLIGHT = c * 0.15;
-	// mycena glow: the gills brightest, breathing slowly; brighter still when the room goes dark
-	float br = (0.8 + 0.2 * sin(TIME * 1.3 + v_op.y * 4.0)) * (1.0 + fluor_uv * 1.5);
-	EMISSION = glow * vec3(0.25, 0.95, 0.35) * (underk * 0.9 + capk * 0.3 + stemk * 0.15) * br;
-}
-"""
-
-static var _shader: Shader
 static var _meshes := {}
+static var look_pin := -1
 static var _mats := {}
 
 ## does this stone grow mushrooms, and which kind (-1: none). Its own random stream, not the genome's.
+## (the honey fungus grows on dead wood only: SpecWood asks for it by number)
 static func roll(seed_v: int) -> int:
 	var r := Rng32.new((seed_v * 2654435 + 4093) % 4294967296)
 	if r.next() > 0.14:
 		return -1
-	return int(Stones.pick_w([[0, 3.0], [1, 2.5], [2, 2.0], [3, 1.4]], r))
+	return int(Stones.pick_w([[0, 3.0], [1, 2.5], [2, 2.5], [3, 1.4], [5, 1.6], [6, 1.3], [7, 1.6]], r))
 
-static func mesh(kind: int) -> ArrayMesh:
-	if _meshes.has(kind):
-		return _meshes[kind]
-	var K: Dictionary = KINDS[kind]
-	var prof: Array = K.prof
-	var n := prof.size()
-	var segs := 28
-	var wave: float = K.wave
-	var cap_r: float = K.cap_r
-	var g := Geo.new()
-	var uv := PackedVector2Array()
-	var uv2 := PackedVector2Array()
-	for i in segs + 1:
-		var phi := float(i) / segs * TAU
-		for j in n:
-			var p: Array = prof[j]
-			var r: float = p[0]
-			# a wavy, lobed rim (chanterelle): the more so the further out
-			if wave > 0.0 and float(p[2]) > 0.25:
-				r *= 1.0 + wave * sin(phi * 5.0 + sin(phi * 2.0) * 1.3) * smoothstep(0.3, 1.0, r / cap_r)
-			g.v.append(Vector3(r * sin(phi), float(p[1]), r * cos(phi)))
-			uv.append(Vector2(float(i) / segs, float(j) / (n - 1)))
-			uv2.append(Vector2(float(p[2]), 0.0))
-	for i in segs:
-		for j in n - 1:
-			var a := i * n + j
-			g.idx.append_array([a, a + n, a + 1, a + n + 1, a + 1, a + n])
-	var arr := []
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = g.v
-	arr[Mesh.ARRAY_NORMAL] = g.normals()
-	arr[Mesh.ARRAY_TEX_UV] = uv
-	arr[Mesh.ARRAY_TEX_UV2] = uv2
-	var f := g.idx.duplicate()
-	for k in range(0, f.size(), 3):
-		var s := f[k + 1]
-		f[k + 1] = f[k + 2]
-		f[k + 2] = s
-	arr[Mesh.ARRAY_INDEX] = f
-	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	_meshes[kind] = m
-	return m
+static func model(name: String) -> Mesh:
+	if not _meshes.has(name):
+		_meshes[name] = load(DIR + name + ".obj") as Mesh
+	return _meshes[name]
 
-static func material(kind: int) -> ShaderMaterial:
-	if _mats.has(kind):
-		return _mats[kind]
-	if not _shader:
-		_shader = ShaderFiles.get_shader("fungi", SHADER)
+static func mat_of(name: String, kind: int) -> ShaderMaterial:
+	if _mats.has(name):
+		return _mats[name]
 	var K: Dictionary = KINDS[kind]
 	var m := ShaderMaterial.new()
-	m.shader = _shader
-	for k in ["cap_a", "cap_b", "gill", "stem"]:
-		var c: Color = K[k]
-		m.set_shader_parameter(k, Vector3(c.r, c.g, c.b))
-	m.set_shader_parameter("cap_r", K.cap_r)
-	m.set_shader_parameter("spots", K.spots)
-	m.set_shader_parameter("gills_n", K.gills)
-	m.set_shader_parameter("pores", K.pores)
-	m.set_shader_parameter("glow", K.glow)
-	m.set_shader_parameter("rough_cap", K.rough)
-	_mats[kind] = m
+	m.shader = SHADER
+	m.set_shader_parameter("tex_d", load(DIR + name + "_d.png"))
+	m.set_shader_parameter("tex_n", load(DIR + name + "_n.png"))
+	var t: Color = K.get("tint", Color(1, 1, 1))
+	m.set_shader_parameter("tint", Vector3(t.r, t.g, t.b))
+	m.set_shader_parameter("gain", float(K.get("gain", 1.1)))
+	m.set_shader_parameter("sat", float(K.get("sat", 1.0)))
+	m.set_shader_parameter("rough", float(K.get("rough", 0.55)))
+	m.set_shader_parameter("glow", float(K.get("glow", 0.0)))
+	_mats[name] = m
 	return m
+
+## (the first model of a kind: for the shader's warm-up at the start)
+static func mesh(kind: int) -> Mesh:
+	return model(String(((KINDS[kind].looks as Array)[0] as Array)[0]))
+
+static func material(kind: int) -> ShaderMaterial:
+	return mat_of(String(((KINDS[kind].looks as Array)[0] as Array)[0]), kind)
 
 ## one cluster of `kind` round a spot of `spots` ([pos, normal]); size: the height of a grown one
 ## blockers: the crystals ({bounds, inverse}: their box in their own axes, and the way into them) no cap may grow into.
@@ -184,55 +75,78 @@ static func material(kind: int) -> ShaderMaterial:
 static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: int, size: float, blockers: Array = []) -> Array:
 	if spots.is_empty():
 		return []
-	var c0: Array = spots[int(rng.next() * spots.size())]
+	var K: Dictionary = KINDS[kind]
+	var looks: Array = K.looks
+	var look: Array = looks[mini(int(rng.next() * looks.size()), looks.size() - 1)]
+	if look_pin >= 0: look = looks[mini(look_pin, looks.size() - 1)]   # (tests/fungi_view: this look and no other)
+	var tuft: bool = K.get("tuft", false)
+	var ages: bool = K.get("ages", false)
+	if tuft: count = maxi(1, int(ceil(count / 4.0)))
+	# rock that faces up, where there is any: a wide cap standing off a wall hangs in the air beside it
+	var base: Array = spots
+	var lean := 0.0 if K.get("shelf", false) else 0.3
+	var tops := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > lean)
+	if tops.size(): base = tops
+	var c0: Array = base[int(rng.next() * base.size())]
 	var reach := size * (0.9 if kind == 3 else 1.4)
 	var near := []
-	for s in spots:
+	for s in base:
 		if (s[0] as Vector3).distance_to(c0[0]) < reach: near.append(s)
 	if near.is_empty(): near = [c0]
-	var box := mesh(kind).get_aabb()
-	var placed: Array[Transform3D] = []
-	var tints: Array[Color] = []
+	var placed := {}      # model -> [transforms, tints]
+	var first: Array = []
 	for k in count:
 		# a few tries for a spot clear of the crystals; none clear, and this one never comes up
-		for attempt in 12:
-			var pool: Array = near if attempt < 6 else spots
+		for attempt in 20:
+			var pool: Array = near if attempt < 5 else base if attempt < 11 else spots
 			var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
 			var p: Vector3 = at[0]
 			var nrm: Vector3 = at[1]
 			# mostly upright, leaning a little off the rock face
 			var up := (nrm.lerp(Vector3.UP, 0.7) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.35).normalized()
-			# a grown one or two, then young ones of every size, down to buttons
+			# a grown one or two, then young ones of every size, down to buttons (a tuft is never tiny)
 			var grow := 1.0 if k == 0 else 0.25 + 0.75 * pow(rng.next(), 1.4)
-			var s := size * grow
+			if tuft and k > 0: grow = 0.55 + 0.45 * rng.next()
+			var name: String = look[mini(int(rng.next() * look.size()), look.size() - 1)]
+			if ages: name = look[0] if grow > 0.7 else look[1] if grow > 0.42 else look[2]
+			# (no room by the crystals: a smaller one may find it)
+			var s := size * float(K.k) * grow * (1.0 if attempt < 5 else 0.72 if attempt < 9 else 0.5 if attempt < 14 else 0.34)
 			var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
-			b = b * Basis.from_scale(Vector3(s * (0.9 + rng.next() * 0.25), s * (0.85 + rng.next() * 0.3), s * (0.9 + rng.next() * 0.25)))
+			b = b * Basis.from_scale(Vector3(s * (0.92 + rng.next() * 0.18), s * (0.9 + rng.next() * 0.22), s * (0.92 + rng.next() * 0.18)))
 			var xf := Transform3D(b, p - nrm * s * 0.04)
+			var box := model(name).get_aabb()
+			# (a cap's rim may touch a crystal: its box drawn in a little)
+			var core := box.grow(-0.1 * minf(box.size.x, box.size.z))
 			var hit := false
 			for bl: Dictionary in blockers:
-				if ((bl.inverse as Transform3D) * xf * box).intersects(bl.bounds):
+				if ((bl.inverse as Transform3D) * xf * core).intersects(bl.bounds):
 					hit = true
 					break
 			if hit:
 				continue
-			var v := 0.85 + rng.next() * 0.25
-			placed.append(xf)
-			tints.append(Color(v, v * (0.96 + rng.next() * 0.06), v))
+			var v := 0.88 + rng.next() * 0.22
+			if not placed.has(name): placed[name] = [[], []]
+			(placed[name][0] as Array).append(xf)
+			(placed[name][1] as Array).append(Color(v, v * (0.96 + rng.next() * 0.06), v))
+			if first.is_empty(): first = [xf * box.get_center(), xf.basis.y.normalized()]
 			break
-	if placed.is_empty():
+	if first.is_empty():
 		return []
-	var buf := SpecUtil.mm_buf(placed.size())
-	for k in placed.size():
-		SpecUtil.put(buf, k, placed[k], tints[k])
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	mm.mesh = mesh(kind)
-	mm.instance_count = placed.size()
-	mm.buffer = buf
-	var mi := MultiMeshInstance3D.new()
-	mi.multimesh = mm
-	mi.material_override = material(kind)
-	parent.add_child(mi)
+	for name: String in placed:
+		var xfs: Array = placed[name][0]
+		var tints: Array = placed[name][1]
+		var buf := SpecUtil.mm_buf(xfs.size())
+		for k in xfs.size():
+			SpecUtil.put(buf, k, xfs[k], tints[k])
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = model(name)
+		mm.instance_count = xfs.size()
+		mm.buffer = buf
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = mat_of(name, kind)
+		parent.add_child(mi)
 	# the middle of the biggest cap
-	return [placed[0] * box.get_center(), placed[0].basis.y.normalized()]
+	return first
