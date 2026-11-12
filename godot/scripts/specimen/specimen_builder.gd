@@ -63,6 +63,13 @@ func _mark(id: String, p: Vector3, n := Vector3.ZERO) -> void:
 	if not grown.has(id):
 		grown[id] = []
 	(grown[id] as Array).append([p, n])
+	_tag(id)
+
+## what was built since the last tag is this gene's, near enough (a gene marks itself as it grows): SpecSolid.clear
+## and tests/overlap_audit tell the things on a find apart by it
+func _tag(id: String) -> void:
+	for c in root.get_children():
+		if not c.has_meta("gene"): c.set_meta("gene", id)
 
 ## a point inside a mesh, `f` of the way up its box, in the specimen's space (for what fills a crystal)
 func _mid(m: Node3D, f := 0.5) -> Vector3:
@@ -129,6 +136,10 @@ func _crystal_boxes(main: MeshInstance3D, mat: ShaderMaterial) -> Array:
 			continue
 		var xf := U.rel_xform(c, root)
 		out.append({bounds = (c.get_meta("geo") as Geo).aabb().grow(0.03 / maxf(0.2, xf.basis.get_scale().x)), inverse = xf.affine_inverse()})
+		c.set_meta("crystal", true)
+	# (the body — rock and crystals — is there by now: what comes after is some gene's, see _mark)
+	for c in root.get_children():
+		if not c.has_meta("gene"): c.set_meta("gene", "body")
 	return out
 
 ## a spot on the rock with no crystal over it
@@ -1188,10 +1199,14 @@ func _specimen(o: Dictionary) -> Node3D:
 	crust_ok = layout != "geode"
 	crust_once = layout == "skull"
 	_inside(main, mat, habit, col, gi, tr, legend, layout, seed_v)
+	_tag("inside")   # (what lies in the crystals on purpose: needles of rutile, phantoms, clouds)
 	if gene.gold:
 		_gold(main, mat, st)
 	_growths(main, mat, col, tr, layout, sid, st, legend)
 	_accents(main, mat, gene, st, layout)
+	# nothing that grew sits inside a crystal: what does is taken away (and a gene left with nothing is not "grown")
+	_tag("accents")
+	SpecSolid.clear(root, grown)
 	# a trilobite's slab is held up to the viewer, everything that grew on it with it
 	if layout == "trilobite":
 		SpecTrilobite.lean(self, gene)
@@ -2096,6 +2111,7 @@ func _crumbs(rm: ShaderMaterial, top: Array, sc: Vector3, loose: float) -> void:
 
 # the accent genes: fibre pom-poms, straw hairs, lichen, dark spots and coloured clouds in the glass
 func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: Dictionary, layout: String) -> void:
+	_tag("growths")
 	var acc: Array = gene.accents
 	if acc.is_empty():
 		return
@@ -2143,6 +2159,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			_mark("straw", a[0], a[1])
 			for bend in [1.4, 2.4]:
 				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.45, bend, sc, 0.09 * gs)
+			_tag("straw")
 	var hollows: Array = st.get("hollows", [])
 	var in_pits: bool = gene.nest == "hollows" and hollows.size() > 30
 	var rock_spots := []

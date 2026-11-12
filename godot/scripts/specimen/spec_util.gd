@@ -109,6 +109,7 @@ static func inst(geo: Geo, mat: Material, n: int, place: Callable, parent: Node3
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = mat
+	mi.set_meta("ibuf", buf)   # (its copies, for SpecSolid.clear: read back from the renderer they would wait for it)
 	parent.add_child(mi)
 	return mi
 
@@ -175,7 +176,7 @@ static func _batch(n: Node, skip: Dictionary) -> void:
 			var k := "%d %d %d %d" % [mm.mesh.get_instance_id(), mi.material_override.get_instance_id() if mi.material_override else 0, mi.cast_shadow, mi.layers]
 			if not plants.has(k): plants[k] = []
 			plants[k].append(mi)
-		elif c is MeshInstance3D and c.has_meta("geo") and c.get_meta_list().size() == 1:
+		elif c is MeshInstance3D and c.has_meta("geo") and c.get_meta_list().size() == (2 if c.has_meta("gene") else 1):
 			var m := c as MeshInstance3D
 			var mat := m.material_override as StandardMaterial3D
 			if not mat or mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or m.mesh == null: continue

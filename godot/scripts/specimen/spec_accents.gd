@@ -74,6 +74,7 @@ static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int,
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = fibre_mat()
+	mi.set_meta("ibuf", buf)   # (SpecSolid.clear drops the needles that run into a crystal)
 	parent.add_child(mi)
 
 ## palettes the genes choose from (linear colours; a touch over 1 blooms)

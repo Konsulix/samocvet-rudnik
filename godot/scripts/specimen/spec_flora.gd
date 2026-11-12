@@ -110,9 +110,7 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 				var xf := Transform3D(b, p - nrm * s * 0.03)
 				var core := box.grow(-0.14 * minf(box.size.x, box.size.z))
 				var hit := false
-				# (the last tries of a clump's first plant: a small one at a crystal's very foot rather than none — the
-				# genome promised flowers)
-				for bl: Dictionary in (blockers if attempt < 21 or not first else []):
+				for bl: Dictionary in blockers:
 					if ((bl.inverse as Transform3D) * xf * core).intersects(bl.bounds):
 						hit = true
 						break
@@ -142,6 +140,7 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		mi.material_override = mat_of(name, kind)
+		mi.set_meta("ibuf", buf)
 		mi.set_meta("stand", true)   # (a butterfly does not land in them)
 		parent.add_child(mi)
 	return marks
