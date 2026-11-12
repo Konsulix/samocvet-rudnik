@@ -294,6 +294,20 @@ class Fly extends Node3D:
 			var n: Node = stack.pop_back()
 			if n is Fly: continue
 			stack.append_array(n.get_children())
+			# what stands on the find as many copies of one mesh (the mushrooms, SpecFungi: marked "stand"): each copy
+			# with its own box, in its own axes
+			if n is MultiMeshInstance3D and n.has_meta("stand"):
+				var mmi := n as MultiMeshInstance3D
+				var mb := mmi.multimesh.mesh.get_aabb()
+				var mx := SpecUtil.rel_xform(mmi, top_n)
+				for k in mmi.multimesh.instance_count:
+					var ix := mx * mmi.multimesh.get_instance_transform(k)
+					var ib := ix * mb
+					obst.append([ib.get_center(), ib.size * 0.5 + Vector3.ONE * size * 0.3])
+					stand.append(ib.grow(size * 0.45))
+					var inv := ix.affine_inverse()
+					stand_raw.append([inv, mb.grow(size * 0.12 * inv.basis.get_scale().x)])
+				continue
 			if not (n is MeshInstance3D) or not n.has_meta("geo"): continue
 			var g: Geo = n.get_meta("geo")
 			var bb: AABB = SpecUtil.rel_xform(n as Node3D, top_n) * g.aabb()

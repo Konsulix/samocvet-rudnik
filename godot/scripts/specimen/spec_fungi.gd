@@ -159,6 +159,7 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		mi.material_override = mat_of(name, kind)
+		mi.set_meta("stand", true)   # (a butterfly does not land in them: SpecButterfly.Fly._look_round)
 		parent.add_child(mi)
 	# the glowing ones: a soft light round every cap, and a little of it on the rock
 	if float(K.get("glow", 0.0)) > 0.0:
