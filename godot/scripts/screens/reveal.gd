@@ -308,6 +308,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	# and a tap on a badge (or on the stone) draws threads from name plates to where each grew
 	view.built.connect(func(p: Node3D) -> void:
 		var grown: Dictionary = p.get_meta("grown", {})
+		Awards.saw_grown(s, grown)
 		var list := []
 		var shown := 0
 		for id: String in order:

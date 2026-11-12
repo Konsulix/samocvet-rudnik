@@ -38,6 +38,8 @@ func blank() -> Dictionary:
 		# the mines: the furthest one reached, and what each mine left behind keeps till the player comes back to it
 		# (its own ore, its veins, its wins by depth: open_mine)
 		reached = 0, mines = {},
+		# what grew on each stone whose card was built (Awards.saw_grown): id -> the growths' ids
+		grown = {},
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)

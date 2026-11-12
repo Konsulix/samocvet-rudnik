@@ -37,7 +37,8 @@ static var LIST := [
 		items = ["sp:pyrite", "sp:gold"]},
 	{tab = "tales", icon = "casket", n = "The Mistress's Casket", t = "She gives only to those who don't grab.", r = "malachite board frame",
 		items = ["sp:malachite", "sp:emerald"]},
-	{tab = "tales", icon = "nested", n = "Matryoshka", t = "A stone inside a stone inside a stone.", r = "a geode", items = ["sp:fluorite"]},
+	{tab = "tales", icon = "nested", n = "Matryoshka", t = "A stone inside a stone inside a stone.", r = "a geode",
+		tags = ["hopper:fluorite"], names = ["Hopper fluorite"]},
 	{tab = "tales", icon = "halves", n = "Reunited", t = "Split a hundred million years ago. Together again.", r = "a geode", items = ["i:halves"], one = true, ev = ""},
 	{tab = "tales", icon = "footsteps", n = "Brother's Footsteps", t = "He was here before you. Every time.", r = "the brother's trail",
 		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll"], evs = ["tut:s_notebook", "tut:s_poloz_after", "tut:s_proval_arrive", "tut:s_proval_gate"]},
@@ -228,6 +229,8 @@ static func genes_of(s: Dictionary) -> Array:
 		"petrified_wood":
 			if f.get("fungi", false): out.append("shroom:4")    # honey fungus grows only on the wood
 	if sid == "gold": out.append("gold:" + String(g.form))     # the Fire Maiden's gold: nugget, vein, tree
+	# Matryoshka: fluorite's hopper crystals, stepped cube frames one inside the next
+	if sid == "fluorite" and String(g.form) == "hopper": out.append("hopper:fluorite")
 	# the butterflies, of any find (a skull's or a stone's)
 	for k in g.get("fly_kinds", []):
 		if not "fly:" + String(k) in out: out.append("fly:" + String(k))
@@ -259,7 +262,63 @@ static func genes_of(s: Dictionary) -> Array:
 		var ws: Array = []
 		for i in pal.size(): ws.append([i, float(pal[i][2])])
 		out.append("pal:%s:%d" % [sid, int(Stones.pick_w(ws, Rng32.new((seed_v * 1597334677 + 31) % 4294967296)))])
+	# what the stone really grew, once a card of it was built (saw_grown): a growth its body had no room for is not
+	# counted (a bare nugget is promised lichen and fronds by its genome, and grows none)
+	var gr: Variant = (Save.d.get("grown", {}) as Dictionary).get(str(int(s.get("id", 0))))
+	if gr is Array:
+		out = out.filter(func(t: String) -> bool:
+			var gid := _growth_id(t)
+			return gid == "" or (gr as Array).has(gid))
 	return out
+
+## the id a gene's growth is marked by on the built stone (SpecimenBuilder "grown"), for the genes that may fail to
+## grow: traits, the shared growths, butterflies, mushrooms ("" — part of the body, always there)
+static func _growth_id(t: String) -> String:
+	if t.begins_with("tr:"): return t.substr(3)
+	if t.begins_with("fly:"): return "fly_" + t.substr(4)
+	if t.begins_with("shroom:") and t != "shroom:4": return "mushrooms"
+	if t.begins_with("acc:") and t.substr(4) in ODD_ACC: return t.substr(4)
+	return ""
+
+## a card of the stone was built (Reveal.stone_card): what grew on it is kept (Save.d.grown), and a gene it was
+## counted for at its finding but never grew is taken back — unless another kept stone shows it; the events it
+## alone brought (eight genes, overgrown) too, if not claimed
+static func saw_grown(s: Dictionary, grown: Dictionary) -> void:
+	if not s.has("id") or int(s.id) == 0: return
+	var id := int(s.id)
+	var key := str(id)
+	if not Save.d.has("grown"): Save.d.grown = {}
+	if (Save.d.grown as Dictionary).has(key): return
+	var before := genes_of(s)
+	var marks0 := find_marks(s, before)
+	Save.d.grown[key] = grown.keys()
+	_gof.erase(id)
+	_kept = {}
+	var after := genes_of(s)
+	var marks1 := find_marks(s, after)
+	for t: String in before:
+		if after.has(t): continue
+		var first: Dictionary = (Save.d.gfirst as Dictionary).get(t, {})
+		if not first.is_empty() and int(first.get("id", -1)) != id: continue
+		var other: Dictionary = {}
+		for o in Save.d.coll:
+			if int(o.get("id", 0)) != id and _genes_cached(o).has(t):
+				other = o
+				break
+		if other.is_empty():
+			Save.d.genes.erase(t)
+			Save.d.gfirst.erase(t)
+		else:
+			Save.d.gfirst[t] = summary(other, int(other.get("area", 0)), int(other.get("dl", 0)))
+	for m: String in marks0:
+		if not marks1.has(m) and n(m) == 1 and not _claimed_by(m): Save.d.aw_ev.erase(m)
+	Save.persist()
+
+## whether an achievement of this event was claimed already (then it stays)
+static func _claimed_by(ev: String) -> bool:
+	for e: Dictionary in LIST:
+		if String(e.get("ev", "")) == ev and (Save.d.aw_got as Array).has(String(e.n)): return true
+	return false
 
 ## the achievements a find brings by itself (Save.note_find): eight genes, a crystal on its own rock, butterflies on a
 ## burning skull, a find overgrown — read from its genes and genome, no meshes
@@ -450,7 +509,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 7: return
+	if int(Save.d.get("gver", 0)) >= 8: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -466,7 +525,8 @@ static func backfill() -> void:
 			if String(mk) in ["maw", "fledged", "tm_slice", "gold_pyrite", "perched_gold"]: once(String(mk))
 	# (gver 7: pseudomorphs and pairs; the pairs seen so far, counted for Matchmaker)
 	Save.d.aw_ev.pairs = seen.filter(func(t: String) -> bool: return t.begins_with("pair:")).size()
-	Save.d.gver = 7
+	# (gver 8: hopper fluorite for Matryoshka)
+	Save.d.gver = 8
 	Save.persist()
 
 func _ready() -> void:
@@ -1277,7 +1337,7 @@ func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
 	return h
 
 ## the species a gene shows on (for the hint of where to look)
-const GENE_SP := {gold = ["gold"], genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
+const GENE_SP := {hopper = ["fluorite"], gold = ["gold"], genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
 	insect = ["amber", "simetite"], bloom = ["flower_quartz", "amber"], plant = ["fern"]}
 
 ## a hint for a '?': which mine (named only once opened) and among what to look — not the name of the thing itself
