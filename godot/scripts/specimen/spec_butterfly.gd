@@ -58,6 +58,7 @@ static func style(kind: String) -> String:
 	return String((KINDS.get(kind, {}) as Dictionary).get("style", "glide"))
 
 static var _area := {}
+static var fly_big := 1.0   # a test key (-- fly_big=1.8): every butterfly this much larger (a trailer's close cards)
 ## the mine a species is found in (each species belongs to one mine's pool); -1 none
 static func area_of(sid: String) -> int:
 	if _area.is_empty():
@@ -90,7 +91,7 @@ static func pick(rng: Rng32) -> String:
 static func put(parent: Node3D, rng: Rng32, id: String, at: Vector3, n: Vector3, span: float, flying: bool, perches := []) -> Node3D:
 	if not KINDS.has(id): id = "monarch"   # (a kind there is no more, in an old find)
 	var k: Dictionary = KINDS[id]
-	return put_model(parent, rng, id, String(k.style), span * float(k.span), flying, at, n, perches)
+	return put_model(parent, rng, id, String(k.style), span * float(k.span) * fly_big, flying, at, n, perches)
 
 ## any of the MODELS flying round a find the same way (a butterfly; a firefly of the swarm — SpecSkullFx): span — its
 ## wingspan in find units; lands false — it never comes down (its points to hover over are the perches all the same)

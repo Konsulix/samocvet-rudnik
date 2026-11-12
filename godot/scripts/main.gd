@@ -74,6 +74,7 @@ func _ready() -> void:
 	if args.has("rise"): Home.rise = true
 	if args.has("dive"): Home.dive = float(args.dive)
 	if args.has("card_h"): Reveal.info_h = float(args.card_h)
+	if args.has("fly_big"): SpecButterfly.fly_big = float(args.fly_big)
 	if args.has("chips"): Reveal.chips_max = int(args.chips)
 	if args.has("story_auto"): StoryScene.auto = true   # the home screen as after the prologue: up from the bottom to the guide
 	if args.has("mine_event"):
@@ -433,10 +434,14 @@ func _ready() -> void:
 		if args.has("gi"): st.gi = int(args.gi)
 		if args.has("shroom"): st.shroom = int(args.shroom)
 		if args.has("traits"): st.traits = Array(args.traits.split(","))
+		if args.get("form", "") != "skull":
+			if args.has("flies"): st.flies = int(args.flies)
+			if args.has("fly_kind"): st.fly_kind = args.fly_kind
+			if args.has("fly_mode"): st.fly_mode = int(args.fly_mode)
 		# a skull and its genes: form=skull skin=gold moss=cap ...
 		if args.get("form", "") == "skull":
 			st.form = "skull"
-			for k in ["skin", "moss", "eyes", "milk", "tone", "show", "rock_kind", "dmg", "fangs", "tree_kind", "beast", "horn"]:
+			for k in ["skin", "moss", "eyes", "milk", "tone", "show", "rock_kind", "dmg", "fangs", "tree_kind", "beast", "horn", "fly_kind"]:
 				if args.has(k): st[k] = args[k]
 			for k in ["trees", "flies", "bloom_pal"]:
 				if args.has(k): st[k] = int(args[k])
@@ -581,7 +586,7 @@ func _swap(n: Node) -> void:
 	screen = n
 	add_child(n)
 	# achievements done since the last screen: a toast each time one is noticed (not over a board)
-	if not n is Level: Awards.check.call_deferred()
+	if not n is Level and Reveal.chips_max == 0: Awards.check.call_deferred()   # no award toast over a showcase card
 	if Reveal.chips_max > 0 and n is CanvasItem: (n as CanvasItem).visible = false   # the showcase: the card alone, its glow whole
 	Diag.where = n.get_script().get_global_name() if n.get_script() else String(n.name)
 	# a boss fight has started its own theme while mounting

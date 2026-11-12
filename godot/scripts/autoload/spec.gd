@@ -106,6 +106,9 @@ static func of_stone(s: Dictionary) -> Dictionary:
 	var o := {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
 	if s.has("fx"): o.fx = s.fx
 	if s.has("shroom"): o.shroom = s.shroom
+	# butterflies pinned on a find (test keys, -- reveal=N flies=3 fly_kind=monarch); a rolled find leaves them to its seed
+	for k in ["flies", "fly_kind", "fly_mode"]:
+		if s.has(k): o[k] = s[k]
 	# a skull (SpecSkull): its body, and any of its genes pinned
 	if s.get("form", "") == "skull":
 		o.form = "skull"
