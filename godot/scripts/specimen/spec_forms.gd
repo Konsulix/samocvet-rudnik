@@ -431,9 +431,11 @@ static func _film(t: float) -> Color:
 ## (`peak` 0: a funnel from the edge, the last ring: a ziggurat). The rings are not centred: the crater sits towards a
 ## corner, as they grow. Foot at the origin, y up, `a` the half-width. Added to `g` with what bismuth.gdshader needs
 ## (`mode` 0 a funnel, 1 a ziggurat, 2 a rim round a crater, -1 any; `tall` stretches its steps). Returns its height
-static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, size_k := 1.0, mode := -1, tall := 1.0) -> float:
+## (`rings`: how many, 0 — its own choice; `spiral` off: every ring level all round, broad plain steps)
+static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, size_k := 1.0, mode := -1, tall := 1.0, rings := 0, spiral := true) -> float:
 	var box := Geo.box(1, 1, 1).translate(0, 0.5, 0)
 	var n := (8 + int(rng.next() * 6)) if size_k > 0.45 else (5 + int(rng.next() * 4))
+	if rings > 0: n = rings
 	var ax := a
 	var az := a * (0.7 + rng.next() * 0.3)
 	var step := 1.0 / (n + 0.8 + rng.next() * 0.8)
@@ -496,7 +498,7 @@ static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, s
 		var wb := wz * (1.5 - bz_bias) * (0.8 + rng.next() * 0.4)
 		if x1 - x0 - wl - wr < wx * 0.6 or z1 - z0 - wf - wb < wz * 0.6: break
 		for j in 4:
-			var t := float(i) + j * 0.25
+			var t := float(i) + (j * 0.25 if spiral else 0.0)
 			var y: float = hgt.call(t)
 			# now and then a wall is notched low: a gap in the staircase
 			if i > 0 and rng.next() < 0.1: y = maxf(a * 0.05, y - sh * (1.5 + rng.next() * 2.0))
@@ -525,7 +527,7 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var a := 0.3 * gs
 	var hue0 := rng.next()
 	# it stands up, tipped a little to the viewer: its steps show from the side and its terraces from above
-	var axis := (VIEW * (0.28 + rng.next() * 0.22) + UP + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.25).normalized()
+	var axis := (VIEW * (0.55 + rng.next() * 0.2) + UP * 0.8 + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.25).normalized()
 	var tilt := Basis(U.quat_to(UP, axis)) * Basis(UP, rng.next() * TAU)
 	# the sides a bough may stand out of: to the left, the right and towards the viewer, never straight away from them
 	var sides := []
@@ -538,7 +540,9 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	for k in tiers:
 		var last := k == tiers - 1
 		var rot := Basis(UP, (rng.next() - 0.5) * 0.25 + PI * 0.5 * int(rng.next() * 4.0))
-		var h := _stair(g, rng, ak, Transform3D(rot, base), hue0, ak / a, 1 if last or rng.next() < 0.55 else 2, 1.25 + rng.next() * 0.6)
+		# (few rings and steep: steps broad enough to hold a face of light, not a ream of thin lines)
+		var zig := last or rng.next() < 0.55
+		var h := _stair(g, rng, ak, Transform3D(rot, base), hue0, ak / a, 1 if zig else 2, 1.7 + rng.next() * 0.7, 5 + int(rng.next() * 3), not zig)
 		spots.append([base, ak, h])
 		# the next rises out of this one's upper steps, off its middle
 		base += UP * h * (0.6 + rng.next() * 0.25) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * ak * 0.55
@@ -548,7 +552,7 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var aw: float = sp[1]
 		var h: float = sp[2]
 		for k in 2 + int(rng.next() * 3):
-			var s := 0.26 + pow(rng.next(), 1.4) * 0.34
+			var s := 0.3 + pow(rng.next(), 1.3) * 0.36
 			# (parallel growth, a few degrees out; one in four well out of true)
 			var jit := Basis(Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized(), (rng.next() - 0.5) * (1.0 if rng.next() < 0.25 else 0.3))
 			var bs := jit * Basis(UP, PI * 0.5 * int(rng.next() * 4.0))
@@ -559,7 +563,8 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 				var d := bs0 * UP
 				at = sb + d * aw * (0.5 + rng.next() * 0.4) + UP * h * (0.15 + rng.next() * 0.55) + d.cross(UP) * (rng.next() - 0.5) * 1.1 * aw
 				bs = jit * bs0
-			_stair(g, rng, aw * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.1, aw * s / a)
+			# (a bough is a hopper: a crater of square rings — the thing that most reads as bismuth)
+			_stair(g, rng, aw * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.1, maxf(0.5, aw * s / a), 0 if rng.next() < 0.6 else 2)
 	# the film in broad zones over the whole growth: up it, and in slow waves across
 	var span := 0.3 + rng.next() * 0.25
 	var ph1 := rng.next() * TAU
