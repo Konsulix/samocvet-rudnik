@@ -167,12 +167,21 @@ static func disk_put(kind: String, key: String, img: Image) -> void:
 ## machines never change: their pictures are baked into the project (bake_thumbs key), not rendered on the phone
 const BAKED := "res://assets/thumbs/machine_%s.png"
 
+## a picture cache kept to its last `n` entries (a Dictionary keeps the order things were put in): unbounded, the
+## thumbnails and cutouts of a big collection held hundreds of MB of video memory for the whole game
+const THUMBS_MAX := 160
+static func trim(d: Dictionary, n: int) -> void:
+	while d.size() > n:
+		d.erase(d.keys()[0])
+
 ## owner: as Atlas.cutout's - left behind with its screen, the thumbnail isn't built
 func thumb(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var t := cached(o)
 	if t == null and not o.has("bake"):
 		t = disk_get("t", key_of(o))
-		if t: _cache[key_of(o)] = t
+		if t:
+			_cache[key_of(o)] = t
+			trim(_cache, THUMBS_MAX)
 	if t:
 		cb.call(t)
 		return
@@ -204,6 +213,7 @@ func _pump() -> void:
 				await RenderingServer.frame_post_draw
 			var img := studio.vp.get_texture().get_image()
 			_cache[key] = ImageTexture.create_from_image(img)
+			trim(_cache, THUMBS_MAX)
 			if not o.has("bake") and not o.has("machine"): disk_put("t", key, img)
 			studio.clear()
 		if cb.is_valid():

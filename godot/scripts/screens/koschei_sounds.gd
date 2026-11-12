@@ -41,7 +41,7 @@ static func chain(v: BarrowView, db: float) -> void:
 static func caw(v: BarrowView, db: float) -> void:
 	for i in 4:
 		v.get_tree().create_timer(0.3 + i * 0.7 + randf() * 0.3).timeout.connect(func():
-			v.amb.shot("copper/crow_%d" % (randi() % 3), db - 4.0, randf_range(0.75, 0.9)))
+			if is_instance_valid(v): v.amb.shot("copper/crow_%d" % (randi() % 3), db - 4.0, randf_range(0.75, 0.9)))
 	v.amb.shot("copper/wings_%d" % (randi() % 3), db - 4.0, 0.9)
 
 static func scurry(v: BarrowView, db: float) -> void:
@@ -52,7 +52,7 @@ static func wings(v: BarrowView, db: float) -> void:
 
 static func heart(v: BarrowView, db: float) -> void:
 	v.amb.shot("barrow/heart", db - 2.0, 1.0)
-	v.get_tree().create_timer(1.1).timeout.connect(func(): v.amb.shot("barrow/heart", db - 6.0, 0.98))
+	v.get_tree().create_timer(1.1).timeout.connect(func(): if is_instance_valid(v): v.amb.shot("barrow/heart", db - 6.0, 0.98))
 
 static func squelch(v: BarrowView, db: float) -> void:
 	v.amb.shot("sea/squelch", db - 8.0, 0.8)

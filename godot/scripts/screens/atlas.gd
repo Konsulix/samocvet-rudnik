@@ -111,6 +111,7 @@ var _intro_now := false   # the atlas's first note shows now: the grey page's wa
 var content: VBoxContainer
 var scroll: ScrollContainer
 
+const CUTS_MAX := 120
 static var _cut := {}          # stone key -> its picture on a transparent ground
 static var _studio: SpecStudio
 static var _queue := []
@@ -756,7 +757,9 @@ static func cutout(o: Dictionary, cb: Callable, owner: Object = null) -> void:
 	var key := Spec.key_of(o)
 	if not _cut.has(key):
 		var dt := Spec.disk_get("c", key)
-		if dt: _cut[key] = dt
+		if dt:
+			_cut[key] = dt
+			Spec.trim(_cut, CUTS_MAX)
 	if _cut.has(key):
 		cb.call(_cut[key])
 		return
@@ -792,6 +795,7 @@ static func _pump() -> void:
 				continue
 			var cut := img.get_region(used)
 			_cut[key] = ImageTexture.create_from_image(cut)
+			Spec.trim(_cut, CUTS_MAX)
 			Spec.disk_put("c", key, cut)
 		if cb.is_valid():
 			cb.call(_cut[key])
@@ -808,7 +812,9 @@ static func cached(o: Dictionary) -> Texture2D:
 	var key := Spec.key_of(o)
 	if not _cut.has(key):
 		var dt := Spec.disk_get("c", key)
-		if dt: _cut[key] = dt
+		if dt:
+			_cut[key] = dt
+			Spec.trim(_cut, CUTS_MAX)
 	return _cut.get(key)
 
 ## the game is closing: drop the pictures and the studio while the renderer is still up

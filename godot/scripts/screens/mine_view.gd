@@ -21,6 +21,7 @@ const REACT_LEN := 1.5      # a crew's reaction: 12 drawings at 8 a second
 const CREW_FPS := 14.0    # the 24-drawing crews: a pick swing ~1.7 s, its strike on drawing 10
 
 static var _tex := {}
+static var _tex_dir := ""   # the mine whose pictures _tex holds
 static var last_result := {}   # the level just played (main sets it): the depth's crew reacts, the ore flies in
 static var force_maiden := false   # test key (-- mine_event=maiden)
 static var force_event := ""   # test key (-- mine_event=hole|coil|eyes|bat): play it at once
@@ -132,9 +133,20 @@ func amb_beds() -> Array:
 
 func tex(path: String) -> Texture2D:
 	var key := dir + path
+	if dir != _tex_dir:
+		_drop_others()
 	if not _tex.has(key):
 		_tex[key] = load(key)
 	return _tex[key]
+
+## another mine's screen: the pictures of the one before are let go (each mine holds 130-150 MB of video memory,
+## and kept for good they added up mine after mine until iOS closed the game), the loading screen's too
+func _drop_others() -> void:
+	var first := _tex_dir == ""   # the first mine of the game: the loading screen read its pictures, keep them
+	_tex_dir = dir
+	for k: String in _tex.keys():
+		if not k.begins_with(dir): _tex.erase(k)
+	if not first: Boot.cache.clear()
 
 func _ready() -> void:
 	surf = Sprite2D.new()

@@ -49,7 +49,7 @@ static func scurry(v: SeamView, db: float) -> void:
 static func jackdaws(v: SeamView, db: float) -> void:
 	for i in 3:
 		v.get_tree().create_timer(0.2 + i * 0.5 + randf() * 0.3).timeout.connect(func():
-			v.amb.shot("copper/crow_%d" % (randi() % 3), db - 6.0, randf_range(1.35, 1.55)))
+			if is_instance_valid(v): v.amb.shot("copper/crow_%d" % (randi() % 3), db - 6.0, randf_range(1.35, 1.55)))
 
 ## a canary's phrase (past the muffling bus: the song is nearly all above 2 kHz)
 static func song(v: SeamView, db: float) -> void:

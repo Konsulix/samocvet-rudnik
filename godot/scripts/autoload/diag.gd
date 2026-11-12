@@ -71,14 +71,16 @@ func _notification(what: int) -> void:
 		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
 			note(BACK)
 		NOTIFICATION_OS_MEMORY_WARNING:
-			note("iOS: MEMORY WARNING, mem %d MB, vram %d MB" % [_mem_mb(), _vram_mb()])
+			note("iOS: MEMORY WARNING, free %d MB, vram %d MB" % [_mem_mb(), _vram_mb()])
 		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_PREDELETE:
 			if _file:
 				note(CLEAN)
 				_file = null
 
+## the memory the system still has for us; -1 where it can't tell
 static func _mem_mb() -> int:
-	return roundi(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0)
+	var avail: int = OS.get_memory_info().get("available", -1)
+	return roundi(avail / 1048576.0) if avail > 0 else -1
 
 static func _vram_mb() -> int:
 	return roundi(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0)
@@ -125,7 +127,7 @@ func _process(dt: float) -> void:
 	_win_worst = maxf(_win_worst, dt)
 	_win_calls += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	if _win_t >= 2.0:
-		note("%s%s: %d fps, worst %d ms, logic %.1f ms, draw %.1f ms, %d calls, vram %d MB, mem %d MB" % [where,
+		note("%s%s: %d fps, worst %d ms, logic %.1f ms, draw %.1f ms, %d calls, vram %d MB, free %d MB" % [where,
 			"+card" if Ov.is_open() else "", roundi(_win_n / _win_t), roundi(_win_worst * 1000.0),
 			_win_logic / 1000.0 / _win_n, _win_draw / 1000.0 / _win_n, roundi(_win_calls / _win_n),
 			_vram_mb(), _mem_mb()])

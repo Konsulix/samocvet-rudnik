@@ -91,12 +91,12 @@ func _birds(v: CopperView, a: MineAmb, t: float, sky: float) -> void:
 		var n := 3 + randi() % 2
 		for i in n:
 			var at := 0.3 + i * randf_range(0.35, 0.6)
-			v.get_tree().create_timer(at).timeout.connect(func(): a.shot("copper/crow_%d" % (randi() % 3), -16.0 - i * 1.5 + v._far(by), randf_range(0.95, 1.05)))
+			v.get_tree().create_timer(at).timeout.connect(func(): if is_instance_valid(v): a.shot("copper/crow_%d" % (randi() % 3), -16.0 - i * 1.5 + v._far(by), randf_range(0.95, 1.05)))
 	if t >= _crow_at:
 		_crow_at = t + randf_range(16.0, 34.0)
 		var calls := 1 + randi() % 3
 		for i in calls:
-			v.get_tree().create_timer(i * randf_range(0.45, 0.7)).timeout.connect(func(): a.shot("copper/crow_%d" % (randi() % 3), -22.0 + v._far(sky + 250.0), randf_range(0.9, 1.0)))
+			v.get_tree().create_timer(i * randf_range(0.45, 0.7)).timeout.connect(func(): if is_instance_valid(v): a.shot("copper/crow_%d" % (randi() % 3), -22.0 + v._far(sky + 250.0), randf_range(0.9, 1.0)))
 
 ## the groom's pony (the crew of the depth that has a pet: mine.json crews[].pet), once its people live there
 func _pony(v: CopperView, a: MineAmb, t: float) -> void:
@@ -116,7 +116,7 @@ func _pony(v: CopperView, a: MineAmb, t: float) -> void:
 			a.shot("copper/snort_%d" % (randi() % 2), -20.0 + f, randf_range(0.9, 1.1))
 		else:
 			for j in 2:
-				v.get_tree().create_timer(j * randf_range(0.3, 0.5)).timeout.connect(func(): a.shot("copper/hoof_%d" % (randi() % 2), -18.0 + f, randf_range(0.9, 1.1)))
+				v.get_tree().create_timer(j * randf_range(0.3, 0.5)).timeout.connect(func(): if is_instance_valid(v): a.shot("copper/hoof_%d" % (randi() % 2), -18.0 + f, randf_range(0.9, 1.1)))
 
 ## the Mistress's signs, sounded once as each starts (CopperView._tick_events / _events_live)
 func _events(v: CopperView, a: MineAmb, t: float) -> void:
@@ -133,8 +133,8 @@ func _events(v: CopperView, a: MineAmb, t: float) -> void:
 				var cr: Dictionary = v._events.get("lizard_at", {})
 				var y := v.band_y(int(cr.get("d", 1)) - 1) + float(cr.get("y", 0))
 				for j in 3:
-					v.get_tree().create_timer(j * 1.1).timeout.connect(func(): a.shot("lizards", -10.0 + v._far(y), randf_range(1.0, 1.2)))
-				v.get_tree().create_timer(4.1).timeout.connect(func(): a.shot("hiss", -18.0 + v._far(y), 1.2))
+					v.get_tree().create_timer(j * 1.1).timeout.connect(func(): if is_instance_valid(v): a.shot("lizards", -10.0 + v._far(y), randf_range(1.0, 1.2)))
+				v.get_tree().create_timer(4.1).timeout.connect(func(): if is_instance_valid(v): a.shot("hiss", -18.0 + v._far(y), 1.2))
 			"reflection":
 				if not v.J.water.has("reflection"):
 					continue
@@ -146,15 +146,15 @@ func _events(v: CopperView, a: MineAmb, t: float) -> void:
 				var hb: Dictionary = v.J.hotcrack
 				var yb := v.band_y(int(hb.d) - 1) + float(hb.y)
 				a.shot("sea/bubble_%d" % (randi() % 3), -12.0 + v._far(yb), 0.8)
-				v.get_tree().create_timer(1.2).timeout.connect(func(): a.shot("sea/squelch", -16.0 + v._far(yb), 0.7))
+				v.get_tree().create_timer(1.2).timeout.connect(func(): if is_instance_valid(v): a.shot("sea/squelch", -16.0 + v._far(yb), 0.7))
 			"hotcrack":
 				if not v.J.has("hotcrack"):
 					continue
 				var hc: Dictionary = v.J.hotcrack
 				var y := v.band_y(int(hc.d) - 1) + float(hc.y)
 				a.shot("rockfall", -14.0 + v._far(y), 0.5)
-				v.get_tree().create_timer(0.8).timeout.connect(func(): a.shot("copper/chuff_%d" % (randi() % 3), -10.0 + v._far(y), 0.7))
-				v.get_tree().create_timer(2.6).timeout.connect(func(): a.shot("copper/chuff_%d" % (randi() % 3), -12.0 + v._far(y), 0.65))
+				v.get_tree().create_timer(0.8).timeout.connect(func(): if is_instance_valid(v): a.shot("copper/chuff_%d" % (randi() % 3), -10.0 + v._far(y), 0.7))
+				v.get_tree().create_timer(2.6).timeout.connect(func(): if is_instance_valid(v): a.shot("copper/chuff_%d" % (randi() % 3), -12.0 + v._far(y), 0.65))
 	# the hall of the stone flower, open: a faint shimmer now and then
 	if String(v._shown_bands.get(8, "")) == "done" and t >= _hall_at:
 		_hall_at = t + randf_range(7.0, 12.0)
