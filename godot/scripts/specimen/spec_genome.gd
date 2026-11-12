@@ -31,7 +31,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## the layouts without a rock floor (SpecimenBuilder: has_base)
-const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray", "staircase", "slice"]
+const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray", "slice"]
 ## the showy minerals built as one lit mesh (SpecForms): no glass to hold an effect, no crystal to twin
 const ONE_MESH := ["balls", "fans", "staircase", "grapes"]
 
@@ -142,7 +142,7 @@ static func of(o: Dictionary) -> Dictionary:
 	if form in NO_BASE:
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["crust", "needles", "dust"]))
 	# and where there is no rock at all (a spray of needles, a vein, a floater) no lichen or plants either
-	if form in ["floater", "radial", "vein", "staircase", "slice"]:
+	if form in ["floater", "radial", "vein", "slice"]:
 		apool = apool.filter(func(a: Array) -> bool: return not (a[0] in ["lichen", "fronds", "flowers"]))
 	# a fossil without its slab of rock has nowhere for things to grow (a fossil leaf lies on a split rock)
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
@@ -273,7 +273,7 @@ static func of(o: Dictionary) -> Dictionary:
 			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
-	if shroom >= 0 and not bare and not form in ["staircase", "slice"] and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not form in ["slice"] and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:

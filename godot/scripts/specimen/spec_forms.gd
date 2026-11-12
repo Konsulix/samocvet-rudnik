@@ -522,9 +522,13 @@ static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, s
 ## The oxide film's colour lies over the whole in broad zones, running up the tree. No rock. One mesh
 static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var rng: Rng32 = b.rng
+	var st: Dictionary = c.st
 	var gs: float = c.gs
+	# on its rock, as every other mineral: the tree stands on the rock's show side, small hoppers scattered round it
+	# (a lump of rock under it, never a broad slab: on a slab the tree is a small thing in a field)
+	c.use_rock.call("chunk")
 	var g := Geo.new()
-	var a := 0.3 * gs
+	var a := 0.25 * gs
 	var hue0 := rng.next()
 	# it stands up, tipped a little to the viewer: its steps show from the side and its terraces from above
 	var axis := (VIEW * (0.55 + rng.next() * 0.2) + UP * 0.8 + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.25).normalized()
@@ -533,7 +537,7 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var sides := []
 	for bs0: Basis in [Basis(Vector3.RIGHT, PI * 0.5), Basis(Vector3.RIGHT, -PI * 0.5), Basis(Vector3.BACK, PI * 0.5), Basis(Vector3.BACK, -PI * 0.5)]:
 		if (tilt * bs0 * UP).dot(VIEW) > -0.4: sides.append(bs0)
-	var tiers := 3 + int(rng.next() * 3)
+	var tiers := 2 + int(rng.next() * 3)
 	var base := Vector3.ZERO
 	var ak := a
 	var spots := []
@@ -575,8 +579,23 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		r3.x += span * (0.2 * p.y + 0.3 * sin(p.x * 1.6 + ph1) * cos(p.z * 1.3 + ph2))
 		g.rp[i] = r3
 	g.xform(Transform3D(tilt, Vector3.ZERO))
-	var bb := g.aabb()
-	g.translate(-bb.get_center().x, -bb.position.y - 0.25, -bb.get_center().z)
+	# its foot on the rock, sunk a little into it
+	# (the highest of the rock, a little to the viewer: a foot at its edge and half the tree hangs in the air)
+	var foot: Vector3 = _show_spot(b, st, 14, 4.0)
+	var fn: Vector3 = st.nrm.call(foot)
+	g.translate(foot.x - fn.x * a * 0.2, foot.y - a * 0.22, foot.z - fn.z * a * 0.2)
+	b.keep_out.append([foot, a * 1.15])
+	# small hoppers on the rock round it, each its own little crater of steps, leaning as the rock does
+	for k in 3 + int(rng.next() * 5):
+		var q: Vector3 = st.pick.call()
+		for t in 6:
+			if q.distance_to(foot) > a * 1.25: break
+			q = st.pick.call()
+		var qn: Vector3 = st.nrm.call(q)
+		var sa := a * (0.16 + pow(rng.next(), 1.5) * 0.26)
+		var sb2 := Basis(U.quat_to(UP, qn.lerp(UP, 0.45).normalized())) * Basis(UP, rng.next() * TAU)
+		_stair(g, rng, sa, Transform3D(sb2, q - qn * sa * 0.25), hue0 + (rng.next() - 0.5) * 0.16, maxf(0.5, sa / a), 0 if rng.next() < 0.7 else 2)
+		b.keep_out.append([q, sa * 1.1])
 	var m := ShaderMaterial.new()
 	m.shader = BISMUTH
 	m.set_shader_parameter("seed", float(int(c.seed) % 89))

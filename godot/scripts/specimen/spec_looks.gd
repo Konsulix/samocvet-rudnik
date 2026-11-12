@@ -229,8 +229,10 @@ const LOOK := {
 	smithsonite = {forms = [["grapes", 1.0]], kinds = [["crystal", 1.0]], rock = [["ironstone", 3.0], ["limestone", 1.0]], dark = 0.0, growths = 0.5,
 		opaque = {rough = 0.16, coat = 1.0, grain = 0.0}, no_acc = ["pompom", "straw", "needles", "crust", "dust"],
 		palette = [[0x1eb0b0, 0x1eb0b0, 4.0], [0x5ac040, 0x5ac040, 2.0], [0xe05a98, 0xe05a98, 2.0], [0x8a68e0, 0x8a68e0, 1.5], [0xe8b018, 0xe8b018, 1.5]]},
-	# bismuth: rainbow staircases, hopper crystals grown through one another; no rock, nothing grows on it
-	bismuth = {forms = [["staircase", 1.0]], kinds = [["crystal", 1.0]], dark = 0.0, metal_col = 0xd8c8d8, growths = 0.0},
+	# bismuth: rainbow staircases, hopper crystals grown through one another, on a dark dull rock that leaves the
+	# rainbow to the metal (it stood alone at first, as the grown ones do: it looked a laboratory's thing, not a find)
+	bismuth = {forms = [["staircase", 1.0]], kinds = [["crystal", 1.0]], dark = 0.0, metal_col = 0xd8c8d8,
+		rock = [["basalt", 4.0], ["slate", 1.5]]},
 	# tourmaline: striped pencils in white feldspar with lilac mica (and now and then a polished watermelon slice)
 	tourmaline = {zone = [0, 0.0, 0.0], stria = [1.6, 1.0], forms = [["pencils", 5.0], ["slice", 0.8]], kinds = [["crystal", 5.0], ["druse", 2.0]],
 		rock = [["gypsum", 4.0], ["quartzite", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.15, deep = 1.0, frost = 0.0, glow = 0.05, parts = 1.0}, ir = 0.08, foot_frost = false,
@@ -300,8 +302,9 @@ const AFFINITY := {
 	dioptase = {love = {druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss"]},
 	erythrite = {never = ["zoned", "eroded", "druzy", "bubbles", "limonite", "coral", "moss"]},
 	smithsonite = {never = ["bubbles", "phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]},
-	# bismuth stands alone, its rainbow its own
-	bismuth = {never = ["pompom", "straw", "lichen", "needles", "crust", "dust", "fronds", "flowers", "mushrooms", "inkspots", "clouds", "moss", "coral", "twin", "druzy", "bubbles", "rutile", "phantom", "irid", "aurora", "zoned", "eroded", "silver", "goldfleck", "anomaly", "enhydro", "chlorite", "limonite", "floater", "scepter"]},
+	# bismuth: what lives on a rock lives on its rock too; what only a clear crystal shows (and a film of its own —
+	# it has one) it never has, nor the tufts that sprout from a crystal's faces and the crust round a crystal's foot
+	bismuth = {never = ["pompom", "straw", "crust", "inkspots", "clouds", "twin", "druzy", "rutile", "phantom", "irid", "aurora", "zoned", "eroded", "anomaly", "enhydro", "chlorite", "limonite", "floater", "scepter"]},
 	tourmaline = {never = ["zoned", "rutile", "phantom", "chlorite", "moss", "coral", "eroded", "floater"]},
 }
 

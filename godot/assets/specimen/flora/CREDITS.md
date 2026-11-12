@@ -14,7 +14,7 @@ textures (`<name>_d.png`, `<name>_n.png`). The originals are not in the reposito
 | lily_b | tiger lily | "CC0 Tiger Lily, Lilium lancifolium", https://sketchfab.com/3d-models/36b6f1f3181a4fe1801aed4d0b06aca4 |
 | lily_c | tiger lily | "CC0 Tiger Lily, Lilium lancifolium", https://sketchfab.com/3d-models/ea70184ba52f4e998b61c6c92c12082f |
 | rose | Tsukushi rose, *Rosa multiflora* var. *adenochaeta* | "CC0 Tsukushi Rose", https://sketchfab.com/3d-models/7396d21515884397a2645b26a23cb096 |
-| daisy_0, _1 | chrysanthemum (a spray of small white heads; one big head) | "CC0 Chrysanthemum", https://sketchfab.com/3d-models/8605a27d76634bbdafe8a934e2d3e84d |
+| daisy_0 | chrysanthemum (the spray of small white heads; the file's one big head is not used) | "CC0 Chrysanthemum", https://sketchfab.com/3d-models/8605a27d76634bbdafe8a934e2d3e84d |
 | goldmum | Indian chrysanthemum, *Chrysanthemum indicum* | "CC0 Indian Chrysanthemum, C. indicum", https://sketchfab.com/3d-models/1b7602b0e19d4ddbbbc6af10c4a47abd |
 | azalea | mountain azalea, *Rhododendron kaempferi* | "CC0 Moutain Azalea", https://sketchfab.com/3d-models/c13155d175534d0f9e6e86cfdc9b5a67 |
 | iris_0, _1, _2 | crested iris (its leaf, its spray of buds, its open flower), *Iris japonica* | "CC0 Crested Iris, Iris japonica", https://sketchfab.com/3d-models/f7895008d16a48cb93ed136352cffa63 |

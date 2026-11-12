@@ -4,7 +4,7 @@ extends RefCounted
 ## CREDITS.md there; made light by prototype/tools/flowers/flower_prep.py), each mesh one unit tall on its foot, its
 ## colour and relief baked into two textures, drawn by the mushrooms' shader (shaders/fungi_model.gdshader) with a
 ## little sway. A kind may have several looks, and a find grows one of them; a look may be several models mixed
-## (the two gentians, the three tiger lilies, the daisies' spray and their one big head; the iris's open flower, its spray of buds and its leaf). The mountain violets are small and many, all over the rock, as they
+## (the two gentians, the three tiger lilies; the iris's open flower, its spray of buds and its leaf). The mountain violets are small and many, all over the rock, as they
 ## grow in scree; the rest stand as one or two plants with a smaller one beside.
 ## Which kind a find grows is the genome's (`flora`, from roll); placement uses its own random stream.
 
@@ -19,7 +19,7 @@ const KINDS := [
 	{looks = [["gentian_a", "gentian_b_0"]], more = 1, k = 1.0, gain = 1.5, sat = 1.3},
 	{looks = [["lily_a", "lily_b", "lily_c"]], k = 1.2, gain = 1.3, sat = 1.15},
 	{looks = [["rose"]], k = 1.05, gain = 1.35, sat = 1.15},
-	{looks = [["daisy_0", "daisy_1"]], k = 1.05, gain = 1.15},
+	{looks = [["daisy_0"]], k = 1.05, gain = 1.15},
 	{looks = [["goldmum"]], k = 1.05, gain = 1.35, sat = 1.2},
 	{looks = [["azalea"]], k = 1.05, gain = 1.3, sat = 1.15},
 	{looks = [["iris_2", "iris_1", "iris_0", "iris_0"]], lead = "iris_2", more = 2, k = 1.0, gain = 1.3, sat = 1.2},
