@@ -4,7 +4,7 @@ extends RefCounted
 ## CREDITS.md there; made light by prototype/tools/flowers/flower_prep.py), each mesh one unit tall on its foot, its
 ## colour and relief baked into two textures, drawn by the mushrooms' shader (shaders/fungi_model.gdshader) with a
 ## little sway. A kind may have several looks, and a find grows one of them; a look may be several models mixed
-## (the three tiger lilies; the iris's open flower, its spray of buds and its leaf). The mountain violets are small and many, all over the rock, as they
+## (the two gentians, the three tiger lilies, the daisies' spray and their one big head; the iris's open flower, its spray of buds and its leaf). The mountain violets are small and many, all over the rock, as they
 ## grow in scree; the rest stand as one or two plants with a smaller one beside.
 ## Which kind a find grows is the genome's (`flora`, from roll); placement uses its own random stream.
 
@@ -16,10 +16,10 @@ const DIR := "res://assets/specimen/flora/"
 ## plants to a clump; gain, sat, rough, sway: the material
 const KINDS := [
 	{looks = [["violet"]], k = 0.7, many = true, gain = 1.25, sat = 1.7},
-	{looks = [["gentian_a"], ["gentian_b_0"]], k = 1.0, gain = 1.5, sat = 1.3},
+	{looks = [["gentian_a", "gentian_b_0"]], more = 1, k = 1.0, gain = 1.5, sat = 1.3},
 	{looks = [["lily_a", "lily_b", "lily_c"]], k = 1.2, gain = 1.3, sat = 1.15},
 	{looks = [["rose"]], k = 1.05, gain = 1.35, sat = 1.15},
-	{looks = [["daisy"]], k = 1.05, gain = 1.15},
+	{looks = [["daisy_0", "daisy_1"]], k = 1.05, gain = 1.15},
 	{looks = [["goldmum"]], k = 1.05, gain = 1.35, sat = 1.2},
 	{looks = [["azalea"]], k = 1.05, gain = 1.3, sat = 1.15},
 	{looks = [["iris_2", "iris_1", "iris_0", "iris_0"]], lead = "iris_2", more = 2, k = 1.0, gain = 1.3, sat = 1.2},
@@ -73,6 +73,9 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 	# rock that faces up, where there is any
 	var tops := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.3)
 	var base: Array = tops if tops.size() else spots
+	# the rock's flanks: where the crystals leave the top no room, a plant grows out of the side, leaning off it
+	var flank := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y <= 0.3 and (q[1] as Vector3).y > -0.25)
+	if flank.is_empty(): flank = base
 	var placed := {}      # model -> [transforms, tints]
 	var marks := []
 	var clumps := (4 + int(rng.next() * 4)) if many else (1 + int(rng.next() * 2))
@@ -86,21 +89,25 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 		var first := true
 		for k in count:
 			for attempt in 24:
-				# (no room by the crystals: farther off, then smaller, then on any rock at all)
-				var pool: Array = near if attempt < 6 else base if attempt < 17 else spots
+				# (no room by the crystals: farther off on the top, then out of the rock's flank at nearly its full
+				# size, and only then smaller)
+				var side := (attempt >= 10 and attempt < 16) or attempt >= 20
+				var pool: Array = near if attempt < 6 else flank if side else base
 				var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
 				var p: Vector3 = at[0]
 				var nrm: Vector3 = at[1]
-				var up := (nrm.lerp(Vector3.UP, 0.72) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.3).normalized()
+				var up := (nrm.lerp(Vector3.UP, 0.5 if side else 0.72) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.3).normalized()
 				# a grown one, then smaller ones beside it; the violets all of a size, more or less
 				var age := (0.7 + 0.3 * rng.next()) if many else (1.0 if k == 0 else 0.5 + 0.35 * rng.next())
 				var name: String = look[mini(int(rng.next() * look.size()), look.size() - 1)]
 				if k == 0 and K.has("lead"): name = String(K.lead)
-				var s := size * float(K.k) * age * (1.0 if attempt < 6 else 0.72 if attempt < 11 else 0.5 if attempt < 17 else 0.34)
+				var s := size * float(K.k) * age * (1.0 if attempt < 10 else 0.9 if attempt < 16 else 0.6 if attempt < 20 else 0.42)
+				var box := model(name).get_aabb()
+				# (every model is one unit tall: a wide flat one — a big head on a short stem — would be huge by that)
+				s /= sqrt(maxf(1.0, maxf(box.size.x, box.size.z)))
 				var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
 				b = b * Basis.from_scale(Vector3.ONE * s * (0.94 + rng.next() * 0.12))
 				var xf := Transform3D(b, p - nrm * s * 0.03)
-				var box := model(name).get_aabb()
 				var core := box.grow(-0.14 * minf(box.size.x, box.size.z))
 				var hit := false
 				# (the last tries of a clump's first plant: a small one at a crystal's very foot rather than none — the

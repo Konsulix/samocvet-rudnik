@@ -51,6 +51,9 @@ static var LIST := [
 	{tab = "coll", icon = "mushrooms", n = "Fairy Ring", t = "Something grows down here. Several somethings.", r = "the mushroom world", opens = true,
 		tags = ["shroom:0", "shroom:1", "shroom:2", "shroom:3", "shroom:4", "shroom:5", "shroom:6", "shroom:7"],
 		names = ["Fly agaric", "Chanterelle", "Bolete", "Mycena", "Honey fungus", "Morel", "Blue oyster", "Panther cap"]},
+	{tab = "coll", icon = "rock_garden", n = "Rock Garden", t = "Nobody planted it. Nobody waters it. It blooms anyway.", r = "coins and a rare geode", give = {coins = 1500, geode = 2},
+		tags = ["flora:0", "flora:1", "flora:2", "flora:3", "flora:4", "flora:5", "flora:6", "flora:7"],
+		names = ["Mountain violet", "Gentian", "Tiger lily", "Wild rose", "Daisy", "Golden daisy", "Azalea", "Crested iris"]},
 	{tab = "coll", icon = "moss_stone", n = "A Rolling Stone", t = "Gathers no moss. Yours did.", r = "coins and a geode",
 		tags = ["tr:moss", "acc:lichen", "acc:fronds", "acc:flowers"], names = ["Moss", "Lichen", "Fern fronds", "Tiny flowers"]},
 	{tab = "coll", icon = "star_crystal", n = "Once in a Blue Moon", t = "Some stones are alive. Find every one of them.", r = "the Hall of Legends", opens = true, legends = true},
@@ -172,6 +175,7 @@ const SAY := {
 	"Pinned by Nature": ["smile", "Every wing on the bones. I'd pin them in a case, but they're already in one."],
 	"Fairy Ring": ["worry", "They grow in a ring where no light reaches. Something feeds them. I'd rather not know what."],
 	"A Rolling Stone": ["smile", "Moss, lichen, fronds, flowers. A garden that never saw the sun."],
+	"Rock Garden": ["smile", "Violets in the scree, a lily in a crack. Give a seed a pinch of dust and it asks for nothing more."],
 	"Once in a Blue Moon": ["shock", "Every living stone. They shouldn't exist - and here they are, on my table."],
 	"Crystal Eyes": ["curious", "Calcite lenses. They looked at the sea through stone before anything had eyes like ours."],
 	"Stuck in Time": ["calm", "Every one of them came for a drop of resin. Bad luck lasts forty million years."],
@@ -214,6 +218,8 @@ static func genes_of(s: Dictionary) -> Array:
 	if int(g.shroom) >= 0: out.append("shroom:%d" % int(g.shroom))
 	for t in s.get("traits", []): out.append("tr:" + String(t))
 	for a in g.accents: out.append("acc:" + String(a))
+	# (which flowers, where it grows any: SpecFlora)
+	if (g.accents as Array).has("flowers"): out.append("flora:%d" % int(g.get("flora", 0)))
 	var f: Dictionary = g.fossil
 	match sid:
 		"trilobite":
@@ -277,6 +283,7 @@ static func _growth_id(t: String) -> String:
 	if t.begins_with("tr:"): return t.substr(3)
 	if t.begins_with("fly:"): return "fly_" + t.substr(4)
 	if t.begins_with("shroom:") and t != "shroom:4": return "mushrooms"
+	if t.begins_with("flora:"): return "flowers"
 	if t.begins_with("acc:") and t.substr(4) in ODD_ACC: return t.substr(4)
 	return ""
 
@@ -509,7 +516,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 8: return
+	if int(Save.d.get("gver", 0)) >= 9: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -525,8 +532,8 @@ static func backfill() -> void:
 			if String(mk) in ["maw", "fledged", "tm_slice", "gold_pyrite", "perched_gold"]: once(String(mk))
 	# (gver 7: pseudomorphs and pairs; the pairs seen so far, counted for Matchmaker)
 	Save.d.aw_ev.pairs = seen.filter(func(t: String) -> bool: return t.begins_with("pair:")).size()
-	# (gver 8: hopper fluorite for Matryoshka)
-	Save.d.gver = 8
+	# (gver 8: hopper fluorite for Matryoshka; gver 9: the kinds of flowers for Rock Garden)
+	Save.d.gver = 9
 	Save.persist()
 
 func _ready() -> void:
@@ -1356,6 +1363,7 @@ func _where(e: Dictionary, item: String) -> String:
 		if kind == "feather": return "A bird lends its coat to a beast's skull now and then, in any mine. Dig deep."
 		if tag == "shroom:4": return "It feeds on old wood. Look at the petrified kind."
 		if tag.begins_with("acc:tm_"): return _in_mines(["tourmaline"], "A tourmaline's colour runs along it, a different way each time. Look %s.")
+		if kind == "flora": return "It flowers on the rock around a find, where the crystals leave it room. Any mine may have it."
 		if kind in ["shroom", "tr", "acc"]: return "It grows on the rock around a find. Damp, deep places suit it."
 		if kind == "pal" or kind == "pseudo": sids = [tag.get_slice(":", 1)]
 		elif kind == "pair": sids = Array(tag.get_slice(":", 1).split("+"))

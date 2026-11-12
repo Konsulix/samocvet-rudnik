@@ -21,15 +21,16 @@ TEX = 512
 # keep_top: only this share of its height, from the flower down (a bare stem far too long for a rock);
 # tilt: degrees about X and Y, by hand, after all
 MODELS = [
-    dict(name="violet", file="cc0__kotachitsubo__violet.glb", tris=2600, keep_top=0.86),
+    # (there are dozens of them on a stone: the lightest of all)
+    dict(name="violet", file="cc0__kotachitsubo__violet.glb", tris=1500, keep_top=0.86),
     dict(name="gentian_a", file="gentian/cc0__gentian_gentiana_zollingeri.glb", tris=4500, keep_top=0.62),
     dict(name="gentian_b_0", file="gentian/cc0__japanese_gentian_gentiana_scabra.glb", tris=3200, keep_top=0.6),
     dict(name="lily_a", file="tiger/cc0__tiger_lily.glb", tris=6000, keep_top=0.7),
     dict(name="lily_b", file="tiger/cc0__tiger_lily_lilium_lancifolium (1).glb", tris=4500, keep_top=0.55),
     dict(name="lily_c", file="tiger/cc0__tiger_lily_lilium_lancifolium.glb", tris=7000, keep_top=0.7),
     dict(name="rose", file="7396d21515884397a2645b26a23cb096.glb", tris=6000, keep_top=0.6),
-    # (the file's other plant, one big head, comes out of the lightening full of holes: only the spray is taken)
-    dict(name="daisy", file="cc0____chrysanthemum.glb", tris=5000, split=1, keep_top=0.6),
+    # (two plants: daisy_0 the spray of small heads, daisy_1 one big head on its stem)
+    dict(name="daisy", file="cc0____chrysanthemum.glb", tris=6500, split=2, keep_top=0.6),
     dict(name="goldmum", file="cc0__indian_chrysanthemum_c._indicum.glb", tris=5000, orient="pca"),
     dict(name="azalea", file="cc0__moutain_azalea.glb", tris=6000),
     # (its leaf, its spray of buds and its open flower lie side by side in the scan, their boxes one through another:
@@ -237,6 +238,31 @@ def as_light(o):
             nt.links.new(tex.outputs["Color"], em.inputs["Color"])
         nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
 
+def heal(img):
+    # texels the bake never reached (between close-packed petals the light mesh lies where no ray finds the full one)
+    # come out pure black: each takes the colour of its nearest baked neighbours, a ring at a time
+    w, h = img.size
+    px = np.empty(w * h * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)
+    rgb = px[:, :, :3]
+    bad = rgb.max(axis=2) < 0.004
+    good = ~bad
+    for _ in range(32):
+        if not bad.any():
+            break
+        acc = np.zeros_like(rgb)
+        cnt = np.zeros((h, w), dtype=np.float32)
+        for sh in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+            g = np.roll(good, sh, axis=(0, 1))
+            acc += np.roll(rgb, sh, axis=(0, 1)) * g[:, :, None]
+            cnt += g
+        new = bad & (cnt > 0)
+        rgb[new] = acc[new] / cnt[new][:, None]
+        good |= new
+        bad &= ~new
+    img.pixels.foreach_set(px.ravel())
+
 def light(hi, name, tris):
     lo = hi.copy()
     lo.data = hi.data.copy()
@@ -278,8 +304,11 @@ def light(hi, name, tris):
     sc.cycles.samples = 2
     b = sc.render.bake
     b.use_selected_to_active = True
-    b.cage_extrusion = 0.012
-    b.max_ray_distance = 0.035
+    # (thin petals: the bake looks only a little way off the light mesh, or a petal takes its neighbour's colour —
+    # a little by the plant's own size: a flat wide head stood one unit tall is far wider than that)
+    wide = max(1.0, max(lo.dimensions))
+    b.cage_extrusion = 0.012 * wide
+    b.max_ray_distance = 0.035 * wide
     b.margin = 8
     bpy.ops.object.select_all(action="DESELECT")
     hi.select_set(True)
@@ -294,6 +323,7 @@ def light(hi, name, tris):
     as_light(hi)
     d_img, _, node = image_mat(lo, name + "_d", True)
     bpy.ops.object.bake(type="EMIT")
+    heal(d_img)
     d_img.filepath_raw = os.path.join(OUT, name + "_d.png")
     d_img.file_format = "PNG"
     d_img.save()

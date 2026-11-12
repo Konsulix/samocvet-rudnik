@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bu33qmrtamhbi"
-path="res://.godot/imported/daisy_d.png-7d9cd6475af782b96539a8eae4685054.ctex"
+uid="uid://olubqwpq573a"
+path="res://.godot/imported/daisy_0_n.png-064cba4235a3e78c016c1b81ab7e820c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/specimen/flora/daisy_d.png"
-dest_files=["res://.godot/imported/daisy_d.png-7d9cd6475af782b96539a8eae4685054.ctex"]
+source_file="res://assets/specimen/flora/daisy_0_n.png"
+dest_files=["res://.godot/imported/daisy_0_n.png-064cba4235a3e78c016c1b81ab7e820c.ctex"]
 
 [params]
 

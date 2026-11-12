@@ -243,3 +243,19 @@ Play в листке ачивки. Где ещё показывать откры
 из Old Friends — 5 пар из 8 (рудники 1–5).
 
 Значки — `art/ui_redesign/awards/gen_parts.sh <out> icons5` → `cut_parts.py <лист> icons5 godot/assets/awards`.
+
+## Цветы (12.11)
+
+**Rock Garden** — все 8 видов цветов на породе (`SpecFlora.NAMES`: горная фиалка, горечавка, тигровая лилия, роза, ромашка,
+золотая ромашка, азалия, ирис): 1500 монет + редкая жеода. Ген `flora:<вид>` в `Awards.genes_of` (только у находок с геном
+«flowers», считается выросшим по отметке `flowers`), `gver` 9 дочитывает уже лежащие находки. «Tiny flowers» в A Rolling
+Stone остался общим пунктом. Значок — `gen_parts.sh <out> icons6` → `cut_parts.py <лист> icons6 godot/assets/awards`
+(второй рисунок листа, тигровая лилия, не используется).
+
+## Цветы (12.11)
+
+**Rock Garden** — все 8 видов цветов на породе (`SpecFlora.NAMES`: горная фиалка, горечавка, тигровая лилия, роза, ромашка,
+золотая ромашка, азалия, ирис): 1500 монет + 2 жеоды. Ген `flora:<вид>` в `Awards.genes_of` (только у находок с геном
+«flowers», считается выросшим по отметке `flowers`), `gver` 9 дочитывает уже лежащие находки. «Tiny flowers» в A Rolling
+Stone остался общим пунктом. Значок — `gen_parts.sh <out> icons6` → `cut_parts.py <лист> icons6 godot/assets/awards`
+(второй рисунок листа, тигровая лилия, не используется).
