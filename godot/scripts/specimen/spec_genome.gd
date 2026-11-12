@@ -24,7 +24,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	sk_glass = "glass skull", sk_crown = "crystal crown", sk_frost = "cloudy crystals", sk_wax = "waxy crystals", sk_broken = "broken skull",
 	sk_chipped = "chipped", sk_grave = "grave bone", sk_ash = "charred bone", sk_stream = "spring from the eye", sk_roots = "tree roots",
 	fly_monarch = "monarch", fly_apollo = "Apollo", fly_peacock = "peacock butterfly", fly_swallowtail = "swallowtail",
-	mimetite = "mimetite crust", 	tm_watermelon = "watermelon", tm_bicolour = "bicolour", tm_tricolour = "tricolour", tm_blue_cap = "blue cap", tm_rubellite = "rubellite",
+	mimetite = "mimetite crust", pseudo = "pseudomorph", assoc = "association", 	tm_watermelon = "watermelon", tm_bicolour = "bicolour", tm_tricolour = "tricolour", tm_blue_cap = "blue cap", tm_rubellite = "rubellite",
 	tm_indicolite = "indicolite", tm_verdelite = "verdelite", tm_paraiba = "Paraiba neon", tm_slice = "watermelon slice",
 	fly_bluetiger = "blue tiger", fly_birdwing = "birdwing", fly_glasswing = "clearwing swallowtail", fly_hawkmoth = "elephant hawk-moth", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
@@ -57,12 +57,16 @@ static func of(o: Dictionary) -> Dictionary:
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var kind: String = o.get("kind", "crystal")
 	var tr: Array = o.get("traits", [])
-	var metal := habit == "nugget" or sid in ["pyrite", "hematite", "galena"] or SpecLooks.of(sid).has("metal_col")
+	# a pseudomorph (SpecLooks.PSEUDO): this species in the crystals of the one it replaced — that one's habit and
+	# layouts, its own body
+	var pseudo := "" if String(o.get("form", "")) == "skull" else String(o.get("pseudo", SpecLooks.pseudo_of(seed_v, sid, kind)))
+	if pseudo != "": habit = Data.HABIT.get(pseudo, "prism")
+	var look := SpecLooks.shape_of(sid, pseudo)
+	var metal := habit == "nugget" or sid in ["pyrite", "hematite", "galena"] or look.has("metal_col")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var druse := kind == "druse"
 	var form := ""
 	var odd_habit := ""
-	var look := SpecLooks.of(sid)
 	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else SpecObsidian.genes(seed_v, o) if habit == "obsidian" else {}
 	if habit == "fossil": form = sid
 	elif habit == "obsidian": form = "obsidian"
@@ -123,7 +127,7 @@ static func of(o: Dictionary) -> Dictionary:
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
-	if lustre == "glass" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
+	if lustre == "glass" and pseudo == "" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
 	# (on a sawn and polished lump only the small things, round its back: big puffs and ferns would reach over the face)
@@ -191,6 +195,12 @@ static func of(o: Dictionary) -> Dictionary:
 		if Rng32.new((seed_v * 2654435761 + 211 + wi * 97) % 4294967296).next() < float(w[2]):
 			acc.append(String(w[3]))
 	if habit == "obsidian": acc.append_array(SpecObsidian.accents(seed_v, o))
+	if pseudo != "": acc.append("pseudo")
+	# an association (SpecLooks.assoc_of): another species of the mine on the same rock; only where there is a rock
+	var assoc := ""
+	if String(o.get("form", "")) != "skull" and pseudo == "" and not form in NO_BASE and habit != "fossil":
+		assoc = String(o.get("assoc", SpecLooks.assoc_of(seed_v, sid)))
+	if assoc != "": acc.append("assoc")
 	# the way a tourmaline's colour runs along it (SpecForms.TOURM), or a polished slice: its own gene
 	if sid == "tourmaline" and form in ["pencils", "slice"] and String(o.get("form", form)) == form:
 		acc.append("tm_slice" if form == "slice" else "tm_" + String(SpecForms.tourm_of(seed_v)[0]).replace(" ", "_"))
@@ -228,7 +238,7 @@ static func of(o: Dictionary) -> Dictionary:
 		fpool.append_array(["borealis", "borealis", "frost", "frost"])
 	# the effects that live inside clear glass (opal fire, a star heart, a night sky...)
 	var in_glass := ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi"]
-	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget", "sawn"]) and not form in ONE_MESH
+	var glassy := not metal and not habit in ["fossil", "obsidian"] and not (form in ["geode", "botryoid", "vein", "nugget", "sawn"]) and not form in ONE_MESH and pseudo == ""
 	if lustre == "glass" and glassy:
 		fpool.append_array(in_glass)
 	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
@@ -304,6 +314,8 @@ static func of(o: Dictionary) -> Dictionary:
 	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
 	return {
 		lost = lost,
+		pseudo = pseudo,
+		assoc = assoc,
 		habit = odd_habit if odd_habit != "" else habit,
 		skull = skull_o,
 		form = form,

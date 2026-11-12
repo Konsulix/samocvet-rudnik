@@ -199,7 +199,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	# an atypical find may grow another crystal than its species (SpecLooks.odd: apatite as a barrel)
 	habit = String(gene.get("habit", habit))
 	# the traits the species always has (amethyst and fluorite are zoned): its look, on top of what it rolled
-	var look := SpecLooks.of(sid)
+	var look := SpecLooks.shape_of(sid, String(gene.get("pseudo", "")))
 	# the species' own colours (fluorite: green, purple, blue, yellow, colourless, pink), picked on their own stream
 	var core_hex := int((look.get("core", [0]) as Array)[0])
 	if look.has("palette"):
@@ -289,7 +289,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		if look.has("opaque"):
 			var oq: Dictionary = look.opaque
 			return {col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, st = stria, st_mode = st_mode,
-				dirt = dt, prio = 2, env = 1.3, grain = float(oq.get("grain", 0.1)), lava = 1.0 if gene.fx == "lava" else 0.0}
+				dirt = dt, prio = 2, env = 1.3, grain = float(oq.get("grain", 0.1)), lava = 1.0 if gene.fx == "lava" else 0.0,
+				bd = float(oq.get("bd", 0.0)), ir = maxf(float(oq.get("ir", 0.0)), irk2 * 0.3 if irk2 >= 1.0 else 0.0), emis = col * float(oq.get("glow", 0.0))}
 		# (SpecLooks ir: how much rainbow film and sheen the species takes — none on realgar's red or aragonite's milk)
 		var irm := float(look.get("ir", 1.0))
 		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, st_mode = st_mode, dirt = dt, prio = 2,
@@ -298,6 +299,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			frost = float((look.get("glass", {}) as Dictionary).get("frost", 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25)), thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
 			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0)),
 			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06)), deep_body = float((look.get("glass", {}) as Dictionary).get("deep", 0.0))}
+		if float((look.get("glass", {}) as Dictionary).get("opal", 0.0)) > 0.0: d.opal = float(look.glass.opal)
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
 		var m := SpecMat.make(d)
@@ -1112,12 +1114,17 @@ func _specimen(o: Dictionary) -> Node3D:
 		for q: Array in at: _mark("silver", q[0], q[1])
 		if at.is_empty(): _mark_on("silver", st.rock if st.rock else main)
 	if "anomaly" in tr: _mark_on("anomaly", main)
+	if String(gene.get("pseudo", "")) != "" and main: _mark_on("pseudo", main)
 	if String(gene.fx) != "": _mark("fx", _mid(main, 0.65))
 
 	# from here on whatever settles on the rock (plants, puffs, sprays, crusts, flakes, bubbles) keeps out of
 	# the crystals: a spot under one is picked again, a few times, and the pits under them are dropped.
 	# Moss and coral are the exception (`pick_any`, `hollows_all`): grown thick, the crystals look pushed up through them
 	boxes = _crystal_boxes(main, mat)
+	# an association: the second species grows on the free rock beside the first (and nothing grows through it after)
+	if String(gene.get("assoc", "")) != "" and st.rocky:
+		SpecForms.partner(self, String(gene.assoc), st, gs, seed_v)
+		boxes = _crystal_boxes(main, mat)
 	st.pick_any = st.pick
 	st.hollows_all = st.hollows
 	if boxes.size() or keep_out.size():

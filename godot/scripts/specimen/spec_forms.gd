@@ -668,3 +668,123 @@ static func slice(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	b.root.set_meta("face", true)
 	b._mark("tm_slice", mi.transform * Vector3(0, 0, th), zb)
 	return mi
+
+# ---------------------------------------------------------------- an association: a second species on the same rock
+
+## a species' colour for this find (its palette picked on a stream of its own)
+static func col_of(sid: String, seed_v: int) -> Color:
+	var look := SpecLooks.of(sid)
+	var col := SpecMat.lin_s(String(Data.SP[sid].c))
+	if look.has("palette"):
+		var pal: Array = look.palette
+		var pe: Array = Stones.pick_w(pal.map(func(e: Array) -> Array: return [e, e[2]]), Rng32.new((seed_v * 1597334677 + 31) % 4294967296))
+		col = SpecMat.lin(int(pe[0]))
+	return col
+
+## a species' crystal material where it grows as a guest: metal, opaque or glass as its look says; no crust of rock
+static func mat_of(sid: String, seed_v: int) -> ShaderMaterial:
+	var look := SpecLooks.of(sid)
+	if look.has("metal_col"):
+		return SpecMat.make({col = SpecMat.lin(int(look.metal_col)), metal = 0.95, rough = float(look.get("mrough", 0.3)), coat = 0.6, coat_r = 0.08, flat = true,
+			env = float(look.get("menv", 2.6)), oil = float(look.get("tarnish", 0.5)), prio = 2})
+	if sid in ["pyrite", "hematite", "galena"] or String(Data.HABIT.get(sid, "")) == "nugget":
+		return SpecMat.make({col = Color(1, 1, 1), metal = 0.95, rough = 0.2, coat = 0.6, flat = true, env = 1.6, oil = 0.35, prio = 2})
+	if look.has("opaque"):
+		var oq: Dictionary = look.opaque
+		return SpecMat.make({col = Color(1, 1, 1), rough = float(oq.get("rough", 0.35)), coat = float(oq.get("coat", 0.4)), coat_r = 0.15, flat = true, env = 1.3,
+			grain = float(oq.get("grain", 0.1)), prio = 2})
+	var gl: Dictionary = look.get("glass", {})
+	var irm := float(look.get("ir", 1.0))
+	return SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.07 * irm, rf = 0.3, frost = float(gl.get("frost", 0.15)), thick = 1.4,
+		seed = float(seed_v % 97), holo = 0.2 * irm, dark_body = float(gl.get("dark", 0.0)), tint_body = float(gl.get("tint", 0.0)),
+		tint_glow = float(gl.get("glow", 0.06)), deep_body = float(gl.get("deep", 0.0)), prio = 2})
+
+## the second species of an association: a little group of its crystals (bubbles for the lumpy ones, nuggets for the
+## native metals) on the free rock to one side of the first; marked "assoc"
+static func partner(b: RefCounted, sid: String, st: Dictionary, gs: float, seed_v: int) -> void:
+	var r := Rng32.new((seed_v * 2654435761 + 977) % 4294967296)
+	var look := SpecLooks.of(sid)
+	var habit := String(Data.HABIT.get(sid, "prism"))
+	var col := col_of(sid, seed_v + 7)
+	# a free spot that shows, and the spots round it
+	var p0: Vector3 = st.pick.call()
+	var best := -9.0
+	for t in 24:
+		var q: Vector3 = st.pick.call()
+		var free: bool = b._free(q)
+		var score := (st.nrm.call(q) as Vector3).dot(VIEW) + q.y * 0.6 + (2.0 if free else 0.0)
+		if score > best:
+			best = score
+			p0 = q
+	var near := func(reach: float) -> Vector3:
+		var p: Vector3 = st.pick.call()
+		for t in 8:
+			var q: Vector3 = st.pick.call()
+			var fq: bool = b._free(q)
+			if fq and q.distance_to(p0) < p.distance_to(p0): p = q
+		return p
+	var n0: Vector3 = st.nrm.call(p0)
+	if habit in ["botryoid", "grape"]:
+		# bubbles: a little bunch of them (malachite beside azurite), banded where the species is
+		var ball := Geo.icosa(1.0, 2).to_soup()
+		var g := Geo.new()
+		var placed := []
+		for k in 10 + int(r.next() * 12):
+			var rad := (0.07 + r.next() * 0.04 if k < 2 else 0.025 + pow(r.next(), 1.5) * 0.05) * gs
+			var p: Vector3
+			var nn: Vector3
+			if placed.size() and r.next() < 0.6:
+				var pr: Array = placed[int(r.next() * placed.size())]
+				nn = Vector3(r.next() - 0.5, r.next() * 0.9, r.next() - 0.5).normalized()
+				p = (pr[0] as Vector3) + nn * (float(pr[1]) * 0.75 + rad * 0.3)
+			else:
+				p = near.call(0.14 * gs) if k else p0
+				nn = st.nrm.call(p)
+				p += nn * rad * 0.3
+			placed.append([p, rad])
+			var b0 := g.v.size()
+			_add(g, ball, Transform3D(Basis.from_scale(Vector3(rad, rad * 0.9, rad)), p), col, col)
+			g.own_n.resize(g.v.size())
+			for i in range(b0, g.v.size()):
+				var out := (g.v[i] - p).normalized()
+				g.own_n[i] = out
+				var cc := col * (0.35 + 0.5 * smoothstep(-0.5, 0.7, out.dot(nn)))
+				cc.a = 1.0
+				g.col[i] = cc
+		var banded := sid in ["malachite", "chrysocolla", "chalcedony"]
+		var bm := SpecMat.make({col = Color(1, 1, 1), rough = 0.2, coat = 0.85, coat_r = 0.1, env = 1.4, ir = 0.15, bd = 0.6 if banded else 0.0, emis = col * 0.08, prio = 2})
+		var mi: MeshInstance3D = U.mesh(g, bm, b.root)
+		mi.set_meta("col", true)
+		b._mark("assoc", (placed[0] as Array)[0] + n0 * float((placed[0] as Array)[1]), n0)
+		return
+	if habit == "nugget":
+		# native metal: a few hammered lumps in the rock
+		var copper := sid == "nativecu"
+		var mm := SpecMat.make({col = SpecMat.lin(0xd2703a if copper else 0xf0c050), metal = 1.0, rough = 0.3, coat = 0.3, env = 1.8, grain = 0.15})
+		for k in 3 + int(r.next() * 4):
+			var rad := (0.07 + r.next() * 0.05 if k == 0 else 0.03 + r.next() * 0.04) * gs
+			var p: Vector3 = near.call(0.16 * gs) if k else p0
+			var nn: Vector3 = st.nrm.call(p)
+			var mi: MeshInstance3D = U.mesh(RockKit.crumble(r, rad, Vector3(1.2 + r.next() * 0.3, 0.7 + r.next() * 0.25, 1.0)), mm, b.root, p + nn * rad * 0.3,
+				U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3))
+			mi.set_meta("col", true)
+			if k == 0: b._mark("assoc", p + nn * rad, nn)
+		return
+	# crystals of its own habit, a big one and its small kin
+	var hb := habit
+	if look.has("habits"): hb = String(((look.habits as Array)[0] as Array)[0])
+	var m := mat_of(sid, seed_v)
+	var elong := hb in ["prism", "blade", "barrel", "scaleno"]
+	for k in 3 + int(r.next() * 4):
+		var f := 1.0 if k == 0 else 0.35 + r.next() * 0.5
+		var cfg := {h = (0.55 + f * 0.4) if elong else (0.45 + f * 0.4), detail = 1, cA = col, cB = col, zk = 0.0, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
+			blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false)),
+			bend = float(look.get("bend", 0.0))}
+		var g := RockKit.crystal(hb, r, cfg)
+		var mi: MeshInstance3D = U.mesh(g, m, b.root)
+		var p: Vector3 = near.call(0.18 * gs) if k else p0
+		var nn: Vector3 = st.nrm.call(p)
+		var dir := (nn.lerp(UP, 0.45) + Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5) * 0.8).normalized()
+		b._place(mi, p - dir * 0.01, dir, (0.18 + f * 0.2) * gs * (0.85 if elong else 1.15), r.next() * TAU)
+		mi.set_meta("col", true)
+		if k == 0: b._mark("assoc", b._mid(mi, 0.6))

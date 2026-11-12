@@ -336,6 +336,14 @@ func _ready() -> void:
 				# rare traits pinned: tr=atypical,phantom
 				if args.has("tr"): e.traits = Array(String(args.tr).split(","))
 				if args.has("shroom"): e.shroom = int(args.shroom)
+				# a pseudomorph or an association pinned: pseudo=azurite | all (the species' own list in turn), assoc=pyrite | all (its mates in turn)
+				if args.has("pseudo") and SpecLooks.PSEUDO.has(sid):
+					var af: Array = SpecLooks.PSEUDO[sid].after
+					e.pseudo = String((af[k % af.size()] as Array)[0]) if args.pseudo == "all" else String(args.pseudo)
+				if args.has("assoc"):
+					var ms := SpecLooks.mates(sid)
+					if args.assoc != "all": e.assoc = String(args.assoc)
+					elif ms.size(): e.assoc = String(ms[k % ms.size()])
 				if args.has("bloom_pal"): e.bloom_pal = int(args.bloom_pal)
 				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind", "horn"]:
 					if args.has(sk): e[sk] = args[sk]

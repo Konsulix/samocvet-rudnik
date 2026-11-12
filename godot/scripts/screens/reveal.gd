@@ -274,6 +274,9 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		# butterflies by kind, how many of it: "Apollo ×2"
 		if String(a).begins_with("fly_"): fn = SpecButterfly.label(String(a).substr(4), (gene.get("fly_kinds", []) as Array).count(String(a).substr(4)))
 		# (a skull's crystals are its species: "pyrope crown", not "crystal crown")
+		# a pseudomorph says what it replaced, an association who it grew with
+		if a == "pseudo" and String(gene.get("pseudo", "")) != "": fn = "after " + String(Data.SP[gene.pseudo].n).to_lower()
+		if a == "assoc" and String(gene.get("assoc", "")) != "": fn = "with " + String(Data.SP[gene.assoc].n).to_lower()
 		if a in ["sk_crown", "sk_eyes", "sk_fangs"]:
 			var cn := fn if fn != "" else String(SpecGenome.ACC_N.get(a, a))
 			fn = cn.replace("crystal", String(Data.SP[s.sid].n).to_lower())

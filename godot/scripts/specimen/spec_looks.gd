@@ -381,3 +381,97 @@ static func odd(sid: String) -> Array:
 ## the kind of find for a species (Stones.roll): its own weights, or the old ones
 static func kinds(sid: String) -> Array:
 	return of(sid).get("kinds", [["crystal", 5.0], ["druse", 4.0], ["geode", 1.4]])
+
+# ---------------------------------------------------------------- pseudomorphs and associations (12.11)
+
+## A pseudomorph: a mineral that took the place of another, atom by atom, and kept the other's crystals — malachite
+## in the shape of azurite's blades, bog iron in pyrite's cubes, blue chalcedony in fluorite's. Only the lumpy species
+## (which have no crystals of their own) do it: `after` [[the species replaced, weight], ...], `body` what the look of
+## the replaced species is given of this one's (its opaque or metal material, its colours).
+## The gene is "pseudo" (the card says "after azurite"); pinned from outside by `pseudo = <species>`.
+const PSEUDO_P := 0.1
+const PSEUDO := {
+	malachite = {after = [["azurite", 4.0], ["cuprite", 1.5]],
+		body = {opaque = {rough = 0.3, coat = 0.5, grain = 0.06, bd = 0.7}, palette = [[0x1a8a48, 0x1a8a48, 3.0], [0x0f6a34, 0x0f6a34, 2.0]]}},
+	chrysocolla = {after = [["azurite", 2.0], ["cuprite", 1.0]],
+		body = {opaque = {rough = 0.3, coat = 0.6, grain = 0.05, bd = 0.25}, palette = [[0x2ab8b0, 0x2ab8b0, 3.0], [0x3a9ad0, 0x3a9ad0, 1.0]]}},
+	nativecu = {after = [["cuprite", 2.0], ["azurite", 1.0]], body = {metal_col = 0xd88a54, mrough = 0.32, menv = 1.8, tarnish = 0.5, palette = [[0xffffff, 0xffffff, 1.0]]}},
+	gold = {after = [["pyrite", 2.0], ["calcite", 0.6]], body = {metal_col = 0xf2c44e, mrough = 0.24, menv = 2.0, tarnish = 0.0, palette = [[0xffffff, 0xffffff, 1.0]]}},
+	goethite = {after = [["pyrite", 3.0], ["marcasite", 1.0], ["siderite", 1.0]],
+		body = {opaque = {rough = 0.16, coat = 0.9, grain = 0.03}, palette = [[0x3a2414, 0x3a2414, 3.0], [0x1e1612, 0x1e1612, 2.0], [0x5a3418, 0x5a3418, 1.0]]}},
+	chalcedony = {after = [["fluorite", 2.0], ["barite", 1.0], ["calcite", 1.0]],
+		body = {opaque = {rough = 0.14, coat = 0.9, grain = 0.02, bd = 0.3, glow = 0.1}, palette = [[0x3a6cc8, 0x3a6cc8, 4.0], [0x5a8cd8, 0x5a8cd8, 2.0]]}},
+	opal = {after = [["gypsum", 2.0], ["calcite", 1.0], ["celestine", 1.0]],
+		body = {glass = {frost = 0.75, tint = 0.6, glow = 0.14, dark = 0.3, opal = 0.85}, ir = 0.5, palette = [[0x7aa8d8, 0x7aa8d8, 3.0], [0x8ad0c8, 0x8ad0c8, 1.0], [0xe8a878, 0xe8a878, 1.0]]}},
+	smithsonite = {after = [["calcite", 2.0], ["dogtooth", 2.0]],
+		body = {opaque = {rough = 0.18, coat = 0.95, grain = 0.0, glow = 0.06, ir = 0.2},
+			palette = [[0x148a8a, 0x148a8a, 4.0], [0x3c9028, 0x3c9028, 2.0], [0xb83a74, 0xb83a74, 2.0], [0x6a48c0, 0x6a48c0, 1.5], [0xc08c0c, 0xc08c0c, 1.5]]}},
+}
+## what a species' look says of its body, not of its crystals: none of it passes to its pseudomorph
+const BODY_KEYS := ["opaque", "glass", "metal_col", "mrough", "menv", "tarnish", "palette", "ir", "growths", "no_acc", "agate", "core", "zone", "sig",
+	"more", "with", "wire", "mica", "trapiche", "rose", "rose_metal", "sawn", "dark", "kinds", "rock"]
+
+## the species this find took the place of ("" for none): its own stream, so no other gene moves
+static func pseudo_of(seed_v: int, sid: String, kind: String) -> String:
+	if not PSEUDO.has(sid) or kind == "geode": return ""
+	var r := Rng32.new((seed_v * 2654435761 + 719) % 4294967296)
+	if r.next() >= PSEUDO_P: return ""
+	var after: Array = PSEUDO[sid].after
+	return String(Stones.pick_w(after, r))
+
+## the look a find is built with: its own, or for a pseudomorph the crystals (layouts, proportions, habits) of the
+## species it replaced with its own body
+static func shape_of(sid: String, pseudo: String) -> Dictionary:
+	if pseudo == "" or not PSEUDO.has(sid): return of(sid)
+	var out: Dictionary = of(pseudo).duplicate()
+	for k: String in BODY_KEYS: out.erase(k)
+	var own := of(sid)
+	for k: String in ["growths", "no_acc", "rock"]:
+		if own.has(k): out[k] = own[k]
+	out.merge(PSEUDO[sid].body as Dictionary, true)
+	out.zone = [0, 0.0, 0.0]
+	out.dark = 0.0
+	out.foot_frost = false
+	return out
+
+## An association (a paragenesis): crystals of another species of the same mine grown on the same rock — pyrite cubes
+## on a fluorite druse, malachite bubbles beside azurite, gold on quartz. The gene is "assoc" (the card says
+## "with pyrite"); pinned from outside by `assoc = <species>`.
+const ASSOC_P := 0.07
+## species that never come as the second one (their look is a whole layout of its own, or they stand alone)
+const ASSOC_NOT := ["crocoite", "erythrite", "cavansite", "tourmaline", "millerite", "natrolite", "flintstone", "jadeite", "carnelian", "hyalite", "opal",
+	"needle", "ember", "obsidian", "wavellite", "olivine"]
+## nor take a second one
+const ASSOC_LONE := ["needle", "ember", "bismuth", "obsidian"]
+## the classic pairs come more often: {species: {its mate: x weight}}
+const PAIRS := {quartz = {gold = 4.0, pyrite = 2.0}, amethyst = {calcite = 3.0}, fluorite = {pyrite = 3.0, calcite = 2.0}, calcite = {pyrite = 3.0, fluorite = 2.0},
+	smoky = {garnet = 2.0}, azurite = {malachite = 6.0}, cuprite = {nativecu = 4.0, malachite = 3.0}, beryl = {aquamarine = 2.0}, emerald = {beryl = 2.0},
+	galena = {sphalerite = 4.0, barite = 2.0}, sphalerite = {galena = 4.0}, barite = {galena = 3.0}, siderite = {sphalerite = 2.0},
+	stibnite = {cinnabar = 3.0}, acanthite = {proustite = 3.0}, proustite = {acanthite = 3.0}, vivianite = {apatite = 2.0}, marcasite = {dogtooth = 3.0},
+	dogtooth = {marcasite = 3.0}, wulfenite = {vanadinite = 4.0}, vanadinite = {wulfenite = 3.0}, dioptase = {wulfenite = 2.0}, sulphur = {aragonite = 3.0}}
+## the species with no mine yet, grouped as they would be found together
+const FUTURE_POOLS := [["wulfenite", "vanadinite", "crocoite", "dioptase", "smithsonite", "erythrite", "cavansite", "bismuth"]]
+
+## the species that may grow beside `sid`: the others of its mine that have crystals (or bubbles) to grow
+static func mates(sid: String) -> Array:
+	var pool: Array = []
+	for a: Dictionary in Data.AREAS:
+		if (a.get("pool", {}) as Dictionary).has(sid): pool = (a.pool as Dictionary).keys()
+	if pool.is_empty():
+		for fp: Array in FUTURE_POOLS:
+			if sid in fp: pool = fp
+	var out := []
+	for s: String in pool:
+		if s == sid or s in ASSOC_NOT or String(Data.HABIT.get(s, "prism")) in ["fossil", "obsidian", "ball"]: continue
+		out.append(s)
+	return out
+
+## the second species on this find ("" for none): its own stream
+static func assoc_of(seed_v: int, sid: String) -> String:
+	if sid in ASSOC_LONE or String(Data.HABIT.get(sid, "prism")) in ["fossil", "obsidian"]: return ""
+	var r := Rng32.new((seed_v * 2246822519 + 853) % 4294967296)
+	if r.next() >= ASSOC_P: return ""
+	var ms := mates(sid)
+	if ms.is_empty(): return ""
+	var pw: Dictionary = PAIRS.get(sid, {})
+	return String(Stones.pick_w(ms.map(func(s: String) -> Array: return [s, float(pw.get(s, 1.0))]), r))
