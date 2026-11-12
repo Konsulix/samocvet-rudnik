@@ -792,6 +792,15 @@ static func check(quiet := false) -> Array:
 			Ov.toast("%s: %s" % [head, e.n] if fresh.size() == 1 else "%d new awards — see the cabinet" % fresh.size())
 	return fresh
 
+## the awards shown at the side of the mine screen (AwardsRail), n at most: those waiting to be claimed, in the
+## list's order — one still being gathered is not shown there
+static func rail(n: int) -> Array:
+	_latch()
+	var out: Array = []
+	for e in LIST:
+		if out.size() < n and _state(e) == "ready": out.append(e)
+	return out
+
 ## how many wait to be claimed (the cups in the cabinet light up)
 static func waiting() -> int:
 	_latch()
@@ -1432,7 +1441,7 @@ func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 	_busy = true
 	await _stamp(sheet, Vector2(sheet.size.x - 46.0, 30.0), 1.8)
 	var gv := give_of(e)
-	if gv.has("coins"): await _coins_fly(from.get_global_rect().get_center(), int(gv.coins))
+	if gv.has("coins"): await coins_fly(self, _bar, from.get_global_rect().get_center(), int(gv.coins))
 	lay.queue_free()
 	await Awards.claim(e)
 	if SAY.has(String(e.n)) and Save.told("s_sister_meet"):
@@ -1480,13 +1489,14 @@ func _stamp(strip: Control, at: Vector2, big := 1.0) -> void:
 	await get_tree().create_timer(0.45).timeout
 
 ## the coins of a reward fly up from the Claim button into the coins' capsule of the bar, chinking as they land
-func _coins_fly(from: Vector2, n: int) -> void:
-	var hooks: Array = _bar.get_meta("hooks", []) if _bar else []
+## (on: the screen they fly over — this one, or the mine screen claiming from its rail; bar: its top bar)
+static func coins_fly(on: Control, bar: Control, from: Vector2, n: int) -> void:
+	var hooks: Array = bar.get_meta("hooks", []) if is_instance_valid(bar) else []
 	if hooks.is_empty(): return
 	var to: Vector2 = (hooks[0] as Control).get_global_rect().get_center()
 	var tex := Kit.tex_at("res://assets/ui/kit/icons/coin.png")
 	var count := clampi(n / 50, 5, 14)
-	var o := get_global_rect().position
+	var o := on.get_global_rect().position
 	for i in count:
 		var c := TextureRect.new()
 		c.texture = tex
@@ -1497,7 +1507,7 @@ func _coins_fly(from: Vector2, n: int) -> void:
 		c.z_index = 10
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.position = from - o - Vector2(13, 13)
-		add_child(c)
+		on.add_child(c)
 		var mid := from - o + Vector2(randf_range(-70, 70), randf_range(-60, 10))
 		var end := to - o - Vector2(13, 13)
 		var tw := c.create_tween()
@@ -1507,8 +1517,8 @@ func _coins_fly(from: Vector2, n: int) -> void:
 		tw.tween_callback(func():
 			Sfx.play("coin")
 			c.queue_free())
-		await get_tree().create_timer(0.05).timeout
-	await get_tree().create_timer(0.7).timeout
+		await on.get_tree().create_timer(0.05).timeout
+	await on.get_tree().create_timer(0.7).timeout
 
 ## for screenshots: ui=open_ready opens the sheet of an achievement waiting for its claim (and switches to its tab)
 func _open_ready() -> void:

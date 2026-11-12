@@ -797,7 +797,8 @@ static func _pump() -> void:
 			_cut[key] = ImageTexture.create_from_image(cut)
 			Spec.trim(_cut, CUTS_MAX)
 			Spec.disk_put("c", key, cut)
-		if cb.is_valid():
+		# (the owner may have gone while its picture was made: the awards' sheet closed, the screen left)
+		if cb.is_valid() and not _gone(item[2]):
 			cb.call(_cut[key])
 	_busy = false
 

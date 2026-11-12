@@ -35,6 +35,9 @@ var _down := false
 var _top_shade: TextureRect
 var _tasks: Button         # the Next plate (the first-time note points at it)
 var _row: Control           # the Play / next-depth row: the level window keeps clear of it
+var rail: AwardsRail        # the awards waiting to be claimed, down the right edge
+var _bar: Control           # the top bar (a claimed award's coins fly to it)
+var _claiming := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -121,6 +124,9 @@ func _ready() -> void:
 		_top_shade.stretch_mode = TextureRect.STRETCH_SCALE
 		add_child(_top_shade)
 	_dust()
+	rail = AwardsRail.new()
+	add_child(rail)
+	rail.claim.connect(_claim_award)
 	render()
 
 func ai() -> int:
@@ -164,6 +170,10 @@ func render() -> void:
 			if ey >= 0.0: _glide_to(ey * view.scale.y - vp.y * 0.45)
 	else:
 		scene.setup(ai(), Save.d.built[ai()], int(Save.d.depth[ai()]), dl_sel(), hv)
+	# the awards waiting to be claimed at the right edge, under the gear (not in the trailer's dive or the prologue's rise)
+	rail.visible = not rise and dive <= 0.0
+	rail.position = Vector2(vp.x - 10.0 - AwardsRail.D, 62.0 + UI.safe_top())
+	if rail.visible: rail.refresh()
 	if ui_root:
 		ui_root.queue_free()
 	ui_root = VBoxContainer.new()
@@ -182,6 +192,7 @@ func render() -> void:
 	col.add_theme_constant_override("separation", 4)
 	pad.add_child(col)
 	var bar := Chrome.top_bar()
+	_bar = bar
 	col.add_child(bar)
 	col.add_child(Kit.hanging(Kit.title_plate(String(Data.AREAS[ai()].n)), bar))
 	var fill := Control.new()
@@ -217,6 +228,26 @@ func render() -> void:
 		else:
 			# the guide has his say once what changed has played out
 			_guide_later(3.6 if view.focus_y >= 0.0 or not MineView.last_result.is_empty() else 1.0)
+
+## an award claimed from its medallion at the edge (AwardsRail): the seal comes down on it, its coins fly to the bar,
+## its geode opens, on the big ones the sister has her word — as on the awards' own sheet, without going there
+func _claim_award(nm: String) -> void:
+	if _claiming: return
+	var e := {}
+	for x: Dictionary in Awards.LIST:
+		if String(x.n) == nm: e = x
+	if e.is_empty() or Awards._state(e) != "ready": return
+	_claiming = true
+	var from := rail.centre_of(nm)
+	await rail.sealed(nm)
+	var gv := Awards.give_of(e)
+	if gv.has("coins"): await Awards.coins_fly(self, _bar, from, int(gv.coins))
+	await Awards.claim(e)
+	if Awards.SAY.has(nm) and Save.told("s_sister_meet"):
+		var l: Array = Awards.SAY[nm]
+		await StoryScene.say(self, [["sister", String(l[0]), String(l[1])]]).finished
+	_claiming = false
+	if is_inside_tree(): render()
 
 ## what stands between the shaft and its next depth: the job of the deepest open depth (paid in the mine's own ore),
 ## then the drill (iron + coins). At the last depth only its job is left, then the next mine.
@@ -1251,3 +1282,8 @@ func _say(text: String) -> void:
 	add_child(_bubble)
 	await _bubble.closed
 	_bubble = null
+
+## for screenshots: ui=claim_first claims the first award waiting at the edge, as a tap on its medallion does
+func _claim_first() -> void:
+	var rl := Awards.rail(1)
+	if rl.size(): _claim_award(String(rl[0].n))
