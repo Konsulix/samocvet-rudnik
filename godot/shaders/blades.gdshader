@@ -45,7 +45,7 @@ void fragment() {
 	ALBEDO = body * 0.22;
 	METALLIC = 0.0;
 	ROUGHNESS = mix(0.12, 0.3, pearl);
-	SPECULAR = 0.6;
+	SPECULAR = mix(0.6, 0.25, pearl);
 	// (all of it kept low and pure: a bright colour, or one with a tenth of white in it, is a pastel on the screen)
 	EMISSION = body * (0.2 + 0.55 * thin * glow) + tintc * (0.2 * l3 + 0.5 * l3 * l3 * l3) * gloss * (0.3 + 0.7 * along)
 		+ vec3(1.0) * pow(lamp, 12.0) * 0.12 * gloss * along + thin_col * pow(1.0 - ndv, 1.5) * pearl * 0.12 * along;

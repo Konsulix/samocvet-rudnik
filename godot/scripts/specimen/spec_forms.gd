@@ -296,9 +296,10 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	c.use_rock.call("slab" if rng.next() < 0.5 else "chunk")
 	var druse: bool = c.kind == "druse"
 	var nf := 3 + int(rng.next() * 4) if druse else 1 + int(rng.next() * 2)
-	var deep := SpecMat.offset_hsl(col, 0.04, 0.0, 0.0) * 0.12
-	var tipc := SpecMat.offset_hsl(col, -0.01, 0.0, 0.0) * 0.6
-	var tpl := _spike([[0.06, 0.55, 1.0], [0.8, 1.0, 1.0]])
+	var deep := SpecMat.offset_hsl(col, 0.05, 0.0, 0.0) * 0.07
+	var tipc := SpecMat.offset_hsl(col, -0.005, 0.0, 0.0) * 0.42
+	# a blade: thin, widening slowly, cut off in a short chisel point
+	var tpl := _spike([[0.05, 0.4, 1.0], [0.55, 0.85, 1.0], [0.9, 1.0, 0.8]])
 	var g := Geo.new()
 	var spots := []
 	for k in nf:
@@ -320,7 +321,7 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var side := fn.cross(mid)
 		var star := rng.next() < 0.3
 		var arc := TAU if star else 1.6 + rng.next() * 1.6
-		var cnt := int((60 + rng.next() * 40) * (arc / 2.4))
+		var cnt := int((120 + rng.next() * 70) * (arc / 2.4))
 		for i in cnt:
 			var a := (rng.next() - 0.5) * arc
 			var lift := (rng.next() - 0.3) * 0.5
@@ -328,10 +329,11 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 			if u.dot(nn) < 0.02: u = (u + nn * 0.5).normalized()
 			# longest in the middle of the fan, ragged
 			var shape := 0.8 if star else 0.55 + 0.45 * cos(a * PI / arc)
-			var L := R * shape * (0.7 + rng.next() * 0.4)
-			var w := R * (0.016 + rng.next() * 0.024)
+			# long ones and a crowd of short ones filling the heart of the spray
+			var L := R * shape * (0.7 + rng.next() * 0.4) * (1.0 if rng.next() < 0.6 else 0.35 + rng.next() * 0.3)
+			var w := R * (0.009 + rng.next() * 0.017)
 			var x := (fn.cross(u)).normalized().rotated(u, (rng.next() - 0.5) * 1.4)
-			var bs := Basis(x * w, u * L, u.cross(x) * w * 0.3)
+			var bs := Basis(x * w, u * L, u.cross(x) * w * 0.2)
 			var vb := 0.55 + rng.next() * 0.9
 			var hb := SpecMat.offset_hsl(tipc, (rng.next() - 0.5) * 0.04, 0.0, 0.0) * vb
 			_add(g, tpl, Transform3D(bs, p - nn * 0.01), deep * vb, hb, bs.determinant() < 0.0, true)
@@ -340,21 +342,22 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var tc := col.lerp(Color(0.9, 0.02, 0.22), 0.5)
 	m.set_shader_parameter("thin_col", Vector3(tc.r, tc.g, tc.b))
 	m.set_shader_parameter("pearl", 0.7)
+	m.set_shader_parameter("gloss", 0.45)
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	# the bloom: a pink dust of tiny crystals over the rock near the fans
 	var dust := []
-	var dm := SpecMat.make({col = SpecMat.offset_hsl(col, -0.02, 0.0, 0.08), rough = 0.8, grain = 0.5, flat = true, emis = col * 0.15})
+	var dm := SpecMat.make({col = col * 0.5, rough = 0.85, grain = 0.5, flat = true, emis = col * 0.05})
 	for s: Array in spots:
-		for i in int(60 + rng.next() * 60):
+		for i in int(260 + rng.next() * 160):
 			var q: Vector3 = st.pick.call()
 			for t in 3:
 				var q2: Vector3 = st.pick.call()
 				if q2.distance_to(s[0]) < q.distance_to(s[0]): q = q2
-			var sz := (0.008 + pow(rng.next(), 2.0) * 0.022) * gs
-			dust.append(Transform3D(Basis.from_scale(Vector3(sz, sz * 0.6, sz)), q))
+			var sz := (0.004 + pow(rng.next(), 2.5) * 0.012) * gs
+			dust.append(Transform3D(Basis(UP, rng.next() * TAU) * Basis.from_scale(Vector3(sz * (1.0 + rng.next()), sz * 0.45, sz)), q))
 	if dust.size():
-		U.inst(Geo.icosa(1.0, 0), dm, dust.size(), func(i: int) -> Array: return [dust[i], Color(1, 1, 1)], b.root)
+		U.inst(Geo.icosa(1.0, 0), dm, dust.size(), func(i: int) -> Array: return [dust[i], Color(1, 1, 1) * (0.5 + 0.9 * fposmod(i * 0.6180339, 1.0))], b.root)
 	return mi
 
 ## smithsonite: a crust of pearly bubbles, big ones crowded with small, over the rock, like a bunch of grapes pressed flat;
@@ -423,28 +426,32 @@ static func _film(t: float) -> Color:
 	var c1: Color = stops[mini(i + 1, stops.size() - 1)]
 	return c0.lerp(c1, x - i)
 
-## one hopper crystal of bismuth: square walls nested one inside the next, each a step higher than the last and each
-## wall of a ring a little higher than the one before, a square spiral staircase, up to a tower in the middle or down
-## into a funnel. Its foot at the origin, y up; `a` the half-width. Added to `g`, coloured by how thick the film is
+## one hopper crystal of bismuth: a square spiral staircase — rings of steps one inside the next, each wall of a ring
+## a quarter-step higher (or lower) than the one before; the steps climb to a rim and then go down into the crater
+## (`peak` 0: a funnel from the edge, the last ring: a ziggurat). The rings are not centred: the crater sits towards a
+## corner, as they grow. Foot at the origin, y up, `a` the half-width. Added to `g` with what bismuth.gdshader needs
 static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, size_k := 1.0) -> void:
 	var box := Geo.box(1, 1, 1).translate(0, 0.5, 0)
-	var n := 5 + int(rng.next() * 4)
-	var tower := rng.next() < 0.6
+	var n := (8 + int(rng.next() * 6)) if size_k > 0.45 else (5 + int(rng.next() * 4))
 	var ax := a
-	var az := a * (0.75 + rng.next() * 0.25)
-	var step := 1.0 / (n + 1.3)
-	var wall := a * step * (0.42 + rng.next() * 0.2)      # thin walls, deep grooves between: a skeleton, not a block
-	var sh := a * (0.13 + rng.next() * 0.1)
-	var h0 := a * (0.12 + rng.next() * 0.12)
-	var hk := 0.05 + rng.next() * 0.04      # how fast the colour runs up the staircase
+	var az := a * (0.7 + rng.next() * 0.3)
+	var step := 1.0 / (n + 0.8 + rng.next() * 0.8)
+	var pr := rng.next()
+	var peak := 0.0 if pr < 0.3 else float(n) if pr > 0.72 else floorf(n * (0.15 + rng.next() * 0.4))
+	var sh := a * (0.065 + rng.next() * 0.055)
+	var h0 := maxf(a * (0.2 + rng.next() * 0.2), (float(n) - 2.0 * peak) * sh + a * 0.1)
+	var hk := 0.02 + rng.next() * 0.02      # how far the film's colour runs from one ring to the next
 	var flip := xf.basis.determinant() < 0.0
-	var ytop := h0 + float(n) * sh
+	var ytop := h0 + peak * sh + a * 0.01
+	var bx_bias := rng.next()
+	var bz_bias := rng.next()
 	var put := func(mn: Vector3, mx: Vector3, t: float) -> void:
 		var sz := mx - mn
+		if sz.x <= 0.0 or sz.y <= 0.0 or sz.z <= 0.0: return
 		var bx := Transform3D(Basis.from_scale(sz), Vector3((mn.x + mx.x) * 0.5, mn.y, (mn.z + mx.z) * 0.5))
 		var b0 := g.v.size()
 		_add(g, box, xf * bx, Color.WHITE, Color.WHITE, flip)
-		# for the shader (bismuth.gdshader): the place in this crystal, the film's thickness (more of it up a wall), shade
+		# for the shader: the place in this crystal, the film's thickness (a little more of it up a wall), shade
 		g.bary.resize(g.v.size())
 		g.rp.resize(g.v.size())
 		for i in box.v.size():
@@ -454,56 +461,92 @@ static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, s
 				j = i + 1 if m == 1 else i - 1 if m == 2 else i
 			var lp: Vector3 = bx * box.v[i]
 			g.bary[b0 + j] = Vector3(lp.x / ax, lp.y / a, lp.z / az)
-			g.rp[b0 + j] = Vector3(hue0 + (t - 1.6 * (1.0 - box.v[i].y)) * hk, 0.42 + 0.58 * smoothstep(0.0, 1.0, lp.y / ytop), size_k)
-	# a funnel's outer wall is its highest: plates laid against it lower and lower, or its side is one blank slab
-	if not tower:
-		var y0 := h0 + (float(n) - 3.5) * sh
-		for k in range(1, 3 + int(rng.next() * 2)):
-			var o := a * step * 0.3 * k
-			var yk := y0 * (1.0 - 0.26 * k - rng.next() * 0.08)
-			if yk < a * 0.05: break
-			put.call(Vector3(-ax - o, 0, -az - o), Vector3(ax + o, yk, -az - o + wall), -float(k))
-			put.call(Vector3(-ax - o, 0, az + o - wall), Vector3(ax + o, yk, az + o), -float(k))
-			put.call(Vector3(-ax - o, 0, -az - o), Vector3(-ax - o + wall, yk, az + o), -float(k))
-			put.call(Vector3(ax + o - wall, 0, -az - o), Vector3(ax + o, yk, az + o), -float(k))
+			g.rp[b0 + j] = Vector3(hue0 + t * hk + 0.03 * lp.y / ytop, 0.4 + 0.6 * smoothstep(0.0, 1.0, lp.y / ytop), size_k)
+	var hgt := func(t: float) -> float:
+		return h0 + (t if t <= peak else 2.0 * peak - t) * sh
+	# a tall outer wall would be one blank slab: plates laid against it, lower and lower
+	var y_out: float = hgt.call(0.0)
+	if y_out > a * 0.45:
+		for k in range(1, 3 + int(rng.next() * 3)):
+			var o := a * step * 0.45 * k
+			var yk := y_out * (1.0 - 0.2 * k - rng.next() * 0.08)
+			if yk < a * 0.06: break
+			var w := a * step
+			put.call(Vector3(-ax - o, 0, -az - o), Vector3(ax + o, yk, -az - o + w), -float(k))
+			put.call(Vector3(-ax - o, 0, az + o - w), Vector3(ax + o, yk, az + o), -float(k))
+			put.call(Vector3(-ax - o, 0, -az - o), Vector3(-ax - o + w, yk, az + o), -float(k))
+			put.call(Vector3(ax + o - w, 0, -az - o), Vector3(ax + o, yk, az + o), -float(k))
+	var x0 := -ax
+	var x1 := ax
+	var z0 := -az
+	var z1 := az
+	var wx := ax * step
+	var wz := az * step
+	var done := 0
 	for i in n:
-		var ex := ax * (1.0 - i * step)
-		var ez := az * (1.0 - i * step)
+		# the ring's four walls, each its own width: the hole they leave drifts to a corner
+		var wl := wx * (0.5 + bx_bias) * (0.8 + rng.next() * 0.4)
+		var wr := wx * (1.5 - bx_bias) * (0.8 + rng.next() * 0.4)
+		var wf := wz * (0.5 + bz_bias) * (0.8 + rng.next() * 0.4)
+		var wb := wz * (1.5 - bz_bias) * (0.8 + rng.next() * 0.4)
+		if x1 - x0 - wl - wr < wx * 0.6 or z1 - z0 - wf - wb < wz * 0.6: break
 		for j in 4:
 			var t := float(i) + j * 0.25
-			var y := h0 + (t if tower else float(n) - 1.75 - absf(t - 1.75)) * sh
+			var y: float = hgt.call(t)
+			# now and then a wall is notched low: a gap in the staircase
+			if i > 0 and rng.next() < 0.1: y = maxf(a * 0.05, y - sh * (1.5 + rng.next() * 2.0))
 			match j:
-				0: put.call(Vector3(ex - wall, 0, -ez), Vector3(ex, y, ez), t)
-				1: put.call(Vector3(-ex + wall, 0, ez - wall), Vector3(ex - wall, y, ez), t)
-				2: put.call(Vector3(-ex, 0, -ez), Vector3(-ex + wall, y, ez), t)
-				3: put.call(Vector3(-ex + wall, 0, -ez), Vector3(ex - wall, y, -ez + wall), t)
-	# the middle: the top of the tower, or the floor of the funnel
-	var ex2 := ax * (1.0 - n * step)
-	var ez2 := az * (1.0 - n * step)
-	var yt := h0 + float(n) * sh if tower else h0 * 0.6
-	put.call(Vector3(-ex2, 0, -ez2), Vector3(ex2, yt, ez2), float(n))
+				0: put.call(Vector3(x1 - wr, 0, z0), Vector3(x1, y, z1), t)
+				1: put.call(Vector3(x0 + wl, 0, z1 - wb), Vector3(x1 - wr, y, z1), t)
+				2: put.call(Vector3(x0, 0, z0), Vector3(x0 + wl, y, z1), t)
+				3: put.call(Vector3(x0 + wl, 0, z0), Vector3(x1 - wr, y, z0 + wf), t)
+		x0 += wl
+		x1 -= wr
+		z0 += wf
+		z1 -= wb
+		done = i + 1
+	# the middle: the top of the ziggurat, or the floor of the crater
+	put.call(Vector3(x0, 0, z0), Vector3(x1, maxf(a * 0.04, hgt.call(float(done))), z1), float(done))
 
-## bismuth: stepped hopper crystals grown through one another at right angles, every terrace a different colour of
-## the oxide film, gold running to rose, violet, blue and green. No rock: it stands on its own corner. One mesh
+## bismuth: a ragged growth of stepped hopper crystals — one big staircase and a crowd of smaller ones out of its
+## rim, its terraces and its sides, all nearly parallel (it is one lattice) but none quite; the oxide film's colour
+## lies over the whole in broad zones, two or three neighbours of the wheel to a specimen. No rock. One mesh
 static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var rng: Rng32 = b.rng
 	var gs: float = c.gs
 	var g := Geo.new()
-	var a := 0.4 * gs
+	var a := 0.36 * gs
 	var hue0 := rng.next()
 	_stair(g, rng, a, Transform3D.IDENTITY, hue0)
+	var top := maxf(a * 0.3, g.aabb().size.y)
 	# stood so its terraces face the viewer: the axis tipped well towards them
 	var axis := (VIEW * (0.55 + rng.next() * 0.35) + UP * 0.6 + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.3).normalized()
 	var tilt := Basis(U.quat_to(UP, axis)) * Basis(UP, rng.next() * TAU)
-	# others out of its sides and corners, their axes along the first one's; none with its blank foot to the viewer
-	var axes := []
-	for bs0: Basis in [Basis.IDENTITY, Basis(Vector3.RIGHT, PI * 0.5), Basis(Vector3.RIGHT, -PI * 0.5), Basis(Vector3.BACK, PI * 0.5), Basis(Vector3.BACK, -PI * 0.5)]:
-		if (tilt * bs0 * UP).dot((VIEW + UP * 0.4).normalized()) > 0.05: axes.append(bs0)
-	for k in 2 + int(rng.next() * 4):
-		var bs: Basis = axes[int(rng.next() * axes.size())]
-		var s := 0.35 + rng.next() * 0.4
-		var at := Vector3((rng.next() - 0.5) * 1.6, 0.1 + rng.next() * 0.7, (rng.next() - 0.5) * 1.6) * a
-		_stair(g, rng, a * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.4, s)
+	# the sides the others may grow out of: none with its blank foot to the viewer
+	var sides := []
+	for bs0: Basis in [Basis(Vector3.RIGHT, PI * 0.5), Basis(Vector3.RIGHT, -PI * 0.5), Basis(Vector3.BACK, PI * 0.5), Basis(Vector3.BACK, -PI * 0.5)]:
+		if (tilt * bs0 * UP).dot((VIEW + UP * 0.4).normalized()) > 0.05: sides.append(bs0)
+	for k in 7 + int(rng.next() * 6):
+		var s := 0.2 + pow(rng.next(), 1.5) * 0.42
+		# (parallel growth, a few degrees out)
+		var jit := Basis(Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized(), (rng.next() - 0.5) * (1.1 if rng.next() < 0.25 else 0.3))
+		var bs := jit * Basis(UP, PI * 0.5 * int(rng.next() * 4.0))
+		var at := Vector3((rng.next() - 0.5) * 1.9 * a, top * (0.3 + rng.next() * 0.7), (rng.next() - 0.5) * 1.7 * a)
+		if sides.size() and rng.next() < 0.42:
+			var bs0: Basis = sides[int(rng.next() * sides.size())]
+			var d := bs0 * UP
+			at = d * a * (0.65 + rng.next() * 0.3) + UP * top * (0.15 + rng.next() * 0.7) + d.cross(UP) * (rng.next() - 0.5) * 1.3 * a
+			bs = jit * bs0
+		_stair(g, rng, a * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.1, s)
+	# the film in broad zones over the whole growth: up it, and in slow waves across
+	var span := 0.3 + rng.next() * 0.25
+	var ph1 := rng.next() * TAU
+	var ph2 := rng.next() * TAU
+	for i in g.v.size():
+		var p := g.v[i] / a
+		var r3 := g.rp[i]
+		r3.x += span * (0.28 * p.y + 0.3 * sin(p.x * 1.6 + ph1) * cos(p.z * 1.3 + ph2))
+		g.rp[i] = r3
 	g.xform(Transform3D(tilt, Vector3.ZERO))
 	var bb := g.aabb()
 	g.translate(-bb.get_center().x, -bb.position.y - 0.25, -bb.get_center().z)
@@ -842,9 +885,10 @@ static func partner(b: RefCounted, sid: String, st: Dictionary, gs: float, seed_
 		mi.set_meta("col", true)
 		if k == 0: b._mark("assoc", b._mid(mi, 0.6))
 
-## an association grown on the first species' own crystal: a native metal (or a brassy sulphide) clinging to it in a
-## few spongy clusters of tiny crystals, thick in the middle of each and thinning to single grains — gold on quartz.
-## One MultiMesh, a nugget at the heart of each cluster; marked "assoc"
+## an association grown on the first species' own crystal: a native metal (or a brassy sulphide) clinging to it in
+## heaps — each a cauliflower of lumps crowded on one another, crusted with glittering grains, big at the crystal's
+## ends and smaller along it — gold on quartz, as the old "vein in quartz" finds had it. The lumps one mesh, the
+## grains one MultiMesh; marked "assoc"
 static func perch(b: RefCounted, sid: String, main: MeshInstance3D, gs: float, seed_v: int) -> void:
 	var r := Rng32.new((seed_v * 2654435761 + 1213) % 4294967296)
 	var pts: Array = RockKit.surf_pts(main, 1300, r, Callable(), b.root)
@@ -856,52 +900,83 @@ static func perch(b: RefCounted, sid: String, main: MeshInstance3D, gs: float, s
 		y1 = maxf(y1, (e[0] as Vector3).y)
 	var H := maxf(0.001, y1 - y0)
 	var L := maxf(H, 0.3 * gs)
-	var cube := sid in ["pyrite"]
-	var hexes := {gold = 0xf2c044, nativecu = 0xd8743c, pyrite = 0xd6c07a, marcasite = 0xcfc890}
-	var col := SpecMat.lin(int(hexes.get(sid, 0xf2c044)))
-	var mm := SpecMat.make({col = col, metal = 1.0, rough = 0.27, coat = 0.3, env = 1.9, flat = true, grain = 0.1})
-	# where: a few places up the crystal that the viewer sees, apart from one another
+	var rocky: bool = b.st_ref.get("rocky", false)
+	var cube := sid == "pyrite"
+	var hexes := {gold = 0xf0c050, nativecu = 0xd8743c, pyrite = 0xd6c07a, marcasite = 0xcfc890}
+	var col := SpecMat.lin(int(hexes.get(sid, 0xf0c050)))
+	# (grainy and uneven in polish: it glitters as the find turns)
+	var mm := SpecMat.make({col = col, metal = 1.0, rough = 0.3, coat = 0.25, env = 1.8, grain = 0.5, rough_var = 0.4, flat = true})
+	var gm := SpecMat.make({col = col.lerp(Color(1.0, 0.86, 0.5), 0.35), metal = 1.0, rough = 0.12, coat = 0.4, env = 2.2, flat = true})
+	# where: the top of the crystal first, then its foot (if it has no rock), then a few places along it
 	var centres := []
-	var want := 3 + int(r.next() * 3)
+	var want := 4 + int(r.next() * 3)
 	var guard := 0
-	while centres.size() < want and guard < 400:
+	while centres.size() < want and guard < 500:
 		guard += 1
 		var e: Array = pts[int(r.next() * pts.size())]
 		var p: Vector3 = e[0]
 		var n: Vector3 = e[1]
-		if n.dot(VIEW) < (0.1 if centres.size() < want - 1 else -0.3): continue
-		if p.y < y0 + H * 0.26 or p.y > y1 - H * 0.03: continue
+		var k := centres.size()
+		if k == 0 and p.y < y1 - H * 0.16: continue
+		if k == 1 and not rocky and p.y > y0 + H * 0.16: continue
+		if k >= 2 and n.dot(VIEW) < 0.0 and guard < 300: continue
+		if rocky and p.y < y0 + H * 0.26: continue
 		var ok := true
 		for c: Array in centres:
-			if p.distance_to(c[0]) < L * 0.17: ok = false
-		if ok: centres.append([p, n, 0.45 + r.next() * 0.55 if centres.size() else 1.0])
+			if p.distance_to(c[0]) < L * 0.16: ok = false
+		if ok: centres.append([p, n, 1.0 if k < 2 else 0.35 + r.next() * 0.5])
 	if centres.is_empty(): return
+	var g := Geo.new()
 	var xfs := []
 	var cols := []
 	for c: Array in centres:
 		var cp: Vector3 = c[0]
-		var rho := L * (0.06 + 0.075 * float(c[2]))
+		var rho := L * (0.07 + 0.085 * float(c[2]))
+		# the surface near the heap's middle: the lumps sit on it, the biggest in the middle
+		var near := []
 		for e: Array in pts:
+			if (e[0] as Vector3).distance_to(cp) < rho: near.append(e)
+		if near.is_empty(): continue
+		var lumps := 5 + int(r.next() * 4 + 5.0 * float(c[2]))
+		for li in lumps:
+			var e: Array = near[int(r.next() * near.size())] if li else [cp, c[1]]
 			var p: Vector3 = e[0]
-			var d := p.distance_to(cp)
-			if d > rho: continue
 			var n: Vector3 = e[1]
-			var f := 1.0 - d / rho
-			# thick at the heart (crystals piled on crystals), a scatter of grains at the edge
-			if f < 0.3 and r.next() < 0.5: continue
-			for layer in (3 if f > 0.6 else 2 if f > 0.3 else 1):
-				var s := L * (0.009 + 0.026 * f * (0.45 + r.next() * 0.75)) * (1.0 - 0.22 * layer)
-				var at := p + n * s * (0.3 + layer * 1.05) + Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5) * s * 0.9
-				var bs := U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3) * Basis.from_scale(Vector3(s, s * (0.75 + r.next() * 0.6), s))
-				xfs.append(Transform3D(bs, at))
-				cols.append(Color(1, 1, 1) * (0.72 + r.next() * 0.38))
-		# the heart: a lump of the metal
-		var hs := L * (0.02 + 0.022 * float(c[2]))
-		var cn: Vector3 = c[1]
-		var nug: MeshInstance3D = U.mesh(RockKit.crumble(r, hs, Vector3(1.25, 0.8, 1.0), 8), mm, b.root, cp + cn * hs * 0.45, U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3))
-		nug.set_meta("col", true)
+			var f := 1.0 - p.distance_to(cp) / rho
+			var rad := rho * (0.2 + 0.36 * f * (0.6 + r.next() * 0.5)) * (1.0 if li else 1.15)
+			var cg := RockKit.crumble(r, rad, Vector3(1.0 + r.next() * 0.35, 0.75 + r.next() * 0.3, 1.0), 8).to_soup()
+			var xf := Transform3D(U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3), p + n * rad * (0.35 + r.next() * 0.5))
+			var b0 := g.v.size()
+			g.v.resize(b0 + cg.v.size())
+			g.col.resize(b0 + cg.v.size())
+			var tone := 0.8 + r.next() * 0.4
+			for i in cg.v.size():
+				var v := xf * cg.v[i]
+				g.v[b0 + i] = v
+				# deeper down in the creases against the crystal, bright on the crowns
+				var cc := Color(1, 1, 1) * tone * (0.3 + 0.85 * smoothstep(-0.3, 0.9, (v - p).normalized().dot(n)))
+				cc.a = 1.0
+				g.col[b0 + i] = cc
+			# its crust of grains
+			for gi in 10 + int(r.next() * 10):
+				var d := Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5).normalized()
+				if d.dot(n) < -0.2: d = -d
+				var s := rad * (0.1 + r.next() * 0.2)
+				var bs := U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3) * Basis.from_scale(Vector3(s, s * (0.7 + r.next() * 0.6), s))
+				xfs.append(Transform3D(bs, xf.origin + d * rad * (0.82 + r.next() * 0.2)))
+				cols.append(Color(1, 1, 1) * (0.7 + r.next() * 0.9))
+		# and a scatter of single grains round the heap, thinning out
+		for e: Array in near:
+			if r.next() < 0.6: continue
+			var s := L * (0.005 + r.next() * 0.009)
+			var bs := U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3) * Basis.from_scale(Vector3(s, s, s))
+			xfs.append(Transform3D(bs, (e[0] as Vector3) + (e[1] as Vector3) * s * 0.5))
+			cols.append(Color(1, 1, 1) * (0.75 + r.next() * 0.4))
+	if g.v.size():
+		var lm: MeshInstance3D = U.mesh(g, mm, b.root)
+		lm.set_meta("col", true)
 	if xfs.size():
 		var tpl := (Geo.box(1.3, 1.3, 1.3) if cube else Geo.octa(1)).fill_color(Color(1, 1, 1))
-		U.inst(tpl, mm, xfs.size(), func(i: int) -> Array: return [xfs[i], cols[i]], b.root)
+		U.inst(tpl, gm, xfs.size(), func(i: int) -> Array: return [xfs[i], cols[i]], b.root)
 	var c0: Array = centres[0]
-	b._mark("assoc", (c0[0] as Vector3) + (c0[1] as Vector3) * L * 0.04, c0[1])
+	b._mark("assoc", (c0[0] as Vector3) + (c0[1] as Vector3) * L * 0.06, c0[1])
