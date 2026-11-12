@@ -8,9 +8,14 @@ extends RefCounted
 static var f_sid := ""
 static var f_kind := ""
 static var f_fx := ""
-static var f_traits := false
-const FX_LIST := ["", "?", "lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi", "dragonfire", "jellyfish"]
+## (the traits: [] as they fall, ["?"] one to three at random, or the very ones to give)
+static var f_traits: Array = []
 const KINDS := ["", "crystal", "druse", "geode", "skull"]
+## the minerals that have no mine yet (docs/showy-minerals.md)
+const SHOWY := ["wulfenite", "vanadinite", "crocoite", "cavansite", "dioptase", "erythrite", "smithsonite", "bismuth", "tourmaline"]
+## the species list adds a find at every tap (instead of choosing the species), and how many it has added this visit
+static var add_now := false
+static var _added := {}
 ## crystals a skull grows when the species is "any" or a nugget/fossil (SpecSkull, docs/skulls.md)
 const SKULL_SP := ["amethyst", "venom", "morion", "cinnabar", "celestine", "smoky", "quartz", "fluorite"]
 
@@ -112,24 +117,35 @@ static func open() -> void:
 	v.add_child(give)
 	# finds into the collection, to look at them on the phone
 	v.add_child(_head("Finds → collection"))
+	# what to make: each opens a list of everything there is to choose from (no stepping through them one by one)
 	var sp := _row()
-	var sids: Array = [""] + Data.SP.keys()
-	sp.add_child(_btn("Species: %s" % (Data.SP[f_sid].n if f_sid != "" else "any"), f_sid != "", func():
-		f_sid = sids[(sids.find(f_sid) + 1) % sids.size()]
-		_reopen()))
-	sp.add_child(_btn("Kind: %s" % (f_kind if f_kind != "" else "any"), f_kind != "", func():
-		f_kind = KINDS[(KINDS.find(f_kind) + 1) % KINDS.size()]
-		_reopen()))
-	sp.add_child(_btn("Legend: %s" % ("no" if f_fx == "" else "any" if f_fx == "?" else SpecLegend.FX_N.get(f_fx, f_fx)), f_fx != "", func():
-		f_fx = FX_LIST[(FX_LIST.find(f_fx) + 1) % FX_LIST.size()]
-		_reopen()))
-	sp.add_child(_btn("Rare traits: %s" % ("yes" if f_traits else "as they fall"), f_traits, func():
-		f_traits = not f_traits
-		_reopen()))
+	sp.add_child(_btn("Species: %s  ▸" % (Data.SP[f_sid].n if f_sid != "" else "any"), f_sid != "", func():
+		_leave()
+		_added = {}
+		pick_species()))
+	sp.add_child(_btn("Legend: %s  ▸" % ("no" if f_fx == "" else "any" if f_fx == "?" else String(SpecLegend.FX_N.get(f_fx, f_fx))), f_fx != "", func():
+		_leave()
+		pick_legend()))
+	sp.add_child(_btn("Rare traits: %s  ▸" % _traits_word(), f_traits.size() > 0, func():
+		_leave()
+		pick_traits()))
 	v.add_child(sp)
+	var kd := _row()
+	kd.add_child(_word("Kind"))
+	for kn: String in KINDS:
+		var kk := kn
+		kd.add_child(_btn(kk if kk != "" else "any", f_kind == kk, func():
+			f_kind = kk
+			_reopen()))
+	v.add_child(kd)
 	var mk := _row()
 	mk.add_child(_btn("+1 like this", false, func(): _finds(1)))
 	mk.add_child(_btn("+5 like this", false, func(): _finds(5)))
+	v.add_child(mk)
+	# whole sets at once
+	mk = _row()
+	mk.add_child(_btn("+1 of each in %s" % Data.AREAS[a].n, false, func(): _each((Data.AREAS[a].get("pool", {}) as Dictionary).keys(), String(Data.AREAS[a].n))))
+	mk.add_child(_btn("+1 of each showy mineral", false, func(): _each(SHOWY, "the showy minerals")))
 	mk.add_child(_btn("+8 ammonites, every kind", false, func(): _ammonites()))
 	mk.add_child(_btn("+6 test skulls (same every time)", false, func(): _skull_set()))
 	mk.add_child(_btn("+16 beast skulls, one each", false, func(): _beast_set()))
@@ -208,9 +224,10 @@ static func _find(sd: int, sid: String, fx: String) -> Dictionary:
 	var st := Stones.roll(sd, a, 1.5, 3)
 	if sid != "":
 		st.sid = sid
+		# (its kind as the species itself grows — the roll's was another species')
 		if sid in Data.NUGGETY: st.kind = "nugget"
 		elif Data.HABIT.get(sid, "") == "fossil": st.kind = "fossil"
-		elif st.kind in ["nugget", "fossil"]: st.kind = "crystal"
+		else: st.kind = String(Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd)))
 	if f_kind == "skull":
 		# a skull of Koschei's barrow: its genes come from the seed (SpecSkull.genes)
 		if sid == "" or st.kind in ["nugget", "fossil"]: st.sid = SKULL_SP[randi() % SKULL_SP.size()]
@@ -218,10 +235,12 @@ static func _find(sd: int, sid: String, fx: String) -> Dictionary:
 		st.form = "skull"
 	elif f_kind != "" and not (st.kind in ["nugget", "fossil"]):
 		st.kind = f_kind
-	if f_traits:
+	if f_traits == ["?"]:
 		var pool: Array = Data.TRAITS.map(func(t: Dictionary) -> String: return t.id)
 		pool.shuffle()
 		st.traits = pool.slice(0, 1 + randi() % 3)
+	elif f_traits.size():
+		st.traits = f_traits.duplicate()
 	if fx != "":
 		st.legend = true
 		if fx != "?": st.fx = fx
@@ -391,3 +410,184 @@ static func _btn(t: String, on: bool, fn: Callable) -> Button:
 	b.custom_minimum_size = Vector2(0, 36)
 	b.pressed.connect(fn)
 	return b
+
+# ---------------------------------------------------------------- the lists to choose from
+
+## the panel is left for a list: it comes back where it stood
+static func _leave() -> void:
+	_keep = _sc.scroll_vertical if is_instance_valid(_sc) else 0
+
+static func _word(t: String) -> Label:
+	var l := UI.label(t, 13, UI.body_bold, Color("#cbbfa6"))
+	l.custom_minimum_size = Vector2(0, 36)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return l
+
+static func _traits_word() -> String:
+	if f_traits.is_empty(): return "as they fall"
+	if f_traits == ["?"]: return "1–3 at random"
+	var names: Array = []
+	for t: Dictionary in Data.TRAITS:
+		if f_traits.has(String(t.id)): names.append(String(t.n))
+	return ", ".join(names) if names.size() <= 2 else "%d chosen" % names.size()
+
+## a list's card: the title with a ✕ back to the panel, a line of what a tap does, and a scroller (kept where it stood
+## while the same list is rebuilt)
+static var _psc: ScrollContainer
+static func _picker(title_t: String, note: String) -> VBoxContainer:
+	var at := _psc.scroll_vertical if is_instance_valid(_psc) and _psc.is_inside_tree() else 0
+	var card := Ov.card(360)
+	var head := HBoxContainer.new()
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(36, 0)
+	head.add_child(pad)
+	var title := UI.title(title_t, 20)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	var x := Kit.icon_button("close", 36)
+	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	x.pressed.connect(open)
+	head.add_child(x)
+	card.add_child(head)
+	if note != "": card.add_child(Ov.text(note, 12))
+	var sc := UI.scroller()
+	sc.custom_minimum_size = Vector2(0, maxf(300.0, card.get_viewport_rect().size.y - 330.0))
+	card.add_child(sc)
+	_psc = sc
+	if at > 0: _scroll_back(sc, at)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 10)
+	sc.add_child(v)
+	card.add_child(Ov.btn("Back to Admin", "glass", open))
+	return v
+
+## every species there is, by the mine it is found in: [[title, [species ids]], ...]; those with no mine last
+static func species_groups() -> Array:
+	var out: Array = []
+	var used := {}
+	for a in Data.AREAS.size():
+		var ids: Array = ((Data.AREAS[a].get("pool", {}) as Dictionary).keys() as Array).filter(func(id: String) -> bool: return Data.SP.has(id))
+		for id: String in ids: used[id] = true
+		out.append(["%d · %s" % [a + 1, Data.AREAS[a].n], ids])
+	var rest: Array = (Data.SP.keys() as Array).filter(func(id: String) -> bool: return not used.has(id))
+	if rest.size(): out.append(["No mine yet", rest])
+	return out
+
+## the species, all of them at once. Two ways to use it: choose one (for "+1 like this"), or add a find at every tap
+static func pick_species() -> void:
+	var v := _picker("Species", "A tap adds a find of that species, made as the panel says (kind, legend, traits)." if add_now
+		else "A tap chooses the species for “+1 like this”.")
+	var top := _row()
+	top.add_child(_btn("Choose", not add_now, func():
+		add_now = false
+		pick_species()))
+	top.add_child(_btn("Add at every tap", add_now, func():
+		add_now = true
+		pick_species()))
+	if not add_now:
+		top.add_child(_btn("Any species", f_sid == "", func():
+			f_sid = ""
+			open()))
+	v.add_child(top)
+	for grp: Array in species_groups():
+		var ids: Array = grp[1]
+		var gname := String(grp[0])
+		var hr := HBoxContainer.new()
+		var hl := _head(gname)
+		hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hr.add_child(hl)
+		if add_now:
+			hr.add_child(_btn("+1 of each", false, func():
+				for id: String in ids: _one(id)
+				Save.persist()
+				Ov.toast("Added %d: %s" % [ids.size(), gname])
+				pick_species()))
+		v.add_child(hr)
+		var row := _row()
+		for id: String in ids:
+			var sid := id
+			var nm := String(Data.SP[sid].n)
+			if add_now and _added.has(sid): nm += " ×%d" % int(_added[sid])
+			row.add_child(_btn(nm, (add_now and _added.has(sid)) or (not add_now and f_sid == sid), func():
+				if add_now:
+					_one(sid)
+					Save.persist()
+					Ov.toast("Added: " + String(Data.SP[sid].n))
+					pick_species()
+				else:
+					f_sid = sid
+					open()))
+		v.add_child(row)
+
+## one find of a species into the collection, as the panel says
+static func _one(sid: String) -> void:
+	_add(_find(1 + randi() % 999999, sid, f_fx))
+	_added[sid] = int(_added.get(sid, 0)) + 1
+
+## one of each of these species (a mine's eight, the showy nine)
+static func _each(ids: Array, what: String) -> void:
+	var n := 0
+	for id: String in ids:
+		if not Data.SP.has(id): continue
+		_add(_find(1 + randi() % 999999, id, f_fx))
+		n += 1
+	Save.persist()
+	Ov.toast("Added %d: one of each in %s" % [n, what])
+	_reopen()
+
+## the living effects, by what carries them (an effect the body cannot carry is swapped for one it can)
+const FX_GROUPS := [
+	["Any stone", ["lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi", "jellyfish", "borealis", "frost"]],
+	["Fossils and their kin", ["dragonfire", "discharge", "awaken", "hunter", "glow", "moon", "spring"]],
+	["Skulls", ["yaga", "candle", "watching", "deathless", "flutter", "fireflies"]],
+	["Skulls of beasts", ["blossom", "starhorn", "thunder", "foxfire", "wolfmoon", "breath", "phoenix", "raveneye", "lavaborn", "amberdrop", "ghost"]]]
+
+static func pick_legend() -> void:
+	var v := _picker("Legendary effect", "The effect the next finds are made with. One the body cannot carry is swapped for one it can.")
+	var top := _row()
+	top.add_child(_btn("Not legendary", f_fx == "", func():
+		f_fx = ""
+		open()))
+	top.add_child(_btn("Any effect", f_fx == "?", func():
+		f_fx = "?"
+		open()))
+	v.add_child(top)
+	var listed := {}
+	var groups: Array = FX_GROUPS.duplicate()
+	for grp: Array in groups:
+		for id: String in grp[1]: listed[id] = true
+	var rest: Array = (SpecLegend.FX_N.keys() as Array).filter(func(id: String) -> bool: return not listed.has(id))
+	if rest.size(): groups.append(["Other", rest])
+	for grp: Array in groups:
+		v.add_child(_head(String(grp[0])))
+		var row := _row()
+		for id: String in grp[1]:
+			if not SpecLegend.FX_N.has(id): continue
+			var fx := id
+			row.add_child(_btn(String(SpecLegend.FX_N[fx]).capitalize(), f_fx == fx, func():
+				f_fx = fx
+				open()))
+		v.add_child(row)
+
+## the rare traits: as they fall, a few at random, or the very ones ticked here
+static func pick_traits() -> void:
+	var v := _picker("Rare traits", "Tick the traits the next finds are given; a species shows only those its body can.")
+	var top := _row()
+	top.add_child(_btn("As they fall", f_traits.is_empty(), func():
+		f_traits = []
+		open()))
+	top.add_child(_btn("1–3 at random", f_traits == ["?"], func():
+		f_traits = ["?"]
+		open()))
+	v.add_child(top)
+	v.add_child(_head("These ones"))
+	var row := _row()
+	for t: Dictionary in Data.TRAITS:
+		var id := String(t.id)
+		row.add_child(_btn(String(t.n).capitalize(), f_traits.has(id), func():
+			if f_traits == ["?"]: f_traits = []
+			if f_traits.has(id): f_traits.erase(id)
+			else: f_traits.append(id)
+			pick_traits()))
+	v.add_child(row)

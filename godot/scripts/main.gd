@@ -355,7 +355,27 @@ func _ready() -> void:
 	if args.has("adm_beasts"): Admin._beast_set()
 	if args.has("admin"):
 		# the tester's panel, for a look: `-- screen=home admin`
-		get_tree().create_timer(float(args.get("ui_after", "1"))).timeout.connect(Admin.open)
+		# (admin=species|legend|traits: one of its lists; adm_scroll=N: the panel scrolled down; adm_add: the species
+		# list in its add-at-a-tap way)
+		if args.has("adm_scroll"): Admin._keep = int(args.adm_scroll)
+		if args.has("adm_add"): Admin.add_now = true
+		var what: Callable = {species = Admin.pick_species, legend = Admin.pick_legend, traits = Admin.pick_traits}.get(String(args.admin), Admin.open)
+		get_tree().create_timer(float(args.get("ui_after", "1"))).timeout.connect(what)
+		# (adm_tap=x,y[;x,y]: taps on the panel once it is open, 0.8 s apart — the plain `tap` comes before it opens)
+		if args.has("adm_tap"):
+			var at := float(args.get("ui_after", "1"))
+			for pt in String(args.adm_tap).split(";"):
+				at += 0.8
+				var xy: PackedStringArray = pt.split(",")
+				get_tree().create_timer(at).timeout.connect(func():
+					for down in [true, false]:
+						var ev := InputEventMouseButton.new()
+						ev.button_index = MOUSE_BUTTON_LEFT
+						ev.pressed = down
+						ev.position = Vector2(float(xy[0]), float(xy[1]))
+						ev.global_position = ev.position
+						Input.parse_input_event(ev)
+						await get_tree().process_frame)
 	if args.has("hoard"):
 		# a look at the boss's reward: `-- screen=home hoard lens=2` (not awaited: the other keys go on)
 		_hoard_demo()
