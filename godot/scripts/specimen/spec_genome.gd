@@ -198,8 +198,13 @@ static func of(o: Dictionary) -> Dictionary:
 	if pseudo != "": acc.append("pseudo")
 	# an association (SpecLooks.assoc_of): another species of the mine on the same rock; only where there is a rock
 	var assoc := ""
-	if String(o.get("form", "")) != "skull" and pseudo == "" and not form in NO_BASE and habit != "fossil":
-		assoc = String(o.get("assoc", SpecLooks.assoc_of(seed_v, sid)))
+	if String(o.get("form", "")) != "skull" and pseudo == "" and habit != "fossil":
+		if not form in NO_BASE:
+			assoc = String(o.get("assoc", SpecLooks.assoc_of(seed_v, sid)))
+		elif form in SpecLooks.PERCH_FORMS and lustre != "dark" and not SpecLooks.of(sid).has("opaque") and not SpecLooks.of(sid).has("metal_col"):
+			# no rock, but a clear crystal a metal can perch on
+			assoc = String(o.get("assoc", SpecLooks.assoc_of(seed_v, sid, true)))
+			if not assoc in SpecLooks.PERCH: assoc = ""
 	if assoc != "": acc.append("assoc")
 	# the way a tourmaline's colour runs along it (SpecForms.TOURM), or a polished slice: its own gene
 	if sid == "tourmaline" and form in ["pencils", "slice"] and String(o.get("form", form)) == form:

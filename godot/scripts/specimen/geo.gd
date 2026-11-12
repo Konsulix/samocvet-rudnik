@@ -10,6 +10,7 @@ var idx := PackedInt32Array()
 var col := PackedColorArray()
 var rp := PackedVector3Array()   # rock-line coordinates for the DIRT shader
 var bary := PackedVector3Array() # distance to the real edges of each face (for the silver rims)
+var tag := 0.0                     # a number of the mesh's own for the shader (UV2.y, with rp): which crystal of the group it is
 var own_n := PackedVector3Array()  # own normals, when given (a tube's seam would otherwise show)
 var _mesh: ArrayMesh
 
@@ -131,7 +132,7 @@ func to_mesh() -> ArrayMesh:
 		uv2.resize(v.size())
 		for i in v.size():
 			uv[i] = Vector2(rp[i].x, rp[i].y)
-			uv2[i] = Vector2(rp[i].z, 0.0)
+			uv2[i] = Vector2(rp[i].z, tag)
 		arr[Mesh.ARRAY_TEX_UV] = uv
 		arr[Mesh.ARRAY_TEX_UV2] = uv2
 	var flags := 0

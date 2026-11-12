@@ -10,10 +10,17 @@ extends RefCounted
 const UP := Vector3.UP
 const U := preload("res://scripts/specimen/spec_util.gd")
 const VIEW := Vector3(-0.5646, 0.0, 0.8253)   # SpecimenBuilder.VIEW_DIR
+const BISMUTH: Shader = preload("res://shaders/bismuth.gdshader")
+const BLADES: Shader = preload("res://shaders/blades.gdshader")
+const PEARL: Shader = preload("res://shaders/pearl_crust.gdshader")
 
 static func _rv(b: RefCounted) -> Vector3:
 	var v: Vector3 = b._rv()
 	return v
+
+## the hero crystal of a group is the gem of it: clear, cloud only at its root (glass.parts — the number _finish gives the shader)
+static func _hero(mi: MeshInstance3D, seed_v: int, k := 0) -> void:
+	mi.set_meta("part", 0.26 + 0.22 * fposmod((seed_v % 1000 + k * 37) * 0.6180339, 1.0))
 
 ## a spot on the rock that looks at the viewer and sits high: the best of `tries` picks
 static func _show_spot(b: RefCounted, st: Dictionary, tries := 8, up := 1.0) -> Vector3:
@@ -81,6 +88,7 @@ static func tablets(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		b._place(mi, p, dir, 1.0, spin)
 		mi.set_meta("local", true)
 		mi.set_meta("col", true)
+		if k < 2: _hero(mi, int(c.seed), k)
 		placed.append([p, w])
 		if not main: main = mi
 	return main
@@ -118,6 +126,7 @@ static func barrels(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var mi: MeshInstance3D = c.crystal.call(0.34 + rng.next() * 0.3, s, p, dir)
 		mi.set_meta("local", true)
 		mi.set_meta("col", true)
+		if k == 0: _hero(mi, int(c.seed))
 		placed.append([p, s])
 		if not main: main = mi
 	return main
@@ -187,11 +196,13 @@ static func _spike(rings: Array) -> Geo:
 	return g.orient_out(Vector3(0, 0.5, 0))
 
 ## a copy of `tpl` put through `xf` and added to `g`, coloured from c0 at the template's y = 0 to c1 at y = 1
-static func _add(g: Geo, tpl: Geo, xf: Transform3D, c0: Color, c1: Color, flip := false) -> void:
+static func _add(g: Geo, tpl: Geo, xf: Transform3D, c0: Color, c1: Color, flip := false, own := false) -> void:
 	var n := tpl.v.size()
 	var b := g.v.size()
 	g.v.resize(b + n)
 	g.col.resize(b + n)
+	# (own: the template's coordinates go along — across, along, through a blade — for blades.gdshader)
+	if own: g.rp.resize(b + n)
 	for i in n:
 		var p := tpl.v[i]
 		# (a mirrored transform turns the winding: swap two corners of every triangle)
@@ -200,6 +211,7 @@ static func _add(g: Geo, tpl: Geo, xf: Transform3D, c0: Color, c1: Color, flip :
 			var m := i % 3
 			j = i + 1 if m == 1 else i - 1 if m == 2 else i
 		g.v[b + j] = xf * p
+		if own: g.rp[b + j] = p
 		var cc := c0.lerp(c1, clampf(p.y, 0.0, 1.0))
 		cc.a = 1.0
 		g.col[b + j] = cc
@@ -235,7 +247,7 @@ static func balls(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		b.keep_out.append([c0, R * 1.05])
 		# the heart of the ball, so no gap shows through
 		var core := Geo.icosa(R * 0.5, 1).to_soup()
-		_add(g, core, Transform3D(Basis.IDENTITY, c0), deep * 0.8, deep * 0.8)
+		_add(g, core, Transform3D(Basis.IDENTITY, c0), deep * 0.5, deep * 0.5, false, true)
 		var cnt := int(230 + rng.next() * 90)
 		for i in cnt:
 			var u := Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized()
@@ -244,13 +256,19 @@ static func balls(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 			var L := R * (0.86 + rng.next() * 0.16)
 			var w := R * (0.1 + rng.next() * 0.07)
 			var bs := Basis(x * w, u * L, u.cross(x) * w * 0.26)
-			_add(g, tpl, Transform3D(bs, c0), deep, tipc, bs.determinant() < 0.0)
-	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.2, coat = 0.6, coat_r = 0.1, flat = true, env = 1.2, emis = col * 0.16, prio = 2})
+			# no two blades quite the same blue: some deep, some bright, a few nearly ink
+			var vb := 0.55 + rng.next() * 0.9
+			var hb := SpecMat.offset_hsl(tipc, (rng.next() - 0.5) * 0.035, 0.0, 0.0) * vb
+			_add(g, tpl, Transform3D(bs, c0), deep * vb, hb, bs.determinant() < 0.0, true)
+	var m := ShaderMaterial.new()
+	m.shader = BLADES
+	var tc := col.lerp(Color(0.0, 0.3, 0.9), 0.22)
+	m.set_shader_parameter("thin_col", Vector3(tc.r, tc.g, tc.b))
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	# the white bed: stubby pearly zeolite crystals crowded under and round the balls
 	var bed := []
-	var wm := SpecMat.make({col = SpecMat.lin(0xf4eee2), rough = 0.3, coat = 0.6, coat_r = 0.2, flat = true, env = 1.2, emis = SpecMat.lin(0xf4eee2) * 0.05})
+	var wm := SpecMat.make({col = SpecMat.lin(0xd6d0c6), rough = 0.3, coat = 0.6, coat_r = 0.2, flat = true, env = 1.2})
 	for s: Array in spots:
 		var c0: Vector3 = s[0]
 		var R: float = s[1]
@@ -262,10 +280,10 @@ static func balls(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 			if q.distance_to(c0) > R * 3.2: continue
 			var qn: Vector3 = st.nrm.call(q)
 			var d := (qn + _rv(b) * 1.3).normalized()
-			var sz := (0.022 + pow(rng.next(), 1.6) * 0.05) * gs
+			var sz := (0.016 + pow(rng.next(), 1.8) * 0.04) * gs
 			bed.append(Transform3D(Basis(U.quat_to(UP, d)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(Vector3(sz * 0.55, sz * 1.5, sz * 0.38)), q - qn * sz * 0.3))
 	if bed.size():
-		U.inst(_spike([[0.1, 0.9, 0.9], [0.8, 1.0, 1.0]]).fill_color(Color(1, 1, 1)), wm, bed.size(), func(i: int) -> Array: return [bed[i], Color(1, 1, 1)], b.root)
+		U.inst(_spike([[0.1, 0.9, 0.9], [0.8, 1.0, 1.0]]).fill_color(Color(1, 1, 1)), wm, bed.size(), func(i: int) -> Array: return [bed[i], Color(1, 1, 1) * (0.62 + 0.38 * fposmod(i * 0.6180339, 1.0))], b.root)
 	return mi
 
 ## erythrite, the cobalt bloom: fans and stars of flat magenta blades laid out on the dark rock, their roots near
@@ -314,8 +332,14 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 			var w := R * (0.016 + rng.next() * 0.024)
 			var x := (fn.cross(u)).normalized().rotated(u, (rng.next() - 0.5) * 1.4)
 			var bs := Basis(x * w, u * L, u.cross(x) * w * 0.3)
-			_add(g, tpl, Transform3D(bs, p - nn * 0.01), deep, tipc, bs.determinant() < 0.0)
-	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.24, coat = 0.55, coat_r = 0.12, flat = true, env = 1.1, emis = col * 0.14, prio = 2})
+			var vb := 0.55 + rng.next() * 0.9
+			var hb := SpecMat.offset_hsl(tipc, (rng.next() - 0.5) * 0.04, 0.0, 0.0) * vb
+			_add(g, tpl, Transform3D(bs, p - nn * 0.01), deep * vb, hb, bs.determinant() < 0.0, true)
+	var m := ShaderMaterial.new()
+	m.shader = BLADES
+	var tc := col.lerp(Color(0.9, 0.02, 0.22), 0.5)
+	m.set_shader_parameter("thin_col", Vector3(tc.r, tc.g, tc.b))
+	m.set_shader_parameter("pearl", 0.7)
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	# the bloom: a pink dust of tiny crystals over the rock near the fans
@@ -345,37 +369,47 @@ static func grapes(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var g := Geo.new()
 	var placed := []
 	var p0: Vector3 = _show_spot(b, st, 8)
-	var n := 70 + int(rng.next() * 60)
+	var col2 := SpecMat.offset_hsl(col, 0.07 if rng.next() < 0.5 else -0.07, 0.0, 0.03)
+	var drift := Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized() * (5.0 + rng.next() * 5.0) / gs
+	var n := 130 + int(rng.next() * 80)
 	for k in n:
-		var r := (0.12 + rng.next() * 0.08 if k < 4 else 0.035 + pow(rng.next(), 1.6) * 0.1) * gs
+		var r := (0.11 + rng.next() * 0.08 if k < 5 else 0.028 + pow(rng.next(), 1.7) * 0.085) * gs
 		var p: Vector3
 		var nn: Vector3
-		if placed.size() and rng.next() < 0.45:
-			# budding off another bubble
-			var pr: Array = placed[int(rng.next() * placed.size())]
-			nn = (Vector3(rng.next() - 0.5, rng.next() * 0.9, rng.next() - 0.5)).normalized()
-			p = (pr[0] as Vector3) + nn * (float(pr[1]) * 0.75 + r * 0.3)
+		if placed.size() and rng.next() < 0.2:
+			# a small one budding on another's crown
+			var pr: Array = placed[int(rng.next() * minf(placed.size(), 14.0))]
+			r = minf(r, float(pr[1]) * 0.55)
+			nn = ((pr[2] as Vector3) + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 1.1).normalized()
+			p = (pr[0] as Vector3) + nn * float(pr[1]) * 0.5
 		else:
+			# on the rock hard by those already there: a carpet of them, not a heap
+			var anchor: Vector3 = p0 if placed.is_empty() or rng.next() < 0.3 else (placed[int(rng.next() * placed.size())] as Array)[0]
 			p = st.pick.call()
-			for t in 3:
+			for t in 5:
 				var q: Vector3 = st.pick.call()
-				if q.distance_to(p0) < p.distance_to(p0): p = q
+				if q.distance_to(anchor) < p.distance_to(anchor): p = q
 			nn = st.nrm.call(p)
-			p += nn * r * 0.35
-		placed.append([p, r])
+		placed.append([p, r, nn])
 		if k < 6: b.keep_out.append([p, r])
-		var sq := Basis(U.quat_to(UP, nn)) * Basis.from_scale(Vector3(r, r * (0.8 + rng.next() * 0.25), r))
+		# a low dome, its middle in the rock: half a flattened ball shows
+		var sq := Basis(U.quat_to(UP, nn)) * Basis.from_scale(Vector3(r, r * (0.5 + rng.next() * 0.28), r))
+		var nrm_b := sq.inverse().transposed()
 		var b0 := g.v.size()
 		_add(g, ball, Transform3D(sq, p), col, col)
+		# (the colour drifts across the crust from one hue to its neighbour, bubble by bubble)
+		var colb := col.lerp(col2, 0.5 + 0.5 * sin(p.dot(drift))) * (0.8 + rng.next() * 0.4)
 		# deeper where a bubble sinks into its neighbours and the rock, brightest on its crown; round, not faceted
 		g.own_n.resize(g.v.size())
 		for i in range(b0, g.v.size()):
-			var out := (g.v[i] - p).normalized()
+			var out := (nrm_b * ball.v[i - b0]).normalized()
 			g.own_n[i] = out
-			var cc := col * (0.22 + 0.4 * smoothstep(-0.5, 0.7, out.dot(nn)))
+			var cc := colb * (0.3 + 0.5 * smoothstep(-0.2, 0.8, out.dot(nn)))
 			cc.a = 1.0
 			g.col[i] = cc
-	var m := SpecMat.make({col = Color(1, 1, 1), rough = 0.2, coat = 0.9, coat_r = 0.08, env = 1.3, ir = 0.25, emis = col * 0.12, prio = 2})
+	var m := ShaderMaterial.new()
+	m.shader = PEARL
+	m.set_shader_parameter("seed", float(int(c.seed) % 89))
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	return mi
@@ -392,22 +426,46 @@ static func _film(t: float) -> Color:
 ## one hopper crystal of bismuth: square walls nested one inside the next, each a step higher than the last and each
 ## wall of a ring a little higher than the one before, a square spiral staircase, up to a tower in the middle or down
 ## into a funnel. Its foot at the origin, y up; `a` the half-width. Added to `g`, coloured by how thick the film is
-static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float) -> void:
+static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, size_k := 1.0) -> void:
 	var box := Geo.box(1, 1, 1).translate(0, 0.5, 0)
 	var n := 5 + int(rng.next() * 4)
 	var tower := rng.next() < 0.6
 	var ax := a
 	var az := a * (0.75 + rng.next() * 0.25)
 	var step := 1.0 / (n + 1.3)
-	var wall := a * step * 0.78
+	var wall := a * step * (0.42 + rng.next() * 0.2)      # thin walls, deep grooves between: a skeleton, not a block
 	var sh := a * (0.13 + rng.next() * 0.1)
 	var h0 := a * (0.12 + rng.next() * 0.12)
-	var hk := 0.085 + rng.next() * 0.05      # how fast the colour runs up the staircase
+	var hk := 0.05 + rng.next() * 0.04      # how fast the colour runs up the staircase
 	var flip := xf.basis.determinant() < 0.0
+	var ytop := h0 + float(n) * sh
 	var put := func(mn: Vector3, mx: Vector3, t: float) -> void:
 		var sz := mx - mn
 		var bx := Transform3D(Basis.from_scale(sz), Vector3((mn.x + mx.x) * 0.5, mn.y, (mn.z + mx.z) * 0.5))
-		_add(g, box, xf * bx, _film(hue0 + (t - 2.2) * hk), _film(hue0 + t * hk), flip)
+		var b0 := g.v.size()
+		_add(g, box, xf * bx, Color.WHITE, Color.WHITE, flip)
+		# for the shader (bismuth.gdshader): the place in this crystal, the film's thickness (more of it up a wall), shade
+		g.bary.resize(g.v.size())
+		g.rp.resize(g.v.size())
+		for i in box.v.size():
+			var j := i
+			if flip:
+				var m := i % 3
+				j = i + 1 if m == 1 else i - 1 if m == 2 else i
+			var lp: Vector3 = bx * box.v[i]
+			g.bary[b0 + j] = Vector3(lp.x / ax, lp.y / a, lp.z / az)
+			g.rp[b0 + j] = Vector3(hue0 + (t - 1.6 * (1.0 - box.v[i].y)) * hk, 0.42 + 0.58 * smoothstep(0.0, 1.0, lp.y / ytop), size_k)
+	# a funnel's outer wall is its highest: plates laid against it lower and lower, or its side is one blank slab
+	if not tower:
+		var y0 := h0 + (float(n) - 3.5) * sh
+		for k in range(1, 3 + int(rng.next() * 2)):
+			var o := a * step * 0.3 * k
+			var yk := y0 * (1.0 - 0.26 * k - rng.next() * 0.08)
+			if yk < a * 0.05: break
+			put.call(Vector3(-ax - o, 0, -az - o), Vector3(ax + o, yk, -az - o + wall), -float(k))
+			put.call(Vector3(-ax - o, 0, az + o - wall), Vector3(ax + o, yk, az + o), -float(k))
+			put.call(Vector3(-ax - o, 0, -az - o), Vector3(-ax - o + wall, yk, az + o), -float(k))
+			put.call(Vector3(ax + o - wall, 0, -az - o), Vector3(ax + o, yk, az + o), -float(k))
 	for i in n:
 		var ex := ax * (1.0 - i * step)
 		var ez := az * (1.0 - i * step)
@@ -445,19 +503,13 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var bs: Basis = axes[int(rng.next() * axes.size())]
 		var s := 0.35 + rng.next() * 0.4
 		var at := Vector3((rng.next() - 0.5) * 1.6, 0.1 + rng.next() * 0.7, (rng.next() - 0.5) * 1.6) * a
-		_stair(g, rng, a * s, Transform3D(bs, at), hue0 + rng.next() * 0.5)
-	# the terraces bright, the risers and the sides in half shade: the steps read from any side
-	for t in range(0, g.v.size(), 3):
-		var nrm := (g.v[t + 1] - g.v[t]).cross(g.v[t + 2] - g.v[t]).normalized()
-		var k := 0.5 + 0.5 * absf(nrm.y)
-		for e in 3:
-			var cc := g.col[t + e] * k
-			cc.a = 1.0
-			g.col[t + e] = cc
+		_stair(g, rng, a * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.4, s)
 	g.xform(Transform3D(tilt, Vector3.ZERO))
 	var bb := g.aabb()
 	g.translate(-bb.get_center().x, -bb.position.y - 0.25, -bb.get_center().z)
-	var m := SpecMat.make({col = Color(1, 1, 1), metal = 0.85, rough = 0.16, coat = 0.8, coat_r = 0.04, flat = true, env = 2.0, st = 0.6, st_mode = 2.0, prio = 2})
+	var m := ShaderMaterial.new()
+	m.shader = BISMUTH
+	m.set_shader_parameter("seed", float(int(c.seed) % 89))
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	b.root.set_meta("face", true)
@@ -467,10 +519,10 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 
 ## the ways the colour of a tourmaline runs along it, foot to tip: [name, weight, [[where 0..1, colour], ...]]
 const TOURM := [
-	["watermelon", 4.0, [[0.0, 0x2e9a4a], [0.5, 0x7ac86a], [0.62, 0xf0a0b8], [1.0, 0xe84a84]]],
-	["bicolour", 3.0, [[0.0, 0xe04a86], [0.48, 0xf0a0c0], [0.6, 0x8ad08a], [1.0, 0x1e8a4a]]],
-	["tricolour", 2.5, [[0.0, 0x1e8a4a], [0.32, 0x5ab868], [0.42, 0xf0e8b0], [0.6, 0xf0c8d0], [0.7, 0xe85a90], [1.0, 0xd03070]]],
-	["blue cap", 2.5, [[0.0, 0xf07aa8], [0.66, 0xe85a94], [0.76, 0x4a6ae0], [1.0, 0x2038b0]]],
+	["watermelon", 4.0, [[0.0, 0x147032], [0.46, 0x2ea048], [0.6, 0xe4508a], [1.0, 0xcc1e62]]],
+	["bicolour", 3.0, [[0.0, 0xc8246a], [0.46, 0xe45a96], [0.6, 0x3cb058], [1.0, 0x0e6834]]],
+	["tricolour", 2.5, [[0.0, 0x0e6834], [0.3, 0x2ea048], [0.42, 0xe6d27a], [0.56, 0xee96b0], [0.68, 0xdc4484], [1.0, 0xb81a5a]]],
+	["blue cap", 2.5, [[0.0, 0xe4508a], [0.66, 0xd0347a], [0.76, 0x3252dc], [1.0, 0x1626a0]]],
 	["rubellite", 2.0, [[0.0, 0xb81a50], [1.0, 0xe83a78]]],
 	["indicolite", 1.5, [[0.0, 0x1a4a9a], [0.6, 0x1e7ab8], [1.0, 0x28a8c8]]],
 	["verdelite", 1.5, [[0.0, 0x0e5a34], [0.7, 0x2a9a4a], [1.0, 0x8ad060]]],
@@ -578,6 +630,7 @@ static func pencils(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		b._place(mi, p - dir * 0.02, dir, 1.0, rng.next() * TAU)
 		mi.set_meta("local", true)
 		mi.set_meta("col", true)
+		if k == 0: _hero(mi, int(c.seed))
 		if not main: main = mi
 	var at: Vector3 = b._mid(main, 0.7)
 	b._mark("tm_" + String(scheme[0]).replace(" ", "_"), at)
@@ -788,3 +841,67 @@ static func partner(b: RefCounted, sid: String, st: Dictionary, gs: float, seed_
 		b._place(mi, p - dir * 0.01, dir, (0.18 + f * 0.2) * gs * (0.85 if elong else 1.15), r.next() * TAU)
 		mi.set_meta("col", true)
 		if k == 0: b._mark("assoc", b._mid(mi, 0.6))
+
+## an association grown on the first species' own crystal: a native metal (or a brassy sulphide) clinging to it in a
+## few spongy clusters of tiny crystals, thick in the middle of each and thinning to single grains — gold on quartz.
+## One MultiMesh, a nugget at the heart of each cluster; marked "assoc"
+static func perch(b: RefCounted, sid: String, main: MeshInstance3D, gs: float, seed_v: int) -> void:
+	var r := Rng32.new((seed_v * 2654435761 + 1213) % 4294967296)
+	var pts: Array = RockKit.surf_pts(main, 1300, r, Callable(), b.root)
+	if pts.is_empty(): return
+	var y0 := INF
+	var y1 := -INF
+	for e: Array in pts:
+		y0 = minf(y0, (e[0] as Vector3).y)
+		y1 = maxf(y1, (e[0] as Vector3).y)
+	var H := maxf(0.001, y1 - y0)
+	var L := maxf(H, 0.3 * gs)
+	var cube := sid in ["pyrite"]
+	var hexes := {gold = 0xf2c044, nativecu = 0xd8743c, pyrite = 0xd6c07a, marcasite = 0xcfc890}
+	var col := SpecMat.lin(int(hexes.get(sid, 0xf2c044)))
+	var mm := SpecMat.make({col = col, metal = 1.0, rough = 0.27, coat = 0.3, env = 1.9, flat = true, grain = 0.1})
+	# where: a few places up the crystal that the viewer sees, apart from one another
+	var centres := []
+	var want := 3 + int(r.next() * 3)
+	var guard := 0
+	while centres.size() < want and guard < 400:
+		guard += 1
+		var e: Array = pts[int(r.next() * pts.size())]
+		var p: Vector3 = e[0]
+		var n: Vector3 = e[1]
+		if n.dot(VIEW) < (0.1 if centres.size() < want - 1 else -0.3): continue
+		if p.y < y0 + H * 0.26 or p.y > y1 - H * 0.03: continue
+		var ok := true
+		for c: Array in centres:
+			if p.distance_to(c[0]) < L * 0.17: ok = false
+		if ok: centres.append([p, n, 0.45 + r.next() * 0.55 if centres.size() else 1.0])
+	if centres.is_empty(): return
+	var xfs := []
+	var cols := []
+	for c: Array in centres:
+		var cp: Vector3 = c[0]
+		var rho := L * (0.06 + 0.075 * float(c[2]))
+		for e: Array in pts:
+			var p: Vector3 = e[0]
+			var d := p.distance_to(cp)
+			if d > rho: continue
+			var n: Vector3 = e[1]
+			var f := 1.0 - d / rho
+			# thick at the heart (crystals piled on crystals), a scatter of grains at the edge
+			if f < 0.3 and r.next() < 0.5: continue
+			for layer in (3 if f > 0.6 else 2 if f > 0.3 else 1):
+				var s := L * (0.009 + 0.026 * f * (0.45 + r.next() * 0.75)) * (1.0 - 0.22 * layer)
+				var at := p + n * s * (0.3 + layer * 1.05) + Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5) * s * 0.9
+				var bs := U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3) * Basis.from_scale(Vector3(s, s * (0.75 + r.next() * 0.6), s))
+				xfs.append(Transform3D(bs, at))
+				cols.append(Color(1, 1, 1) * (0.72 + r.next() * 0.38))
+		# the heart: a lump of the metal
+		var hs := L * (0.02 + 0.022 * float(c[2]))
+		var cn: Vector3 = c[1]
+		var nug: MeshInstance3D = U.mesh(RockKit.crumble(r, hs, Vector3(1.25, 0.8, 1.0), 8), mm, b.root, cp + cn * hs * 0.45, U.eul(r.next() * 6.3, r.next() * 6.3, r.next() * 6.3))
+		nug.set_meta("col", true)
+	if xfs.size():
+		var tpl := (Geo.box(1.3, 1.3, 1.3) if cube else Geo.octa(1)).fill_color(Color(1, 1, 1))
+		U.inst(tpl, mm, xfs.size(), func(i: int) -> Array: return [xfs[i], cols[i]], b.root)
+	var c0: Array = centres[0]
+	b._mark("assoc", (c0[0] as Vector3) + (c0[1] as Vector3) * L * 0.04, c0[1])

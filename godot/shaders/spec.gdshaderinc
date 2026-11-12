@@ -36,7 +36,8 @@ uniform float opal_k = 0.0;     // spectral flakes flashing in the body
 uniform float star_k = 0.0;
 uniform float dark_k = 0.0;
 uniform float tint_k = 0.0;
-uniform float deep_k = 0.0;      // with tint: a deeply coloured body lets less of the room through, so its colour stays saturated (dioptase, vanadinite)
+uniform float deep_k = 0.0;      // with tint: a deeply coloured body (dioptase, vanadinite) — what comes through it is pressed under a ceiling, so it stays see-through yet never bright enough to wash out
+uniform float parts_k = 0.0;     // clarity by parts (needs DIRT: the crystal's own tag in UV2.y): one crystal cloudy beside a gem-clear one, the root milky, the tip clear
 uniform float tint_glow = 0.06; // with tint: the body's own light in its colour (sulphur's lemon glow)     // the body glows in its own colour rather than showing the room through it (garnet)     // a dark glass body (smoky quartz): darker where the light goes through more of it     // a night sky inside: twinkling stars, drifting nebula
 uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
 uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
@@ -75,6 +76,9 @@ varying vec3 v_bary;
 varying vec3 v_op;
 varying vec3 v_rp;
 varying vec3 v_no;
+#ifdef DIRT
+varying float v_zone;   // the crystal's own number, 0 when it has none (SpecimenBuilder._finish)
+#endif
 
 float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float vn(vec3 x) {
@@ -105,6 +109,7 @@ void vertex() {
 	v_bary = CUSTOM0.xyz;
 #ifdef DIRT
 	v_rp = vec3(UV.x, UV.y, UV2.x);
+	v_zone = UV2.y;
 #endif
 }
 
@@ -247,7 +252,7 @@ void fragment() {
 		vec3 nw = (INV_VIEW_MATRIX * vec4(n, 0.0)).xyz;
 		vec3 iw = (INV_VIEW_MATRIX * vec4(-VIEW, 0.0)).xyz;
 		vec3 cr = vec3(studio(refract(iw, nw, 0.64)).r, studio(refract(iw, nw, 0.61)).g, studio(refract(iw, nw, 0.58)).b);
-		e += cr * base * 1.3 * rf_k * clean;
+		e += cr * base * 1.3 * rf_k * clean / max(1.0, deep_k * deep_k * deep_k);
 	}
 #endif
 #ifdef GLASS
@@ -261,6 +266,20 @@ void fragment() {
 	float pit = clamp(1.0 - COLOR.a, 0.0, 1.0);
 	frost = max(frost, smoothstep(0.05, 0.35, pit) * 0.4);
 	float milk = clamp(smoothstep(0.52, 0.74, fbm(v_op * 2.6 + g_seed)) * frost_k + frost * 0.9, 0.0, 1.0);
+	float part = 1.0;
+#ifdef DIRT
+	if (parts_k > 0.0 && v_zone > 0.0) {
+		// clarity by parts, as crystals grow: each has its own share of cloud — most only at the root, clearing to a
+		// gem tip; a few cloudy to the top; veils lying across some. And each a little deeper or paler than the next
+		vec3 zq = v_rp * vec3(5.0, 3.0, 5.0) + v_zone * 53.0;
+		float zy = v_rp.y + (fbm(zq) - 0.5) * 0.6;
+		float lim = v_zone * v_zone * 1.1 - 0.08;
+		float root = 1.0 - smoothstep(lim - 0.14, lim + 0.14, zy);
+		float veil = smoothstep(0.56, 0.7, fbm(zq * 1.7 + 9.0)) * step(0.35, fract(v_zone * 5.3));
+		milk = max(milk, clamp(root + veil * 0.6, 0.0, 1.0) * parts_k);
+		part = 0.72 + 0.56 * fract(v_zone * 3.7);
+	}
+#endif
 	float smoke = smoothstep(0.42, 0.78, fbm(v_op * 2.1 + g_seed + 17.0)) * smoke_k;
 	vec2 bend = n.xy * (0.03 + 0.05 * thick) * (0.6 + edge_k);
 	float split = 0.18 + 0.35 * edge_k;
@@ -277,7 +296,13 @@ void fragment() {
 	body *= 1.0 - dark_k * (0.5 + 0.45 * edge_k);
 	if (tint_k > 0.0) {
 		vec3 tb = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
-		body = mix(body, dot(body, vec3(0.3, 0.5, 0.2)) * tb * 1.6 * (1.0 - 0.85 * deep_k) + tb * tint_glow, tint_k);
+		float bl = dot(body, vec3(0.3, 0.5, 0.2)) * 1.6;
+		// (deep: the light and dark of what is behind still show through — it reads as glass, not paint — but the
+		// brightest of it stops short of where the tone curve turns a pure colour pastel; thin edges pass a little more)
+		// (deep above 1: a lower ceiling still — the greens, which wash out soonest)
+		float cl = 0.62 * part / max(1.0, deep_k * deep_k);
+		bl = mix(bl, cl * bl / (0.4 + bl) + edge_k * edge_k * 0.26 * cl, min(deep_k, 1.0));
+		body = mix(body, tb * (bl + tint_glow), tint_k);
 	}
 	if (cham_k > 0.0) {
 		// the shifting colour has to carry the whole stone, not just tint what is seen through it: the body glows in
@@ -324,7 +349,10 @@ void fragment() {
 	}
 	// (a night sky inside clears the milk: it would wash the stars out)
 	milk *= 1.0 - 0.85 * star_k;
-	body = mix(body, tint0 * 0.5 + vec3(0.22), milk * 0.75);
+	// (a deep-coloured body clouds in its own colour, not to white)
+	vec3 tbm = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
+	float dpk = min(deep_k, 1.0) * step(0.001, tint_k);
+	body = mix(body, mix(tint0 * 0.5 + vec3(0.22), tbm * 0.1 * part + tint0 * 0.06, dpk), milk * mix(0.75, 0.9, dpk));
 	body = mix(body, body * smoke_col * 2.0, smoke);
 	// silver rims: the edges frost over into a bright, ragged, slightly metallic band
 	float srim = 0.0;
@@ -349,7 +377,7 @@ void fragment() {
 	body = mix(body, pitc, hollow);
 	vec3 silver = vec3(0.85, 0.87, 0.9) * (0.6 + 0.6 * fbm(v_op * 40.0));
 	body = mix(body, silver * 0.55, srim * 0.85);
-	ALBEDO = mix(mix(mix(tint0 * milk * 0.35, silver, srim), pitc, hollow), base, dirt);
+	ALBEDO = mix(mix(mix(tint0 * milk * mix(0.35, 0.62 / max(1.0, deep_k * deep_k * deep_k), dpk), silver, srim), pitc, hollow), base, dirt);
 	METALLIC = srim * 0.65;
 	ROUGHNESS = mix(mix(mix(mix(0.02, 0.32, milk), 0.38, srim), 0.8, hollow), r, dirt);
 	SPECULAR = mix(0.6, 0.08, hollow);

@@ -300,6 +300,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0)),
 			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06)), deep_body = float((look.get("glass", {}) as Dictionary).get("deep", 0.0))}
 		if float((look.get("glass", {}) as Dictionary).get("opal", 0.0)) > 0.0: d.opal = float(look.glass.opal)
+		if float((look.get("glass", {}) as Dictionary).get("parts", 0.0)) > 0.0: d.parts = float(look.glass.parts)
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
 		var m := SpecMat.make(d)
@@ -1122,9 +1123,16 @@ func _specimen(o: Dictionary) -> Node3D:
 	# Moss and coral are the exception (`pick_any`, `hollows_all`): grown thick, the crystals look pushed up through them
 	boxes = _crystal_boxes(main, mat)
 	# an association: the second species grows on the free rock beside the first (and nothing grows through it after)
-	if String(gene.get("assoc", "")) != "" and st.rocky:
-		SpecForms.partner(self, String(gene.assoc), st, gs, seed_v)
-		boxes = _crystal_boxes(main, mat)
+	var mate := String(gene.get("assoc", ""))
+	if mate != "":
+		# a metal may grow on the crystal itself (gold clinging to quartz) — always where there is no rock to grow on
+		var perch: bool = mate in SpecLooks.PERCH and main != null and main.has_meta("geo") and mat != null and main.material_override == mat \
+			and (not st.rocky or fposmod(seed_v * 0.6180339, 1.0) < 0.6)
+		if perch:
+			SpecForms.perch(self, mate, main, gs, seed_v)
+		elif st.rocky:
+			SpecForms.partner(self, mate, st, gs, seed_v)
+			boxes = _crystal_boxes(main, mat)
 	st.pick_any = st.pick
 	st.hollows_all = st.hollows
 	if boxes.size() or keep_out.size():
@@ -2402,6 +2410,8 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 				_mark("bubbles", m[1])
 
 ## rock-line coordinates for every crystal, then the final dirt line on their materials, then the meshes
+var parts_i := 0
+
 func _finish() -> void:
 	for m in dt_mats:
 		SpecMat.set_dirt(m, dt)
@@ -2457,6 +2467,11 @@ func _finish() -> void:
 						seen[p] = d
 					gg.v[i] = p + (d as Vector3) * amp * w
 		gg.rp = rp
+		# clarity by parts (SpecLooks glass.parts): every crystal its own number, spread evenly over 0..1
+		var mo: Material = (n as MeshInstance3D).material_override
+		if mo and mo.has_meta("parts"):
+			parts_i += 1
+			gg.tag = float(n.get_meta("part", 0.04 + 0.96 * fposmod(parts_i * 0.6180339 + 0.37, 1.0)))
 		(n as MeshInstance3D).mesh = gg.to_mesh()
 
 ## an enhydro's pocket (G1): the gas bubble keeps to the top of its water, the top being wherever "up" is now

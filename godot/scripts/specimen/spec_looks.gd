@@ -198,17 +198,17 @@ const LOOK := {
 	# (SpecForms) and a colour no other species has. For the mines to come; in no pool yet.
 	# wulfenite: orange window-panes — thin square plates stood on edge and corner, bevelled, glowing like stained glass
 	wulfenite = {zone = [0, 0.0, 0.0], stria = [0.0, 0.0], forms = [["tablets", 1.0]], kinds = [["crystal", 4.0], ["druse", 4.0]],
-		rock = [["ironstone", 3.0], ["limestone", 2.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.3, deep = 0.7, frost = 0.0, glow = 0.2}, ir = 0.15, foot_frost = false,
+		rock = [["ironstone", 3.0], ["limestone", 2.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.1, deep = 0.9, frost = 0.0, glow = 0.12, parts = 1.0}, ir = 0.15, foot_frost = false,
 		palette = [[0xf06408, 0xf06408, 4.0], [0xf08a10, 0xf08a10, 3.0], [0xe83c0a, 0xe83c0a, 2.0], [0xf09410, 0xf09410, 1.5]],
 		with = [["crust", 0x8ec83a, 0.3, "mimetite"]]},
 	# vanadinite: red barrels — short six-sided prisms, flat-ended, crowding white barite or black gossan
 	vanadinite = {zone = [0, 0.0, 0.0], stria = [0.0, 0.0], forms = [["barrels", 1.0]], kinds = [["druse", 5.0], ["crystal", 2.0]],
-		rock = [["gypsum", 3.0], ["ironstone", 3.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.5, deep = 0.95, frost = 0.0, glow = 0.09}, ir = 0.08, foot_frost = false,
+		rock = [["gypsum", 3.0], ["ironstone", 3.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.2, deep = 1.0, frost = 0.0, glow = 0.05, parts = 1.0}, ir = 0.08, foot_frost = false,
 		hk = 0.8, wk = 1.0, palette = [[0xd0140a, 0xd0140a, 4.0], [0xe03a0c, 0xe03a0c, 3.0], [0xa81a0c, 0xa81a0c, 1.5], [0xe86410, 0xe86410, 1.0]],
 		with = [["blades", 0xf2ece0, 0.4, "barite"]]},
 	# crocoite: scarlet jackstraws — long thin square needles thrown across one another, on brown gossan
 	crocoite = {zone = [0, 0.0, 0.0], stria = [1.0, 1.0], forms = [["jackstraw", 1.0]], kinds = [["druse", 5.0], ["crystal", 3.0]],
-		rock = [["ironstone", 5.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.35, deep = 0.8, frost = 0.0, glow = 0.15}, ir = 0.1, foot_frost = false,
+		rock = [["ironstone", 5.0], ["slate", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.1, deep = 1.0, frost = 0.0, glow = 0.1, parts = 1.0}, ir = 0.1, foot_frost = false,
 		palette = [[0xf03406, 0xf03406, 4.0], [0xf85008, 0xf85008, 2.0], [0xe01a06, 0xe01a06, 1.5]]},
 	# cavansite: electric-blue balls of blades on a bed of white zeolite over black basalt
 	cavansite = {forms = [["balls", 1.0]], kinds = [["druse", 4.0], ["crystal", 3.0]], rock = [["basalt", 4.0], ["lava", 1.0]], dark = 0.0,
@@ -216,7 +216,7 @@ const LOOK := {
 		palette = [[0x0646d8, 0x0646d8, 4.0], [0x0a6ae8, 0x0a6ae8, 2.0], [0x0688d0, 0x0688d0, 1.5]]},
 	# dioptase: stubby emerald-teal prisms under three-sided caps, a glittering crust of them on white calcite
 	dioptase = {zone = [0, 0.0, 0.0], stria = [0.0, 0.0], forms = [["barrels", 1.0]], kinds = [["druse", 1.0]],
-		rock = [["gypsum", 3.0], ["limestone", 2.0], ["ironstone", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.5, deep = 1.0, frost = 0.0, glow = 0.07}, ir = 0.06,
+		rock = [["gypsum", 3.0], ["limestone", 2.0], ["ironstone", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.2, deep = 1.5, frost = 0.0, glow = 0.03, parts = 1.0}, ir = 0.06,
 		foot_frost = false, hk = 0.62, wk = 1.0, dense = 1.25, palette = [[0x04a070, 0x04a070, 4.0], [0x068a80, 0x068a80, 2.0], [0x08a858, 0x08a858, 1.5]],
 		with = [["blades", 0xf2efe8, 0.35, "rockcrystal"]]},
 	# erythrite, the cobalt bloom: fans and stars of magenta blades on dark rock, pink dust round them
@@ -231,7 +231,7 @@ const LOOK := {
 	bismuth = {forms = [["staircase", 1.0]], kinds = [["crystal", 1.0]], dark = 0.0, metal_col = 0xd8c8d8, growths = 0.0},
 	# tourmaline: striped pencils in white feldspar with lilac mica (and now and then a polished watermelon slice)
 	tourmaline = {zone = [0, 0.0, 0.0], stria = [1.6, 1.0], forms = [["pencils", 5.0], ["slice", 0.8]], kinds = [["crystal", 5.0], ["druse", 2.0]],
-		rock = [["gypsum", 4.0], ["quartzite", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.45, deep = 0.85, frost = 0.0, glow = 0.1}, ir = 0.08, foot_frost = false,
+		rock = [["gypsum", 4.0], ["quartzite", 1.0]], dark = 0.0, glass = {tint = 1.0, dark = 0.15, deep = 1.0, frost = 0.0, glow = 0.05, parts = 1.0}, ir = 0.08, foot_frost = false,
 		with = [["blades", 0xeef2f6, 0.3, "rockcrystal"]]},
 }
 
@@ -467,11 +467,17 @@ static func mates(sid: String) -> Array:
 	return out
 
 ## the second species on this find ("" for none): its own stream
-static func assoc_of(seed_v: int, sid: String) -> String:
+## the native metals and brassy sulphides: these may grow perched on the other's crystal itself, in spongy clusters
+## (gold on quartz), not only beside it on the rock — so they can keep company with a crystal that has no rock at all
+const PERCH := ["gold", "nativecu", "pyrite", "marcasite"]
+const PERCH_FORMS := ["floater", "columnar", "radial", "single"]
+
+static func assoc_of(seed_v: int, sid: String, perch_only := false) -> String:
 	if sid in ASSOC_LONE or String(Data.HABIT.get(sid, "prism")) in ["fossil", "obsidian"]: return ""
 	var r := Rng32.new((seed_v * 2246822519 + 853) % 4294967296)
 	if r.next() >= ASSOC_P: return ""
 	var ms := mates(sid)
+	if perch_only: ms = ms.filter(func(s: String) -> bool: return s in PERCH)
 	if ms.is_empty(): return ""
 	var pw: Dictionary = PAIRS.get(sid, {})
 	return String(Stones.pick_w(ms.map(func(s: String) -> Array: return [s, float(pw.get(s, 1.0))]), r))
