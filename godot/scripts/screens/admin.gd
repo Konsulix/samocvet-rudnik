@@ -10,6 +10,10 @@ static var f_kind := ""
 static var f_fx := ""
 ## (the traits: [] as they fall, ["?"] one to three at random, or the very ones to give)
 static var f_traits: Array = []
+## a tie between minerals (a paragenesis): "" as it falls, "assoc" another species grown beside it, "perch" a metal
+## grown on its crystal, "pseudo" the species in another's crystals
+static var f_tie := ""
+const TIES := [["", "as it falls"], ["assoc", "with a partner"], ["perch", "metal on the crystal"], ["pseudo", "pseudomorph"]]
 const KINDS := ["", "crystal", "druse", "geode", "skull"]
 ## the minerals that have no mine yet (docs/showy-minerals.md)
 const SHOWY := ["wulfenite", "vanadinite", "crocoite", "cavansite", "dioptase", "erythrite", "smithsonite", "bismuth", "tourmaline"]
@@ -138,6 +142,14 @@ static func open() -> void:
 			f_kind = kk
 			_reopen()))
 	v.add_child(kd)
+	var td := _row()
+	td.add_child(_word("Ties"))
+	for te: Array in TIES:
+		var tk := String(te[0])
+		td.add_child(_btn(String(te[1]), f_tie == tk, func():
+			f_tie = tk
+			_reopen()))
+	v.add_child(td)
 	var mk := _row()
 	mk.add_child(_btn("+1 like this", false, func(): _finds(1)))
 	mk.add_child(_btn("+5 like this", false, func(): _finds(5)))
@@ -146,6 +158,8 @@ static func open() -> void:
 	mk = _row()
 	mk.add_child(_btn("+1 of each in %s" % Data.AREAS[a].n, false, func(): _each((Data.AREAS[a].get("pool", {}) as Dictionary).keys(), String(Data.AREAS[a].n))))
 	mk.add_child(_btn("+1 of each showy mineral", false, func(): _each(SHOWY, "the showy minerals")))
+	mk.add_child(_btn("+1 of each classic pair", false, func(): _pairs()))
+	mk.add_child(_btn("+1 of each pseudomorph", false, func(): _pseudos()))
 	mk.add_child(_btn("+8 ammonites, every kind", false, func(): _ammonites()))
 	mk.add_child(_btn("+6 test skulls (same every time)", false, func(): _skull_set()))
 	mk.add_child(_btn("+16 beast skulls, one each", false, func(): _beast_set()))
@@ -212,11 +226,83 @@ static func _play(dl: int) -> void:
 static func _finds(n: int) -> void:
 	var names := []
 	for k in n:
-		var st := _find(1 + randi() % 999999, f_sid, f_fx)
+		var st := _find(1 + randi() % 999999, f_sid, f_fx) if f_tie == "" else _tie_find(f_sid, f_fx, f_tie)
+		if st.is_empty(): continue
 		_add(st)
-		names.append(String(Data.SP[st.sid].n) + (" · " + String(SpecLegend.FX_N.get(st.get("fx", ""), "legendary")) if st.legend else ""))
+		names.append(String(Data.SP[st.sid].n) + _tie_word(st) + (" · " + String(SpecLegend.FX_N.get(st.get("fx", ""), "legendary")) if st.legend else ""))
 	Save.persist()
-	Ov.toast("Added: " + ", ".join(names))
+	Ov.toast("Added: " + ", ".join(names) if names.size() else "No such find: this species does not take that tie (try another species, kind or traits)")
+	_reopen()
+
+## A find with a tie between minerals. The tie is the seed's own (SpecLooks.assoc_of, pseudo_of — the genome takes
+## no pin for it from a stone), so seeds are tried until one brings it. sid "": any species that can have it, of this
+## mine first; mate: the very species wanted beside it or replaced ("" any). {} when no seed brings it
+static func _tie_find(sid: String, fx: String, tie: String, mate := "") -> Dictionary:
+	var hosts: Array = [sid] if sid != "" else tie_hosts(tie)
+	if hosts.is_empty(): return {}
+	var sd := 1 + randi() % 900000
+	for k in 8000:
+		sd += 1
+		var s: String = hosts[randi() % hosts.size()]
+		# (the seed's own streams first: cheap, and most seeds bring no tie)
+		if tie == "pseudo":
+			var was := SpecLooks.pseudo_of(sd, s, "crystal")
+			if was == "" or (mate != "" and was != mate): continue
+		elif SpecLooks.assoc_of(sd, s) == "": continue
+		var st := _find(sd, s, fx)
+		var g := SpecGenome.of(Spec.of_stone(st))
+		var got := String(g.get("pseudo" if tie == "pseudo" else "assoc", ""))
+		if got == "" or (mate != "" and got != mate): continue
+		if tie == "perch" and not SpecLooks.perches(sd, got, String(g.form), String(g.lustre)): continue
+		return st
+	return {}
+
+## the species that can have a tie: those of this mine, or of any when it has none
+static func tie_hosts(tie: String) -> Array:
+	var ok := func(s: String) -> bool:
+		if tie == "pseudo": return SpecLooks.PSEUDO.has(s)
+		if s in SpecLooks.ASSOC_LONE or String(Data.HABIT.get(s, "prism")) in ["fossil", "obsidian"]: return false
+		var ms := SpecLooks.mates(s)
+		return ms.any(func(m: String) -> bool: return m in SpecLooks.PERCH) if tie == "perch" else ms.size() > 0
+	var out: Array = (Data.AREAS[Save.area()].get("pool", {}) as Dictionary).keys().filter(ok)
+	if out.is_empty(): out = Data.minable().filter(ok) + SHOWY.filter(ok)
+	return out
+
+## " with pyrite" / " after azurite" for the toast
+static func _tie_word(st: Dictionary) -> String:
+	var g := SpecGenome.of(Spec.of_stone(st))
+	if String(g.get("pseudo", "")) != "": return " after " + String(Data.SP[g.pseudo].n).to_lower()
+	if String(g.get("assoc", "")) != "": return " with " + String(Data.SP[g.assoc].n).to_lower()
+	return ""
+
+## one find of every classic pair (SpecLooks.PAIRS: gold on quartz, malachite beside azurite, galena with sphalerite…)
+static func _pairs() -> void:
+	var n := 0
+	var none := []
+	for host: String in SpecLooks.PAIRS:
+		for mate: String in (SpecLooks.PAIRS[host] as Dictionary):
+			if not mate in SpecLooks.mates(host): continue
+			var st := _tie_find(host, "", "assoc", mate)
+			if st.is_empty():
+				none.append("%s + %s" % [host, mate])
+				continue
+			_add(st)
+			n += 1
+	Save.persist()
+	Ov.toast("Added %d pairs" % n + ("; none found for " + ", ".join(none) if none.size() else ""))
+	_reopen()
+
+## one find of every pseudomorph (SpecLooks.PSEUDO: malachite after azurite, gold after pyrite…)
+static func _pseudos() -> void:
+	var n := 0
+	for sid: String in SpecLooks.PSEUDO:
+		for e: Array in (SpecLooks.PSEUDO[sid].after as Array):
+			var st := _tie_find(sid, "", "pseudo", String(e[0]))
+			if st.is_empty(): continue
+			_add(st)
+			n += 1
+	Save.persist()
+	Ov.toast("Added %d pseudomorphs" % n)
 	_reopen()
 
 static func _find(sd: int, sid: String, fx: String) -> Dictionary:
