@@ -2172,14 +2172,14 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 				SpecAccents.fronds(root, rng, [at], 8 + int(rng.next() * 9), (0.3 + rng.next() * 0.22) * gs, fp)
 				_mark("fronds", at[0], at[1])
 		if "flowers" in acc:
-			var fc: Color = SpecAccents.FLOWER[int(pal.flower)]
-			for k in 1 + int(rng.next() * 3):
-				var c0: Array = green[int(rng.next() * green.size())]
-				var near := []
-				for g2 in green:
-					if (g2[0] as Vector3).distance_to(c0[0]) < 0.12: near.append(g2)
-				SpecAccents.flowers(root, rng, near if near.size() else [c0], 4 + int(rng.next() * 7), (0.12 + rng.next() * 0.08) * gs, fc)
-				_mark("flowers", c0[0], c0[1])
+			# real plants (SpecFlora: the kind is the genome's), on their own random stream; on the open rock, the
+			# mountain violets all over it
+			var flr := Rng32.new((int(gene.shroom_seed) * 22695477 + 7) % 4294967296)
+			var fk := int(gene.get("flora", 0))
+			var open_rock := rock_spots.filter(func(q: Array) -> bool: return _free(q[0]))
+			var beds: Array = open_rock if open_rock.size() > 12 else green
+			for fm: Array in SpecFlora.grow(root, flr, beds, fk, gs, boxes, SpecFlora.find_look(int(gene.shroom_seed), fk)):
+				_mark("flowers", fm[0], fm[1])
 	if "mushrooms" in acc and nest_spots.size():
 		# their own random stream too: the rest of the stone stays as it was
 		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)

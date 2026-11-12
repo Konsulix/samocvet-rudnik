@@ -280,7 +280,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		if a in ["sk_crown", "sk_eyes", "sk_fangs"]:
 			var cn := fn if fn != "" else String(SpecGenome.ACC_N.get(a, a))
 			fn = cn.replace("crystal", String(Data.SP[s.sid].n).to_lower())
-		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecGenome.ACC_N.get(a, a), false]
+		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecFlora.NAMES[int(gene.get("flora", 0))] if a == "flowers" else SpecGenome.ACC_N.get(a, a), false]
 	# dearest first (Worth: the badges are what the price was paid for): the living effect, a skull's skin, then by points
 	var traits: Array = s.get("traits", [])
 	var order: Array = genes.keys()

@@ -337,6 +337,7 @@ static func of(o: Dictionary) -> Dictionary:
 		palette = palette,
 		shroom = shroom,
 		shroom_seed = seed_v,
+		flora = int(o.get("flora", SpecFlora.roll(seed_v))),   # (which flowers, where the "flowers" gene grows any)
 		fly_kinds = fly_kinds,
 		dark_col = dark_col,
 		rock = rock,

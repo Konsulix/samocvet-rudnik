@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://codp72jt78e0a"
+path="res://.godot/imported/lily_b.obj-102e766a5b7f598cd7bee9fe7a53030c.mesh"
+
+[deps]
+
+files=["res://.godot/imported/lily_b.obj-102e766a5b7f598cd7bee9fe7a53030c.mesh"]
+
+source_file="res://assets/specimen/flora/lily_b.obj"
+dest_files=["res://.godot/imported/lily_b.obj-102e766a5b7f598cd7bee9fe7a53030c.mesh", "res://.godot/imported/lily_b.obj-102e766a5b7f598cd7bee9fe7a53030c.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
