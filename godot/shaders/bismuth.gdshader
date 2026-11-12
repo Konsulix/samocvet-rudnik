@@ -62,7 +62,7 @@ void fragment() {
 	vec3 fc = film(t);
 	// bare silver-pink metal shows through on the sharpest ribs
 	vec3 mc = mix(vec3(0.34, 0.3, 0.32), fc, 1.0 - 0.16 * fine * ribbed * smoothstep(0.6, 1.0, l1) * lines);
-	float shade = v_fm.y;
+	float shade = 0.5 + 0.5 * v_fm.y;
 	// light: all softboxes at once light every face alike and it reads as painted plastic. A mirror shows one thing at
 	// a time — so one key lamp (up, to the left, before it) flares in the faces whose mirror finds it, all the parallel
 	// terraces of a crystal at once; the studio is only a dim fill; a face that finds neither is deep and dark
@@ -72,7 +72,10 @@ void fragment() {
 	float fill = clamp((studio(rd).r - 0.102) / 0.9, 0.0, 1.0);
 	float key = max(dot(rd, normalize(vec3(-0.45, 0.8, 0.4))), 0.0);
 	float flare = pow(key, 5.0);
-	float lit = 0.07 + 0.2 * fill + 1.5 * flare + pow(1.0 - ndv, 3.0) * 0.16;
+	// (a tree of it shows mostly the risers of its steps: a second, lower lamp beside the viewer finds those)
+	float key2 = max(dot(rd, normalize(vec3(-0.35, 0.3, 0.9))), 0.0);
+	float lit = 0.15 + 0.34 * fill + 1.2 * flare + 0.75 * pow(key2, 4.0) + pow(1.0 - ndv, 3.0) * 0.16;
+	lit = min(lit, 1.12);
 	// grooves between the ribs hold shadow, their crests catch light
 	lit *= 1.0 + 0.3 * l1 * fine * ribbed * lines + 0.12 * l2 * lines;
 	ALBEDO = mc * 0.06 * shade;
@@ -80,6 +83,6 @@ void fragment() {
 	ROUGHNESS = 0.14 + 0.2 * ribbed * (0.5 + 0.5 * l1 * fine);
 	SPECULAR = 0.45;
 	// (in the heart of the flare the metal goes towards white, as polished metal does)
-	EMISSION = (mc * lit + vec3(0.9, 0.86, 0.8) * pow(key, 40.0) * 0.45) * shade;
+	EMISSION = (mc * lit + vec3(0.9, 0.86, 0.8) * pow(key, 40.0) * 0.3) * shade;
 	NORMAL = nb;
 }

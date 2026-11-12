@@ -430,15 +430,20 @@ static func _film(t: float) -> Color:
 ## a quarter-step higher (or lower) than the one before; the steps climb to a rim and then go down into the crater
 ## (`peak` 0: a funnel from the edge, the last ring: a ziggurat). The rings are not centred: the crater sits towards a
 ## corner, as they grow. Foot at the origin, y up, `a` the half-width. Added to `g` with what bismuth.gdshader needs
-static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, size_k := 1.0) -> void:
+## (`mode` 0 a funnel, 1 a ziggurat, 2 a rim round a crater, -1 any; `tall` stretches its steps). Returns its height
+static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, size_k := 1.0, mode := -1, tall := 1.0) -> float:
 	var box := Geo.box(1, 1, 1).translate(0, 0.5, 0)
 	var n := (8 + int(rng.next() * 6)) if size_k > 0.45 else (5 + int(rng.next() * 4))
 	var ax := a
 	var az := a * (0.7 + rng.next() * 0.3)
 	var step := 1.0 / (n + 0.8 + rng.next() * 0.8)
 	var pr := rng.next()
-	var peak := 0.0 if pr < 0.3 else float(n) if pr > 0.72 else floorf(n * (0.15 + rng.next() * 0.4))
-	var sh := a * (0.065 + rng.next() * 0.055)
+	var pk2 := floorf(n * (0.15 + rng.next() * 0.4))
+	var peak := 0.0 if pr < 0.3 else float(n) if pr > 0.72 else pk2
+	if mode == 0: peak = 0.0
+	elif mode == 1: peak = float(n)
+	elif mode == 2: peak = pk2
+	var sh := a * (0.065 + rng.next() * 0.055) * tall
 	var h0 := maxf(a * (0.2 + rng.next() * 0.2), (float(n) - 2.0 * peak) * sh + a * 0.1)
 	var hk := 0.02 + rng.next() * 0.02      # how far the film's colour runs from one ring to the next
 	var flip := xf.basis.determinant() < 0.0
@@ -507,37 +512,54 @@ static func _stair(g: Geo, rng: Rng32, a: float, xf: Transform3D, hue0: float, s
 		done = i + 1
 	# the middle: the top of the ziggurat, or the floor of the crater
 	put.call(Vector3(x0, 0, z0), Vector3(x1, maxf(a * 0.04, hgt.call(float(done))), z1), float(done))
+	return h0 + minf(peak, float(done)) * sh
 
-## bismuth: a ragged growth of stepped hopper crystals — one big staircase and a crowd of smaller ones out of its
-## rim, its terraces and its sides, all nearly parallel (it is one lattice) but none quite; the oxide film's colour
-## lies over the whole in broad zones, two or three neighbours of the wheel to a specimen. No rock. One mesh
+## bismuth: a tree of stepped hopper crystals — a broad one at the foot, a smaller one risen out of its upper steps, a
+## smaller one out of that, each a little off the last one's middle, to a ziggurat at the top; from the sides and the
+## terraces of every tier smaller ones stand out like boughs. All nearly parallel (it is one lattice) but none quite.
+## The oxide film's colour lies over the whole in broad zones, running up the tree. No rock. One mesh
 static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var rng: Rng32 = b.rng
 	var gs: float = c.gs
 	var g := Geo.new()
-	var a := 0.36 * gs
+	var a := 0.3 * gs
 	var hue0 := rng.next()
-	_stair(g, rng, a, Transform3D.IDENTITY, hue0)
-	var top := maxf(a * 0.3, g.aabb().size.y)
-	# stood so its terraces face the viewer: the axis tipped well towards them
-	var axis := (VIEW * (0.55 + rng.next() * 0.35) + UP * 0.6 + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.3).normalized()
+	# it stands up, tipped a little to the viewer: its steps show from the side and its terraces from above
+	var axis := (VIEW * (0.28 + rng.next() * 0.22) + UP + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.25).normalized()
 	var tilt := Basis(U.quat_to(UP, axis)) * Basis(UP, rng.next() * TAU)
-	# the sides the others may grow out of: none with its blank foot to the viewer
+	# the sides a bough may stand out of: to the left, the right and towards the viewer, never straight away from them
 	var sides := []
 	for bs0: Basis in [Basis(Vector3.RIGHT, PI * 0.5), Basis(Vector3.RIGHT, -PI * 0.5), Basis(Vector3.BACK, PI * 0.5), Basis(Vector3.BACK, -PI * 0.5)]:
-		if (tilt * bs0 * UP).dot((VIEW + UP * 0.4).normalized()) > 0.05: sides.append(bs0)
-	for k in 7 + int(rng.next() * 6):
-		var s := 0.2 + pow(rng.next(), 1.5) * 0.42
-		# (parallel growth, a few degrees out)
-		var jit := Basis(Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized(), (rng.next() - 0.5) * (1.1 if rng.next() < 0.25 else 0.3))
-		var bs := jit * Basis(UP, PI * 0.5 * int(rng.next() * 4.0))
-		var at := Vector3((rng.next() - 0.5) * 1.9 * a, top * (0.3 + rng.next() * 0.7), (rng.next() - 0.5) * 1.7 * a)
-		if sides.size() and rng.next() < 0.42:
-			var bs0: Basis = sides[int(rng.next() * sides.size())]
-			var d := bs0 * UP
-			at = d * a * (0.65 + rng.next() * 0.3) + UP * top * (0.15 + rng.next() * 0.7) + d.cross(UP) * (rng.next() - 0.5) * 1.3 * a
-			bs = jit * bs0
-		_stair(g, rng, a * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.1, s)
+		if (tilt * bs0 * UP).dot(VIEW) > -0.4: sides.append(bs0)
+	var tiers := 3 + int(rng.next() * 3)
+	var base := Vector3.ZERO
+	var ak := a
+	var spots := []
+	for k in tiers:
+		var last := k == tiers - 1
+		var rot := Basis(UP, (rng.next() - 0.5) * 0.25 + PI * 0.5 * int(rng.next() * 4.0))
+		var h := _stair(g, rng, ak, Transform3D(rot, base), hue0, ak / a, 1 if last or rng.next() < 0.55 else 2, 1.25 + rng.next() * 0.6)
+		spots.append([base, ak, h])
+		# the next rises out of this one's upper steps, off its middle
+		base += UP * h * (0.6 + rng.next() * 0.25) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * ak * 0.55
+		ak *= 0.58 + rng.next() * 0.16
+	for sp: Array in spots:
+		var sb: Vector3 = sp[0]
+		var aw: float = sp[1]
+		var h: float = sp[2]
+		for k in 2 + int(rng.next() * 3):
+			var s := 0.26 + pow(rng.next(), 1.4) * 0.34
+			# (parallel growth, a few degrees out; one in four well out of true)
+			var jit := Basis(Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized(), (rng.next() - 0.5) * (1.0 if rng.next() < 0.25 else 0.3))
+			var bs := jit * Basis(UP, PI * 0.5 * int(rng.next() * 4.0))
+			var at := sb + Vector3((rng.next() - 0.5) * 1.8 * aw, h * (0.2 + rng.next() * 0.5), (rng.next() - 0.5) * 1.7 * aw)
+			if sides.size() and rng.next() < 0.6:
+				# a bough: out of the side, its own steps facing outward
+				var bs0: Basis = sides[int(rng.next() * sides.size())]
+				var d := bs0 * UP
+				at = sb + d * aw * (0.5 + rng.next() * 0.4) + UP * h * (0.15 + rng.next() * 0.55) + d.cross(UP) * (rng.next() - 0.5) * 1.1 * aw
+				bs = jit * bs0
+			_stair(g, rng, aw * s, Transform3D(bs, at), hue0 + (rng.next() - 0.5) * 0.1, aw * s / a)
 	# the film in broad zones over the whole growth: up it, and in slow waves across
 	var span := 0.3 + rng.next() * 0.25
 	var ph1 := rng.next() * TAU
@@ -545,7 +567,7 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	for i in g.v.size():
 		var p := g.v[i] / a
 		var r3 := g.rp[i]
-		r3.x += span * (0.28 * p.y + 0.3 * sin(p.x * 1.6 + ph1) * cos(p.z * 1.3 + ph2))
+		r3.x += span * (0.2 * p.y + 0.3 * sin(p.x * 1.6 + ph1) * cos(p.z * 1.3 + ph2))
 		g.rp[i] = r3
 	g.xform(Transform3D(tilt, Vector3.ZERO))
 	var bb := g.aabb()
