@@ -300,7 +300,13 @@ func _specimen(o: Dictionary) -> Node3D:
 			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0)),
 			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06)), deep_body = float((look.get("glass", {}) as Dictionary).get("deep", 0.0))}
 		if float((look.get("glass", {}) as Dictionary).get("opal", 0.0)) > 0.0: d.opal = float(look.glass.opal)
-		if float((look.get("glass", {}) as Dictionary).get("parts", 0.0)) > 0.0: d.parts = float(look.glass.parts)
+		# clarity by parts (docs/showy-minerals.md): every plain clear species has it — a cloudy root, a gem tip, one
+		# crystal milkier than the next; a species says otherwise with glass.parts. Not where the body has a colour or
+		# a darkness of its own (garnet, sulphur, smoky: their cloud would be a white patch), nor under a living effect
+		var gl: Dictionary = look.get("glass", {})
+		var plain: bool = float(gl.get("tint", 0.0)) <= 0.0 and float(gl.get("dark", 0.0)) <= 0.3 and float(gl.get("opal", 0.0)) <= 0.0 and String(gene.fx) == ""
+		var pk := float(gl.get("parts", PARTS_K if plain else 0.0))
+		if pk > 0.0: d.parts = pk
 		return d
 	var make_cmat := func(d: Dictionary) -> ShaderMaterial:
 		var m := SpecMat.make(d)
@@ -1123,6 +1129,9 @@ func _specimen(o: Dictionary) -> Node3D:
 	# Moss and coral are the exception (`pick_any`, `hollows_all`): grown thick, the crystals look pushed up through them
 	boxes = _crystal_boxes(main, mat)
 	# an association: the second species grows on the free rock beside the first (and nothing grows through it after)
+	# the hero crystal is the gem of the group: cloud only at its root (clarity by parts; SpecForms._hero set its own)
+	if main and not main.has_meta("part"):
+		main.set_meta("part", 0.26 + 0.22 * fposmod((seed_v % 1000) * 0.6180339, 1.0))
 	var mate := String(gene.get("assoc", ""))
 	if mate != "":
 		# a metal may grow on the crystal itself (gold clinging to quartz) — always where there is no rock to grow on
@@ -2411,6 +2420,7 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 
 ## rock-line coordinates for every crystal, then the final dirt line on their materials, then the meshes
 var parts_i := 0
+const PARTS_K := 0.55   # how far the plain clear species cloud by parts (0 — none, as they were before 12.11)
 
 func _finish() -> void:
 	for m in dt_mats:
