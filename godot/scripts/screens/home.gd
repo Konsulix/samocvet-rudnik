@@ -608,10 +608,13 @@ func _level_panel(dl: int, sel: Array) -> void:
 	var goals := HBoxContainer.new()
 	goals.alignment = BoxContainer.ALIGNMENT_CENTER
 	goals.add_theme_constant_override("separation", 12)
-	if bool(def.get("find", true)): goals.add_child(_goal_chip("find", 0, "specimen"))
-	# the goals as the level will count them: a board set up from the same map (no find rolled - it would take a stone id)
+	# the goals as the level will count them: a board set up from the same map (no find rolled - it would take a stone id;
+	# but where it goes and its shape are: the window promises a find only when the board will have one, in its shape)
 	var m := BoardModel.new()
 	m.setup(n, [], dl, {}, Save.area(), false, def)
+	if not m.find_plan.is_empty():
+		BoardSprites.find_shape = "%dx%d" % [int(m.find_plan.w), int(m.find_plan.h)]
+		goals.add_child(_goal_chip("find", 0, "specimen"))
 	for g: Dictionary in m.goals:
 		var k: String = g.k
 		var colour: int = int(g.t)

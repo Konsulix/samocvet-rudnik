@@ -110,6 +110,9 @@ var bonus := []      # stones freed from geodes, opened after the level
 var geos := []       # {r, c, w, h, hp, hp_max, done}: a done geode stays on the board, an empty shell of rock
 var gas_hit := false
 var find := {}       # the sealed specimen: {r, c, w, h, hp, hp_max, integ, stone, done}
+## where the find goes, rolled even when no stone is (the level window's preview: roll_find false): {r, c, w, h}, or {}
+## when its map asks for none or no spot fits it — the window then promises none (it used to, and the board had none)
+var find_plan := {}
 ## the boss fight (empty in an ordinary level): {B (the boss's data), stage, k (actions so far), timer,
 ## intent {act, cells}, clear (this board's share of health is gone)}. Its health is the "boss" goal.
 var boss := {}
@@ -1166,8 +1169,13 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		for p: Vector2i in loop: BELT[p.x][p.y] = true
 		belts.append(loop)
 	# the find: a specimen sealed in a 2x2 block of rock, somewhere in the lower half (not in every level: LevelGen.FIND_P)
-	if roll_find and bool(def.get("find", true)):
-		var shape: Array = Stones.pick_w(FIND_SHAPES.map(func(sh): return [sh, sh[2]]), Rng32.new(rng.randi()))
+	find_plan = {}
+	if bool(def.get("find", true)):
+		# (its own stream, from the level itself: the level window's preview rolls the same shape and spot — the board's
+		# rng is unseeded, so the window showed one shape and the board had another)
+		var frng := RandomNumberGenerator.new()
+		frng.seed = hash([level_n, dl, area, String(def.get("map", "")), def.get("scheme", "")])
+		var shape: Array = Stones.pick_w(FIND_SHAPES.map(func(sh): return [sh, sh[2]]), Rng32.new(frng.randi()))
 		var fw: int = shape[0]
 		var fh: int = shape[1]
 		var spots := []
@@ -1184,7 +1192,10 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					spots.append([r, c, absf(r + fh * 0.5 - R * 0.72) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
 		spots.sort_custom(func(a, b): return a[2] < b[2])
 		if spots.size():
-			var s: Array = spots[rng.randi_range(0, mini(5, spots.size() - 1))]
+			var s: Array = spots[frng.randi_range(0, mini(5, spots.size() - 1))]
+			find_plan = {r = s[0], c = s[1], w = fw, h = fh}
+		if spots.size() and roll_find:
+			var s: Array = [find_plan.r, find_plan.c]
 			var hp := block_hp(level_n, dl)
 			var stone := Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			# the first find in a mine of skulls: the one picked to show what it holds (Stones.first_find)
