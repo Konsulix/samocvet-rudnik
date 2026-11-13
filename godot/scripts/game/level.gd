@@ -426,7 +426,12 @@ func _build_hud() -> void:
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(fill)
-	hint_label = UI.label("", 13, UI.body_bold, UI.STONE_INK)
+	# (light letters on a dark outline: dark ink was lost on every mine's background — the sea, the rocks under the board)
+	hint_label = UI.label("", 14, UI.body_bold, Kit.CREAM)
+	hint_label.add_theme_color_override("font_outline_color", Color(0.04, 0.035, 0.03, 0.95))
+	hint_label.add_theme_constant_override("outline_size", 7)
+	hint_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	hint_label.add_theme_constant_override("shadow_offset_y", 2)
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(hint_label)
 	# booster bar at the bottom, like the game's tab bar
