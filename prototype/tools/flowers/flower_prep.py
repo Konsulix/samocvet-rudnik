@@ -19,7 +19,10 @@ TEX = 512
 # size (0.035 when not set; below 0 — never: every piece its own plant); split: the file holds this many plants, the biggest first (name_0,
 # name_1...); orient: "pca" — a plant lying down: its long axis is the stem, the broad end the flower, stood up;
 # keep_top: only this share of its height, from the flower down (a bare stem far too long for a rock);
-# tilt: degrees about X and Y, by hand, after all
+# tilt: degrees about X and Y, by hand, after all;
+# keep_uv: no bake — the light mesh keeps the scan's own unwrap and wears its own texture, made `tex` px (the bake
+# missed in a crumpled heart, a rose's, and between close heads, the chrysanthemum's: black, then muddy patches); the
+# relief is left flat
 MODELS = [
     # (there are dozens of them on a stone: the lightest of all)
     dict(name="violet", file="cc0__kotachitsubo__violet.glb", tris=1500, keep_top=0.86),
@@ -28,9 +31,9 @@ MODELS = [
     dict(name="lily_a", file="tiger/cc0__tiger_lily.glb", tris=6000, keep_top=0.7),
     dict(name="lily_b", file="tiger/cc0__tiger_lily_lilium_lancifolium (1).glb", tris=4500, keep_top=0.55),
     dict(name="lily_c", file="tiger/cc0__tiger_lily_lilium_lancifolium.glb", tris=7000, keep_top=0.7),
-    dict(name="rose", file="7396d21515884397a2645b26a23cb096.glb", tris=6000, keep_top=0.6),
+    dict(name="rose", file="7396d21515884397a2645b26a23cb096.glb", tris=12000, keep_top=0.6, keep_uv=True, tex=2048),
     # (the file's other plant, one big head on a stub of stem, is far too big a flower for a rock: only the spray)
-    dict(name="daisy_0", file="cc0____chrysanthemum.glb", tris=6500, keep_top=0.6),
+    dict(name="daisy_0", file="cc0____chrysanthemum.glb", tris=12000, keep_top=0.6, keep_uv=True, tex=2048),
     dict(name="goldmum", file="cc0__indian_chrysanthemum_c._indicum.glb", tris=5000, orient="pca"),
     dict(name="azalea", file="cc0__moutain_azalea.glb", tris=6000),
     # (its leaf, its spray of buds and its open flower lie side by side in the scan, their boxes one through another:
@@ -263,6 +266,68 @@ def heal(img):
         bad &= ~new
     img.pixels.foreach_set(px.ravel())
 
+def light_uv(hi, name, tris, tex):
+    # lightened as it is, its unwrap kept (the collapse carries the UVs along), and the scan's own texture made small
+    lo = hi.copy()
+    lo.data = hi.data.copy()
+    lo.name = name
+    bpy.context.scene.collection.objects.link(lo)
+    only(lo)
+    for _ in range(5):
+        n = len(tri_idx(lo))
+        if n <= tris * 1.15:
+            break
+        mod = lo.modifiers.new("d", "DECIMATE")
+        mod.ratio = tris / n
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.object.shade_smooth()
+    # the scan's textures (a big scan is cut into several, each part of the plant on its own): laid side by side in one
+    # picture (2x2), each part's unwrap moved onto its own quarter
+    imgs = []
+    of_mat = []
+    for mat in lo.data.materials:
+        im = None
+        if mat and mat.use_nodes:
+            for n in mat.node_tree.nodes:
+                if n.type == "TEX_IMAGE" and n.image and n.image.colorspace_settings.name != "Non-Color":
+                    im = n.image
+                    break
+        if im is not None and im not in imgs:
+            imgs.append(im)
+        of_mat.append(imgs.index(im) if im is not None else 0)
+    print("  keep_uv: textures", [(i.name, tuple(i.size)) for i in imgs], flush=True)
+    grid = 1 if len(imgs) == 1 else 2
+    tile = tex // grid
+    atlas = np.zeros((tex, tex, 4), dtype=np.float32)
+    atlas[:, :, 3] = 1.0
+    for k, im in enumerate(imgs):
+        c = im.copy()
+        c.scale(tile, tile)
+        px = np.empty(tile * tile * 4, dtype=np.float32)
+        c.pixels.foreach_get(px)
+        tx, ty = k % grid, k // grid
+        atlas[ty * tile:(ty + 1) * tile, tx * tile:(tx + 1) * tile] = px.reshape(tile, tile, 4)
+    uv = lo.data.uv_layers.active.data
+    for poly in lo.data.polygons:
+        k = of_mat[poly.material_index] if poly.material_index < len(of_mat) else 0
+        tx, ty = k % grid, k // grid
+        for li in poly.loop_indices:
+            u, v = uv[li].uv
+            uv[li].uv = ((tx + (u % 1.0)) / grid, (ty + (v % 1.0)) / grid)
+    out = bpy.data.images.new(name + "_d", tex, tex, alpha=False)
+    out.pixels.foreach_set(atlas.ravel())
+    out.filepath_raw = os.path.join(OUT, name + "_d.png")
+    out.file_format = "PNG"
+    out.save()
+    flat = bpy.data.images.new(name + "_n", 4, 4, alpha=False)
+    flat.pixels.foreach_set(np.tile(np.array([0.5, 0.5, 1.0, 1.0], dtype=np.float32), 16))
+    flat.filepath_raw = os.path.join(OUT, name + "_n.png")
+    flat.file_format = "PNG"
+    flat.save()
+    bpy.ops.wm.obj_export(filepath=os.path.join(OUT, name + ".obj"), export_selected_objects=True, export_materials=False,
+        export_uv=True, export_normals=True, export_triangulated_mesh=True, forward_axis="NEGATIVE_Z", up_axis="Y")
+    return lo
+
 def light(hi, name, tris):
     lo = hi.copy()
     lo.data = hi.data.copy()
@@ -381,7 +446,7 @@ for M in MODELS:
         if PREVIEW: print("FLOWER", name, flush=True)
         stand(part, M.get("orient", False), M.get("keep_top", 0.0), M.get("tilt"))
         full = len(tri_idx(part))
-        lo = light(part, name, M["tris"])
+        lo = light_uv(part, name, M["tris"], M.get("tex", TEX)) if M.get("keep_uv") else light(part, name, M["tris"])
         print("FLOWER %s: %d -> %d tris, size %s" % (name, full, len(tri_idx(lo)), [round(v, 2) for v in lo.dimensions]), flush=True)
         if PREVIEW:
             picture(lo, name)

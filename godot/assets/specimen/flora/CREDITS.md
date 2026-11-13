@@ -4,6 +4,8 @@ Scans of real plants (SpecFlora.KINDS), all by ffishAsia-and-floraZia on Sketchf
 the game by `prototype/tools/flowers/flower_prep.py`: the scanner's colour cube dropped, the plant stood on its foot one
 unit tall (a long bare stem cut), made light (1 500–7 000 triangles), its colour and relief baked into two 512 px
 textures (`<name>_d.png`, `<name>_n.png`). The originals are not in the repository.
+The rose and the chrysanthemum are made light keeping the scan's own unwrap and wear its own textures, laid into one
+2048 px picture (12 000 triangles, the relief flat): a bake missed in their crumpled hearts.
 
 | files | plant | model |
 |---|---|---|

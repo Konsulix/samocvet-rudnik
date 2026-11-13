@@ -332,6 +332,41 @@ func _ready() -> void:
 				Save.note_find(st, 0, int(st.dl))   # (the atlas and the achievements know them, as finds of a level)
 				made += 1
 		Save.persist()
+	if args.has("flowers"):
+		# test data: two finds with every kind of flower (SpecFlora.KINDS), on open rock: `-- save=flowers screen=stones
+		# flowers`; marked test, old ones from a previous run are replaced (the kind is the stone's seed's: searched for)
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("flowers", false))
+		var hosts := ["garnet", "quartz", "fluorite", "calcite", "amethyst"]
+		var sd := 140000
+		var made := 0
+		for kind in SpecFlora.KINDS.size():
+			for k in 2:
+				var st := {}
+				var tries := 0
+				while tries < 20000:
+					tries += 1
+					sd += 1
+					if SpecFlora.roll(sd) != kind: continue
+					st = Stones.roll(sd, 0, 1.2, 2)
+					st.traits = []
+					st.legend = false
+					st.sid = hosts[sd % hosts.size()]
+					st.kind = "crystal"
+					var gn := SpecGenome.of(Spec.of_stone(st))
+					if "flowers" in (gn.accents as Array) and String(gn.form) in ["single", "pile"]: break
+					st = {}
+				if st.is_empty(): continue
+				st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+				st.area = 0
+				st.dl = made % 6
+				st.value = Stones.price(st, 0, int(st.dl))
+				st.test = true
+				st.flowers = true
+				Save.d.coll.append(st)
+				if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+				made += 1
+		print("flowers: ", made, " finds")
+		Save.persist()
 	if args.has("mine4"):
 		# test data: Fire Horizon's finds, a few of each species as the mine rolls them: `-- screen=stones mine4`;
 		# marked test (admin → Remove test finds), old ones from a previous run are replaced
