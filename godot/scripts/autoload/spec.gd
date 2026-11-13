@@ -98,6 +98,7 @@ static func key_of(o: Dictionary) -> String:
 	var tail := ""
 	if o.get("form", "") == "skull":
 		tail = "|skull" + ("|" + String(o.beast) if o.has("beast") else "")
+	if int(o.get("integ", 100)) < 100: tail += "|i%d" % int(o.integ)
 	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
 		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("fx", "")] + tail
 
@@ -106,6 +107,8 @@ static func of_stone(s: Dictionary) -> Dictionary:
 	var o := {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
 	if s.has("fx"): o.fx = s.fx
 	if s.has("shroom"): o.shroom = s.shroom
+	# how well it came out of the rock: a careless dig shows on the stone (SpecimenBuilder.damage_of)
+	if int(s.get("integ", 100)) < 100: o.integ = int(s.integ)
 	# butterflies pinned on a find (test keys, -- reveal=N flies=3 fly_kind=monarch); a rolled find leaves them to its seed
 	for k in ["flies", "fly_kind", "fly_mode"]:
 		if s.has(k): o[k] = s[k]

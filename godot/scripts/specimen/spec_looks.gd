@@ -250,13 +250,13 @@ const AFFINITY := {
 	fluorite = {love = {twin = 3.0, druzy = 3.0, enhydro = 3.0, limonite = 2.0}, never = ["rutile", "scepter"]},
 	amethyst = {love = {scepter = 3.0, phantom = 3.0, dust = 4.0}, never = ["irid", "coral"]},
 	smoky = {love = {rutile = 4.0, phantom = 2.0, enhydro = 3.0}, never = ["coral", "moss"]},
-	garnet = {love = {eroded = 4.0, silver = 3.0}, never = ["floater", "phantom", "bubbles", "coral", "scepter"]},
+	garnet = {love = {silver = 3.0}, never = ["floater", "phantom", "bubbles", "coral", "scepter"]},
 	gold = {love = {crust = 3.0}},
 	malachite = {love = {crust = 3.0}, never = ["irid", "bubbles", "clouds"]},
 	azurite = {love = {druzy = 3.0}, never = ["phantom", "rutile", "floater", "moss"]},
 	chrysocolla = {love = {crust = 3.0}},
-	nativecu = {love = {crust = 3.0, eroded = 3.0}},
-	beryl = {love = {eroded = 5.0, phantom = 3.0}, never = ["coral", "moss", "pompom"]},
+	nativecu = {love = {crust = 3.0}},
+	beryl = {love = {phantom = 3.0}, never = ["coral", "moss", "pompom"]},
 	cuprite = {love = {crust = 4.0}, never = ["phantom", "rutile", "floater", "bubbles"]},
 	aquamarine = {love = {floater = 4.0}, never = ["moss", "coral", "pompom"]},
 	emerald = {love = {inkspots = 3.0, clouds = 3.0, crust = 3.0}, never = ["irid", "bubbles", "floater", "pompom", "straw"]},
@@ -298,19 +298,19 @@ const AFFINITY := {
 	wulfenite = {love = {zoned = 2.0, druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss", "coral"]},
 	vanadinite = {love = {druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss"]},
 	crocoite = {never = ["rutile", "phantom", "enhydro", "chlorite", "moss", "coral", "bubbles", "floater"]},
-	cavansite = {never = ["zoned", "eroded", "druzy", "bubbles", "limonite", "coral"]},
+	cavansite = {never = ["zoned", "druzy", "bubbles", "limonite", "coral"]},
 	dioptase = {love = {druzy = 2.0}, never = ["rutile", "phantom", "enhydro", "chlorite", "moss"]},
-	erythrite = {never = ["zoned", "eroded", "druzy", "bubbles", "limonite", "coral", "moss"]},
-	smithsonite = {never = ["bubbles", "phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]},
+	erythrite = {never = ["zoned", "druzy", "bubbles", "limonite", "coral", "moss"]},
+	smithsonite = {never = ["bubbles", "phantom", "rutile", "scepter", "twin", "floater", "zoned", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]},
 	# bismuth: what lives on a rock lives on its rock too; what only a clear crystal shows (and a film of its own —
 	# it has one) it never has, nor the tufts that sprout from a crystal's faces and the crust round a crystal's foot
-	bismuth = {never = ["pompom", "straw", "crust", "inkspots", "clouds", "twin", "druzy", "rutile", "phantom", "irid", "aurora", "zoned", "eroded", "anomaly", "enhydro", "chlorite", "limonite", "floater", "scepter"]},
-	tourmaline = {never = ["zoned", "rutile", "phantom", "chlorite", "moss", "coral", "eroded", "floater"]},
+	bismuth = {never = ["pompom", "straw", "crust", "inkspots", "clouds", "twin", "druzy", "rutile", "phantom", "irid", "aurora", "zoned", "anomaly", "enhydro", "chlorite", "limonite", "floater", "scepter"]},
+	tourmaline = {never = ["zoned", "rutile", "phantom", "chlorite", "moss", "coral", "floater"]},
 }
 
 ## the traits that live in clear glass, and those that need crystals grown out of a rock
 const IN_GLASS := ["phantom", "rutile", "inkspots", "clouds", "enhydro", "chlorite"]
-const ON_CRYSTALS := ["phantom", "rutile", "scepter", "twin", "floater", "zoned", "eroded", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]
+const ON_CRYSTALS := ["phantom", "rutile", "scepter", "twin", "floater", "zoned", "moss", "coral", "druzy", "enhydro", "chlorite", "limonite"]
 ## what a fossil's own builder reads of the shared traits (ammolite, pyrite trilobites, gold in amber, bubbles on rock)
 const FOSSIL_KEEPS := ["irid", "aurora", "goldfleck", "bubbles"]
 

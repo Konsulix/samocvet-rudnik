@@ -44,6 +44,10 @@ func _rv() -> Vector3:
 func _place(node: Node3D, at: Vector3, dir: Vector3, s: float, spin: float) -> void:
 	node.transform = Transform3D(Basis(U.quat_to(UP, dir.normalized())) * Basis(UP, spin) * Basis.from_scale(Vector3(s, s, s)), at)
 
+## how hurt a find came out of the rock: 0 untouched (integrity 100) .. 1 (the least there is, 10)
+static func damage_of(integ: int) -> float:
+	return clampf((100.0 - integ) / 90.0, 0.0, 1.0)
+
 ## which way a foot at `at` sticks out past the rock's top (box rb), or zero when it stands on the rock
 func _off_rock(at: Vector3, rb: AABB) -> Vector3:
 	var c := rb.get_center()
@@ -259,6 +263,11 @@ func _specimen(o: Dictionary) -> Node3D:
 	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
 		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false)),
 		bend = float(look.get("bend", 0.0))}
+	# dug out carelessly (BoardModel.find.integ: blasts chip the stone): its crystals pitted, tips knocked off, some
+	# snapped to stumps (RockKit.damage) - on their own stream, so a damaged stone is the same stone, hurt
+	var dk := damage_of(int(o.get("integ", 100)))
+	# (a lone crystal is never snapped to a stump - the find would be gone with it; nor a group's first, its main one)
+	if dk > 0.0: zcfg.dmg = {k = dk, rng = Rng32.new((seed_v * 2246822519 + 7) % 4294967296), n = 0, stumps = not String(gene.form) in ["single", "floater", "columnar"]}
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
 	var limonite := "limonite" in tr
 	var kind: String = o.get("kind", "crystal")
@@ -267,9 +276,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var layout: String = gene.form
 	var rtype: String = gene.rock
 	var gs: float = gene.scale
-	var ero: float = gene.eroded
-	if gene.lustre == "dark":
-		ero = maxf(ero, 0.3)
+	var ero := 0.0   # (the etched trait is gone: what etching there is now is the damage of a careless dig, zcfg.dmg)
 	var scan: int = RockKit.SCAN_OF[rtype]
 	dt.scan = scan
 	# a species whose crystals do not frost over at the foot (SpecLooks foot_frost false)
@@ -1120,7 +1127,6 @@ func _specimen(o: Dictionary) -> Node3D:
 	if "floater" in tr and layout == "floater": _mark("floater", _mid(main, 0.15))
 	if "atypical" in tr and main: _mark_on("atypical", main)
 	if "zoned" in tr and crystals: _mark_on("zoned", main)
-	if "eroded" in tr and crystals and layout != "geode": _mark_on("eroded", main)
 	for ti in ["irid", "aurora"]:
 		if ti in tr and ((mat and gene.lustre != "dark") or layout == "botryoid"): _mark_on(ti, main)
 	if "silver" in tr and st.rocky:

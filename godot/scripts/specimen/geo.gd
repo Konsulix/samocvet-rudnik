@@ -321,7 +321,8 @@ func mark_edges(angle_deg := 14.0) -> Geo:
 
 ## eat into the crystal: pits and caverns, mostly along its edges, pushed in towards its core.
 ## How deep each spot was eaten goes into the vertex alpha, so the shader can darken the hollows.
-func erode(amount: float, seed_v: int) -> Geo:
+## `share`: how much of the surface is eaten (1: a sixth of the faces, two fifths at the edges)
+func erode(amount: float, seed_v: int, share := 1.0) -> Geo:
 	if bary.size() != v.size() or v.is_empty():
 		return self
 	var bb := aabb()
@@ -352,8 +353,8 @@ func erode(amount: float, seed_v: int) -> Geo:
 	var sorted: Array = cds.values()
 	sorted.sort()
 	var lo: float = sorted[0]
-	var q_face: float = sorted[int(sorted.size() * 0.16)]
-	var q_edge: float = sorted[int(sorted.size() * 0.4)]
+	var q_face: float = sorted[mini(sorted.size() - 1, int(sorted.size() * 0.16 * share))]
+	var q_edge: float = sorted[mini(sorted.size() - 1, int(sorted.size() * 0.4 * share))]
 	var depth := {}
 	var holes := {}
 	for k in cds:
@@ -377,6 +378,22 @@ func erode(amount: float, seed_v: int) -> Geo:
 		var c := Vector3(0, clampf(p.y, ymin + rr, ymax - rr), 0)
 		v[i] = p + (c - p).normalized() * d
 		col[i].a = 1.0 - clampf(float(holes[kk]) * 1.3, 0.0, 1.0)
+	return self
+
+## broken off across a plane (through `at`, facing `n` out of the stone): everything beyond it is pressed onto it,
+## a little rough, as a fresh fracture — frosted (vertex alpha low: the glass shader clouds it like an eaten pit)
+func snap(at: Vector3, n: Vector3, rough: float) -> Geo:
+	to_soup()
+	if col.size() != v.size():
+		fill_color(Color(1, 1, 1))
+	for i in v.size():
+		var d := (v[i] - at).dot(n)
+		if d <= 0.0: continue
+		var p := v[i] - n * d
+		# conchoidal: shallow scoops into the face, the same at a shared corner
+		var w := sin(p.x * 41.0 + p.z * 17.0) * sin(p.y * 37.0 - p.x * 23.0) * 0.5 + 0.5
+		v[i] = p - n * rough * w
+		col[i].a = minf(col[i].a, 0.7)
 	return self
 
 ## nudge every vertex by a smooth function of where it is (shared corners move together)

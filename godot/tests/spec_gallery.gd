@@ -26,14 +26,14 @@ const SETS := [
 	{seed = 73, sid = "gypsum", kind = "crystal", gi = 2, traits = ["irid"]}, {seed = 74, sid = "aquamarine", kind = "crystal", gi = 3, traits = []},
 	{seed = 75, sid = "celestine", kind = "druse", gi = 2, traits = ["moss"]}, {seed = 76, sid = "sylvite", kind = "crystal", gi = 2, traits = []},
 	{seed = 77, sid = "amethyst", kind = "crystal", gi = 3, traits = ["aurora"]}, {seed = 78, sid = "quartz", kind = "druse", gi = 3, traits = ["moss"]}],
-	[{seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["eroded", "irid"]}, {seed = 82, sid = "quartz", kind = "druse", gi = 2, traits = ["silver", "moss"]},
+	[{seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["irid"]}, {seed = 82, sid = "quartz", kind = "druse", gi = 2, traits = ["silver", "moss"]},
 	{seed = 83, sid = "aquamarine", kind = "crystal", gi = 3, traits = ["goldfleck"]}, {seed = 84, sid = "fluorite", kind = "crystal", gi = 2, traits = ["anomaly"]},
-	{seed = 85, sid = "garnet", kind = "crystal", gi = 2, traits = ["eroded", "moss"]}, {seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver", "eroded"]},
-	{seed = 87, sid = "sapphire", kind = "crystal", gi = 3, traits = ["irid"]}, {seed = 88, sid = "calcite", kind = "druse", gi = 2, traits = ["eroded", "goldfleck"]}],
-	[{seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver", "eroded"]}, {seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["eroded", "irid"]}],
+	{seed = 85, sid = "garnet", kind = "crystal", gi = 2, traits = ["moss"]}, {seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver"]},
+	{seed = 87, sid = "sapphire", kind = "crystal", gi = 3, traits = ["irid"]}, {seed = 88, sid = "calcite", kind = "druse", gi = 2, traits = ["goldfleck"]}],
+	[{seed = 86, sid = "ruby", kind = "crystal", gi = 3, traits = ["silver"]}, {seed = 81, sid = "amethyst", kind = "crystal", gi = 3, traits = ["irid"]}],
 	[{seed = 91, sid = "gold", kind = "nugget", gi = 3, traits = [], form = "vein"}, {seed = 92, sid = "nativecu", kind = "nugget", gi = 2, traits = [], form = "vein"},
 	{seed = 93, sid = "quartz", kind = "crystal", gi = 3, traits = ["twin"], lustre = "dark", form = "columnar"}, {seed = 94, sid = "emerald", kind = "crystal", gi = 2, traits = [], lustre = "dark", form = "slabs"},
-	{seed = 95, sid = "gold", kind = "nugget", gi = 2, traits = [], form = "vein"}, {seed = 96, sid = "amethyst", kind = "druse", gi = 2, traits = ["eroded"], lustre = "dark"},
+	{seed = 95, sid = "gold", kind = "nugget", gi = 2, traits = [], form = "vein"}, {seed = 96, sid = "amethyst", kind = "druse", gi = 2, traits = [], lustre = "dark"},
 	{seed = 97, sid = "aquamarine", kind = "crystal", gi = 3, traits = [], lustre = "dark", form = "single"}, {seed = 98, sid = "nativecu", kind = "nugget", gi = 3, traits = [], form = "vein"}],
 	[{seed = 101, sid = "quartz", kind = "druse", gi = 3, traits = [], form = "slabs", accents = ["pompom", "inkspots", "clouds"]},
 	{seed = 102, sid = "gypsum", kind = "crystal", gi = 2, traits = [], form = "slabs", accents = ["straw", "lichen"]},
@@ -327,6 +327,9 @@ func _ready() -> void:
 				var e := {seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []}
 				if args.has("form"): e.form = args.form
 				if args.has("gi"): e.gi = int(args.gi)
+				if args.has("lustre"): e.lustre = String(args.lustre)
+				# how well it came out of the rock (0..100: the damage of a careless dig, SpecimenBuilder)
+				if args.has("integ"): e.integ = int(args.integ)
 				# a skull's genes pinned: eyes=none|one|both breach=side|crest crown=0|1
 				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind"]:
 					pass

@@ -88,6 +88,11 @@ func _init() -> void:
 	for v in d.vein:
 		for i in v.size():
 			v[i] = int(v[i])
+	# the etched trait is gone (13.11: the damage of a careless dig shows instead): off the stones that had it
+	for s: Dictionary in d.coll:
+		if (s.get("traits", []) as Array).has("eroded"): (s.traits as Array).erase("eroded")
+	for e: Dictionary in d.atlas.values():
+		if e.has("best") and (e.best.get("traits", []) as Array).has("eroded"): (e.best.traits as Array).erase("eroded")
 	_pad_areas(d)
 	# a mine that has grown deeper since the save was made: its new depths start with full veins
 	var fv := fresh_veins(area())
@@ -142,7 +147,7 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if not e.has("best") or int(s.value) > int(e.best.value):
 		var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
 			g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
-		for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind"]:
+		for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind", "integ"]:
 			if s.has(k): b[k] = s[k]
 		e.best = b
 	d.atlas[aid] = e

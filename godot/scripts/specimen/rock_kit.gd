@@ -232,9 +232,12 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	g.mark_edges()
 	var det: int = cfg.get("detail", 0)
 	var ero: float = cfg.get("erode", 0.0)
-	if ero > 0.0: det = maxi(det, 3)
+	var dm: Dictionary = cfg.get("dmg", {})
+	var det0 := det
+	if ero > 0.0 or dm.size(): det = maxi(det, 3)
 	if det > 0:
-		g.subdivide(det).jitter(0.009 * (0.4 if ero > 0.0 else 1.0), 6.0, int(rng.next() * 100000))
+		# (a seed off the damage's own stream when only the damage asked for the detail: the stone's layout stays)
+		g.subdivide(det).jitter(0.009 * (0.4 if ero > 0.0 or dm.size() else 1.0), 6.0, int((rng if det0 > 0 else dm.rng as Rng32).next() * 100000))
 	# colour along the length: plain, smoky base, coloured tip or two-tone
 	var cA: Color = cfg.get("cA", Color(1, 1, 1))
 	var cB: Color = cfg.get("cB", cA)
@@ -247,7 +250,40 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g.col[i] = c
 	if ero > 0.0:
 		g.erode(ero, int(rng.next() * 100000))
+	damage(g, dm)
 	return g
+
+## a crystal hurt by a careless dig (SpecimenBuilder: dmg = {k 0..1, rng - its own stream}): its faces pitted
+## and its edges gnawed (deeper and over more of it the worse it is), its tip knocked off - or, badly hurt, the
+## whole crystal snapped near its foot to a stump; each break a fresh frosted fracture
+static func damage(g: Geo, dm: Dictionary) -> void:
+	var k: float = dm.get("k", 0.0)
+	if k <= 0.0: return
+	var dr: Rng32 = dm.rng
+	# (badly hurt — below Chipped — it gets much worse at once: deeper pits over more of it, lower breaks, chunks gone)
+	var bad := maxf(0.0, k - 0.55)
+	g.erode(0.15 + k * 0.85 + bad * 1.6, int(dr.next() * 100000), 0.25 + k * 0.75 + bad * 0.6)
+	var first: bool = int(dm.get("n", 0)) == 0
+	dm.n = int(dm.get("n", 0)) + 1
+	var bb := g.aabb()
+	var ln := bb.size.y
+	var side := Vector3(dr.next() - 0.5, 0, dr.next() - 0.5).normalized()
+	var roll := dr.next()
+	var lift := dr.next()
+	var tilt := dr.next()
+	if roll < maxf(0.0, k - 0.4) * 0.9 and bool(dm.get("stumps", true)) and not first:
+		g.snap(Vector3(0, bb.position.y + ln * (0.2 + lift * 0.25), 0), (Vector3.UP + side * (0.3 + tilt * 0.5)).normalized(), ln * 0.025)
+	elif roll < minf(1.0, k * 1.6):
+		g.snap(Vector3(0, bb.end.y - ln * (0.1 + lift * (0.25 + bad * 0.8)), 0), (Vector3.UP + side * (0.2 + tilt * 0.7)).normalized(), ln * 0.018)
+	# a chunk knocked off its side: a slab of it gone down part of its length (a lone crystal too)
+	# (its draws only when badly hurt: what breaks on a lightly hurt stone does not move)
+	if bad > 0.0 and dr.next() < bad * 2.2:
+		var ch_y := dr.next()
+		var ch_d := dr.next()
+		var s2 := Vector3(-side.z, 0, side.x) if dr.next() < 0.5 else -side
+		var half := minf(bb.size.x, bb.size.z) * 0.5
+		var at := Vector3(s2.x * half * (0.25 + ch_d * 0.3), bb.position.y + ln * (0.35 + ch_y * 0.45), s2.z * half * (0.25 + ch_d * 0.3))
+		g.snap(at, (s2 + Vector3.UP * 0.55).normalized(), half * 0.08)
 
 ## a chunky column: uneven polygon section, slanted broken top or a point, foot sunk into the rock
 ## o: {sides, w, d, h, point, slope, taper, y0}; zc: colour zoning as in crystal()
@@ -309,9 +345,11 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 	g.mark_edges()
 	var det: int = o.get("detail", 0)
 	var ero: float = o.get("erode", 0.0)
-	if ero > 0.0: det = maxi(det, 3)
+	var dm: Dictionary = zc.get("dmg", {})
+	var det0 := det
+	if ero > 0.0 or dm.size(): det = maxi(det, 3)
 	if det > 0:
-		g.subdivide(det).jitter(minf(w, d) * (0.012 if ero > 0.0 else 0.035), 2.5 / maxf(0.05, w), int(rng.next() * 100000))
+		g.subdivide(det).jitter(minf(w, d) * (0.012 if ero > 0.0 or dm.size() else 0.035), 2.5 / maxf(0.05, w), int((rng if det0 > 0 else dm.rng as Rng32).next() * 100000))
 	var cA: Color = zc.get("cA", Color(1, 1, 1))
 	var cB: Color = zc.get("cB", cA)
 	var zk: float = zc.get("zk", 0.0)
@@ -324,6 +362,7 @@ static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
 		g.col[i] = c
 	if ero > 0.0:
 		g.erode(ero, int(rng.next() * 100000))
+	damage(g, dm)
 	return g
 
 ## random points on a mesh's surface in its parent's space, with outward normals

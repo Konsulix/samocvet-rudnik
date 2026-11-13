@@ -38,7 +38,6 @@ const ONE_MESH := ["balls", "fans", "staircase", "grapes"]
 ## extra traits the 3D port adds to the prototype's list (looks that change the price)
 const EXTRA_TRAITS := [
 	{id = "silver", n = "silver rim", p = 0.1, m = 1.35},
-	{id = "eroded", n = "etched", p = 0.06, m = 1.3},
 	{id = "goldfleck", n = "gold flecks", p = 0.07, m = 1.7},
 	{id = "anomaly", n = "anomalous", p = 0.03, m = 2.5},
 	# never rolled with the others: the species' own stream gives it (Stones.roll, SpecLooks.odd)
@@ -344,7 +343,6 @@ static func of(o: Dictionary) -> Dictionary:
 		size = size_k,
 		scale = [0.8, 1.0, 1.18, 1.4][size_k],
 		silv = 0.8 + rng.next() * 0.5 if "silver" in tr else 0.0,   # native silver along the rock's ridges
-		eroded = 0.55 + rng.next() * 0.45 if "eroded" in tr else 0.0,
 		gold = "goldfleck" in tr,
 		anomaly = anomaly,
 		hue = (0.25 + rng.next() * 0.5) * (1.0 if rng.next() < 0.5 else -1.0) if anomaly else 0.0,

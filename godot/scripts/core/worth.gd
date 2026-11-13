@@ -18,7 +18,7 @@ static func body(sid: String) -> float:
 
 ## shared traits (Data.TRAITS): rarity × how visible
 const TRAIT := {irid = 0.8, aurora = 4.0, zoned = 1.6, phantom = 0.8, chlorite = 0.3, anomaly = 4.0, twin = 1.0, druzy = 0.6,
-	bubbles = 0.7, enhydro = 2.2, rutile = 1.3, goldfleck = 1.3, floater = 2.0, scepter = 2.2, eroded = 0.8, silver = 0.9,
+	bubbles = 0.7, enhydro = 2.2, rutile = 1.3, goldfleck = 1.3, floater = 2.0, scepter = 2.2, silver = 0.9,
 	limonite = 0.3, moss = 1.6, coral = 1.5, atypical = 1.6}
 
 ## what grows on it or with it (SpecGenome accents)

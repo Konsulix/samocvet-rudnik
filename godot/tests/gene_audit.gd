@@ -7,7 +7,7 @@ extends Control
 ##   godot --path godot --resolution 800x420 res://tests/gene_audit.tscn -- [genes=irid,twin] [k=4] [px=360] [base=7]
 
 const TRAITS := ["irid", "aurora", "zoned", "phantom", "chlorite", "anomaly", "twin", "druzy", "bubbles", "enhydro",
-	"rutile", "goldfleck", "floater", "scepter", "eroded", "silver", "limonite", "moss", "coral", "atypical"]
+	"rutile", "goldfleck", "floater", "scepter", "silver", "limonite", "moss", "coral", "atypical"]
 const ACCENTS := ["pompom", "straw", "lichen", "needles", "crust", "dust", "inkspots", "clouds", "fronds", "flowers", "mushrooms"]
 
 func _ready() -> void:
