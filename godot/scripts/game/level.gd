@@ -203,7 +203,12 @@ const HARD_PAY := {"hard": 1.5, "super": 2.0}
 ## the board's name and task across it as it starts, on a slate band, then gone
 func _banner() -> void:
 	var th := _board_theme()
+	# (a board's name and task the first time only: shown on every level with mud or the belt it explained, again and
+	# again, what the player knew. A hard level still says so, with its board's name)
+	var seen := String(th[0]) != "" and Save.told("ban:" + String(th[0]))
+	if String(th[0]) != "" and not seen and not Coach.off: Save.tell("ban:" + String(th[0]))
 	var hard_line := "Super hard level" if model.beat == "super" else "Hard level" if model.hard else ""
+	if seen and hard_line == "": return
 	if String(th[0]) == "" and hard_line == "": return
 	var vp := get_viewport_rect().size
 	var band := PanelContainer.new()
@@ -221,9 +226,10 @@ func _banner() -> void:
 	var t := Kit.label(String(th[0]), 26, UI.display, Kit.AMBER)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var s := Kit.label(String(th[1]), 14, UI.body_bold, Kit.CREAM)
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(s)
+	if not seen:
+		var s := Kit.label(String(th[1]), 14, UI.body_bold, Kit.CREAM)
+		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(s)
 	band.add_child(v)
 	hud.add_child(band)
 	band.size = Vector2(vp.x - 40, 0)
