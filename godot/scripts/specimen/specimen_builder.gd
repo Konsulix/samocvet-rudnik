@@ -48,6 +48,42 @@ func _place(node: Node3D, at: Vector3, dir: Vector3, s: float, spin: float) -> v
 static func damage_of(integ: int) -> float:
 	return clampf((100.0 - integ) / 90.0, 0.0, 1.0)
 
+## a lone crystal wider than the rock it stands on (it read as stuck on a pebble, and nothing that grows on rock had
+## room: a mushroom shrank to a speck): the rock grows out sideways, not up — the crystal's foot stays where it is —
+## till it is wider than the foot by a margin; the spots on it for what grows there move with it
+const FOOT_MARGIN := 1.35
+static var widened := 0.0   # (the last find's factor, for tests)
+func _widen_rock(rk: MeshInstance3D, c: MeshInstance3D, st: Dictionary) -> void:
+	widened = 1.0
+	if not (rk and c and rk.has_meta("geo") and c.has_meta("geo")): return
+	var cg: Geo = c.get_meta("geo")
+	var cb := cg.aabb()
+	var foot := 0.0
+	for v in cg.v:
+		if v.y > cb.position.y + cb.size.y * 0.3: continue
+		var w := c.transform * v
+		foot = maxf(foot, Vector2(w.x, w.z).length())
+	var rg: Geo = rk.get_meta("geo")
+	var rb := rg.aabb()
+	var half := minf(rb.size.x, rb.size.z) * 0.5
+	if half <= 0.0 or foot * FOOT_MARGIN <= half: return
+	var k := minf(foot * FOOT_MARGIN / half, 2.2)
+	widened = k
+	rg.scale(k, 1.0, k)
+	if rk.mesh: rk.mesh = rg.to_mesh()
+	var raw_pick: Callable = st.pick
+	var raw_nrm: Callable = st.nrm
+	st.pick = func() -> Vector3:
+		var q: Vector3 = raw_pick.call()
+		return Vector3(q.x * k, q.y, q.z * k)
+	st.nrm = func(w: Vector3) -> Vector3:
+		var n: Vector3 = raw_nrm.call(Vector3(w.x / k, w.y, w.z / k))
+		return Vector3(n.x / k, n.y, n.z / k).normalized()
+	st.hollows = (st.hollows as Array).map(func(h: Array) -> Array:
+		var q: Vector3 = h[0]
+		var n: Vector3 = h[1]
+		return [Vector3(q.x * k, q.y, q.z * k), Vector3(n.x / k, n.y, n.z / k).normalized()])
+
 ## which way a foot at `at` sticks out past the rock's top (box rb), or zero when it stands on the rock
 func _off_rock(at: Vector3, rb: AABB) -> Vector3:
 	var c := rb.get_center()
@@ -607,9 +643,10 @@ func _specimen(o: Dictionary) -> Node3D:
 			elif sid == "opal": main = _opal_seam(col, use_rock, st, gs, seed_v)
 			else: _botryoid(sid, col, irk)
 		"single":
-			use_rock.call("small" if rng.next() < 0.6 else "chunk")
+			var srk: MeshInstance3D = use_rock.call("small" if rng.next() < 0.6 else "chunk")
 			var at := Vector3((rng.next() - 0.5) * 0.15, 0.22 if elongated else 0.1, (rng.next() - 0.5) * 0.15)
 			main = crystal.call(1.15 + rng.next() * 0.5, 1.2 + rng.next() * 0.3, at, lean.call(UP, 0.35), {scepter = "scepter" in tr})
+			_widen_rock(srk, main, st)
 			dt.h = at.y + 0.1 + rng.next() * 0.25
 			dt.a = 0.35
 			for k in int(floor(rng.next() * 3)):
