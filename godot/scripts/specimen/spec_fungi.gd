@@ -107,10 +107,16 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	if near.is_empty(): near = [c0]
 	var placed := {}      # model -> [transforms, tints]
 	var first: Array = []
+	var biggest := 0.0
 	for k in count:
 		# a few tries for a spot clear of the crystals; none clear, and this one never comes up
-		for attempt in 20:
-			var pool: Array = near if attempt < 5 else base if attempt < 11 else spots
+		# (the grown one first looks for room at its full size over all the rock that faces up, and shrinks only then;
+		# the young ones gather round wherever it stood. It used to try only by one spot and shrink at once: on a find
+		# with the crystals over half its rock only the young ones grew, a speck a few hundredths of the find)
+		var tries := 34 if k == 0 else 20
+		for attempt in tries:
+			var a2 := attempt - 14 if k == 0 else attempt
+			var pool: Array = (base if attempt < 14 else spots) if k == 0 else near if attempt < 5 else base if attempt < 11 else spots
 			var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
 			var p: Vector3 = at[0]
 			var nrm: Vector3 = at[1]
@@ -122,7 +128,7 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 			var name: String = look[mini(int(rng.next() * look.size()), look.size() - 1)]
 			if ages: name = look[0] if grow > 0.7 else look[1] if grow > 0.42 else look[2]
 			# (no room by the crystals: a smaller one may find it)
-			var s := size * float(K.k) * grow * (1.0 if attempt < 5 else 0.72 if attempt < 9 else 0.5 if attempt < 14 else 0.34)
+			var s := size * float(K.k) * grow * (1.0 if a2 < 5 else 0.72 if a2 < 9 else 0.5 if a2 < 14 else 0.34)
 			var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
 			b = b * Basis.from_scale(Vector3(s * (0.92 + rng.next() * 0.18), s * (0.9 + rng.next() * 0.22), s * (0.92 + rng.next() * 0.18)))
 			var xf := Transform3D(b, p - nrm * s * 0.04)
@@ -141,8 +147,16 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 			(placed[name][0] as Array).append(xf)
 			(placed[name][1] as Array).append(Color(v, v * (0.96 + rng.next() * 0.06), v))
 			if first.is_empty(): first = [xf * box.get_center(), xf.basis.y.normalized()]
+			biggest = maxf(biggest, s)
+			if k == 0:
+				near = []
+				for q in base:
+					if (q[0] as Vector3).distance_to(p) < reach: near.append(q)
+				if near.is_empty(): near = [at]
 			break
-	if first.is_empty():
+	# (a cramped find, crystals over all its rock: the one that found room shrank to a speck a few hundredths of the
+	# find — named on the card, pointed at, and not to be seen. Less than half the size asked for: none grew)
+	if first.is_empty() or biggest < size * float(K.k) * 0.5:
 		return []
 	for name: String in placed:
 		var xfs: Array = placed[name][0]
