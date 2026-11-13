@@ -126,7 +126,8 @@ static func of(o: Dictionary) -> Dictionary:
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
-	if lustre == "glass" and pseudo == "" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
+	# (not in an opaque rose of petals either: nothing inside it shows)
+	if lustre == "glass" and pseudo == "" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]) and not (form == "rosette" and (look.has("rose") or look.has("rose_metal"))):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
 	# (a sawn and polished lump grows nothing: flowers and lichen on its back read wrong on a stone that polished)
@@ -321,6 +322,11 @@ static func of(o: Dictionary) -> Dictionary:
 	if "bubbles" in tr and (form in ["radial", "floater", "obsidian", "simetite"] or (habit == "fossil" and not on_rock)): lost.append("bubbles")
 	if "moss" in tr and (form in NO_BASE or sea_floor): lost.append("moss")   # (no moss on the sea floor)
 	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
+	# a desert rose (gypsum full of sand) or an iron rose is opaque petals: nothing inside it shows — no water bubble,
+	# phantom, rutile, chlorite (it was rolled and named on the card, an "enhydro" on a rose of sand)
+	if form == "rosette" and (look.has("rose") or look.has("rose_metal")):
+		for t: String in SpecLooks.IN_GLASS:
+			if t in tr and not t in lost: lost.append(t)
 	return {
 		lost = lost,
 		pseudo = pseudo,
