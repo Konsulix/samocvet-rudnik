@@ -2239,7 +2239,16 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			var beds: Array = open_rock if open_rock.size() > 12 else green
 			for fm: Array in SpecFlora.grow(root, flr, beds, fk, gs, boxes, SpecFlora.find_look(int(gene.shroom_seed), fk)):
 				_mark("flowers", fm[0], fm[1])
-	if "mushrooms" in acc and nest_spots.size():
+	# (the pits, and the open rock as well: on a lone crystal the pits all lie round its foot, under it, and a mushroom
+	# found no room at all — or shrank to a speck)
+	var shroom_beds: Array = nest_spots + rock_spots.filter(func(q: Array) -> bool: return _free(q[0]))
+	# (and the rock's sides: every spot above is on its top, and on a find whose top the crystals fill a grown one had
+	# nowhere to stand — taken off the rock's own surface, on a stream of their own, the near sides first)
+	if "mushrooms" in acc and st.rock and (st.rock as Node3D).has_meta("geo"):
+		var sr := Rng32.new((int(gene.shroom_seed) * 1103515245 + 4321) % 4294967296)
+		for q: Array in RockKit.surf_pts(st.rock, 160, sr, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.15 and nn.y <= 0.3 and nn.z > -0.3, root):
+			if _free(q[0]): shroom_beds.append(q)
+	if "mushrooms" in acc and shroom_beds.size():
 		# their own random stream too: the rest of the stone stays as it was
 		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)
 		var kind: int = gene.shroom
@@ -2247,7 +2256,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
 			var n := (5 + int(fr.next() * 6)) if tiny else (3 + int(fr.next() * 4))
 			# (real mushrooms are slighter than the turned ones were: they stand taller to read on a card)
-			var cap: Array = SpecFungi.cluster(root, fr, nest_spots, kind, n, (0.38 + fr.next() * 0.22) * gs * (0.72 if tiny else 1.0), boxes, SpecFungi.find_look(int(gene.shroom_seed), kind))
+			var cap: Array = SpecFungi.cluster(root, fr, shroom_beds, kind, n, (0.38 + fr.next() * 0.22) * gs * (0.72 if tiny else 1.0), boxes, SpecFungi.find_look(int(gene.shroom_seed), kind))
 			if cap.size(): _mark("mushrooms", cap[0], cap[1])
 	# butterflies (SpecButterfly.for_find: the kinds of the species' mine), on their own stream: resting on the rock where
 	# a wing has room, or flying round the find; a skull places its own (SpecSkull)

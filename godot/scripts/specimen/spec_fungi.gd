@@ -99,6 +99,10 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	var lean := 0.0 if K.get("shelf", false) else 0.3
 	var tops := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > lean)
 	if tops.size(): base = tops
+	# the rock's sides, the near ones first (the viewer looks along -Z): where the top is all crystals, a grown one
+	# stands out from a side and turns up, as mushrooms do from a bank
+	var sides := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y <= lean and (q[1] as Vector3).y > -0.15 and (q[1] as Vector3).z > -0.3)
+	if sides.is_empty(): sides = spots
 	var c0: Array = base[int(rng.next() * base.size())]
 	var reach := size * (0.9 if kind == 3 else 1.4)
 	var near := []
@@ -110,13 +114,13 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 	var biggest := 0.0
 	for k in count:
 		# a few tries for a spot clear of the crystals; none clear, and this one never comes up
-		# (the grown one first looks for room at its full size over all the rock that faces up, and shrinks only then;
-		# the young ones gather round wherever it stood. It used to try only by one spot and shrink at once: on a find
-		# with the crystals over half its rock only the young ones grew, a speck a few hundredths of the find)
-		var tries := 34 if k == 0 else 20
+		# (the grown one first looks for room at its full size over all the rock that faces up, then on its sides, and
+		# shrinks only then; the young ones gather round wherever it stood. It used to try only by one spot and shrink
+		# at once: on a find with the crystals over half its rock only the young ones grew, a speck a few hundredths of it)
+		var tries := 48 if k == 0 else 20
 		for attempt in tries:
-			var a2 := attempt - 14 if k == 0 else attempt
-			var pool: Array = (base if attempt < 14 else spots) if k == 0 else near if attempt < 5 else base if attempt < 11 else spots
+			var a2 := attempt - 28 if k == 0 else attempt
+			var pool: Array = (base if attempt < 14 else sides if attempt < 28 else spots) if k == 0 else near if attempt < 5 else base if attempt < 11 else spots
 			var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
 			var p: Vector3 = at[0]
 			var nrm: Vector3 = at[1]
@@ -150,8 +154,8 @@ static func cluster(parent: Node3D, rng: Rng32, spots: Array, kind: int, count: 
 			biggest = maxf(biggest, s)
 			if k == 0:
 				near = []
-				for q in base:
-					if (q[0] as Vector3).distance_to(p) < reach: near.append(q)
+				for q in spots:
+					if (q[1] as Vector3).y > -0.15 and (q[0] as Vector3).distance_to(p) < reach: near.append(q)
 				if near.is_empty(): near = [at]
 			break
 	# (a cramped find, crystals over all its rock: the one that found room shrank to a speck a few hundredths of the
