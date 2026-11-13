@@ -31,9 +31,9 @@ MODELS = [
     dict(name="lily_a", file="tiger/cc0__tiger_lily.glb", tris=6000, keep_top=0.7),
     dict(name="lily_b", file="tiger/cc0__tiger_lily_lilium_lancifolium (1).glb", tris=4500, keep_top=0.55),
     dict(name="lily_c", file="tiger/cc0__tiger_lily_lilium_lancifolium.glb", tris=7000, keep_top=0.7),
-    dict(name="rose", file="7396d21515884397a2645b26a23cb096.glb", tris=12000, keep_top=0.6, keep_uv=True, tex=2048),
+    dict(name="rose", file="7396d21515884397a2645b26a23cb096.glb", tris=30000, keep_top=0.6, keep_uv=True, tex=2048),
     # (the file's other plant, one big head on a stub of stem, is far too big a flower for a rock: only the spray)
-    dict(name="daisy_0", file="cc0____chrysanthemum.glb", tris=12000, keep_top=0.6, keep_uv=True, tex=2048),
+    dict(name="daisy_0", file="cc0____chrysanthemum.glb", tris=30000, keep_top=0.6, keep_uv=True, tex=2048),
     dict(name="goldmum", file="cc0__indian_chrysanthemum_c._indicum.glb", tris=5000, orient="pca"),
     dict(name="azalea", file="cc0__moutain_azalea.glb", tris=6000),
     # (its leaf, its spray of buds and its open flower lie side by side in the scan, their boxes one through another:
