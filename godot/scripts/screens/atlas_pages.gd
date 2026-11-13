@@ -150,7 +150,8 @@ func _page(a: int, sz: Vector2) -> Control:
 		var c := _card(String(ids[i]), Vector2(cw, ch), open, a, int(at.get(ids[i], 0)))
 		c.position = pos
 		p.add_child(c)
-	# the middle: the medallion with its rubies, n/m, Replay
+	# the middle: the medallion with its rubies, n/m (no Replay button: a tap on the medallion opens the boss's card,
+	# and the empty sockets glint red now and then to say there is more to win there)
 	var mid := Vector2(x0 + cw + GAP, top + ch + GAP)
 	var ms := minf(cw, ch) * 0.86
 	if A.has("boss") or not open:
@@ -164,11 +165,6 @@ func _page(a: int, sz: Vector2) -> Control:
 	cnt.position = Vector2(mid.x, mid.y + ms + 2)
 	cnt.size = Vector2(cw, 20)
 	p.add_child(cnt)
-	if open and a < Save.d.boss_won.size() and bool(Save.d.boss_won[a]):
-		var rp := _pill("Replay")
-		rp.position = Vector2(mid.x + (cw - rp.size.x) / 2.0, mid.y + ch - rp.size.y - 2)
-		p.add_child(rp)
-		_taps.append([rp, func(): atlas._boss_card(a)])
 	if beasts.size():
 		var y := top + (ch + GAP) * 3
 		var nb := 0
@@ -346,6 +342,13 @@ class Medallion extends Control:
 		var ph := (pages._track.position.x if pages._track else 0.0) * 0.003 + pages._t * 0.045
 		for g in glints:
 			(g.material as ShaderMaterial).set_shader_parameter("phase", ph)
+		if open and AtlasBoard.rubies(a) < 3: queue_redraw()
+	## an empty socket's glint: once in FLASH_EVERY seconds, each socket at its own moment, a soft red flare rising
+	## quickly and dying slowly (a ruby still to be won there)
+	const FLASH_EVERY := 5.0
+	func _flash(i: int) -> float:
+		var t := fposmod(pages._t + float(i) * 1.9 + float(a) * 0.7, FLASH_EVERY)
+		return smoothstep(0.0, 0.18, t) * (1.0 - smoothstep(0.18, 1.1, t))
 	func _draw() -> void:
 		var sg := size.x / 2.0
 		draw_texture_rect(AtlasBoard._emblem(Atlas._sign(a, open)), Rect2(Vector2.ZERO, size), false, Color(1, 1, 1, 1.0 if open else 0.7))
@@ -357,3 +360,11 @@ class Medallion extends Control:
 			var c := Vector2(sg, sg) + Vector2(cos(an), sin(an)) * sg * AtlasBoard.RUBY_R
 			var tex := "res://assets/atlas/board/ruby_%d.png" % AtlasBoard.RUBY_CUT if i < n else "res://assets/atlas/board/socket.png"
 			draw_texture_rect(AtlasBoard._pic(tex, 96), Rect2(c - Vector2(h, h), Vector2(h, h) * 2.0), false, Color(1, 1, 1, 1.0 if open else 0.6))
+			if open and i >= n:
+				var f := _flash(i)
+				if f > 0.001:
+					var pf := FxLayer.puff()
+					var r1 := h * 2.2
+					draw_texture_rect(pf, Rect2(c - Vector2(r1, r1), Vector2(r1, r1) * 2.0), false, Color(0.95, 0.12, 0.1, 0.55 * f))
+					var r2 := h * 0.9
+					draw_texture_rect(pf, Rect2(c - Vector2(r2, r2), Vector2(r2, r2) * 2.0), false, Color(1.0, 0.45, 0.4, 0.75 * f))
