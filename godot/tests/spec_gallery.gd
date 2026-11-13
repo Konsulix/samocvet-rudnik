@@ -376,7 +376,7 @@ func _ready() -> void:
 					e.plant = ["fern", "ginkgo", "redwood", "horsetail"][(k / 4) % 4]
 				# fossil leaves pinned: plant=palm film=4 show=nodule guest=dragonfly pair=1
 				# amber: content=insect insect=<group> bug=<model> (bug=all: every model in turn) host= tone=
-				for fk in ["plant", "show", "guest", "crystals", "content", "insect", "bug", "host", "tone"]:
+				for fk in ["plant", "show", "guest", "crystals", "content", "insect", "bug", "sprig", "host", "tone"]:
 					if args.has(fk): e[fk] = args[fk]
 				if args.get("bug", "") == "all" or "," in String(args.get("bug", "")):
 					var bugs := []
@@ -385,6 +385,9 @@ func _ready() -> void:
 					if args.bug != "all": bugs = Array(String(args.bug).split(","))
 					e.bug = bugs[k % bugs.size()]
 					e.content = "insect"
+					if String(e.bug).begins_with("flower_") or String(e.bug).begins_with("leaf_"):
+						e.sprig = e.bug
+						e.erase("bug")
 				if args.has("film"): e.film = int(args.film)
 				if args.has("pair"): e.pair = args.pair == "1"
 				if args.has("dendrites"): e.dendrites = args.dendrites == "1"

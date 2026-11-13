@@ -60,6 +60,17 @@ MODELS = [
     dict(name="other_bug", file="насекомые/ypm_ent.611538_hemiptera_anisoscelis_foliacea.glb", tris=4500),
     dict(name="other_snail", file="насекомые/snail_house.glb", tris=4000),
     # (macrobrachium_rosenbergii.glb: a modelled prawn of loose primitives, not a scan — not used)
+    # plants held in amber (SpecFlower: content "flower" and "leaf") — laid by their own shape the same way: flat, face up
+    dict(name="flower_camellia", file="цветы/cc0____tsubaki_camellia_japonica.glb", tris=6000, plant=True),
+    dict(name="flower_azalea", file="цветы/cc0__hirado_azalea_r._x_pulchrum.glb", tris=6000, plant=True),
+    dict(name="flower_lotus", file="цветы/cc0__indian_lotus_nelumbo_nucifera.glb", tris=6000, plant=True),
+    dict(name="flower_plum", file="цветы/cc0__japanese_apricot_prunus_mume.glb", tris=6000, plant=True),
+    dict(name="flower_magnolia", file="цветы/cc0__lilytree_magnolia_denudata.glb", tris=6000, plant=True),
+    dict(name="leaf_fern", file="листья и фигня/cc0__autumn_fern_dryopteris_erythrosora.glb", tris=6000, plant=True),
+    # (cc0__japanese_common_chestnut_c._crenata.glb: the spiny burr falls to jagged shards when made light — not used)
+    dict(name="leaf_oak", file="листья и фигня/cc0__konara_oak_quercus_serrata.glb", tris=4000, plant=True),
+    dict(name="leaf_oak_b", file="листья и фигня/cc0__ring-cupped_oak_quercus_glauca.glb", tris=4000, plant=True),
+    dict(name="leaf_pine", file="листья и фигня/cc0___japanese_black_pine_p._thunbergii.glb", tris=9000, plant=True),
 ]
 
 def coords(o):

@@ -231,7 +231,7 @@ static func genes_of(s: Dictionary) -> Array:
 			if float(f.get("nacre", 0.0)) > 0.0: out.append("fire:" + String(f.fire))
 		"amber", "simetite", "flower_quartz":
 			if String(f.get("content", "")) == "insect": out.append("insect:" + String(f.insect))
-			if String(f.get("content", "")) == "flower": out.append("bloom:" + String(f.bloom))
+			if String(f.get("content", "")) == "flower" and not f.has("sprig"): out.append("bloom:" + String(f.bloom))
 		"fern": out.append("plant:" + String(f.plant))
 		"petrified_wood":
 			if f.get("fungi", false): out.append("shroom:4")    # honey fungus grows only on the wood
@@ -1375,7 +1375,7 @@ func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
 
 ## the species a gene shows on (for the hint of where to look)
 const GENE_SP := {hopper = ["fluorite"], gold = ["gold"], genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
-	insect = ["amber", "simetite"], bloom = ["flower_quartz", "amber"], plant = ["fern"]}
+	insect = ["amber", "simetite"], bloom = ["flower_quartz"], plant = ["fern"]}
 
 ## a hint for a '?': which mine (named only once opened) and among what to look — not the name of the thing itself
 func _where(e: Dictionary, item: String) -> String:

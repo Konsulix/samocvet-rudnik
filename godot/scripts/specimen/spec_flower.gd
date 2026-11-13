@@ -54,6 +54,13 @@ const BUGS := {
 	mantis = [["mantis_korean", "mantis nymph"], ["mantis_stick", "stick insect"]],
 	other = [["other_centipede", "centipede"], ["other_bug", "leaf-footed bug"], ["other_snail", "snail"]],
 }
+## plants held in amber (scans too, laid the same way): a sprig in flower (content "flower"), or a leaf, acorns, pine
+## cones, a fern frond (content "fern") — the flower in quartz is still drawn by code (_flower)
+const SPRIGS := {
+	flower = [["flower_camellia", "camellia sprig"], ["flower_azalea", "azalea"], ["flower_lotus", "lotus"],
+		["flower_plum", "plum blossom"], ["flower_magnolia", "magnolia"]],
+	fern = [["leaf_fern", "fern frond"], ["leaf_oak", "oak leaf"], ["leaf_oak_b", "acorns"], ["leaf_pine", "pine cones"]],
+}
 ## the groups' names (the atlas, the awards)
 const GROUPS := {wasp = "Wasps & bees", spider = "Spiders & scorpions", beetle = "Beetles", cicada = "Cicadas & locusts",
 	dragonfly = "Dragonflies", moth = "Butterflies & moths", mantis = "Mantises & stick insects", other = "Odd ones"}
@@ -106,6 +113,13 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	g.insect = OLD.get(g.insect, g.insect)
 	g.bug = String(o.bug) if o.has("bug") else find_bug(seed_v, g.insect)
 	if o.has("bug"): g.insect = group_of(g.bug)
+	# a plant in amber: a scan, picked by the seed like the insect (not in quartz: its flower is drawn)
+	if o.has("sprig"): g.content = "flower" if String(o.sprig).begins_with("flower_") else "fern"
+	if sid != "flower_quartz" and g.content in SPRIGS:
+		var l: Array = SPRIGS[g.content]
+		var r := Rng32.new((seed_v * 40503 + 8191) % 4294967296)
+		g.sprig = String((l[mini(int(r.next() * l.size()), l.size() - 1)] as Array)[0])
+		if o.has("sprig"): g.sprig = String(o.sprig)
 	return g
 
 ## which of its group's models a find holds: from the stone's seed (its own stream)
@@ -121,20 +135,23 @@ static func group_of(bug: String) -> String:
 	return "beetle"
 
 static func bug_name(bug: String) -> String:
-	for gk: String in BUGS:
-		for e: Array in BUGS[gk]:
-			if e[0] == bug: return String(e[1])
+	for d: Dictionary in [BUGS, SPRIGS]:
+		for gk: String in d:
+			for e: Array in d[gk]:
+				if e[0] == bug: return String(e[1])
 	return "insect"
 
 static func accents(g: Dictionary) -> Array:
 	var out := [{flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(g.content, "insect"), "stone"]
-	if g.content == "flower" and int(g.leaves) > 0: out.append("leaves")
+	if g.content == "flower" and int(g.leaves) > 0 and not g.has("sprig"): out.append("leaves")
 	if g.gold: out.append("gold_dust")
 	if g.host in ["amber", "copal", "simetite"] and g.get("spangle", false): out.append("spangles")
 	if g.host == "simetite": out.append("blue_glow")
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
+	if id in ["flower", "fern"] and g.has("sprig"):
+		return bug_name(String(g.sprig))
 	match id:
 		"flower": return "%s %s" % [LOOKS[int(g.look)][0], {star = "star flower", rose = "rose", daisy = "daisy", bell = "bellflower",
 			blossom = "blossom", poppy = "poppy"}.get(g.bloom, "flower")]
@@ -504,7 +521,11 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var face := Basis.IDENTITY if resin else Basis(Vector3.UP, -0.6)
 	var at := Vector3((rng.next() - 0.5) * 0.4, (rng.next() - 0.5) * 0.3, (rng.next() - 0.5) * 0.1) if resin else Vector3.ZERO
 	var lie := Basis(Vector3.BACK, rng.next() * TAU) * Basis(Vector3.RIGHT, PI / 2) if resin else Basis.IDENTITY
-	if f.content in ["fern", "feather"]:
+	if f.has("sprig"):
+		# a plant: lying flat in it as the insects do, face to the viewer
+		inner.transform = Transform3D(face * lie * Basis(Vector3.UP, (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * 1.15), at)
+		marks = _insect(inner, rng, {bug = f.sprig})
+	elif f.content in ["fern", "feather"]:
 		var k := (1.05 if f.content == "feather" else 0.85) if resin else (1.4 if f.content == "feather" else 1.1)
 		inner.transform = Transform3D(face * Basis(Vector3.UP, (rng.next() - 0.5) * 0.6) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * k), at)
 		marks = _fern(inner, rng, f) if f.content == "fern" else _feather(inner, rng, f)

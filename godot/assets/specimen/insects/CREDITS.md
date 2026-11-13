@@ -1,6 +1,6 @@
-# Insects in amber
+# Insects and plants in amber
 
-Scans of real specimens (SpecFlower.BUGS), held in amber. Every one was changed for the game by
+Scans of real specimens (SpecFlower.BUGS and SPRIGS), held in amber. Every one was changed for the game by
 `prototype/tools/insects/insect_prep.py`: the scanner's colour cube dropped, laid head +X and back up, its longest
 reach one unit, made light (3 500–12 000 triangles), its colour and relief baked into two 512 px textures
 (`<name>_d.png`, `<name>_n.png`). The originals are not in the repository.
@@ -39,3 +39,12 @@ licence https://creativecommons.org/licenses/by/4.0/.
 | other_centipede | Chinese red-headed centipede | "CC0 Chinese Red-headed Centipede", https://sketchfab.com/3d-models/cc0-chinese-red-headed-centipede-8f8d1c0305d04637b7abaf4cb54d25a8 | ffishAsia-and-floraZia, CC0 |
 | other_bug | leaf-footed bug, *Anisoscelis foliacea* | "YPM ENT.611538 Hemiptera: Anisoscelis foliacea", https://sketchfab.com/3d-models/ypm-ent611538-hemiptera-anisoscelis-foliacea-099252875f684608831a44fc8a269d15 | Yale Peabody Museum, CC BY 4.0 |
 | other_snail | snail shell | "Snail house", https://sketchfab.com/3d-models/snail-house-eabd58c953d0456a9255095971386ff9 | jankhooo, CC BY 4.0 |
+| flower_camellia | camellia sprig, *Camellia japonica* | "CC0 Tsubaki, Camellia japonica", https://sketchfab.com/3d-models/cc0-tsubaki-camellia-japonica-f0e6c7ab859c45d682df305d31858a08 | ffishAsia-and-floraZia, CC0 |
+| flower_azalea | Hirado azalea, *Rhododendron × pulchrum* | "CC0 Hirado Azalea, R. x pulchrum", https://sketchfab.com/3d-models/cc0-hirado-azalea-r-x-pulchrum-4b71e4fd4250439f85c1aebe01eb945f | ffishAsia-and-floraZia, CC0 |
+| flower_lotus | Indian lotus, *Nelumbo nucifera* | "CC0 Indian Lotus, Nelumbo nucifera", https://sketchfab.com/3d-models/cc0-indian-lotus-nelumbo-nucifera-d69e1be5895f40e484f0db472a721c2f | ffishAsia-and-floraZia, CC0 |
+| flower_plum | Japanese apricot blossom, *Prunus mume* | "CC0 Japanese Apricot, Prunus mume", https://sketchfab.com/3d-models/cc0-japanese-apricot-prunus-mume-39c432dd73ca4de9be67ef9b7519d3eb | ffishAsia-and-floraZia, CC0 |
+| flower_magnolia | lilytree magnolia, *Magnolia denudata* | "CC0 Lilytree, Magnolia denudata", https://sketchfab.com/3d-models/cc0-lilytree-magnolia-denudata-608d5c19fc3742e4bb406f5ecf3a748c | ffishAsia-and-floraZia, CC0 |
+| leaf_fern | autumn fern frond, *Dryopteris erythrosora* | "CC0 Autumn Fern, Dryopteris erythrosora", https://sketchfab.com/3d-models/cc0-autumn-fern-dryopteris-erythrosora-26eb5b81f4934cba9fd6011e3203ec57 | ffishAsia-and-floraZia, CC0 |
+| leaf_oak | konara oak leaf, *Quercus serrata* | "CC0 Konara Oak, Quercus serrata", https://sketchfab.com/3d-models/cc0-konara-oak-quercus-serrata-285c914b79814c53ba1835f23423116d | ffishAsia-and-floraZia, CC0 |
+| leaf_oak_b | acorns, *Quercus glauca* | "CC0 Ring-cupped Oak, Quercus glauca", https://sketchfab.com/3d-models/cc0-ring-cupped-oak-quercus-glauca-f7cdc579df8146769b2c40bc84d86bf9 | ffishAsia-and-floraZia, CC0 |
+| leaf_pine | Japanese black pine cones, *Pinus thunbergii* | "CC0 Japanese Black Pine, P. thunbergii", https://sketchfab.com/3d-models/cc0-japanese-black-pine-p-thunbergii-bc50344848b64ed0b66fe9095d91c197 | ffishAsia-and-floraZia, CC0 |
