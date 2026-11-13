@@ -14,12 +14,14 @@ const DIR := "res://assets/specimen/flora/"
 ## looks: the models of each look; k: how tall a grown one stands beside the size asked for; many: small ones all over
 ## the rock (the violets) and not one clump; lead: the model of a clump's first, grown plant; more: this many more
 ## plants to a clump; gain, sat, rough, sway: the material
+## (gain: the rose, the chrysanthemum and the violet wear their scans' own textures (flower_prep keep_uv), twice as
+## bright as the old bake — their gain came down to match)
 const KINDS := [
-	{looks = [["violet"]], k = 0.7, many = true, gain = 1.25, sat = 1.7},
-	{looks = [["gentian_a", "gentian_b_0"]], more = 1, k = 1.0, gain = 1.5, sat = 1.3},
+	{looks = [["violet"]], k = 0.7, many = true, gain = 0.85, sat = 1.7},
+	{looks = [["gentian_a", "gentian_b_0"]], more = 1, k = 1.0, gain = 1.2, sat = 1.3},
 	{looks = [["lily_a", "lily_b", "lily_c"]], k = 1.2, gain = 1.3, sat = 1.15},
-	{looks = [["rose"]], k = 1.05, gain = 1.35, sat = 1.15},
-	{looks = [["daisy_0"]], k = 1.05, gain = 1.15},
+	{looks = [["rose"]], k = 1.05, gain = 0.75, sat = 1.15},
+	{looks = [["daisy_0"]], k = 1.05, gain = 0.7},
 	{looks = [["goldmum"]], k = 1.05, gain = 1.35, sat = 1.2},
 	{looks = [["azalea"]], k = 1.05, gain = 1.3, sat = 1.15},
 	{looks = [["iris_2", "iris_1", "iris_0", "iris_0"]], lead = "iris_2", more = 2, k = 1.0, gain = 1.3, sat = 1.2},

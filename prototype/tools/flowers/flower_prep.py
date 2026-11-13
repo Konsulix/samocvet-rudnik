@@ -25,7 +25,7 @@ TEX = 512
 # relief is left flat
 MODELS = [
     # (there are dozens of them on a stone: the lightest of all)
-    dict(name="violet", file="cc0__kotachitsubo__violet.glb", tris=1500, keep_top=0.86),
+    dict(name="violet", file="cc0__kotachitsubo__violet.glb", tris=3500, keep_top=0.86, keep_uv=True, tex=1024),
     dict(name="gentian_a", file="gentian/cc0__gentian_gentiana_zollingeri.glb", tris=4500, keep_top=0.62),
     dict(name="gentian_b_0", file="gentian/cc0__japanese_gentian_gentiana_scabra.glb", tris=3200, keep_top=0.6),
     dict(name="lily_a", file="tiger/cc0__tiger_lily.glb", tris=6000, keep_top=0.7),
@@ -285,9 +285,10 @@ def light_uv(hi, name, tris, tex):
     # picture (2x2), each part's unwrap moved onto its own quarter
     imgs = []
     of_mat = []
-    for mat in lo.data.materials:
+    used = set(p.material_index for p in lo.data.polygons)   # (the colour cube's own texture went with it)
+    for mi, mat in enumerate(lo.data.materials):
         im = None
-        if mat and mat.use_nodes:
+        if mi in used and mat and mat.use_nodes:
             for n in mat.node_tree.nodes:
                 if n.type == "TEX_IMAGE" and n.image and n.image.colorspace_settings.name != "Non-Color":
                     im = n.image
