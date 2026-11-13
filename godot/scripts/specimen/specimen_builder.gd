@@ -2077,20 +2077,18 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 	if ok and "trapiche" in (gene_m.accents as Array):
 		# emerald's trapiche (a rare one): six dark spokes running the length of the crystal from a dark core, a wheel
 		# seen in its flat end and through its sides
-		var dm := SpecMat.make({col = SpecMat.lin(0x10140c), rough = 0.7})
-		# (clearer glass, so the wheel shows sharp through it)
-		mat.set_shader_parameter("frost_k", 0.0)
-		mat.set_shader_parameter("holo_k", 0.0)
-		mat.set_shader_parameter("thick", 0.6)
-		var w := minf(bb.size.x, bb.size.z)
-		var hh := bb.end.y - maxf(0.0, bb.position.y)
-		var y0 := maxf(0.0, bb.position.y) + hh * 0.5
-		var cx := Vector3(bb.get_center().x, y0, bb.get_center().z)
-		U.mesh(Geo.cylinder(w * 0.12, w * 0.12, hh * 0.97, 6), dm, main, cx)
-		for k in 6:
-			var a := TAU * float(k) / 6.0 + PI / 6.0
-			U.mesh(Geo.box(w * 0.42, hh * 0.97, w * 0.07), dm, main, cx + Vector3(cos(a), 0, -sin(a)) * w * 0.23, Basis(Vector3.UP, a))
-		_mark("trapiche", Vector3(cx.x, bb.end.y, cx.z))
+		# drawn in the glass itself (spec.gdshaderinc trap_k): six dark arms from a dark core through the crystal's whole
+		# length — dark meshes inside were lost behind the frosted glass, never seen from the card's side
+		# (the main crystal's own copy: the small ones beside it share the material and have no wheel)
+		var tm: ShaderMaterial = SpecUtil.mat_copy(mat)
+		main.material_override = tm
+		tm.set_shader_parameter("frost_k", 0.0)
+		tm.set_shader_parameter("holo_k", 0.0)
+		tm.set_shader_parameter("thick", 0.6)
+		tm.set_shader_parameter("trap_k", 1.0)
+		tm.set_shader_parameter("trap_r", minf(bb.size.x, bb.size.z) * 0.5)
+		var cx := Vector3(bb.get_center().x, bb.end.y, bb.get_center().z)
+		_mark("trapiche", cx)
 	if ok and "chlorite" in tr:
 		# a ghost of green chlorite dust: an earlier crystal's faces, dusted over, inside the clear one (G2)
 		var cm := SpecMat.make({col = SpecMat.lin(0x3a6a2a), rough = 0.8, grain = 0.6, flat = true})

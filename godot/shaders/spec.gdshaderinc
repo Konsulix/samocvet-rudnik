@@ -34,6 +34,11 @@ uniform float cham_k = 0.0;     // colour flows with the viewing angle and breat
 uniform vec3 cham_col = vec3(0.6, 0.05, 0.15);
 uniform float opal_k = 0.0;     // spectral flakes flashing in the body
 uniform float star_k = 0.0;
+// emerald's trapiche: six dark arms from a dark hexagonal core, through the whole length of the crystal (object space,
+// along y): seen as a wheel in its flat end and as dark bands through its sides. trap_r: the crystal's radius
+uniform float trap_k = 0.0;
+uniform float trap_r = 0.4;
+uniform float trap_a = 0.5236;
 uniform float dark_k = 0.0;
 uniform float tint_k = 0.0;
 uniform float deep_k = 0.0;      // with tint: a deeply coloured body (dioptase, vanadinite) — what comes through it is pressed under a ceiling, so it stays see-through yet never bright enough to wash out
@@ -311,6 +316,30 @@ void fragment() {
 		vec3 tn = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
 		body = mix(body, dot(body, vec3(0.3, 0.5, 0.2)) * tn * 1.5 + tn * 0.05, 0.8 * cham_k);
 	}
+	float trap = 0.0;
+	if (trap_k > 0.0) {
+		// the arms reach the faces, as a real trapiche's do: on the flat end a star round a dark core, on the sides dark
+		// bands down the crystal where an arm meets the face; looked at from the face a little way in too (the eye goes
+		// in a little bent), so the bands have depth and drift as the stone turns
+		mat4 tinv = inverse(MODEL_MATRIX);
+		vec3 to = (tinv * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
+		vec3 td = normalize(v_op - to);
+		for (int i = 0; i < 4; i++) {
+			vec3 q = v_op + td * trap_r * (float(i) * 0.12);
+			float rq = length(q.xz);
+			float th = atan(q.z, q.x) - trap_a;
+			float sect = 1.0471976;
+			float dth = abs(mod(th + sect * 0.5, sect) - sect * 0.5);
+			float side = rq * sin(dth);
+			// arms widen outwards, ragged with the growth's own dust; a hexagonal dark core
+			float w = trap_r * 0.1 + rq * 0.12 + (vn(q * 22.0) - 0.5) * trap_r * 0.05;
+			float arm = 1.0 - smoothstep(w, w + trap_r * 0.04, side);
+			float core = 1.0 - smoothstep(trap_r * 0.22, trap_r * 0.28, rq);
+			trap = max(trap, max(arm, core) * (1.0 - float(i) * 0.18));
+		}
+		trap *= trap_k;
+		body = mix(body, body * 0.05 + vec3(0.005, 0.007, 0.004), trap);
+	}
 	if (star_k > 0.0) {
 		// a night sky trapped inside: a deep blue-black body, nebulae drifting, stars twinkling at three depths (the
 		// near ones big, with a soft glow, a few with a cross of light) — strong enough to read on a phone card
@@ -455,6 +484,8 @@ void fragment() {
 	SPECULAR *= 1.0 - uvk * 0.7;
 	// a night sky inside: the faces' white studio glare and lit surface would grey it out, so they dim to a glint
 	ALBEDO *= 1.0 - 0.85 * star_k * (1.0 - dirt);
+	ALBEDO *= 1.0 - 0.9 * trap * (1.0 - dirt);
+	SPECULAR *= 1.0 - 0.5 * trap;
 	SPECULAR *= 1.0 - 0.7 * star_k * (1.0 - dirt);
 	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.8 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
 	NORMAL = n;
