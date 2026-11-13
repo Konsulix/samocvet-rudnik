@@ -154,15 +154,17 @@ func _page(a: int, sz: Vector2) -> Control:
 	# and the empty sockets glint red now and then to say there is more to win there)
 	var mid := Vector2(x0 + cw + GAP, top + ch + GAP)
 	var ms := minf(cw, ch) * 0.86
+	# (the medallion and its count in the middle of the cell, now there is no Replay under them)
+	var my := mid.y + (ch - (ms + 22.0)) / 2.0
 	if A.has("boss") or not open:
 		var m := Medallion.new(a, open, self)
 		m.size = Vector2(ms, ms)
-		m.position = mid + Vector2((cw - ms) / 2.0, 2)
+		m.position = Vector2(mid.x + (cw - ms) / 2.0, my)
 		p.add_child(m)
 		_taps.append([m, func(): atlas._boss_card(a)])
 	var cnt := Atlas._shadowed("%d/%d" % [n, ids.size()], 15, Kit.AMBER if done else Kit.CREAM)
 	cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cnt.position = Vector2(mid.x, mid.y + ms + 2)
+	cnt.position = Vector2(mid.x, my + ms + 2)
 	cnt.size = Vector2(cw, 20)
 	p.add_child(cnt)
 	if beasts.size():
