@@ -67,6 +67,9 @@ static func style(kind: String) -> String:
 
 static var _area := {}
 static var fly_big := 1.0   # a test key (-- fly_big=1.8): every butterfly this much larger (a trailer's close cards)
+## a test key (-- fly_in=x,y,z): a flying butterfly starts out there (in the find's half-sizes from its middle), out of the
+## card, and flies in — a trailer hands its own butterfly over to the card's at the card's edge
+static var fly_in := Vector3.INF
 ## the mine a species is found in (each species belongs to one mine's pool); -1 none
 static func area_of(sid: String) -> int:
 	if _area.is_empty():
@@ -345,6 +348,10 @@ class Fly extends Node3D:
 		if free.size(): perch = free
 		if start_fly:
 			pos = _shell()
+			if SpecButterfly.fly_in != Vector3.INF and box.size != Vector3.ZERO:
+				pos = box.get_center() + SpecButterfly.fly_in * box.size * 0.5
+				vel = (box.get_center() - pos).normalized() * size * float(st.speed)
+				print("FLY_IN at ", pos, " box ", box)
 			vel = Vector3(rng.next() - 0.5, 0.1, rng.next() - 0.5).normalized() * size * float(st.speed)
 			target = _shell()
 			state = FLY

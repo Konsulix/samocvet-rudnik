@@ -2257,6 +2257,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			if perches.is_empty(): break
 			var style := SpecButterfly.style(id)
 			var flying := fl.next() < (0.7 if style in ["hover", "flit"] else 0.45)
+			if SpecButterfly.fly_in != Vector3.INF: flying = true   # (a trailer's test key: it flies in from outside)
 			var q: Array = perches[int(fl.next() * perches.size())]
 			SpecButterfly.put(root, fl, id, q[0], q[1], (0.28 + fl.next() * 0.1) * gs, flying, perches)
 			# (the callout points at a fixed spot — where the first of this kind came to the find — not at the
