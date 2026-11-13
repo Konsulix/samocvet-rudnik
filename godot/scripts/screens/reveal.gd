@@ -47,7 +47,10 @@ func show_stone(s: Dictionary, others := []) -> void:
 			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()]))})
 		Save.persist()
 		Ov.close()
-		Ov.toast("Added to the inventory")
+		# (where a kept stone went: told the first time only — after every find and geode it was noise)
+		if not Save.told("t_inv"):
+			Save.tell("t_inv")
+			Ov.toast("Added to the inventory")
 		finished.emit()
 	# (a new record says so by its ribbon - a tap on it tells the rule the first time - not by a line on every find)
 	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)
