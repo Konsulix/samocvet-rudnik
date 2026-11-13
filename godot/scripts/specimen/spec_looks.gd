@@ -116,7 +116,8 @@ const LOOK := {
 	# a fossil leaf on its split rock: lichen, moss and mushrooms on the weathered rim, never the big puffs
 	fern = {rock = [["slate", 1.0]], growths = 0.8, no_acc = ["pompom", "straw", "needles"]},
 	# malachite: half of them sawn through and polished, the eyes of its bands
-	malachite = {sawn = 0.5},
+	# (no geode: a malachite geode came out an agate rind round a nest of motley crystals — nothing of malachite)
+	malachite = {sawn = 0.5, kinds = [["crystal", 5.0], ["druse", 4.0]]},
 	# boulder opal: seams of it in brown ironstone
 	opal = {rock = [["ironstone", 5.0], ["basalt", 1.0]], kinds = [["crystal", 5.0], ["geode", 0.6]], growths = 0.7},
 	celestine = {forms = [["cluster", 5.0], ["slabs", 1.0]], kinds = [["geode", 4.0], ["druse", 4.0], ["crystal", 1.0]],

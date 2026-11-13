@@ -663,6 +663,8 @@ func _specimen(o: Dictionary) -> Node3D:
 			elif sid == "flintstone": main = _flint(col, crystal, st)
 			elif sid == "hyalite": main = _beads(col, use_rock, st, gs)
 			elif sid == "opal": main = _opal_seam(col, use_rock, st, gs, seed_v)
+			# malachite's crust grown over a piece of its rock — the commonest way it is found (on its own stream)
+			elif sid == "malachite" and Rng32.new((seed_v * 1597334677 + 91) % 4294967296).next() < 0.35: main = _mal_crust(col, irk, use_rock, st)
 			else: _botryoid(sid, col, irk)
 		"single":
 			var srk: MeshInstance3D = use_rock.call("small" if rng.next() < 0.6 else "chunk")
@@ -1408,14 +1410,41 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 	return main
 
 # one flowing mass of melted-together grapes (or a stand of rounded stalagmites), banded like a polished slab, weathered in the hollows
-func _botryoid(sid: String, col: Color, irk: float) -> void:
+## the lumpy species' material: banded, glossy (malachite deep green, its bands near black)
+func _botryoid_mat(sid: String, col: Color, irk: float) -> ShaderMaterial:
 	var banded := sid in ["malachite", "azurite", "chrysocolla"]
 	var crust := SpecMat.lin(0x8a7a68 if sid == "opal" else 0x2a1a10 if banded else 0x4a3424)
 	# (malachite deep green, its bands near black; the others a little darker than their own colour)
 	var bc := SpecMat.lin(0x0f6a34) if sid == "malachite" else col * 0.6 if banded else col
 	bc.a = 1.0
-	var bm := SpecMat.make({col = bc, rough = 0.12 if sid == "opal" else 0.22, coat = 0.8, coat_r = 0.15, env = 1.4,
+	return SpecMat.make({col = bc, rough = 0.12 if sid == "opal" else 0.22, coat = 0.8, coat_r = 0.15, env = 1.4,
 		ir = 0.95 if sid == "opal" else maxf(irk, 0.12), bd = 0.75 if sid == "malachite" else 0.3 if banded else 0.0, dirt = {h = -0.3, a = 0.35, col = crust, fr = 0.0, isl = 0.08, fb = 0.0}})
+
+## malachite's crust on a piece of its rock: bubbles of every size grown over the rock's top, half sunk in it, each
+## its own bands (each its own mesh: the bands centre on it) — the biggest is the find's main
+func _mal_crust(col: Color, irk: float, use_rock: Callable, st: Dictionary) -> MeshInstance3D:
+	use_rock.call("slab")
+	var bm := _botryoid_mat("malachite", col, irk)
+	var main: MeshInstance3D = null
+	var big := 0.0
+	var nb := 24 + int(rng.next() * 12)
+	for k in nb:
+		# (the highest of a few spots: the crust covers the top, not a ring round its rim with the rock bare inside)
+		var p: Vector3 = st.pick.call()
+		for t in 3:
+			var q: Vector3 = st.pick.call()
+			if q.y > p.y: p = q
+		var nn: Vector3 = st.nrm.call(p)
+		var r := (0.1 + pow(rng.next(), 1.4) * 0.24) if k > 0 else 0.34
+		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 40})
+		var m := U.mesh(RockKit.tint_cav(L[0], L[1], 0.6), bm, root, p - nn * r * 0.45, U.eul(0, rng.next() * 6.3, 0))
+		if r > big:
+			big = r
+			main = m
+	return main
+
+func _botryoid(sid: String, col: Color, irk: float) -> void:
+	var bm := _botryoid_mat(sid, col, irk)
 	if sid == "chalcedony":
 		# blue chalcedony: waxy, translucent — lit a little from within, fine bands round each bubble, a soft sheen
 		bm = SpecMat.make({col = col * 0.85, rough = 0.16, coat = 0.9, coat_r = 0.1, env = 1.5, ir = 0.22, bd = 0.18, emis = col * 0.22,
@@ -1479,9 +1508,14 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 	var main: MeshInstance3D = null
 	# many lumps, big and small, grown into each other: on the face their bands meet as a crowd of eyes
 	var nl := 6 + int(rng.next() * 6)
+	# (now and then one nodule sawn through its middle, maybe a small one grown to it: a target of rings — its own
+	# stream; the crowd of eyes otherwise)
+	var bull := sid == "malachite" and Rng32.new((int(gene_m.get("shroom_seed", 1)) * 2654435761 + 17) % 4294967296).next() < 0.35
+	if bull: nl = 1 + int(rng.next() < 0.5)
 	var back := Geo.new()
 	for k in nl:
 		var r := 0.16 + pow(rng.next(), 1.5) * 0.3 if k > 0 else 0.42
+		if bull: r = 0.62 if k == 0 else 0.26
 		var at := Vector3((rng.next() - 0.5) * 1.15, (rng.next() - 0.5) * 0.7, 0.0) if k > 0 else Vector3.ZERO
 		at = at.slide(n) - n * (rng.next() * r * 0.7)
 		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 64})
