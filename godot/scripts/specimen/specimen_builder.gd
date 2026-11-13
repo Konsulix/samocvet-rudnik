@@ -2222,8 +2222,9 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			var a: Array = spot.call(0.35)
 			if a.is_empty(): continue
 			# tangled hair: roots spread over a patch, long, strongly bent, every which way
-			# all swept one way, like hair combed by water
-			var sweep: Vector3 = ((a[1] as Vector3) + Vector3(rng.next() - 0.5, rng.next() * 0.3, rng.next() - 0.5) * 2.2).normalized()
+			# swept a little one way, but standing up off the rock as grass does (swept hard, ×2.2, a tuft lay over on
+			# its side, half of it in the air past the rock)
+			var sweep: Vector3 = ((a[1] as Vector3).lerp(UP, 0.45) + Vector3(rng.next() - 0.5, rng.next() * 0.3, rng.next() - 0.5) * 0.7).normalized()
 			_mark("straw", a[0], a[1])
 			for bend in [1.4, 2.4]:
 				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.45, bend, sc, 0.09 * gs)

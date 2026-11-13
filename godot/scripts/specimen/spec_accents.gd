@@ -65,8 +65,11 @@ static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int,
 		var d := (n + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 2.0 * spread).normalized()
 		var ln := length * (0.45 + rng.next() * 0.7)
 		var b := Basis(SpecUtil.quat_to(Vector3.UP, d)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(thick, ln, thick))
-		var root := p + (T * (rng.next() - 0.5) + B * (rng.next() - 0.5)) * area * 2.0
-		var xf := Transform3D(b, root + d * rng.next() * length * 0.08)
+		# (the roots spread over a flat patch: on a rounded rock its rim stands off the surface — sunk in by as much,
+		# and each strand rooted in, not started a little above it)
+		var off := (T * (rng.next() - 0.5) + B * (rng.next() - 0.5)) * area * 2.0
+		var root := p + off - n * (off.length_squared() / maxf(area, 1e-4) * 0.9 + length * 0.04)
+		var xf := Transform3D(b, root)
 		var cc: Color = cols[int(rng.next() * cols.size())]
 		var v := 0.75 + rng.next() * 0.5
 		SpecUtil.put(buf, k, xf, Color(cc.r * v, cc.g * v, cc.b * v))

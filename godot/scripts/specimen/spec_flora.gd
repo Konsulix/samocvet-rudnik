@@ -22,7 +22,7 @@ const KINDS := [
 	{looks = [["lily_a", "lily_b", "lily_c"]], k = 1.2, gain = 1.3, sat = 1.15},
 	{looks = [["rose"]], k = 1.05, gain = 0.75, sat = 1.15},
 	{looks = [["daisy_0"]], k = 1.05, gain = 0.7},
-	{looks = [["goldmum"]], k = 1.05, gain = 1.35, sat = 1.2},
+	{looks = [["goldmum"]], k = 1.4, gain = 1.35, sat = 1.2},
 	{looks = [["azalea"]], k = 1.05, gain = 1.3, sat = 1.15},
 	{looks = [["iris_2", "iris_1", "iris_0", "iris_0"]], lead = "iris_2", more = 2, k = 1.0, gain = 1.3, sat = 1.2},
 ]
