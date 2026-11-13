@@ -36,11 +36,16 @@ void fragment() {
 	float l = dot(c, vec3(0.3, 0.5, 0.2));
 	c = mix(vec3(l), c, sat) * gain * tint * COLOR.rgb;
 	ALBEDO = c;
-	NORMAL_MAP = texture(tex_n, UV).rgb;
+	// (the relief only on the side it was baked for: on a petal's far side it turned the normal into the petal, and
+	// where a petal curls over — a rose's heart — that side went black)
+	NORMAL_MAP = FRONT_FACING ? texture(tex_n, UV).rgb : vec3(0.5, 0.5, 1.0);
 	ROUGHNESS = rough;
 	SPECULAR = 0.35;
 	// (thin flesh: a little of the light behind comes through)
 	BACKLIGHT = c * 0.2;
+	// the far side of a petal or a leaf (a scan is one thin sheet): lit through from the side the light falls on, as a
+	// thin petal is — left at the flesh's 0.2 it went black where a petal curls over (the roses' hearts)
+	if (!FRONT_FACING) BACKLIGHT = c * 0.6;
 	float under = smoothstep(0.15, -0.45, normalize(v_on).y);
 	float cap = smoothstep(cap_from, cap_from + 0.26, v_op.y);
 	float br = (0.8 + 0.2 * sin(TIME * 1.3 + v_op.y * 4.0)) * (1.0 + fluor_uv * 1.5);
