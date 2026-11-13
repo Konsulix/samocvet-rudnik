@@ -249,6 +249,9 @@ func _specimen(o: Dictionary) -> Node3D:
 	# colour zoning along the crystals
 	var zone := 1.0 if "zoned" in tr else 0.45 if rng.next() < 0.35 else 0.0
 	var zmode := int(floor(rng.next() * 3))
+	# (not on metal: its colour shifted half round the wheel turned brassy pyrite into a pale blue mirror that read as
+	# glass on the phone, its pale root into silver — the draws stay, so nothing else of the stone moves)
+	if metal: zone = 0.0
 	var zhue := 0.45
 	if look.has("zone"):
 		var zl: Array = look.zone

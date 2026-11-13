@@ -333,6 +333,7 @@ static func never(sid: String) -> Array:
 		out.append_array(ON_CRYSTALS)
 	elif sid in ["pyrite", "hematite", "galena"] or look.has("metal_col"):
 		out.append_array(IN_GLASS)
+		out.append("zoned")   # (a metal is not colour-zoned: SpecimenBuilder)
 	elif look.has("opaque"):
 		out.append_array(IN_GLASS)
 	return out
