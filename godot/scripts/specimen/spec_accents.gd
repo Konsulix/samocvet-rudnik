@@ -105,12 +105,46 @@ const MOSS := [Color(1, 1, 1), Color(1.25, 1.15, 0.6), Color(1.35, 0.6, 0.35), C
 ## dark rounded spots trapped inside a crystal
 static func inkspots(main: MeshInstance3D, rng: Rng32, count: int) -> void:
 	var bb: AABB = (main.get_meta("geo") as Geo).aabb()
-	var m := SpecMat.make({col = Color(0.02, 0.018, 0.02), rough = 0.6, grain = 0.4})
+	# (seen through the glass: the crystal writes its depth and its tinted body is drawn over what is inside it — a
+	# garnet's or an emerald's hid them whole, only the ones that stuck out showed. So they are drawn after the glass,
+	# past its depth, half see-through: dark specks under the faces)
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.02, 0.018, 0.02, 0.72)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.no_depth_test = true
+	m.roughness = 0.6
+	m.render_priority = 20
+	# (each one wholly inside the crystal, by its real shape: picked in its box, a rounded one — a garnet — had them
+	# sticking out of its faces as black balls. The stone's own draws stay the same; a spot that is not inside is
+	# looked for again on a stream of its own, nearer the middle, and smaller if need be)
+	var gr := SpecSolid.grid(main.get_meta("geo"))
+	var inside := func(p: Vector3, r: float) -> bool:
+		if not SpecSolid.has(gr, p): return false
+		for d: Vector3 in [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.FORWARD, Vector3.BACK]:
+			if not SpecSolid.has(gr, p + d * r): return false
+		return true
 	for k in count:
-		var g := Geo.icosa(1, 1).jitter(0.18, 2.0, int(rng.next() * 100000))
+		var gseed := int(rng.next() * 100000)
+		var g := Geo.icosa(1, 1).jitter(0.18, 2.0, gseed)
 		var s := (0.025 + pow(rng.next(), 1.5) * 0.06) * minf(bb.size.x, bb.size.z) * 2.0
 		var p := bb.position + Vector3(0.2 + rng.next() * 0.6, 0.25 + rng.next() * 0.65, 0.2 + rng.next() * 0.6) * bb.size
-		SpecUtil.mesh(g, m, main, p, SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3(s, s * (0.7 + rng.next() * 0.5), s)))
+		var rot := SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6)
+		var sy := s * (0.7 + rng.next() * 0.5)
+		if not inside.call(p, maxf(s, sy) * 1.25):
+			var lr := Rng32.new(gseed * 7 + 13)
+			var ok := false
+			for t in 24:
+				var f := 0.35 + 0.3 * float(t) / 24.0
+				var q := bb.get_center() + Vector3(lr.next() - 0.5, lr.next() - 0.5, lr.next() - 0.5) * bb.size * f
+				var sc := 1.0 if t < 12 else 0.7
+				if inside.call(q, maxf(s, sy) * sc * 1.25):
+					p = q
+					s *= sc
+					sy *= sc
+					ok = true
+					break
+			if not ok: continue
+		SpecUtil.mesh(g, m, main, p, rot * Basis.from_scale(Vector3(s, sy, s)))
 
 # ---------------------------------------------------------------- little plants
 
