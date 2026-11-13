@@ -12,11 +12,11 @@ func _ready() -> void:
 	var n := int(args.get("n", "3000"))
 	var nl := int(args.get("leg", "400"))
 	var out := {areas = [], all = {}}
-	var seen := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}}
+	var seen := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, flora = {}, tie = {}, legend = {}}
 	for area in Data.AREAS.size():
 		var A: Dictionary = Data.AREAS[area]
 		var last := maxi(1, Data.depths(area).size())
-		var c := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, value = []}
+		var c := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, flora = {}, tie = {}, legend = {}, value = []}
 		for i in n + nl:
 			var dl := i % last
 			var s := Stones.roll(900000 + area * 1000003 + i * 7919, area, 0.2 + dl * 0.35, dl)
@@ -37,6 +37,10 @@ func _ready() -> void:
 				_add(c.acc, a2)
 			for k: String in g.get("fly_kinds", []): _add(c.fly, k)
 			if int(g.shroom) >= 0: _add(c.shroom, SpecFungi.NAMES[int(g.shroom)])
+			if (g.accents as Array).has("flowers"): _add(c.flora, SpecFlora.NAMES[int(g.flora)])
+			if String(g.get("pseudo", "")) != "": _add(c.tie, "%s after %s" % [s.sid, g.pseudo])
+			if String(g.get("assoc", "")) != "": _add(c.tie, "%s with %s" % [s.sid, g.assoc])
+			if s.legend: _add(c.legend, "legendary")
 			if s.get("form", "") == "skull":
 				_add(c.skin, String(s.skin))
 				if s.has("beast"): _add(c.beast, String(s.beast))
@@ -65,6 +69,11 @@ func _ready() -> void:
 			if not seen[k].has(String(id)) and not String(id) in lst: lst.append(String(id))
 		never[k] = lst
 	out.never = never
+	# the names the card shows, for a readable report
+	var nm := {sp = {}, traits = {}, acc = SpecGenome.ACC_N, form = SpecGenome.FORM_N, fx = SpecLegend.FX_N, beast = SpecSkull.BEAST_N}
+	for id: String in Data.SP: nm.sp[id] = String(Data.SP[id].n)
+	for t: Dictionary in Data.TRAITS: nm.traits[String(t.id)] = String(t.n)
+	out.names = nm
 	FileAccess.open("user://drop_table.json", FileAccess.WRITE).store_string(JSON.stringify(out, " "))
 	print("NEVER ", JSON.stringify(never))
 	get_tree().quit()
