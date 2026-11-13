@@ -111,7 +111,9 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 				var age := (0.7 + 0.3 * rng.next()) if many else (1.0 if k == 0 else 0.5 + 0.35 * rng.next())
 				var name: String = look[mini(int(rng.next() * look.size()), look.size() - 1)]
 				if k == 0 and K.has("lead"): name = String(K.lead)
-				var s := size * float(K.k) * age * (1.0 if attempt < 10 else 0.9 if attempt < 16 else 0.6 if attempt < 20 else 0.42)
+				# (a big plant shrinks no further than 0.8 — at 0.42 an azalea stood a speck beside a tuft of straw twice its
+				# height; with no room at that, it does not grow there. The violets, many and small, as before)
+				var s := size * float(K.k) * age * ((1.0 if attempt < 10 else 0.9 if attempt < 16 else 0.6 if attempt < 20 else 0.42) if many else (1.0 if attempt < 16 else 0.8))
 				var box := model(name).get_aabb()
 				# (every model is one unit tall: a wide flat one — a big head on a short stem — would be huge by that)
 				s /= sqrt(maxf(1.0, maxf(box.size.x, box.size.z)))

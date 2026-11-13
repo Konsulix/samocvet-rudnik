@@ -53,6 +53,21 @@ static func damage_of(integ: int) -> float:
 ## the find's height) — brought back to what it was
 const SHROOM_K := 0.75
 
+## the rock goes on round p for r every way: in each of six directions some spot of its top lies about r off
+func _inside_rock(p: Vector3, r: float, spots: Array) -> bool:
+	var step := maxi(1, spots.size() / 160)
+	for k in 6:
+		var d := Vector3(cos(k * TAU / 6.0), 0, sin(k * TAU / 6.0))
+		var ok := false
+		for i in range(0, spots.size(), step):
+			var w: Vector3 = (spots[i][0] as Vector3) - p
+			var along := w.dot(d)
+			if along > 0.6 * r and along < 1.6 * r and absf(w.y) < r and (w - d * along).length() < 0.6 * r:
+				ok = true
+				break
+		if not ok: return false
+	return true
+
 ## what grew since child `had` as copies of a model standing on the find (SpecFlora, SpecFungi: meta "stand"): the
 ## room of each copy taken (keep_out), so the next of the rock's life grows round it — not violets through a mushroom
 func _claim(had: int) -> void:
@@ -2309,6 +2324,11 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			var open_rock := rock_spots.filter(func(q: Array) -> bool: return _free(q[0], 0.1 * gs))
 			var beds: Array = open_rock if open_rock.size() > 12 else green.filter(func(q: Array) -> bool: return _free(q[0], 0.1 * gs))
 			if beds.is_empty(): beds = green
+			# (a big plant, not the violets: only where the rock goes on all round its foot — at the brink of a flat top
+			# its leaves spread out past the rock, the plant set in the air beside it)
+			if fk != 0:
+				var inner := beds.filter(func(q: Array) -> bool: return _inside_rock(q[0], 0.13 * gs, rock_spots))
+				if inner.size() >= 4: beds = inner
 			var had := root.get_child_count()
 			for fm: Array in SpecFlora.grow(root, flr, beds, fk, gs, boxes, SpecFlora.find_look(int(gene.shroom_seed), fk)):
 				_mark("flowers", fm[0], fm[1])
