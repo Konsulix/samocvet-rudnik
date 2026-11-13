@@ -4,6 +4,8 @@ extends Node
 ## mark), how far it is from the nearest real surface of the find (rock, moss, crystals: every mesh with its Geo).
 ## Over GAP — standing on air. Prints the worst and the share.
 ##   "$G" --headless --path godot res://tests/rest_audit.tscn -- [area=0] [n=30] [sp=a,b] [form=single] [gap=0.03]
+## overlap: things of different genes grown through one another (straw through flowers, flowers through mushrooms):
+##   the copies' feet of each gene, a pair nearer than OVER_K of their sizes counts (acc=straw,flowers,mushrooms)
 ## size: also how tall the mushrooms and flowers stand, of the find's height (acc=mushrooms|flowers, shroom=N)
 
 func _ready() -> void:
@@ -21,10 +23,13 @@ func _ready() -> void:
 	var worst := []
 	var sizes := []
 	var stems := []
+	var cross := 0
+	var pairs := 0
 	for i in n:
 		var sid: String = sids[i % sids.size()]
 		var o := {seed = 9000 + i * 13, sid = sid, kind = "crystal", gi = 2, traits = [], accents = Array(String(args.get("acc", "flowers")).split(",")), flies = 2}
 		if args.has("shroom"): o.shroom = int(args.shroom)
+		if args.has("flora"): o.flora = int(args.flora)
 		if args.has("form"): o.form = args.form
 		var o_seed := int(o.seed)
 		var root: Node3D = SpecimenBuilder.build(o)
@@ -81,6 +86,31 @@ func _ready() -> void:
 		for key: String in gr:
 			if key.begins_with("fly_"):
 				for mk: Array in gr[key]: feet.append(["fly", mk[0]])
+		if args.has("overlap"):
+			var things := []   # [gene, foot, size]
+			for mi in root.find_children("*", "MultiMeshInstance3D", true, false):
+				var g := _gene(mi, root)
+				if not g in ["flowers", "mushrooms", "straw", "pompom", "fronds"]: continue
+				var mm3 := (mi as MultiMeshInstance3D).multimesh
+				var key := "ibuf" if mi.has_meta("ibuf") else "mmbuf" if mi.has_meta("mmbuf") else ""
+				if key == "" or mm3 == null or mm3.mesh == null: continue
+				var b3: PackedFloat32Array = mi.get_meta(key)
+				var st3 := 12 + (4 if mm3.use_colors else 0) + (4 if mm3.use_custom_data else 0)
+				var t3 := SpecUtil.rel_xform(mi, root)
+				var hm3 := mm3.mesh.get_aabb().size
+				for k in b3.size() / st3:
+					var o3 := k * st3
+					var sc := Vector3(b3[o3], b3[o3 + 4], b3[o3 + 8]).length()
+					things.append([g, t3 * Vector3(b3[o3 + 3], b3[o3 + 7], b3[o3 + 11]), sc * maxf(hm3.x, hm3.z) * 0.5 if g in ["flowers", "mushrooms"] else 0.03])
+			# a flower or mushroom with anything of another gene inside two thirds of its spread
+			for x in things.size():
+				if not things[x][0] in ["flowers", "mushrooms"]: continue
+				pairs += 1
+				for y in things.size():
+					if things[x][0] == things[y][0]: continue
+					if (things[x][1] as Vector3).distance_to(things[y][1]) < float(things[x][2]) * 0.67 + float(things[y][2]) * 0.5:
+						cross += 1
+						break
 		for f: Array in feet:
 			var c: Array = surf.closest(f[1])
 			var d := (f[1] as Vector3).distance_to(c[0]) if c.size() else 99.0
@@ -95,6 +125,8 @@ func _ready() -> void:
 		print("AIR %.3f %s %s seed=%d form=%s flora=%d" % w)
 	for k: String in tot:
 		print("REST %s: %d of %d over %.2f" % [k, bad[k], tot[k], gap])
+	if args.has("overlap"):
+		print("OVERLAP %d of %d flowers and mushrooms with another thing grown through them" % [cross, pairs])
 	if stems.size():
 		stems.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
 		var over := stems.filter(func(q: Array) -> bool: return q[0] > gap).size()

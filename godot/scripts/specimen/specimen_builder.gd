@@ -53,6 +53,22 @@ static func damage_of(integ: int) -> float:
 ## the find's height) — brought back to what it was
 const SHROOM_K := 0.75
 
+## what grew since child `had` as copies of a model standing on the find (SpecFlora, SpecFungi: meta "stand"): the
+## room of each copy taken (keep_out), so the next of the rock's life grows round it — not violets through a mushroom
+func _claim(had: int) -> void:
+	for i in range(had, root.get_child_count()):
+		var mi := root.get_child(i) as MultiMeshInstance3D
+		if mi == null or not mi.has_meta("stand") or not mi.has_meta("ibuf") or mi.multimesh == null or mi.multimesh.mesh == null: continue
+		var buf: PackedFloat32Array = mi.get_meta("ibuf")
+		var mm := mi.multimesh
+		var stride := 12 + (4 if mm.use_colors else 0) + (4 if mm.use_custom_data else 0)
+		var bx := mm.mesh.get_aabb().size
+		var half := maxf(bx.x, bx.z) * 0.5
+		for k in buf.size() / stride:
+			var o := k * stride
+			var sc := Vector3(buf[o], buf[o + 4], buf[o + 8]).length()
+			keep_out.append([mi.transform * Vector3(buf[o + 3], buf[o + 7], buf[o + 11]), sc * half * 0.7])
+
 ## a lone crystal wider than the rock it stands on (it read as stuck on a pebble, and nothing that grows on rock had
 ## room: a mushroom shrank to a speck): the rock grows out sideways, not up — the crystal's foot stays where it is —
 ## till it is wider than the foot by a margin; the spots on it for what grows there move with it
@@ -192,9 +208,10 @@ func _crystal_boxes(main: MeshInstance3D, mat: ShaderMaterial) -> Array:
 ## wavellite's stars, wire silver, a jade sunk in it): [centre, radius] in root space
 var keep_out := []
 
-func _free(p: Vector3) -> bool:
+## pad: this much room round p as well (a plant's leaves and caps spread past its foot)
+func _free(p: Vector3, pad := 0.0) -> bool:
 	for ko: Array in keep_out:
-		if p.distance_to(ko[0]) < float(ko[1]):
+		if p.distance_to(ko[0]) < float(ko[1]) + pad:
 			return false
 	# (asked tens of thousands of times a stone: each box's ball in root space is tried first - a point outside it
 	# is outside the box - and the boxes are kept as plain lists beside `boxes`)
@@ -2214,6 +2231,8 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			if a.is_empty(): continue
 			var ln := (0.16 + rng.next() * 0.14) * gs
 			SpecAccents.tuft(root, rng, a[0], a[1], 450 + int(rng.next() * 350), ln, 0.012, 0.8, 0.2, pc)
+			# (its room taken: nothing else of the rock's life grows up through it — keep_out, _free)
+			keep_out.append([a[0], ln * 0.7])
 			# the middle of the puff, not its root
 			_mark("pompom", (a[0] as Vector3) + (a[1] as Vector3) * ln * 0.45, a[1])
 	if "straw" in acc:
@@ -2222,9 +2241,9 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			# (on what faces up — the flat of the rock, a crystal's top: at the brink its fan hung out over nothing)
 			var a: Array = spot.call(0.35)
 			for t in 16:
-				if a.is_empty() or (a[1] as Vector3).y > 0.62: break
+				if a.is_empty() or ((a[1] as Vector3).y > 0.62 and _free(a[0])): break
 				a = spot.call(0.35)
-			if a.is_empty() or (a[1] as Vector3).y <= 0.62: continue
+			if a.is_empty() or (a[1] as Vector3).y <= 0.62 or not _free(a[0]): continue
 			# tangled hair: roots spread over a patch, long, strongly bent, every which way
 			# swept a little one way, but standing up off the rock as grass does (swept hard, ×2.2, a tuft lay over on
 			# its side, half of it in the air past the rock)
@@ -2233,6 +2252,8 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 			for bend in [1.4, 2.4]:
 				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.32, bend, sc, 0.09 * gs, 0.6)
 			_tag("straw")
+			# (a tuft's room: flowers and mushrooms no longer grow up through the straw)
+			keep_out.append([a[0], 0.17 * gs])
 	var hollows: Array = st.get("hollows", [])
 	var in_pits: bool = gene.nest == "hollows" and hollows.size() > 30
 	var rock_spots := []
@@ -2275,26 +2296,32 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 				var at: Array = beds[int(rng.next() * beds.size())]
 				# (and the bush leans back, its fronds spreading behind and above the find rather than over its face)
 				if skull: at = [at[0], ((at[1] as Vector3) + Vector3(0, 0.3, -0.7)).normalized()]
-				SpecAccents.fronds(root, rng, [at], 8 + int(rng.next() * 9), minf((0.3 + rng.next() * 0.22) * gs, fcap), fp)
+				var fn := 8 + int(rng.next() * 9)
+				var fsz := minf((0.3 + rng.next() * 0.22) * gs, fcap)
+				SpecAccents.fronds(root, rng, [at], fn, fsz, fp)
 				_mark("fronds", at[0], at[1])
+				keep_out.append([at[0], fsz * 0.45])
 		if "flowers" in acc:
 			# real plants (SpecFlora: the kind is the genome's), on their own random stream; on the open rock, the
 			# mountain violets all over it
 			var flr := Rng32.new((int(gene.shroom_seed) * 22695477 + 7) % 4294967296)
 			var fk := int(gene.get("flora", 0))
-			var open_rock := rock_spots.filter(func(q: Array) -> bool: return _free(q[0]))
-			var beds: Array = open_rock if open_rock.size() > 12 else green
+			var open_rock := rock_spots.filter(func(q: Array) -> bool: return _free(q[0], 0.1 * gs))
+			var beds: Array = open_rock if open_rock.size() > 12 else green.filter(func(q: Array) -> bool: return _free(q[0], 0.1 * gs))
+			if beds.is_empty(): beds = green
+			var had := root.get_child_count()
 			for fm: Array in SpecFlora.grow(root, flr, beds, fk, gs, boxes, SpecFlora.find_look(int(gene.shroom_seed), fk)):
 				_mark("flowers", fm[0], fm[1])
+			_claim(had)
 	# (the pits, and the open rock as well: on a lone crystal the pits all lie round its foot, under it, and a mushroom
 	# found no room at all — or shrank to a speck)
-	var shroom_beds: Array = nest_spots + rock_spots.filter(func(q: Array) -> bool: return _free(q[0]))
+	var shroom_beds: Array = (nest_spots + rock_spots).filter(func(q: Array) -> bool: return _free(q[0], 0.1 * gs))
 	# (and the rock's sides: every spot above is on its top, and on a find whose top the crystals fill a grown one had
 	# nowhere to stand — taken off the rock's own surface, on a stream of their own, the near sides first)
 	if "mushrooms" in acc and st.rock and (st.rock as Node3D).has_meta("geo"):
 		var sr := Rng32.new((int(gene.shroom_seed) * 1103515245 + 4321) % 4294967296)
 		for q: Array in RockKit.surf_pts(st.rock, 160, sr, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.15 and nn.y <= 0.3 and nn.z > -0.3, root):
-			if _free(q[0]): shroom_beds.append(q)
+			if _free(q[0], 0.1 * gs): shroom_beds.append(q)
 	if "mushrooms" in acc and shroom_beds.size():
 		# their own random stream too: the rest of the stone stays as it was
 		var fr := Rng32.new((int(gene.shroom_seed) * 69069 + 12345) % 4294967296)
