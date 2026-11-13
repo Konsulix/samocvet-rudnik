@@ -29,6 +29,10 @@ var _fov0 := 28.0
 var _touch := {}       # finger index -> position, for the pinch
 var _pinch0 := 0.0
 var _pinch_zoom := 1.0
+# where a zoom comes down to (the camera's rise above the stone's middle at full zoom): a crystal on its rock is looked
+# at in its lower third — the rock, what grows on it, where the butterflies sit — not the bare middle of the crystal
+var _aim := NAN
+var _v0 := 0.0
 var _since := 0.0
 var hold := false      # callouts are open: the stone stops drifting round (a finger still turns it)
 var _press := Vector2.ZERO
@@ -78,6 +82,7 @@ func show_spec(o: Dictionary) -> void:
 		return
 	_stand_in(null)
 	live = p
+	_aim = NAN   # (the next zoom aims anew at this stone)
 	built.emit(p)
 	spin_v = 0.45
 	tilt = 0.0
@@ -116,9 +121,13 @@ func _process(dt: float) -> void:
 	if _since >= 1.0 / FPS - 0.002 and is_visible_in_tree():
 		_since = 0.0
 		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	# (the camera's own rise is kept while the stone is not zoomed: the card sets it as it lays itself out)
+	if _zoom <= 1.001 and _zoom_to <= 1.001: _v0 = studio.cam.v_offset
+	if is_nan(_aim) and live: _aim = _aim_of(live)
 	if absf(_zoom - _zoom_to) > 0.001:
 		_zoom = lerpf(_zoom, _zoom_to, minf(1.0, dt * 12.0))
 		studio.cam.fov = _fov0 / _zoom
+	if not is_nan(_aim) and _zoom > 1.001: studio.cam.v_offset = _v0 + _aim * (1.0 - 1.0 / _zoom)
 	# a fluorescent find: the studio goes dark in step with its glow; a star heart dims it a little
 	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.75 if live and live.has_meta("dark") else 0.4 if live and (live.has_meta("heart_light") or live.has_meta("dim")) else 0.0)
 	if live and live.has_meta("heart_light"):
@@ -145,6 +154,21 @@ func _process(dt: float) -> void:
 			"x": n.rotate_object_local(Vector3.RIGHT, a[2] * dt)
 			"y": n.rotate_object_local(Vector3.UP, a[2] * dt)
 			_: n.rotate_object_local(Vector3.BACK, a[2] * dt)
+
+## how far down a zoom goes: to the lower third of a crystal on its rock (0 for anything else — a skull, a fossil, a lump)
+static func _aim_of(p: Node3D) -> float:
+	if p == null or p.get_child_count() == 0: return 0.0
+	var g: Dictionary = p.get_child(0).get_meta("genome", {})
+	if g.is_empty() or String(g.get("form", "")) in SpecGenome.NO_BASE or String(g.get("form", "")) == "skull" or String(g.get("lustre", "")) == "fossil": return 0.0
+	var b := SpecUtil.box_of(p)
+	var y := b.position.y + b.size.y * 0.3
+	# (a tall lone crystal on a stub of rock: its lower third is still bare crystal — down to where it leaves the rock)
+	for m in p.find_children("*", "MeshInstance3D", true, false):
+		if m.has_meta("base") and m.has_meta("geo"):
+			var rb := SpecUtil.rel_xform(m, p) * (m.get_meta("geo") as Geo).aabb()
+			y = minf(y, rb.end.y + b.size.y * 0.06)
+			break
+	return y - b.get_center().y
 
 func _set_zoom(z: float) -> void:
 	_zoom_to = clampf(z, 1.0, ZOOM_MAX)

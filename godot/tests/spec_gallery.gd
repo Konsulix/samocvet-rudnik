@@ -416,6 +416,8 @@ func _ready() -> void:
 			v._zoom = float(args.zoom)
 			v._zoom_to = v._zoom
 			v.studio.cam.fov = v._fov0 / v._zoom
+		# pinch=Z: zoomed in as a player's pinch does (SpecView: to a crystal's lower third)
+		if args.has("pinch"): v._zoom_to = float(args.pinch)
 		if list[i].has("fx") and not args.has("clean"):
 			var l := Label.new()
 			l.text = SpecLegend.FX_N.get(list[i].fx, list[i].fx)
