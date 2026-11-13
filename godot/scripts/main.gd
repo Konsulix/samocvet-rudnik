@@ -138,7 +138,7 @@ func _ready() -> void:
 			["fulgurite", func(g: Dictionary) -> bool: return int(g.glass) != 0]]
 		for b in ["star", "rose", "daisy", "bell", "blossom", "poppy"]:
 			want.append(["flower_quartz", func(g: Dictionary) -> bool: return g.bloom == b])
-		for c in ["ant", "beetle", "fly", "mosquito", "spider"]:
+		for c in ["wasp", "spider", "beetle", "cicada", "dragonfly", "moth", "mantis", "other"]:
 			want.append(["amber", func(g: Dictionary) -> bool: return g.content == "insect" and g.insect == c])
 		for c in ["flower", "fern", "feather"]:
 			want.append(["amber", func(g: Dictionary) -> bool: return g.content == c])

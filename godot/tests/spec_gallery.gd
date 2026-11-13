@@ -178,11 +178,11 @@ const SETS := [
 	{seed = 657, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "star", look = 9, host = "quartz", leaves = 3, gold = true},
 	{seed = 658, sid = "flower_quartz", kind = "fossil", gi = 2, traits = [], bloom = "daisy", look = 6, host = "quartz", leaves = 2, gold = false}],
 	# set 29: amber — every insect; copal; a flower in amber
-	[{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "ant", host = "amber", tone = "honey", crust = 0.0, spangle = false},
-	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "beetle", host = "amber", tone = "cognac", crust = 0.0, spangle = true},
-	{seed = 663, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "fly", host = "copal", crust = 0.0},
-	{seed = 664, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "mosquito", host = "amber", tone = "lemon", crust = 0.5, spangle = false},
-	{seed = 665, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", insect = "spider", host = "amber", tone = "cherry", crust = 0.0},
+	[{seed = 661, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", bug = "wasp_hornet", host = "amber", tone = "honey", crust = 0.0, spangle = false},
+	{seed = 662, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", bug = "beetle_longhorn", host = "amber", tone = "cognac", crust = 0.0, spangle = true},
+	{seed = 663, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", bug = "dragonfly_demoiselle", host = "copal", crust = 0.0},
+	{seed = 664, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", bug = "moth_morpho", host = "amber", tone = "lemon", crust = 0.5, spangle = false},
+	{seed = 665, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "insect", bug = "spider_argiope", host = "amber", tone = "cherry", crust = 0.0},
 	{seed = 666, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "flower", bloom = "blossom", look = 3, host = "amber", tone = "honey", crust = 0.7},
 	{seed = 667, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "fern", host = "amber", tone = "cognac", crust = 0.3},
 	{seed = 668, sid = "amber", kind = "fossil", gi = 2, traits = [], content = "feather", host = "amber", tone = "honey", spangle = true, crust = 0.0}],
@@ -375,8 +375,16 @@ func _ready() -> void:
 					e.film = k % 4
 					e.plant = ["fern", "ginkgo", "redwood", "horsetail"][(k / 4) % 4]
 				# fossil leaves pinned: plant=palm film=4 show=nodule guest=dragonfly pair=1
-				for fk in ["plant", "show", "guest", "crystals"]:
+				# amber: content=insect insect=<group> bug=<model> (bug=all: every model in turn) host= tone=
+				for fk in ["plant", "show", "guest", "crystals", "content", "insect", "bug", "host", "tone"]:
 					if args.has(fk): e[fk] = args[fk]
+				if args.get("bug", "") == "all" or "," in String(args.get("bug", "")):
+					var bugs := []
+					for gk: String in SpecFlower.BUGS:
+						for be: Array in SpecFlower.BUGS[gk]: bugs.append(be[0])
+					if args.bug != "all": bugs = Array(String(args.bug).split(","))
+					e.bug = bugs[k % bugs.size()]
+					e.content = "insect"
 				if args.has("film"): e.film = int(args.film)
 				if args.has("pair"): e.pair = args.pair == "1"
 				if args.has("dendrites"): e.dendrites = args.dendrites == "1"

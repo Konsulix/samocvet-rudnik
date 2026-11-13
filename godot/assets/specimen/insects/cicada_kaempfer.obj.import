@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ce73owad1bny6"
+path="res://.godot/imported/cicada_kaempfer.obj-670ed841bb51cda4d46357c524a227cf.mesh"
+
+[deps]
+
+files=["res://.godot/imported/cicada_kaempfer.obj-670ed841bb51cda4d46357c524a227cf.mesh"]
+
+source_file="res://assets/specimen/insects/cicada_kaempfer.obj"
+dest_files=["res://.godot/imported/cicada_kaempfer.obj-670ed841bb51cda4d46357c524a227cf.mesh", "res://.godot/imported/cicada_kaempfer.obj-670ed841bb51cda4d46357c524a227cf.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

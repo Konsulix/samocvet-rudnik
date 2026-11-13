@@ -5,8 +5,11 @@ extends RefCounted
 ## specks of bark, sun spangles, a weathered crust). What it holds:
 ##   a flower — star, rose, daisy, bell, blossom or poppy; petals of their own shape (shaders/petal.gdshader: colour,
 ##              an eye at the base, a sheen on the rims, veins, spots or stripes), stamens tipped with gold, leaves;
-##   an insect — ant, beetle, fly, mosquito or spider, built from its body parts, legs jointed and splayed as it
-##              was caught, wings see-through (shaders/wing.gdshader).
+##   an insect — a scan of a real dried specimen (assets/specimen/insects, CREDITS.md there; made light by
+##              prototype/tools/insects/insect_prep.py: head +x, back +y, its longest reach one unit, colour and relief
+##              baked into two textures, drawn by the mushrooms' shader without sway). Its group is the gene (`insect`:
+##              wasps and bees, spiders and scorpions, beetles...); which of the group's models a find holds is its
+##              seed's (`bug`, find_bug).
 ## Two finds use it: "flower_quartz" (a flower, in quartz mostly) and "amber" (an insect mostly).
 
 const U := preload("res://scripts/specimen/spec_util.gd")
@@ -33,7 +36,35 @@ const LOOKS := [
 ]
 ## flower forms and insects: [name, weight]
 const FORMS := [["star", 3.0], ["rose", 2.0], ["daisy", 2.0], ["bell", 1.5], ["blossom", 2.0], ["poppy", 1.5]]
-const INSECTS := [["ant", 3.0], ["beetle", 2.0], ["fly", 2.5], ["mosquito", 2.0], ["spider", 1.5]]
+## the insect groups (the gene, and the amber atlas's collection): [group, weight]
+const INSECTS := [["wasp", 2.0], ["spider", 1.5], ["beetle", 3.0], ["cicada", 1.5], ["dragonfly", 1.0], ["moth", 1.2],
+	["mantis", 1.0], ["other", 1.2]]
+## the models of every group, and what a find holding each is called; k: its size beside the others (all are one unit
+## at their longest reach: a centipede or a stick insect is long and thin, a beetle squat)
+const BUGS := {
+	wasp = [["wasp_hornet", "black-tailed hornet"], ["wasp_carpenter", "carpenter bee"]],
+	spider = [["spider_argiope", "wasp spider"], ["spider_scorpion", "forest scorpion"], ["spider_scorpion_b", "scorpion"]],
+	beetle = [["beetle_longhorn", "blue longhorn beetle"], ["beetle_fruit", "fruit chafer"], ["beetle_tiger", "tiger beetle"],
+		["beetle_stag", "stag beetle"], ["beetle_diving", "diving beetle"], ["beetle_eudicella", "flower beetle"],
+		["beetle_dynastes", "rhinoceros beetle"], ["beetle_cerambyx", "longhorn beetle"]],
+	cicada = [["cicada_kaempfer", "cicada"], ["cicada_locust", "migratory locust"]],
+	dragonfly = [["dragonfly_demoiselle", "demoiselle"], ["dragonfly_darner", "dragonfly nymph"]],
+	moth = [["moth_fritillary", "fritillary caterpillar"], ["moth_tiger", "tiger moth"], ["moth_sphinx", "sphinx moth"],
+		["moth_morpho", "blue morpho"], ["moth_luna", "luna moth"], ["moth_silk", "silk moth"]],
+	mantis = [["mantis_korean", "mantis nymph"], ["mantis_stick", "stick insect"]],
+	other = [["other_centipede", "centipede"], ["other_bug", "leaf-footed bug"], ["other_snail", "snail"]],
+}
+## the groups' names (the atlas, the awards)
+const GROUPS := {wasp = "Wasps & bees", spider = "Spiders & scorpions", beetle = "Beetles", cicada = "Cicadas & locusts",
+	dragonfly = "Dragonflies", moth = "Butterflies & moths", mantis = "Mantises & stick insects", other = "Odd ones"}
+## the size of a model beside the others, of its longest reach (by default 0.85)
+const BUG_K := {other_centipede = 1.0, mantis_stick = 1.0, other_snail = 0.8, beetle_fruit = 0.7, beetle_tiger = 1.0,
+	wasp_carpenter = 0.75}
+## the groups the code-drawn insects of old finds were (a saved gene may still name one)
+const OLD := {ant = "wasp", fly = "wasp", mosquito = "dragonfly"}
+const BUG_DIR := "res://assets/specimen/insects/"
+static var _bug_mesh := {}
+static var _bug_mat := {}
 ## hosts: [name, tint (linear), absorb, fractures, veils, bubbles, flow, debris, frost, inner glow]
 const HOSTS := {quartz = "clear quartz", smoky = "smoky quartz", amber = "Baltic amber", copal = "copal", simetite = "Sicilian simetite"}
 ## simetite, Sicily's amber: deep wine-red to garnet (it swallows green and blue fast), glowing blue on its skin
@@ -68,11 +99,32 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	g.crust = 0.0 if rng.next() < 0.6 else 0.2 + rng.next() * 0.6
 	g.window = rng.next() < 0.4
 	g.cloud = 0.0 if rng.next() < 0.8 else 0.3 + rng.next() * 0.5
-	if g.host == "copal": g.cloud = maxf(float(g.cloud), 0.25)
+	if g.host == "copal": g.cloud = maxf(float(g.cloud), 0.12)
 	for k in ["host", "content", "bloom", "look", "insect", "petals", "leaves", "gold", "bare", "tone", "spangle", "crust", "window", "cloud"]:
 		if o.has(k): g[k] = o[k]
 	if g.host == "copal" and not o.has("tone"): g.tone = "lemon"
+	g.insect = OLD.get(g.insect, g.insect)
+	g.bug = String(o.bug) if o.has("bug") else find_bug(seed_v, g.insect)
+	if o.has("bug"): g.insect = group_of(g.bug)
 	return g
+
+## which of its group's models a find holds: from the stone's seed (its own stream)
+static func find_bug(seed_v: int, group: String) -> String:
+	var l: Array = BUGS.get(OLD.get(group, group), BUGS.beetle)
+	var r := Rng32.new((seed_v * 69621 + 4127) % 4294967296)
+	return String((l[mini(int(r.next() * l.size()), l.size() - 1)] as Array)[0])
+
+static func group_of(bug: String) -> String:
+	for gk: String in BUGS:
+		for e: Array in BUGS[gk]:
+			if e[0] == bug: return gk
+	return "beetle"
+
+static func bug_name(bug: String) -> String:
+	for gk: String in BUGS:
+		for e: Array in BUGS[gk]:
+			if e[0] == bug: return String(e[1])
+	return "insect"
 
 static func accents(g: Dictionary) -> Array:
 	var out := [{flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(g.content, "insect"), "stone"]
@@ -86,7 +138,7 @@ static func gene_name(id: String, g: Dictionary) -> String:
 	match id:
 		"flower": return "%s %s" % [LOOKS[int(g.look)][0], {star = "star flower", rose = "rose", daisy = "daisy", bell = "bellflower",
 			blossom = "blossom", poppy = "poppy"}.get(g.bloom, "flower")]
-		"insect": return {ant = "ant", beetle = "beetle", fly = "fly", mosquito = "mosquito", spider = "spider"}.get(g.insect, "insect")
+		"insect": return bug_name(String(g.get("bug", find_bug(int(g.get("seed", 0)), String(g.get("insect", "beetle"))))))
 		"stone": return String(HOSTS[g.host]) if not g.host == "amber" else "%s Baltic amber" % g.get("tone", "honey")
 		"spangles": return "sun spangles"
 		"blue_glow": return "blue fluorescence"
@@ -246,100 +298,43 @@ static func _flower(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
 
 # ---------------------------------------------------------------- insects
 
-static func _ell(parent: Node3D, m: Material, at: Vector3, r: Vector3, bs := Basis.IDENTITY) -> void:
-	U.mesh(Geo.icosa(1.0, 2), m, parent, at, bs * Basis.from_scale(r))
-
 static func _seg(parent: Node3D, m: Material, a: Vector3, b: Vector3, r: float) -> void:
 	var d := b - a
 	if d.length() < 1e-4:
 		return
 	U.mesh(Geo.cylinder(0.75, 1.0, 1, 5).translate(0, 0.5, 0), m, parent, a, Basis(U.quat_to(Vector3.UP, d.normalized())) * Basis.from_scale(Vector3(r, d.length(), r)))
 
-## a jointed leg from `at`, reaching out (`out`: sideways and forward/back) — up to the knee, down to the foot
-static func _leg(parent: Node3D, m: Material, rng: Rng32, at: Vector3, out: Vector3, ls: Array, r: float, lift: float) -> void:
-	var up := Vector3.UP
-	var j1: Vector3 = at + (out * cos(lift) + up * sin(lift)).normalized() * float(ls[0])
-	var dn := lift * 0.9 + 0.5 + (rng.next() - 0.5) * 0.4
-	var j2: Vector3 = j1 + (out * cos(dn) - up * sin(dn)).normalized() * float(ls[1])
-	var j3: Vector3 = j2 + (out * 0.7 - up * 0.5).normalized() * float(ls[2])
-	_seg(parent, m, at, j1, r)
-	_seg(parent, m, j1, j2, r * 0.8)
-	_seg(parent, m, j2, j3, r * 0.55)
-	U.mesh(Geo.icosa(1.0, 1), m, parent, j1, Basis.from_scale(Vector3.ONE * r * 1.15))
+static func bug_mesh(bug: String) -> Mesh:
+	if not _bug_mesh.has(bug):
+		_bug_mesh[bug] = load(BUG_DIR + bug + ".obj") as Mesh
+	return _bug_mesh[bug]
 
-## a wing from its root at `at`, lying back over the body, spread `ang` to its side, tipped up a little
-static func _wing(parent: Node3D, rng: Rng32, at: Vector3, ln: float, wd: float, ang: float, side: float, seed_v: float) -> void:
-	var wm := ShaderMaterial.new()
-	wm.shader = WING
-	wm.set_shader_parameter("seed", seed_v + side)
-	var pg := _petal(rng, ln, wd, {tip = "round", cup = 0.05, bend = 0.0, wave = 0.01})
-	# the petal runs along +y with its face +z: lay it along -x (back), face up, then swing it out to its side
-	var bs := Basis(Vector3.UP, side * ang) * Basis(Vector3.BACK, PI / 2) * Basis(Vector3.RIGHT, -PI / 2 + 0.2)
-	var mi := U.mesh(pg, wm, parent, at, bs)
-	mi.set_meta("col", true)
+## the scan's own colour and relief, opaque (the amber's march through itself stops at it, by the depth buffer)
+static func bug_mat(bug: String) -> ShaderMaterial:
+	if not _bug_mat.has(bug):
+		var m := ShaderMaterial.new()
+		m.shader = SpecFungi.SHADER
+		m.set_shader_parameter("tex_d", load(BUG_DIR + bug + "_d.png"))
+		m.set_shader_parameter("tex_n", load(BUG_DIR + bug + "_n.png"))
+		m.set_shader_parameter("gain", 1.55)
+		m.set_shader_parameter("sat", 1.1)
+		m.set_shader_parameter("rough", 0.35)
+		_bug_mat[bug] = m
+	return _bug_mat[bug]
 
-## the insect, head towards +x, back up +y; about 1 long
+## the insect, head towards +x, back up +y; about 1 long (its group `insect`, its model `bug` — or one by the seed)
 static func _insect(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
-	var kind: String = f.insect
-	var cols := {ant = [0x3a1a10, 0.3], beetle = [[0x1a3a1a, 0x2a1a3a, 0x3a2a10, 0x0e0e0e][int(rng.next() * 4)], 0.5],
-		fly = [0x1a1a1a, 0.2], mosquito = [0x3a3028, 0.1], spider = [0x2a2018, 0.15]}
-	var cv: Array = cols.get(kind, [0x2a1a10, 0.2])
-	var ch := SpecMat.make({col = SpecMat.lin(int(cv[0])), metal = cv[1], rough = 0.28, coat = 0.6, coat_r = 0.1})
-	var leg_m := SpecMat.make({col = SpecMat.lin(int(cv[0])) * 1.3, rough = 0.4, coat = 0.3})
-	var sd := float(int(f.seed) % 97)
-	match kind:
-		"ant":
-			_ell(parent, ch, Vector3(-0.32, 0.0, 0), Vector3(0.22, 0.16, 0.16))
-			_ell(parent, ch, Vector3(-0.08, 0.03, 0), Vector3(0.05, 0.06, 0.045))
-			_ell(parent, ch, Vector3(0.08, 0.05, 0), Vector3(0.16, 0.07, 0.07), Basis(Vector3.BACK, 0.15))
-			_ell(parent, ch, Vector3(0.32, 0.07, 0), Vector3(0.1, 0.09, 0.085))
-			for s in [-1.0, 1.0]:
-				_seg(parent, leg_m, Vector3(0.4, 0.04, s * 0.03), Vector3(0.46, 0.0, s * 0.06), 0.012)   # mandibles
-				var e := Vector3(0.38, 0.13, s * 0.04)
-				var k1 := e + Vector3(0.02, 0.15, s * 0.05)
-				_seg(parent, leg_m, e, k1, 0.008)
-				_seg(parent, leg_m, k1, k1 + Vector3(0.18, -0.02, s * 0.08), 0.007)
-				for i in 3:
-					var x: float = [0.15, 0.08, 0.0][i]
-					var fw: float = [0.7, 0.05, -0.75][i]
-					_leg(parent, leg_m, rng, Vector3(x, 0.0, s * 0.05), Vector3(fw, 0, s).normalized(), [0.2, 0.24, 0.16], 0.013, 0.6)
-		"beetle":
-			_ell(parent, ch, Vector3(-0.12, 0.06, 0), Vector3(0.34, 0.17, 0.22))
-			_ell(parent, ch, Vector3(0.24, 0.05, 0), Vector3(0.1, 0.1, 0.16))
-			_ell(parent, ch, Vector3(0.36, 0.03, 0), Vector3(0.07, 0.06, 0.09))
-			for s in [-1.0, 1.0]:
-				var e := Vector3(0.4, 0.05, s * 0.05)
-				_seg(parent, leg_m, e, e + Vector3(0.12, 0.06, s * 0.1), 0.008)
-				_seg(parent, leg_m, e + Vector3(0.12, 0.06, s * 0.1), e + Vector3(0.22, 0.05, s * 0.16), 0.01)
-				for i in 3:
-					var x: float = [0.24, 0.05, -0.1][i]
-					var fw: float = [0.6, 0.0, -0.7][i]
-					_leg(parent, leg_m, rng, Vector3(x, -0.02, s * 0.1), Vector3(fw, 0, s).normalized(), [0.13, 0.15, 0.1], 0.017, 0.35)
-		"fly", "mosquito":
-			var slim := kind == "mosquito"
-			_ell(parent, ch, Vector3(0.05, 0.05, 0), Vector3(0.09, 0.08, 0.07) if slim else Vector3(0.14, 0.12, 0.12))
-			_ell(parent, ch, Vector3(0.18 if slim else 0.22, 0.04, 0), Vector3(0.05, 0.05, 0.05) if slim else Vector3(0.07, 0.08, 0.1))
-			_ell(parent, ch, Vector3(-0.27 if slim else -0.2, 0.02, 0), Vector3(0.26, 0.045, 0.045) if slim else Vector3(0.18, 0.1, 0.11))
-			if not slim:
-				var eye := SpecMat.make({col = SpecMat.lin(0x6a1a0a), rough = 0.25, coat = 0.8})
-				for s in [-1.0, 1.0]: _ell(parent, eye, Vector3(0.24, 0.06, s * 0.065), Vector3(0.05, 0.06, 0.045))
-			else:
-				_seg(parent, leg_m, Vector3(0.22, 0.03, 0), Vector3(0.48, -0.04, 0), 0.006)
-			for s in [-1.0, 1.0]:
-				_wing(parent, rng, Vector3(0.06, 0.12, s * 0.04), 0.42, 0.06 if slim else 0.14, 0.35, s, sd)
-				for i in 3:
-					var x: float = [0.12, 0.05, -0.02][i]
-					var fw: float = [0.7, 0.05, -0.7][i]
-					var ls: Array = [0.3, 0.36, 0.3] if slim else [0.15, 0.17, 0.12]
-					_leg(parent, leg_m, rng, Vector3(x, -0.02, s * 0.03), Vector3(fw, 0, s).normalized(), ls, 0.006 if slim else 0.011, 0.5)
-		"spider":
-			_ell(parent, ch, Vector3(0.12, 0.05, 0), Vector3(0.14, 0.08, 0.12))
-			_ell(parent, ch, Vector3(-0.2, 0.08, 0), Vector3(0.2, 0.16, 0.17))
-			for s in [-1.0, 1.0]:
-				for i in 4:
-					var fw: float = [0.9, 0.35, -0.3, -0.85][i]
-					_leg(parent, leg_m, rng, Vector3(0.14 - i * 0.03, 0.04, s * 0.06), Vector3(fw, 0, s).normalized(), [0.24, 0.28, 0.22], 0.014, 0.9)
-	return [Vector3(0.0, 0.12, 0)]
+	var bug := String(f.get("bug", find_bug(int(f.get("seed", 0)), String(f.get("insect", "beetle")))))
+	var k := float(BUG_K.get(bug, 0.85)) / 0.85
+	var mi := MeshInstance3D.new()
+	mi.mesh = bug_mesh(bug)
+	mi.material_override = bug_mat(bug)
+	mi.scale = Vector3.ONE * k
+	mi.set_meta("col", true)
+	parent.add_child(mi)
+	# (the callout: on its back, a little before the middle)
+	var box := bug_mesh(bug).get_aabb()
+	return [Vector3(0.05, box.end.y * 0.5, 0) * k]
 
 # ---------------------------------------------------------------- fern, feather
 
@@ -515,7 +510,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		marks = _fern(inner, rng, f) if f.content == "fern" else _feather(inner, rng, f)
 	elif f.content == "insect":
 		# caught as it fell: turned any way, legs splayed
-		var k := (0.72 if f.insect in ["mosquito", "spider"] else 0.85) if resin else (1.15 if f.insect in ["mosquito", "spider"] else 1.45)
+		var k := 1.1 if resin else 1.6
 		inner.transform = Transform3D(face * lie * Basis(Vector3.UP, (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.7) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * k), at)
 		marks = _insect(inner, rng, f)
 	else:

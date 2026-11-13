@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://c7xmf7clpp71f"
+path="res://.godot/imported/mantis_stick.obj-1a9e66295492574fe4d715e640227943.mesh"
+
+[deps]
+
+files=["res://.godot/imported/mantis_stick.obj-1a9e66295492574fe4d715e640227943.mesh"]
+
+source_file="res://assets/specimen/insects/mantis_stick.obj"
+dest_files=["res://.godot/imported/mantis_stick.obj-1a9e66295492574fe4d715e640227943.mesh", "res://.godot/imported/mantis_stick.obj-1a9e66295492574fe4d715e640227943.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
