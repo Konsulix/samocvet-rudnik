@@ -177,6 +177,14 @@ const FROND := [
 ]
 const FLOWER := [Color(1.0, 1.0, 0.97), Color(1.1, 0.85, 0.15), Color(1.1, 0.4, 0.65), Color(0.55, 0.35, 1.0), Color(0.35, 0.55, 1.1)]
 
+## how far a frond reaches on average (its scan's longest side: a fern spreads more than it stands) for `size` 1: the
+## clump's ×3.9 of the scan, a copy's ×0.95, ×1.1 near the clump's middle (SpecPlants.scatter)
+static var FROND_MEAN: float:
+	get:
+		var h := 0.0
+		for m: Mesh in SpecPlants.meshes("fern"): h = maxf(h, m.get_aabb().get_longest_axis_size())
+		return 3.9 * 0.95 * 1.1 * (h if h > 0.0 else 1.0)
+
 ## little fern fronds: a thin dark stem arching out and drooping, paired rounded leaflets shrinking to the tip
 static func fronds(parent: Node3D, rng: Rng32, spots: Array, count: int, size: float, pal: Array) -> void:
 	# a scanned fern (Poly Haven fern_02, its photo texture: real pinnae and veins), a few fronds per clump,

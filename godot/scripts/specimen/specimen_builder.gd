@@ -2110,6 +2110,23 @@ func _crumbs(rm: ShaderMaterial, top: Array, sc: Vector3, loose: float) -> void:
 	U.inst(Geo.icosa(1, 0), gm, int(150 + loose * 250), place, root)
 
 # the accent genes: fibre pom-poms, straw hairs, lichen, dark spots and coloured clouds in the glass
+## how far a fern frond reaches on average, in the find's body sizes (SpecAccents.fronds)
+const FROND_REACH := 1.4
+const FROND_SLIM := ["raven", "spoonbill", "hornbill"]
+
+## the find's body: the box of what it is made of — its crystals, its rock, a skull's bone (not what grows on it)
+func _body_box() -> AABB:
+	var bb := AABB()
+	var any := false
+	for n: Node in root.find_children("*", "MeshInstance3D", true, false):
+		if not (n.get_meta("crystal", false) or n.has_meta("base")): continue
+		var m := (n as MeshInstance3D).mesh
+		if m == null: continue
+		var box := SpecUtil.rel_xform(n as Node3D, root) * m.get_aabb()
+		bb = bb.merge(box) if any else box
+		any = true
+	return bb if any else AABB(Vector3(-0.5, -0.5, -0.5), Vector3.ONE)
+
 func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: Dictionary, layout: String) -> void:
 	_tag("growths")
 	var acc: Array = gene.accents
@@ -2184,9 +2201,25 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 	if green.size():
 		if "fronds" in acc:
 			var fp: Array = SpecAccents.FROND[int(pal.frond)]
+			# (a fern is a big bush: grown in front of a skull it hides it — a raven's went under a ball of fronds. So on a
+			# skull the clumps root on its back and sides, away from the viewer (who looks along -Z), and everywhere a
+			# frond reaches on average no farther than the body is across ×FROND_REACH — a small find, smaller ferns)
+			# (the back of the find only on a skull: there the face is the thing; on a rock a fern in front is part of it)
+			var skull := String(gene.form) == "skull"
+			var body := _body_box()
+			var bs := pow(maxf(body.size.x * body.size.y * body.size.z, 1e-6), 1.0 / 3.0)
+			var fcap := FROND_REACH * bs / SpecAccents.FROND_MEAN
+			# (a bird's skull is a thin shell round a long beak: its box is a mammal's, its bulk a third of it)
+			if skull and String((gene.get("skull", {}) as Dictionary).get("beast", "")) in FROND_SLIM:
+				fcap *= 0.55
+			var back := green.filter(func(g: Array) -> bool:
+				return (g[0] as Vector3).z < body.get_center().z and (g[1] as Vector3).z < 0.2) if skull else []
+			var beds: Array = back if back.size() >= 3 else green
 			for k in 1 + int(rng.next() * 3):
-				var at: Array = green[int(rng.next() * green.size())]
-				SpecAccents.fronds(root, rng, [at], 8 + int(rng.next() * 9), (0.3 + rng.next() * 0.22) * gs, fp)
+				var at: Array = beds[int(rng.next() * beds.size())]
+				# (and the bush leans back, its fronds spreading behind and above the find rather than over its face)
+				if skull: at = [at[0], ((at[1] as Vector3) + Vector3(0, 0.3, -0.7)).normalized()]
+				SpecAccents.fronds(root, rng, [at], 8 + int(rng.next() * 9), minf((0.3 + rng.next() * 0.22) * gs, fcap), fp)
 				_mark("fronds", at[0], at[1])
 		if "flowers" in acc:
 			# real plants (SpecFlora: the kind is the genome's), on their own random stream; on the open rock, the
