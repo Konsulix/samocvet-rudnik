@@ -13,19 +13,23 @@ const KINDS := {
 	peacock = {span = 0.85, style = "glide", w = 2.5},
 	swallowtail = {span = 1.1, style = "float", w = 2.5},
 	bluetiger = {span = 1.0, style = "glide", w = 2.0},
-	birdwing = {span = 1.35, style = "float", w = 1.5},
-	glasswing = {span = 0.95, style = "weave", w = 1.5},
 	hawkmoth = {span = 1.0, style = "hover", w = 1.5},
+	chestnut = {span = 1.0, style = "glide", w = 1.5},
+	bluebottle = {span = 1.0, style = "glide", w = 1.5},
+	silkmoth = {span = 1.2, style = "drift", w = 1.2},
+	spangle = {span = 1.15, style = "float", w = 1.2},
 }
 
 ## their names on the card (a callout, one per kind: "Apollo ×2")
 const NAME := {monarch = "monarch", apollo = "Apollo", peacock = "peacock butterfly", swallowtail = "swallowtail",
-	bluetiger = "blue tiger", birdwing = "birdwing", glasswing = "clearwing swallowtail", hawkmoth = "elephant hawk-moth"}
+	bluetiger = "blue tiger", hawkmoth = "elephant hawk-moth", chestnut = "chestnut tiger", bluebottle = "common bluebottle",
+	silkmoth = "oak silkmoth", spangle = "long-tailed spangle"}
 ## which of them live by each mine (its area): Old Adit's meadows (peacock, swallowtail), the Alpine Apollo of the copper
-## mountain, the hawk-moth of the Sicilian sulphur and of the coal seam, the far-eastern valley's blue tiger and
-## birdwing; the barrow's skulls have all of them (SpecSkull). The sea cove and the polar pit: none.
-const AREA_KINDS := {0: ["peacock", "swallowtail"], 1: ["apollo"], 3: ["hawkmoth"], 5: ["bluetiger", "birdwing"],
-	6: ["monarch", "apollo", "peacock", "swallowtail", "bluetiger", "birdwing", "glasswing", "hawkmoth"], 7: ["hawkmoth"]}
+## mountain, the hawk-moth of the Sicilian sulphur and of the coal seam (with the big oak silkmoth), the Edo valley's
+## Japanese ones — blue tiger, chestnut tiger, bluebottle, long-tailed spangle, oak silkmoth; the barrow's skulls have
+## all of them (SpecSkull). The sea cove and the polar pit: none.
+const AREA_KINDS := {0: ["peacock", "swallowtail"], 1: ["apollo"], 3: ["hawkmoth"], 5: ["bluetiger", "chestnut", "bluebottle", "spangle", "silkmoth"],
+	6: ["monarch", "apollo", "peacock", "swallowtail", "bluetiger", "hawkmoth", "chestnut", "bluebottle", "silkmoth", "spangle"], 7: ["hawkmoth", "silkmoth"]}
 ## how often a find (not a skull: those decide their own) has butterflies on it
 const FIND_P := 0.06
 
@@ -40,9 +44,13 @@ const MODELS := {
 	apollo = {file = "apollo.glb", scales = true, span = 2.995, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
 	peacock = {file = "peacock.glb", scales = true, span = 2.389, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
 	swallowtail = {file = "swallowtail.glb", scales = true, span = 2.369, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
-	birdwing = {file = "birdwing.glb", scales = true, span = 2.457, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
-	glasswing = {file = "glasswing.glb", scales = true, span = 2.266, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
 	hawkmoth = {file = "hawkmoth.glb", scales = true, span = 2.691, yaw = -PI / 2, pitch = 0.25, clips = {fly = "fly", sit = "idle"}},
+	# scans of pinned specimens (ffishAsia, CC0) given a hinge and a wingbeat by prototype/tools/butterflies/butterfly_prep.py:
+	# head +X, back +Y, wingspan 2.5; no sitting clip — they sit at the top of the stroke, wings closed over the back
+	chestnut = {file = "chestnut.glb", span = 2.5, yaw = 0.0, pitch = 0.0, clips = {fly = "fly"}},
+	bluebottle = {file = "bluebottle.glb", span = 2.5, yaw = 0.0, pitch = 0.0, clips = {fly = "fly"}},
+	silkmoth = {file = "silkmoth.glb", span = 2.5, yaw = 0.0, pitch = 0.0, clips = {fly = "fly"}},
+	spangle = {file = "spangle.glb", span = 2.5, yaw = 0.0, pitch = 0.0, clips = {fly = "fly"}},
 	bluetiger = {file = "bluetiger.glb", span = 0.12, yaw = PI / 2, pitch = 0.15, clips = {fly = "hover", sit = "idle"},
 		tip = "r_frnt_wings08", base = "chest_jnt"},
 	# not a butterfly: the fireflies of a skull's swarm (SpecSkullFx._swarm). Its one clip is its flight, the wings a

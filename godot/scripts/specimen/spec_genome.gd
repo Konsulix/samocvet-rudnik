@@ -26,7 +26,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	fly_monarch = "monarch", fly_apollo = "Apollo", fly_peacock = "peacock butterfly", fly_swallowtail = "swallowtail",
 	mimetite = "mimetite crust", pseudo = "pseudomorph", assoc = "association", 	tm_watermelon = "watermelon", tm_bicolour = "bicolour", tm_tricolour = "tricolour", tm_blue_cap = "blue cap", tm_rubellite = "rubellite",
 	tm_indicolite = "indicolite", tm_verdelite = "verdelite", tm_paraiba = "Paraiba neon", tm_slice = "watermelon slice",
-	fly_bluetiger = "blue tiger", fly_birdwing = "birdwing", fly_glasswing = "clearwing swallowtail", fly_hawkmoth = "elephant hawk-moth", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
+	fly_bluetiger = "blue tiger", fly_hawkmoth = "elephant hawk-moth", fly_chestnut = "chestnut tiger", fly_bluebottle = "common bluebottle", fly_silkmoth = "oak silkmoth", fly_spangle = "long-tailed spangle", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
 	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 

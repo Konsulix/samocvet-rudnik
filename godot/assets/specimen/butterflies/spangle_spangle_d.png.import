@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d0wq7mohikfj"
-path="res://.godot/imported/glasswing_0.png-7106a94a8d705eb27edcea9478c88a56.ctex"
+uid="uid://pskslskow53y"
+path="res://.godot/imported/spangle_spangle_d.png-91cff4e794d6d5b2b65e08c8fe76cd9f.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "1ffe077cf6ea8d625d1ba2c15c17536f"
+"md5": "7073be966d9e3db92b9ad666fee5167d"
 }
 
 [deps]
 
-source_file="res://assets/specimen/butterflies/glasswing_0.png"
-dest_files=["res://.godot/imported/glasswing_0.png-7106a94a8d705eb27edcea9478c88a56.ctex"]
+source_file="res://assets/specimen/butterflies/spangle_spangle_d.png"
+dest_files=["res://.godot/imported/spangle_spangle_d.png-91cff4e794d6d5b2b65e08c8fe76cd9f.ctex"]
 
 [params]
 
@@ -39,5 +39,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=512
+process/size_limit=0
 detect_3d/compress_to=1

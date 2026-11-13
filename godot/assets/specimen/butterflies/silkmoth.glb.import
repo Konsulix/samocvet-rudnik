@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dil6k68v7o3el"
-path="res://.godot/imported/birdwing.glb-03a85a77307d69971dce118f574d47fe.scn"
+uid="uid://b6srgrj45ql5k"
+path="res://.godot/imported/silkmoth.glb-16744d332307780dfa7429c42d2f7318.scn"
 
 [deps]
 
-source_file="res://assets/specimen/butterflies/birdwing.glb"
-dest_files=["res://.godot/imported/birdwing.glb-03a85a77307d69971dce118f574d47fe.scn"]
+source_file="res://assets/specimen/butterflies/silkmoth.glb"
+dest_files=["res://.godot/imported/silkmoth.glb-16744d332307780dfa7429c42d2f7318.scn"]
 
 [params]
 

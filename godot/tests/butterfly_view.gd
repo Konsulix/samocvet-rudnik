@@ -18,7 +18,7 @@ func _ready() -> void:
 	sun.rotation = Vector3(-1.0, 0.4, 0)
 	add_child(sun)
 	var ids: Array = SpecButterfly.KINDS.keys()
-	# kind=birdwing,apollo: only those; zoom=2: closer
+	# kind=bluebottle,apollo: only those; zoom=2: closer
 	if args.has("kind"): ids = Array(String(args.kind).split(","))
 	var held := []
 	for i in ids.size():

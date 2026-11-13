@@ -46,8 +46,8 @@ static var LIST := [
 	{tab = "tales", icon = "oyster_moon", n = "Moonlit Sea", t = "It waited four hundred million years for the moon.", r = "pearl gems", items = ["i:oyster_moon"], one = true, ev = "gene:fx:moon"},
 
 	{tab = "coll", icon = "butterfly", n = "Pinned by Nature", t = "They landed on the stone and never left.", r = "butterfly board frame",
-		tags = ["fly:monarch", "fly:apollo", "fly:peacock", "fly:swallowtail", "fly:bluetiger", "fly:birdwing", "fly:glasswing", "fly:hawkmoth"],
-		names = ["Monarch", "Apollo", "Peacock", "Swallowtail", "Blue tiger", "Birdwing", "Clearwing", "Hawk-moth"]},
+		tags = ["fly:monarch", "fly:apollo", "fly:peacock", "fly:swallowtail", "fly:bluetiger", "fly:hawkmoth", "fly:chestnut", "fly:bluebottle", "fly:silkmoth", "fly:spangle"],
+		names = ["Monarch", "Apollo", "Peacock", "Swallowtail", "Blue tiger", "Hawk-moth", "Chestnut tiger", "Bluebottle", "Oak silkmoth", "Spangle"]},
 	{tab = "coll", icon = "mushrooms", n = "Fairy Ring", t = "Something grows down here. Several somethings.", r = "the mushroom world", opens = true,
 		tags = ["shroom:0", "shroom:1", "shroom:2", "shroom:3", "shroom:4", "shroom:5", "shroom:6", "shroom:7"],
 		names = ["Fly agaric", "Chanterelle", "Bolete", "Mycena", "Honey fungus", "Morel", "Blue oyster", "Panther cap"]},

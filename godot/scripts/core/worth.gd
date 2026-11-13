@@ -35,8 +35,8 @@ const ACC := {pompom = 0.6, straw = 0.7, lichen = 0.4, needles = 0.4, crust = 0.
 
 ## butterflies by kind (SpecButterfly.KINDS: the commoner meadow ones less, the rare and showy more); each one more of
 ## a kind +0.3
-const FLY := {peacock = 1.0, swallowtail = 1.1, monarch = 1.2, apollo = 1.3, bluetiger = 1.6, hawkmoth = 1.8, birdwing = 2.4,
-	glasswing = 2.4}
+const FLY := {peacock = 1.0, swallowtail = 1.1, monarch = 1.2, apollo = 1.3, bluetiger = 1.6, hawkmoth = 1.8, chestnut = 1.6,
+	bluebottle = 2.2, silkmoth = 2.0, spangle = 2.4}
 
 ## a skull's skin is what it is: named by the card's title, but first among its badges
 const SKINS := ["sk_gilt", "sk_gold", "sk_silver", "sk_copper", "sk_kintsugi", "sk_glass", "sk_agate", "sk_opal", "sk_pyrite",

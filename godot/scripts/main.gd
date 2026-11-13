@@ -207,7 +207,7 @@ func _ready() -> void:
 		var pins := [{}, {show = "rock"}, {moss = "cap", trees = 3}, {flies = 3}, {eyes = "both", crown = false}, {fangs = "all"},
 			{milk = "wax", tone = "grave"}, {dmg = "broken"}, {show = "rock", rock_kind = "boulder"}, {tone = "ash"},
 			{milk = "frost"}, {moss = "patches", flies = 2}, {show = "rock", rock_kind = "perched"}, {lie = "side", show = "rock"},
-			{fangs = "some", eyes = "one"}, {}, {flies = 2, fly_kind = "birdwing"}, {moss = "cap", show = "rock"}, {}, {flies = 3, fly_kind = "peacock"},
+			{fangs = "some", eyes = "one"}, {}, {flies = 2, fly_kind = "bluebottle"}, {moss = "cap", show = "rock"}, {}, {flies = 3, fly_kind = "peacock"},
 			{skin = "glass"}, {skin = "gold", crown = false, eyes = "none"}, {skin = "kintsugi", crown = false, eyes = "none"},
 			{skin = "gilt", tone = "ash"}, {skin = "silver", crown = false, eyes = "both"}, {skin = "copper", show = "rock"}, {skin = "nacre"}, {skin = "nacre", flies = 2}, {moss = "cap", trees = 3, stream = true, tone = "ash", crown = false, eyes = "none"},
 			{roots = true, crown = false, eyes = "none", moss = "none"}, {bloom = true, bloom_pal = 0, crown = true, moss = "none"}, {bloom = true, bloom_pal = 1, crown = true},
@@ -254,7 +254,7 @@ func _ready() -> void:
 		# down again — one skull for each of a few kinds (no bouquet: they would sit hidden under the flowers)
 		if String(args.skulls) == "flock":
 			pins = []
-			for fk: String in ["peacock", "monarch", "birdwing", "apollo", "bluetiger", "swallowtail"]:
+			for fk: String in ["peacock", "monarch", "bluebottle", "apollo", "bluetiger", "swallowtail"]:
 				pins.append({legend = true, fx = "flutter", fly_kind = fk, bloom = false, moss = "none", trees = 0})
 		# skulls=fireflies: the legend "firefly swarm" on a few skulls (a man's and beasts')
 		if String(args.skulls) == "fireflies":
