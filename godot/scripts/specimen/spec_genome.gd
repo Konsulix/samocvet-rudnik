@@ -147,6 +147,11 @@ static func of(o: Dictionary) -> Dictionary:
 	var on_rock: bool = fossil.get("show", "") == "matrix" or (sid == "fern" and fossil.get("show", "") == "slab")
 	if habit == "fossil" and not on_rock:
 		apool = []
+	# an ammonite or a trilobite on its slab lies on the sea floor (SpecSea: sunlight through the water, bubbles, sea
+	# lilies): no land life there — mushrooms, flowers, ferns, moss, lichen, grass, butterflies — only what the sea leaves
+	var sea_floor := on_rock and sid in ["ammonite", "trilobite"]
+	if sea_floor:
+		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["crust", "dust", "bubbles"])
 	# nor on a lump of glass
 	if habit == "obsidian":
 		apool = []
@@ -273,14 +278,14 @@ static func of(o: Dictionary) -> Dictionary:
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
 	if shroom >= 0 and not bare and not form in ["slice"] and not form == "sawn" and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
-			and not (habit == "fossil" and not on_rock):
+			and not (habit == "fossil" and not on_rock) and not sea_floor:
 		acc.append("mushrooms")
 	else:
 		shroom = -1
 	# butterflies resting on the find or flying round it — any find, the kinds of its species' mine (SpecButterfly), on
 	# their own stream; a skull decides its own below
 	var fly_kinds: Array = []
-	if o.get("form", "") != "skull" and not bare and not (habit == "fossil" and not on_rock):
+	if o.get("form", "") != "skull" and not bare and not (habit == "fossil" and not on_rock) and not sea_floor:
 		fly_kinds = SpecButterfly.for_find(seed_v, sid, o)
 		for k: String in fly_kinds:
 			if not "fly_" + k in acc: acc.append("fly_" + k)
@@ -314,7 +319,7 @@ static func of(o: Dictionary) -> Dictionary:
 	for t in ["irid", "aurora"]:
 		if t in tr and (lustre in ["metal", "dark", "fossil"] or habit == "obsidian") and form != "botryoid": lost.append(t)
 	if "bubbles" in tr and (form in ["radial", "floater", "obsidian", "simetite"] or (habit == "fossil" and not on_rock)): lost.append("bubbles")
-	if "moss" in tr and form in NO_BASE: lost.append("moss")
+	if "moss" in tr and (form in NO_BASE or sea_floor): lost.append("moss")   # (no moss on the sea floor)
 	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
 	return {
 		lost = lost,
