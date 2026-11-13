@@ -21,7 +21,7 @@ const KINDS := [
 	{looks = [["gentian_a", "gentian_b_0"]], more = 1, k = 1.0, gain = 1.2, sat = 1.3},
 	{looks = [["lily_a", "lily_b", "lily_c"]], k = 1.2, gain = 1.3, sat = 1.15},
 	{looks = [["rose"]], k = 1.05, gain = 0.75, sat = 1.15},
-	{looks = [["daisy_0"]], k = 1.05, gain = 0.7},
+	{looks = [["daisy_0"]], k = 0.79, gain = 0.7},
 	{looks = [["goldmum"]], k = 1.4, gain = 1.35, sat = 1.2},
 	{looks = [["azalea"]], k = 1.05, gain = 1.3, sat = 1.15},
 	{looks = [["iris_2", "iris_1", "iris_0", "iris_0"]], lead = "iris_2", more = 2, k = 1.0, gain = 1.3, sat = 1.2},
@@ -75,9 +75,14 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 	# rock that faces up, where there is any
 	var tops := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.3)
 	var base: Array = tops if tops.size() else spots
-	# the rock's flanks: where the crystals leave the top no room, a plant grows out of the side, leaning off it
+	# (a big plant on the flat of the top, not at its brink: its leaves spread wide at the foot, and by the edge they
+	# hung out over nothing, the plant looking set in the air beside the rock)
+	var flat := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.62)
+	if not many and flat.size() >= 8: base = flat
+	# the rock's flanks: where the crystals leave the top no room, a plant grows out of the side, leaning off it — the
+	# little violets only; a big one there stood out past the rock
 	var flank := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y <= 0.3 and (q[1] as Vector3).y > -0.25)
-	if flank.is_empty(): flank = base
+	if flank.is_empty() or not many: flank = base
 	var placed := {}      # model -> [transforms, tints]
 	var marks := []
 	var clumps := (4 + int(rng.next() * 4)) if many else (1 + int(rng.next() * 2))

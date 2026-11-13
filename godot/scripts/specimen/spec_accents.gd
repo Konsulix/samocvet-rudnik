@@ -52,7 +52,8 @@ static func fibre_mat() -> ShaderMaterial:
 
 ## a burst of fibres from `p` around direction `n`
 ## area > 0 spreads the roots over a patch (tangled hair) instead of one point (a pom-pom)
-static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int, length: float, thick: float, spread: float, bend: float, cols: Array, area := 0.0) -> void:
+## min_up: no strand points lower than this (its direction's y) — a tuft of grass does not hang over the rock's edge
+static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int, length: float, thick: float, spread: float, bend: float, cols: Array, area := 0.0, min_up := -2.0) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
@@ -63,6 +64,9 @@ static func tuft(parent: Node3D, rng: Rng32, p: Vector3, n: Vector3, count: int,
 	var B := n.cross(T)
 	for k in count:
 		var d := (n + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 2.0 * spread).normalized()
+		if d.y < min_up:
+			var hz := Vector2(d.x, d.z).normalized() * sqrt(1.0 - min_up * min_up)
+			d = Vector3(hz.x, min_up, hz.y)
 		var ln := length * (0.45 + rng.next() * 0.7)
 		var b := Basis(SpecUtil.quat_to(Vector3.UP, d)) * Basis(Vector3.UP, rng.next() * TAU) * Basis.from_scale(Vector3(thick, ln, thick))
 		# (the roots spread over a flat patch: on a rounded rock its rim stands off the surface — sunk in by as much,

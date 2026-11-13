@@ -2219,15 +2219,19 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 	if "straw" in acc:
 		var sc: Array = SpecAccents.STRAW[int(pal.straw)]
 		for k in 2 + int(rng.next() * 3):
+			# (on what faces up — the flat of the rock, a crystal's top: at the brink its fan hung out over nothing)
 			var a: Array = spot.call(0.35)
-			if a.is_empty(): continue
+			for t in 16:
+				if a.is_empty() or (a[1] as Vector3).y > 0.62: break
+				a = spot.call(0.35)
+			if a.is_empty() or (a[1] as Vector3).y <= 0.62: continue
 			# tangled hair: roots spread over a patch, long, strongly bent, every which way
 			# swept a little one way, but standing up off the rock as grass does (swept hard, ×2.2, a tuft lay over on
 			# its side, half of it in the air past the rock)
 			var sweep: Vector3 = ((a[1] as Vector3).lerp(UP, 0.45) + Vector3(rng.next() - 0.5, rng.next() * 0.3, rng.next() - 0.5) * 0.7).normalized()
 			_mark("straw", a[0], a[1])
 			for bend in [1.4, 2.4]:
-				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.45, bend, sc, 0.09 * gs)
+				SpecAccents.tuft(root, rng, a[0], sweep, 80 + int(rng.next() * 80), (0.2 + rng.next() * 0.2) * gs, 0.008, 0.32, bend, sc, 0.09 * gs, 0.6)
 			_tag("straw")
 	var hollows: Array = st.get("hollows", [])
 	var in_pits: bool = gene.nest == "hollows" and hollows.size() > 30
