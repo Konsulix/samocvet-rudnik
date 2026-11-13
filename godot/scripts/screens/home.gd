@@ -37,7 +37,7 @@ var _tasks: Button         # the Next plate (the first-time note points at it)
 var _row: Control           # the Play / next-depth row: the level window keeps clear of it
 var rail: AwardsRail        # the awards waiting to be claimed, down the right edge
 var _bar: Control           # the top bar (a claimed award's coins fly to it)
-var _claiming := false
+var _sheet: Awards        # an award's sheet open over the mine (from the rail)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -126,7 +126,7 @@ func _ready() -> void:
 	_dust()
 	rail = AwardsRail.new()
 	add_child(rail)
-	rail.claim.connect(_claim_award)
+	rail.claim.connect(_open_award)
 	render()
 
 func ai() -> int:
@@ -229,25 +229,18 @@ func render() -> void:
 			# the guide has his say once what changed has played out
 			_guide_later(3.6 if view.focus_y >= 0.0 or not MineView.last_result.is_empty() else 1.0)
 
-## an award claimed from its medallion at the edge (AwardsRail): the seal comes down on it, its coins fly to the bar,
-## its geode opens, on the big ones the sister has her word — as on the awards' own sheet, without going there
-func _claim_award(nm: String) -> void:
-	if _claiming: return
-	var e := {}
-	for x: Dictionary in Awards.LIST:
-		if String(x.n) == nm: e = x
-	if e.is_empty() or Awards._state(e) != "ready": return
-	_claiming = true
-	var from := rail.centre_of(nm)
-	await rail.sealed(nm)
-	var gv := Awards.give_of(e)
-	if gv.has("coins"): await Awards.coins_fly(self, _bar, from, int(gv.coins))
-	await Awards.claim(e)
-	if Awards.SAY.has(nm) and Save.told("s_sister_meet"):
-		var l: Array = Awards.SAY[nm]
-		await StoryScene.say(self, [["sister", String(l[0]), String(l[1])]]).finished
-	_claiming = false
-	if is_inside_tree(): render()
+## an award's medallion at the edge (AwardsRail): its sheet over the mine screen, as in the awards' list — what it
+## was for, what it gives, the Claim button (the seal, the coins to the bar, the geode); closed, the rail and the bar
+## are laid out again
+func _open_award(nm: String) -> void:
+	if is_instance_valid(_sheet): return
+	for e: Dictionary in Awards.LIST:
+		if String(e.n) != nm or Awards._state(e) != "ready": continue
+		Sfx.play("open")
+		_sheet = Awards.sheet_over(self, e, _bar)
+		_sheet.go.connect(func(id: String): go.emit(id))
+		_sheet.closed.connect(func(): if is_inside_tree(): render.call_deferred())
+		return
 
 ## what stands between the shaft and its next depth: the job of the deepest open depth (paid in the mine's own ore),
 ## then the drill (iron + coins). At the last depth only its job is left, then the next mine.
@@ -1283,7 +1276,7 @@ func _say(text: String) -> void:
 	await _bubble.closed
 	_bubble = null
 
-## for screenshots: ui=claim_first claims the first award waiting at the edge, as a tap on its medallion does
-func _claim_first() -> void:
+## for screenshots: ui=award_first opens the sheet of the first award waiting at the edge, as a tap on its medallion does
+func _award_first() -> void:
 	var rl := Awards.rail(1)
-	if rl.size(): _claim_award(String(rl[0].n))
+	if rl.size(): _open_award(String(rl[0].n))

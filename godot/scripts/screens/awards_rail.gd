@@ -7,8 +7,8 @@ extends Control
 ## window by its own outline (fit), so a wide one and a tall one sit in it alike.
 ## One thing moves: a soft halo behind the ring, breathing. (Rays, a hopping icon, a sway and a glint together were
 ## too much: one or the other.) They slide in when the screen opens.
-## A tap claims the award there and then (Home._claim_award): the wax seal comes down on the medallion (sealed),
-## the coins fly to the bar, the geode opens — and the medallion leaves.
+## A tap opens that award's sheet over the mine screen (Home._open_award): what it was for, what it gives, Claim.
+## Claimed, the medallion leaves.
 
 signal claim(name: String)
 
@@ -51,16 +51,6 @@ func refresh() -> void:
 			m.move_to(at)
 	_fresh = false
 	size = Vector2(D, want.size() * PITCH)
-
-## the middle of an award's medallion on the screen (its coins fly from there)
-func centre_of(nm: String) -> Vector2:
-	var m: Medal = _medals.get(nm)
-	return m.global_position + Vector2(D, D) / 2.0 if m else global_position
-
-## the seal comes down on an award's medallion (awaited: over when it has landed)
-func sealed(nm: String) -> void:
-	var m: Medal = _medals.get(nm)
-	if m: await m.sealed()
 
 ## where a picture's drawing is and how far it reaches: the middle of its outline's box and the farthest inked point
 ## from it — by these it is scaled to touch the ring's window and no more
@@ -178,36 +168,6 @@ class Medal extends Control:
 		var tw := create_tween()
 		tw.tween_property(self, "position:x", position.x + 96.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 		tw.tween_callback(queue_free)
-
-	## claimed: the wax seal (the one the awards' list stamps its strips with) comes down on it — big and high, a
-	## thud, a flash
-	func sealed() -> void:
-		_done = true
-		if _sq: _sq.kill()
-		body.scale = Vector2.ONE
-		var seal := TextureRect.new()
-		seal.texture = Kit.tex_at(Awards.DIR + "seal.png")
-		seal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		seal.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		seal.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		seal.size = size * 0.86
-		seal.pivot_offset = seal.size / 2.0
-		seal.position = (size - seal.size) / 2.0 + Vector2(0, 3)
-		seal.scale = Vector2.ONE * 3.0
-		seal.rotation = -0.5
-		seal.modulate.a = 0.0
-		seal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		body.add_child(seal)
-		var tw := create_tween().set_parallel()
-		tw.tween_property(seal, "modulate:a", 1.0, 0.1)
-		tw.tween_property(seal, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.tween_property(seal, "rotation", 0.14, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		await tw.finished
-		Sfx.play("build")
-		Sfx.buzz(30)
-		burst = 1.0
-		create_tween().tween_property(self, "burst", 0.0, 0.6)
-		await get_tree().create_timer(0.3).timeout
 
 	func _process(dt: float) -> void:
 		t += dt

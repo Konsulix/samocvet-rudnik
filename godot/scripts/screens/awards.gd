@@ -536,8 +536,23 @@ static func backfill() -> void:
 	Save.d.gver = 9
 	Save.persist()
 
+## one award's sheet alone, over another screen (the mine screen's medallions, AwardsRail): no list behind it.
+## closed: the sheet went (claimed or not); the host lays itself out again
+signal closed
+var only_sheet := false
+
+static func sheet_over(host: Control, e: Dictionary, bar: Control) -> Awards:
+	var aw := Awards.new()
+	aw.only_sheet = true
+	aw._bar = bar
+	aw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(aw)
+	aw._sheet(e)
+	return aw
+
 func _ready() -> void:
 	size = get_viewport_rect().size
+	if only_sheet: return
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("atab="): tab = a.substr(5)    # for a look: `-- screen=awards atab=coll`
 	backfill()
@@ -1186,6 +1201,11 @@ func _sheet(e: Dictionary) -> void:
 	lay.size = size
 	lay.z_index = 5
 	add_child(lay)
+	# (alone over another screen: closing the sheet closes it all; a claim closes it itself, after its seal)
+	if only_sheet: lay.tree_exiting.connect(func():
+		if not _busy and not is_queued_for_deletion():
+			closed.emit()
+			queue_free())
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.62)
 	dim.size = size
@@ -1448,6 +1468,10 @@ func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 		var l: Array = SAY[String(e.n)]
 		await StoryScene.say(self, [["sister", String(l[0]), String(l[1])]]).finished
 	_busy = false
+	if only_sheet:
+		closed.emit()
+		queue_free()
+		return
 	render()
 
 var _busy := false
