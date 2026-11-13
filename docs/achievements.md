@@ -122,7 +122,7 @@ Mines · Bosses · Mastery · Secrets со счётчиками; под закл
 Play в листке ачивки. Где ещё показывать открытые пропуски (главный экран?) — решить.
 8.11, **коллекции генов работают по-настоящему**: `Awards.genes_of(s)` читает гены находки из генома без построения
 (`SpecGenome.of` + гены ископаемых/черепа) и отдаёт метки `fx:…`, `shroom:0..4` (4 — опята на коряге), `fly:<вид>`,
-`genus:…`, `ob:…`, `fire:…`, `insect:…`, `bloom:…`, `plant:…`, `pearl:…`, `pal:<вид>:<i>`, `tr:…`, `acc:…`.
+`genus:…`, `ob:…`, `fire:…`, `bug:<модель>`, `sprig:<модель>`, `quartz:<модель>`, `plant:…`, `pearl:…`, `pal:<вид>:<i>`, `tr:…`, `acc:…`.
 `Save.d.genes` — всё, что встречалось; пополняет `Save.note_find`, старые находки читаются один раз (`Awards.backfill`,
 `gver` 1). Бабочки черепа теперь выбираются в `SpecSkull.genes` (`fly_kinds`), а не при постройке — у найденных черепов
 вид бабочек мог смениться. В листке под нишами — названия того, что искать.
@@ -159,10 +159,12 @@ Play в листке ачивки. Где ещё показывать откры
 | камень во мху | **A Rolling Stone** | Gathers no moss. Yours did. | мох, лишайник, ксантория, папоротник на камне | монеты + жеода |
 | звезда в кристалле | **Once in a Blue Moon** | Some stones are alive. Find every one of them. | все легендарные эффекты | пропуск: «Зал легенд» / аномалии (эпик M) |
 | трилобит | **Crystal Eyes** | They saw the world through stone lenses. Six kinds still stare. | 6 родов трилобитов | портрет шахтёра «трилобит» |
-| муха в янтаре | **Stuck in Time** | Came for the resin. Stayed forty million years. | муравей, жук, муха, комар, паук в янтаре | стиль фишек «янтарь» |
+| муха в янтаре | **Stuck in Time** | Came for the resin. Stayed forty million years. | 22 насекомых-скана в янтаре (без бабочек; `SpecFlower.BUGS`) | стиль фишек «янтарь» |
+| бабочка в янтаре | **Wings in Amber** | They flew into the light of a sunny pine. The light set hard. | 6 бабочек и молей в янтаре (с гусеницей) | 1200 монет |
+| лист в янтаре | **A Forest in a Drop** | A whole spring wood went into the resin, a leaf at a time. | 9 растений в янтаре (`SpecFlower.SPRIGS`: 5 цветов, папоротник, лист, жёлуди, шишки) | 1200 монет |
 | обсидиан | **Fifty Shades of Black** | Black is never just black. | 5 обсидианов (чёрный, снежный, махагон, радужный, слёзы апачей) | монеты |
 | язык пламени | **Dragon's Palette** | Red and green are common. Violet is a rumour. | 4 цвета огня аммолита | жеода |
-| цветок в капле | **Frozen Bouquet** | Picked before the ice age. Still in bloom. | 6 форм цветов в кварце | рамка поля «кварц» |
+| цветок в капле | **Frozen Bouquet** | Picked before the ice age. Still in bloom. | 5 цветов-сканов в кварце | рамка поля «кварц» |
 | лист папоротника | **The Stone Herbarium** | Pressed by the weight of a mountain. | все растения-отпечатки | монеты |
 | череп с короной | **Alas, Poor Yorick** | I knew him well. All twelve of him. | все роды черепов кургана | титул «Curator» |
 | нить жемчуга | **String of Pearls** | Six seas, six colours, one string. | 6 тел жемчуга | рецепт украшения «ожерелье» |

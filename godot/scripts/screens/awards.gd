@@ -60,14 +60,21 @@ static var LIST := [
 	{tab = "coll", icon = "trilobite", n = "Crystal Eyes", t = "They saw the world through stone lenses. Some of them are still staring.", r = "trilobite portrait",
 		tags = ["genus:elrathia", "genus:phacops", "genus:asaphus", "genus:dicranurus", "genus:walliserops", "genus:isotelus"], names = ["Elrathia", "Phacops", "Asaphus", "Dicranurus", "Walliserops", "Isotelus"]},
 	{tab = "coll", icon = "amber_fly", n = "Stuck in Time", t = "Came for the resin. Stayed forty million years.", r = "amber gems",
-		tags = ["insect:wasp", "insect:spider", "insect:beetle", "insect:cicada", "insect:dragonfly", "insect:moth", "insect:mantis", "insect:other"],
-		names = ["Wasps & bees", "Spiders & scorpions", "Beetles", "Cicadas & locusts", "Dragonflies", "Butterflies & moths", "Mantises & stick insects", "Odd ones"]},
+		tags = ["bug:wasp_hornet", "bug:wasp_carpenter", "bug:spider_argiope", "bug:spider_scorpion", "bug:spider_scorpion_b", "bug:beetle_longhorn", "bug:beetle_fruit", "bug:beetle_tiger", "bug:beetle_stag", "bug:beetle_diving", "bug:beetle_eudicella", "bug:beetle_dynastes", "bug:beetle_cerambyx", "bug:cicada_kaempfer", "bug:cicada_locust", "bug:dragonfly_demoiselle", "bug:dragonfly_darner", "bug:mantis_korean", "bug:mantis_stick", "bug:other_centipede", "bug:other_bug", "bug:other_snail"],
+		names = ["Black-tailed hornet", "Carpenter bee", "Wasp spider", "Forest scorpion", "Scorpion", "Blue longhorn beetle", "Fruit chafer", "Tiger beetle", "Stag beetle", "Diving beetle", "Flower beetle", "Rhinoceros beetle", "Longhorn beetle", "Cicada", "Migratory locust", "Demoiselle", "Dragonfly nymph", "Mantis nymph", "Stick insect", "Centipede", "Leaf-footed bug", "Snail"]},
+	{tab = "coll", icon = "moth", n = "Wings in Amber", t = "They flew into the light of a sunny pine. The light set hard.", r = "coins", give = {coins = 1200},
+		tags = ["bug:moth_fritillary", "bug:moth_tiger", "bug:moth_sphinx", "bug:moth_morpho", "bug:moth_luna", "bug:moth_silk"],
+		names = ["Fritillary caterpillar", "Tiger moth", "Sphinx moth", "Blue morpho", "Luna moth", "Silk moth"]},
+	{tab = "coll", icon = "fern", n = "A Forest in a Drop", t = "A whole spring wood went into the resin, a leaf at a time.", r = "coins", give = {coins = 1200},
+		tags = ["sprig:flower_camellia", "sprig:flower_azalea", "sprig:flower_lotus", "sprig:flower_plum", "sprig:flower_magnolia", "sprig:leaf_fern", "sprig:leaf_oak", "sprig:leaf_oak_b", "sprig:leaf_pine"],
+		names = ["Camellia sprig", "Azalea", "Lotus", "Plum blossom", "Magnolia", "Fern frond", "Oak leaf", "Acorns", "Pine cones"]},
 	{tab = "coll", icon = "obsidian", n = "Fifty Shades of Black", t = "Black is never just black.", r = "coins",
 		tags = ["ob:black", "ob:snowflake", "ob:mahogany", "ob:rainbow", "ob:tears"], names = ["Jet black", "Snowflake", "Mahogany", "Rainbow", "Apache tears"]},
 	{tab = "coll", icon = "flame", n = "Dragon's Palette", t = "Every shell burns with its own fire. One colour is only a rumour.", r = "a geode",
 		tags = ["fire:red", "fire:green", "fire:blue", "fire:violet"], names = ["Red fire", "Green fire", "Blue fire", "Violet fire"]},
 	{tab = "coll", icon = "flower_drop", n = "Frozen Bouquet", t = "Picked before the ice age. Still in bloom.", r = "quartz board frame",
-		tags = ["bloom:star", "bloom:rose", "bloom:daisy", "bloom:bell", "bloom:blossom", "bloom:poppy"], names = ["Star", "Rose", "Daisy", "Bell", "Blossom", "Poppy"]},
+		tags = ["quartz:flower_camellia", "quartz:flower_azalea", "quartz:flower_lotus", "quartz:flower_plum", "quartz:flower_magnolia"],
+		names = ["Camellia sprig", "Azalea", "Lotus", "Plum blossom", "Magnolia"]},
 	{tab = "coll", icon = "fern", n = "The Stone Herbarium", t = "Pressed by the weight of a mountain.", r = "coins",
 		tags = ["plant:fern", "plant:ginkgo", "plant:redwood", "plant:horsetail", "plant:palm", "plant:annularia", "plant:lepido"], names = ["Tree fern", "Ginkgo", "Dawn redwood", "Horsetail", "Palm", "Annularia", "Lepidodendron"]},
 	{tab = "coll", icon = "crowned_skull", n = "Alas, Poor Yorick", t = "I knew him well. In every skin he ever wore.", r = "the title Curator",
@@ -180,6 +187,8 @@ const SAY := {
 	"Once in a Blue Moon": ["shock", "Every living stone. They shouldn't exist - and here they are, on my table."],
 	"Crystal Eyes": ["curious", "Calcite lenses. They looked at the sea through stone before anything had eyes like ours."],
 	"Stuck in Time": ["calm", "Every one of them came for a drop of resin. Bad luck lasts forty million years."],
+	"Wings in Amber": ["smile", "A morpho, still blue after forty million years. Nothing else down here keeps its colour so well."],
+	"A Forest in a Drop": ["calm", "Acorns, a fern, a sprig of plum in flower. The resin kept the spring they fell in."],
 	"Fifty Shades of Black": ["smile", "Volcanic glass in every mood. My brother called it all just 'black'."],
 	"Dragon's Palette": ["shock", "Violet ammolite. I'd have bet my atlas it was a rumour."],
 	"Frozen Bouquet": ["sad", "Flowers nobody will ever smell. Still, they're the prettiest thing in my atlas."],
@@ -207,7 +216,7 @@ var sticky: Control
 var tabs_at := 0.0
 
 ## the genes a find carries, as the achievements count them: "fx:lava", "shroom:2", "fly:morpho", "genus:phacops",
-## "ob:snowflake", "fire:blue", "insect:ant", "bloom:rose", "plant:ginkgo", "pearl:golden", "pal:fluorite:3",
+## "ob:snowflake", "fire:blue", "bug:moth_luna", "sprig:leaf_oak", "quartz:flower_lotus", "plant:ginkgo", "pearl:golden", "pal:fluorite:3",
 ## "tr:moss", "acc:lichen"... Read from the genome alone (no meshes): cheap enough for every find
 static func genes_of(s: Dictionary) -> Array:
 	var o := SPEC.of_stone(s)
@@ -230,8 +239,9 @@ static func genes_of(s: Dictionary) -> Array:
 		"ammonite":
 			if float(f.get("nacre", 0.0)) > 0.0: out.append("fire:" + String(f.fire))
 		"amber", "simetite", "flower_quartz":
-			if String(f.get("content", "")) == "insect": out.append("insect:" + String(f.insect))
-			if String(f.get("content", "")) == "flower" and not f.has("sprig"): out.append("bloom:" + String(f.bloom))
+			# (every model its own: the insects, the butterflies, the plants in amber; the flowers in quartz apart)
+			if String(f.get("content", "")) == "insect": out.append("bug:" + String(f.bug))
+			if f.has("sprig"): out.append(("quartz:" if sid == "flower_quartz" else "sprig:") + String(f.sprig))
 		"fern": out.append("plant:" + String(f.plant))
 		"petrified_wood":
 			if f.get("fungi", false): out.append("shroom:4")    # honey fungus grows only on the wood
@@ -517,7 +527,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 9: return
+	if int(Save.d.get("gver", 0)) >= 10: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -533,8 +543,9 @@ static func backfill() -> void:
 			if String(mk) in ["maw", "fledged", "tm_slice", "gold_pyrite", "perched_gold"]: once(String(mk))
 	# (gver 7: pseudomorphs and pairs; the pairs seen so far, counted for Matchmaker)
 	Save.d.aw_ev.pairs = seen.filter(func(t: String) -> bool: return t.begins_with("pair:")).size()
-	# (gver 8: hopper fluorite for Matryoshka; gver 9: the kinds of flowers for Rock Garden)
-	Save.d.gver = 9
+	# (gver 8: hopper fluorite for Matryoshka; gver 9: the kinds of flowers for Rock Garden; gver 10: every model held
+	# in amber and quartz — bug:, sprig:, quartz:)
+	Save.d.gver = 10
 	Save.persist()
 
 ## one award's sheet alone, over another screen (the mine screen's medallions, AwardsRail): no list behind it.
@@ -1375,7 +1386,7 @@ func _reward(e: Dictionary, fs: int, w: float, lead := "") -> HBoxContainer:
 
 ## the species a gene shows on (for the hint of where to look)
 const GENE_SP := {hopper = ["fluorite"], gold = ["gold"], genus = ["trilobite"], pearl = ["trilobite"], ob = ["obsidian"], fire = ["ammonite"],
-	insect = ["amber", "simetite"], bloom = ["flower_quartz"], plant = ["fern"]}
+	bug = ["amber", "simetite"], sprig = ["amber", "simetite"], quartz = ["flower_quartz"], plant = ["fern"]}
 
 ## a hint for a '?': which mine (named only once opened) and among what to look — not the name of the thing itself
 func _where(e: Dictionary, item: String) -> String:

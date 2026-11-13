@@ -3,39 +3,22 @@ extends RefCounted
 ## Inclusions: something whole held in clear stone — a smooth tumbled pebble (shaders/amber.gdshader) of clear or
 ## smoky quartz (ice-like cracks flashing white, a few bubbles) or of amber / copal (its resin run in flow lines,
 ## specks of bark, sun spangles, a weathered crust). What it holds:
-##   a flower — star, rose, daisy, bell, blossom or poppy; petals of their own shape (shaders/petal.gdshader: colour,
-##              an eye at the base, a sheen on the rims, veins, spots or stripes), stamens tipped with gold, leaves;
 ##   an insect — a scan of a real dried specimen (assets/specimen/insects, CREDITS.md there; made light by
 ##              prototype/tools/insects/insect_prep.py: head +x, back +y, its longest reach one unit, colour and relief
 ##              baked into two textures, drawn by the mushrooms' shader without sway). Its group is the gene (`insect`:
 ##              wasps and bees, spiders and scorpions, beetles...); which of the group's models a find holds is its
-##              seed's (`bug`, find_bug).
-## Two finds use it: "flower_quartz" (a flower, in quartz mostly) and "amber" (an insect mostly).
+##              seed's (`bug`, find_bug);
+##   a plant — scans as well, laid the same way (`sprig`): a flowering sprig (content "flower") or a fern frond, an oak
+##              leaf, acorns, pine cones (content "fern"). Nothing in it is drawn by code.
+## Three finds use it: "flower_quartz" (a flower, in quartz mostly), "amber" and "simetite" (an insect mostly).
 
 const U := preload("res://scripts/specimen/spec_util.gd")
-const PETAL := preload("res://shaders/petal.gdshader")
-const WING := preload("res://shaders/wing.gdshader")
 const AMBER := preload("res://shaders/amber.gdshader")
 ## amber's colour: how fast it swallows red, green and blue along the way through it (per unit of the stone's
 ## radius) — thin it is pale, thick it deepens: lemon, honey, cognac, cherry
 const TONES := {lemon = [Vector3(0.02, 0.14, 1.5), 1.5], honey = [Vector3(0.04, 0.32, 2.2), 4.0],
 	cognac = [Vector3(0.15, 0.75, 3.0), 3.0], cherry = [Vector3(0.5, 1.8, 3.5), 1.0]}
 
-## petal colours: [name, base, sheen/rim, eye, eye reach, spots, stripes, sheen strength]
-const LOOKS := [
-	["bronze", 0x16100c, 0xb8763c, 0x16100c, 0.0, 0.0, 0.0, 1.0],
-	["copper", 0x1e0c08, 0xc8643a, 0x1e0c08, 0.0, 0.0, 0.0, 1.0],
-	["crimson", 0x8a1020, 0xe0604a, 0x1a0408, 0.3, 0.0, 0.0, 0.5],
-	["ivory", 0xe2dccc, 0xfaf2de, 0xe0b040, 0.22, 0.0, 0.0, 0.4],
-	["blush", 0xe8b4c0, 0xf8e0e6, 0xb04a6a, 0.25, 0.0, 0.6, 0.4],
-	["indigo", 0x1a1a4a, 0x8a7ad8, 0x0a0a1a, 0.2, 0.0, 0.0, 0.8],
-	["golden", 0xe0a820, 0xf8d860, 0x6a2a10, 0.15, 0.0, 0.0, 0.5],
-	["violet", 0x6a3a9a, 0xc8a8e8, 0x2a1040, 0.3, 0.8, 0.0, 0.5],
-	["scarlet", 0xc82810, 0xf06a3a, 0x100808, 0.25, 0.0, 0.0, 0.4],
-	["azure", 0x3a6ac8, 0xa8c8f0, 0xf0f0f0, 0.15, 0.0, 0.0, 0.5],
-]
-## flower forms and insects: [name, weight]
-const FORMS := [["star", 3.0], ["rose", 2.0], ["daisy", 2.0], ["bell", 1.5], ["blossom", 2.0], ["poppy", 1.5]]
 ## the insect groups (the gene, and the amber atlas's collection): [group, weight]
 const INSECTS := [["wasp", 2.0], ["spider", 1.5], ["beetle", 3.0], ["cicada", 1.5], ["dragonfly", 1.0], ["moth", 1.2],
 	["mantis", 1.0], ["other", 1.2]]
@@ -54,8 +37,8 @@ const BUGS := {
 	mantis = [["mantis_korean", "mantis nymph"], ["mantis_stick", "stick insect"]],
 	other = [["other_centipede", "centipede"], ["other_bug", "leaf-footed bug"], ["other_snail", "snail"]],
 }
-## plants held in amber (scans too, laid the same way): a sprig in flower (content "flower"), or a leaf, acorns, pine
-## cones, a fern frond (content "fern") — the flower in quartz is still drawn by code (_flower)
+## plants held in it (scans too, laid the same way): a sprig in flower (content "flower"), or a leaf, acorns, pine
+## cones, a fern frond (content "fern")
 const SPRIGS := {
 	flower = [["flower_camellia", "camellia sprig"], ["flower_azalea", "azalea"], ["flower_lotus", "lotus"],
 		["flower_plum", "plum blossom"], ["flower_magnolia", "magnolia"]],
@@ -82,18 +65,14 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	var g := {kind = sid}
 	if sid == "simetite":
 		g.host = "simetite"
-		g.content = Stones.pick_w([["insect", 6.0], ["flower", 1.0], ["fern", 1.0], ["feather", 0.6]], rng)
+		g.content = Stones.pick_w([["insect", 6.0], ["flower", 1.0], ["fern", 1.0]], rng)
 	elif sid == "amber":
 		g.host = Stones.pick_w([["amber", 4.0], ["copal", 1.5]], rng)
-		g.content = Stones.pick_w([["insect", 7.0], ["flower", 2.0], ["fern", 1.2], ["feather", 1.0]], rng)
+		g.content = Stones.pick_w([["insect", 7.0], ["flower", 2.0], ["fern", 1.5]], rng)
 	else:
 		g.host = Stones.pick_w([["quartz", 5.0], ["smoky", 2.0], ["amber", 1.0]], rng)
 		g.content = "flower"
-	g.bloom = Stones.pick_w(FORMS, rng)
-	g.look = int(rng.next() * LOOKS.size())
 	g.insect = Stones.pick_w(INSECTS, rng)
-	g.petals = 5 + int(rng.next() * 3)
-	g.leaves = int(Stones.pick_w([[0, 2.0], [1, 2.0], [2, 2.0], [3, 1.0]], rng))
 	g.gold = (rng.next() < 0.3 or "goldfleck" in tr) and not g.host in ["amber", "copal", "simetite"]
 	g.seed = int(rng.next() * 100000.0)
 	g.bare = false   # showcases: what it holds, without its stone
@@ -107,15 +86,16 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 	g.window = rng.next() < 0.4
 	g.cloud = 0.0 if rng.next() < 0.8 else 0.3 + rng.next() * 0.5
 	if g.host == "copal": g.cloud = maxf(float(g.cloud), 0.12)
-	for k in ["host", "content", "bloom", "look", "insect", "petals", "leaves", "gold", "bare", "tone", "spangle", "crust", "window", "cloud"]:
+	for k in ["host", "content", "insect", "gold", "bare", "tone", "spangle", "crust", "window", "cloud"]:
 		if o.has(k): g[k] = o[k]
 	if g.host == "copal" and not o.has("tone"): g.tone = "lemon"
 	g.insect = OLD.get(g.insect, g.insect)
 	g.bug = String(o.bug) if o.has("bug") else find_bug(seed_v, g.insect)
 	if o.has("bug"): g.insect = group_of(g.bug)
-	# a plant in amber: a scan, picked by the seed like the insect (not in quartz: its flower is drawn)
+	# a plant: a scan, picked by the seed like the insect (an old find's feather is a fern now)
+	if g.content == "feather": g.content = "fern"
 	if o.has("sprig"): g.content = "flower" if String(o.sprig).begins_with("flower_") else "fern"
-	if sid != "flower_quartz" and g.content in SPRIGS:
+	if g.content in SPRIGS:
 		var l: Array = SPRIGS[g.content]
 		var r := Rng32.new((seed_v * 40503 + 8191) % 4294967296)
 		g.sprig = String((l[mini(int(r.next() * l.size()), l.size() - 1)] as Array)[0])
@@ -142,8 +122,7 @@ static func bug_name(bug: String) -> String:
 	return "insect"
 
 static func accents(g: Dictionary) -> Array:
-	var out := [{flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(g.content, "insect"), "stone"]
-	if g.content == "flower" and int(g.leaves) > 0 and not g.has("sprig"): out.append("leaves")
+	var out := [{flower = "flower", insect = "insect", fern = "fern"}.get(g.content, "insect"), "stone"]
 	if g.gold: out.append("gold_dust")
 	if g.host in ["amber", "copal", "simetite"] and g.get("spangle", false): out.append("spangles")
 	if g.host == "simetite": out.append("blue_glow")
@@ -153,173 +132,16 @@ static func gene_name(id: String, g: Dictionary) -> String:
 	if id in ["flower", "fern"] and g.has("sprig"):
 		return bug_name(String(g.sprig))
 	match id:
-		"flower": return "%s %s" % [LOOKS[int(g.look)][0], {star = "star flower", rose = "rose", daisy = "daisy", bell = "bellflower",
-			blossom = "blossom", poppy = "poppy"}.get(g.bloom, "flower")]
 		"insect": return bug_name(String(g.get("bug", find_bug(int(g.get("seed", 0)), String(g.get("insect", "beetle"))))))
 		"stone": return String(HOSTS[g.host]) if not g.host == "amber" else "%s Baltic amber" % g.get("tone", "honey")
 		"spangles": return "sun spangles"
 		"blue_glow": return "blue fluorescence"
-		"leaves": return "leaves"
+		"flower": return "flower"
 		"fern": return "fern frond"
-		"feather": return "feather"
 		"gold_dust": return "gold dust"
 	return ""
 
-# ---------------------------------------------------------------- petals and flowers
-
-## a petal: base at the origin, running out along +y, its face towards +z. o: tip ("point", "round", "notch",
-## "strap"), cup (across), bend (back near the tip), wave (rim), crinkle (all over)
-static func _petal(rng: Rng32, ln: float, wd: float, o: Dictionary) -> Geo:
-	var g := Geo.new()
-	var nt := 22
-	var ns := 12
-	var ph := rng.next() * TAU
-	var tip: String = o.get("tip", "point")
-	var cup: float = o.get("cup", 0.6)
-	var bend: float = o.get("bend", -0.2)
-	var wave: float = o.get("wave", 0.05)
-	var crinkle: float = o.get("crinkle", 0.0)
-	for i in nt + 1:
-		var t := float(i) / nt
-		var w: float
-		match tip:
-			"round", "notch": w = wd * pow(sin(PI * pow(t, 0.62)), 0.5)
-			"strap": w = wd * smoothstep(0.0, 0.12, t) * (1.0 - 0.5 * smoothstep(0.8, 1.0, t)) * (0.4 if t >= 0.999 else 1.0)
-			_: w = wd * pow(sin(PI * pow(t, 0.8)), 0.75)
-		w *= 0.3 + 0.7 * smoothstep(0.0, 0.22, t)
-		for j in ns + 1:
-			var s := float(j) / ns * 2.0 - 1.0
-			var x := s * w
-			var y := t * ln
-			if tip == "notch":
-				y -= ln * 0.1 * (1.0 - absf(s)) * smoothstep(0.75, 1.0, t)
-			var z := -cup * x * x / maxf(wd, 0.001) + bend * t * t * ln + wave * ln * sin(t * 9.0 + ph) * s * s
-			z += crinkle * ln * 0.04 * sin(s * 9.0 + t * 7.0 + ph) * t
-			g.v.append(Vector3(x, y, z))
-			g.rp.append(Vector3(t, s, 0))
-	for i in nt:
-		for j in ns:
-			var p0 := i * (ns + 1) + j
-			var p1 := p0 + ns + 1
-			g.idx.append_array([p0, p1, p0 + 1, p0 + 1, p1, p1 + 1])
-	return g
-
-static func _petal_mat(look: Array, seed_v: float) -> ShaderMaterial:
-	var m := ShaderMaterial.new()
-	m.shader = PETAL
-	m.set_shader_parameter("c_base", Color.hex(int(look[1]) << 8 | 0xff))
-	m.set_shader_parameter("c_rim", Color.hex(int(look[2]) << 8 | 0xff))
-	m.set_shader_parameter("c_eye", Color.hex(int(look[3]) << 8 | 0xff))
-	m.set_shader_parameter("eye_k", look[4])
-	m.set_shader_parameter("spots", look[5])
-	m.set_shader_parameter("stripes", look[6])
-	m.set_shader_parameter("sheen", look[7])
-	m.set_shader_parameter("seed", seed_v)
-	return m
-
-## one whorl of petals round the flower's axis (+z): n of them, each tipped up out of the plane by `tilt`
-static func _whorl(parent: Node3D, rng: Rng32, mat: Material, n: int, ln: float, wd: float, tilt: float, off: float, o: Dictionary, marks: Array) -> void:
-	for k in n:
-		var ang := (float(k) + off + (rng.next() - 0.5) * 0.2) / maxf(n, 1) * TAU
-		var pg := _petal(rng, ln * (0.88 + rng.next() * 0.24), wd * (0.85 + rng.next() * 0.3), o)
-		var bs := Basis(Vector3.BACK, ang) * Basis(Vector3.RIGHT, tilt + (rng.next() - 0.5) * 0.2)
-		var mi := U.mesh(pg, mat, parent, Vector3.ZERO, bs)
-		mi.set_meta("col", true)
-		if marks.size() < 2 and k % 2 == 0:
-			marks.append(mi.transform * Vector3(0, ln * 0.6, 0))
-
-## stamens fanning out of the middle, gold-tipped
-static func _stamens(parent: Node3D, rng: Rng32, n: int, h: float, spread: float) -> void:
-	var gold := SpecMat.make({col = SpecMat.lin(0xd8a440), metal = 0.6, rough = 0.35})
-	var stalk := SpecMat.make({col = SpecMat.lin(0xb8a070), rough = 0.5})
-	var cyl := Geo.cylinder(1, 1, 1, 5).translate(0, 0.5, 0)
-	var ball := Geo.icosa(1.0, 1)
-	for k in n:
-		var a := rng.next() * TAU
-		var lean := spread * (0.4 + rng.next() * 0.6)
-		var d := (Basis(Vector3.BACK, a) * Basis(Vector3.RIGHT, PI / 2 - lean)) * Vector3.UP
-		var hh := h * (0.75 + rng.next() * 0.4)
-		var at := Vector3(cos(a), sin(a), 0) * 0.02 + Vector3(0, 0, 0.02)
-		var bs := Basis(U.quat_to(Vector3.UP, d))
-		U.mesh(cyl, stalk, parent, at, bs * Basis.from_scale(Vector3(0.005, hh, 0.005)))
-		U.mesh(ball, gold, parent, at + d * hh, bs * Basis.from_scale(Vector3(0.014, 0.024, 0.014)))
-
-## the flower, its axis along +z, about 0.8 across
-static func _flower(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
-	var marks := []
-	var look: Array = LOOKS[int(f.look)]
-	var pm := _petal_mat(look, float(int(f.seed) % 97))
-	var np: int = f.petals
-	match f.bloom:
-		"rose":
-			# a spiral of rounded petals, cupped, the inner ones ever more upright and smaller
-			var n := 22
-			for k in n:
-				var u := float(k) / n
-				var ang := k * 2.4
-				var ln := lerpf(0.42, 0.16, u)
-				var pg := _petal(rng, ln, ln * 0.85, {tip = "round", cup = 1.4, bend = lerpf(-0.35, 0.1, u), wave = 0.06})
-				var bs := Basis(Vector3.BACK, ang) * Basis(Vector3.RIGHT, lerpf(0.5, 1.45, u))
-				var mi := U.mesh(pg, pm, parent, Vector3(cos(ang), sin(ang), 0) * 0.02 * (1.0 - u), bs)
-				mi.set_meta("col", true)
-				if k == 2: marks.append(mi.transform * Vector3(0, ln * 0.6, 0))
-		"daisy":
-			# many narrow strap petals round a big domed disc of florets
-			_whorl(parent, rng, pm, 18 + int(rng.next() * 10), 0.42, 0.055, 0.1, 0.0, {tip = "strap", cup = 0.3, bend = -0.1, wave = 0.02}, marks)
-			var dm := SpecMat.make({col = SpecMat.lin(0xc89020 if rng.next() < 0.6 else 0x4a2a10), rough = 0.85, grain = 1.0})
-			U.mesh(Geo.icosa(1.0, 3), dm, parent, Vector3(0, 0, 0.02), Basis.from_scale(Vector3(0.13, 0.13, 0.07)))
-		"bell":
-			# petals joined into a cup, flaring at the rims
-			_whorl(parent, rng, pm, np, 0.42, 0.2, 1.15, 0.0, {tip = "round", cup = 0.5, bend = -0.55, wave = 0.04}, marks)
-			_stamens(parent, rng, 6, 0.2, 0.15)
-		"blossom":
-			# five round, notched petals opening flat, a crowd of stamens
-			_whorl(parent, rng, pm, 5, 0.36, 0.3, 0.2, 0.0, {tip = "notch", cup = 0.35, bend = -0.05, wave = 0.05}, marks)
-			_stamens(parent, rng, 26 + int(rng.next() * 12), 0.13, 0.8)
-		"poppy":
-			# four wide crinkled petals, a dark eye, a crowned seed head
-			_whorl(parent, rng, pm, 4, 0.44, 0.42, 0.45, 0.0, {tip = "round", cup = 0.7, bend = -0.15, wave = 0.08, crinkle = 1.0}, marks)
-			U.mesh(Geo.icosa(1.0, 2), SpecMat.make({col = SpecMat.lin(0x4a5a30), rough = 0.6}), parent, Vector3(0, 0, 0.05), Basis.from_scale(Vector3(0.06, 0.06, 0.06)))
-			_stamens(parent, rng, 30, 0.1, 1.0)
-		_:
-			# a star: pointed petals in two whorls
-			_whorl(parent, rng, pm, np, 0.48, 0.18, 0.35, 0.0, {tip = "point", cup = 0.7, bend = -0.25, wave = 0.05}, marks)
-			_whorl(parent, rng, pm, np, 0.32, 0.12, 0.85, 0.5, {tip = "point", cup = 0.6, bend = -0.1, wave = 0.04}, marks)
-			U.mesh(Geo.icosa(1.0, 2), SpecMat.make({col = SpecMat.lin(0x3a2a14), rough = 0.6}), parent, Vector3(0, 0, 0.02), Basis.from_scale(Vector3(0.06, 0.06, 0.04)))
-			_stamens(parent, rng, 16 + int(rng.next() * 8), 0.2, 0.6)
-	# leaves behind it, and a bit of stem
-	if int(f.leaves) > 0:
-		var lm := ShaderMaterial.new()
-		lm.shader = PETAL
-		var greens := [[0x2a4a1a, 0x6a8a3a], [0x1a3a2a, 0x5a8a6a], [0x3a3a1a, 0x8a8a4a]]
-		var gc: Array = greens[int(rng.next() * greens.size())]
-		lm.set_shader_parameter("c_base", Color.hex(int(gc[0]) << 8 | 0xff))
-		lm.set_shader_parameter("c_rim", Color.hex(int(gc[1]) << 8 | 0xff))
-		lm.set_shader_parameter("leaf", 1.0)
-		lm.set_shader_parameter("seed", float(int(f.seed) % 89))
-		for k in int(f.leaves):
-			var ang := rng.next() * TAU
-			var ln := 0.55 + rng.next() * 0.2
-			var pg := _petal(rng, ln, 0.17, {tip = "point", cup = 0.3, bend = -0.15, wave = 0.04})
-			var bs := Basis(Vector3.BACK, ang) * Basis(Vector3.RIGHT, -0.2 - rng.next() * 0.3)
-			var mi := U.mesh(pg, lm, parent, Vector3(0, 0, -0.06), bs)
-			mi.set_meta("col", true)
-			# the callout's spot: out along the leaf, past the flower
-			var la: Array = parent.get_meta("leaf_at", [])
-			la.append(mi.transform * Vector3(0, ln * 0.75, 0))
-			parent.set_meta("leaf_at", la)
-		var stem := SpecMat.make({col = SpecMat.lin(0x4a5a2a), rough = 0.6})
-		U.mesh(Geo.cylinder(1, 1, 1, 6).translate(0, 0.5, 0), stem, parent, Vector3(0, 0, -0.02),
-			Basis(Vector3.RIGHT, -PI / 2 - 0.6) * Basis.from_scale(Vector3(0.018, 0.4, 0.018)))
-	return marks
-
 # ---------------------------------------------------------------- insects
-
-static func _seg(parent: Node3D, m: Material, a: Vector3, b: Vector3, r: float) -> void:
-	var d := b - a
-	if d.length() < 1e-4:
-		return
-	U.mesh(Geo.cylinder(0.75, 1.0, 1, 5).translate(0, 0.5, 0), m, parent, a, Basis(U.quat_to(Vector3.UP, d.normalized())) * Basis.from_scale(Vector3(r, d.length(), r)))
 
 static func bug_mesh(bug: String) -> Mesh:
 	if not _bug_mesh.has(bug):
@@ -352,61 +174,6 @@ static func _insect(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
 	# (the callout: on its back, a little before the middle)
 	var box := bug_mesh(bug).get_aabb()
 	return [Vector3(0.05, box.end.y * 0.5, 0) * k]
-
-# ---------------------------------------------------------------- fern, feather
-
-## a fern frond: a curving stalk, leaflets in pairs along it, smaller towards the tip
-static func _fern(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
-	var lm := ShaderMaterial.new()
-	lm.shader = PETAL
-	lm.set_shader_parameter("c_base", Color.hex(0x3a4a1aff if rng.next() < 0.6 else 0x5a4a1aff))
-	lm.set_shader_parameter("c_rim", Color.hex(0x8a9a4aff))
-	lm.set_shader_parameter("leaf", 1.0)
-	lm.set_shader_parameter("seed", float(int(f.seed) % 89))
-	var stalk := SpecMat.make({col = SpecMat.lin(0x4a4020), rough = 0.6})
-	var n := 13
-	var p := Vector3(-0.55, -0.1, 0)
-	var d := Vector3(1, 0.25, 0).normalized()
-	var curl := 0.08 + rng.next() * 0.06
-	for k in n:
-		var t := float(k) / n
-		var step := 0.085
-		var q := p + d * step
-		_seg(parent, stalk, p, q, 0.012 * (1.0 - t * 0.6))
-		var side := Vector3(-d.y, d.x, 0)
-		var ln := 0.3 * (1.0 - t * 0.75) * (0.9 + rng.next() * 0.2)
-		for s in [-1.0, 1.0]:
-			var pg := _petal(rng, ln, ln * 0.22, {tip = "point", cup = 0.25, bend = -0.1, wave = 0.05})
-			var dir: Vector3 = (side * float(s) + d * 0.45).normalized()
-			var bs := Basis(U.quat_to(Vector3.UP, dir)) * Basis(Vector3.UP, (rng.next() - 0.5) * 0.4)
-			var mi := U.mesh(pg, lm, parent, q, bs)
-			mi.set_meta("col", true)
-		p = q
-		d = d.rotated(Vector3.BACK, curl * (0.5 + t))
-	return [Vector3(0.0, 0.15, 0.02)]
-
-## a feather: a shaft, its vane of barbs either side, banded; the down at its foot
-static func _feather(parent: Node3D, rng: Rng32, f: Dictionary) -> Array:
-	var cols := [[0x5a3a20, 0xe8dcc8], [0x2a2a2a, 0xd8d8d8], [0x8a5a30, 0x3a2410], [0x3a4a6a, 0xa8c0d8]]
-	var cc: Array = cols[int(rng.next() * cols.size())]
-	var fm := ShaderMaterial.new()
-	fm.shader = PETAL
-	fm.set_shader_parameter("c_base", Color.hex(int(cc[0]) << 8 | 0xff))
-	fm.set_shader_parameter("c_rim", Color.hex(int(cc[1]) << 8 | 0xff))
-	fm.set_shader_parameter("c_eye", Color.hex(int(cc[1]) << 8 | 0xff))
-	fm.set_shader_parameter("eye_k", 0.25)
-	fm.set_shader_parameter("stripes", 0.8)
-	fm.set_shader_parameter("sheen", 0.3)
-	fm.set_shader_parameter("seed", float(int(f.seed) % 89))
-	var ln := 1.05
-	# the vane: a long narrow blade, waved and split in places (barbs pulled apart)
-	var pg := _petal(rng, ln, 0.17, {tip = "point", cup = 0.15, bend = -0.08, wave = 0.12, crinkle = 1.5})
-	var bs := Basis(Vector3.BACK, -PI / 2 + 0.3)
-	var mi := U.mesh(pg, fm, parent, Vector3(-0.5, -0.15, 0), bs)
-	mi.set_meta("col", true)
-	var shaft := SpecMat.make({col = SpecMat.lin(0xe8e0d0), rough = 0.4})
-	_seg(parent, shaft, Vector3(-0.62, -0.19, 0.01), bs * Vector3(0, ln * 0.95, 0) + Vector3(-0.5, -0.15, 0.01), 0.008)
-	return [Vector3(0.0, 0.0, 0.02)]
 
 # ---------------------------------------------------------------- the stone
 
@@ -525,19 +292,11 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		# a plant: lying flat in it as the insects do, face to the viewer
 		inner.transform = Transform3D(face * lie * Basis(Vector3.UP, (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * 1.15), at)
 		marks = _insect(inner, rng, {bug = f.sprig})
-	elif f.content in ["fern", "feather"]:
-		var k := (1.05 if f.content == "feather" else 0.85) if resin else (1.4 if f.content == "feather" else 1.1)
-		inner.transform = Transform3D(face * Basis(Vector3.UP, (rng.next() - 0.5) * 0.6) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.8) * Basis.from_scale(Vector3.ONE * k), at)
-		marks = _fern(inner, rng, f) if f.content == "fern" else _feather(inner, rng, f)
-	elif f.content == "insect":
+	else:
 		# caught as it fell: turned any way, legs splayed
 		var k := 1.1 if resin else 1.6
 		inner.transform = Transform3D(face * lie * Basis(Vector3.UP, (rng.next() - 0.5) * 1.2) * Basis(Vector3.RIGHT, (rng.next() - 0.5) * 0.7) * Basis(Vector3.BACK, (rng.next() - 0.5) * 0.5) * Basis.from_scale(Vector3.ONE * k), at)
 		marks = _insect(inner, rng, f)
-	else:
-		# the flower faces the viewer, a little turned and tipped
-		inner.transform = Transform3D(face * Basis(Vector3.UP, (rng.next() - 0.5) * 0.7) * Basis(Vector3.RIGHT, -0.25 + (rng.next() - 0.5) * 0.4) * Basis.from_scale(Vector3.ONE * (0.9 if resin else 1.15)), at + Vector3(0, 0.05, 0))
-		marks = _flower(inner, rng, f)
 	# gold dust settled under it
 	var flakes := []
 	if f.gold:
@@ -563,9 +322,7 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	for fl: Array in flakes.slice(0, 3):
 		b._mark("gold_dust", U.rel_xform(holder, root) * (fl[0] as Vector3), Vector3.ZERO)
 	for p in marks:
-		b._mark({flower = "flower", insect = "insect", fern = "fern", feather = "feather"}.get(f.content, "insect"), ix * (p as Vector3), Vector3.BACK)
-	for p: Vector3 in _leaves_at(inner):
-		b._mark("leaves", ix * p, Vector3.BACK)
+		b._mark({flower = "flower", insect = "insect", fern = "fern"}.get(f.content, "insect"), ix * (p as Vector3), Vector3.BACK)
 	b._mark("stone", U.rel_xform(holder, root) * Vector3(0.5, 0.6, 0.4), Vector3(0.5, 0.6, 0.6).normalized())
 	# the sun spangles: discs of light through the whole of the amber
 	if "spangles" in (gene.get("accents", []) as Array):
@@ -574,12 +331,3 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	if f.host == "simetite":
 		b._mark("blue_glow", U.rel_xform(holder, root) * Vector3(-0.75, 0.15, 0.2), Vector3(-0.8, 0.1, 0.6).normalized())
 	return stone
-
-## where the flower's leaves reach out (set by _flower on whichever node holds them, inner's space)
-static func _leaves_at(inner: Node3D) -> Array:
-	var out := []
-	for n: Node in [inner] + inner.find_children("*", "Node3D", true, false):
-		var nd := n as Node3D
-		for p: Vector3 in nd.get_meta("leaf_at", []):
-			out.append(U.rel_xform(nd, inner) * p if nd != inner else p)
-	return out

@@ -692,9 +692,15 @@ static func _amberdrop(root: Node3D, sk: Dictionary, r: Rng32, bones: Array) -> 
 		sw.add_child(holder)
 		var inner := Node3D.new()
 		holder.add_child(inner)
+		# (the scans held in amber finds: an insect mostly, now and then a leaf or a sprig in flower)
 		var kind: String = Stones.pick_w(SpecFlower.INSECTS, r)
-		SpecFlower._insect(inner, r, {insect = kind, seed = int(r.next() * 1000)})
-		inner.scale = Vector3.ONE * (0.12 + r.next() * 0.06) * maxf(ext.x, ext.y)
+		var sd := int(r.next() * 1000)
+		if r.next() < 0.25:
+			var pl: Array = SpecFlower.SPRIGS.flower + SpecFlower.SPRIGS.fern
+			SpecFlower._insect(inner, r, {bug = (pl[mini(int(r.next() * pl.size()), pl.size() - 1)] as Array)[0]})
+		else:
+			SpecFlower._insect(inner, r, {insect = kind, seed = sd})
+		inner.scale = Vector3.ONE * (0.2 + r.next() * 0.08) * maxf(ext.x, ext.y)
 		inner.rotation = Vector3(r.next() * TAU, r.next() * TAU, r.next() * TAU)
 		sw.items.append({node = holder, inner = inner, ph = r.next() * TAU, sp = (0.06 + r.next() * 0.06) * (1.0 if r.next() < 0.5 else -1.0),
 			e = Vector3(0.75 + r.next() * 0.2, (r.next() - 0.5) * 0.9, 0.75 + r.next() * 0.2), spin = Vector3(r.next() - 0.5, r.next() - 0.5, r.next() - 0.5) * 0.25})
