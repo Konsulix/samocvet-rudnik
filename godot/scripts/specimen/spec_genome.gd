@@ -129,9 +129,9 @@ static func of(o: Dictionary) -> Dictionary:
 	if lustre == "glass" and pseudo == "" and not (form in ["geode", "nugget", "botryoid", "vein", "sawn"]):
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
-	# (on a sawn and polished lump only the small things, round its back: big puffs and ferns would reach over the face)
+	# (a sawn and polished lump grows nothing: flowers and lichen on its back read wrong on a stone that polished)
 	if form == "sawn":
-		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["lichen", "flowers", "dust"])
+		apool = []
 	# (a geode's shell takes puffs and straw; a bare botryoidal lump has nothing for them to stand on)
 	if form == "geode" and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
@@ -272,7 +272,7 @@ static func of(o: Dictionary) -> Dictionary:
 			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
-	if shroom >= 0 and not bare and not form in ["slice"] and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not form in ["slice"] and not form == "sawn" and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock):
 		acc.append("mushrooms")
 	else:
