@@ -41,10 +41,10 @@ const FIND_P := 0.06
 const MODELS := {
 	monarch = {file = "monarch.glb", span = 2.6, yaw = 0.0, pitch = 0.0, clips = {fly = "Danaus_plexippus_Flight",
 		land = "Danaus_plexippus_Landing_InPlace", sit = "Danaus_plexippus_Perched_Idle", off = "Danaus_plexippus_Takeoff_InPlace"}},
-	apollo = {file = "apollo.glb", scales = true, span = 2.995, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
-	peacock = {file = "peacock.glb", scales = true, span = 2.389, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
-	swallowtail = {file = "swallowtail.glb", scales = true, span = 2.369, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
-	hawkmoth = {file = "hawkmoth.glb", scales = true, span = 2.691, yaw = -PI / 2, pitch = 0.25, clips = {fly = "fly", sit = "idle"}},
+	apollo = {file = "apollo.glb", scales = true, drop = 0.11, span = 2.995, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	peacock = {file = "peacock.glb", scales = true, drop = 0.11, span = 2.389, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	swallowtail = {file = "swallowtail.glb", scales = true, drop = 0.11, span = 2.369, yaw = -PI / 2, pitch = 0.35, clips = {fly = "fly"}},
+	hawkmoth = {file = "hawkmoth.glb", scales = true, drop = 0.03, span = 2.691, yaw = -PI / 2, pitch = 0.25, clips = {fly = "fly", sit = "idle"}},
 	# scans of pinned specimens (ffishAsia, CC0) given a hinge and a wingbeat by prototype/tools/butterflies/butterfly_prep.py:
 	# head +X, back +Y, wingspan 2.5; no sitting clip — they sit at the top of the stroke, wings closed over the back
 	chestnut = {file = "chestnut.glb", span = 2.5, yaw = 0.0, pitch = 0.0, clips = {fly = "fly"}},
@@ -120,6 +120,9 @@ static func put_model(parent: Node3D, rng: Rng32, id: String, how: String, span:
 	turn.add_child(model)
 	# (a model not standing on its own origin: brought to it)
 	if md.has("centre"): model.position = -(md.centre as Vector3)
+	# (drop: its feet stand this much of its wingspan below its origin — sat down on the rock it hung above it; measured
+	# with all of them on a floor, by the gap under each)
+	if md.has("drop"): model.position.y -= float(md.drop) * float(md.span)
 	for nm: String in md.get("hide", []):
 		var hn := model.find_child(nm, true, false) as Node3D
 		if hn: hn.visible = false

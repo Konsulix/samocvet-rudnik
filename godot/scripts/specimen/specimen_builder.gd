@@ -48,6 +48,11 @@ func _place(node: Node3D, at: Vector3, dir: Vector3, s: float, spin: float) -> v
 static func damage_of(integ: int) -> float:
 	return clampf((100.0 - integ) / 90.0, 0.0, 1.0)
 
+## the mushrooms' size asked for: once they found room at full size (the rock's sides, the open rock) they stood a
+## third taller on average than they did when most shrank by the crystals (tests/rest_audit size: 0.073 -> 0.098 of
+## the find's height) — brought back to what it was
+const SHROOM_K := 0.75
+
 ## a lone crystal wider than the rock it stands on (it read as stuck on a pebble, and nothing that grows on rock had
 ## room: a mushroom shrank to a speck): the rock grows out sideways, not up — the crystal's foot stays where it is —
 ## till it is wider than the foot by a margin; the spots on it for what grows there move with it
@@ -2293,7 +2298,7 @@ func _accents(main: MeshInstance3D, mat: ShaderMaterial, gene: Dictionary, st: D
 		for k in 1 + int(fr.next() * (3.0 if tiny else 2.0)):
 			var n := (5 + int(fr.next() * 6)) if tiny else (3 + int(fr.next() * 4))
 			# (real mushrooms are slighter than the turned ones were: they stand taller to read on a card)
-			var cap: Array = SpecFungi.cluster(root, fr, shroom_beds, kind, n, (0.38 + fr.next() * 0.22) * gs * (0.72 if tiny else 1.0), boxes, SpecFungi.find_look(int(gene.shroom_seed), kind))
+			var cap: Array = SpecFungi.cluster(root, fr, shroom_beds, kind, n, (0.38 + fr.next() * 0.22) * gs * (0.72 if tiny else 1.0) * SHROOM_K, boxes, SpecFungi.find_look(int(gene.shroom_seed), kind))
 			if cap.size(): _mark("mushrooms", cap[0], cap[1])
 	# butterflies (SpecButterfly.for_find: the kinds of the species' mine), on their own stream: resting on the rock where
 	# a wing has room, or flying round the find; a skull places its own (SpecSkull)

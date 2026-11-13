@@ -98,7 +98,10 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 				var at: Array = c0 if k == 0 and attempt == 0 else pool[int(rng.next() * pool.size())]
 				var p: Vector3 = at[0]
 				var nrm: Vector3 = at[1]
-				var up := (nrm.lerp(Vector3.UP, 0.5 if side else 0.72) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.3).normalized()
+				# (out of a flank it stands nearly upright and roots deep: leaning out with its foot on the face, the foot of its
+				# stem stood in the air past the rock's edge, the rock falling away under it)
+				var steep := clampf(1.0 - nrm.y, 0.0, 1.0)
+				var up := (nrm.lerp(Vector3.UP, lerpf(0.72, 0.9, steep)) + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.3).normalized()
 				# a grown one, then smaller ones beside it; the violets all of a size, more or less
 				var age := (0.7 + 0.3 * rng.next()) if many else (1.0 if k == 0 else 0.5 + 0.35 * rng.next())
 				var name: String = look[mini(int(rng.next() * look.size()), look.size() - 1)]
@@ -109,7 +112,7 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 				s /= sqrt(maxf(1.0, maxf(box.size.x, box.size.z)))
 				var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
 				b = b * Basis.from_scale(Vector3.ONE * s * (0.94 + rng.next() * 0.12))
-				var xf := Transform3D(b, p - nrm * s * 0.03)
+				var xf := Transform3D(b, p - nrm * s * lerpf(0.03, 0.14, steep))
 				var core := box.grow(-0.14 * minf(box.size.x, box.size.z))
 				var hit := false
 				for bl: Dictionary in blockers:
