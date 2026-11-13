@@ -24,12 +24,16 @@ func _ready() -> void:
 	var sizes := []
 	var stems := []
 	var cross := 0
+	var with_fl := 0
+	var genes_got := {}
+	var overgrown := 0
 	var pairs := 0
 	for i in n:
 		var sid: String = sids[i % sids.size()]
 		var o := {seed = 9000 + i * 13, sid = sid, kind = "crystal", gi = 2, traits = [], accents = Array(String(args.get("acc", "flowers")).split(",")), flies = 2}
 		if args.has("shroom"): o.shroom = int(args.shroom)
 		if args.has("flora"): o.flora = int(args.flora)
+		if args.has("tr"): o.traits = Array(String(args.tr).split(","))
 		if args.has("form"): o.form = args.form
 		var o_seed := int(o.seed)
 		var root: Node3D = SpecimenBuilder.build(o)
@@ -83,6 +87,10 @@ func _ready() -> void:
 					out = maxf(out, d)
 				stems.append([out, sid, int(o_seed), int(k)])
 		var gr: Dictionary = root.get_meta("grown", {})
+		if gr.has("flowers"): with_fl += 1
+		for gk in ["moss", "lichen", "fronds", "flowers", "mushrooms", "straw", "pompom"]:
+			if gr.has(gk): genes_got[gk] = int(genes_got.get(gk, 0)) + 1
+		if (gr.has("moss") or gr.has("lichen")) and gr.has("mushrooms") and gr.has("flowers"): overgrown += 1
 		for key: String in gr:
 			if key.begins_with("fly_"):
 				for mk: Array in gr[key]: feet.append(["fly", mk[0]])
@@ -125,6 +133,8 @@ func _ready() -> void:
 		print("AIR %.3f %s %s seed=%d form=%s flora=%d" % w)
 	for k: String in tot:
 		print("REST %s: %d of %d over %.2f" % [k, bad[k], tot[k], gap])
+	print("GREW flowers on %d of %d finds" % [with_fl, n])
+	print("GENES grown on finds of %d: %s; moss|lichen+mushrooms+flowers together: %d" % [n, str(genes_got), overgrown])
 	if args.has("overlap"):
 		print("OVERLAP %d of %d flowers and mushrooms with another thing grown through them" % [cross, pairs])
 	if stems.size():

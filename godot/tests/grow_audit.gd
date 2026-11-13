@@ -67,6 +67,10 @@ func _ready() -> void:
 	var rolled := {}
 	var grown := {}
 	var miss := {}
+	# what the achievements of the rock's life need on one find: Nature Takes Over (moss or lichen, mushrooms, flowers),
+	# and how many of a find's growths grew when it was promised several (The Odd One counts them)
+	var combo := {over_want = 0, over_grew = 0, life_want = 0, life_grew = 0, multi = 0, multi_all = 0}
+	const LIFE := ["moss", "lichen", "fronds", "flowers", "mushrooms", "straw", "pompom", "needles"]
 	var log := FileAccess.open("user://grow_audit.jsonl", FileAccess.WRITE)
 	var t0 := Time.get_ticks_msec()
 	for fi in finds.size():
@@ -94,6 +98,16 @@ func _ready() -> void:
 				lost.append(id)
 				if not miss.has(id): miss[id] = {}
 				miss[id][what] = int((miss[id] as Dictionary).get(what, 0)) + 1
+		var lw := want.filter(func(x: String) -> bool: return x in LIFE)
+		var lg := lw.filter(func(x: String) -> bool: return not x in lost)
+		combo.life_want += lw.size()
+		combo.life_grew += lg.size()
+		if lw.size() >= 3:
+			combo.multi += 1
+			if lg.size() == lw.size(): combo.multi_all += 1
+		if (want.has("moss") or want.has("lichen")) and want.has("mushrooms") and want.has("flowers"):
+			combo.over_want += 1
+			if (lg.has("moss") or lg.has("lichen")) and lg.has("mushrooms") and lg.has("flowers"): combo.over_grew += 1
 		log.store_line(JSON.stringify({i = fi, what = what, want = want, lost = lost, pts = Worth.gene_points(s.traits, g)}))
 		log.flush()
 		if fi % 20 == 0: print("GROW ", fi, "/", finds.size(), "  ", (Time.get_ticks_msec() - t0) / 1000, " s")
@@ -113,5 +127,6 @@ func _ready() -> void:
 	lines.append("all grew: " + ", ".join(PackedStringArray(ids.filter(func(x): return int(grown.get(x, 0)) == int(rolled[x])))))
 	var txt := "\n".join(lines)
 	print(txt)
+	print("COMBO overgrown (moss|lichen + mushrooms + flowers): grew %d of %d promised; rock life genes grew %d of %d; finds with 3+ of them: all grew on %d of %d" % [combo.over_grew, combo.over_want, combo.life_grew, combo.life_want, combo.multi_all, combo.multi])
 	FileAccess.open("user://grow_audit.txt", FileAccess.WRITE).store_string(txt)
 	get_tree().quit()
