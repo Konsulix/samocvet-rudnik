@@ -31,7 +31,7 @@ const MODELS := {
 	star_sea = {g = "star", n = "ochre star", k = 1.0},
 	star_sunflower = {g = "star", n = "sunflower star", k = 1.15},
 	urchin_purple = {g = "star", n = "purple urchin", k = 0.7},
-	shell_tun = {g = "shell", n = "giant tun", k = 1.0, gain = 0.85},
+	shell_tun = {g = "shell", n = "giant tun", k = 1.0, gain = 0.8},
 	shell_triton = {g = "shell", n = "knobbed triton", k = 1.15},
 	shell_tridacna = {g = "shell", n = "giant clam", k = 1.05},
 	shell_moon = {g = "shell", n = "moon scallop", k = 0.95},
@@ -41,7 +41,7 @@ const MODELS := {
 	crab_hermit_b = {g = "crab", n = "hermit crab", k = 0.9},
 	crab_hermit_c = {g = "crab", n = "Mediterranean hermit", k = 0.95},
 	crab_fiddler = {g = "crab", n = "fiddler crab", k = 0.9},
-	crab_frog = {g = "crab", n = "red frog crab", k = 0.95},
+	crab_frog = {g = "crab", n = "red frog crab", k = 0.95, gain = 1.0},
 	crab_elbow = {g = "crab", n = "elbow crab", k = 1.0},
 	crab_mantis = {g = "crab", n = "mantis shrimp", k = 1.1},
 	crab_isopod = {g = "crab", n = "giant isopod", k = 0.95},
@@ -111,7 +111,7 @@ static func gene_name(id: String) -> String:
 ## the points it adds to a find's price: a swimmer most, a coral or a crab more than a weed
 static func points(id: String) -> float:
 	var g := String((MODELS.get(id.trim_prefix("sea:"), {}) as Dictionary).get("g", ""))
-	return float({weed = 0.4, coral = 0.9, star = 0.8, shell = 0.8, crab = 1.0, swim = 2.2}.get(g, 0.5))
+	return float({weed = 0.2, coral = 0.9, star = 0.8, shell = 0.8, crab = 1.0, swim = 2.2}.get(g, 0.5))
 
 static func mesh(id: String) -> Mesh:
 	if not _mesh.has(id):
@@ -130,6 +130,9 @@ static func mat(id: String) -> ShaderMaterial:
 		m.set_shader_parameter("rough", 0.45)
 		m.set_shader_parameter("tint", md.get("tint", Color.WHITE))
 		m.set_shader_parameter("sway", float(md.get("sway", 0.0)))
+		# (solid things — shells, crabs, stars, stony corals, the swimmers — let no light through: lit from behind their
+		# thin legs and rims glowed)
+		if float(md.get("sway", 0.0)) == 0.0: m.set_shader_parameter("back_k", 0.15)
 		if String(md.g) == "swim":
 			m.set_shader_parameter("swim", 0.06)
 		_mat[id] = m
@@ -189,6 +192,8 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		# the common weed grows in clumps: long and short stalks of both kinds round the first, and another clump
 		# along the slab's rim
 		if id in COMMON:
+			# (the stalks root in from the rim: on the rim itself they hung off the slab's edge)
+			var inner := SpecTrilobite._top_spots(rk, rb, 0.42)
 			for c in int(reef.get("clumps", 1)):
 				var ctr := at
 				if c > 0:
@@ -196,7 +201,7 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 					if far == null: break
 					ctr = far
 				for k in int(reef.get("stalks", 5)) - (1 if c == 0 else 0):
-					var near_c := cands.filter(func(p: Vector3) -> bool: return Vector2(p.x - ctr.x, p.z - ctr.z).length() < span * 0.16)
+					var near_c := inner.filter(func(p: Vector3) -> bool: return Vector2(p.x - ctr.x, p.z - ctr.z).length() < span * 0.16)
 					var sp: Variant = _room(near_c, occ, span * 0.05, r, INF, 1.0)
 					if sp == null: continue
 					var sid: String = COMMON[int(r.next() * 2.0)]
