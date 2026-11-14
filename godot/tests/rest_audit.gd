@@ -6,6 +6,7 @@ extends Node
 ##   "$G" --headless --path godot res://tests/rest_audit.tscn -- [area=0] [n=30] [sp=a,b] [form=single] [gap=0.03]
 ## overlap: things of different genes grown through one another (straw through flowers, flowers through mushrooms):
 ##   the copies' feet of each gene, a pair nearer than OVER_K of their sizes counts (acc=straw,flowers,mushrooms)
+## brink: how much of a ring round each plant's foot hangs over air (a plant at the rim stands out past the rock)
 ## size: also how tall the mushrooms and flowers stand, of the find's height (acc=mushrooms|flowers, shroom=N)
 
 func _ready() -> void:
@@ -23,6 +24,7 @@ func _ready() -> void:
 	var worst := []
 	var sizes := []
 	var stems := []
+	var brinks := []
 	var cross := 0
 	var with_fl := 0
 	var genes_got := {}
@@ -78,6 +80,15 @@ func _ready() -> void:
 				var bo := k * stride
 				var xf := t * Transform3D(Basis(Vector3(buf[bo], buf[bo + 4], buf[bo + 8]), Vector3(buf[bo + 1], buf[bo + 5], buf[bo + 9]), Vector3(buf[bo + 2], buf[bo + 6], buf[bo + 10])), Vector3(buf[bo + 3], buf[bo + 7], buf[bo + 11]))
 				feet.append(["flowers", xf.origin])
+				# brink: a ring round the foot at a quarter of the plant's height — how much of it has no rock just below
+				if args.has("brink"):
+					var hs := xf.basis.get_scale().y
+					var miss := 0
+					for j in 8:
+						var ang := TAU * j / 8.0
+						var q := xf.origin + Vector3(cos(ang), 0, sin(ang)) * hs * 0.25 + Vector3.UP * hs * 0.1
+						if surf.ray(q, Vector3.DOWN, hs * 0.45).is_empty(): miss += 1
+					brinks.append(float(miss) / 8.0)
 				# how far the foot of its stem stands out of the find: the worst of its low points, out along the surface's normal
 				var out := 0.0
 				for v in low:
@@ -137,6 +148,11 @@ func _ready() -> void:
 	print("GENES grown on finds of %d: %s; moss|lichen+mushrooms+flowers together: %d" % [n, str(genes_got), overgrown])
 	if args.has("overlap"):
 		print("OVERLAP %d of %d flowers and mushrooms with another thing grown through them" % [cross, pairs])
+	if brinks.size():
+		var over := brinks.filter(func(x: float) -> bool: return x >= 0.375).size()
+		var sm := 0.0
+		for x: float in brinks: sm += x
+		print("BRINK plants %d: ring over air mean %.2f; 3+ of 8 over air: %d" % [brinks.size(), sm / brinks.size(), over])
 	if stems.size():
 		stems.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
 		var over := stems.filter(func(q: Array) -> bool: return q[0] > gap).size()

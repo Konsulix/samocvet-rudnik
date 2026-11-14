@@ -79,6 +79,22 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 	# hung out over nothing, the plant looking set in the air beside the rock)
 	var flat := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y > 0.62)
 	if not many and flat.size() >= 8: base = flat
+	# (14.11) a big plant not at the brink of the top either: the rock that looks up lies all round its foot, its
+	# neighbours there centred on it — at the rim they all lie to one side (on a rounded lump the top was only "up-ish",
+	# flat under 8, and a gentian at its rim stood out past the rock)
+	if not many:
+		var rr := 0.3 * gs
+		var inner := base.filter(func(q: Array) -> bool:
+			var sum := Vector2.ZERO
+			var n := 0
+			for o: Array in tops:
+				var d: Vector3 = (o[0] as Vector3) - (q[0] as Vector3)
+				var hd := Vector2(d.x, d.z)
+				if hd.length() > rr or absf(d.y) > rr: continue
+				sum += hd
+				n += 1
+			return n >= 8 and (sum / n).length() < rr * 0.14)
+		if inner.size() >= 3: base = inner
 	# the rock's flanks: where the crystals leave the top no room, a plant grows out of the side, leaning off it — the
 	# little violets only; a big one there stood out past the rock
 	var flank := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y <= 0.3 and (q[1] as Vector3).y > -0.25)
