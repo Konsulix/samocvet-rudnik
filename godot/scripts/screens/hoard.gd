@@ -17,7 +17,7 @@ const HALO: Shader = preload("res://shaders/fungi_halo.gdshader")
 ## the metal running along the rock's ridges, each boss's own (the generator's silver rim, tinted): the Serpent's gold,
 ## the Mistress's copper, the sea's pale silver, the smith's red-hot iron...
 const VEIN_OF := {0: Vector3(1.0, 0.58, 0.14), 1: Vector3(1.0, 0.42, 0.22), 2: Vector3(0.85, 0.95, 1.1), 3: Vector3(1.1, 0.32, 0.1),
-	4: Vector3(0.9, 1.05, 1.2), 5: Vector3(1.0, 1.0, 1.0), 6: Vector3(1.0, 0.62, 0.2), 7: Vector3(0.7, 0.85, 1.25)}
+	4: Vector3(0.9, 1.05, 1.2), 5: Vector3(1.0, 1.0, 1.0), 6: Vector3(1.0, 0.62, 0.2), 7: Vector3(0.25, 0.25, 0.28)}
 ## the geode's dress by mine: the nine crystals (habit, body colour), the rim band, the crust in the cave, the light in it,
 ## the rock outside (a tint over its scan). Missing — the Serpent's: almandine on milky quartz in grey chalcedony
 const THEME := {
@@ -52,8 +52,14 @@ const THEME := {
 	6: {habit = "prism", h = 0.55, col = 0x060403, deep = 3.0, size_k = 1.2, lo = Vector3(0.08, 0.015, 0.004), hi = Vector3(0.45, 0.14, 0.04),
 		rind = Vector3(0.02, 0.012, 0.008), floor = Vector3(0.32, 0.29, 0.24), druse = 0xe6dcc4, druse_tint = 0.6,
 		glow = Color(0.5, 1.0, 0.4), rock = Color(0.05, 0.045, 0.04)},
+	# Shubin of the Whispering Seam, a coal pit in a chalk cape: honey dogtooth calcite on dark brassy marcasite, a rim
+	# of flint (nailhead spar: the dogtooth came out thin needles; grey-brown bands under a white chalk cortex, as a flint nodule's), white chalk outside, the blue flame of
+	# firedamp in the cave
+	7: {habit = "nailhead", h = 1.0, col = 0xd08010, deep = 1.4, size_k = 1.2, lo = Vector3(0.025, 0.022, 0.02), hi = Vector3(0.13, 0.11, 0.09),
+		rind = Vector3(0.6, 0.58, 0.54), floor = Vector3(0.03, 0.028, 0.022), druse = 0x4a4030, druse_tint = 1.0, druse_opaque = true,
+		druse_metal = 0.85, glow = Color(0.35, 0.55, 1.0), rock = Color(0.55, 0.54, 0.5)},
 }
-const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "slate", 4: "slate", 5: "slate", 6: "slate", 7: "basalt"}
+const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "slate", 4: "slate", 5: "slate", 6: "slate", 7: "gypsum"}
 
 var stones := []
 var geodes: Array[Node3D] = []
