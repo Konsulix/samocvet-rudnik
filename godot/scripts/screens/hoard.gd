@@ -307,6 +307,11 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# (14.11, the reward should feel like treasure) nine big almandine crystals grown out of the rock: the generator's
 	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
 	# the lens shows burn in their rarity's colour, a light of it on the rock round them
+	# the rock's outside (not the face, not the cave): no crystal may come through it
+	var outer := PackedVector3Array()
+	if rg.col.size() == rg.v.size():
+		for vi in rg.v.size():
+			if rg.col[vi].g < 0.5: outer.append(rg.v[vi])
 	var hulls := []   # [the crystal's faces as planes in the rock's space, the rock's normal there]
 	sinks.clear()
 	for i in stones.size(): sinks.append((0.2 + rng.randf() * 0.45) * float(sizes[i % sizes.size()]))   # (of its own size)
@@ -333,6 +338,25 @@ func _build(rng: RandomNumberGenerator) -> void:
 		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.03, rf = 0.14, frost = 0.16, thick = 1.25,
 			st = 1.0, st_mode = 2.0, grain = 0.15, seed = float(i * 13 % 97), prio = 2, tint_body = 1.0, tint_glow = glow_k, deep_body = float(TH.deep)})
 		SpecUtil.mesh(cg, cm, g)
+		# (14.11) a crystal deep in the cave, or on its wall leaning out, came through the back or the side of the
+		# boulder (a tall emerald most of all): drawn out of its socket a step at a time till it is clear of the outside
+		for tries in 10:
+			var hl0 := _hull(cg, g.transform)
+			var c0 := g.transform * cg.aabb().get_center()
+			var hit := false
+			for x in outer:
+				if x.distance_to(c0) > R_GEO * 2.5: continue
+				var ins := true
+				for pl: Array in hl0:
+					if (pl[0] as Vector3).dot(x) > float(pl[1]) + R_GEO * 0.08:
+						ins = false
+						break
+				if ins:
+					hit = true
+					break
+			if not hit: break
+			sinks[i] = float(sinks[i]) - 0.12 * float(sizes[i % sizes.size()])
+			g.position = at - nn * R_GEO * float(sinks[i])
 		var hc := g.transform * cg.aabb().get_center()
 		var hr := 0.0
 		for p in cg.v: hr = maxf(hr, (g.transform * p).distance_to(hc))
