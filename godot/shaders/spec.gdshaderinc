@@ -218,6 +218,11 @@ void fragment() {
 		ag = mix(ag, vec3(0.2, 0.22, 0.26), smoothstep(0.25, 0.0, t) * 0.6);
 		base = mix(base, ag, ag_on);
 		r = mix(r, 0.5, ag_on);
+		// the cave's floor under its crust: milky, glittering — between the small crystals no dark rock shows
+		float flo = step(0.5, COLOR.g) * (1.0 - smoothstep(-0.04, 0.02, t)) * agate_k * dirt;
+		base = mix(base, vec3(0.3, 0.29, 0.3) * (0.65 + 0.7 * vn(v_rp * 55.0)) * clamp(COLOR.r * 1.3, 0.35, 1.0), flo);   // (darker deeper in, as the cave's rock was)
+		r = mix(r, 0.35, flo);
+		ag_on = max(ag_on, flo);
 	}
 	m *= 1.0 - dirt;
 	cc *= 1.0 - max(dirt, frost * 0.6);

@@ -247,7 +247,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 			c1.g = 0.0
 			if rg.v[vi].z > zf - 0.09:
 				var ub: float = cave_u.call(rg.v[vi].x, rg.v[vi].y)
-				if ub > BAND_IN * 0.7 and ub < BAND_OUT * 1.3: c1.g = 1.0   # (only where the band may be: the shader works out the place across it pixel by pixel — by vertex, the stripes zigzagged along the triangles)
+				if ub < BAND_OUT * 1.3: c1.g = 1.0   # (only where the band may be: the shader works out the place across it pixel by pixel — by vertex, the stripes zigzagged along the triangles)
 			rg.col[vi] = c1
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
@@ -424,7 +424,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	if "hoard_sel" in OS.get_cmdline_user_args(): sel = 0   # (test: the first crystal out, its socket empty)
 	# the cave's lining: a crust of small pale quartz points over its walls, as a geode's, round the big crystals
 	# (dense, every wall covered, dark wine — the nine big ones glowing out of it; the band left bare at the lip)
-	var druse_at := RockKit.surf_pts(rock_mi, 2800, r32, func(pp: Vector3, nn: Vector3) -> bool:
+	var druse_at := RockKit.surf_pts(rock_mi, 5200, r32, func(pp: Vector3, nn: Vector3) -> bool:
 		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.9, pivot)
 	var dcol := SpecMat.lin(0xe8e4e0)   # (milky quartz: wine-red, the lining ran into the garnets)
 	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0, cA = dcol, cB = dcol})
@@ -441,10 +441,10 @@ func _build(rng: RandomNumberGenerator) -> void:
 		for hl: Array in hulls:
 			if at.distance_to(hl[2]) < float(hl[3]) * 0.95: near = true
 		if near: continue
-		var ln := R_GEO * (0.24 + rng.randf() * 0.3)
+		var ln := R_GEO * (0.28 + rng.randf() * 0.34)
 		var ax := ((q[1] as Vector3) + Vector3(rng.randf() - 0.5, rng.randf() - 0.5, rng.randf() - 0.5) * 0.6).normalized()
 		var bs := Basis(SpecUtil.quat_to(Vector3.UP, ax)) * Basis(Vector3.UP, rng.randf() * TAU)
-		xfs.append(Transform3D(bs.scaled(Vector3(ln * 0.8, ln, ln * 0.8)), at - ax * ln * 0.3))
+		xfs.append(Transform3D(bs.scaled(Vector3(ln * 0.9, ln, ln * 0.9)), at - ax * ln * 0.3))
 	mm.instance_count = xfs.size()
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mmi := MultiMeshInstance3D.new()
