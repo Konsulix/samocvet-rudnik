@@ -13,8 +13,8 @@ const U := preload("res://scripts/specimen/spec_util.gd")
 ## each model: its group, its name on the card, its size (k, of its group's), its colour (gain, sat, tint), sway
 const MODELS := {
 	weed_kelp = {g = "weed", n = "giant kelp", k = 1.1, sway = 0.07},
-	weed_claret = {g = "weed", n = "sea oak", k = 1.0, sway = 0.06, gain = 1.6},
-	weed_wiggle = {g = "weed", n = "bladder wrack", k = 0.85, sway = 0.07, gain = 1.6},
+	weed_claret = {g = "weed", n = "sea oak", k = 1.0, sway = 0.06, gain = 5.0, sat = 0.85, tint = Color(1.25, 1.0, 0.75)},
+	weed_wiggle = {g = "weed", n = "bladder wrack", k = 0.85, sway = 0.07, gain = 5.0, sat = 0.85, tint = Color(1.25, 1.0, 0.75)},
 	coral_red = {g = "coral", n = "red coral", k = 1.0, tint = Color(1.0, 0.62, 0.5), sat = 1.4},
 	coral_organ = {g = "coral", n = "organ pipe coral", k = 0.8},
 	coral_blue = {g = "coral", n = "blue coral", k = 0.9},
