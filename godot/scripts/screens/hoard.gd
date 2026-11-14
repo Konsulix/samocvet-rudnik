@@ -25,6 +25,7 @@ var geodes: Array[Node3D] = []
 var dirs: Array[Vector3] = []
 var normals: Array[Vector3] = []   # the rock's face under each geode: it is drawn out along it
 var sinks := []   # how deep each crystal sits in the rock (from barely to half sunk)
+var sizes := []   # each crystal's size, of R_GEO (a big one leading its group, small ones round it)
 var glows := []   # [light, phase] of the geodes the lens lights
 var area_i := 0
 var lit := {}           # geode index -> its rarity tier, for the ones the lens shows
@@ -159,7 +160,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
-	rg.scale(fit * 1.25, fit * 1.75, fit * 1.0)
+	rg.scale(fit * 1.3, fit * 1.5, fit * 1.05)
 	# (14.11, after a photo of a split boulder) not an egg: big flat break faces at all angles, as a block of rock
 	# broken out of a cliff — the boulder cut by planes (everything past one pressed onto it), steep ones round its
 	# sides, slanting ones at its top, its foot broken off unevenly; the scan and the noise of the rock keep the faces rough
@@ -169,10 +170,10 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for k in 7:
 		var a := TAU * float(k) / 7.0 + (cs.next() - 0.5) * 0.5
 		var tilt := -0.08 + cs.next() * 0.25
-		planes.append([Vector3(cos(a), tilt, sin(a)).normalized(), 0.5 + cs.next() * 0.14])
+		planes.append([Vector3(cos(a), tilt, sin(a)).normalized(), 0.42 + cs.next() * 0.12])
 	# (its top: one broad slanting break and a smaller one, as on the photo — not a dome)
-	planes.append([Vector3(cs.next() - 0.5, 1.6, cs.next() - 0.5).normalized(), 0.62])
-	planes.append([Vector3(cs.next() * 2.0 - 1.0, 1.0, cs.next() * 2.0 - 1.0).normalized(), 0.6])
+	planes.append([Vector3(cs.next() - 0.5, 1.6, cs.next() - 0.5).normalized(), 0.55])
+	planes.append([Vector3(cs.next() * 2.0 - 1.0, 1.0, cs.next() * 2.0 - 1.0).normalized(), 0.52])
 	# the foot: two slanting breaks under it, not one sawn plane
 	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized(), 0.6])
 	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized() * Vector3(1.4, 1.0, 1.4), 0.66])
@@ -190,9 +191,9 @@ func _build(rng: RandomNumberGenerator) -> void:
 	fn.fractal_octaves = 3
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
-		rg.v[vi] = vv + Vector3(fn.get_noise_3dv(vv), fn.get_noise_3dv(vv + Vector3(9, 1, 3)), fn.get_noise_3dv(vv + Vector3(2, 7, 5))) * 0.035
+		rg.v[vi] = vv + Vector3(fn.get_noise_3dv(vv), fn.get_noise_3dv(vv + Vector3(9, 1, 3)), fn.get_noise_3dv(vv + Vector3(2, 7, 5))) * 0.016   # (stronger, it melted the flat breaks back into a potato)
 		# (and a finer, sharper one: little lumps and pits the flat shading turns into facets, as on the photo)
-		rg.v[vi] += Vector3(fn.get_noise_3dv(vv * 3.4 + Vector3(4, 4, 4)), fn.get_noise_3dv(vv * 3.4 + Vector3(1, 8, 2)), fn.get_noise_3dv(vv * 3.4 + Vector3(6, 3, 9))) * 0.014
+		rg.v[vi] += Vector3(fn.get_noise_3dv(vv * 3.4 + Vector3(4, 4, 4)), fn.get_noise_3dv(vv * 3.4 + Vector3(1, 8, 2)), fn.get_noise_3dv(vv * 3.4 + Vector3(6, 3, 9))) * 0.008
 	var cut := rg.aabb().position.y + rg.aabb().size.y * 0.12
 	rg.rp = rg.v.duplicate()
 	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
@@ -202,44 +203,83 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# nine spots on its surface, apart from one another, not underneath
 	# (none near the foot: a crystal there hung below the column's flat base)
 	var low := cut + R_GEO * 0.9
-	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(pp: Vector3, nn: Vector3) -> bool: return nn.y > -0.35 and pp.y > low, pivot)
+	# (14.11) the crystals grow in groups, as garnets do in their rock: a big one with smaller ones round it, two or three
+	# groups, bare rock between; on the top and the side breaks, each grown out along its face
+	var pts := RockKit.surf_pts(rock_mi, 900, r32, func(pp: Vector3, nn: Vector3) -> bool: return nn.y > -0.3 and pp.y > low, pivot)
 	normals.clear()
+	sizes.clear()
+	var n_st := stones.size()
+	var n_gr := clampi(int(ceil(n_st / 3.5)), 1, 3)
+	var centres := []
 	for q: Array in pts:
-		if dirs.size() >= stones.size(): break
-		var ok := true
-		for d in dirs:
-			if (d - (q[0] as Vector3)).length() < R_GEO * 2.1: ok = false
-		if ok:
+		if centres.size() >= n_gr: break
+		if (q[1] as Vector3).y < -0.1: continue
+		var far_ok := true
+		for c: Array in centres:
+			if (c[0] as Vector3).distance_to(q[0]) < R_GEO * 4.2: far_ok = false
+		if far_ok: centres.append(q)
+	if centres.is_empty(): centres.append(pts[0])
+	var fits := func(at: Vector3, sz: float) -> bool:
+		for k in dirs.size():
+			if dirs[k].distance_to(at) < R_GEO * (sz + float(sizes[k])) * 0.92: return false
+		return true
+	for c: Array in centres:
+		dirs.append(c[0])
+		normals.append(c[1])
+		sizes.append(1.0 + rng.randf() * 0.25)
+	var gi := 0
+	var tries := 0
+	while dirs.size() < n_st and tries < n_st * 6:
+		tries += 1
+		var cen: Vector3 = centres[gi % centres.size()][0]
+		gi += 1
+		var sz := 0.42 + rng.randf() * 0.38
+		var best_q: Array = []
+		var best_d := INF
+		for q: Array in pts:
+			var d := cen.distance_to(q[0]) + rng.randf() * R_GEO * 0.6
+			if d < best_d and d < R_GEO * (3.0 + tries * 0.15) and fits.call(q[0], sz):
+				best_d = d
+				best_q = q
+		if best_q.is_empty(): continue
+		dirs.append(best_q[0])
+		normals.append(best_q[1])
+		sizes.append(sz)
+	# (a rock too small for all: the rest anywhere free)
+	for q: Array in pts:
+		if dirs.size() >= n_st: break
+		if fits.call(q[0], 0.45):
 			dirs.append(q[0])
 			normals.append(q[1])
+			sizes.append(0.45)
 	# (14.11, the reward should feel like treasure) nine big almandine crystals grown out of the rock: the generator's
 	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
 	# the lens shows burn in their rarity's colour, a light of it on the rock round them
 	var hulls := []   # [the crystal's faces as planes in the rock's space, the rock's normal there]
 	sinks.clear()
-	for i in stones.size(): sinks.append(0.12 + rng.randf() * 0.55)
+	for i in stones.size(): sinks.append((0.2 + rng.randf() * 0.45) * float(sizes[i % sizes.size()]))   # (of its own size)
 	for i in stones.size():
 		var g := Node3D.new()
 		var at: Vector3 = dirs[i % dirs.size()]
 		var nn: Vector3 = normals[i % normals.size()]
-		var axis := nn.lerp(Vector3.UP, 0.35).normalized()
+		var axis := nn.lerp(Vector3.UP, 0.2).normalized()
 		g.position = at - nn * R_GEO * sinks[i]
 		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, axis)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
 		var cr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
-		var col := SpecMat.lin(0x5a1420)   # (a deep, muted wine-red: a bright one read as candy)
+		var col := SpecMat.lin(0x4a0e18)   # (a deep, muted wine-red: a bright one read as candy)
 		var glow_k := 0.08
 		# (detail: faces not quite flat, as a grown crystal's are — the glass ripples what shows through)
 		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
 		# (each its own size, from a small one to a big one)
-		var csz := R_GEO * 1.98 * (0.65 + cr.next() * 0.7) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
+		var csz := R_GEO * 1.98 * float(sizes[i % sizes.size()]) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
 		cg.translate(-cb.get_center().x, -cb.position.y - cb.size.y * 0.25, -cb.get_center().z)
 		cg.scale(csz, csz, csz)
 		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
 		# polished smooth read as red plastic)
-		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.2, rf = 0.25, frost = 0.32, thick = 1.25,
-			st = 1.0, st_mode = 2.0, grain = 0.25, seed = float(i * 13 % 97), prio = 2, tint_body = 0.85, tint_glow = glow_k, deep_body = 1.4})
+		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.03, rf = 0.14, frost = 0.16, thick = 1.25,
+			st = 1.0, st_mode = 2.0, grain = 0.15, seed = float(i * 13 % 97), prio = 2, tint_body = 1.0, tint_glow = glow_k, deep_body = 1.9})
 		SpecUtil.mesh(cg, cm, g)
 		var hc := g.transform * cg.aabb().get_center()
 		var hr := 0.0
@@ -474,7 +514,7 @@ func _pick(at: Vector2) -> void:
 		if (c - pivot.global_position).normalized().dot((cam.global_position - c).normalized()) < 0.05: continue
 		var t := (c - o).dot(dir)
 		if t < 0.0 or t > best_t: continue
-		if (o + dir * t - c).length() < R_GEO * 1.35:
+		if (o + dir * t - c).length() < R_GEO * 1.35 * maxf(0.6, float(sizes[i % sizes.size()])):
 			best = i
 			best_t = t
 	if best < 0: return
