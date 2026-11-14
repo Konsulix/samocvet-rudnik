@@ -223,6 +223,9 @@ func render() -> void:
 		if rise:
 			rise = false
 			_rise()
+		elif _gift_owed():
+			# (the game was closed on the gift's card before it was taken: he comes with it again)
+			_rise()
 		elif dive > 0.0:
 			_dive()
 		else:
@@ -1259,6 +1262,7 @@ func _rise() -> void:
 	await StoryScene.play(self, "fools_gold").finished
 	rv.unmask(gift)
 	await rv.finished
+	Save.tell("gift_got")
 	# and the first beams of the headframe, on him: the mine changes under the newcomer's hand straight away
 	var nx := next_step()
 	if not nx.job_done and is_inside_tree():
@@ -1269,6 +1273,20 @@ func _rise() -> void:
 		await get_tree().create_timer(3.4).timeout
 	_guide_waits = false
 	_guide_later(0.6)
+
+## the prologue's gift not taken yet: the game closed on its card (before Keep or Sell) — it was never kept, and nothing
+## offered it again. Not if a gift stone is in the inventory already (closed between Keep and the card's end)
+func _gift_owed() -> bool:
+	if Coach.off or Save.told("gift_got") or not Save.told("prologue") or Save.area() != 0: return false
+	for s: Dictionary in Save.d.coll:
+		if Save.is_gift(s): return false
+	# (an old game that went on past it — a level won, a step built — had its gift: maybe sold, it is not owed)
+	if int(Save.d.level) > 1: return false
+	for w in Save.d.dwins:
+		if int(w) > 0: return false
+	for k: String in Save.d.get("jstep", {}):
+		if k.begins_with("0:"): return false
+	return true
 
 ## the guide says one line now (the mine rides to him), whatever else is due
 func _say(text: String) -> void:
