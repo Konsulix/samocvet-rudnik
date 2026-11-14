@@ -12,6 +12,7 @@ signal picked(stone: Dictionary)
 ## how lucky each of the nine is (Stones.roll): one fine stone, a few good ones, the rest ordinary
 const LUCK := [3.5, 2.6, 2.0, 1.6, 1.3, 1.1, 1.0, 0.9, 0.8]
 const R_GEO := 0.29
+const HALO: Shader = preload("res://shaders/fungi_halo.gdshader")
 ## each mine's rock for its hoard (the specimen generator's kinds)
 ## the metal running along the rock's ridges, each boss's own (the generator's silver rim, tinted): the Serpent's gold,
 ## the Mistress's copper, the sea's pale silver, the smith's red-hot iron...
@@ -155,6 +156,14 @@ func _build(rng: RandomNumberGenerator) -> void:
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
 	rg.scale(fit * 1.0, fit * 1.9, fit * 1.0)
+	# (a column stands on a flat foot: its lower part cut level, the cut a little rough)
+	var cb0 := rg.aabb()
+	var cut := cb0.position.y + cb0.size.y * 0.24
+	for vi in rg.v.size():
+		var vv := rg.v[vi]
+		if vv.y < cut:
+			var spread := 1.0 + (cut - vv.y) / maxf(cb0.size.y, 0.01) * 0.6
+			rg.v[vi] = Vector3(vv.x * spread, cut - 0.02 * sin(vv.x * 9.0 + vv.z * 7.0), vv.z * spread)
 	rg.rp = rg.v.duplicate()
 	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, silv = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
@@ -185,23 +194,38 @@ func _build(rng: RandomNumberGenerator) -> void:
 		var cr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
 		var col := SpecMat.lin(0x8a1022)
 		var glow_k := 0.18
-		if lit.has(i):
-			col = Data.rarity_color(int(lit[i])).srgb_to_linear()
-			glow_k = 0.55
-		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col})
+		# (detail: faces not quite flat, as a grown crystal's are — the glass ripples what shows through)
+		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
 		var csz := R_GEO * 2.2 * (0.85 + cr.next() * 0.35) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
 		cg.translate(-cb.get_center().x, -cb.position.y - cb.size.y * 0.25, -cb.get_center().z)
 		cg.scale(csz, csz, csz)
-		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.45, rf = 0.35, frost = 0.08, thick = 1.25,
-			seed = float(i * 13 % 97), prio = 2, tint_body = 0.75, tint_glow = glow_k, deep_body = 1.0})
+		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
+		# polished smooth read as red plastic)
+		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.2, rf = 0.25, frost = 0.32, thick = 1.25,
+			st = 1.0, st_mode = 2.0, grain = 0.25, seed = float(i * 13 % 97), prio = 2, tint_body = 0.75, tint_glow = glow_k, deep_body = 1.0})
 		SpecUtil.mesh(cg, cm, g)
 		if lit.has(i):
+			# what the lens shows: a soft halo of its rarity's colour round it and a little of that light on the rock, as
+			# the glowing mycena's — the crystal itself stays a garnet
+			var rc := Data.rarity_color(int(lit[i]))
+			var halo := MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2.ONE * R_GEO * 5.0
+			halo.mesh = q
+			var hm := ShaderMaterial.new()
+			hm.shader = HALO
+			hm.set_shader_parameter("col", Vector3(rc.r, rc.g, rc.b))
+			hm.set_shader_parameter("power", 1.1)
+			halo.material_override = hm
+			halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			halo.position = Vector3(0, R_GEO * 0.45, 0)
+			g.add_child(halo)
 			var glow := OmniLight3D.new()
-			glow.light_color = Data.rarity_color(int(lit[i]))
+			glow.light_color = rc
 			glow.light_energy = 1.2
-			glow.omni_range = 1.1
-			glow.position = Vector3(0, R_GEO * 0.8, 0)
+			glow.omni_range = 0.9
+			glow.position = Vector3(0, R_GEO * 0.9, 0)
 			g.add_child(glow)
 			glows.append([glow, rng.randf() * TAU])
 		geodes.append(g)
@@ -318,7 +342,7 @@ func _process(dt: float) -> void:
 		_turn(_vel)
 	var t := Time.get_ticks_msec() / 1000.0
 	for gl: Array in glows:
-		(gl[0] as OmniLight3D).light_energy = 0.7 + 0.35 * sin(t * 1.6 + float(gl[1]))
+		(gl[0] as OmniLight3D).light_energy = 0.6 + 0.25 * sin(t * 1.3 + float(gl[1]))
 	for i in geodes.size():
 		var g := geodes[i]
 		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (0.7 if i == sel else -0.15)
