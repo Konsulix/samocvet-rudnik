@@ -69,6 +69,45 @@ func _claim(had: int) -> void:
 			var sc := Vector3(buf[o], buf[o + 4], buf[o + 8]).length()
 			keep_out.append([mi.transform * Vector3(buf[o + 3], buf[o + 7], buf[o + 11]), sc * half * 0.7])
 
+## a lone crystal's rock climbing one of its sides (photos: a quartz point half sunk in a bubbly crust): a second lump
+## of the same rock leaned against its foot, up a third to a half of its length, on a side of it the viewer sees but
+## not in front of it; its top is new ground for what grows on rock (st.pick takes from it too, its own normals)
+const HUG_P := 0.4
+func _hug_rock(rk: MeshInstance3D, c: MeshInstance3D, st: Dictionary, rtype: String, hr: Rng32) -> void:
+	if not (rk and c and c.has_meta("geo")): return
+	var cg: Geo = c.get_meta("geo")
+	var cb := cg.aabb()
+	var cs := c.transform.basis.get_scale().x
+	var up := c.transform.basis.y.normalized()
+	var foot := c.transform * Vector3(cb.get_center().x, cb.position.y, cb.get_center().z)
+	var ln := cb.size.y * cs
+	var cr := maxf(cb.size.x, cb.size.z) * 0.5 * cs
+	# a side of it, turned 50-110 degrees off the line of sight, left or right
+	var side := VIEW_DIR.rotated(UP, deg_to_rad(50.0 + hr.next() * 60.0) * (1.0 if hr.next() < 0.5 else -1.0))
+	side = (side - up * side.dot(up)).normalized()
+	var R := RockKit.rock(hr, rtype, "small", 24, 0.0)
+	var g: Geo = R.geo
+	var gb := g.aabb()
+	var hh := ln * (0.42 + hr.next() * 0.2)
+	var ww := cr * (2.4 + hr.next() * 0.8)
+	var sc := Vector3(ww / maxf(gb.size.x, 0.01), hh / maxf(gb.size.y, 0.01), ww * 0.8 / maxf(gb.size.z, 0.01))
+	g.translate(-gb.get_center().x, -gb.get_center().y, -gb.get_center().z)
+	var b := Basis(U.quat_to(UP, up.lerp(UP, 0.4).normalized())) * Basis(UP, hr.next() * TAU) * Basis.from_scale(sc)
+	var at := foot + up * hh * 0.38 + side * cr * (0.85 + hr.next() * 0.25)
+	var mi := U.mesh(g, rk.material_override, root, at, b)
+	mi.set_meta("gene", "rock")   # (not one of the genes that grow on it: _tag, SpecSolid leave it be)
+	var pts := RockKit.surf_pts(mi, 140, hr, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > 0.2, root)
+	if pts.is_empty(): return
+	var hn := {}
+	for q: Array in pts: hn[q[0]] = q[1]
+	var raw_pick: Callable = st.pick
+	var raw_nrm: Callable = st.nrm
+	var pr := Rng32.new(int(hr.next() * 100000))
+	st.pick = func() -> Vector3:
+		if pr.next() < 0.4: return pts[int(pr.next() * pts.size()) % pts.size()][0]
+		return raw_pick.call()
+	st.nrm = func(w: Vector3) -> Vector3: return hn[w] if hn.has(w) else raw_nrm.call(w)
+
 ## a lone crystal wider than the rock it stands on (it read as stuck on a pebble, and nothing that grows on rock had
 ## room: a mushroom shrank to a speck): the rock grows out sideways, not up — the crystal's foot stays where it is —
 ## till it is wider than the foot by a margin; the spots on it for what grows there move with it
@@ -671,6 +710,9 @@ func _specimen(o: Dictionary) -> Node3D:
 			var at := Vector3((rng.next() - 0.5) * 0.15, 0.22 if elongated else 0.1, (rng.next() - 0.5) * 0.15)
 			main = crystal.call(1.15 + rng.next() * 0.5, 1.2 + rng.next() * 0.3, at, lean.call(UP, 0.35), {scepter = "scepter" in tr})
 			_widen_rock(srk, main, st)
+			# now and then the rock climbs one side of it: the crystal half sunk in it, as it grew (its own stream)
+			var hug_r := Rng32.new((seed_v * 1812433253 + 97) % 4294967296)
+			if hug_r.next() < HUG_P: _hug_rock(srk, main, st, rtype, hug_r)
 			dt.h = at.y + 0.1 + rng.next() * 0.25
 			dt.a = 0.35
 			for k in int(floor(rng.next() * 3)):
