@@ -163,23 +163,15 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
-	rg.scale(fit * 1.8, fit * 1.85, fit * 1.15)   # (broad: room in its cave for nine crystals apart)
+	rg.scale(fit * 1.6, fit * 2.05, fit * 1.2)   # (broad: room in its cave for nine crystals apart)
 	# (14.11, after a photo of a split boulder) not an egg: big flat break faces at all angles, as a block of rock
 	# broken out of a cliff — the boulder cut by planes (everything past one pressed onto it), steep ones round its
 	# sides, slanting ones at its top, its foot broken off unevenly; the scan and the noise of the rock keep the faces rough
 	var cb0 := rg.aabb()
 	var cs := Rng32.new(int(stones[0].id) % 1000003 + 77)
 	var planes := []
-	for k in 7:
-		var a := TAU * float(k) / 7.0 + (cs.next() - 0.5) * 0.5
-		var tilt := -0.08 + cs.next() * 0.25
-		planes.append([Vector3(cos(a), tilt, sin(a)).normalized(), (0.5 if k % 3 == 0 else 0.72) + cs.next() * 0.12])   # (one deep break in three, the rest only shave it: a boulder, not a cube)
-	# (its top: one broad slanting break and a smaller one, as on the photo — not a dome)
-	planes.append([Vector3(cs.next() - 0.5, 1.6, cs.next() - 0.5).normalized(), 0.62])
-	planes.append([Vector3(cs.next() * 2.0 - 1.0, 1.0, cs.next() * 2.0 - 1.0).normalized(), 0.74])
-	# the foot: two slanting breaks under it, not one sawn plane
-	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized(), 0.6])
-	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized() * Vector3(1.4, 1.0, 1.4), 0.66])
+	# (14.11, after a photo of an amethyst geode) no breaks round it: a rounded, uneven egg, so its split face is a
+	# ragged oval, as a geode's — the cave filling most of it inside a rim of rock
 	# (14.11, the treasure inside) split open: its front broken off in one flat face, the cave of crystals in it
 	planes.append([Vector3(0, 0, 1), 0.3])   # (square to the axis: tilted, only one corner of it was found as the face, and the cave went there)
 	var ext := Vector3(cb0.size.x, cb0.size.y, cb0.size.z) * 0.5
@@ -209,18 +201,39 @@ func _build(rng: RandomNumberGenerator) -> void:
 			fa = AABB(vv, Vector3.ZERO) if nf == 0 else fa.expand(vv)
 			nf += 1
 	var cav_c := fa.get_center()
-	var cav_a := fa.size.x * 0.42
-	var cav_b := fa.size.y * 0.4
-	var depth := (zf - rg.aabb().position.z) * 0.45   # (deeper, the crystals at its bottom came through the back)
+	# the face's outline round its middle, angle by angle: the cave keeps a rim of rock inside it all round
+	const NB := 48
+	var rim := PackedFloat32Array()
+	rim.resize(NB)
+	for vv in rg.v:
+		if vv.z > zf - 0.06:
+			var b := int(posmod(atan2(vv.y - cav_c.y, vv.x - cav_c.x) / TAU * NB, float(NB)))
+			rim[b] = maxf(rim[b], Vector2(vv.x - cav_c.x, vv.y - cav_c.y).length())
+	var rim_s := PackedFloat32Array()
+	rim_s.resize(NB)
+	for b in NB:
+		var sm := 0.0
+		var nn2 := 0
+		for o in range(-2, 3):
+			var r0 := rim[posmod(b + o, NB)]
+			if r0 > 0.0:
+				sm += r0
+				nn2 += 1
+		rim_s[b] = sm / maxf(1, nn2)
+	var cave_u := func(x: float, y: float) -> float:
+		var ang := atan2(y - cav_c.y, x - cav_c.x)
+		var f := posmod(ang / TAU * NB, float(NB))
+		var b0 := int(f)
+		var r := lerpf(rim_s[b0], rim_s[(b0 + 1) % NB], f - b0) * (0.8 + fn.get_noise_2d(cos(ang) * 1.6, sin(ang) * 1.6) * 0.12)
+		return pow(Vector2(x - cav_c.x, y - cav_c.y).length() / maxf(r, 0.01), 2.0)
+	var depth := (zf - rg.aabb().position.z) * 0.55   # (deeper, the crystals at its bottom came through the back)
 	var has_c := rg.col.size() == rg.v.size()
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
 		if vv.z < zf - 0.09: continue
-		var ang := atan2(vv.y - cav_c.y, vv.x - cav_c.x)
-		var rr := 1.0 + fn.get_noise_2d(cos(ang) * 1.3, sin(ang) * 1.3) * 0.35
-		var u := (pow((vv.x - cav_c.x) / cav_a, 2.0) + pow((vv.y - cav_c.y) / cav_b, 2.0)) / (rr * rr)
+		var u: float = cave_u.call(vv.x, vv.y)
 		if u >= 1.0: continue
-		var dz := depth * pow(1.0 - u, 0.75)
+		var dz := depth * pow(1.0 - u, 0.6)
 		rg.v[vi] = Vector3(vv.x, vv.y, vv.z - dz + fn.get_noise_3dv(vv * 4.0) * 0.04)
 		if has_c:
 			var c0 := rg.col[vi]
@@ -237,19 +250,19 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# nine crystals spread over the rock, apart from one another, each its own size (grouping them as garnets grow read
 	# as a mistake: the hoard is a game's chest, not an almandine specimen — it takes only the crystal's shape)
 	var in_cave := func(pp: Vector3, nn: Vector3) -> bool:
-		return pp.z < zf - 0.12 and pp.z > zf - depth - 0.08 and pow((pp.x - cav_c.x) / cav_a, 2.0) + pow((pp.y - cav_c.y) / cav_b, 2.0) < 0.72 and nn.z > -0.3
+		return pp.z < zf - 0.12 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.72 and nn.z > -0.3
 	var pts := RockKit.surf_pts(rock_mi, 1200, r32, in_cave, pivot)
 	normals.clear()
 	sizes.clear()
 	var n_st := stones.size()
 	var fits := func(at: Vector3, sz: float) -> bool:
 		for k in dirs.size():
-			if dirs[k].distance_to(at) < R_GEO * (sz + float(sizes[k])) * 1.3: return false
+			if dirs[k].distance_to(at) < R_GEO * (sz + float(sizes[k])) * 1.15: return false
 		return true
 	for pass_i in 6:
 		for q: Array in pts:
 			if dirs.size() >= n_st: break
-			var sz := maxf(0.3, (0.6 + rng.randf() * 0.3) * (1.0 - pass_i * 0.13))
+			var sz := maxf(0.3, (0.8 + rng.randf() * 0.3) * (1.0 - pass_i * 0.12))
 			if fits.call(q[0], sz):
 				dirs.append(q[0])
 				normals.append(q[1])
@@ -386,7 +399,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	if "hoard_sel" in OS.get_cmdline_user_args(): sel = 0   # (test: the first crystal out, its socket empty)
 	# the cave's lining: a crust of small pale quartz points over its walls, as a geode's, round the big crystals
 	var druse_at := RockKit.surf_pts(rock_mi, 420, r32, func(pp: Vector3, nn: Vector3) -> bool:
-		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and pow((pp.x - cav_c.x) / cav_a, 2.0) + pow((pp.y - cav_c.y) / cav_b, 2.0) < 0.95, pivot)
+		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.95, pivot)
 	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0})
 	var qb := qg.aabb()
 	qg.translate(-qb.get_center().x, -qb.position.y, -qb.get_center().z)
