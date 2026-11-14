@@ -317,3 +317,59 @@ NonCommercial или ShareAlike). ★ — интересные.
 - Отдельный новый рудник — **палеозойское море, трилобиты** (роды, эвриптериды, мечехвосты, ортоцерасы, лилии, древние
   кораллы, аномалокарис). Подводные находки бухты переделать под это разделение.
 - Порядок: сначала живое дно (нужно и бухте, и будущему руднику); пулы и рудник — потом, код пулов пока не трогать.
+
+## Скачано (14.11): `Desktop/sea` — 46 моделей, 1,7 ГБ
+
+- водоросли 3: claret tall, claret wiggle, kelp with animation;
+- кораллы и актинии 16: geodia, blastomussa, blue coral, brain, lophelia, corallium rubrum, organ pipe (NHM), red organ pipe,
+  pocillopora, rose brain, staghorn; актинии blue/pink/purple (stefanorivera), elegant (squireM); `fixtest2.glb` — неизвестно что,
+  посмотреть;
+- звёзды и ежи 9: blue bat star ×2, brittle star ×2, purple urchin, sand star, cushion, sea star, sunflower;
+- ракушки 9: top shell, tun, triton, neptune, tridacna, moon scallop, noble scallop, conus; purple urchin — копия из «звёзд»;
+- **живность большая** 9 (аналог бабочек — плавают вокруг находки): целакант, кретоксирина (акула), далласавр, долихоринхопс,
+  мозазавр, офтальмозавр, морская черепаха, стиксозавр, тилозавр.
+
+## Крабы и черепа морских ящеров (номера B1–B28)
+
+Лист — `art/refs/crabs_skulls_candidates.jpg`. Крабы — ffishAsia (CC0), сидят на дне, как раковины. Черепа — тела под гены,
+как черепа зверей (`SpecSkull`, `beast`). B18–B22 — сканы в породе (плита музея Люксембурга): либо череп в своей плите,
+либо вырезать. ★ — рекомендую: крабы B1, B3, B5, B6, B8, B10; черепа B15 (мозазавр), B18 (плезиозавр Microcleidus),
+B23 (морской крокодил стенеозавр), B24 (дунклеостей); пятый — B19 (ихтиозавр).
+
+### Крабы, раки-отшельники и прочие (ffishAsia, CC0)
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★B1 | [CC0 イシダタミヤドカリ Mauve-eyed Hermit Crab](https://sketchfab.com/3d-models/86b7357b0b4e46a3a01aedc74c039cc7) | ffishAsia-and-floraZia | CC0 | 1562 тыс. |
+| B2 | [CC0 ケスジヤドカリ Mediterranean Hermit Crab](https://sketchfab.com/3d-models/10f2c9675faa443881f80c7c06d11767) | ffishAsia-and-floraZia | CC0 | 1157 тыс. |
+| ★B3 | [CC0 イシダタミヤドカリ Mauve-eyed Hermit Crab](https://sketchfab.com/3d-models/a7216d61f2d7401a97da99a4a8ee6823) | ffishAsia-and-floraZia | CC0 | 963 тыс. |
+| B4 | [CC0 トラフカラッパ 🦀 Common Box Crab, Calappa lophos](https://sketchfab.com/3d-models/01ccc4a955334f30b3529555d27d71c6) | ffishAsia-and-floraZia | CC0 | 1278 тыс. |
+| ★B5 | [CC0 アサヒガニ 🦞 ♀ Red Frog Crab, Ranina ranina](https://sketchfab.com/3d-models/dfc2d31732174dbc82a84d3237783590) | ffishAsia-and-floraZia | CC0 | 967 тыс. |
+| ★B6 | [CC0 シオマネキ 🦀 ♂ Bowed Fiddler Crab, T. arcuata](https://sketchfab.com/3d-models/290ed6a2d8b74bf491662aad3ecb0465) | ffishAsia-and-floraZia | CC0 | 920 тыс. |
+| B7 | [CC0 ミナミコメツキガニ 🦀 Soldier Crab, Mictyris guinotae](https://sketchfab.com/3d-models/24c2366329c64f5f9b0158cb0562b17d) | ffishAsia-and-floraZia | CC0 | 910 тыс. |
+| ★B8 | [CC0 ヒシガニ 🦀 Elbow Crab, Parthenope validus](https://sketchfab.com/3d-models/5cff68661f12409ba450c21773958d33) | ffishAsia-and-floraZia | CC0 | 724 тыс. |
+| B9 | [CC0 ズワイガニ 🦀 ♂ Snow Crab, Chionoecetes opilio](https://sketchfab.com/3d-models/959f91a4aa9549e29d3f69019b9df593) | ffishAsia-and-floraZia | CC0 | 622 тыс. |
+| ★B10 | [CC0 オオグソクムシ Giant Isopod, B. doederleinii](https://sketchfab.com/3d-models/1cc29019635d40a6ae4f91259e32f3c0) | ffishAsia-and-floraZia | CC0 | 615 тыс. |
+| B11 | [CC0 オオバウチワエビ 🦞 ♀ Smooth Fan Lobster](https://sketchfab.com/3d-models/888d324fef46406483039db4aa080d08) | ffishAsia-and-floraZia | CC0 | 1548 тыс. |
+| B12 | [CC0 シャコ 🦐 Japanese Mantis Shrimp, O. oratoria](https://sketchfab.com/3d-models/5aa726fd3a0842e0b6e35681134ea2c5) | ffishAsia-and-floraZia | CC0 | 2345 тыс. |
+| B13 | [CC0 マダコ 🐙 Common Octopus, Octopus vulgaris](https://sketchfab.com/3d-models/eb98c72af58447fdb72d480e6e741555) | ffishAsia-and-floraZia | CC0 | 1078 тыс. |
+| B14 | [CC0 ミズダコ 🐙 North Pacific Giant Octopus](https://sketchfab.com/3d-models/7fb48f6cbcd54149bb23837a3ac09b2e) | ffishAsia-and-floraZia | CC0 | 718 тыс. |
+
+### Черепа морских ящеров и рыб
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★B15 | [Dino Head](https://sketchfab.com/3d-models/c5b4d7a65a2d4a089f1f822aa56528ac) | Syahiiir | CC BY | 533 тыс. |
+| B16 | [Mosasaurus jaw (marine reptile fossil)](https://sketchfab.com/3d-models/fba8fb473bd348729dbd24e310b8a2e1) | MUVHN | CC BY | 7000 тыс. |
+| B17 | [Platecarpus Cranial Fragment](https://sketchfab.com/3d-models/e32c8156b09f4d0db65d2b68d5a04f34) | UIPaleoRepository | CC BY | 999 тыс. |
+| ★B18 | [Microcleidus melusinae TV434 Holotype - skull](https://sketchfab.com/3d-models/10eeac82b75a46acaecca3e14d2e3e4d) | mnhnl | CC BY | 999 тыс. |
+| ★B19 | [Ichthyosaur skull TV112](https://sketchfab.com/3d-models/bd1450d31f1b4a48a878977ecd3cfe4a) | mnhnl | CC BY | 499 тыс. |
+| B20 | [Ichthyosaurus Snout](https://sketchfab.com/3d-models/6c87dd09e84d40b2a9fb9fc1dd42d0ab) | thinksee3d | CC BY | 3998 тыс. |
+| B21 | [Stenopterygius  TV204](https://sketchfab.com/3d-models/2665e413ebf6476eac335b6a2d87360e) | mnhnl | CC BY | 499 тыс. |
+| B22 | [Eurhinosaurus longirostris TV122](https://sketchfab.com/3d-models/ba6e21f712cd4b699f1af07c313c7955) | mnhnl | CC BY | 499 тыс. |
+| ★B23 | [Steneosaurus gracilirostris TU515](https://sketchfab.com/3d-models/56816fb55d054bdc9ecd6ea6b35b44c1) | mnhnl | CC BY | 500 тыс. |
+| ★B24 | [Dunkleosteus](https://sketchfab.com/3d-models/58f39882a0ee4921baeb2c3057f46041) | mattmakesswordsscans | CC BY | 1000 тыс. |
+| B25 | [Loggerhead Sea Turtle Skull](https://sketchfab.com/3d-models/d3f9a76d0a914f949bd57fcd0dbd6910) | ebauer4 | CC BY | 4025 тыс. |
+| B26 | [Rojo-R-1_sea​​turtle_Sketchfab](https://sketchfab.com/3d-models/2eb67df830a44a73b72cbbc5c399dffe) | Memento | CC BY | 922 тыс. |
+| B27 | [White Shark Jaw](https://sketchfab.com/3d-models/a74fb3f4ea3c494db02617dab5fbd3ef) | aucklandmuseum | CC BY | 1009 тыс. |
+| B28 | [Tiger Shark Jaw Large](https://sketchfab.com/3d-models/db0545b33bf1437c988d99ce040b7dde) | chei_ucsd | CC BY | 1323 тыс. |
