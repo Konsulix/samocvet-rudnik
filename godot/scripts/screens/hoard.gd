@@ -1,10 +1,10 @@
 class_name Hoard
 extends SubViewportContainer
-## The boss's reward: its hoard. A boulder of the mine's own rock (the specimen generator's, ROCK_OF) with nine closed
-## geodes grown into it — knobbly rinds half sunk in the rock. Turn it with a finger, tap a geode to draw it out, crack
-## the one you keep; the other eight stay in the rock. The Geologist's lens (gear, `lens`) lights the rarity of one
-## geode per level: light of its rarity's colour through a seam in the rind. Hoard.pick(area) opens it on a card and
-## returns the stone chosen.
+## The boss's reward: its hoard, over the darkened screen. A column of the mine's own rock (the specimen generator's,
+## ROCK_OF) veined along its ridges with the boss's own metal (VEIN_OF: the Serpent's gold), and nine almandine crystals
+## grown out of it in the generator's glass. Turn it with a finger, tap a crystal to draw it out; the other eight stay in
+## the rock. The Geologist's lens (gear, `lens`) lights the rarity of one per level: that crystal burns in its rarity's
+## colour. Hoard.pick(area) shows it and returns the stone chosen.
 
 signal selected(i: int)
 signal picked(stone: Dictionary)
@@ -13,6 +13,10 @@ signal picked(stone: Dictionary)
 const LUCK := [3.5, 2.6, 2.0, 1.6, 1.3, 1.1, 1.0, 0.9, 0.8]
 const R_GEO := 0.29
 ## each mine's rock for its hoard (the specimen generator's kinds)
+## the metal running along the rock's ridges, each boss's own (the generator's silver rim, tinted): the Serpent's gold,
+## the Mistress's copper, the sea's pale silver, the smith's red-hot iron...
+const VEIN_OF := {0: Vector3(1.0, 0.58, 0.14), 1: Vector3(1.0, 0.42, 0.22), 2: Vector3(0.85, 0.95, 1.1), 3: Vector3(1.1, 0.32, 0.1),
+	4: Vector3(0.9, 1.05, 1.2), 5: Vector3(1.0, 1.0, 1.0), 6: Vector3(1.1, 0.8, 0.5), 7: Vector3(0.7, 0.85, 1.25)}
 const ROCK_OF := {0: "slate", 1: "quartzite", 2: "limestone", 3: "lava", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
 
 var stones := []
@@ -53,7 +57,7 @@ static func pick(area: int) -> Dictionary:
 	var t := UI.title("The hoard of %s" % String(B.get("n", "the boss")), 24)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var sub := Ov.text("Turn it, pick one geode. The rest stay in the rock.", 14)
+	var sub := Ov.text("Turn it, pick one crystal. The rest stay in the rock.", 14)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
 	var h := Hoard.new()
@@ -69,14 +73,14 @@ static func pick(area: int) -> Dictionary:
 	var iw := CenterContainer.new()
 	iw.add_child(info)
 	v.add_child(iw)
-	var btn := Ov.btn("Pick a geode", "gold", func(): h.crack(), false)
+	var btn := Ov.btn("Pick a crystal", "gold", func(): h.crack(), false)
 	btn.custom_minimum_size = Vector2(300, 54)
 	var bw := CenterContainer.new()
 	bw.add_child(btn)
 	v.add_child(bw)
 	h.selected.connect(func(i: int):
 		btn.disabled = false
-		btn.text = "Crack this geode" + (" · %s" % String(Data.RAR[h.lit[i]]) if h.lit.has(i) else ""))
+		btn.text = "Take this one" + (" · %s" % String(Data.RAR[h.lit[i]]) if h.lit.has(i) else ""))
 	var tw := layer.create_tween().set_parallel()
 	tw.tween_property(dim, "color:a", 0.93, 0.35)
 	tw.tween_property(v, "modulate:a", 1.0, 0.35)
@@ -108,34 +112,35 @@ func _build(rng: RandomNumberGenerator) -> void:
 	vp.transparent_bg = true
 	vp.msaa_3d = Viewport.MSAA_4X
 	add_child(vp)
+	# (the stone card's own studio light: its sky to mirror in the facets, a warm key, a cold and a warm rim — the
+	# crystals are its glass, and they only sparkle in that light; the backdrop stays clear over the dimmed screen)
 	var env := Environment.new()
+	env.sky = SpecStudio._shared_sky()
 	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55, 0.5, 0.45)
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.5
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.1
+	env.tonemap_white = 6.0
+	env.glow_enabled = true
+	env.glow_intensity = 0.8
+	env.glow_bloom = 0.05
+	env.glow_hdr_threshold = 0.9
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	var we := WorldEnvironment.new()
 	we.environment = env
 	vp.add_child(we)
 	cam.position = Vector3(0, 0.05, 6.4)
 	cam.fov = 36
 	vp.add_child(cam)
-	# the key from the top left, a warm rim of candle light from behind, a dim cool fill
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-38, -32, 0)
-	sun.light_energy = 1.4
-	vp.add_child(sun)
-	var rim := DirectionalLight3D.new()
-	rim.rotation_degrees = Vector3(-15, 160, 0)
-	rim.light_color = Color(1.0, 0.62, 0.3)
-	rim.light_energy = 1.1
-	vp.add_child(rim)
-	var fill := OmniLight3D.new()
-	fill.position = Vector3(2.4, -1.2, 2.6)
-	fill.light_color = Color(0.7, 0.75, 0.9)
-	fill.light_energy = 0.35
-	fill.omni_range = 8.0
-	vp.add_child(fill)
+	for L: Array in [[Color("#fff0dc"), 1.6, Vector3(2.5, 3.5, 3)], [Color("#8fb8ff"), 1.5, Vector3(-3.5, 1.5, -2.5)],
+			[Color("#ffc890"), 1.1, Vector3(3.5, 0.4, -3)], [Color(1, 1, 1), 0.3, Vector3(0, -2, 4)]]:
+		var l := DirectionalLight3D.new()
+		l.light_color = L[0]
+		l.light_energy = L[1]
+		vp.add_child(l)
+		l.look_at_from_position(L[2], Vector3.ZERO)
 	pivot.rotation = Vector3(0.3, 0.4, 0)
 	vp.add_child(pivot)
 	# (14.11) a boulder of the mine's own rock, as the specimen generator makes it (RockKit.rock, the rock material with
@@ -151,69 +156,51 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# (stood up as a column: taller than wide, the geodes up its sides)
 	rg.scale(fit * 1.0, fit * 1.9, fit * 1.0)
 	rg.rp = rg.v.duplicate()
-	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0,
+	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, silv = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
 	# nine spots on its surface, apart from one another, not underneath
-	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.5, pivot)
-	# (the rind as a geode's is: rough limestone-brown crust under a scan, fine knobs — not a pale fluffy ball)
-	var rind := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, grain = 0.35, ao = 1.0,
-		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0x8a8378), fr = 0.0, scan = int(RockKit.SCAN_OF["gypsum"])}})
-	var seam_dark := SpecMat.make({col = SpecMat.lin(0x2a2420), rough = 0.95})
-	# crystal tips peeking out of the seam, catching the light: what waits inside
-	var peek := SpecMat.make({col = SpecMat.lin(0xe8e4f0), rough = 0.08, coat = 1.0, emis = SpecMat.lin(0x9090a8) * 0.5})
+	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.4, pivot)
 	normals.clear()
 	for q: Array in pts:
 		if dirs.size() >= stones.size(): break
 		var ok := true
 		for d in dirs:
-			if (d - (q[0] as Vector3)).length() < R_GEO * 2.3: ok = false
+			if (d - (q[0] as Vector3)).length() < R_GEO * 2.1: ok = false
 		if ok:
 			dirs.append(q[0])
 			normals.append(q[1])
+	# (14.11, the reward should feel like treasure) nine big almandine crystals grown out of the rock: the generator's
+	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
+	# the lens shows burn in their rarity's colour, a light of it on the rock round them
 	for i in stones.size():
 		var g := Node3D.new()
 		var at: Vector3 = dirs[i % dirs.size()]
 		var nn: Vector3 = normals[i % normals.size()]
-		g.position = at + nn * R_GEO * 0.2
-		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.randf() * TAU)
+		var axis := nn.lerp(Vector3.UP, 0.35).normalized()
+		g.position = at - nn * R_GEO * 0.15
+		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, axis)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
-		# a closed geode, as they sell them to be cracked: a round, gently dented ball in a pale chalky rind, fine pits all
-		# over it, a darker seam round its middle where it will split; each a little its own size and shape
-		var gr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
-		var gsz := R_GEO * (0.85 + gr.next() * 0.3)
-		var gg := RockKit.warp(Geo.sphere(1.0, 40, 24), gr, 0.12, 1.2)
-		var L := RockKit.lump(gr, {r = 1.0, wave = 0.0, k = 160.0, bumps = [[90, 0.09, 0.025]], seg = 40})
-		gg = RockKit.tint_cav(L[0], L[1], 0.6)
-		gg = RockKit.warp(gg, gr, 0.1, 1.3)
-		gg.scale(gsz, gsz * (0.88 + gr.next() * 0.1), gsz)
-		gg.rp = gg.v.duplicate()
-		for vi in gg.rp.size(): gg.rp[vi] = gg.rp[vi] * 3.0 + Vector3(i * 1.7, 0, i * 2.3)
-		var gm := SpecUtil.mesh(gg, rind, g)
-		gm.mesh = gg.to_mesh()
-		var seam_tilt := Basis(Vector3.RIGHT, PI / 2 + gr.next() * 0.6 - 0.3) * Basis(Vector3.FORWARD, gr.next() * 0.6 - 0.3)
-		SpecUtil.mesh(Geo.torus(gsz * 0.985, gsz * 0.03, 6, 48), seam_dark, g, Vector3.ZERO, seam_tilt)
-		var pk: Material = peek
+		var cr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
+		var col := SpecMat.lin(0x8a1022)
+		var glow_k := 0.18
 		if lit.has(i):
-			var rcl := Data.rarity_color(int(lit[i])).srgb_to_linear()
-			pk = SpecMat.make({col = rcl, rough = 0.08, coat = 1.0, emis = rcl * 1.4})
-		for j in 5 + int(gr.next() * 4):
-			var a := gr.next() * TAU
-			var on := seam_tilt * Vector3(cos(a), sin(a), 0.0)
-			var dir := (on + Vector3(gr.next() - 0.5, gr.next() - 0.5, gr.next() - 0.5) * 0.5).normalized()
-			var tip := SpecUtil.mesh(Geo.octa(gsz * (0.05 + gr.next() * 0.05)), pk, g, on * gsz * 0.96)
-			tip.basis = Basis(SpecUtil.quat_to(Vector3.UP, dir)) * Basis.from_scale(Vector3(0.6, 1.4, 0.6))
+			col = Data.rarity_color(int(lit[i])).srgb_to_linear()
+			glow_k = 0.55
+		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col})
+		var cb := cg.aabb()
+		var csz := R_GEO * 2.2 * (0.85 + cr.next() * 0.35) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
+		cg.translate(-cb.get_center().x, -cb.position.y - cb.size.y * 0.25, -cb.get_center().z)
+		cg.scale(csz, csz, csz)
+		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.45, rf = 0.35, frost = 0.08, thick = 1.25,
+			seed = float(i * 13 % 97), prio = 2, tint_body = 0.75, tint_glow = glow_k, deep_body = 1.0})
+		SpecUtil.mesh(cg, cm, g)
 		if lit.has(i):
-			# what the lens shows: light of its rarity's colour through a hairline seam round the rind, breathing
-			var rc := Data.rarity_color(int(lit[i]))
-			var seam := SpecMat.make({col = rc.srgb_to_linear() * 0.2, rough = 0.6, emis = rc.srgb_to_linear() * 1.3})
-			# (its seam glows instead: light of its rarity through the line where it will split)
-			SpecUtil.mesh(Geo.torus(gsz * 0.99, gsz * 0.04, 6, 48), seam, g, Vector3.ZERO, seam_tilt)
 			var glow := OmniLight3D.new()
-			glow.light_color = rc
-			glow.light_energy = 0.9
-			glow.omni_range = 0.9
+			glow.light_color = Data.rarity_color(int(lit[i]))
+			glow.light_energy = 1.2
+			glow.omni_range = 1.1
 			glow.position = Vector3(0, R_GEO * 0.8, 0)
 			g.add_child(glow)
 			glows.append([glow, rng.randf() * TAU])
@@ -334,7 +321,7 @@ func _process(dt: float) -> void:
 		(gl[0] as OmniLight3D).light_energy = 0.7 + 0.35 * sin(t * 1.6 + float(gl[1]))
 	for i in geodes.size():
 		var g := geodes[i]
-		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (1.0 if i == sel else 0.2)
+		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (0.7 if i == sel else -0.15)
 		g.position = g.position.lerp(home, minf(1.0, dt * 10.0))
 		var s := lerpf(g.scale.x, 1.15 if i == sel else 1.0, minf(1.0, dt * 10.0))
 		if not _busy: g.scale = Vector3.ONE * s

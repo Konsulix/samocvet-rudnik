@@ -147,6 +147,7 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 	m.set_shader_parameter("rough_var", o.get("rough_var", 0.0))
 	if o.get("silv", 0.0) > 0.0:
 		m.set_shader_parameter("silv_k", o.silv)
+		if o.has("silv_col"): m.set_shader_parameter("silv_col", o.silv_col)
 		m.set_shader_parameter("silver_diff", load("res://assets/textures/silver/silver_diff.png"))
 		m.set_shader_parameter("silver_nrm", load("res://assets/textures/silver/silver_nrm.png"))
 		m.set_shader_parameter("silver_rough", load("res://assets/textures/silver/silver_rough.png"))

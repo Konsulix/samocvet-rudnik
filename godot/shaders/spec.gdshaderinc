@@ -50,6 +50,7 @@ uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_rough : filter_linear_mipmap, repeat_enable;
 // native silver edging the crests of the host rock (the "silver rim" trait), a worked-silver texture
 uniform float silv_k = 0.0;
+uniform vec3 silv_col = vec3(1.0);   // the metal's tint: silver as it is; gold, copper (a boss's hoard)
 uniform sampler2D silver_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_rough : filter_linear_mipmap, repeat_enable;
@@ -206,11 +207,11 @@ void fragment() {
 			vec3 sd = texture(silver_diff, tp.zy).rgb * w.x + texture(silver_diff, tp.xz).rgb * w.y + texture(silver_diff, tp.xy).rgb * w.z;
 			float sr = texture(silver_rough, tp.zy).r * w.x + texture(silver_rough, tp.xz).r * w.y + texture(silver_rough, tp.xy).r * w.z;
 			vec3 tn = (texture(silver_nrm, tp.zy).xyz * w.x + texture(silver_nrm, tp.xz).xyz * w.y + texture(silver_nrm, tp.xy).xyz * w.z) * 2.0 - 1.0;
-			base = mix(base, sd * 1.05 + vec3(0.12), sv);
+			base = mix(base, (sd * 1.05 + vec3(0.12)) * silv_col, sv);
 			m = mix(m, 1.0, sv);
 			r = mix(r, clamp(sr * 0.6, 0.06, 0.35), sv);
 			// a cold glint of bright metal that the dark studio cannot swallow
-			s_glow = vec3(0.16, 0.17, 0.19) * sv * (0.5 + 0.5 * vn(v_rp * 30.0));
+			s_glow = vec3(0.16, 0.17, 0.19) * silv_col * sv * (0.5 + 0.5 * vn(v_rp * 30.0));
 			n = normalize(mix(n, normalize(n + (VIEW_MATRIX * MODEL_MATRIX * vec4(tn.x, tn.y, 0.0, 0.0)).xyz * 0.5), sv));
 		}
 	}
