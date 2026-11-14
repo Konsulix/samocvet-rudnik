@@ -239,7 +239,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var depth := (zf - rg.aabb().position.z) * 0.55   # (deeper, the crystals at its bottom came through the back)
 	var has_c := rg.col.size() == rg.v.size()
 	# the rim band: from a way down the cave's wall out over the broken face (vertex green, the shader's agate)
-	const BAND_IN := 0.62
+	const BAND_IN := 0.86   # (on the flat face and the lip: down the steep wall its facets broke the stripes)
 	const BAND_OUT := 1.35
 	if has_c:
 		for vi in rg.v.size():
@@ -424,9 +424,9 @@ func _build(rng: RandomNumberGenerator) -> void:
 	if "hoard_sel" in OS.get_cmdline_user_args(): sel = 0   # (test: the first crystal out, its socket empty)
 	# the cave's lining: a crust of small pale quartz points over its walls, as a geode's, round the big crystals
 	# (dense, every wall covered, dark wine — the nine big ones glowing out of it; the band left bare at the lip)
-	var druse_at := RockKit.surf_pts(rock_mi, 1700, r32, func(pp: Vector3, nn: Vector3) -> bool:
-		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.86, pivot)
-	var dcol := SpecMat.lin(0x6a1c28)
+	var druse_at := RockKit.surf_pts(rock_mi, 2800, r32, func(pp: Vector3, nn: Vector3) -> bool:
+		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.9, pivot)
+	var dcol := SpecMat.lin(0xe8e4e0)   # (milky quartz: wine-red, the lining ran into the garnets)
 	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0, cA = dcol, cB = dcol})
 	var qb := qg.aabb()
 	qg.translate(-qb.get_center().x, -qb.position.y, -qb.get_center().z)
@@ -449,7 +449,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.04, rf = 0.18, frost = 0.25, prio = 1, tint_body = 1.0, tint_glow = 0.1, deep_body = 1.3})
+	mmi.material_override = SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = 0.45, prio = 1, tint_body = 0.5, tint_glow = 0.04})
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pivot.add_child(mmi)
 	# and a warm light deep in it, breathing: the treasure glows from within
