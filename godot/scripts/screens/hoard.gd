@@ -81,7 +81,10 @@ static func pick(area: int) -> Dictionary:
 	bw.add_child(btn)
 	v.add_child(bw)
 	h.selected.connect(func(i: int):
-		btn.disabled = false
+		btn.disabled = i < 0
+		if i < 0:
+			btn.text = "Pick a crystal"
+			return
 		btn.text = "Take this one" + (" · %s" % String(Data.RAR[h.lit[i]]) if h.lit.has(i) else ""))
 	var tw := layer.create_tween().set_parallel()
 	tw.tween_property(dim, "color:a", 0.93, 0.35)
@@ -323,6 +326,8 @@ func _build(rng: RandomNumberGenerator) -> void:
 				carved += 1
 				if rg.col.size() == rg.v.size(): rg.col[vi] = Color(rg.col[vi].r * 0.45, rg.col[vi].g, rg.col[vi].b, rg.col[vi].a)
 	if OS.is_debug_build() and "hoard_sel" in OS.get_cmdline_user_args(): print("SOCKET carved %d of %d (soup %d), %d ms" % [carved, rg.v.size(), n_soup, Time.get_ticks_msec() - t_sock])
+	# (the rock's pattern follows the carved surface: kept from before, it was stretched down the socket's walls)
+	rg.rp = rg.v.duplicate()
 	rock_mi.mesh = rg.to_mesh()
 	if "hoard_sel" in OS.get_cmdline_user_args(): sel = 0   # (test: the first crystal out, its socket empty)
 	# a soft shadow on the card under it, drawn with the stones' shader (the stock one draws nothing on iPhone)
@@ -460,8 +465,9 @@ func _pick(at: Vector2) -> void:
 		if (o + dir * t - c).length() < R_GEO * 1.35:
 			best = i
 			best_t = t
-	if best < 0 or best == sel: return
-	sel = best
+	if best < 0: return
+	# (the chosen one tapped again goes back into its socket)
+	sel = -1 if best == sel else best
 	Sfx.play("click")
 	Sfx.buzz(10)
 	selected.emit(sel)
