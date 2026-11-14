@@ -53,7 +53,11 @@ uniform float silv_k = 0.0;
 uniform vec3 silv_col = vec3(1.0);   // the metal's tint: silver as it is; gold, copper (a boss's hoard)
 uniform float silv_net = 0.0;       // >0: not along the ridges but a net of thin veins through the rock (a hoard's boulder)
 uniform float micro_k = 0.0;        // fine pits and bumps over the rock, on top of its scan (a hoard's boulder)
-uniform float agate_k = 0.0;        // >0: vertex green is not a ridge but a place across an agate band (a geode's rim, the hoard)
+uniform float agate_k = 0.0;        // >0: a geode's rim band round a cave in the rock's face (the hoard); vertex green marks where it may be
+uniform vec2 agate_c = vec2(0.0);   // the cave's middle, in rock coordinates (x, y; the face looks along +z)
+uniform float agate_r[72];          // the cave's outline radius, angle by angle
+uniform float band_in = 0.8;        // the band from this many outline radii...
+uniform float band_out = 1.15;      // ...to this many
 uniform sampler2D silver_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_rough : filter_linear_mipmap, repeat_enable;
@@ -197,8 +201,13 @@ void fragment() {
 	float ag_on = 0.0;
 	if (agate_k > 0.0) {
 		// a geode's rim: pale chalcedony in fine bands round the cave, wavering, a dark rind line at its outer edge
-		float t = COLOR.g;
-		ag_on = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.96, 1.0, t)) * agate_k * dirt;
+		// the place across the band, pixel by pixel: how many outline radii out from the cave's middle
+		vec2 dc = v_rp.xy - agate_c;
+		float fa = mod(atan(dc.y, dc.x) / 6.2831853 * 72.0 + 72.0, 72.0);
+		int b0 = int(floor(fa)) % 72;
+		float rr = mix(agate_r[b0], agate_r[(b0 + 1) % 72], fract(fa));
+		float t = (length(dc) / max(rr, 0.01) - band_in) / (band_out - band_in);
+		ag_on = step(0.5, COLOR.g) * smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.96, 1.0, t)) * agate_k * dirt;
 		float w = t + (fbm(v_rp * 2.5 + 3.0) - 0.5) * 0.18;
 		float st = 0.5 + 0.5 * sin(w * 15.0);
 		float st2 = 0.5 + 0.5 * sin(w * 41.0 + 1.7);

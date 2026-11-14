@@ -222,11 +222,19 @@ func _build(rng: RandomNumberGenerator) -> void:
 				sm += r0
 				nn2 += 1
 		rim_s[b] = sm / maxf(1, nn2)
-	var cave_u := func(x: float, y: float) -> float:
-		var ang := atan2(y - cav_c.y, x - cav_c.x)
-		var f := posmod(ang / TAU * NB, float(NB))
+	# the cave's own outline, angle by angle (72 steps): the carve and the rim band's shader read the same numbers
+	const NE := 72
+	var rim_e := PackedFloat32Array()
+	rim_e.resize(NE)
+	for e in NE:
+		var ang := TAU * float(e) / NE
+		var f := float(e) * NB / NE
 		var b0 := int(f)
-		var r := lerpf(rim_s[b0], rim_s[(b0 + 1) % NB], f - b0) * (0.8 + fn.get_noise_2d(cos(ang) * 1.6, sin(ang) * 1.6) * 0.12)
+		rim_e[e] = lerpf(rim_s[b0], rim_s[(b0 + 1) % NB], f - b0) * (0.8 + fn.get_noise_2d(cos(ang) * 1.6, sin(ang) * 1.6) * 0.12)
+	var cave_u := func(x: float, y: float) -> float:
+		var f := posmod(atan2(y - cav_c.y, x - cav_c.x) / TAU * NE, float(NE))
+		var b0 := int(f)
+		var r := lerpf(rim_e[b0], rim_e[(b0 + 1) % NE], f - b0)
 		return pow(Vector2(x - cav_c.x, y - cav_c.y).length() / maxf(r, 0.01), 2.0)
 	var depth := (zf - rg.aabb().position.z) * 0.55   # (deeper, the crystals at its bottom came through the back)
 	var has_c := rg.col.size() == rg.v.size()
@@ -239,7 +247,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 			c1.g = 0.0
 			if rg.v[vi].z > zf - 0.09:
 				var ub: float = cave_u.call(rg.v[vi].x, rg.v[vi].y)
-				if ub > BAND_IN and ub < BAND_OUT: c1.g = clampf((sqrt(ub) - sqrt(BAND_IN)) / (sqrt(BAND_OUT) - sqrt(BAND_IN)), 0.02, 1.0)   # (by radius, not its square: linear across a triangle, no zigzag)
+				if ub > BAND_IN * 0.7 and ub < BAND_OUT * 1.3: c1.g = 1.0   # (only where the band may be: the shader works out the place across it pixel by pixel — by vertex, the stripes zigzagged along the triangles)
 			rg.col[vi] = c1
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
@@ -255,6 +263,10 @@ func _build(rng: RandomNumberGenerator) -> void:
 	rg.rp = rg.v.duplicate()
 	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, agate = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
+	rm.set_shader_parameter("agate_c", Vector2(cav_c.x, cav_c.y))
+	rm.set_shader_parameter("agate_r", rim_e)
+	rm.set_shader_parameter("band_in", sqrt(BAND_IN))
+	rm.set_shader_parameter("band_out", sqrt(BAND_OUT))
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
 	# nine spots on its surface, apart from one another, not underneath
