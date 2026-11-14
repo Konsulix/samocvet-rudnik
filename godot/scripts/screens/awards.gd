@@ -1480,7 +1480,7 @@ func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 	if _busy: return
 	_busy = true
 	# (14.11: a small neat seal in the sheet's free top left corner — big over the middle it hid the text and the button)
-	await _stamp(sheet, Vector2(48.0, 48.0), 1.45)
+	await _stamp(sheet, Vector2(30.0, 30.0), 2.0)   # (a little over the frame's edge)
 	var gv := give_of(e)
 	if gv.has("coins"): await coins_fly(self, _bar, from.get_global_rect().get_center(), int(gv.coins))
 	lay.queue_free()
