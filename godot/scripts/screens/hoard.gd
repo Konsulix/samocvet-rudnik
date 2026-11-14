@@ -194,6 +194,8 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# the cave: a hollow in the broken face, deep in the middle, its rim ragged; the rock darker the deeper it goes
 	var zf := -INF
 	for vv in rg.v: zf = maxf(zf, vv.z)
+	# (the broken face finer, so the rim band and the cave's edge come out smooth, not toothed)
+	rg.subdivide(1, Vector3(0, 0, -1), -(zf - 0.12))
 	var fa := AABB()
 	var nf := 0
 	for vv in rg.v:
@@ -202,7 +204,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 			nf += 1
 	var cav_c := fa.get_center()
 	# the face's outline round its middle, angle by angle: the cave keeps a rim of rock inside it all round
-	const NB := 48
+	const NB := 36
 	var rim := PackedFloat32Array()
 	rim.resize(NB)
 	for vv in rg.v:
@@ -214,7 +216,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for b in NB:
 		var sm := 0.0
 		var nn2 := 0
-		for o in range(-2, 3):
+		for o in range(-4, 5):   # (wide: the outline's bumps sector by sector made the band a toothed star)
 			var r0 := rim[posmod(b + o, NB)]
 			if r0 > 0.0:
 				sm += r0
@@ -228,19 +230,30 @@ func _build(rng: RandomNumberGenerator) -> void:
 		return pow(Vector2(x - cav_c.x, y - cav_c.y).length() / maxf(r, 0.01), 2.0)
 	var depth := (zf - rg.aabb().position.z) * 0.55   # (deeper, the crystals at its bottom came through the back)
 	var has_c := rg.col.size() == rg.v.size()
+	# the rim band: from a way down the cave's wall out over the broken face (vertex green, the shader's agate)
+	const BAND_IN := 0.62
+	const BAND_OUT := 1.35
+	if has_c:
+		for vi in rg.v.size():
+			var c1 := rg.col[vi]
+			c1.g = 0.0
+			if rg.v[vi].z > zf - 0.09:
+				var ub: float = cave_u.call(rg.v[vi].x, rg.v[vi].y)
+				if ub > BAND_IN and ub < BAND_OUT: c1.g = clampf((sqrt(ub) - sqrt(BAND_IN)) / (sqrt(BAND_OUT) - sqrt(BAND_IN)), 0.02, 1.0)   # (by radius, not its square: linear across a triangle, no zigzag)
+			rg.col[vi] = c1
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
 		if vv.z < zf - 0.09: continue
 		var u: float = cave_u.call(vv.x, vv.y)
 		if u >= 1.0: continue
-		var dz := depth * pow(1.0 - u, 0.6)
+		var dz := depth * pow(1.0 - u, 0.85)   # (a gentler lip: steep, it broke into teeth on the triangles)
 		rg.v[vi] = Vector3(vv.x, vv.y, vv.z - dz + fn.get_noise_3dv(vv * 4.0) * 0.04)
 		if has_c:
 			var c0 := rg.col[vi]
 			rg.col[vi] = Color(c0.r * lerpf(1.0, 0.45, dz / depth), c0.g, c0.b, c0.a)
 	var cut := rg.aabb().position.y + rg.aabb().size.y * 0.12
 	rg.rp = rg.v.duplicate()
-	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
+	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, agate = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
@@ -398,9 +411,11 @@ func _build(rng: RandomNumberGenerator) -> void:
 	rock_mi.mesh = rg.to_mesh()
 	if "hoard_sel" in OS.get_cmdline_user_args(): sel = 0   # (test: the first crystal out, its socket empty)
 	# the cave's lining: a crust of small pale quartz points over its walls, as a geode's, round the big crystals
-	var druse_at := RockKit.surf_pts(rock_mi, 420, r32, func(pp: Vector3, nn: Vector3) -> bool:
-		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.95, pivot)
-	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0})
+	# (dense, every wall covered, dark wine — the nine big ones glowing out of it; the band left bare at the lip)
+	var druse_at := RockKit.surf_pts(rock_mi, 1700, r32, func(pp: Vector3, nn: Vector3) -> bool:
+		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.86, pivot)
+	var dcol := SpecMat.lin(0x6a1c28)
+	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0, cA = dcol, cB = dcol})
 	var qb := qg.aabb()
 	qg.translate(-qb.get_center().x, -qb.position.y, -qb.get_center().z)
 	qg.scale(1.0 / qb.size.y, 1.0 / qb.size.y, 1.0 / qb.size.y)
@@ -414,15 +429,15 @@ func _build(rng: RandomNumberGenerator) -> void:
 		for hl: Array in hulls:
 			if at.distance_to(hl[2]) < float(hl[3]) * 0.95: near = true
 		if near: continue
-		var ln := R_GEO * (0.16 + rng.randf() * 0.22)
+		var ln := R_GEO * (0.24 + rng.randf() * 0.3)
 		var ax := ((q[1] as Vector3) + Vector3(rng.randf() - 0.5, rng.randf() - 0.5, rng.randf() - 0.5) * 0.6).normalized()
 		var bs := Basis(SpecUtil.quat_to(Vector3.UP, ax)) * Basis(Vector3.UP, rng.randf() * TAU)
-		xfs.append(Transform3D(bs.scaled(Vector3(ln * 0.45, ln, ln * 0.45)), at - ax * ln * 0.3))
+		xfs.append(Transform3D(bs.scaled(Vector3(ln * 0.8, ln, ln * 0.8)), at - ax * ln * 0.3))
 	mm.instance_count = xfs.size()
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = SpecMat.make({col = Color(0.86, 0.8, 0.8), flat = true, glass = true, ir = 0.08, rf = 0.18, frost = 0.5, prio = 1})
+	mmi.material_override = SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.04, rf = 0.18, frost = 0.25, prio = 1, tint_body = 1.0, tint_glow = 0.1, deep_body = 1.3})
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pivot.add_child(mmi)
 	# and a warm light deep in it, breathing: the treasure glows from within

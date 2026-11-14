@@ -53,6 +53,7 @@ uniform float silv_k = 0.0;
 uniform vec3 silv_col = vec3(1.0);   // the metal's tint: silver as it is; gold, copper (a boss's hoard)
 uniform float silv_net = 0.0;       // >0: not along the ridges but a net of thin veins through the rock (a hoard's boulder)
 uniform float micro_k = 0.0;        // fine pits and bumps over the rock, on top of its scan (a hoard's boulder)
+uniform float agate_k = 0.0;        // >0: vertex green is not a ridge but a place across an agate band (a geode's rim, the hoard)
 uniform sampler2D silver_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_rough : filter_linear_mipmap, repeat_enable;
@@ -193,6 +194,22 @@ void fragment() {
 	base = mix(base, rk, dirt);
 	a = mix(a, 1.0, dirt);
 	r = mix(mix(r, 0.5, frost), mix(mix(0.82, 0.35, grains), s_rough, scan_k), dirt);
+	float ag_on = 0.0;
+	if (agate_k > 0.0) {
+		// a geode's rim: pale chalcedony in fine bands round the cave, wavering, a dark rind line at its outer edge
+		float t = COLOR.g;
+		ag_on = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.96, 1.0, t)) * agate_k * dirt;
+		float w = t + (fbm(v_rp * 2.5 + 3.0) - 0.5) * 0.18;
+		float st = 0.5 + 0.5 * sin(w * 15.0);
+		float st2 = 0.5 + 0.5 * sin(w * 41.0 + 1.7);
+		vec3 ag = mix(vec3(0.035, 0.04, 0.05), vec3(0.17, 0.18, 0.21), st * st);
+		ag *= 0.7 + 0.45 * st2;
+		ag = mix(ag, vec3(0.3, 0.29, 0.27), smoothstep(0.92, 1.0, st) * 0.4);
+		ag = mix(ag, vec3(0.16, 0.12, 0.1), smoothstep(0.8, 0.95, t));
+		ag = mix(ag, vec3(0.2, 0.22, 0.26), smoothstep(0.25, 0.0, t) * 0.6);
+		base = mix(base, ag, ag_on);
+		r = mix(r, 0.5, ag_on);
+	}
 	m *= 1.0 - dirt;
 	cc *= 1.0 - max(dirt, frost * 0.6);
 	if (silv_k > 0.0) {
@@ -210,7 +227,7 @@ void fragment() {
 			sv = max(v1, max(v2 * smoothstep(0.45, 0.6, vn(v_rp * 3.0 + 1.0)), v3 * smoothstep(0.6, 0.72, vn(v_rp * 4.0 + 5.0))));
 			sv *= smoothstep(0.22, 0.32, vn(v_rp * 5.0 + 3.0)) * silv_net;
 		}
-		sv *= dirt * silv_k;
+		sv *= dirt * silv_k * (1.0 - ag_on);
 		if (sv > 0.0) {
 			vec3 tp = v_rp * 4.0;
 			vec3 w = pow(abs(normalize(v_no)), vec3(4.0));
