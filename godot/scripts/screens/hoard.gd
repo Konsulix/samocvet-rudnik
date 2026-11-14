@@ -157,14 +157,22 @@ func _build(rng: RandomNumberGenerator) -> void:
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
 	rg.scale(fit * 0.95, fit * 2.2, fit * 0.95)
-	# (a column stands on a flat foot: its lower part cut level, the cut a little rough)
+	# (a column stands on a broken foot: its lower part pressed up only partway, so the underside stays lumpy, and
+	# ragged by noise — chunks out, knobs left — not widened into a cone nor sawn into a plane)
 	var cb0 := rg.aabb()
-	var cut := cb0.position.y + cb0.size.y * 0.24
+	var cut := cb0.position.y + cb0.size.y * 0.22
+	var fn := FastNoiseLite.new()
+	fn.seed = int(stones[0].id) % 9973
+	fn.frequency = 2.6
+	fn.fractal_octaves = 3
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
 		if vv.y < cut:
-			var spread := 1.0 + (cut - vv.y) / maxf(cb0.size.y, 0.01) * 0.6
-			rg.v[vi] = Vector3(vv.x * spread, cut - 0.02 * sin(vv.x * 9.0 + vv.z * 7.0), vv.z * spread)
+			var d := (cut - vv.y) / maxf(cb0.size.y * 0.22, 0.01)   # 0 at the cut .. ~1 at the very bottom
+			var nz := fn.get_noise_3dv(vv * 1.0)
+			var ny := lerpf(vv.y, cut - cb0.size.y * 0.05, 0.8) + nz * cb0.size.y * 0.09 * (0.5 + d)
+			var nr := 1.0 + fn.get_noise_3dv(vv * 1.0 + Vector3(17, 3, 9)) * 0.16 * d + 0.08 * d
+			rg.v[vi] = Vector3(vv.x * nr, ny, vv.z * nr)
 	rg.rp = rg.v.duplicate()
 	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, silv = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
@@ -203,7 +211,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
 		# (each its own size, from a small one to a big one)
-		var csz := R_GEO * 2.2 * (0.65 + cr.next() * 0.7) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
+		var csz := R_GEO * 1.98 * (0.65 + cr.next() * 0.7) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
 		cg.translate(-cb.get_center().x, -cb.position.y - cb.size.y * 0.25, -cb.get_center().z)
 		cg.scale(csz, csz, csz)
 		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
