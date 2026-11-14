@@ -188,9 +188,11 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
 		rg.v[vi] = vv + Vector3(fn.get_noise_3dv(vv), fn.get_noise_3dv(vv + Vector3(9, 1, 3)), fn.get_noise_3dv(vv + Vector3(2, 7, 5))) * 0.035
+		# (and a finer, sharper one: little lumps and pits the flat shading turns into facets, as on the photo)
+		rg.v[vi] += Vector3(fn.get_noise_3dv(vv * 3.4 + Vector3(4, 4, 4)), fn.get_noise_3dv(vv * 3.4 + Vector3(1, 8, 2)), fn.get_noise_3dv(vv * 3.4 + Vector3(6, 3, 9))) * 0.014
 	var cut := rg.aabb().position.y + rg.aabb().size.y * 0.12
 	rg.rp = rg.v.duplicate()
-	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
+	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
@@ -211,7 +213,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
 	# the lens shows burn in their rarity's colour, a light of it on the rock round them
 	sinks.clear()
-	for i in stones.size(): sinks.append(-0.1 + rng.randf() * 0.55)
+	for i in stones.size(): sinks.append(0.12 + rng.randf() * 0.55)
 	for i in stones.size():
 		var g := Node3D.new()
 		var at: Vector3 = dirs[i % dirs.size()]

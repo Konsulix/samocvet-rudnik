@@ -51,6 +51,8 @@ uniform sampler2D gold_rough : filter_linear_mipmap, repeat_enable;
 // native silver edging the crests of the host rock (the "silver rim" trait), a worked-silver texture
 uniform float silv_k = 0.0;
 uniform vec3 silv_col = vec3(1.0);   // the metal's tint: silver as it is; gold, copper (a boss's hoard)
+uniform float silv_net = 0.0;       // >0: not along the ridges but a net of thin veins through the rock (a hoard's boulder)
+uniform float micro_k = 0.0;        // fine pits and bumps over the rock, on top of its scan (a hoard's boulder)
 uniform sampler2D silver_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_rough : filter_linear_mipmap, repeat_enable;
@@ -199,6 +201,15 @@ void fragment() {
 		float cr = COLOR.g + (fbm(v_rp * 9.0 + 4.0) - 0.5) * 0.06;
 		// (wide enough and whole enough to read on a phone card)
 		float sv = (1.0 - smoothstep(0.05, 0.09, abs(cr - 0.82))) * smoothstep(0.3, 0.4, vn(v_rp * 2.2 + 2.0));
+		if (silv_net > 0.0) {
+			// thin veins crossing the rock as a net, as quartz veins in a split boulder: the isolines of two
+			// noises, a wider wandering one and finer ones branching off it, broken here and there
+			float v1 = 1.0 - smoothstep(0.003, 0.008, abs(fbm(v_rp * 1.6 + 7.0) - 0.5));
+			float v2 = 1.0 - smoothstep(0.002, 0.0055, abs(fbm(v_rp * 3.4 + 13.0) - 0.5));
+			float v3 = 1.0 - smoothstep(0.002, 0.006, abs(fbm(v_rp * 6.5 + 29.0) - 0.5));
+			sv = max(v1, max(v2 * smoothstep(0.45, 0.6, vn(v_rp * 3.0 + 1.0)), v3 * smoothstep(0.6, 0.72, vn(v_rp * 4.0 + 5.0))));
+			sv *= smoothstep(0.22, 0.32, vn(v_rp * 5.0 + 3.0)) * silv_net;
+		}
 		sv *= dirt * silv_k;
 		if (sv > 0.0) {
 			vec3 tp = v_rp * 4.0;
@@ -218,6 +229,13 @@ void fragment() {
 	vec3 gp = v_rp * 38.0;
 	n = normalize(n + (dirt * 1.1 * (1.0 - scan_k * 0.8) + frost * 0.25) * (vec3(vn(gp), vn(gp + 3.1), vn(gp + 5.7)) - 0.5));
 	n = normalize(mix(n, s_nv, dirt * scan_k));
+	if (micro_k > 0.0) {
+		// fine pits and bumps: the normal tilted by two finer noises, the pits a little darker
+		vec3 mp = v_rp * 26.0, mq = v_rp * 70.0;
+		vec3 dn = (vec3(vn(mp), vn(mp + 3.1), vn(mp + 5.7)) - 0.5) + (vec3(vn(mq), vn(mq + 3.1), vn(mq + 5.7)) - 0.5) * 0.6;
+		n = normalize(n + dn * micro_k * dirt * (1.0 - s_glow.r * 3.0));
+		base *= mix(1.0, 0.72 + 0.5 * vn(mp + 9.0), micro_k * dirt * 0.6);
+	}
 #endif
 	if (grain > 0.0) {
 		vec3 gq = v_op * 60.0;

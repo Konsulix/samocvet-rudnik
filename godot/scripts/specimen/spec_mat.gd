@@ -145,9 +145,11 @@ static func _one(o: Dictionary, sh: Shader) -> ShaderMaterial:
 			var kc: Color = o[k]
 			m.set_shader_parameter(k, Vector3(kc.r, kc.g, kc.b))
 	m.set_shader_parameter("rough_var", o.get("rough_var", 0.0))
+	if o.has("micro"): m.set_shader_parameter("micro_k", o.micro)
 	if o.get("silv", 0.0) > 0.0:
 		m.set_shader_parameter("silv_k", o.silv)
 		if o.has("silv_col"): m.set_shader_parameter("silv_col", o.silv_col)
+		if o.has("silv_net"): m.set_shader_parameter("silv_net", o.silv_net)
 		m.set_shader_parameter("silver_diff", load("res://assets/textures/silver/silver_diff.png"))
 		m.set_shader_parameter("silver_nrm", load("res://assets/textures/silver/silver_nrm.png"))
 		m.set_shader_parameter("silver_rough", load("res://assets/textures/silver/silver_rough.png"))
