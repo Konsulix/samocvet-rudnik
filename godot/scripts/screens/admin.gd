@@ -268,10 +268,10 @@ static func tie_hosts(tie: String) -> Array:
 	if out.is_empty(): out = Data.minable().filter(ok) + SHOWY.filter(ok)
 	return out
 
-## " with pyrite" / " after azurite" for the toast
+## " with pyrite" / ", azurite-shaped" for the toast
 static func _tie_word(st: Dictionary) -> String:
 	var g := SpecGenome.of(Spec.of_stone(st))
-	if String(g.get("pseudo", "")) != "": return " after " + String(Data.SP[g.pseudo].n).to_lower()
+	if String(g.get("pseudo", "")) != "": return ", " + String(Data.SP[g.pseudo].n).to_lower() + "-shaped"
 	if String(g.get("assoc", "")) != "": return " with " + String(Data.SP[g.assoc].n).to_lower()
 	return ""
 

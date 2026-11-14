@@ -498,7 +498,14 @@ static func last_genes(s: Dictionary) -> PackedStringArray:
 			if int(o.get("id", 0)) != mine and _genes_cached(o).has(t):
 				other = true
 				break
-		if not other and not out.has(tr[t]): out.append(tr[t])
+		# (a pseudomorph by the stone itself, "Chrysocolla, cuprite-shaped": the achievement's own line, "Chrysocolla",
+		# read as the species)
+		var nm := String(tr[t])
+		if t.begins_with("pseudo:"):
+			for g2: String in _genes_cached(s):
+				if g2.begins_with(t + ":"):
+					nm = "%s, %s-shaped" % [String(Data.SP[t.substr(7)].n), String(Data.SP[g2.substr(t.length() + 1)].n).to_lower()]
+		if not other and not out.has(nm): out.append(nm)
 	return out
 
 static func kept_best() -> Dictionary:
