@@ -69,9 +69,9 @@ static func group(g: String) -> Array:
 static func label(id: String) -> String:
 	return String((MODELS.get(id, {}) as Dictionary).get("n", id))
 
-## what lives on this find's floor (its own stream): the common weed nearly always (sea oak or bladder wrack — it grows
-## in clumps, grow() spreads them), behind it maybe a coral or the giant kelp, maybe a coral or an anemone beside, one
-## to three small things before it (a star, a shell, a crab), and now and then a swimmer
+## what lives on this find's floor (its own stream) — a little, so the find stays the thing: the common weed nearly
+## always (sea oak or bladder wrack, one clump — the backdrop, not an accent), behind it maybe a coral or the giant
+## kelp, before it most often one small thing (a star, an urchin, a shell, a crab), rarely two, and now and then a swimmer
 const COMMON := ["weed_claret", "weed_wiggle"]
 static func genes(seed_v: int, salt: int) -> Dictionary:
 	var r := Rng32.new((seed_v * 2654435761 + salt * 977 + 41) % 4294967296)
@@ -79,19 +79,19 @@ static func genes(seed_v: int, salt: int) -> Dictionary:
 	var near: Array = []
 	if r.next() < 0.88: tall.append(COMMON[int(r.next() * 2.0)])
 	var v := r.next()
-	if v < 0.55: tall.append(_pick(r, "coral", tall))
-	elif v < 0.75: tall.append("weed_kelp")
-	if tall.is_empty(): tall.append(_pick(r, "coral", tall))
-	if r.next() < 0.4: near.append(_pick(r, "coral", tall))
-	for gp: Array in [["star", 0.55], ["shell", 0.5], ["crab", 0.45]]:
-		if r.next() < float(gp[1]): near.append(_pick(r, String(gp[0]), near))
-	# (at least one small thing before it)
-	if not near.any(func(k: String) -> bool: return String((MODELS[k] as Dictionary).g) in ["star", "shell", "crab"]):
-		near.append(_pick(r, String(["star", "shell", "crab"][int(r.next() * 3.0)]), near))
-	var swim := _pick(r, "swim", []) if r.next() < 0.28 else ""
-	# the common weed's clumps: how many, and how many stalks in each
-	var clumps := 1 + (1 if r.next() < 0.55 else 0)
-	return {tall = tall, near = near, swim = swim, clumps = clumps, stalks = 4 + int(r.next() * 4.0)}
+	if v < 0.38: tall.append(_pick(r, "coral", tall))
+	elif v < 0.5: tall.append("weed_kelp")
+	var small := ["star", "shell", "crab"]
+	if r.next() < 0.7:
+		near.append(_pick(r, String(small[int(r.next() * 3.0)]), near))
+		if r.next() < 0.15 / 0.7: near.append(_pick(r, String(small[int(r.next() * 3.0)]), near))
+	if tall.is_empty() and near.is_empty(): tall.append(COMMON[int(r.next() * 2.0)])
+	var swim := _pick(r, "swim", []) if r.next() < 0.15 else ""
+	return {tall = tall, near = near, swim = swim, clumps = 1, stalks = 4 + int(r.next() * 4.0)}
+
+## whether the floor already has a coral standing (the sea lilies then keep away: one tall living thing is enough)
+static func has_coral(reef: Dictionary) -> bool:
+	return (reef.get("tall", []) as Array).any(func(k: String) -> bool: return String((MODELS.get(k, {}) as Dictionary).get("g", "")) == "coral")
 
 static func _pick(r: Rng32, g: String, taken: Array) -> String:
 	var ks := group(g).filter(func(k: String) -> bool: return not k in taken)
@@ -161,7 +161,8 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		var foot := maxf(bx.size.x, bx.size.z) * sz * (0.3 if it[1] else 0.42)
 		var spot: Variant = null
 		for shrink: float in [1.0, 0.8, 0.65, 0.5]:
-			spot = _room(cands if it[1] else (front if front.size() else cands), occ, foot * shrink, r, behind if it[1] else INF)
+			# (the weed, a spreading clump, keeps clear of the find altogether)
+			spot = _room(cands if it[1] else (front if front.size() else cands), occ, foot * shrink, r, behind if it[1] else INF, 1.0 if g == "weed" else 0.78)
 			if spot != null:
 				sz *= shrink
 				foot *= shrink
@@ -178,7 +179,10 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		mi.mesh = m
 		mi.material_override = mat(id)
 		parent.add_child(mi)
-		mi.transform = Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sz), at)
+		# (a tall thing leans back, away from the viewer, as the sea lilies do: the slab is held up to the eye, and
+		# upright it would stand over the find in the picture)
+		var back := Basis(Vector3.RIGHT, -(0.35 + r.next() * 0.25)) if it[1] else Basis.IDENTITY
+		mi.transform = Transform3D(back * Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3.ONE * sz), at)
 		if float(md.get("sway", 0.0)) == 0.0: mi.set_meta("sea_light", true)
 		occ.append([Vector2(at.x, at.z), foot])
 		out.append(["sea:" + id, mi, Vector3(0, bx.end.y * 0.7, 0) if not lying else Vector3(0, bx.end.y, 0)])
@@ -188,12 +192,12 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 			for c in int(reef.get("clumps", 1)):
 				var ctr := at
 				if c > 0:
-					var far: Variant = _room(cands, occ, foot * 0.6, r)
+					var far: Variant = _room(cands, occ, foot * 0.6, r, INF, 1.0)
 					if far == null: break
 					ctr = far
 				for k in int(reef.get("stalks", 5)) - (1 if c == 0 else 0):
 					var near_c := cands.filter(func(p: Vector3) -> bool: return Vector2(p.x - ctr.x, p.z - ctr.z).length() < span * 0.16)
-					var sp: Variant = _room(near_c, occ, span * 0.012, r)
+					var sp: Variant = _room(near_c, occ, span * 0.05, r, INF, 1.0)
 					if sp == null: continue
 					var sid: String = COMMON[int(r.next() * 2.0)]
 					var ssz := span * float(SIZE.weed) * float((MODELS[sid] as Dictionary).k) * (0.45 + r.next() * 0.6)
@@ -204,7 +208,7 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 					st.material_override = mat(sid)
 					parent.add_child(st)
 					# (each leans a little its own way, as weed does in a current)
-					st.transform = Transform3D(Basis(Vector3.UP, r.next() * TAU) * Basis(Vector3.RIGHT, (r.next() - 0.5) * 0.35) * Basis.from_scale(Vector3.ONE * ssz), sa)
+					st.transform = Transform3D(Basis(Vector3.RIGHT, -(0.3 + r.next() * 0.35)) * Basis(Vector3.BACK, (r.next() - 0.5) * 0.4) * Basis(Vector3.UP, r.next() * TAU) * Basis.from_scale(Vector3.ONE * ssz), sa)
 	var sw := String(reef.get("swim", ""))
 	if sw != "" and MODELS.has(sw):
 		var sn := Swim.new()
@@ -230,14 +234,14 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 ## a spot from cands for a thing of footprint r, clear of what is there (occ: [centre (x, z), radius]) — the discs
 ## taken are generous (a trilobite's covers its spines and the slab round it), so life may tuck in under their rims:
 ## only its own middle must keep clear, by most of a disc's radius. behind: only spots behind z (tall things)
-static func _room(cands: Array, occ: Array, r: float, rng: Rng32, behind := INF) -> Variant:
+static func _room(cands: Array, occ: Array, r: float, rng: Rng32, behind := INF, keep := 0.78) -> Variant:
 	if cands.is_empty():
 		return null
 	for tries in 80:
 		var p: Vector3 = cands[int(rng.next() * cands.size())]
 		var ok := p.z < behind
 		for o: Array in occ:
-			if Vector2(p.x, p.z).distance_to(o[0] as Vector2) < r * 0.6 + float(o[1]) * 0.78:
+			if Vector2(p.x, p.z).distance_to(o[0] as Vector2) < r * 0.6 + float(o[1]) * keep:
 				ok = false
 				break
 		if ok:

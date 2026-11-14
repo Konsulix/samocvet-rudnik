@@ -89,9 +89,11 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.keep = clampf(0.42 + 0.58 * pow(rng3.next(), 0.75), 0.42, 1.0)
 	g.wear_seed = int(rng3.next() * 100000.0) + 1
 	# sea lilies by it on its slab: some slabs have them, some not (their own stream, like the mushrooms)
-	g.lilies = Rng32.new((seed_v * 2246822519 + 13) % 4294967296).next() < 0.5
+	# (fewer than they were: with the living floor round it, a slab would be a crowd; none beside a coral)
+	g.lilies = Rng32.new((seed_v * 2246822519 + 13) % 4294967296).next() < 0.3
 	# the living floor round it: weed, corals, stars, shells, crabs, a swimmer (SpecReef, its own stream)
 	g.reef = SpecReef.genes(seed_v, 13)
+	if SpecReef.has_coral(g.reef): g.lilies = false
 	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep", "lilies", "reef"]:
 		if o.has(k): g[k] = o[k]
 	# a legendary one kept well (the awakening grows its own legs, whatever it is kept in)

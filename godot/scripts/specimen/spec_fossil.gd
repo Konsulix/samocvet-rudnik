@@ -75,9 +75,11 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 			g.brood = 1 + int(rng.next() * 3) if rng.next() < 0.3 else 0
 			g.crushed = rng.next() < 0.15
 			# sea lilies behind it on the slab: some have them, some not (their own stream)
-			g.lilies = Rng32.new((seed_v * 2246822519 + 29) % 4294967296).next() < 0.5
+			# (fewer than they were: with the living floor round it, a slab would be a crowd; none beside a coral)
+			g.lilies = Rng32.new((seed_v * 2246822519 + 29) % 4294967296).next() < 0.3
 			# the living floor round it (SpecReef, its own stream)
 			g.reef = SpecReef.genes(seed_v, 29)
+			if SpecReef.has_coral(g.reef): g.lilies = false
 			for k in ["show", "nacre", "fire", "pal", "fill", "hetero", "pair", "hollow", "brood", "crushed", "lilies", "reef"]:
 				if o.has(k): g[k] = o[k]
 			if g.hetero != "" and g.show == "split": g.show = "loose"
