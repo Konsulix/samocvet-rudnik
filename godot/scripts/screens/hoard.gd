@@ -157,31 +157,44 @@ func _build(rng: RandomNumberGenerator) -> void:
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
 	rg.scale(fit * 0.95, fit * 2.2, fit * 0.95)
-	# (a column stands on a broken foot: its lower part pressed up only partway, so the underside stays lumpy, and
-	# ragged by noise — chunks out, knobs left — not widened into a cone nor sawn into a plane)
+	# (14.11, after a photo of a split boulder) not an egg: big flat break faces at all angles, as a block of rock
+	# broken out of a cliff — the boulder cut by planes (everything past one pressed onto it), steep ones round its
+	# sides, slanting ones at its top, its foot broken off unevenly; the scan and the noise of the rock keep the faces rough
 	var cb0 := rg.aabb()
-	var cut := cb0.position.y + cb0.size.y * 0.22
+	var cs := Rng32.new(int(stones[0].id) % 1000003 + 77)
+	var planes := []
+	for k in 14:
+		var a := TAU * float(k) / 14.0 + (cs.next() - 0.5) * 0.4
+		var tilt := -0.15 + cs.next() * 0.6 if k % 3 != 0 else 0.45 + cs.next() * 0.5
+		planes.append([Vector3(cos(a), tilt, sin(a)).normalized(), 0.34 + cs.next() * 0.18])
+	# the foot: two slanting breaks under it, not one sawn plane
+	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized(), 0.6])
+	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized() * Vector3(1.4, 1.0, 1.4), 0.66])
+	var ext := Vector3(cb0.size.x, cb0.size.y, cb0.size.z) * 0.5
+	for pl: Array in planes:
+		var n: Vector3 = (pl[0] as Vector3).normalized()
+		var reach := absf(n.x) * ext.x + absf(n.y) * ext.y + absf(n.z) * ext.z
+		var d := reach * float(pl[1])
+		for vi in rg.v.size():
+			var t := rg.v[vi].dot(n) - d
+			if t > 0.0: rg.v[vi] -= n * t
 	var fn := FastNoiseLite.new()
 	fn.seed = int(stones[0].id) % 9973
-	fn.frequency = 2.6
+	fn.frequency = 3.5
 	fn.fractal_octaves = 3
 	for vi in rg.v.size():
 		var vv := rg.v[vi]
-		if vv.y < cut:
-			var d := (cut - vv.y) / maxf(cb0.size.y * 0.22, 0.01)   # 0 at the cut .. ~1 at the very bottom
-			var nz := fn.get_noise_3dv(vv * 1.0)
-			var ny := lerpf(vv.y, cut - cb0.size.y * 0.05, 0.8) + nz * cb0.size.y * 0.09 * (0.5 + d)
-			var nr := 1.0 + fn.get_noise_3dv(vv * 1.0 + Vector3(17, 3, 9)) * 0.16 * d + 0.08 * d
-			rg.v[vi] = Vector3(vv.x * nr, ny, vv.z * nr)
+		rg.v[vi] = vv + Vector3(fn.get_noise_3dv(vv), fn.get_noise_3dv(vv + Vector3(9, 1, 3)), fn.get_noise_3dv(vv + Vector3(2, 7, 5))) * 0.035
+	var cut := rg.aabb().position.y + rg.aabb().size.y * 0.12
 	rg.rp = rg.v.duplicate()
-	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, silv = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
+	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
 	# nine spots on its surface, apart from one another, not underneath
 	# (none near the foot: a crystal there hung below the column's flat base)
-	var low := cut + R_GEO * 1.4
-	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(pp: Vector3, nn: Vector3) -> bool: return nn.y > -0.2 and pp.y > low, pivot)
+	var low := cut + R_GEO * 0.9
+	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(pp: Vector3, nn: Vector3) -> bool: return nn.y > -0.35 and pp.y > low, pivot)
 	normals.clear()
 	for q: Array in pts:
 		if dirs.size() >= stones.size(): break
@@ -223,23 +236,19 @@ func _build(rng: RandomNumberGenerator) -> void:
 			# what the lens shows: a soft halo of its rarity's colour round it and a little of that light on the rock, as
 			# the glowing mycena's — the crystal itself stays a garnet
 			var rc := Data.rarity_color(int(lit[i]))
-			var halo := MeshInstance3D.new()
-			var q := QuadMesh.new()
-			q.size = Vector2.ONE * R_GEO * 5.0
-			halo.mesh = q
-			var hm := ShaderMaterial.new()
-			hm.shader = HALO
-			hm.set_shader_parameter("col", Vector3(rc.r, rc.g, rc.b))
-			hm.set_shader_parameter("power", 0.22)
-			halo.material_override = hm
-			halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			halo.position = Vector3(0, R_GEO * 0.45, 0)
-			g.add_child(halo)
+			# a thin line of its light round its foot, where it comes out of the rock (as the geodes' seam glowed)
+			var rcl := rc.srgb_to_linear()
+			var seam := SpecMat.make({col = rcl * 0.2, rough = 0.6, emis = rcl * 1.6})
+			var ring := SpecUtil.mesh(Geo.torus(cb.size.x * csz * 0.42, R_GEO * 0.05, 6, 40).jitter(R_GEO * 0.02, 9.0, i), seam, g, Vector3(0, R_GEO * (float(sinks[i]) + 0.04), 0), Basis(Vector3.RIGHT, PI / 2))
+			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var glow := OmniLight3D.new()
 			glow.light_color = rc
-			glow.light_energy = 0.9
-			glow.omni_range = 0.9
-			glow.position = Vector3(0, R_GEO * 0.9, 0)
+			# (as the geodes' was: no haze over it, the light at its foot, close on the rock, pooling round it in the
+			# rarity's colour)
+			glow.light_energy = 1.6
+			glow.omni_range = 0.75
+			glow.omni_attenuation = 1.6
+			glow.position = Vector3(0, R_GEO * (float(sinks[i]) + 0.25), 0)   # (just above the rock: sunk in it, it lit nothing)
 			g.add_child(glow)
 			glows.append([glow, rng.randf() * TAU])
 		geodes.append(g)
@@ -356,7 +365,7 @@ func _process(dt: float) -> void:
 		_turn(_vel)
 	var t := Time.get_ticks_msec() / 1000.0
 	for gl: Array in glows:
-		(gl[0] as OmniLight3D).light_energy = 0.7 + 0.35 * sin(t * 1.6 + float(gl[1]))
+		(gl[0] as OmniLight3D).light_energy = 1.3 + 0.5 * sin(t * 1.6 + float(gl[1]))
 	for i in geodes.size():
 		var g := geodes[i]
 		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (0.7 if i == sel else -sinks[i % sinks.size()])
