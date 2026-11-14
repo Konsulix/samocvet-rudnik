@@ -27,8 +27,13 @@ const THEME := {
 	1: {habit = "hexbevel", col = 0x053a1c, deep = 1.9, lo = Vector3(0.003, 0.03, 0.012), hi = Vector3(0.025, 0.24, 0.1),
 		rind = Vector3(0.01, 0.025, 0.015), floor = Vector3(0.008, 0.02, 0.1), druse = 0x0f2266, druse_tint = 1.0, glow = Color(0.35, 1.0, 0.5),
 		rock = Color(0.11, 0.16, 0.12)},
+	# the Kraken of Whalebone Cove: sapphire barrels on pale celestine (golden pyrite read as sponge cake), a rim banded
+	# sea-green and pearl, dark sea-worn rock outside (limestone came out beige), a cold sea light
+	2: {habit = "hexbarrel", col = 0x1438a0, deep = 1.4, lo = Vector3(0.005, 0.03, 0.04), hi = Vector3(0.12, 0.2, 0.22),
+		rind = Vector3(0.03, 0.04, 0.05), floor = Vector3(0.16, 0.2, 0.26), druse = 0xc6dcf2, druse_tint = 0.7, glow = Color(0.4, 0.75, 1.0),
+		rock = Color(0.07, 0.08, 0.1)},
 }
-const ROCK_OF := {0: "slate", 1: "quartzite", 2: "limestone", 3: "lava", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
+const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "lava", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
 
 var stones := []
 var geodes: Array[Node3D] = []
@@ -287,7 +292,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# nine crystals spread over the rock, apart from one another, each its own size (grouping them as garnets grow read
 	# as a mistake: the hoard is a game's chest, not an almandine specimen — it takes only the crystal's shape)
 	var in_cave := func(pp: Vector3, nn: Vector3) -> bool:
-		return pp.z < zf - 0.12 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.72 and nn.z > -0.3
+		return pp.z < zf - 0.12 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.72 and nn.z > -0.3 and (nn.z > 0.5 or nn.x * (cav_c.x - pp.x) + nn.y * (cav_c.y - pp.y) > 0.0)
 	var pts := RockKit.surf_pts(rock_mi, 1200, r32, in_cave, pivot)
 	normals.clear()
 	sizes.clear()
@@ -461,7 +466,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# the cave's lining: a crust of small pale quartz points over its walls, as a geode's, round the big crystals
 	# (dense, every wall covered, dark wine — the nine big ones glowing out of it; the band left bare at the lip)
 	var druse_at := RockKit.surf_pts(rock_mi, 5200, r32, func(pp: Vector3, nn: Vector3) -> bool:
-		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.9, pivot)
+		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.9 and (nn.z > 0.5 or nn.x * (cav_c.x - pp.x) + nn.y * (cav_c.y - pp.y) > 0.0), pivot)   # (a wall looking into the cave: under the face the boulder is wider than it, and its outside fell within the cave's outline)
 	var dcol := SpecMat.lin(int(TH.druse))   # (the Serpent's milky quartz: wine-red, the lining ran into the garnets)
 	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0, cA = dcol, cB = dcol})
 	var qb := qg.aabb()
