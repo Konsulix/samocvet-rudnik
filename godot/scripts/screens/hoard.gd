@@ -18,6 +18,16 @@ const HALO: Shader = preload("res://shaders/fungi_halo.gdshader")
 ## the Mistress's copper, the sea's pale silver, the smith's red-hot iron...
 const VEIN_OF := {0: Vector3(1.0, 0.58, 0.14), 1: Vector3(1.0, 0.42, 0.22), 2: Vector3(0.85, 0.95, 1.1), 3: Vector3(1.1, 0.32, 0.1),
 	4: Vector3(0.9, 1.05, 1.2), 5: Vector3(1.0, 1.0, 1.0), 6: Vector3(1.1, 0.8, 0.5), 7: Vector3(0.7, 0.85, 1.25)}
+## the geode's dress by mine: the nine crystals (habit, body colour), the rim band, the crust in the cave, the light in it,
+## the rock outside (a tint over its scan). Missing — the Serpent's: almandine on milky quartz in grey chalcedony
+const THEME := {
+	0: {habit = "dodeca", col = 0x4a0e18, deep = 1.9, lo = Vector3(0.035, 0.04, 0.05), hi = Vector3(0.17, 0.18, 0.21),
+		rind = Vector3(0.16, 0.12, 0.1), floor = Vector3(0.3, 0.29, 0.3), druse = 0xe8e4e0, druse_tint = 0.5, glow = Color(1.0, 0.3, 0.22)},
+	# the Mistress of the Copper Mountain: emeralds, stubby, on blue azurite, in a rim of banded malachite, serpentine outside
+	1: {habit = "hexbevel", col = 0x053a1c, deep = 1.9, lo = Vector3(0.003, 0.03, 0.012), hi = Vector3(0.025, 0.24, 0.1),
+		rind = Vector3(0.01, 0.025, 0.015), floor = Vector3(0.008, 0.02, 0.1), druse = 0x0f2266, druse_tint = 1.0, glow = Color(0.35, 1.0, 0.5),
+		rock = Color(0.11, 0.16, 0.12)},
+}
 const ROCK_OF := {0: "slate", 1: "quartzite", 2: "limestone", 3: "lava", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
 
 var stones := []
@@ -261,12 +271,14 @@ func _build(rng: RandomNumberGenerator) -> void:
 			rg.col[vi] = Color(c0.r * lerpf(1.0, 0.45, dz / depth), c0.g, c0.b, c0.a)
 	var cut := rg.aabb().position.y + rg.aabb().size.y * 0.12
 	rg.rp = rg.v.duplicate()
+	var TH: Dictionary = THEME.get(area_i, THEME[0])
 	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, agate = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
-		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
+		dirt = {h = 99.0, a = 0.3, col = TH.get("rock", R.base), fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	rm.set_shader_parameter("agate_c", Vector2(cav_c.x, cav_c.y))
 	rm.set_shader_parameter("agate_r", rim_e)
 	rm.set_shader_parameter("band_in", sqrt(BAND_IN))
 	rm.set_shader_parameter("band_out", sqrt(BAND_OUT))
+	for k: String in ["lo", "hi", "rind", "floor"]: rm.set_shader_parameter("agate_" + k, TH[k])
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
 	# nine spots on its surface, apart from one another, not underneath
@@ -307,10 +319,10 @@ func _build(rng: RandomNumberGenerator) -> void:
 		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, axis)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
 		var cr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
-		var col := SpecMat.lin(0x4a0e18)   # (a deep, muted wine-red: a bright one read as candy)
+		var col := SpecMat.lin(int(TH.col))   # (the Serpent's a deep, muted wine-red: a bright one read as candy)
 		var glow_k := 0.08
 		# (detail: faces not quite flat, as a grown crystal's are — the glass ripples what shows through)
-		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col, detail = 2})
+		var cg := RockKit.crystal(String(TH.habit), cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
 		# (each its own size, from a small one to a big one)
 		var csz := R_GEO * 1.98 * float(sizes[i % sizes.size()]) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
@@ -319,7 +331,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
 		# polished smooth read as red plastic)
 		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.03, rf = 0.14, frost = 0.16, thick = 1.25,
-			st = 1.0, st_mode = 2.0, grain = 0.15, seed = float(i * 13 % 97), prio = 2, tint_body = 1.0, tint_glow = glow_k, deep_body = 1.9})
+			st = 1.0, st_mode = 2.0, grain = 0.15, seed = float(i * 13 % 97), prio = 2, tint_body = 1.0, tint_glow = glow_k, deep_body = float(TH.deep)})
 		SpecUtil.mesh(cg, cm, g)
 		var hc := g.transform * cg.aabb().get_center()
 		var hr := 0.0
@@ -426,7 +438,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# (dense, every wall covered, dark wine — the nine big ones glowing out of it; the band left bare at the lip)
 	var druse_at := RockKit.surf_pts(rock_mi, 5200, r32, func(pp: Vector3, nn: Vector3) -> bool:
 		return pp.z < zf - 0.03 and pp.z > zf - depth - 0.08 and float(cave_u.call(pp.x, pp.y)) < 0.9, pivot)
-	var dcol := SpecMat.lin(0xe8e4e0)   # (milky quartz: wine-red, the lining ran into the garnets)
+	var dcol := SpecMat.lin(int(TH.druse))   # (the Serpent's milky quartz: wine-red, the lining ran into the garnets)
 	var qg := RockKit.crystal("prism", Rng32.new(5), {h = 1.0, cA = dcol, cB = dcol})
 	var qb := qg.aabb()
 	qg.translate(-qb.get_center().x, -qb.position.y, -qb.get_center().z)
@@ -449,12 +461,12 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = 0.45, prio = 1, tint_body = 0.5, tint_glow = 0.04})
+	mmi.material_override = SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = 0.45, prio = 1, tint_body = float(TH.druse_tint), tint_glow = 0.04})
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pivot.add_child(mmi)
 	# and a warm light deep in it, breathing: the treasure glows from within
 	cave_glow = OmniLight3D.new()
-	cave_glow.light_color = Color(1.0, 0.3, 0.22)
+	cave_glow.light_color = TH.glow
 	cave_glow.light_energy = 0.7
 	cave_glow.omni_range = 1.7
 	cave_glow.omni_attenuation = 1.4

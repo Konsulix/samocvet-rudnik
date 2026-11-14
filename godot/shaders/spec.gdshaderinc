@@ -58,6 +58,10 @@ uniform vec2 agate_c = vec2(0.0);   // the cave's middle, in rock coordinates (x
 uniform float agate_r[72];          // the cave's outline radius, angle by angle
 uniform float band_in = 0.8;        // the band from this many outline radii...
 uniform float band_out = 1.15;      // ...to this many
+uniform vec3 agate_lo = vec3(0.035, 0.04, 0.05);   // the band's dark stripes (grey chalcedony; malachite for the Mistress)
+uniform vec3 agate_hi = vec3(0.17, 0.18, 0.21);    // its light stripes
+uniform vec3 agate_rind = vec3(0.16, 0.12, 0.1);   // the rind line at its outer edge
+uniform vec3 agate_floor = vec3(0.3, 0.29, 0.3);   // the cave's floor under the crust
 uniform sampler2D silver_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D silver_rough : filter_linear_mipmap, repeat_enable;
@@ -211,16 +215,16 @@ void fragment() {
 		float w = t + (fbm(v_rp * 2.5 + 3.0) - 0.5) * 0.18;
 		float st = 0.5 + 0.5 * sin(w * 15.0);
 		float st2 = 0.5 + 0.5 * sin(w * 41.0 + 1.7);
-		vec3 ag = mix(vec3(0.035, 0.04, 0.05), vec3(0.17, 0.18, 0.21), st * st);
+		vec3 ag = mix(agate_lo, agate_hi, st * st);
 		ag *= 0.7 + 0.45 * st2;
-		ag = mix(ag, vec3(0.3, 0.29, 0.27), smoothstep(0.92, 1.0, st) * 0.4);
-		ag = mix(ag, vec3(0.16, 0.12, 0.1), smoothstep(0.8, 0.95, t));
-		ag = mix(ag, vec3(0.2, 0.22, 0.26), smoothstep(0.25, 0.0, t) * 0.6);
+		ag = mix(ag, agate_hi * 1.7, smoothstep(0.92, 1.0, st) * 0.4);
+		ag = mix(ag, agate_rind, smoothstep(0.8, 0.95, t));
+		ag = mix(ag, agate_hi * 1.2, smoothstep(0.25, 0.0, t) * 0.6);
 		base = mix(base, ag, ag_on);
 		r = mix(r, 0.5, ag_on);
 		// the cave's floor under its crust: milky, glittering — between the small crystals no dark rock shows
 		float flo = step(0.5, COLOR.g) * (1.0 - smoothstep(-0.04, 0.02, t)) * agate_k * dirt;
-		base = mix(base, vec3(0.3, 0.29, 0.3) * (0.65 + 0.7 * vn(v_rp * 55.0)) * clamp(COLOR.r * 1.3, 0.35, 1.0), flo);   // (darker deeper in, as the cave's rock was)
+		base = mix(base, agate_floor * (0.65 + 0.7 * vn(v_rp * 55.0)) * clamp(COLOR.r * 1.3, 0.35, 1.0), flo);   // (darker deeper in, as the cave's rock was)
 		r = mix(r, 0.35, flo);
 		ag_on = max(ag_on, flo);
 	}
