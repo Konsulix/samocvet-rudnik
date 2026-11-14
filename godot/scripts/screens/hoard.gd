@@ -37,8 +37,13 @@ const THEME := {
 	3: {habit = "dipyr", col = 0xe0b000, deep = 1.4, lo = Vector3(0.06, 0.012, 0.004), hi = Vector3(0.36, 0.12, 0.03),
 		rind = Vector3(0.02, 0.015, 0.012), floor = Vector3(0.015, 0.014, 0.016), druse = 0x141416, druse_tint = 1.0, druse_opaque = true, glow = Color(1.0, 0.45, 0.12),
 		rock = Color(0.06, 0.055, 0.05)},
+	# Proval, Svalbard in the polar night: raspberry rhodochrosite rhombs on clear icy quartz, a rim of Svalbard agate
+	# (cold blue, grey and white bands), coal-dark rock veined with frost, the aurora's green light in the cave
+	4: {habit = "rhomb", col = 0xc0183c, deep = 1.5, size_k = 1.25, lo = Vector3(0.02, 0.03, 0.05), hi = Vector3(0.22, 0.27, 0.34),
+		rind = Vector3(0.012, 0.012, 0.015), floor = Vector3(0.2, 0.25, 0.3), druse = 0xdceaf6, druse_tint = 0.4, druse_frost = 0.2,
+		glow = Color(0.4, 1.0, 0.7), rock = Color(0.04, 0.042, 0.048)},
 }
-const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "slate", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
+const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "slate", 4: "slate", 5: "slate", 6: "ironstone", 7: "basalt"}
 
 var stones := []
 var geodes: Array[Node3D] = []
@@ -304,7 +309,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var n_st := stones.size()
 	var fits := func(at: Vector3, sz: float) -> bool:
 		for k in dirs.size():
-			if dirs[k].distance_to(at) < R_GEO * (sz + float(sizes[k])) * 1.15: return false
+			if dirs[k].distance_to(at) < R_GEO * float(TH.get("size_k", 1.0)) * (sz + float(sizes[k])) * 1.15: return false
 		return true
 	for pass_i in 6:
 		for q: Array in pts:
@@ -340,7 +345,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 		var cg := RockKit.crystal(String(TH.habit), cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
 		# (each its own size, from a small one to a big one)
-		var csz := R_GEO * 1.98 * float(sizes[i % sizes.size()]) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
+		var csz := R_GEO * 1.98 * float(TH.get("size_k", 1.0)) * float(sizes[i % sizes.size()]) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
 		cg.translate(-cb.get_center().x, -cb.position.y - cb.size.y * 0.25, -cb.get_center().z)
 		cg.scale(csz, csz, csz)
 		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
