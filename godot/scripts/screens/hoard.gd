@@ -156,17 +156,20 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
-	rg.scale(fit * 0.95, fit * 2.2, fit * 0.95)
+	rg.scale(fit * 1.25, fit * 1.75, fit * 1.0)
 	# (14.11, after a photo of a split boulder) not an egg: big flat break faces at all angles, as a block of rock
 	# broken out of a cliff — the boulder cut by planes (everything past one pressed onto it), steep ones round its
 	# sides, slanting ones at its top, its foot broken off unevenly; the scan and the noise of the rock keep the faces rough
 	var cb0 := rg.aabb()
 	var cs := Rng32.new(int(stones[0].id) % 1000003 + 77)
 	var planes := []
-	for k in 14:
-		var a := TAU * float(k) / 14.0 + (cs.next() - 0.5) * 0.4
-		var tilt := -0.15 + cs.next() * 0.6 if k % 3 != 0 else 0.45 + cs.next() * 0.5
-		planes.append([Vector3(cos(a), tilt, sin(a)).normalized(), 0.34 + cs.next() * 0.18])
+	for k in 7:
+		var a := TAU * float(k) / 7.0 + (cs.next() - 0.5) * 0.5
+		var tilt := -0.08 + cs.next() * 0.25
+		planes.append([Vector3(cos(a), tilt, sin(a)).normalized(), 0.5 + cs.next() * 0.14])
+	# (its top: one broad slanting break and a smaller one, as on the photo — not a dome)
+	planes.append([Vector3(cs.next() - 0.5, 1.6, cs.next() - 0.5).normalized(), 0.62])
+	planes.append([Vector3(cs.next() * 2.0 - 1.0, 1.0, cs.next() * 2.0 - 1.0).normalized(), 0.6])
 	# the foot: two slanting breaks under it, not one sawn plane
 	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized(), 0.6])
 	planes.append([Vector3(cs.next() - 0.5, -1.0, cs.next() - 0.5).normalized() * Vector3(1.4, 1.0, 1.4), 0.66])
@@ -218,8 +221,8 @@ func _build(rng: RandomNumberGenerator) -> void:
 		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, axis)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
 		var cr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
-		var col := SpecMat.lin(0x8a1022)
-		var glow_k := 0.18
+		var col := SpecMat.lin(0x5a1420)   # (a deep, muted wine-red: a bright one read as candy)
+		var glow_k := 0.08
 		# (detail: faces not quite flat, as a grown crystal's are — the glass ripples what shows through)
 		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
@@ -230,7 +233,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
 		# polished smooth read as red plastic)
 		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.2, rf = 0.25, frost = 0.32, thick = 1.25,
-			st = 1.0, st_mode = 2.0, grain = 0.25, seed = float(i * 13 % 97), prio = 2, tint_body = 0.75, tint_glow = glow_k, deep_body = 1.0})
+			st = 1.0, st_mode = 2.0, grain = 0.25, seed = float(i * 13 % 97), prio = 2, tint_body = 0.85, tint_glow = glow_k, deep_body = 1.4})
 		SpecUtil.mesh(cg, cm, g)
 		if lit.has(i):
 			# what the lens shows: a soft halo of its rarity's colour round it and a little of that light on the rock, as
