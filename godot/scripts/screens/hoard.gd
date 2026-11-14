@@ -306,25 +306,37 @@ func _build(rng: RandomNumberGenerator) -> void:
 	rg.rp = rg.v.duplicate()
 	var carved := 0
 	var t_sock := Time.get_ticks_msec()
+	# (the crystal pressed into the rock: rock inside it laid onto its nearest face that looks into the rock — the
+	# rock hugs the crystal with no room round it, meeting it on the line where the two cross; a dark seam drawn round
+	# that line on the rock outside)
+	var eps := R_GEO * 0.01
+	var seam_w := R_GEO * 0.09
+	var has_col := rg.col.size() == rg.v.size()
 	for vi in rg.v.size():
+		var shade := 1.0
 		for hl: Array in hulls:
 			var x := rg.v[vi]
-			if x.distance_to(hl[2]) > float(hl[3]) + gap: continue
-			var dn: Vector3 = -(hl[1] as Vector3)
-			var inside := true
-			var t_out := INF
+			if x.distance_to(hl[2]) > float(hl[3]) + seam_w: continue
+			var up: Vector3 = hl[1]
+			var far := -INF
+			var best_d := -INF
+			var best_n := Vector3.ZERO
 			for pl: Array in hl[0]:
 				var pn: Vector3 = pl[0]
-				var dd := pn.dot(x) - (float(pl[1]) + gap)
-				if dd > 0.0:
-					inside = false
-					break
-				var dv := pn.dot(dn)
-				if dv > 0.001: t_out = minf(t_out, -dd / dv)
-			if inside and t_out < INF:
-				rg.v[vi] = x + dn * t_out
+				var dd := pn.dot(x) - float(pl[1])
+				far = maxf(far, dd)
+				if pn.dot(up) < 0.25 and dd > best_d:
+					best_d = dd
+					best_n = pn
+			if far <= 0.0 and best_n != Vector3.ZERO:
+				rg.v[vi] = x + best_n * (eps - best_d)
 				carved += 1
-				if rg.col.size() == rg.v.size(): rg.col[vi] = Color(rg.col[vi].r * 0.45, rg.col[vi].g, rg.col[vi].b, rg.col[vi].a)
+				shade = minf(shade, 0.55)
+			elif far > 0.0 and far < seam_w:
+				shade = minf(shade, lerpf(0.45, 1.0, far / seam_w))
+		if has_col and shade < 1.0:
+			var c := rg.col[vi]
+			rg.col[vi] = Color(c.r * shade, c.g, c.b, c.a)
 	if OS.is_debug_build() and "hoard_sel" in OS.get_cmdline_user_args(): print("SOCKET carved %d of %d (soup %d), %d ms" % [carved, rg.v.size(), n_soup, Time.get_ticks_msec() - t_sock])
 	# (the rock's pattern follows the carved surface: kept from before, it was stretched down the socket's walls)
 	rg.rp = rg.v.duplicate()
