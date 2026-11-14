@@ -199,3 +199,114 @@ Smithsonian, RISD Nature Lab, NHM Wien. ★ — рекомендую взять 
 Водоросли 5 · живые кораллы 8 · скелеты кораллов 5 · губки 7 · актинии 4 · звёзды 4 · ежи и голотурия 6 · раковины 7 · обрастания 4.
 Номера: 1, 3, 4, 5, 7, 10, 12, 13, 14, 15, 17, 18, 20, 23, 26, 28, 32, 35, 36, 37, 39, 40, 42, 44, 45, 48, 49, 50, 51, 54, 55, 57, 60, 62, 63, 64, 66, 69, 71, 73, 74, 77, 78, 81, 83, 86, 88, 90, 92, 95.
 Скачивать в `C:/Users/Максим/Desktop/sea_life/<номер>_<имя>/` (формат glb или gltf, если Sketchfab предлагает).
+
+## Подборка pikaia2 «ancient sea life» (номера A1–A62)
+
+Лист — `art/refs/ancient_sea_candidates.jpg`. В подборке 292 модели; скачиваемых CC0 или CC BY — 62 (остальные без скачивания,
+NonCommercial или ShareAlike). ★ — интересные.
+
+Как их можно использовать:
+- **Окаменелости-тела под гены, как черепа зверей** (скан = тело, генератор растит на нём своё: пирит, опал, кристаллы в
+  трещинах, друзы в камерах): рыбы в плите (Lepidotes, Dapedium), череп ихтиозавра, зуб мегалодона, эвриптерид, мечехвосты,
+  ортоцерас, наутилус, гетероморф Nostoceras.
+- **Соседи на плите**: мелкие аммониты, ежи, табулята Pleurodictyum, кораллы, морские лилии (ископаемые).
+- **Живые реконструкции** (FreddyFoxFreddy: тилозавр, долихоринхопс, офтальмозавр, кретоксирина) — не находки, а призраки для
+  легендарных эффектов, как призраки зверей у черепов (`SpecBeastFx`).
+- Свои трилобит и аммонит в генераторе остаются главными (их не трогаем). Сканы трилобитов и аммонитов (A1–A4, A9–A25) нужны
+  как ориентир родов для `GENUS`/генов аммонита или как редкие «музейные» находки.
+
+### Два морских рудника (идея, не решено)
+
+- **Палеозой — рудник трилобитов**: трилобиты (роды), эвриптериды, мечехвосты, ортоцерасы, морские лилии, табуляты и ругозы,
+  мшанки, брахиоподы. Легендарное — живой аномалокарис (уже есть), эвриптерид.
+- **Мезозой — рудник аммонитов**: аммониты, аммолит, гетероморфы, белемниты, наутилусы, рыбы в плите, ихтиозавр,
+  зуб акулы. Легендарное — призрак ихтиозавра/тилозавра.
+- Живое дно (водоросли, губки, кораллы, звёзды, ежи) — общее у обоих.
+- Сейчас трилобит и аммонит лежат в бухте Кракена (рудник 3, Whalebone Cove), там их можно оставить по одному.
+
+### Трилобиты и членистоногие
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★A1 | [Trilobite: E. crassituberculata (PRI 49811)](https://sketchfab.com/3d-models/03f611a973144635b4a9019afe7393f0) | DigitalAtlasOfAncientLife | CC0 | 252 тыс. |
+| ★A2 | [Trilobite 4](https://sketchfab.com/3d-models/e7e43723a9cc41a1966908fb9b0cdea7) | Landy42 | CC BY | 1455 тыс. |
+| ★A3 | [Trilobite #3](https://sketchfab.com/3d-models/5cb18ea7ccbb4fe19342f5bbb86ae89a) | Landy42 | CC BY | 1462 тыс. |
+| ★A4 | [Phacops, trilobite](https://sketchfab.com/3d-models/b4187b150b5c448d9a4b0a42ef307dbc) | anco.lankreijer | CC BY | 74 тыс. |
+| ★A5 | [Eurypterid: Pterygotus sp. (PRI 50322)](https://sketchfab.com/3d-models/421a47bc3b0a4986a8304ab8e240480d) | DigitalAtlasOfAncientLife | CC0 | 182 тыс. |
+| A6 | [Horseshoe crab: Carcinoscorpius rotundicauda](https://sketchfab.com/3d-models/d429e1e8c6d34f2fb9b79ee4c85b753f) | DigitalAtlasOfAncientLife | CC0 | 95 тыс. |
+| ★A7 | [Horseshoe crab: Limulus polyphemus (PRI)](https://sketchfab.com/3d-models/1e425587f84e4b66913dec45850bbdb3) | DigitalAtlasOfAncientLife | CC0 | 149 тыс. |
+| A8 | [Arthropod: Limulus (horseshoe crab)](https://sketchfab.com/3d-models/b300292543ea4d2da7a3f2490c653630) | DigitalAtlasOfAncientLife | CC0 | 122 тыс. |
+
+### Аммониты, наутилусы, ортоцерасы
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| A9 | [Fossil Ammonite](https://sketchfab.com/3d-models/a6f39739ac074f0c8b5aa521f728e39f) | ExplorMorLabs | CC BY | 10 тыс. |
+| ★A10 | [Mammites nodosoides](https://sketchfab.com/3d-models/6da4d09b7d1f48298f394136deb87af6) | MUVHN | CC BY | 3824 тыс. |
+| ★A11 | [Ammonite Heteromorfo Nostoceras](https://sketchfab.com/3d-models/89aaa73f44514ef385bb47cb51d66eb7) | MUVHN | CC BY | 1073 тыс. |
+| ★A12 | [Ammonoid Cleoniceras besairei](https://sketchfab.com/3d-models/5dd26bb6dcf34d13bffc47006f463a69) | MUVHN | CC BY | 953 тыс. |
+| A13 | [Ammonites (Perisphinctes sp.)](https://sketchfab.com/3d-models/b9d45b4134354a02baadee4dee62f14a) | MUVHN | CC BY | 190 тыс. |
+| A14 | [Czekanowskites rieberi](https://sketchfab.com/3d-models/ae023017e0f34cf8b5cc0d98899da3ac) | Paleogirl | CC BY | 90 тыс. |
+| A15 | [Australiceras jacki](https://sketchfab.com/3d-models/9d67d17d8da6488582baf8a81db8d355) | Paleogirl | CC BY | 49 тыс. |
+| A16 | [Harpoceras radians](https://sketchfab.com/3d-models/f700c20667f54313965d364e5f3f3ade) | Paleogirl | CC BY | 70 тыс. |
+| A17 | [Cardioceras cordatum](https://sketchfab.com/3d-models/d7c6049eb470474683fdff2cd7eab5f1) | Paleogirl | CC BY | 60 тыс. |
+| ★A18 | [Polyptychites ramulicosta](https://sketchfab.com/3d-models/195567b2f4fe44e6b38b1ad5240ff320) | ScarboroughMuseums | CC BY | 492 тыс. |
+| ★A19 | [Nautilus](https://sketchfab.com/3d-models/27879a30c57844d0978df8f1fae2ec74) | ScarboroughMuseums | CC BY | 628 тыс. |
+| A20 | [Perisphinctes (Properisphinctes) bernensis](https://sketchfab.com/3d-models/61078b4e5ef3412aab4d6ba9c4404938) | ScarboroughMuseums | CC BY | 1499 тыс. |
+| A21 | [Ammonites and Ichthyosaur bones.](https://sketchfab.com/3d-models/587dbd914980440fa80cb1756da92a9f) | ScarboroughMuseums | CC BY | 64 тыс. |
+| ★A22 | [Perisphinctes sp](https://sketchfab.com/3d-models/fc6c4766cf7345528c5b1ad1ec58b12a) | jovilgo | CC BY | 449 тыс. |
+| A23 | [Nautilus Shell](https://sketchfab.com/3d-models/9b4acc4a177c41e984a0199c6fdcf90e) | RISDNaturelab | CC BY | 397 тыс. |
+| A24 | [Chambered Nautilus](https://sketchfab.com/3d-models/ad379c7c5ca345ac801bd249d864c94f) | RISDNaturelab | CC BY | 500 тыс. |
+| ★A25 | [Orthocerátido Michelinoceras](https://sketchfab.com/3d-models/b823b148c1e34beb8f280f6ba0115c5b) | MUVHN | CC BY | 1706 тыс. |
+
+### Рыбы и морские ящеры (окаменелости)
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| A26 | [Vertebrate: Fish (PRI 53568)](https://sketchfab.com/3d-models/e62fbf61257c462c842ac31354de49a9) | DigitalAtlasOfAncientLife | CC0 | 147 тыс. |
+| A27 | [Lepidotes elvensis TU256b](https://sketchfab.com/3d-models/0b3bdc3995b04b89b6e9ce51f6658762) | mnhnl | CC BY | 499 тыс. |
+| ★A28 | [Lepidotes elvensis TU938](https://sketchfab.com/3d-models/7cc52279fe1a4032934c71344fba19c8) | mnhnl | CC BY | 499 тыс. |
+| A29 | [Ichthyosaur TU867](https://sketchfab.com/3d-models/d088f9da65d340e4995d3a22c580c2cc) | mnhnl | CC BY | 499 тыс. |
+| ★A30 | [Dapedium pholidotum TU962](https://sketchfab.com/3d-models/1e39c696dc55413a87cdc7e12516f073) | mnhnl | CC BY | 499 тыс. |
+| ★A31 | [Ichthyosaur skull TV112](https://sketchfab.com/3d-models/bd1450d31f1b4a48a878977ecd3cfe4a) | mnhnl | CC BY | 499 тыс. |
+| A32 | [Lepidotes elvensis TV240b](https://sketchfab.com/3d-models/3a4a64a3b84f4431a44402f6f9f3c238) | mnhnl | CC BY | 499 тыс. |
+| A33 | [Lepidotes elvensis TV240a](https://sketchfab.com/3d-models/5b1471157fc1458989bee9b4080d1836) | mnhnl | CC BY | 499 тыс. |
+| ★A34 | [Xiphactinus Audax Fossil Skull](https://sketchfab.com/3d-models/9f26fe5bc6be4ee790283c9d22df7cb3) | gamingassets | CC BY | 315 тыс. |
+| ★A35 | [ChM PV9565 - Megalodon Shark Tooth](https://sketchfab.com/3d-models/a2396234fe08463cacaf809bf9b59fdc) | charlestonmuseum | CC BY | 58 тыс. |
+| A36 | [Vertèbre de Muraenosaurus](https://sketchfab.com/3d-models/c2db14f7e57f4dce85c36d475159e767) | HRDP | CC BY | 796 тыс. |
+| A37 | [Plesiosaur or Pliosaur Fossil (Femur)](https://sketchfab.com/3d-models/0fb83dc80e9d4561b30adff8c1f9cb8f) | Jameswest | CC BY | 254 тыс. |
+
+### Морские ящеры и рыбы — реконструкции
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★A38 | [Tylosaurus](https://sketchfab.com/3d-models/17a0332ed82b4383ae9fda9fa32b1080) | FreddyFoxFreddy | CC BY | 195 тыс. |
+| A39 | [styxosaurus snowii](https://sketchfab.com/3d-models/c0ee838a9345458b91ef2cca3ba94542) | FreddyFoxFreddy | CC BY | 66 тыс. |
+| A40 | [Dolichorhynchops](https://sketchfab.com/3d-models/3d208b94eb1e405ea1fe94c2f47316a6) | FreddyFoxFreddy | CC BY | 967 тыс. |
+| A41 | [Tylosaurus Head](https://sketchfab.com/3d-models/0aad75bad3244aa18c2457b3c4c0dadc) | FreddyFoxFreddy | CC BY | 1317 тыс. |
+| ★A42 | [Opthalmosaurus](https://sketchfab.com/3d-models/ef76282850be4509b0a0d54453e5b324) | FreddyFoxFreddy | CC BY | 1480 тыс. |
+| A43 | [Cretoxyrhina](https://sketchfab.com/3d-models/cb6c498b19cf432ea8effdd71ab6b8d3) | FreddyFoxFreddy | CC BY | 1338 тыс. |
+| A44 | [Dallasaurus](https://sketchfab.com/3d-models/bfec76fbd5624d9fa9375668565af45c) | FreddyFoxFreddy | CC BY | 134 тыс. |
+
+### Прочее: кораллы, ежи, лилии, раковины
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★A45 | [Coral: Septastrea marylandica (PRI 70753)](https://sketchfab.com/3d-models/9a19bced8af1473489e2b7573f54b836) | DigitalAtlasOfAncientLife | CC0 | 581 тыс. |
+| A46 | [Unknown Fossil](https://sketchfab.com/3d-models/432bac3ec4404399980bc3565baaffc0) | GLC-UHEAS | CC BY | 114 тыс. |
+| A47 | [Unknown Fossil](https://sketchfab.com/3d-models/014237b4fdba446d996ff55c0628afd4) | GLC-UHEAS | CC BY | 300 тыс. |
+| ★A48 | [Pleurodictyum sp.](https://sketchfab.com/3d-models/cfcf79481f6742959152e1f8f1362e96) | Paleogirl | CC BY | 440 тыс. |
+| ★A49 | [Echinoid: Strongylocentrotus (PRI 78783)](https://sketchfab.com/3d-models/ff7eca213f1b4afcb22ec5457f244c1b) | DigitalAtlasOfAncientLife | CC0 | 307 тыс. |
+| A50 | [Echinoid: Heterocentrotus mamillatus (PRI)](https://sketchfab.com/3d-models/32114c05e2674863acedd311c7dee0ab) | DigitalAtlasOfAncientLife | CC0 | 212 тыс. |
+| ★A51 | [Crinoid: Agaricocrinus americanus (PRI 70601)](https://sketchfab.com/3d-models/2db9524514314cdcb82ca92dfd6f1dff) | DigitalAtlasOfAncientLife | CC0 | 764 тыс. |
+| A52 | [Crinoid](https://sketchfab.com/3d-models/111cc772c92a473f9fe5be459aaefc89) | WirtualneMuzeaMalopolski | CC0 | 283 тыс. |
+| A53 | [Crinoid](https://sketchfab.com/3d-models/d931cdf0a69047cfac9398eaa6eb1849) | lbriney | CC BY | 196 тыс. |
+| A54 | [Turritella apicalis](https://sketchfab.com/3d-models/e6ac042fdf6a4f37be2da8d423472a7f) | Paleogirl | CC BY | 80 тыс. |
+| A55 | [Heilprinia caloosaensis](https://sketchfab.com/3d-models/99d3abda2a2f4f57b6271e425135a531) | Paleogirl | CC BY | 79 тыс. |
+| A56 | [Protocardia texana (steinkern)](https://sketchfab.com/3d-models/927bfb6d9aad4f81bde87692873997b7) | Paleogirl | CC BY | 80 тыс. |
+| A57 | [Globigerina bulloides [Geo B8502 865cm Shell-2]](https://sketchfab.com/3d-models/2ab8073629f648d283b06f385561b816) | GigaDB | CC BY | 500 тыс. |
+| A58 | [Ozarkodinid Conodont Apparatus](https://sketchfab.com/3d-models/aad2e949abc444c8840feecf532510c4) | micropalaeontology | CC BY | 136 тыс. |
+| A59 | [P Conodont Elements](https://sketchfab.com/3d-models/02fb4242dfda47fdbba614445b48139f) | micropalaeontology | CC BY | 77 тыс. |
+| A60 | [GEOL110 Lab Test Sample 259](https://sketchfab.com/3d-models/fa087d032b974410b09c575df91a073a) | Cjoneal | CC BY | 104 тыс. |
+| A61 | [Réplica-pez](https://sketchfab.com/3d-models/b0098a28f0024c94a35abf77fe7fef2a) | biomarco | CC BY | 22 тыс. |
+| A62 | [Fossil Photogrammetry](https://sketchfab.com/3d-models/8e10a7e210824e23833b04a9b1abe82f) | nomthewise | CC BY | 14 тыс. |
