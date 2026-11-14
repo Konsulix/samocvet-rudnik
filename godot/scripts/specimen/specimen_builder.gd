@@ -727,8 +727,20 @@ func _specimen(o: Dictionary) -> Node3D:
 			dt.h = at.y + 0.1 + rng.next() * 0.25
 			dt.a = 0.35
 			for k in int(floor(rng.next() * 3)):
+				# (14.11) a small one beside it grows out of the rock, its foot sunk in: on a spot that looks up (on a steep
+				# side, tilted towards the sky, its foot stood in the air), and pushed down its own axis a third of its length
 				var p: Vector3 = st.pick.call()
-				crystal.call(0.45 + rng.next() * 0.5, 0.5 + rng.next() * 0.4, p, lean.call((st.nrm.call(p) as Vector3).lerp(UP, 0.5), 0.6))
+				var ok := false
+				for tries in 16:
+					if (st.nrm.call(p) as Vector3).y > 0.55:
+						ok = true
+						break
+					p = st.pick.call()
+				var sh := 0.45 + rng.next() * 0.5
+				var ss := 0.5 + rng.next() * 0.4
+				var sd: Vector3 = lean.call((st.nrm.call(p) as Vector3).lerp(UP, 0.5), 0.6)
+				# (no spot looking up: none, rather than one hanging off the side)
+				if ok: crystal.call(sh, ss, p - sd * sh * ss * gs * 0.32, sd)
 			if sid == "japan_quartz":
 				# the Japan-law twin (F7): two flattened crystals joined at their feet at 84°, a heart turned to the
 				# viewer — the first crystal swung over into the twin's left arm
