@@ -69,23 +69,29 @@ static func group(g: String) -> Array:
 static func label(id: String) -> String:
 	return String((MODELS.get(id, {}) as Dictionary).get("n", id))
 
-## what lives on this find's floor (its own stream): one or two tall things behind (weed, a coral), maybe a coral or an
-## anemone beside, one to three small things before it (a star, a shell, a crab), and now and then a swimmer
+## what lives on this find's floor (its own stream): the common weed nearly always (sea oak or bladder wrack — it grows
+## in clumps, grow() spreads them), behind it maybe a coral or the giant kelp, maybe a coral or an anemone beside, one
+## to three small things before it (a star, a shell, a crab), and now and then a swimmer
+const COMMON := ["weed_claret", "weed_wiggle"]
 static func genes(seed_v: int, salt: int) -> Dictionary:
 	var r := Rng32.new((seed_v * 2654435761 + salt * 977 + 41) % 4294967296)
 	var tall: Array = []
 	var near: Array = []
-	var first := "weed" if r.next() < 0.55 else "coral"
-	tall.append(_pick(r, first, tall))
-	if r.next() < 0.35: tall.append(_pick(r, "coral" if first == "weed" else "weed", tall))
-	if r.next() < 0.45: near.append(_pick(r, "coral", tall))
+	if r.next() < 0.88: tall.append(COMMON[int(r.next() * 2.0)])
+	var v := r.next()
+	if v < 0.55: tall.append(_pick(r, "coral", tall))
+	elif v < 0.75: tall.append("weed_kelp")
+	if tall.is_empty(): tall.append(_pick(r, "coral", tall))
+	if r.next() < 0.4: near.append(_pick(r, "coral", tall))
 	for gp: Array in [["star", 0.55], ["shell", 0.5], ["crab", 0.45]]:
 		if r.next() < float(gp[1]): near.append(_pick(r, String(gp[0]), near))
 	# (at least one small thing before it)
 	if not near.any(func(k: String) -> bool: return String((MODELS[k] as Dictionary).g) in ["star", "shell", "crab"]):
 		near.append(_pick(r, String(["star", "shell", "crab"][int(r.next() * 3.0)]), near))
 	var swim := _pick(r, "swim", []) if r.next() < 0.28 else ""
-	return {tall = tall, near = near, swim = swim}
+	# the common weed's clumps: how many, and how many stalks in each
+	var clumps := 1 + (1 if r.next() < 0.55 else 0)
+	return {tall = tall, near = near, swim = swim, clumps = clumps, stalks = 4 + int(r.next() * 4.0)}
 
 static func _pick(r: Rng32, g: String, taken: Array) -> String:
 	var ks := group(g).filter(func(k: String) -> bool: return not k in taken)
@@ -176,6 +182,29 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		if float(md.get("sway", 0.0)) == 0.0: mi.set_meta("sea_light", true)
 		occ.append([Vector2(at.x, at.z), foot])
 		out.append(["sea:" + id, mi, Vector3(0, bx.end.y * 0.7, 0) if not lying else Vector3(0, bx.end.y, 0)])
+		# the common weed grows in clumps: long and short stalks of both kinds round the first, and another clump
+		# along the slab's rim
+		if id in COMMON:
+			for c in int(reef.get("clumps", 1)):
+				var ctr := at
+				if c > 0:
+					var far: Variant = _room(cands, occ, foot * 0.6, r)
+					if far == null: break
+					ctr = far
+				for k in int(reef.get("stalks", 5)) - (1 if c == 0 else 0):
+					var near_c := cands.filter(func(p: Vector3) -> bool: return Vector2(p.x - ctr.x, p.z - ctr.z).length() < span * 0.16)
+					var sp: Variant = _room(near_c, occ, span * 0.012, r)
+					if sp == null: continue
+					var sid: String = COMMON[int(r.next() * 2.0)]
+					var ssz := span * float(SIZE.weed) * float((MODELS[sid] as Dictionary).k) * (0.45 + r.next() * 0.6)
+					var sa: Vector3 = sp
+					sa.y = SpecTrilobite._ground(rk, sa, span * 0.02) - ssz * 0.04
+					var st := MeshInstance3D.new()
+					st.mesh = mesh(sid)
+					st.material_override = mat(sid)
+					parent.add_child(st)
+					# (each leans a little its own way, as weed does in a current)
+					st.transform = Transform3D(Basis(Vector3.UP, r.next() * TAU) * Basis(Vector3.RIGHT, (r.next() - 0.5) * 0.35) * Basis.from_scale(Vector3.ONE * ssz), sa)
 	var sw := String(reef.get("swim", ""))
 	if sw != "" and MODELS.has(sw):
 		var sn := Swim.new()
