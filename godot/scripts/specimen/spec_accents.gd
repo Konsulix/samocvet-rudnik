@@ -109,7 +109,7 @@ static func inkspots(main: MeshInstance3D, rng: Rng32, count: int) -> void:
 	# garnet's or an emerald's hid them whole, only the ones that stuck out showed. So they are drawn after the glass,
 	# past its depth, half see-through: dark specks under the faces)
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.02, 0.018, 0.02, 0.72)
+	m.albedo_color = Color(0.03, 0.025, 0.03, 0.5)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.no_depth_test = true
 	m.roughness = 0.6
@@ -126,10 +126,11 @@ static func inkspots(main: MeshInstance3D, rng: Rng32, count: int) -> void:
 	for k in count:
 		var gseed := int(rng.next() * 100000)
 		var g := Geo.icosa(1, 1).jitter(0.18, 2.0, gseed)
-		var s := (0.025 + pow(rng.next(), 1.5) * 0.06) * minf(bb.size.x, bb.size.z) * 2.0
+		# (small flat flakes — specks seen through the glass; whole round balls a third of the crystal read as marbles)
+		var s := (0.025 + pow(rng.next(), 1.5) * 0.06) * minf(bb.size.x, bb.size.z) * 0.9
 		var p := bb.position + Vector3(0.2 + rng.next() * 0.6, 0.25 + rng.next() * 0.65, 0.2 + rng.next() * 0.6) * bb.size
 		var rot := SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6)
-		var sy := s * (0.7 + rng.next() * 0.5)
+		var sy := s * (0.7 + rng.next() * 0.5) * 0.3
 		if not inside.call(p, maxf(s, sy) * 1.25):
 			var lr := Rng32.new(gseed * 7 + 13)
 			var ok := false

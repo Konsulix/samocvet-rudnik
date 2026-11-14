@@ -82,6 +82,8 @@ func _hug_rock(rk: MeshInstance3D, c: MeshInstance3D, st: Dictionary, rtype: Str
 	var foot := c.transform * Vector3(cb.get_center().x, cb.position.y, cb.get_center().z)
 	var ln := cb.size.y * cs
 	var cr := maxf(cb.size.x, cb.size.z) * 0.5 * cs
+	# (a long crystal only: on a squat point the climb came out a flat slab wider than the crystal, hanging over the rock)
+	if ln < cr * 2.6: return
 	# a side of it, turned 50-110 degrees off the line of sight, left or right
 	var side := VIEW_DIR.rotated(UP, deg_to_rad(50.0 + hr.next() * 60.0) * (1.0 if hr.next() < 0.5 else -1.0))
 	side = (side - up * side.dot(up)).normalized()
@@ -89,7 +91,7 @@ func _hug_rock(rk: MeshInstance3D, c: MeshInstance3D, st: Dictionary, rtype: Str
 	var g: Geo = R.geo
 	var gb := g.aabb()
 	var hh := ln * (0.42 + hr.next() * 0.2)
-	var ww := cr * (2.4 + hr.next() * 0.8)
+	var ww := minf(cr * (2.4 + hr.next() * 0.8), hh * 1.1)
 	# (one piece with the rock under it, not a lump stuck on: its foot wide and sunk deep into the rock below, spreading
 	# over it; up the crystal it narrows and leans in onto the crystal's side, as a crust that grew round it does)
 	var c0 := foot + side * cr * (0.75 + hr.next() * 0.2) - up * hh * 0.25
