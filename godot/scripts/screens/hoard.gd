@@ -42,6 +42,11 @@ const THEME := {
 	4: {habit = "rhomb", col = 0xc0183c, deep = 1.5, size_k = 1.25, lo = Vector3(0.02, 0.03, 0.05), hi = Vector3(0.22, 0.27, 0.34),
 		rind = Vector3(0.012, 0.012, 0.015), floor = Vector3(0.2, 0.25, 0.3), druse = 0xdceaf6, druse_tint = 0.4, druse_frost = 0.2,
 		glow = Color(0.4, 1.0, 0.7), rock = Color(0.04, 0.042, 0.048)},
+	# Tsuchigumo of Spider Hollow, an Edo silver mine in the mist: amethyst points on bright native silver, a rim of
+	# misty agate (grey and lilac), dark slate veined with silver, a cold moonlit lilac light
+	5: {habit = "prism", h = 0.5, col = 0x5a1a9a, deep = 1.5, size_k = 1.2, lo = Vector3(0.03, 0.025, 0.04), hi = Vector3(0.2, 0.17, 0.25),
+		rind = Vector3(0.015, 0.012, 0.018), floor = Vector3(0.12, 0.12, 0.13), druse = 0x7a7a82, druse_tint = 1.0, druse_opaque = true, druse_metal = 0.85,
+		glow = Color(0.75, 0.6, 1.0), rock = Color(0.045, 0.045, 0.05)},
 }
 const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "slate", 4: "slate", 5: "slate", 6: "ironstone", 7: "basalt"}
 
@@ -342,7 +347,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 		var col := SpecMat.lin(int(TH.col))   # (the Serpent's a deep, muted wine-red: a bright one read as candy)
 		var glow_k := 0.08
 		# (detail: faces not quite flat, as a grown crystal's are — the glass ripples what shows through)
-		var cg := RockKit.crystal(String(TH.habit), cr, {h = 1.0, cA = col, cB = col, detail = 2})
+		var cg := RockKit.crystal(String(TH.habit), cr, {h = float(TH.get("h", 1.0)), cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
 		# (each its own size, from a small one to a big one)
 		var csz := R_GEO * 1.98 * float(TH.get("size_k", 1.0)) * float(sizes[i % sizes.size()]) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
@@ -500,7 +505,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = SpecMat.make({col = SpecMat.lin(int(TH.druse)), rough = 0.3, flat = true}) if TH.get("druse_opaque", false) else SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = float(TH.get("druse_frost", 0.45)), prio = 1, tint_body = float(TH.druse_tint), tint_glow = 0.04})
+	mmi.material_override = SpecMat.make({col = SpecMat.lin(int(TH.druse)), rough = 0.3, flat = true, metal = float(TH.get("druse_metal", 0.0))}) if TH.get("druse_opaque", false) else SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = float(TH.get("druse_frost", 0.45)), prio = 1, tint_body = float(TH.druse_tint), tint_glow = 0.04})
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pivot.add_child(mmi)
 	# and a warm light deep in it, breathing: the treasure glows from within
