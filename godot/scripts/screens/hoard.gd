@@ -31,31 +31,62 @@ var _moved := 0.0
 var _vel := Vector2.ZERO
 var _busy := false
 
-## the card: the hoard turning, a line on the lens, the button; awaits the choice and returns the stone
+## over the darkened screen (no card): its name, the hoard turning large, a line on the lens, the button; awaits the
+## choice and returns the stone
 static func pick(area: int) -> Dictionary:
 	var B: Dictionary = Data.AREAS[area].get("boss", {})
-	var v := Ov.card(360)
-	v.add_child(UI.title("The hoard of %s" % String(B.get("n", "the boss")), 21))
-	v.add_child(Ov.text("Turn it, pick one geode. The rest stay in the rock.", 13))
+	var tree := Engine.get_main_loop() as SceneTree
+	var layer := CanvasLayer.new()
+	layer.layer = 15
+	tree.root.add_child(layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.0)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(dim)
+	var v := VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 10)
+	v.modulate.a = 0.0
+	layer.add_child(v)
+	var t := UI.title("The hoard of %s" % String(B.get("n", "the boss")), 24)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var sub := Ov.text("Turn it, pick one geode. The rest stay in the rock.", 14)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
 	var h := Hoard.new()
 	h.setup(area)
 	var wrap := CenterContainer.new()
 	wrap.add_child(h)
 	v.add_child(wrap)
 	var lv: int = int(Save.d.eq.get("lens", 0))
-	var info := Ov.text("The Geologist's lens shows %d of them." % lv if lv else "A Geologist's lens (Machines → Gear) would show what lies inside.", 12, UI.GOLD if lv else UI.MUTED)
-	v.add_child(info)
+	var info := Ov.text("The Geologist's lens shows %d of them." % lv if lv else "A Geologist's lens (Machines → Gear) would show what lies inside.", 13, UI.GOLD if lv else UI.MUTED)
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.custom_minimum_size = Vector2(320, 0)
+	var iw := CenterContainer.new()
+	iw.add_child(info)
+	v.add_child(iw)
 	var btn := Ov.btn("Pick a geode", "gold", func(): h.crack(), false)
-	v.add_child(btn)
+	btn.custom_minimum_size = Vector2(300, 54)
+	var bw := CenterContainer.new()
+	bw.add_child(btn)
+	v.add_child(bw)
 	h.selected.connect(func(i: int):
 		btn.disabled = false
 		btn.text = "Crack this geode" + (" · %s" % String(Data.RAR[h.lit[i]]) if h.lit.has(i) else ""))
+	var tw := layer.create_tween().set_parallel()
+	tw.tween_property(dim, "color:a", 0.93, 0.35)
+	tw.tween_property(v, "modulate:a", 1.0, 0.35)
 	var st: Dictionary = await h.picked
+	layer.queue_free()
 	return st
 
 func setup(area: int) -> void:
 	area_i = area
-	custom_minimum_size = Vector2(320, 320)
+	custom_minimum_size = Vector2(360, 470)
 	stretch = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	for i in LUCK.size():
@@ -86,7 +117,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	vp.add_child(we)
-	cam.position = Vector3(0, 0.05, 4.8)
+	cam.position = Vector3(0, 0.05, 6.4)
 	cam.fov = 36
 	vp.add_child(cam)
 	# the key from the top left, a warm rim of candle light from behind, a dim cool fill
@@ -117,17 +148,21 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var rb := rg.aabb()
 	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
-	rg.scale(fit * 1.15, fit * 1.05, fit * 1.15)
+	# (stood up as a column: taller than wide, the geodes up its sides)
+	rg.scale(fit * 1.0, fit * 1.9, fit * 1.0)
 	rg.rp = rg.v.duplicate()
 	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0,
 		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
 	# nine spots on its surface, apart from one another, not underneath
-	var pts := RockKit.surf_pts(rock_mi, 400, r32, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.35, pivot)
+	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.5, pivot)
 	# (the rind as a geode's is: rough limestone-brown crust under a scan, fine knobs — not a pale fluffy ball)
-	var rind := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.4, ao = 1.0,
-		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0x6a5a46), fr = 0.0, scan = int(RockKit.SCAN_OF["limestone"])}})
+	var rind := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, grain = 0.35, ao = 1.0,
+		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0x8a8378), fr = 0.0, scan = int(RockKit.SCAN_OF["gypsum"])}})
+	var seam_dark := SpecMat.make({col = SpecMat.lin(0x2a2420), rough = 0.95})
+	# crystal tips peeking out of the seam, catching the light: what waits inside
+	var peek := SpecMat.make({col = SpecMat.lin(0xe8e4f0), rough = 0.08, coat = 1.0, emis = SpecMat.lin(0x9090a8) * 0.5})
 	normals.clear()
 	for q: Array in pts:
 		if dirs.size() >= stones.size(): break
@@ -144,20 +179,37 @@ func _build(rng: RandomNumberGenerator) -> void:
 		g.position = at + nn * R_GEO * 0.2
 		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
-		# a closed geode: a lumpy cauliflower rind, a little flattened, every one its own
-		var L := RockKit.lump(Rng32.new(i * 7919 + int(stones[i].id) % 1000), {r = R_GEO, sx = 1.0, sy = 0.88, sz = 0.95, wave = 0.05, k = 140.0,
-			bumps = [[60, 0.18, 0.06], [160, 0.07, 0.025]], seg = 40})
-		var gg: Geo = RockKit.tint_cav(L[0], L[1], 0.8)
+		# a closed geode, as they sell them to be cracked: a round, gently dented ball in a pale chalky rind, fine pits all
+		# over it, a darker seam round its middle where it will split; each a little its own size and shape
+		var gr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
+		var gsz := R_GEO * (0.85 + gr.next() * 0.3)
+		var gg := RockKit.warp(Geo.sphere(1.0, 40, 24), gr, 0.12, 1.2)
+		var L := RockKit.lump(gr, {r = 1.0, wave = 0.0, k = 160.0, bumps = [[90, 0.09, 0.025]], seg = 40})
+		gg = RockKit.tint_cav(L[0], L[1], 0.6)
+		gg = RockKit.warp(gg, gr, 0.1, 1.3)
+		gg.scale(gsz, gsz * (0.88 + gr.next() * 0.1), gsz)
 		gg.rp = gg.v.duplicate()
 		for vi in gg.rp.size(): gg.rp[vi] = gg.rp[vi] * 3.0 + Vector3(i * 1.7, 0, i * 2.3)
 		var gm := SpecUtil.mesh(gg, rind, g)
 		gm.mesh = gg.to_mesh()
+		var seam_tilt := Basis(Vector3.RIGHT, PI / 2 + gr.next() * 0.6 - 0.3) * Basis(Vector3.FORWARD, gr.next() * 0.6 - 0.3)
+		SpecUtil.mesh(Geo.torus(gsz * 0.985, gsz * 0.03, 6, 48), seam_dark, g, Vector3.ZERO, seam_tilt)
+		var pk: Material = peek
+		if lit.has(i):
+			var rcl := Data.rarity_color(int(lit[i])).srgb_to_linear()
+			pk = SpecMat.make({col = rcl, rough = 0.08, coat = 1.0, emis = rcl * 1.4})
+		for j in 5 + int(gr.next() * 4):
+			var a := gr.next() * TAU
+			var on := seam_tilt * Vector3(cos(a), sin(a), 0.0)
+			var dir := (on + Vector3(gr.next() - 0.5, gr.next() - 0.5, gr.next() - 0.5) * 0.5).normalized()
+			var tip := SpecUtil.mesh(Geo.octa(gsz * (0.05 + gr.next() * 0.05)), pk, g, on * gsz * 0.96)
+			tip.basis = Basis(SpecUtil.quat_to(Vector3.UP, dir)) * Basis.from_scale(Vector3(0.6, 1.4, 0.6))
 		if lit.has(i):
 			# what the lens shows: light of its rarity's colour through a hairline seam round the rind, breathing
 			var rc := Data.rarity_color(int(lit[i]))
 			var seam := SpecMat.make({col = rc.srgb_to_linear() * 0.2, rough = 0.6, emis = rc.srgb_to_linear() * 1.3})
-			var ring := SpecUtil.mesh(Geo.torus(R_GEO * 0.86, R_GEO * 0.075, 6, 40).jitter(R_GEO * 0.03, 9.0, i), seam, g, Vector3(0, R_GEO * 0.05, 0), Basis(Vector3.RIGHT, PI / 2 + rng.randf_range(-0.5, 0.5)) * Basis(Vector3.UP, rng.randf() * TAU))
-			ring.scale = Vector3(1.0, 1.0, 0.85)
+			# (its seam glows instead: light of its rarity through the line where it will split)
+			SpecUtil.mesh(Geo.torus(gsz * 0.99, gsz * 0.04, 6, 48), seam, g, Vector3.ZERO, seam_tilt)
 			var glow := OmniLight3D.new()
 			glow.light_color = rc
 			glow.light_energy = 0.9
