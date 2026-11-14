@@ -1479,7 +1479,8 @@ func _open_find(it: Array) -> void:
 func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 	if _busy: return
 	_busy = true
-	await _stamp(sheet, Vector2(sheet.size.x - 46.0, 30.0), 1.8)
+	# (14.11: a small neat seal in the sheet's free top left corner — big over the middle it hid the text and the button)
+	await _stamp(sheet, Vector2(48.0, 48.0), 1.45)
 	var gv := give_of(e)
 	if gv.has("coins"): await coins_fly(self, _bar, from.get_global_rect().get_center(), int(gv.coins))
 	lay.queue_free()
@@ -1496,27 +1497,33 @@ func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 
 var _busy := false
 
-## the wax seal comes down on the strip's corner: big and high, a thud, a jolt of the strip, a ring of light
+## the wax seal comes down on the strip's corner: from a little above, a thud, a jolt of the strip, a ring of light
 func _stamp(strip: Control, at: Vector2, big := 1.0) -> void:
 	var seal := _pic("seal", 34)
 	seal.pivot_offset = Vector2(17, 17)
 	seal.position = at - Vector2(17, 17)
-	seal.scale = Vector2(3.2, 3.2) * big
-	seal.rotation = -0.5
+	seal.scale = Vector2(1.9, 1.9) * big
+	seal.rotation = -0.6
 	seal.modulate.a = 0.0
 	seal.z_index = 2
-	strip.add_child(seal)
+	# (out of the strip's layout: the sheet is a container, and it stretched the seal over its whole middle — it goes
+	# on the first ancestor that lays nothing out, at the strip's corner)
+	var host: Control = strip
+	while host is Container and host.get_parent() is Control: host = host.get_parent()
+	var at_h := strip.get_global_rect().position - host.get_global_rect().position + at
+	seal.position = at_h - Vector2(17, 17)
+	host.add_child(seal)
 	var tw := seal.create_tween().set_parallel()
 	tw.tween_property(seal, "modulate:a", 1.0, 0.12)
 	tw.tween_property(seal, "scale", Vector2.ONE * big, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_property(seal, "rotation", 0.18, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(seal, "rotation", -0.22, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await tw.finished
 	Sfx.play("build")
 	Sfx.buzz(30)
 	var ring := Control.new()
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.position = seal.position + Vector2(17, 17)
-	strip.add_child(ring)
+	ring.position = at_h
+	host.add_child(ring)
 	var kk := big
 	var k := [0.0]
 	ring.draw.connect(func():
