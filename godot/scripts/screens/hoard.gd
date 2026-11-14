@@ -24,6 +24,7 @@ var stones := []
 var geodes: Array[Node3D] = []
 var dirs: Array[Vector3] = []
 var normals: Array[Vector3] = []   # the rock's face under each geode: it is drawn out along it
+var sinks := []   # how deep each crystal sits in the rock (from barely to half sunk)
 var glows := []   # [light, phase] of the geodes the lens lights
 var area_i := 0
 var lit := {}           # geode index -> its rarity tier, for the ones the lens shows
@@ -132,7 +133,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	vp.add_child(we)
-	cam.position = Vector3(0, 0.05, 6.4)
+	cam.position = Vector3(0, 0.05, 7.6)
 	cam.fov = 36
 	vp.add_child(cam)
 	for L: Array in [[Color("#fff0dc"), 1.6, Vector3(2.5, 3.5, 3)], [Color("#8fb8ff"), 1.5, Vector3(-3.5, 1.5, -2.5)],
@@ -155,7 +156,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
-	rg.scale(fit * 1.0, fit * 1.9, fit * 1.0)
+	rg.scale(fit * 0.95, fit * 2.6, fit * 0.95)
 	# (a column stands on a flat foot: its lower part cut level, the cut a little rough)
 	var cb0 := rg.aabb()
 	var cut := cb0.position.y + cb0.size.y * 0.24
@@ -183,12 +184,14 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# (14.11, the reward should feel like treasure) nine big almandine crystals grown out of the rock: the generator's
 	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
 	# the lens shows burn in their rarity's colour, a light of it on the rock round them
+	sinks.clear()
+	for i in stones.size(): sinks.append(-0.1 + rng.randf() * 0.55)
 	for i in stones.size():
 		var g := Node3D.new()
 		var at: Vector3 = dirs[i % dirs.size()]
 		var nn: Vector3 = normals[i % normals.size()]
 		var axis := nn.lerp(Vector3.UP, 0.35).normalized()
-		g.position = at - nn * R_GEO * 0.15
+		g.position = at - nn * R_GEO * sinks[i]
 		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, axis)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
 		var cr := Rng32.new(i * 7919 + int(stones[i].id) % 1000)
@@ -197,7 +200,8 @@ func _build(rng: RandomNumberGenerator) -> void:
 		# (detail: faces not quite flat, as a grown crystal's are — the glass ripples what shows through)
 		var cg := RockKit.crystal("dodeca", cr, {h = 1.0, cA = col, cB = col, detail = 2})
 		var cb := cg.aabb()
-		var csz := R_GEO * 2.2 * (0.85 + cr.next() * 0.35) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
+		# (each its own size, from a small one to a big one)
+		var csz := R_GEO * 2.2 * (0.65 + cr.next() * 0.7) / maxf(cb.size.x, maxf(cb.size.y, cb.size.z))
 		cg.translate(-cb.get_center().x, -cb.position.y - cb.size.y * 0.25, -cb.get_center().z)
 		cg.scale(csz, csz, csz)
 		# (a garnet's own skin: fine growth lines across the faces, a little milky in patches, a softer rainbow — glass
@@ -216,14 +220,14 @@ func _build(rng: RandomNumberGenerator) -> void:
 			var hm := ShaderMaterial.new()
 			hm.shader = HALO
 			hm.set_shader_parameter("col", Vector3(rc.r, rc.g, rc.b))
-			hm.set_shader_parameter("power", 1.1)
+			hm.set_shader_parameter("power", 0.22)
 			halo.material_override = hm
 			halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			halo.position = Vector3(0, R_GEO * 0.45, 0)
 			g.add_child(halo)
 			var glow := OmniLight3D.new()
 			glow.light_color = rc
-			glow.light_energy = 1.2
+			glow.light_energy = 0.9
 			glow.omni_range = 0.9
 			glow.position = Vector3(0, R_GEO * 0.9, 0)
 			g.add_child(glow)
@@ -342,10 +346,10 @@ func _process(dt: float) -> void:
 		_turn(_vel)
 	var t := Time.get_ticks_msec() / 1000.0
 	for gl: Array in glows:
-		(gl[0] as OmniLight3D).light_energy = 0.6 + 0.25 * sin(t * 1.3 + float(gl[1]))
+		(gl[0] as OmniLight3D).light_energy = 0.7 + 0.35 * sin(t * 1.6 + float(gl[1]))
 	for i in geodes.size():
 		var g := geodes[i]
-		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (0.7 if i == sel else -0.15)
+		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (0.7 if i == sel else -sinks[i % sinks.size()])
 		g.position = g.position.lerp(home, minf(1.0, dt * 10.0))
 		var s := lerpf(g.scale.x, 1.15 if i == sel else 1.0, minf(1.0, dt * 10.0))
 		if not _busy: g.scale = Vector3.ONE * s
