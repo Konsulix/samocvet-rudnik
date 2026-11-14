@@ -212,6 +212,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# (14.11, the reward should feel like treasure) nine big almandine crystals grown out of the rock: the generator's
 	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
 	# the lens shows burn in their rarity's colour, a light of it on the rock round them
+	var hulls := []   # [the crystal's faces as planes in the rock's space, the rock's normal there]
 	sinks.clear()
 	for i in stones.size(): sinks.append(0.12 + rng.randf() * 0.55)
 	for i in stones.size():
@@ -237,6 +238,10 @@ func _build(rng: RandomNumberGenerator) -> void:
 		var cm := SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.2, rf = 0.25, frost = 0.32, thick = 1.25,
 			st = 1.0, st_mode = 2.0, grain = 0.25, seed = float(i * 13 % 97), prio = 2, tint_body = 0.85, tint_glow = glow_k, deep_body = 1.4})
 		SpecUtil.mesh(cg, cm, g)
+		var hc := g.transform * cg.aabb().get_center()
+		var hr := 0.0
+		for p in cg.v: hr = maxf(hr, (g.transform * p).distance_to(hc))
+		hulls.append([_hull(cg, g.transform), nn, hc, hr])
 		if lit.has(i):
 			# what the lens shows: a soft halo of its rarity's colour round it and a little of that light on the rock, as
 			# the glowing mycena's — the crystal itself stays a garnet
@@ -257,6 +262,69 @@ func _build(rng: RandomNumberGenerator) -> void:
 			g.add_child(glow)
 			glows.append([glow, rng.randf() * TAU])
 		geodes.append(g)
+	# (14.11) a socket in the rock in each crystal's own shape: the rock inside a crystal (a little wider) pressed down
+	# along the rock's normal to the crystal's buried faces — a faceted pit with a dark gap round the crystal, and the
+	# empty socket shows when the chosen one comes out
+	var gap := R_GEO * 0.06
+	# (the rock is coarse for a crystal's facets: round each crystal its triangles are split, twice)
+	rg.to_soup()
+	var n_soup := rg.v.size()
+	for lv in 1:
+		var reach_k := 1.12 if lv == 0 else 1.02
+		var nv := PackedVector3Array()
+		var nc := PackedColorArray()
+		var hc_ok := rg.col.size() == rg.v.size()
+		for k in range(0, rg.v.size(), 3):
+			var a := rg.v[k]
+			var b := rg.v[k + 1]
+			var c := rg.v[k + 2]
+			var mid := (a + b + c) / 3.0
+			var near := false
+			for hl: Array in hulls:
+				if mid.distance_to(hl[2]) < float(hl[3]) * reach_k + gap: near = true
+			var ca := rg.col[k] if hc_ok else Color.WHITE
+			var cbb := rg.col[k + 1] if hc_ok else Color.WHITE
+			var cc := rg.col[k + 2] if hc_ok else Color.WHITE
+			if not near:
+				nv.append_array([a, b, c])
+				nc.append_array([ca, cbb, cc])
+				continue
+			var ab := (a + b) * 0.5
+			var bc := (b + c) * 0.5
+			var ac := (c + a) * 0.5
+			nv.append_array([a, ab, ac, ab, b, bc, ac, bc, c, ab, bc, ac])
+			var xab := ca.lerp(cbb, 0.5)
+			var xbc := cbb.lerp(cc, 0.5)
+			var xac := cc.lerp(ca, 0.5)
+			nc.append_array([ca, xab, xac, xab, cbb, xbc, xac, xbc, cc, xab, xbc, xac])
+		rg.v = nv
+		rg.col = nc
+	rg.bary = PackedVector3Array()
+	rg.rp = rg.v.duplicate()
+	var carved := 0
+	var t_sock := Time.get_ticks_msec()
+	for vi in rg.v.size():
+		for hl: Array in hulls:
+			var x := rg.v[vi]
+			if x.distance_to(hl[2]) > float(hl[3]) + gap: continue
+			var dn: Vector3 = -(hl[1] as Vector3)
+			var inside := true
+			var t_out := INF
+			for pl: Array in hl[0]:
+				var pn: Vector3 = pl[0]
+				var dd := pn.dot(x) - (float(pl[1]) + gap)
+				if dd > 0.0:
+					inside = false
+					break
+				var dv := pn.dot(dn)
+				if dv > 0.001: t_out = minf(t_out, -dd / dv)
+			if inside and t_out < INF:
+				rg.v[vi] = x + dn * t_out
+				carved += 1
+				if rg.col.size() == rg.v.size(): rg.col[vi] = Color(rg.col[vi].r * 0.45, rg.col[vi].g, rg.col[vi].b, rg.col[vi].a)
+	if OS.is_debug_build() and "hoard_sel" in OS.get_cmdline_user_args(): print("SOCKET carved %d of %d (soup %d), %d ms" % [carved, rg.v.size(), n_soup, Time.get_ticks_msec() - t_sock])
+	rock_mi.mesh = rg.to_mesh()
+	if "hoard_sel" in OS.get_cmdline_user_args(): sel = 0   # (test: the first crystal out, its socket empty)
 	# a soft shadow on the card under it, drawn with the stones' shader (the stock one draws nothing on iPhone)
 	var shadow := Control.new()
 	shadow.show_behind_parent = true
@@ -410,3 +478,33 @@ func crack() -> void:
 	tw.tween_property(g, "position", g.position + normals[sel % normals.size()] * R_GEO * 1.2, 0.3)
 	await tw.finished
 	picked.emit(stones[sel])
+
+## a convex crystal's faces as planes [normal, offset] in its parent's space (faces nearly alike merged, the outermost kept)
+static func _hull(cg: Geo, xf: Transform3D) -> Array:
+	var out := []
+	var ctr := xf * cg.aabb().get_center()
+	var soup := cg.idx.is_empty()
+	for t in (cg.v.size() if soup else cg.idx.size()) / 3:
+		var a := xf * cg.v[t * 3 if soup else cg.idx[t * 3]]
+		var b := xf * cg.v[t * 3 + 1 if soup else cg.idx[t * 3 + 1]]
+		var c := xf * cg.v[t * 3 + 2 if soup else cg.idx[t * 3 + 2]]
+		var n := (b - a).cross(c - a)
+		if n.length() < 1e-9: continue
+		n = n.normalized()
+		if n.dot(a - ctr) < 0.0: n = -n
+		var d := n.dot(a)
+		var found := false
+		for pl: Array in out:
+			if (pl[0] as Vector3).dot(n) > 0.97:
+				pl[1] = maxf(float(pl[1]), d)
+				found = true
+				break
+		if not found: out.append([n, d])
+	# (closed all round by its box in its own axes: the crystal has no foot face, and an open hull took in the rock
+	# all down the column under it)
+	for ax: Vector3 in [xf.basis.x, -xf.basis.x, xf.basis.y, -xf.basis.y, xf.basis.z, -xf.basis.z]:
+		var an := ax.normalized()
+		var mx := -INF
+		for p in cg.v: mx = maxf(mx, an.dot(xf * p))
+		out.append([an, mx])
+	return out
