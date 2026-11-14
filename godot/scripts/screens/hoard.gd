@@ -203,55 +203,24 @@ func _build(rng: RandomNumberGenerator) -> void:
 	# nine spots on its surface, apart from one another, not underneath
 	# (none near the foot: a crystal there hung below the column's flat base)
 	var low := cut + R_GEO * 0.9
-	# (14.11) the crystals grow in groups, as garnets do in their rock: a big one with smaller ones round it, two or three
-	# groups, bare rock between; on the top and the side breaks, each grown out along its face
+	# nine crystals spread over the rock, apart from one another, each its own size (grouping them as garnets grow read
+	# as a mistake: the hoard is a game's chest, not an almandine specimen — it takes only the crystal's shape)
 	var pts := RockKit.surf_pts(rock_mi, 900, r32, func(pp: Vector3, nn: Vector3) -> bool: return nn.y > -0.3 and pp.y > low, pivot)
 	normals.clear()
 	sizes.clear()
 	var n_st := stones.size()
-	var n_gr := clampi(int(ceil(n_st / 3.5)), 1, 3)
-	var centres := []
-	for q: Array in pts:
-		if centres.size() >= n_gr: break
-		if (q[1] as Vector3).y < -0.1: continue
-		var far_ok := true
-		for c: Array in centres:
-			if (c[0] as Vector3).distance_to(q[0]) < R_GEO * 4.2: far_ok = false
-		if far_ok: centres.append(q)
-	if centres.is_empty(): centres.append(pts[0])
 	var fits := func(at: Vector3, sz: float) -> bool:
 		for k in dirs.size():
-			if dirs[k].distance_to(at) < R_GEO * (sz + float(sizes[k])) * 0.92: return false
+			if dirs[k].distance_to(at) < R_GEO * (sz + float(sizes[k])) * 1.05: return false
 		return true
-	for c: Array in centres:
-		dirs.append(c[0])
-		normals.append(c[1])
-		sizes.append(1.0 + rng.randf() * 0.25)
-	var gi := 0
-	var tries := 0
-	while dirs.size() < n_st and tries < n_st * 6:
-		tries += 1
-		var cen: Vector3 = centres[gi % centres.size()][0]
-		gi += 1
-		var sz := 0.42 + rng.randf() * 0.38
-		var best_q: Array = []
-		var best_d := INF
+	for pass_i in 3:
 		for q: Array in pts:
-			var d := cen.distance_to(q[0]) + rng.randf() * R_GEO * 0.6
-			if d < best_d and d < R_GEO * (3.0 + tries * 0.15) and fits.call(q[0], sz):
-				best_d = d
-				best_q = q
-		if best_q.is_empty(): continue
-		dirs.append(best_q[0])
-		normals.append(best_q[1])
-		sizes.append(sz)
-	# (a rock too small for all: the rest anywhere free)
-	for q: Array in pts:
-		if dirs.size() >= n_st: break
-		if fits.call(q[0], 0.45):
-			dirs.append(q[0])
-			normals.append(q[1])
-			sizes.append(0.45)
+			if dirs.size() >= n_st: break
+			var sz := (0.62 + rng.randf() * 0.5) * (1.0 - pass_i * 0.15)
+			if fits.call(q[0], sz):
+				dirs.append(q[0])
+				normals.append(q[1])
+				sizes.append(sz)
 	# (14.11, the reward should feel like treasure) nine big almandine crystals grown out of the rock: the generator's
 	# own glass (light bent through them, a rainbow film, a deep wine-red body glowing a little from within). The ones
 	# the lens shows burn in their rarity's colour, a light of it on the rock round them
