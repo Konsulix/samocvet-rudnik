@@ -85,16 +85,25 @@ func _hug_rock(rk: MeshInstance3D, c: MeshInstance3D, st: Dictionary, rtype: Str
 	# a side of it, turned 50-110 degrees off the line of sight, left or right
 	var side := VIEW_DIR.rotated(UP, deg_to_rad(50.0 + hr.next() * 60.0) * (1.0 if hr.next() < 0.5 else -1.0))
 	side = (side - up * side.dot(up)).normalized()
-	var R := RockKit.rock(hr, rtype, "small", 24, 0.0)
+	var R := RockKit.rock(hr, rtype, "chunk", 28, 0.0)
 	var g: Geo = R.geo
 	var gb := g.aabb()
 	var hh := ln * (0.42 + hr.next() * 0.2)
 	var ww := cr * (2.4 + hr.next() * 0.8)
-	var sc := Vector3(ww / maxf(gb.size.x, 0.01), hh / maxf(gb.size.y, 0.01), ww * 0.8 / maxf(gb.size.z, 0.01))
-	g.translate(-gb.get_center().x, -gb.get_center().y, -gb.get_center().z)
-	var b := Basis(U.quat_to(UP, up.lerp(UP, 0.4).normalized())) * Basis(UP, hr.next() * TAU) * Basis.from_scale(sc)
-	var at := foot + up * hh * 0.38 + side * cr * (0.85 + hr.next() * 0.25)
-	var mi := U.mesh(g, rk.material_override, root, at, b)
+	# (one piece with the rock under it, not a lump stuck on: its foot wide and sunk deep into the rock below, spreading
+	# over it; up the crystal it narrows and leans in onto the crystal's side, as a crust that grew round it does)
+	var c0 := foot + side * cr * (0.75 + hr.next() * 0.2) - up * hh * 0.25
+	var turn := Basis(UP, hr.next() * TAU)
+	for i in g.v.size():
+		var q := g.v[i] - gb.get_center()
+		var ly := (q.y - (gb.position.y - gb.get_center().y)) / maxf(gb.size.y, 0.01)   # 0 at its foot .. 1 at its top
+		var w := turn * Vector3(q.x / maxf(gb.size.x, 0.01) * ww, 0.0, q.z / maxf(gb.size.z, 0.01) * ww * 0.85)
+		var t := clampf(ly, 0.0, 1.0)
+		w *= lerpf(1.3, 0.42, pow(t, 0.9))
+		w = w - up * up.dot(w)
+		var p := c0 + w + up * (ly * hh * 1.25) - side * cr * 0.75 * t * t
+		g.v[i] = p
+	var mi := U.mesh(g, rk.material_override, root)
 	mi.set_meta("gene", "rock")   # (not one of the genes that grow on it: _tag, SpecSolid leave it be)
 	var pts := RockKit.surf_pts(mi, 140, hr, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > 0.2, root)
 	if pts.is_empty(): return
