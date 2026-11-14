@@ -1,21 +1,26 @@
 class_name Hoard
 extends SubViewportContainer
-## The boss's reward: its hoard. A boulder of serpentine with gold veins on a scatter of gold, the golden serpent
-## coiled round it (scaled hide, a lofted head with burning eyes), nine geodes — knobbly rinds with a crack full of
-## crystals — and druses of quartz and pyrite cubes grown into the rock. Turn it with a finger, tap a geode to draw it out, crack the
-## one you keep; the other eight stay with the serpent. The Geologist's lens (gear, `lens`) lights the rarity of one
-## geode per level. Hoard.pick(area) opens it on a card and returns the stone chosen.
+## The boss's reward: its hoard. A boulder of the mine's own rock (the specimen generator's, ROCK_OF) with nine closed
+## geodes grown into it — knobbly rinds half sunk in the rock. Turn it with a finger, tap a geode to draw it out, crack
+## the one you keep; the other eight stay in the rock. The Geologist's lens (gear, `lens`) lights the rarity of one
+## geode per level: light of its rarity's colour through a seam in the rind. Hoard.pick(area) opens it on a card and
+## returns the stone chosen.
 
 signal selected(i: int)
 signal picked(stone: Dictionary)
 
 ## how lucky each of the nine is (Stones.roll): one fine stone, a few good ones, the rest ordinary
 const LUCK := [3.5, 2.6, 2.0, 1.6, 1.3, 1.1, 1.0, 0.9, 0.8]
-const R_GEO := 0.25
+const R_GEO := 0.29
+## each mine's rock for its hoard (the specimen generator's kinds)
+const ROCK_OF := {0: "slate", 1: "quartzite", 2: "limestone", 3: "lava", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
 
 var stones := []
 var geodes: Array[Node3D] = []
 var dirs: Array[Vector3] = []
+var normals: Array[Vector3] = []   # the rock's face under each geode: it is drawn out along it
+var glows := []   # [light, phase] of the geodes the lens lights
+var area_i := 0
 var lit := {}           # geode index -> its rarity tier, for the ones the lens shows
 var sel := -1
 var pivot := Node3D.new()
@@ -31,7 +36,7 @@ static func pick(area: int) -> Dictionary:
 	var B: Dictionary = Data.AREAS[area].get("boss", {})
 	var v := Ov.card(360)
 	v.add_child(UI.title("The hoard of %s" % String(B.get("n", "the boss")), 21))
-	v.add_child(Ov.text("Turn it, pick one geode. The rest stay with the serpent.", 13))
+	v.add_child(Ov.text("Turn it, pick one geode. The rest stay in the rock.", 13))
 	var h := Hoard.new()
 	h.setup(area)
 	var wrap := CenterContainer.new()
@@ -49,6 +54,7 @@ static func pick(area: int) -> Dictionary:
 	return st
 
 func setup(area: int) -> void:
+	area_i = area
 	custom_minimum_size = Vector2(320, 320)
 	stretch = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -101,145 +107,65 @@ func _build(rng: RandomNumberGenerator) -> void:
 	vp.add_child(fill)
 	pivot.rotation = Vector3(0.3, 0.4, 0)
 	vp.add_child(pivot)
-	var sd := int(stones[0].id) % 997
-	# the boulder: a hewn, lumpy ball of serpentine, big facets broken into smaller ones
-	var rock := ShaderMaterial.new()
-	rock.shader = preload("res://shaders/hoard_rock.gdshader")
-	SpecUtil.mesh(Geo.icosa(1.0, 4).jitter(0.1, 1.5, sd).jitter(0.025, 6.0, sd + 1), rock, pivot)
-	# the serpent coiled round it: one body, a thin tail at the foot, thick at the neck, the head raised and looking out
-	var coil := []
-	var turns := 1.55
-	var segs := 120
-	for k in segs + 1:
-		var t := k / float(segs)
-		var a := t * TAU * turns
-		var y := lerpf(-0.88, 0.55, t)
-		var rr := sqrt(maxf(0.0, 1.0 - y * y)) * 0.98 + 0.06 + 0.05 * t
-		coil.append(Vector3(cos(a) * rr, y, sin(a) * rr))
-	var tip: Vector3 = coil[-1]
-	var up: Vector3 = tip.normalized()
-	var tg: Vector3 = (coil[-1] - coil[-3]).normalized()
-	var look := (tg * 0.85 + up * 0.4).normalized()
-	for k in 5:
-		var f := (k + 1) / 5.0
-		coil.append(tip + up * 0.12 * f + look * 0.2 * f)
-	var radii := []
-	for k in coil.size():
-		var t := minf(1.0, k / float(segs))
-		radii.append(lerpf(0.012, 0.12, pow(smoothstep(0.0, 0.8, t), 0.8)))
-	var hide := ShaderMaterial.new()
-	hide.shader = preload("res://shaders/hoard_scales.gdshader")
-	_tube(coil, radii, 12, hide)
-	var gold := SpecMat.make({col = SpecMat.lin(0xd9a032), rough = 0.3, metal = 1.0})
-	var bellyc := SpecMat.make({col = SpecMat.lin(0x9a6a24), rough = 0.4, metal = 0.85})
-	# the head: lofted from sections — broad skull with heavy brows, tapering to the snout, the jaw a little open
-	var neck: Vector3 = coil[-1]
-	var fwd: Vector3 = (look + (neck - coil[-2]).normalized()).normalized()
-	var side: Vector3 = fwd.cross(up).normalized()
-	var top: Vector3 = side.cross(fwd).normalized()
-	var K := 1.4   # the head a size up, so it reads at a glance
-	_loft(neck - fwd * 0.06 * K, fwd, side, top, 0.42, K, [[0.11, 0.09, 0.0], [0.14, 0.1, 0.015], [0.13, 0.09, 0.015], [0.1, 0.07, 0.0],
-		[0.075, 0.05, -0.008], [0.055, 0.04, -0.015], [0.03, 0.025, -0.02]], hide)
-	var jaw_f: Vector3 = fwd.rotated(side, 0.25)
-	_loft(neck - top * 0.06 * K, jaw_f, side, side.cross(jaw_f).normalized(), 0.34, K, [[0.09, 0.04, 0.0], [0.085, 0.035, 0.0],
-		[0.065, 0.03, 0.0], [0.045, 0.022, 0.0], [0.025, 0.014, 0.0]], bellyc)
-	var eye := SpecMat.make({col = SpecMat.lin(0x603000), rough = 0.15, emis = SpecMat.lin(0xffc030) * 2.2})
-	var slit := SpecMat.make({col = SpecMat.lin(0x080400), rough = 0.4})
-	for s in [-1.0, 1.0]:
-		var e: Vector3 = neck + (fwd * 0.12 + top * 0.055 + side * s * 0.115) * K
-		SpecUtil.mesh(Geo.sphere(0.03 * K, 12, 8), eye, pivot, e)
-		var pu := SpecUtil.mesh(Geo.box(0.008 * K, 0.04 * K, 0.012 * K), slit, pivot, e + side * s * 0.026 * K)
-		pu.basis = Basis(SpecUtil.quat_to(Vector3.UP, top))
-		var brow := SpecUtil.mesh(Geo.sphere(1.0, 12, 8), gold, pivot, e + (top * 0.035 - fwd * 0.005) * K)
-		brow.basis = Basis(side, fwd, top).scaled(Vector3(0.05, 0.075, 0.022) * K)
-	# a beard of three heavy tendrils from the jaw
-	for k in 3:
-		var root: Vector3 = neck + (fwd * (0.2 - k * 0.05) - top * 0.1 + side * (k - 1) * 0.05) * K
-		var pts := []
-		var rs := []
-		for j in 6:
-			pts.append(root - Vector3.UP * j * 0.06 - fwd * j * 0.01 + side * sin(j * 1.4 + k * 2.0) * 0.025)
-			rs.append(lerpf(0.016, 0.004, j / 5.0))
-		_tube(pts, rs, 6, bellyc)
-	# nine geodes where the coil is not, apart from one another: knobbly rinds, a crack full of crystals
-	var cand := []
-	var n := 90
-	for i in n:
-		var y := 1.0 - (i + 0.5) / n * 2.0
-		var r := sqrt(1.0 - y * y)
-		var a := i * 2.399963
-		cand.append(Vector3(cos(a) * r, y, sin(a) * r))
-	var near_coil := func(d: Vector3, lim: float) -> bool:
-		for p: Vector3 in coil:
-			if (p - d).length() < lim: return true
-		return false
-	for lim in [0.36, 0.28, 0.2]:
-		for d: Vector3 in cand:
-			if dirs.size() >= stones.size(): break
-			if d.y < -0.6: continue
-			var ok: bool = not near_coil.call(d, lim)
-			for q in dirs:
-				if (q - d).length() < 0.58: ok = false
-			if ok: dirs.append(d)
-	var shell := SpecMat.make({col = SpecMat.lin(0x6a5848), rough = 0.95})
-	var lip := SpecMat.make({col = SpecMat.lin(0x120c08), rough = 0.9})
-	var quartz := SpecMat.make({col = SpecMat.lin(0xd8d4e0), rough = 0.12, coat = 1.0, emis = SpecMat.lin(0x504860) * 0.3})
+	# (14.11) a boulder of the mine's own rock, as the specimen generator makes it (RockKit.rock, the rock material with
+	# its scan), and nine closed geodes grown into it — knobbly rinds half sunk in the rock; the lens's ones glow faintly
+	# through a seam in the rind in their rarity's colour. (Was a ball of serpentine wrapped in a coded serpent.)
+	var r32 := Rng32.new(int(stones[0].id) % 1000003 + 11)
+	var rtype: String = ROCK_OF.get(area_i, "basalt")
+	var R := RockKit.rock(r32, rtype, "chunk", 40, 0.0)
+	var rg: Geo = R.geo
+	var rb := rg.aabb()
+	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
+	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
+	rg.scale(fit * 1.15, fit * 1.05, fit * 1.15)
+	rg.rp = rg.v.duplicate()
+	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0,
+		dirt = {h = 99.0, a = 0.3, col = R.base, fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
+	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
+	rock_mi.mesh = rg.to_mesh()
+	# nine spots on its surface, apart from one another, not underneath
+	var pts := RockKit.surf_pts(rock_mi, 400, r32, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.35, pivot)
+	# (the rind as a geode's is: rough limestone-brown crust under a scan, fine knobs — not a pale fluffy ball)
+	var rind := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.4, ao = 1.0,
+		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0x6a5a46), fr = 0.0, scan = int(RockKit.SCAN_OF["limestone"])}})
+	normals.clear()
+	for q: Array in pts:
+		if dirs.size() >= stones.size(): break
+		var ok := true
+		for d in dirs:
+			if (d - (q[0] as Vector3)).length() < R_GEO * 2.3: ok = false
+		if ok:
+			dirs.append(q[0])
+			normals.append(q[1])
 	for i in stones.size():
 		var g := Node3D.new()
-		g.position = dirs[i] * 0.97
-		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, dirs[i])) * Basis(Vector3.UP, rng.randf() * TAU)
+		var at: Vector3 = dirs[i % dirs.size()]
+		var nn: Vector3 = normals[i % normals.size()]
+		g.position = at + nn * R_GEO * 0.2
+		g.basis = Basis(SpecUtil.quat_to(Vector3.UP, nn)) * Basis(Vector3.UP, rng.randf() * TAU)
 		pivot.add_child(g)
-		SpecUtil.mesh(Geo.icosa(R_GEO, 2).jitter(0.04, 5.0, i * 31 + 7), shell, g).scale = Vector3(1.0, 0.85, 1.0)
-		# the crack: a dark lip round an opening at the top, crystals bristling out of it
-		SpecUtil.mesh(Geo.torus(R_GEO * 0.5, R_GEO * 0.16, 8, 18), lip, g, Vector3(0, R_GEO * 0.66, 0), Basis(Vector3.RIGHT, PI / 2))
-		SpecUtil.mesh(Geo.cylinder(R_GEO * 0.45, R_GEO * 0.3, R_GEO * 0.2, 14), lip, g, Vector3(0, R_GEO * 0.62, 0))
-		var cm: Material = quartz
+		# a closed geode: a lumpy cauliflower rind, a little flattened, every one its own
+		var L := RockKit.lump(Rng32.new(i * 7919 + int(stones[i].id) % 1000), {r = R_GEO, sx = 1.0, sy = 0.88, sz = 0.95, wave = 0.05, k = 140.0,
+			bumps = [[60, 0.18, 0.06], [160, 0.07, 0.025]], seg = 40})
+		var gg: Geo = RockKit.tint_cav(L[0], L[1], 0.8)
+		gg.rp = gg.v.duplicate()
+		for vi in gg.rp.size(): gg.rp[vi] = gg.rp[vi] * 3.0 + Vector3(i * 1.7, 0, i * 2.3)
+		var gm := SpecUtil.mesh(gg, rind, g)
+		gm.mesh = gg.to_mesh()
 		if lit.has(i):
-			# what the lens shows: the crystals in their rarity's colour, light pouring out of the crack
+			# what the lens shows: light of its rarity's colour through a hairline seam round the rind, breathing
 			var rc := Data.rarity_color(int(lit[i]))
-			cm = SpecMat.make({col = rc.srgb_to_linear(), rough = 0.1, coat = 1.0, emis = rc.srgb_to_linear() * 1.1})
+			var seam := SpecMat.make({col = rc.srgb_to_linear() * 0.2, rough = 0.6, emis = rc.srgb_to_linear() * 1.3})
+			var ring := SpecUtil.mesh(Geo.torus(R_GEO * 0.86, R_GEO * 0.075, 6, 40).jitter(R_GEO * 0.03, 9.0, i), seam, g, Vector3(0, R_GEO * 0.05, 0), Basis(Vector3.RIGHT, PI / 2 + rng.randf_range(-0.5, 0.5)) * Basis(Vector3.UP, rng.randf() * TAU))
+			ring.scale = Vector3(1.0, 1.0, 0.85)
 			var glow := OmniLight3D.new()
 			glow.light_color = rc
-			glow.light_energy = 1.6
-			glow.omni_range = 0.8
-			glow.position = Vector3(0, R_GEO * 1.4, 0)
+			glow.light_energy = 0.9
+			glow.omni_range = 0.9
+			glow.position = Vector3(0, R_GEO * 0.8, 0)
 			g.add_child(glow)
-		for j in 6:
-			var a := j / 6.0 * TAU + rng.randf() * 0.5
-			var rr := R_GEO * (0.1 + 0.18 * (j % 3) / 2.0)
-			var h := R_GEO * (0.45 + rng.randf() * 0.45)
-			var dir := (Vector3.UP + Vector3(cos(a), 0, sin(a)) * (0.25 + rng.randf() * 0.35)).normalized()
-			var c := SpecUtil.mesh(Geo.cone(R_GEO * 0.16, h, 6), cm, g, Vector3(cos(a) * rr, R_GEO * 0.55, sin(a) * rr) + dir * h * 0.5)
-			c.basis = Basis(SpecUtil.quat_to(Vector3.UP, dir))
+			glows.append([glow, rng.randf() * TAU])
 		geodes.append(g)
-	# druses of white quartz and pyrite cubes grown into the rock
-	var pyrite := SpecMat.make({col = SpecMat.lin(0xc0a058), rough = 0.22, metal = 0.95})
-	var put := 0
-	for d: Vector3 in cand:
-		if put >= 10: break
-		if near_coil.call(d, 0.22) or d in dirs: continue
-		var far := true
-		for q in dirs:
-			if (q - d).length() < 0.38: far = false
-		if not far or rng.randf() < 0.5: continue
-		if put % 2 == 0:
-			for j in 6:
-				var dir := (d + Vector3(rng.randf() - 0.5, rng.randf() - 0.5, rng.randf() - 0.5) * 0.6).normalized()
-				var h := 0.1 + rng.randf() * 0.14
-				var c := SpecUtil.mesh(Geo.cone(0.038, h, 6), quartz, pivot, d * 0.97 + dir * h * 0.5 + (dir - d) * 0.05)
-				c.basis = Basis(SpecUtil.quat_to(Vector3.UP, dir))
-		else:
-			var c := SpecUtil.mesh(Geo.box(0.12, 0.12, 0.12), pyrite, pivot, d * 1.0)
-			c.rotation = Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)
-		put += 1
-	# gold spilling out at its foot: big nuggets half sunk in the rock round the bottom
-	for k in 12:
-		var a := k / 12.0 * TAU + rng.randf() * 0.4
-		var y := -0.62 - rng.randf() * 0.25
-		var r := sqrt(maxf(0.0, 1.0 - y * y))
-		var d := Vector3(cos(a) * r, y, sin(a) * r)
-		if near_coil.call(d, 0.16): continue
-		SpecUtil.mesh(Geo.icosa(0.07 + rng.randf() * 0.06, 1).jitter(0.02, 8.0, k), gold, pivot, d * 1.0)
 	# a soft shadow on the card under it, drawn with the stones' shader (the stock one draws nothing on iPhone)
 	var shadow := Control.new()
 	shadow.show_behind_parent = true
@@ -351,11 +277,14 @@ func _process(dt: float) -> void:
 	elif not _down and _vel.length() > 0.05:
 		_vel *= 0.9
 		_turn(_vel)
+	var t := Time.get_ticks_msec() / 1000.0
+	for gl: Array in glows:
+		(gl[0] as OmniLight3D).light_energy = 0.7 + 0.35 * sin(t * 1.6 + float(gl[1]))
 	for i in geodes.size():
-		var out := 1.2 if i == sel else 0.97
 		var g := geodes[i]
-		g.position = g.position.lerp(dirs[i] * out, minf(1.0, dt * 10.0))
-		var s := lerpf(g.scale.x, 1.25 if i == sel else 1.0, minf(1.0, dt * 10.0))
+		var home: Vector3 = dirs[i % dirs.size()] + normals[i % normals.size()] * R_GEO * (1.0 if i == sel else 0.2)
+		g.position = g.position.lerp(home, minf(1.0, dt * 10.0))
+		var s := lerpf(g.scale.x, 1.15 if i == sel else 1.0, minf(1.0, dt * 10.0))
 		if not _busy: g.scale = Vector3.ONE * s
 
 ## the geode under the finger: the nearest one the ray meets on the near side of the boulder
@@ -387,6 +316,6 @@ func crack() -> void:
 	Sfx.buzz(20)
 	var tw := create_tween().set_parallel()
 	tw.tween_property(g, "scale", Vector3.ONE * 1.5, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(g, "position", g.position * 1.15, 0.3)
+	tw.tween_property(g, "position", g.position + normals[sel % normals.size()] * R_GEO * 1.2, 0.3)
 	await tw.finished
 	picked.emit(stones[sel])
