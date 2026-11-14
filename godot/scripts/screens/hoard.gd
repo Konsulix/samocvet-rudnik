@@ -32,8 +32,13 @@ const THEME := {
 	2: {habit = "hexbarrel", col = 0x1438a0, deep = 1.4, lo = Vector3(0.005, 0.03, 0.04), hi = Vector3(0.12, 0.2, 0.22),
 		rind = Vector3(0.03, 0.04, 0.05), floor = Vector3(0.16, 0.2, 0.26), druse = 0xc6dcf2, druse_tint = 0.7, glow = Color(0.4, 0.75, 1.0),
 		rock = Color(0.07, 0.08, 0.1)},
+	# Brontes under Etna: lemon sulphur bipyramids on black glittering hematite, a rim of volcanic jasper (ochre and red),
+	# grey lava outside veined red-hot, the light of a forge
+	3: {habit = "dipyr", col = 0xe0b000, deep = 1.4, lo = Vector3(0.06, 0.012, 0.004), hi = Vector3(0.36, 0.12, 0.03),
+		rind = Vector3(0.02, 0.015, 0.012), floor = Vector3(0.015, 0.014, 0.016), druse = 0x141416, druse_tint = 1.0, druse_opaque = true, glow = Color(1.0, 0.45, 0.12),
+		rock = Color(0.06, 0.055, 0.05)},
 }
-const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "lava", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
+const ROCK_OF := {0: "slate", 1: "quartzite", 2: "slate", 3: "slate", 4: "basalt", 5: "slate", 6: "ironstone", 7: "basalt"}
 
 var stones := []
 var geodes: Array[Node3D] = []
@@ -490,7 +495,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	for k in xfs.size(): mm.set_instance_transform(k, xfs[k])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = 0.45, prio = 1, tint_body = float(TH.druse_tint), tint_glow = 0.04})
+	mmi.material_override = SpecMat.make({col = SpecMat.lin(int(TH.druse)), rough = 0.3, flat = true}) if TH.get("druse_opaque", false) else SpecMat.make({col = Color(1, 1, 1), flat = true, glass = true, ir = 0.06, rf = 0.18, frost = float(TH.get("druse_frost", 0.45)), prio = 1, tint_body = float(TH.druse_tint), tint_glow = 0.04})
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pivot.add_child(mmi)
 	# and a warm light deep in it, breathing: the treasure glows from within
