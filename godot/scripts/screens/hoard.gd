@@ -133,7 +133,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	vp.add_child(we)
-	cam.position = Vector3(0, 0.05, 7.6)
+	cam.position = Vector3(0, 0.05, 7.0)
 	cam.fov = 36
 	vp.add_child(cam)
 	for L: Array in [[Color("#fff0dc"), 1.6, Vector3(2.5, 3.5, 3)], [Color("#8fb8ff"), 1.5, Vector3(-3.5, 1.5, -2.5)],
@@ -156,7 +156,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var fit := 2.0 / maxf(rb.size.x, maxf(rb.size.y, rb.size.z))
 	rg.translate(-rb.get_center().x, -rb.get_center().y, -rb.get_center().z)
 	# (stood up as a column: taller than wide, the geodes up its sides)
-	rg.scale(fit * 0.95, fit * 2.6, fit * 0.95)
+	rg.scale(fit * 0.95, fit * 2.2, fit * 0.95)
 	# (a column stands on a flat foot: its lower part cut level, the cut a little rough)
 	var cb0 := rg.aabb()
 	var cut := cb0.position.y + cb0.size.y * 0.24
@@ -171,7 +171,9 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var rock_mi := SpecUtil.mesh(rg, rm, pivot)
 	rock_mi.mesh = rg.to_mesh()
 	# nine spots on its surface, apart from one another, not underneath
-	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(_p: Vector3, nn: Vector3) -> bool: return nn.y > -0.4, pivot)
+	# (none near the foot: a crystal there hung below the column's flat base)
+	var low := cut + R_GEO * 1.4
+	var pts := RockKit.surf_pts(rock_mi, 500, r32, func(pp: Vector3, nn: Vector3) -> bool: return nn.y > -0.2 and pp.y > low, pivot)
 	normals.clear()
 	for q: Array in pts:
 		if dirs.size() >= stones.size(): break
