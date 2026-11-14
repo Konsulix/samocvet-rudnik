@@ -99,6 +99,10 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 	# little violets only; a big one there stood out past the rock
 	var flank := spots.filter(func(q: Array) -> bool: return (q[1] as Vector3).y <= 0.3 and (q[1] as Vector3).y > -0.25)
 	if flank.is_empty() or not many: flank = base
+	# the middle of the rock's top: a sprawling plant turns its sprawl in towards it
+	var cen := Vector3.ZERO
+	for q: Array in spots: cen += q[0]
+	cen /= float(spots.size())
 	var placed := {}      # model -> [transforms, tints]
 	var marks := []
 	var clumps := (4 + int(rng.next() * 4)) if many else (1 + int(rng.next() * 2))
@@ -133,15 +137,31 @@ static func grow(parent: Node3D, rng: Rng32, spots: Array, kind: int, gs: float,
 				var box := model(name).get_aabb()
 				# (every model is one unit tall: a wide flat one — a big head on a short stem — would be huge by that)
 				s /= sqrt(maxf(1.0, maxf(box.size.x, box.size.z)))
-				var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, rng.next() * TAU)
-				b = b * Basis.from_scale(Vector3.ONE * s * (0.94 + rng.next() * 0.12))
-				var xf := Transform3D(b, p - nrm * s * lerpf(0.03, 0.14, steep))
+				# (14.11) a model that sprawls to one side (a gentian's stem lying out a whole unit from its foot), turned at
+				# random, hung that sprawl out past the rock with its foot on it: it is turned in towards the rock's middle
+				var spin := rng.next() * TAU
+				var bulk := Vector2(box.get_center().x, box.get_center().z)
+				var inward := Vector2(cen.x - p.x, cen.z - p.z)
+				var turns := [spin]
+				if bulk.length() > 0.08 and inward.length() > 0.001:
+					# (turning by an angle about UP adds it to a direction's atan2(-z, x)); blocked that way (crystals in the
+					# middle), along the rim either way — never out over it
+					var t0 := atan2(-inward.y, inward.x) - atan2(-bulk.y, bulk.x) + (spin - PI) * 0.12
+					turns = [t0, t0 + 0.9, t0 - 0.9, t0 + 1.5, t0 - 1.5]
+				var sc := s * (0.94 + rng.next() * 0.12)
 				var core := box.grow(-0.14 * minf(box.size.x, box.size.z))
-				var hit := false
-				for bl: Dictionary in blockers:
-					if ((bl.inverse as Transform3D) * xf * core).intersects(bl.bounds):
-						hit = true
-						break
+				var xf := Transform3D()
+				var hit := true
+				for tn: float in turns:
+					var b := Basis(SpecUtil.quat_to(Vector3.UP, up)) * Basis(Vector3.UP, tn)
+					b = b * Basis.from_scale(Vector3.ONE * sc)
+					xf = Transform3D(b, p - nrm * s * lerpf(0.03, 0.14, steep))
+					hit = false
+					for bl: Dictionary in blockers:
+						if ((bl.inverse as Transform3D) * xf * core).intersects(bl.bounds):
+							hit = true
+							break
+					if not hit: break
 				if hit:
 					continue
 				if not placed.has(name): placed[name] = [[], []]
