@@ -37,6 +37,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 	var price := roundi(float(s.value) * Save.coin_mul())
 	var sell := func():
 		Save.d.coins += price
+		Save.paid(s.get("id", -1))
 		Save.persist()
 		Sfx.play("coin")
 		Ov.close()
@@ -45,6 +46,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 		# where it was found: the mine's screen puts the best find of each depth on its pedestal
 		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = traits, legend = s.get("legend", false), g = s.g, value = s.value, tier = tier,
 			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()]))})
+		Save.paid(s.get("id", -1))
 		Save.persist()
 		Ov.close()
 		# (where a kept stone went: told the first time only — after every find and geode it was noise)

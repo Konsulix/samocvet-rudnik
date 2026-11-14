@@ -23,6 +23,10 @@ func blank() -> Dictionary:
 		boss_tries = [0, 0, 0], boss_won = [false, false, false],
 		built = [[], [], []], jstep = {}, boost = {pick = 2, bore_h = 2, bore_v = 2, pan = 2}, btold = ["pick"], pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
+		# (14.11) what the game owes the player across a close: stones earned and not yet kept or sold (`owe`/`paid`),
+		# the hoard of a boss beaten whose crystal was not picked (the mine's number), a level being played (left by a
+		# close it counts as lost)
+		owed = [], hoard_due = -1, in_level = false,
 		jewels = [], seen = [], coll = [], sets = [], atlas = {}, area_back = -1, uid = 1000, lab = 0, mute = false, no_music = false,
 		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
 		tut = [],
@@ -59,8 +63,16 @@ func _init() -> void:
 	d = blank()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("save="): path = "user://%s.json" % a.substr(5)
-	if FileAccess.file_exists(path):
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	# (14.11) the save, else the one before it, else a write that was cut short: a save torn by the game being closed
+	# mid-write must not start the game over
+	var parsed = null
+	for p in [path, path + ".bak", path + ".tmp"]:
+		if not FileAccess.file_exists(p): continue
+		var got = JSON.parse_string(FileAccess.get_file_as_string(p))
+		if got is Dictionary and got.has("coins"):
+			parsed = got
+			break
+	if parsed != null:
 		# a save from before ore replaced stars starts over: there are no players yet to keep it for
 		if parsed is Dictionary and int(parsed.get("ver", 0)) == VER:
 			for k in parsed:
@@ -181,11 +193,31 @@ func looks_to_board() -> void:
 	BoardSprites.lock_style = d.lock_style if BoardSprites.LOCK_STYLES.has(d.lock_style) else "rendered"
 	BoardSprites.zone_style = d.zone_style if BoardSprites.ZONE_STYLES.has(d.zone_style) else "hewn"
 
+## written whole to a side file first, then put in place, the one before kept as .bak: closed mid-write, the game
+## loses at most the last change, never the save
 func persist() -> void:
-	var f := FileAccess.open(path, FileAccess.WRITE)
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
+		f.close()
+		var ga := ProjectSettings.globalize_path(path)
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ga + ".bak")
+			DirAccess.rename_absolute(ga, ga + ".bak")
+		DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), ga)
 	changed.emit()
+
+## a stone earned: kept in the save until it is kept or sold (Reveal), so a close on its card does not lose it
+func owe(st: Dictionary) -> void:
+	if st.is_empty(): return
+	for o: Dictionary in d.owed:
+		if int(o.get("id", -1)) == int(st.get("id", -2)): return
+	d.owed.append(st.duplicate(true))
+
+func paid(id) -> void:
+	for i in range(d.owed.size() - 1, -1, -1):
+		if int((d.owed[i] as Dictionary).get("id", -1)) == int(id): d.owed.remove_at(i)
 
 func reset() -> void:
 	d = blank()

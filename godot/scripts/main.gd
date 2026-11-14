@@ -640,8 +640,38 @@ func _boot() -> void:
 	var b := Boot.new()
 	if args.has("boot_seed"): b.set_meta("hold", true)
 	layer.add_child(b)
-	b.done.connect(show_home)
+	b.done.connect(func():
+		show_home()
+		_settle())
 	b.tree_exited.connect(layer.queue_free)
+
+## (14.11) what a close left behind, settled at the start: a level left by closing the game is lost (a life, the
+## streak); a beaten boss's hoard whose crystal was not picked comes again; stones earned and never kept or sold open
+## again. Each of these lived only on its screen and was lost with it
+func _settle() -> void:
+	if Coach.off: return
+	if bool(Save.d.in_level):
+		Save.d.in_level = false
+		Save.tick_lives()
+		Save.d.streak = 0
+		Save.d.lives = maxi(0, Save.d.lives - 1)
+		if not Save.d.life_at: Save.d.life_at = Save.now_ms()
+		Save.persist()
+		Ov.toast("The level you left counts as a loss: −1 life")
+	if int(Save.d.hoard_due) < 0 and Save.d.owed.is_empty(): return
+	await get_tree().create_timer(1.2).timeout
+	var ha := int(Save.d.hoard_due)
+	if ha >= 0 and ha < Data.AREAS.size() and Data.AREAS[ha].has("boss"):
+		var hs := await Hoard.pick(ha)
+		Save.d.hoard_due = -1
+		Save.owe(hs)
+		Save.persist()
+		Ov.close(false)
+	elif ha >= 0:
+		Save.d.hoard_due = -1
+		Save.persist()
+	if Save.d.owed.size():
+		await GeodeOpen.run((Save.d.owed as Array).duplicate(true), {title = "Left unopened", short = (Save.d.owed as Array).size() == 1})
 
 func show_home() -> void:
 	# a newcomer does not start on the empty mine: the prologue's cave-in first (docs/onboarding.md)
@@ -691,6 +721,11 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 	var lv := Level.new()
 	_swap(lv)
 	lv.finished.connect(_on_level_finished)
+	# (14.11) a level being played: left by closing the game it counts as lost, a life and the streak, as the Leave
+	# button does — not a free retry (the prologue and the Fire Maiden's chase cost no life either way)
+	if level != Level.PROLOGUE and not level.get("maiden", false) and not Coach.off:
+		Save.d.in_level = true
+		Save.persist()
 	lv.start(n, pre, dl, level)
 	if args.has("specials"):
 		# for a look: one of each special on the second row
@@ -790,6 +825,7 @@ func _maiden_done(res: Dictionary) -> void:
 	Save.d.area = int(Save.d.area_back)
 	Save.d.area_back = -1
 	Save.d.coins += int(res.coins)
+	Save.owe(res.stone)
 	Save.persist()
 	if not (res.stone as Dictionary).is_empty():
 		await GeodeOpen.run([res.stone], {title = "Where she danced", short = true})
@@ -805,6 +841,7 @@ func _maiden_done(res: Dictionary) -> void:
 	go("awards")
 
 func _on_level_finished(res: Dictionary) -> void:
+	Save.d.in_level = false
 	if res.get("maiden", false):
 		await _maiden_done(res)
 		return
@@ -824,11 +861,15 @@ func _on_level_finished(res: Dictionary) -> void:
 		MineView.last_result = {area = Save.area(), won = res.won, k = int(res.get("depth", 0)), iron = int(mined.get("iron", 0)), ore = int(mined.get("ore", 0))}
 	if res.get("boss", false) and not res.won:
 		Save.d.boss_tries[Save.area()] += 1
+	if res.won and res.get("boss", false): Save.d.hoard_due = Save.area()   # (closed before a crystal is picked, the hoard comes again)
 	Save.persist()
 	if res.won:
 		if res.get("boss", false):
 			# the boss's hoard: nine geodes, one to keep
 			var hs := await Hoard.pick(Save.area())
+			Save.d.hoard_due = -1
+			Save.owe(hs)
+			Save.persist()
 			Ov.close(false)
 			await GeodeOpen.run([hs], {title = "From the hoard of %s" % String(Data.AREAS[Save.area()].boss.n), short = true})
 		if not res.stone.is_empty():

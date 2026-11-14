@@ -1646,10 +1646,14 @@ func _win() -> void:
 			Save.d.vein[model.depth][i] = vein_after(model.depth, i, int(model.mined[["iron", "ore"][i]]))
 	Save.d.level = maxi(Save.d.level, model.n + 1)
 	Save.d.streak += 1
-	Save.persist()
 	var stone := {}
 	if not model.find.is_empty() and model.find.done:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
+	# (the find and the geodes are the player's from now on, kept or not: a close on their cards does not lose them)
+	if not prologue:
+		Save.owe(stone)
+		for b: Dictionary in model.bonus: Save.owe(b)
+	Save.persist()
 	_awards_won(stone)
 	_victory_fx()
 	await _wait(0.6)

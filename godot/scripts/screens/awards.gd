@@ -869,6 +869,7 @@ static func claim(e: Dictionary) -> void:
 		# a geode of the mine you're in, from its deepest open depth: the better the reward, the luckier
 		var dl := int(Save.d.depth[Save.area()])
 		st = Stones.roll(Save.next_uid(), Save.area(), [0.6, 1.2, 2.2][clampi(int(gv.geode), 0, 2)], dl)
+		Save.owe(st)   # (claimed: closed on its geode, the stone is not lost)
 	Save.persist()
 	if gv.has("coins"): Sfx.play("coin")
 	if not st.is_empty(): await GeodeOpen.run([st], {title = String(e.n), short = true})
