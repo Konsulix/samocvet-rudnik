@@ -1141,6 +1141,10 @@ func _guide_later(delay: float) -> void:
 	_guide_waits = false
 	if not is_inside_tree() or not uses_view() or _bubble or Ov.is_open():
 		return
+	# (what a close left — the hoard, unopened stones — is given out first, Main._settle: he waits for it)
+	if int(Save.d.hoard_due) >= 0 or (Save.d.owed as Array).size():
+		_guide_later(2.0)
+		return
 	# a story moment comes before his everyday words
 	var beat := _story_beat()
 	if beat != "":

@@ -1653,6 +1653,8 @@ func _win() -> void:
 	if not prologue:
 		Save.owe(stone)
 		for b: Dictionary in model.bonus: Save.owe(b)
+	# (won: closed in the moment before the result reaches Main, it must not count as a level left)
+	Save.d.in_level = false
 	Save.persist()
 	_awards_won(stone)
 	_victory_fx()
@@ -1710,6 +1712,7 @@ func _canary_fell() -> void:
 		["Give up (−1 life)", "glass", func():
 			Save.tick_lives()
 			Save.d.streak = 0
+			Save.d.in_level = false   # (lost here, not again at the next start)
 			Save.d.lives = maxi(0, Save.d.lives - 1)
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()
@@ -1747,6 +1750,7 @@ func _out_of_moves() -> void:
 		["Give up (−1 life)", "glass", func():
 			Save.tick_lives()
 			Save.d.streak = 0
+			Save.d.in_level = false   # (lost here, not again at the next start)
 			Save.d.lives = maxi(0, Save.d.lives - 1)
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()
@@ -1760,6 +1764,7 @@ func _on_quit() -> void:
 		["Leave", "red", func():
 			Save.tick_lives()
 			Save.d.streak = 0
+			Save.d.in_level = false   # (lost here, not again at the next start)
 			Save.d.lives = maxi(0, Save.d.lives - 1)
 			if not Save.d.life_at: Save.d.life_at = Save.now_ms()
 			Save.persist()

@@ -65,8 +65,12 @@ func _init() -> void:
 		if a.begins_with("save="): path = "user://%s.json" % a.substr(5)
 	# (14.11) the save, else the one before it, else a write that was cut short: a save torn by the game being closed
 	# mid-write must not start the game over
+	# Which: the save if it reads; a whole side file (.tmp) is the newest — closed between its write and its rename;
+	# the one before (.bak) only for a save that is there but torn. No save and no side file: a new game (a test save
+	# deleted to start over must not come back from its .bak)
 	var parsed = null
-	for p in [path, path + ".bak", path + ".tmp"]:
+	var order := [path, path + ".tmp", path + ".bak"] if FileAccess.file_exists(path) else [path + ".tmp"]
+	for p: String in order:
 		if not FileAccess.file_exists(p): continue
 		var got = JSON.parse_string(FileAccess.get_file_as_string(p))
 		if got is Dictionary and got.has("coins"):

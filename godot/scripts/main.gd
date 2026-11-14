@@ -884,6 +884,9 @@ func _replay_done(res: Dictionary) -> void:
 	_replay = -1
 	Save.d.area = int(Save.d.area_back)
 	Save.d.area_back = -1
+	# (a replay pays coins only: what its board freed is not shown, so not owed either)
+	Save.paid((res.get("stone", {}) as Dictionary).get("id", -1))
+	for b: Dictionary in res.get("bonus", []): Save.paid(b.get("id", -1))
 	Save.persist()
 	if res.won:
 		var bt: Array = Save.d.boss_tier
