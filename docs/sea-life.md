@@ -373,3 +373,8 @@ B23 (морской крокодил стенеозавр), B24 (дунклео�
 | B26 | [Rojo-R-1_sea​​turtle_Sketchfab](https://sketchfab.com/3d-models/2eb67df830a44a73b72cbbc5c399dffe) | Memento | CC BY | 922 тыс. |
 | B27 | [White Shark Jaw](https://sketchfab.com/3d-models/a74fb3f4ea3c494db02617dab5fbd3ef) | aucklandmuseum | CC BY | 1009 тыс. |
 | B28 | [Tiger Shark Jaw Large](https://sketchfab.com/3d-models/db0545b33bf1437c988d99ce040b7dde) | chei_ucsd | CC BY | 1323 тыс. |
+## Сделано 14.11 — живое дно (код)
+
+`SpecReef` (`godot/scripts/specimen/spec_reef.gd`), модели — `godot/assets/specimen/sea/`, подготовка —
+`prototype/tools/sea/sea_prep.py`. Группы: водоросли 3, кораллы и актинии 8, звёзды и ёж 8, раковины 6 (+2 докачать),
+крабы и прочие 8, пловцы 8. Ачивки — по 8 моделей (раковины пока 6). Подробности — `CLAUDE.md`, «Что дальше», 14.11.

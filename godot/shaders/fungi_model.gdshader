@@ -14,6 +14,7 @@ uniform float sat = 1.0;
 uniform float rough = 0.55;
 uniform float glow = 0.0;
 uniform float sway = 0.0;   // (the flowers, SpecFlora: the top leans to and fro, each plant to its own beat — the instance's alpha)
+uniform float swim = 0.0;   // (the sea's swimmers, SpecReef: a wave runs down the body from the head, +x, to the tail)
 uniform vec3 glow_col = vec3(0.03, 0.6, 0.17);
 uniform float cap_from = 0.62;   // (the cap: this far up the mushroom, of its height)
 global uniform float fluor_uv;
@@ -28,6 +29,11 @@ void vertex() {
 		float h = VERTEX.y * VERTEX.y;
 		VERTEX.x += (sin(TIME * 1.15 + ph) + 0.4 * sin(TIME * 2.7 + ph * 1.7)) * sway * h;
 		VERTEX.z += cos(TIME * 0.9 + ph * 1.3) * sway * 0.7 * h;
+	}
+	if (swim > 0.0) {
+		// (the head holds its line, the tail sweeps the most)
+		float back = clamp(0.5 - VERTEX.x, 0.0, 1.0);
+		VERTEX.z += sin(TIME * 3.2 + VERTEX.x * 6.0) * swim * (0.12 + back * back);
 	}
 }
 

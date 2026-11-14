@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://cw4efnbcxy4s0"
+path="res://.godot/imported/star_brittle_b.obj-2ec3a229d0be416512d7fe85a13e49fa.mesh"
+
+[deps]
+
+files=["res://.godot/imported/star_brittle_b.obj-2ec3a229d0be416512d7fe85a13e49fa.mesh"]
+
+source_file="res://assets/specimen/sea/star_brittle_b.obj"
+dest_files=["res://.godot/imported/star_brittle_b.obj-2ec3a229d0be416512d7fe85a13e49fa.mesh", "res://.godot/imported/star_brittle_b.obj-2ec3a229d0be416512d7fe85a13e49fa.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
