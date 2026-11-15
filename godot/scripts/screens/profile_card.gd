@@ -43,15 +43,33 @@ static func _panel(pad := 10.0) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", Kit.box("card", pad))
 	return p
 
-## a section's name over a brass underline, as the genes' badges on a find's card (Reveal.chip), the line wider
+## a section's name between two brass bars, the bars drawn as the genes' underline on a find's card (Reveal.chip)
 static func _section(t: String) -> Control:
-	var l := Reveal.chip(t, true)
-	l.add_theme_font_override("font", UI.display)
-	l.add_theme_font_size_override("font_size", 16)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.custom_minimum_size = Vector2(200, 0)
-	l.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return l
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 10)
+	h.add_child(_bar(74.0))
+	h.add_child(Kit.label(t, 16, UI.display, Kit.AMBER))
+	h.add_child(_bar(74.0))
+	return h
+
+## the genes' brass underline (assets/ui/kit/underline.png: its ends not stretched), w points long
+static func _bar(w: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(w, 6)
+	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	c.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tex := Kit.tex("underline")
+	c.draw.connect(func():
+		const H := 6.0
+		var ts := tex.get_size()
+		var e := ts.y * 4.0 / 8.0
+		var ep := H * 4.0 / 8.0
+		var ww := c.size.x
+		c.draw_texture_rect_region(tex, Rect2(0, 0, ep, H), Rect2(0, 0, e, ts.y))
+		c.draw_texture_rect_region(tex, Rect2(ep, 0, ww - ep * 2, H), Rect2(e, 0, ts.x - e * 2, ts.y))
+		c.draw_texture_rect_region(tex, Rect2(ww - ep, 0, ep, H), Rect2(ts.x - e, 0, e, ts.y)))
+	return c
 
 ## the profile: the title and its rule; the framed portrait and the best find's card side by side, the same size;
 ## under them "Edit" and the find's plate (its name and price); a rule; the records
@@ -72,22 +90,25 @@ static func _build() -> void:
 	var card := _find_sq(s)
 	var c := card.custom_minimum_size.x
 	card.position = Vector2(SQ - c, SQ - c) / 2
-	fc.add_child(card)
-	# the costliest stone's ribbon hangs from the card's bottom edge (from the top it covered the stone), over the
-	# plate's right end, drawn over the next row
+	# the costliest stone's ribbon: its top tucked under the card's bottom edge (added first: the card covers it), it
+	# runs behind the plate (the next row draws over it) and its tail with the cup hangs below the plate
 	if not s.is_empty():
 		var at := Control.new()
-		at.position = Vector2((SQ - c) / 2, (SQ + c) / 2 - 4)
-		at.size = Vector2(c, 0)
 		at.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		at.z_index = 2
 		fc.add_child(at)
 		var rr := RecordRibbon.make(card, at)
 		rr.cup = true
-		rr.len_ = 44.0
+		rr.len_ = 94.0
 		rr.head = "Your costliest stone"
 		rr.lines = PackedStringArray(["The most valuable find you keep"])
 		at.add_child(rr)
+		# (placed by the card's real size, once laid out)
+		var place := func():
+			at.position = card.position + Vector2(0, card.size.y - 6)
+			at.size = Vector2(card.size.x, 0)
+		card.resized.connect(place)
+		place.call()
+	fc.add_child(card)
 	g.add_child(fc)
 	var e := Kit.button("Edit", "btn_green", 16, 3.0)
 	e.custom_minimum_size = Vector2(SQ, 36)
@@ -166,20 +187,16 @@ static func _find_plate(s: Dictionary) -> Control:
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 4)
-	# (the ribbon hangs over the plate's right end: the words keep left of it)
-	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_right", 0 if s.is_empty() else 26)
-	pad.add_child(line)
 	if s.is_empty():
 		line.add_child(Kit.label("-", 16, UI.display, Kit.DIM))
 	else:
 		var name := Stones.name_of(s)
-		line.add_child(Kit.label(name, 14 if name.length() <= 9 else (11 if name.length() <= 12 else 9), UI.display, Kit.CREAM))
-		var coin := Kit.res_icon("coin", 14)
+		line.add_child(Kit.label(name, 15 if name.length() <= 9 else (12 if name.length() <= 12 else 10), UI.display, Kit.CREAM))
+		var coin := Kit.res_icon("coin", 16)
 		coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(coin)
-		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 14, UI.display, Kit.AMBER))
-	plate.add_child(pad)
+		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 15, UI.display, Kit.AMBER))
+	plate.add_child(line)
 	return plate
 
 static func _flat_button(sz: Vector2) -> Button:
