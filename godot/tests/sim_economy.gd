@@ -17,6 +17,9 @@ static func streak_pre() -> Array:
 					if p.id == id: out.append_array(p.sp)
 	return out
 
+## the longest cascade of the last level played (steps of one move, as Level counts them for Avalanche)
+static var cascade_max := 0
+
 static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0) -> Dictionary:
 	var m := BoardModel.new()
 	m.rng.seed = seed_v
@@ -29,6 +32,7 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 	var won := false
 	var guard := 0
 	var smart := OS.get_cmdline_user_args().has("smart")
+	cascade_max = 0
 	# `sloppy=P`: the smart player makes a random legal move instead with chance P (nearer a living one, who misses moves)
 	var sloppy := 0.0
 	for a in OS.get_cmdline_user_args():
@@ -51,7 +55,8 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			sw = res.swap_cells
 		m.use_move()
 		used += 1
-		_resolve(m, first, sw, broken)
+		var steps := _resolve(m, first, sw, broken)
+		if steps > int(cascade_max): cascade_max = steps
 		m.maiden_after()
 		if m.goals_done():
 			won = true
@@ -265,7 +270,7 @@ static func _clone(m: BoardModel, seed_v: int) -> BoardModel:
 	return t
 
 ## the level's turn, without the show: blasts, removals, specials, falls, nuggets, until the board is still
-static func _resolve(m: BoardModel, first: Array, sw: Array, broken: Array) -> void:
+static func _resolve(m: BoardModel, first: Array, sw: Array, broken: Array) -> int:
 	var guard := 0
 	while guard < 60:
 		guard += 1
@@ -290,6 +295,7 @@ static func _resolve(m: BoardModel, first: Array, sw: Array, broken: Array) -> v
 		sw = []
 	if not m.over and not m.has_moves():
 		m.shuffle()
+	return guard - 1
 
 ## many levels at every depth: averages per level and per win
 static func report(per_depth: int) -> String:

@@ -41,6 +41,8 @@ var _kegs := 0           # kegs gone off in this move (Awards: Powder Party)
 var _low := false
 var _sp_move := false
 var _combo_move := false
+## Avalanche: this long a cascade of one move, the finale apart (tests/cascade_odds.tscn: share of levels per bar)
+const AVALANCHE := 10
 var _dark0 := -1
 var _belt_mode := false
 var _belt_n := 0
@@ -896,7 +898,9 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 			cascade = 0
 		cascade += 1
 		# (not in the prologue: four colours on an open cave cascade by themselves)
-		if cascade == 8 and not prologue: Awards.once("cascade8")
+		# (nor in the finale: the won level's specials and moves turned to dynamite cascade by themselves — Avalanche came
+		# with nearly every first win, 15.11)
+		if cascade == AVALANCHE and not prologue and not model.finale: Awards.once("avalanche")
 		if _belt_mode: _belt_n += groups.size()
 		# a cascade's count over the stones that fell into place by themselves
 		if cascade >= 2 and not groups.is_empty():
@@ -1213,7 +1217,8 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			var ab: Array = [String(e.a), String(e.b)].map(func(x: String) -> String: return "rocket" if x in ["rh", "rv"] else x)
 			ab.sort()
 			Awards.once("mix:%s+%s" % ab)
-			_combo_move = true
+			# (Overkill: a resonator with another special — two sticks of dynamite together came every level, 15.11)
+			if "orb" in ab: _combo_move = true
 			_sp_move = true
 			# two specials together: a white-hot burst and the game holding its breath a moment
 			fx.flash(e.r, e.c, Color(1.0, 0.85, 0.5), 3.0, 0.4)
@@ -1664,7 +1669,8 @@ func _win() -> void:
 ## what a won board tells the achievements (Awards: Mastery, Bosses, Secrets)
 func _awards_won(stone: Dictionary) -> void:
 	if prologue: return   # the scripted first board proves nothing (40 moves, four colours)
-	if model.moves == 0: Awards.once("last_move")
+	# (on a hard level: the plain ones are tight enough that the last move won one of the first few, 15.11)
+	if model.moves == 0 and model.hard and not model.boss_on(): Awards.once("last_move")
 	if not _low and not model.boss_on(): Awards.once("lazy")
 	if _combo_move: Awards.once("overkill")
 	if model.hard and not aw_boost and not model.boss_on(): Awards.once("bare_hands")

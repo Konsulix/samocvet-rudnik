@@ -14,6 +14,7 @@ var rng := RandomNumberGenerator.new()
 var t_start := 0
 var fast := 1.0
 var dbg := false
+var hint := false
 
 func _ready() -> void:
 	var args := {}
@@ -22,6 +23,7 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	levels = int(args.get("levels", "5"))
 	dbg = args.has("dbg")
+	hint = args.has("hint")
 	rng.seed = int(args.get("seed", "1"))
 	# the board's tips skipped (they wait on a tap in their hole); the rest of the guiding plays
 	for k in Level.TIP: Save.tell(String(k))
@@ -60,14 +62,18 @@ func _drive() -> void:
 			idle = 0.0
 			_press_any()
 			if not lv.busy and not lv.model.over and not Ov.is_open():
-				var mv: Array = SimEconomy._choose_smart(lv.model, rng)
+				# (the smart autoplayer, ~2 s a move; `hint`: the game's own hint instead — fast, but it loses even the first levels)
+				var mv: Array = lv.model.best_move() if hint else SimEconomy._choose_smart(lv.model, rng)
 				if mv.is_empty(): continue
 				if mv[0] == mv[2] and mv[1] == mv[3]: lv._on_tap(mv[0], mv[1])
 				else: lv._on_swipe(mv[0], mv[1], mv[2], mv[3])
 			continue
 		if in_level and not (scr is Level):
 			in_level = false
-			played += 1
+			# (levels counted as won: a lost one is played again, as a player would — levels=5 is five wins)
+			var won_now := int(Save.d.level) - 1
+			if won_now > played: played = won_now
+			else: print("EA lost a level (n=%d)" % int(Save.d.level))
 			await get_tree().create_timer(0.5).timeout
 		if _press_any():
 			idle = 0.0
@@ -111,7 +117,8 @@ func _press_any() -> bool:
 		ev.pressed = true
 		gb.call("_gui_input", ev)
 		return true
-	for want in ["Gold! Thank you!", "Keep", "Continue", "Take this one", "Pick a crystal"]:
+	# (out of moves: given up, a life spent — the window waited for ever, 15.11)
+	for want in ["Gold! Thank you!", "Keep", "Continue", "Take this one", "Pick a crystal", "Give up"]:
 		var b: Node = _find(get_tree().root, func(n: Node) -> bool: return n is Button and (n as Button).is_visible_in_tree() and not (n as Button).disabled and (n as Button).text.begins_with(want))
 		if b:
 			(b as Button).pressed.emit()

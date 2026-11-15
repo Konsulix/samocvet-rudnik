@@ -92,7 +92,9 @@ static var LIST := [
 		tags = ["pearl:akoya", "pearl:south_sea", "pearl:golden", "pearl:tahitian"], names = ["Akoya", "South Sea", "Golden", "Tahitian"]},
 	{tab = "coll", icon = "twin_peaks", n = "Twin Peaks", t = "Two stones, one recipe. The mountain repeats itself.", r = "Two finds of a kind with the same genes", one = true, ev = "twin_genes", give = {geode = 1}, items = ["i:twins"]},
 	{tab = "coll", icon = "odd_one", n = "The Odd One", t = "A museum would sell its roof for this.", r = "A find with eight genes at once", one = true, ev = "five_genes", give = {coins = 1000}, items = ["kit:coin"]},
-	{tab = "coll", icon = "own_rock", n = "Glass Half Full", t = "It grew from its own kind.", r = "A crystal on a rock of its own mineral", one = true, ev = "same_rock", give = {coins = 100}, items = ["i:crystal"]},
+	# (15.11: a collection of the five that grow on a rock of their own mineral — one alone was a third of Old Adit's finds)
+	{tab = "coll", icon = "own_rock", n = "Glass Half Full", t = "It grew from its own kind.", r = "coins", give = {coins = 400},
+		tags = ["own:quartz", "own:amethyst", "own:smoky", "own:calcite", "own:selenite"], names = ["Quartz on quartzite", "Amethyst on quartzite", "Smoky quartz on quartzite", "Calcite on limestone", "Selenite on gypsum"]},
 	{tab = "coll", icon = "moth", n = "Moth to a Flame", t = "They know better. They come anyway.", r = "Butterflies on a skull that burns", one = true, ev = "moth_flame", give = {geode = 1}, items = ["i:butterfly"]},
 	{tab = "coll", icon = "overgrown", n = "Nature Takes Over", t = "Moss, mushrooms and flowers. Is there a stone under there?", r = "Moss, a mushroom and flowers on one find", one = true, ev = "overgrown", give = {coins = 600}, items = ["i:moss_stone"]},
 	{tab = "coll", icon = "fluorite", n = "Rainbow in a Cube", t = "It can't decide what colour to be. Neither will you.", r = "coins",
@@ -143,13 +145,13 @@ static var LIST := [
 	{tab = "boss", icon = "axe_crown", n = "Giant Slayer", t = "Every legend underground has met you.", r = "the title Slayer",
 		items = ["i:serpent", "i:lizard", "i:tentacle", "i:lightning", "i:canary"], evs = ["won:0", "won:1", "won:2", "won:3", "won:7"]},
 
-	{tab = "mastery", icon = "hourglass", n = "By a Hair", t = "Last move. Last chance. Done.", r = "Win on the last move", one = true, ev = "last_move", give = {boost = {pick = 3}}, items = ["res:res://assets/board/boosters/pick.png"]},
-	{tab = "mastery", icon = "rockfall", n = "Avalanche", t = "One stone moved. Then all of them.", r = "A cascade of 8", one = true, ev = "cascade8", give = {boost = {bore_h = 2, bore_v = 2}}, items = ["res:res://assets/board/boosters/bore_h.png"]},
+	{tab = "mastery", icon = "hourglass", n = "By a Hair", t = "Last move. Last chance. Done.", r = "Win a hard level on the last move", one = true, ev = "last_move", give = {boost = {pick = 3}}, items = ["res:res://assets/board/boosters/pick.png"]},
+	{tab = "mastery", icon = "rockfall", n = "Avalanche", t = "One stone moved. Then all of them.", r = "A cascade of %d" % Level.AVALANCHE, one = true, ev = "avalanche", give = {boost = {bore_h = 2, bore_v = 2}}, items = ["res:res://assets/board/boosters/bore_h.png"]},
 	{tab = "mastery", icon = "keg", n = "Powder Party", t = "Boom. Boom boom boom boom.", r = "Five kegs in one chain", one = true, ev = "kegs5", give = {coins = 800}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "domino", n = "Domino", t = "You lit one. They did the rest.", r = "Three kegs in one move", one = true, ev = "domino", give = {boost = {bore_h = 1, bore_v = 1}}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "lights_out", n = "Lights Out", t = "Darkness, gone in a single breath.", r = "Light six dark cells in one move", one = true, ev = "lights_out", give = {coins = 600}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "conveyor", n = "Conveyor Chef", t = "Sit back. The belt is cooking.", r = "Three matches made by a belt in one turn", one = true, ev = "belt3", give = {coins = 600}, items = ["kit:coin"]},
-	{tab = "mastery", icon = "overkill", n = "Overkill", t = "It was already beaten. You made sure.", r = "Win with two special stones together", one = true, ev = "overkill", give = {boost = {pan = 2}}, items = ["res:res://assets/board/boosters/pan.png"]},
+	{tab = "mastery", icon = "overkill", n = "Overkill", t = "It was already beaten. You made sure.", r = "Win with a resonator and another special together", one = true, ev = "overkill", give = {boost = {pan = 2}}, items = ["res:res://assets/board/boosters/pan.png"]},
 	{tab = "mastery", icon = "lazy", n = "Lazy Miner", t = "The bottom of the board? Never heard of it.", r = "Win without a move in the lower half", one = true, ev = "lazy", give = {lives = 2}, items = ["kit:heart"]},
 	{tab = "mastery", icon = "flask", n = "Mad Alchemist", t = "What happens if you mix these two?", r = "new gems look",
 		items = ["i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask"],
@@ -169,7 +171,7 @@ static var LIST := [
 	{tab = "secrets", icon = "hoarder", n = "Hoarder", t = "Every drawer, every chest, every pocket.", r = "A hundred stones kept at once", one = true, hide = true, ev = "hoarder", give = {coins = 3000}, items = ["kit:coin"]},
 	{tab = "secrets", icon = "second", n = "Second Thoughts", t = "Sold it. Missed it. Dug it up again.", r = "Find a species a minute after selling one", one = true, hide = true, ev = "second", give = {coins = 300}, items = ["kit:coin"]},
 	{tab = "secrets", icon = "hourglass", n = "Patience", t = "It was worth the look.", r = "Look at a find for two minutes", one = true, hide = true, ev = "patience", give = {coins = 300}, items = ["kit:coin"]},
-	{tab = "secrets", icon = "twins", n = "Déjà Vu", t = "Haven't we met?", r = "The same species twice in a row", one = true, hide = true, ev = "twins", give = {coins = 300}, items = ["i:twins"]},
+	{tab = "secrets", icon = "twins", n = "Déjà Vu", t = "Haven't we met?", r = "The same species three times in a row", one = true, hide = true, ev = "twins", give = {coins = 300}, items = ["i:twins"]},
 ]
 
 ## the scholar's word on the big ones, once she is met (StoryScene: [mood, line]); claimed, she says it
@@ -248,6 +250,8 @@ static func genes_of(s: Dictionary) -> Array:
 	if sid == "gold": out.append("gold:" + String(g.form))     # the Fire Maiden's gold: nugget, vein, tree
 	# Matryoshka: fluorite's hopper crystals, stepped cube frames one inside the next
 	if sid == "fluorite" and String(g.form) == "hopper": out.append("hopper:fluorite")
+	# Glass Half Full: a crystal on a rock of its own mineral (quartz on quartzite, calcite on limestone...)
+	if OWN_ROCK.has(sid) and String(g.rock) == String(OWN_ROCK[sid]): out.append("own:" + sid)
 	# the butterflies, of any find (a skull's or a stone's)
 	for k in g.get("fly_kinds", []):
 		if not "fly:" + String(k) in out: out.append("fly:" + String(k))
@@ -356,7 +360,6 @@ static func find_marks(s: Dictionary, gs: Array) -> Array:
 	var out: Array = []
 	if odd_genes(gs).size() >= ODD_N: out.append("five_genes")
 	var sid := String(s.get("sid", ""))
-	if OWN_ROCK.has(sid) and String(SpecGenome.of(SPEC.of_stone(s)).rock) == String(OWN_ROCK[sid]): out.append("same_rock")
 	if gs.has("fx:yaga") and gs.any(func(t: String) -> bool: return t.begins_with("fly:")): out.append("moth_flame")
 	var moss := gs.has("tr:moss") or gs.has("acc:moss") or gs.has("acc:lichen")
 	if moss and gs.any(func(t: String) -> bool: return t.begins_with("shroom:")) and gs.has("acc:flowers"): out.append("overgrown")
