@@ -37,6 +37,8 @@ var ROCK := []
 var ROCK_MAX := []   # how hard each rock started: a granite (2) stays granite, cracked, once hit
 var MUD := []
 var GAS := []
+## LOCK 7: a blot of the Kraken's ink on the cove's levels (Royal Match's Roof Tile, docs/obstacles.md): the stone under it
+## is hidden and held - it can't be moved or matched, and only a special or a booster washes the ink off
 var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too), 3: a tentacle's grip,
                     # 4/5: ice (Proval: a stone frozen in, thick then cracked; a hit or a match beside it takes a layer)
                     # 6: forge scale (Brontes' hammer: knocked off like a crust)
@@ -83,14 +85,17 @@ var FIND := []
 ## then it rolls away (CART: index into carts, -1 none); powder kegs, a fuse burnt by each hit or match beside, the last
 ## one blowing up the 3x3 round it (KEG: fuses left); the dark (DARK 1: unlit floor - whatever a blast that started in
 ## the light clears there is lit); the ore bucket, each knock tipping a nugget onto a stone under it (BUCKET:
-## nuggets left); conveyor belts, their stones riding a cell along after every move (BELT: on a belt)
+## nuggets left); the conveyor (Royal Match's Conveyor Belt, docs/obstacles.md §5): a solid strip of slots, every slot
+## a malachite basket riding a slot along after every move; a match beside a slot or a hit on it knocks the basket there
+## (an open one breaks, one under a tarp loses the tarp first); the last basket gone, the conveyor goes and its cells
+## are board again (BELT: index into belts, -1 none)
 var CART := []
 var carts := []      # {r, c, w, h, t (colour), need, left, done}
 var KEG := []
 var DARK := []
 var BUCKET := []
 var BELT := []
-var belts := []      # each a loop of cells in the order its stones ride
+var belts := []      # {cells: [Vector2i] in the order the baskets ride, hp: [per slot: 0 empty, 1 open, 2 under a tarp], vert, done}
 var LAMP := []       # the dark's lanterns, each standing in its cell ("L"), a pool of light round it
 var _to_cart := {}   # cell key -> cart: a match of the cart's colour touching it goes into it whole (groups_to_blast)
 const KEG_FUSES := 3
@@ -933,7 +938,10 @@ func _cut_tentacle(r: int, c: int, t: float, tip_only: bool) -> bool:
 		if tip_only and j != tn.cells.size() - 1: return false
 		var cut: Array = tn.cells.slice(j)
 		tn.cells = tn.cells.slice(0, j)
-		for q: Vector2i in cut: LOCK[q.x][q.y] = 0
+		for qi in cut.size():
+			var q: Vector2i = cut[qi]
+			LOCK[q.x][q.y] = 0
+			_goal_hit("tentacle", -1, q.x, q.y, t + 40.0 * qi)
 		_fx(t, "tentacle_cut", {tid = tn.id, r = r, c = c, cells = cut, left = tn.cells.size()})
 		if tn.cells.is_empty(): tentacles.remove_at(i)
 		var A: Dictionary = boss.B.act.get("tentacle", {}) if boss_on() else {}
@@ -1081,7 +1089,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	# them less often ore (a generated level; the boss' gold and the hand-made levels stay as they were)
 	if gen and boss.is_empty():
 		for k in ore_p: ore_p[k] = float(ore_p[k]) * minf(1.0, 72.0 / (R * C)) * minf(1.0, 26.0 / maxi(1, moves))
-	CART = _grid(-1); KEG = _grid(0); LAMP = _grid(false); DARK = _grid(0); BUCKET = _grid(0); BELT = _grid(false); carts = []; belts = []
+	CART = _grid(-1); KEG = _grid(0); LAMP = _grid(false); DARK = _grid(0); BUCKET = _grid(0); BELT = _grid(-1); carts = []; belts = []
 	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); CAGE = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false); BIL = _grid(0); MELT = _grid(0); ANV = _grid(false)
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
@@ -1111,6 +1119,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					LOCK[r][c] = 2
 				"i":
 					LOCK[r][c] = 4
+				"x":
+					LOCK[r][c] = 7
 				"Q":
 					cage = {r = r, c = c}
 					for d in QUAD:
@@ -1163,11 +1173,25 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	for r in mini(R, dk.size()):
 		for c in mini(C, dk[r].length()):
 			if dk[r][c] == "d" and playable(r, c): DARK[r][c] = 1
-	for b: Array in def.get("belts", []):
-		var loop := _ring_round(int(b[0]) + 1, int(b[1]) + 1, int(b[3]) - int(b[1]) - 1, int(b[2]) - int(b[0]) - 1)
-		loop = loop.filter(func(p: Vector2i) -> bool: return playable(p.x, p.y))
-		for p: Vector2i in loop: BELT[p.x][p.y] = true
-		belts.append(loop)
+	# the conveyors: {path: [[r, c], ...] in the order the baskets ride (straight runs and right-angle turns), hp:
+	# "1212.."}; or a straight strip {r, c, n, vert}
+	for b: Dictionary in def.get("belts", []):
+		var path := []
+		if b.has("path"):
+			for q in b.path: path.append(Vector2i(int(q[0]), int(q[1])))
+		else:
+			for i in int(b.n): path.append(Vector2i(int(b.r) + (i if b.get("vert", false) else 0), int(b.c) + (0 if b.get("vert", false) else i)))
+		var cells := []
+		var hp := []
+		var hs := String(b.get("hp", ""))
+		for i in path.size():
+			var q: Vector2i = path[i]
+			if not playable(q.x, q.y): continue
+			cells.append(q)
+			hp.append(int(hs[i]) if i < hs.length() else 1)
+			BELT[q.x][q.y] = belts.size()
+			G[q.x][q.y] = null
+		belts.append({cells = cells, hp = hp, vert = bool(b.get("vert", false)), done = false})
 	# the find: a specimen sealed in a 2x2 block of rock, somewhere in the lower half (not in every level: LevelGen.FIND_P)
 	find_plan = {}
 	if bool(def.get("find", true)):
@@ -1186,7 +1210,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					var rr: int = r + d.x
 					var cc: int = c + d.y
 					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or NOD[rr][cc] or FLW[rr][cc] or G[rr][cc] != null \
-							or CART[rr][cc] >= 0 or KEG[rr][cc] or BUCKET[rr][cc] or BELT[rr][cc] or DARK[rr][cc]:
+							or CART[rr][cc] >= 0 or KEG[rr][cc] or BUCKET[rr][cc] or BELT[rr][cc] >= 0 or DARK[rr][cc]:
 						ok = false
 				if ok:
 					spots.append([r, c, absf(r + fh * 0.5 - R * 0.72) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
@@ -1250,9 +1274,12 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"lock": goals.append({k = "lock", t = -1, left = locks})
 			"crust": goals.append({k = "crust", t = -1, left = _count_lock(2)})
 			"ice": goals.append({k = "ice", t = -1, left = _count_lock(4) + _count_lock(5)})
+			"ink": goals.append({k = "ink", t = -1, left = _count_lock(7)})
+			"tentacle": goals.append({k = "tentacle", t = -1, left = 0})
 			"geo": goals.append({k = "geo", t = -1, left = geos.size()})
 			"cart": goals.append({k = "cart", t = -1, left = carts.size()})
 			"keg": goals.append({k = "keg", t = -1, left = _count(KEG)})
+			"belt": goals.append({k = "belt", t = -1, left = belt_left()})
 			"dark": goals.append({k = "dark", t = -1, left = _count(DARK)})
 			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
 			"maiden": goals.append({k = "maiden", t = -1, left = MAIDEN_CATCH})
@@ -1269,6 +1296,17 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					G[r][c] = new_gem(t)
 		if find_groups().is_empty() and has_moves():
 			break
+	# the cove's tentacles (no Kraken behind them: they only hold their stones till cut) reach in over the filled board
+	var TD: Dictionary = def.get("tentacles", {})
+	for i in int(TD.get("n", 0)):
+		var path := _tentacle_path({len = TD.get("len", [3, 5])})
+		if path.is_empty(): break
+		_tid += 1
+		for q: Vector2i in path: LOCK[q.x][q.y] = 3
+		tentacles.append({id = _tid, cells = path})
+	var tg := goal_index("tentacle")
+	if tg >= 0:
+		for tn: Dictionary in tentacles: goals[tg].left += (tn.cells as Array).size()
 	# the Fire Maiden comes out of the fire once the board is filled
 	if goal_index("maiden") >= 0: maiden_start()
 	# boosters chosen before the level land on the board as ready specials
@@ -1467,13 +1505,14 @@ func playable(r: int, c: int) -> bool:
 
 func open(r: int, c: int) -> bool:
 	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not CAGE[r][c] and not SEA[r][c] and not TIDE[r][c] \
-		and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c] and not BIL[r][c] and not MELT[r][c] and not ANV[r][c]
+		and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c] and not BIL[r][c] and not MELT[r][c] and not ANV[r][c] \
+		and BELT[r][c] < 0
 
 ## the colour a cell counts as for matching, -1 if it can't match
 func col(r: int, c: int) -> int:
 	if r < 0 or c < 0 or r >= R or c >= C: return -1
 	var g: Gem = G[r][c]
-	if g == null or g.sp != "" or g.item != "" or not g.alive() or TIDE[r][c]: return -1
+	if g == null or g.sp != "" or g.item != "" or not g.alive() or TIDE[r][c] or LOCK[r][c] == 7: return -1
 	return g.t
 
 func gem_at(r: int, c: int) -> Gem:
@@ -1676,6 +1715,11 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 	if TIDE[r][c]: return   # under water: out of reach
 	if lit and DARK[r][c]: _light(r, c, t)   # a rock broken beside a lit match catches the light too
 	if CART[r][c] >= 0 or LAMP[r][c]: return   # the cart takes no harm (it is filled from beside), nor a lantern
+	if BELT[r][c] >= 0:   # a knock on the basket riding in this slot, once a blast
+		if _rock_hit.has(k): return
+		_rock_hit[k] = true
+		_belt_hit(BELT[r][c], r, c, t)
+		return
 	if KEG[r][c]:    # a fuse burns down with each hit or match beside it; the last one blows the keg up
 		if _rock_hit.has(k): return
 		_rock_hit[k] = true
@@ -1805,6 +1849,14 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 		_rock_hit[k] = true
 		_cleared[k] = true
 		return
+	if LOCK[r][c] == 7:   # the ink: nothing but a special or a booster washes it off; the stone under it stays
+		if kind == "adj" or kind == "match" or _rock_hit.has(k): return
+		_rock_hit[k] = true
+		_cleared[k] = true
+		LOCK[r][c] = 0
+		_goal_hit("ink", -1, r, c, t)
+		_fx(t, "roof", {r = r, c = c})
+		return
 	if LOCK[r][c] == 4 or LOCK[r][c] == 5:   # ice: one layer a hit, from beside too; the stone stays frozen in till the last one goes
 		if _rock_hit.has(k): return
 		_rock_hit[k] = true
@@ -1853,7 +1905,7 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 			var rr: int = r + d.x
 			var cc: int = c + d.y
 			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] >= 2 or FLW[rr][cc] or SEA[rr][cc] == 2 \
-					or KEG[rr][cc] or BUCKET[rr][cc] or BIL[rr][cc] or MELT[rr][cc] or ANV[rr][cc]):
+					or KEG[rr][cc] or BUCKET[rr][cc] or BIL[rr][cc] or MELT[rr][cc] or ANV[rr][cc] or BELT[rr][cc] >= 0):
 				hit(rr, cc, t, "adj", lit)
 
 ## a cell of the dark is lit
@@ -1894,7 +1946,7 @@ func _load_cart(g: Gem, r: int, c: int, t: float) -> void:
 func _falls_clear(r: int, c: int) -> bool:
 	var gap := false
 	for rr in range(r + 1, R):
-		if playable(rr, c) and (LAMP[rr][c] or KEG[rr][c] or CART[rr][c] >= 0 or BUCKET[rr][c]): return false
+		if playable(rr, c) and (LAMP[rr][c] or KEG[rr][c] or CART[rr][c] >= 0 or BUCKET[rr][c] or BELT[rr][c] >= 0): return false
 		if not playable(rr, c): gap = true
 		elif gap: return false
 	return true
@@ -2020,6 +2072,7 @@ func drill_target(r: int, c: int) -> Vector2i:
 			if FIND[rr][cc] and need.has("find"): w = 7
 			elif BUCKET[rr][cc] and need.has("nug"): w = 6
 			elif KEG[rr][cc]: w = 6 if need.has("keg") else 3
+			elif BELT[rr][cc] >= 0 and need.has("belt") and belt_hp(rr, cc) > 0: w = 6
 			elif DARK[rr][cc] and need.has("dark") and G[rr][cc] != null: w = 5
 			elif need.has("cart") and _feeds_cart(rr, cc): w = 5
 			elif GAS[rr][cc] and need.has("gas"): w = 6
@@ -2031,7 +2084,8 @@ func drill_target(r: int, c: int) -> Vector2i:
 			elif MUD[rr][cc] and need.has("mud"): w = 5
 			elif col(rr, cc) >= 0 and need.has("c%d" % col(rr, cc)): w = 4
 			elif SEA[rr][cc] == 2 and int(eye.get("shut", 1)) <= 0: w = 6
-			elif LOCK[rr][cc] == 3: w = 4
+			elif LOCK[rr][cc] == 3: w = 6 if need.has("tentacle") else 4
+			elif LOCK[rr][cc] == 7: w = 7 if need.has("ink") else 3
 			elif BIL[rr][cc] >= 2 or ANV[rr][cc] and int(bolt.get("ch", 0)) > 0: w = 5
 			elif BIL[rr][cc] or MELT[rr][cc]: w = 3
 			elif NOD[rr][cc] >= 3: w = 3
@@ -2295,7 +2349,7 @@ func gas_spread() -> Vector2i:
 				var cc: int = c + d.y
 				if not playable(rr, cc): continue
 				var g: Gem = G[rr][cc]
-				if g and g.t >= 0 and g.sp == "" and g.item == "" and not LOCK[rr][cc] and not BELT[rr][cc]:
+				if g and g.t >= 0 and g.sp == "" and g.item == "" and not LOCK[rr][cc] and BELT[rr][cc] < 0:
 					cand.append(Vector2i(rr, cc))
 	if cand.is_empty():
 		return Vector2i(-1, -1)
@@ -2307,20 +2361,47 @@ func gas_spread() -> Vector2i:
 	if scale_on(): scale_goal()
 	return p
 
-## the belts move after every move: each stone on a belt rides one cell along its loop (cells blocked by anything
-## are skipped, the stones jump past them). Returns {turned: [[id, from, to]]}
+## the conveyors run a slot after every move: each basket rides on, the last one round to the first slot.
+## Returns {turned: [belt indexes]}
 func belt_turn() -> Dictionary:
 	var out := {turned = []}
-	for loop: Array in belts:
-		var cells := loop.filter(func(p: Vector2i) -> bool: return open(p.x, p.y) and not LOCK[p.x][p.y])
-		if cells.size() < 2: continue
-		var gs := []
-		for p: Vector2i in cells: gs.append(G[p.x][p.y])
-		for i in cells.size():
-			var to: Vector2i = cells[(i + 1) % cells.size()]
-			G[to.x][to.y] = gs[i]
-			if gs[i]: out.turned.append([(gs[i] as Gem).id, cells[i], to])
+	for bi in belts.size():
+		var b: Dictionary = belts[bi]
+		if b.done or (b.hp as Array).size() < 2: continue
+		var hp: Array = b.hp
+		hp.push_front(hp.pop_back())
+		out.turned.append(bi)
 	return out
+
+## the basket riding in the slot at (r, c): 0 none, 1 open, 2 under a tarp
+func belt_hp(r: int, c: int) -> int:
+	if not playable(r, c) or BELT[r][c] < 0: return 0
+	var b: Dictionary = belts[BELT[r][c]]
+	var i: int = (b.cells as Array).find(Vector2i(r, c))
+	return int(b.hp[i]) if i >= 0 else 0
+
+## baskets still to break on all the conveyors
+func belt_left() -> int:
+	var n := 0
+	for b: Dictionary in belts:
+		for h in b.hp:
+			if int(h) > 0: n += 1
+	return n
+
+## a knock on a conveyor's slot: the tarp off its basket, or the basket broken; the last one breaks the conveyor
+func _belt_hit(bi: int, r: int, c: int, t: float) -> void:
+	var b: Dictionary = belts[bi]
+	var i: int = (b.cells as Array).find(Vector2i(r, c))
+	if i < 0 or int(b.hp[i]) <= 0: return
+	b.hp[i] = int(b.hp[i]) - 1
+	_fx(t, "belt_hit", {bi = bi, slot = i, hp = b.hp[i], r = r, c = c})
+	if int(b.hp[i]) > 0: return
+	_goal_hit("belt", -1, r, c, t + 240.0)
+	for h in b.hp:
+		if int(h) > 0: return
+	b.done = true
+	for q: Vector2i in b.cells: BELT[q.x][q.y] = -1
+	_fx(t + 120.0, "belt_gone", {bi = bi})
 
 ## the nodules grow a layer every NOD_EVERY moves; a full one overgrows instead: malachite crusts the stones round it
 ## and it starts again from its core. Returns what changed: [{r, c, from, stage, crust: [cells]}]
