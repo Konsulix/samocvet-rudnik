@@ -1975,6 +1975,14 @@ func _fire_converted(t: float, g: Gem, r: int, c: int, lit := false) -> void:
 	g.sp = g.convert_sp
 	g.t = -1
 	hit(r, c, t, "fx", lit)
+	# (a stone under timber, crust, scale or ice was turned too: the hit only broke what held it, and the special
+	# stood on the board after the resonator. It goes off all the same, through every layer left)
+	var k := r * C + c
+	for i in 3:
+		if not g.alive() or G[r][c] != g: break
+		_cleared.erase(k)
+		_rock_hit.erase(k)
+		hit(r, c, t + 40.0 * (i + 1), "fx", lit)
 
 func _start_combo(t: float, a: Gem, b: Gem, r1: int, c1: int, r2: int, c2: int) -> void:
 	_cleared[r1 * C + c1] = true
