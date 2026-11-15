@@ -11,6 +11,10 @@ var links := LINKS         # a longer chain: `reach_top`
 var _t := randf() * 10.0
 var _tex: Texture2D
 var _glow: Texture2D
+## the window it hangs in (Kit.lantern): it opens with it - fades in and grows from its middle as the card does, so
+## the lantern never shows before its window
+var follow: Control
+var hook := Vector2.ZERO
 
 func _init(h := 60.0) -> void:
 	height = h
@@ -39,6 +43,10 @@ func reach_top(top_y: float) -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	if is_instance_valid(follow):
+		modulate.a = follow.modulate.a
+		scale = follow.scale
+		position = follow.position + follow.pivot_offset + (hook - follow.pivot_offset) * follow.scale
 	queue_redraw()
 
 ## how bright the flame is now, ~0.7..1: slow breathing, a quicker waver and now and then a short dip

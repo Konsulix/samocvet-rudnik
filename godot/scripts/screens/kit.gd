@@ -140,7 +140,13 @@ static func label(text: String, size := 16, font: Font = null, col := CREAM) -> 
 ## flickering (KitLantern); `on` is a plain Control (not a container) holding the frame at its origin
 static func lantern(on: Control, height := 60.0) -> void:
 	var l := KitLantern.new(height)
-	l.position = Vector2(40, 6)     # the hook, on the frame's top rim just past the corner plate
+	l.hook = Vector2(40, 6)     # the hook, on the frame's top rim just past the corner plate
+	l.position = l.hook
+	# in an open card's holder: it follows the card's own opening (Ov.card fades and grows it)
+	for c in on.get_children():
+		if c is PanelContainer: l.follow = c
+	if l.follow:
+		l.modulate.a = l.follow.modulate.a
 	on.add_child(l)
 
 ## a thin brass rule under a title: a strip of the window frame's own brass rim (art/ui_kit/rule.py), fading out to
