@@ -10,30 +10,29 @@ signal go(screen: String)
 
 const DIR := "res://assets/cabinet/"
 const ANCHOR_X := 0.58     # where the room is cropped across: 0 shows its left edge, 1 its right
-const ZOOM := 1.04          # the room a little bigger than the space: the empty floor at the bottom goes off screen
-const ANCHOR_Y := 0.25     # and the extra height is cut mostly at the bottom
-const CEIL_PX := 512.0      # the ceiling picture reaches this many picture px above the room picture's top
+const ZOOM := 1.2           # the room near its old size: the ceiling's top goes off above the bar
+const ANCHOR_Y := 1.0      # the extra height cut at the top (the high ceiling), the floor kept
+## the room's picture (15.11): the room with its ceiling painted on above (the user's picture, 881x1786; the old
+## one is art/ui_redesign/cabinet/ceiling/room_orig.png, its places moved here by its scale 0.86 and 534 px down)
 ## the objects in the room's picture: [file, centre x, bottom y (shares of the picture), width (share of its height)]
 const ITEMS := {
-	crates = ["crates", 0.215, 0.726, 0.124],
-	chest = ["chest", 0.27, 0.86, 0.127],
-	bench = ["bench", 0.472, 0.824, 0.37],
-	cups_hi = ["cups", 0.9, 0.45, 0.065],
-	cups_lo = ["cups", 0.9, 0.55, 0.065],
-	serpent = ["serpent", 0.3, 0.437, 0.059],
-	casket = ["casket", 0.567, 0.437, 0.08],
+	crates = ["crates", 0.215, 0.836, 0.092],
+	chest = ["chest", 0.27, 0.935, 0.094],
+	bench = ["bench", 0.472, 0.909, 0.274],
+	cups_hi = ["cups", 0.9, 0.632, 0.048],
+	cups_lo = ["cups", 0.9, 0.706, 0.048],
+	serpent = ["serpent", 0.3, 0.622, 0.044],
+	casket = ["casket", 0.567, 0.622, 0.059],
 }
 ## the glass case with the cups (shares of the picture), all of it a tap on the awards
-const CASE := Rect2(0.855, 0.27, 0.2, 0.36)
-const NICHES := [Vector2(0.24, 0.35), Vector2(0.44, 0.35), Vector2(0.65, 0.35)]   # the artifacts' stands
+const CASE := Rect2(0.855, 0.499, 0.2, 0.266)
+const NICHES := [Vector2(0.24, 0.558), Vector2(0.44, 0.558), Vector2(0.65, 0.558)]   # the artifacts' stands
 ## what each object opens, and the plaque under it
 const ZONES := {crates = ["stones", "Stones"], chest = ["stones", ""], bench = ["workshop", "Workshop"],
 	cups_hi = ["awards", "Awards"], cups_lo = ["awards", ""], serpent = ["trophy", ""], casket = ["trophy", ""]}
 
 var room: Control
 var nodes := {}
-
-var ceiling: Control
 
 func _ready() -> void:
 	size = get_viewport_rect().size
@@ -42,33 +41,26 @@ func _ready() -> void:
 	bg.size = size
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
-	# the ceiling (art/ui_redesign/cabinet/ceiling: GPT painted the room on upward) over the room, up to the screen's
-	# top, under the top bar; its lowest 96 px fade over the room's own top (so it is drawn over the room)
-	ceiling = Control.new()
-	ceiling.size = size
-	ceiling.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ceiling.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	ceiling.draw.connect(_draw_ceiling)
 	var root := VBoxContainer.new()
 	root.size = size
 	root.add_theme_constant_override("separation", 0)
 	add_child(root)
-	# over the room (its fading foot lies over the room's own top: under the room the seam showed), under the bar
-	add_child(ceiling)
 	var pad := MarginContainer.new()
 	for side in ["left", "right"]: pad.add_theme_constant_override("margin_" + side, 12)
 	pad.add_theme_constant_override("margin_top", 10 + int(UI.safe_top()))
 	pad.add_theme_constant_override("margin_bottom", 6)
 	pad.z_index = 1
 	pad.add_child(Chrome.top_bar())
-	root.add_child(pad)
+	# the room from the screen's top: its ceiling under the bar, the bar floats over it
+	pad.top_level = true
+	pad.size = Vector2(size.x, 0)
+	add_child(pad)
 	room = Control.new()
 	room.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	room.clip_contents = true
 	room.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	room.draw.connect(_draw_room)
 	room.resized.connect(_layout)
-	room.item_rect_changed.connect(func(): ceiling.queue_redraw())
 	root.add_child(room)
 	root.add_child(Chrome.nav_bar("museum", func(id: String): go.emit(id)))
 	_build()
@@ -88,30 +80,13 @@ func _at(fx: float, fy: float) -> Vector2:
 func _draw_room() -> void:
 	var f := _fit()
 	room.draw_texture_rect(Kit.tex_at(DIR + "room.png"), Rect2(-float(f[2]), -float(f[3]), float(f[0]), float(f[1])), false)
-	# the room's top above the picture is the ceiling's (drawn behind, `_draw_ceiling`); the room sinks into the dark at
-	# the bottom only
+	# a soft shade at the top keeps the bar readable; the room sinks into the dark at the bottom
+	for i in 40:
+		var k := 1.0 - i / 40.0
+		room.draw_rect(Rect2(0, i * 2.0, room.size.x, 2.0), Color(0.05, 0.04, 0.03, 0.55 * k * k))
 	for i in 24:
 		var k := 1.0 - i / 24.0
 		room.draw_rect(Rect2(0, room.size.y - 1 - i, room.size.x, 1), Color(0.07, 0.055, 0.04, 0.9 * k * k))
-
-## the ceiling picture over the room picture, in the screen's space: the room is clipped at its own top, the ceiling
-## goes on up under the bar to the screen's edge; a soft shade at the very top keeps the bar readable
-func _draw_ceiling() -> void:
-	if room == null or room.size.y <= 0.0: return
-	var f := _fit()
-	var tx := Kit.tex_at(DIR + "room.png")
-	var top := Kit.tex_at(DIR + "room_top.png")
-	var k := float(f[1]) / tx.get_height()           # points per picture px
-	var o := room.position + Vector2(-float(f[2]), -float(f[3]))   # the room picture's top left, in this screen
-	# (the room picture's own top is GPT's redraw too: the two meet without a seam, so no overlap is drawn over it)
-	ceiling.draw_texture_rect(top, Rect2(o.x, o.y - CEIL_PX * k, float(f[0]), CEIL_PX * k), false)
-	# and the room picture's own top rows that the room's clip cuts away (it is cropped a little at the top): no gap
-	var cut := room.position.y - o.y + 2.0
-	if cut > 0.0:
-		ceiling.draw_texture_rect_region(tx, Rect2(o.x, o.y, float(f[0]), cut), Rect2(0, 0, tx.get_width(), cut / k))
-	for i in 40:
-		var a := 1.0 - i / 40.0
-		ceiling.draw_rect(Rect2(0, i * 2.0, ceiling.size.x, 2.0), Color(0.05, 0.04, 0.03, 0.55 * a * a))
 
 func _build() -> void:
 	var won: Array = Save.d.boss_won
