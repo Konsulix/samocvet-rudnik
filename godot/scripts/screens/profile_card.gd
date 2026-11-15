@@ -6,7 +6,7 @@ class_name ProfileCard
 ## Portrait / Frame / Title, a grid of equal tiles (the worn one ticked, the locked dark with a lock: a tap says how).
 
 const W := 350.0
-const SQ := 132.0
+const SQ := 140.0
 static var tab := "faces"
 ## the fresh things shown as new on this opening (looked at once the card is open: next time they are not new)
 static var _new: Array = []
@@ -57,116 +57,101 @@ static func _section(t: String) -> Control:
 	h.add_child(b)
 	return h
 
+## the profile: no panels round anything - the drawn frame and the stone stand on the window side by side, the same
+## size; under the frame "Edit", under the stone its name and price; then the records
 static func _build() -> void:
 	var v := Ov.card(W)
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 12)
 	_head(v, "Profile")
-	var who := _panel(10.0)
 	var top := HBoxContainer.new()
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
-	top.add_theme_constant_override("separation", 12)
+	top.add_theme_constant_override("separation", 22)
 	top.add_child(_portrait_sq())
 	top.add_child(_find_sq())
-	who.add_child(top)
-	v.add_child(who)
-	var rec := _panel(10.0)
-	var rv := VBoxContainer.new()
-	rv.add_theme_constant_override("separation", 8)
-	rv.add_child(_section("Records"))
-	rv.add_child(_records())
-	rec.add_child(rv)
-	v.add_child(rec)
+	v.add_child(top)
+	v.add_child(_section("Records"))
+	v.add_child(_records())
 
-## a dark niche square (the portrait's and the find's: the same)
-static func _niche() -> PanelContainer:
-	var w := PanelContainer.new()
-	w.custom_minimum_size = Vector2(SQ, SQ)
-	w.add_theme_stylebox_override("panel", Kit.box("btn_dark", 4.0))
-	return w
+## a column: the picture (SQ square), the line under it
+static func _column(pic: Control, under: Control) -> VBoxContainer:
+	var c := VBoxContainer.new()
+	c.add_theme_constant_override("separation", 6)
+	pic.custom_minimum_size = Vector2(SQ, SQ)
+	c.add_child(pic)
+	under.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	c.add_child(under)
+	return c
 
-## the portrait in its niche, "Edit" on its corner (a tap anywhere on it opens Edit Profile)
+## the portrait in its own drawn frame, "Edit" under it (a tap on the portrait opens Edit Profile too)
 static func _portrait_sq() -> Control:
-	var w := _niche()
 	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(SQ - 8, SQ - 8)
-	w.add_child(holder)
-	holder.add_child(Chrome.portrait(SQ - 8, String(Profile.frame().id), String(Profile.face().id)))
-	var tap := _flat_button(Vector2(SQ - 8, SQ - 8))
+	holder.add_child(Chrome.portrait(SQ, String(Profile.frame().id), String(Profile.face().id)))
+	var tap := _flat_button(Vector2(SQ, SQ))
 	tap.pressed.connect(func():
 		Sfx.play("click")
 		_edit())
 	holder.add_child(tap)
-	var e := Kit.button("Edit", "btn_green", 13, 2.0)
-	e.custom_minimum_size = Vector2(54, 28)
-	e.size = Vector2(54, 28)
-	e.position = Vector2(-4, SQ - 8 - 26)
+	if not _new.is_empty(): holder.add_child(Chrome._new_dot(SQ))
+	var e := Kit.button("Edit", "btn_green", 14, 3.0)
+	e.custom_minimum_size = Vector2(84, 32)
 	e.pressed.connect(func(): _edit())
-	holder.add_child(e)
-	if not _new.is_empty(): holder.add_child(Chrome._new_dot(SQ - 8))
-	return w
+	return _column(holder, e)
 
-## the best find: the stone in its niche, its name and price on a brass plate along the bottom
+## the best find: the stone itself, as big as the portrait, its rarity's soft glow behind it; under it its name and
+## price; "+" on its corner picks another stone, a tap on it opens its card
 static func _find_sq() -> Control:
-	var w := _niche()
 	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(SQ - 8, SQ - 8)
-	holder.clip_contents = true
-	w.add_child(holder)
 	var s := Profile.showcase()
 	if s.is_empty():
 		var l := Kit.label("Your best find\nwill stand here", 12, UI.body_bold, Kit.DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.size = holder.custom_minimum_size
+		l.size = Vector2(SQ, SQ)
 		holder.add_child(l)
-		return w
-	# a soft glow of its rarity behind the stone
+		return _column(holder, Control.new())
 	var glow := TextureRect.new()
 	glow.texture = FxLayer.puff()
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.size = Vector2(SQ - 24, SQ - 44)
-	glow.position = Vector2(8, 6)
-	glow.modulate = Color(Data.rarity_color(int(s.tier)), 0.5)
+	glow.size = Vector2(SQ, SQ)
+	glow.modulate = Color(Data.rarity_color(int(s.tier)), 0.45)
 	glow.material = FxLayer.add_material()
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(glow)
 	var img := TextureRect.new()
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	img.position = Vector2(4, 4)
-	img.size = Vector2(SQ - 16, SQ - 40)
+	img.position = Vector2(SQ, SQ) * 0.06
+	img.size = Vector2(SQ, SQ) * 0.88
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(img)
 	var have := Atlas.cached(s)
 	if have: img.texture = have
 	else: Atlas.cutout(s, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
-	# the plate: one line, the name and the price (two lines did not fit the niche)
-	var plate := PanelContainer.new()
-	plate.add_theme_stylebox_override("panel", Kit.box("btn_gold", 2.0))
-	plate.position = Vector2(2, SQ - 8 - 30)
-	plate.size = Vector2(SQ - 12, 28)
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pr := HBoxContainer.new()
-	pr.alignment = BoxContainer.ALIGNMENT_CENTER
-	pr.add_theme_constant_override("separation", 3)
-	var name := Stones.name_of(s)
-	var nm := Kit.label(name, 12 if name.length() <= 9 else (10 if name.length() <= 13 else 9), UI.display, Color("#2a1d0e"))
-	pr.add_child(nm)
-	pr.add_child(Kit.res_icon("coin", 14))
-	pr.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 12, UI.display, Color("#2a1d0e")))
-	plate.add_child(pr)
-	holder.add_child(plate)
-	# a tap on the stone opens its card; the "+" in the corner picks another stone for the niche
-	var tap := _flat_button(Vector2(SQ - 8, SQ - 8))
+	var tap := _flat_button(Vector2(SQ, SQ))
 	tap.pressed.connect(func():
 		Sfx.play("click")
 		_open_stone(s))
 	holder.add_child(tap)
 	var pin := Kit.icon_button("plus", 26)
-	pin.position = Vector2(SQ - 8 - 28, 0)
+	pin.position = Vector2(SQ - 22, -4)
 	pin.pressed.connect(func(): _pick_stone())
 	holder.add_child(pin)
-	return w
+	# the name and the price, one line (as tall as the Edit button beside it)
+	var line := HBoxContainer.new()
+	line.custom_minimum_size = Vector2(0, 32)
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 5)
+	var name := Stones.name_of(s)
+	var nm := Kit.label(name, 15 if name.length() <= 10 else 12, UI.display, Kit.CREAM)
+	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.add_child(nm)
+	var coin := Kit.res_icon("coin", 18)
+	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(coin)
+	var pr := Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 15, UI.display, Kit.AMBER)
+	pr.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.add_child(pr)
+	return _column(holder, line)
 
 static func _flat_button(sz: Vector2) -> Button:
 	var b := Button.new()
