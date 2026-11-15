@@ -19,6 +19,11 @@ func _ready() -> void:
 		var kv := a.split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if args.has("slow"): Diag.slow_ms = int(args.slow)
+	if args.has("winsize"):
+		# a test key (-- winsize=1320x2868): the window that size even past the screen (the OS caps it at start) - App Store
+		# screenshots at the store's own size, not a small window scaled up
+		var wh := String(args.winsize).split("x")
+		get_window().size = Vector2i(int(wh[0]), int(wh[1]))
 	if args.has("bake_skulls"):
 		# the skull bodies (human and beasts) shaded once and stored as .res: the phone skips the json and the smoothing
 		print("baked %d skull bodies" % SpecSkull.bake())
@@ -331,6 +336,36 @@ func _ready() -> void:
 				if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 				Save.note_find(st, 0, int(st.dl))   # (the atlas and the achievements know them, as finds of a level)
 				made += 1
+		Save.persist()
+	if args.has("hugs"):
+		# test data: lone crystals half sunk in a side of their rock (SpecimenBuilder._hug_rock), a few of each species:
+		# `-- save=hugs screen=stones hugs`; marked test, old ones from a previous run are replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("hugs", false))
+		var hosts := ["quartz", "amethyst", "smoky", "calcite", "garnet", "fluorite", "beryl", "aquamarine"]
+		var sd := 160000
+		var made := 0
+		for h in hosts.size() * 2:
+			var st := {}
+			for t in 4000:
+				sd += 1
+				if Rng32.new((sd * 1812433253 + 97) % 4294967296).next() >= SpecimenBuilder.HUG_P: continue
+				st = Stones.roll(sd, 0, 1.2, 2)
+				st.sid = hosts[h % hosts.size()]
+				st.kind = "crystal"
+				st.legend = false
+				if String(SpecGenome.of(Spec.of_stone(st)).form) == "single": break
+				st = {}
+			if st.is_empty(): continue
+			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.area = 0
+			st.dl = made % 6
+			st.value = Stones.price(st, 0, int(st.dl))
+			st.test = true
+			st.hugs = true
+			Save.d.coll.append(st)
+			if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+			made += 1
+		print("hugs: ", made, " finds")
 		Save.persist()
 	if args.has("flowers"):
 		# test data: two finds with every kind of flower (SpecFlora.KINDS), on open rock: `-- save=flowers screen=stones
