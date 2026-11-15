@@ -30,6 +30,12 @@ var _queued_ev: Array = []
 var _queued_sw: Array = []
 var _extra_moves := 0
 var _swipes_in_flight := 0
+## (15.11) a move made while the step's blast plays goes off at once, as in Royal Match (it waited for the next step:
+## the swapped stones stood a second in their match): _phase "blast" — the step waits out its hits, the stones are
+## not yet removed; such a move's blast joins this step (_side_blast): its specials, and the step waits for it too
+var _phase := ""
+var _side_created: Array = []
+var _side_until := 0
 var booster := ""
 var idle := 0.0
 var _hinted := false
@@ -788,8 +794,10 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	model.use_move()
 	_render_moves()
 	_extra_moves += 1
-	_queued_ev.append_array(res.events)
-	if not res.special: _queued_sw = res.swap_cells
+	if _phase == "blast": _side_blast(res.events, [] if res.special else res.swap_cells)
+	else:
+		_queued_ev.append_array(res.events)
+		if not res.special: _queued_sw = res.swap_cells
 	_swipes_in_flight -= 1
 
 ## a special tapped while the board is still cascading (as in Royal Match): one at rest goes off in the next step
@@ -804,7 +812,34 @@ func _tap_mid(r: int, c: int) -> void:
 	model.use_move()
 	_render_moves()
 	_extra_moves += 1
-	_queued_ev.append({t = 0.0, r = r, c = c, kind = "fx"})
+	if _phase == "blast": _side_blast([{t = 0.0, r = r, c = c, kind = "fx"}], [])
+	else: _queued_ev.append({t = 0.0, r = r, c = c, kind = "fx"})
+
+## a move's own blast in the middle of a step's (the step is waiting out its hits, nothing is removed or falling yet):
+## its match and specials go off now; the step waits for its hits and places its specials with its own
+func _side_blast(ev0: Array, sw: Array) -> void:
+	var ev: Array = ev0.duplicate()
+	if OS.get_cmdline_user_args().has("rush"): print("SIDE blast ", sw)
+	var keys := sw.map(func(q: Vector2i) -> int: return q.x * model.C + q.y)
+	var mine: Array = model.find_groups().filter(func(g: Dictionary) -> bool:
+		for k in g.cells:
+			if k in keys: return true
+		return false)
+	var created := model.groups_to_blast(mine, sw, ev)
+	var merges := {}
+	for r in model.R:
+		for c in model.C:
+			var g: BoardModel.Gem = model.G[r][c]
+			if g and g.alive() and g.merge.x >= 0: merges[g.id] = g.merge
+	model.fx = []
+	var before := board.snap()
+	var t := model.run_blast(ev)
+	board.hold(before, true)
+	_play_fx(model.fx.duplicate(), merges)
+	Sfx.play("pop", 1)
+	if not created.is_empty(): get_tree().create_timer(0.12).timeout.connect(func(): Sfx.play("special"))
+	_side_created.append_array(created)
+	_side_until = maxi(_side_until, Time.get_ticks_msec() + int(t + 260.0))
 
 ## testing (`-- rush`, with `autoplay=N`): while a cascade runs, now and then a move of the stones at rest, as a quick
 ## player would - to see moves made mid-cascade and the board staying in step
@@ -921,7 +956,13 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 		Sfx.play("pop", cascade)
 		if not created.is_empty():
 			get_tree().create_timer(0.12).timeout.connect(func(): Sfx.play("special"))
+		_phase = "blast"
 		await _wait(max_t / 1000.0 + 0.26)
+		# a move made meanwhile is still going off: its hits land before the stones are taken away
+		while Time.get_ticks_msec() < _side_until: await _wait(0.03)
+		_phase = ""
+		created.append_array(_side_created)
+		_side_created = []
 		board.release_all()
 		for id in model.remove_dead():
 			if board.nodes.has(id): board.remove_node(id)

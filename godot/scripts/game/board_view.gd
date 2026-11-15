@@ -461,8 +461,8 @@ func snap() -> Dictionary:
 	return out
 
 ## every cell the blast changed keeps its old look till release()
-func hold(before: Dictionary) -> void:
-	held = {}
+func hold(before: Dictionary, more := false) -> void:
+	if not more: held = {}
 	for gname: String in HELD:
 		var now: Array = model.get(gname)
 		var was: Array = before[gname]
@@ -470,7 +470,13 @@ func hold(before: Dictionary) -> void:
 		for r in model.R:
 			for c in model.C:
 				if (now[r] as Array)[c] != (was[r] as Array)[c]: h[r * model.C + c] = (was[r] as Array)[c]
-		if not h.is_empty(): held[gname] = h
+		if h.is_empty(): continue
+		# (more: a second blast in the same step — what the first still holds stays held as it was)
+		if held.has(gname):
+			var old: Dictionary = held[gname]
+			for k in h:
+				if not old.has(k): old[k] = h[k]
+		else: held[gname] = h
 
 func release(r: int, c: int) -> void:
 	if held.is_empty(): return
