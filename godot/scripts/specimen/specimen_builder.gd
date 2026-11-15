@@ -864,7 +864,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		"gwindel":
 			# smoky quartz's gwindel (F6): a row of flattened crystals side by side, each turned a little further
 			# about the row than the last — a twisted plate, its face to the viewer
-			use_rock.call("small")
+			var grk: MeshInstance3D = use_rock.call("small")
+			var plates: Array[MeshInstance3D] = []
 			var zv := VIEW_DIR
 			var xv := UP.cross(zv).normalized()
 			var nn := 5 + int(rng.next() * 4)
@@ -880,10 +881,19 @@ func _specimen(o: Dictionary) -> Node3D:
 				var z2 := xv.cross(yv).normalized()
 				c.transform = Transform3D(Basis(xv, yv, z2) * Basis.from_scale(Vector3(s * 0.9, s, s * 0.45)), at)
 				if k == nn / 2: main = c
-			# (smoky glass, not a rainbow: thin plates took the holographic sheen over)
-			if main and main.material_override is ShaderMaterial:
-				(main.material_override as ShaderMaterial).set_shader_parameter("holo_k", 0.0)
-				(main.material_override as ShaderMaterial).set_shader_parameter("ir_k", 0.03)
+				plates.append(c)
+			# (smoky glass, not a rainbow: thin plates took the holographic sheen over — every plate, not the middle one
+			# only: the rest stayed rainbow-green)
+			for c in plates:
+				if c.material_override is ShaderMaterial:
+					(c.material_override as ShaderMaterial).set_shader_parameter("holo_k", 0.0)
+					(c.material_override as ShaderMaterial).set_shader_parameter("ir_k", 0.03)
+					# (the dark lustre's oil slick too, down to a hint: on the thin plates it covered them green and violet)
+					var mo := c.material_override as ShaderMaterial
+					mo.set_shader_parameter("oil_k", minf(float(mo.get_shader_parameter("oil_k")), 0.25))
+			# the rock as wide as the row (an end plate's foot is the widest): on a small pebble the plate stood several
+			# times wider than its ground
+			if plates.size(): _widen_rock(grk, plates[plates.size() - 1], st)
 			dt.h = 0.3
 			dt.a = 0.35
 		"cluster":
