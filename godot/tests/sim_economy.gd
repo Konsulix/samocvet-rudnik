@@ -147,7 +147,8 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 				ev.append({t = i * 120.0, r = picks[i].x, c = picks[i].y, kind = "fx"})
 			_resolve(m, ev, [], broken)
 	return {won = won, used = used, broken = broken, colors = m.colors, mined = m.mined.duplicate(), mined_play = mined_play, left_moves = left_moves, moves = used + left_moves,
-		caught = int(m.maiden.get("caught", 0)),
+		caught = int(m.maiden.get("caught", 0)), coins_won = m.coins_won,
+		sold = (int((m.find.get("stone", {}) as Dictionary).get("value", 0)) if not m.find.is_empty() and bool(m.find.get("done", false)) else 0) + m.bonus.reduce(func(acc: int, st: Dictionary) -> int: return acc + int(st.get("value", 0)), 0),
 		goal0 = goal0, left = _goals_left(m),
 		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0,
 		tilt = m.scale_tilt() if m.scale_on() else 0.0, fell = m.scale_lost()}
