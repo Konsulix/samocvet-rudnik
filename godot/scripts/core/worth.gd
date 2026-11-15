@@ -10,7 +10,9 @@ extends RefCounted
 const UNIT := 60.0   # one point, in coins before the depth (≈ a plain amethyst)
 ## the whole price scaled so a mine's finds earn on average what they did before (tests/worth_sample: the mean over the
 ## five mines kept), only shared out by beauty
-const PRICE := 0.45
+## (15.11: ×0.6 — a seller had 5–11 thousand coins to spare at the boss; money is to feel short in mines 2–3, where
+## the drills cost it: tests/mine_chain.tscn -- smart sell)
+const PRICE := 0.27
 
 ## the body: the species' value squeezed — 60 stays 60, 15 → 30, 600 → 190, 2000 → 346
 static func body(sid: String) -> float:

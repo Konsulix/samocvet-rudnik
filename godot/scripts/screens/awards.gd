@@ -159,7 +159,7 @@ static var LIST := [
 	{tab = "mastery", icon = "hands", n = "Bare Hands", t = "Who needs tools?", r = "A hard level without boosters", one = true, ev = "bare_hands", give = {lives = 3}, items = ["kit:heart"]},
 	{tab = "mastery", icon = "bonfire", n = "On Fire", t = "Ten in a row. The mine is listening.", r = "Ten wins in a row", one = true, ev = "streak10", give = {boost = {pan = 3}}, items = ["res:res://assets/board/boosters/pan.png"]},
 	{tab = "mastery", icon = "crystal", n = "Not a Scratch", t = "Out of the rock in one piece.", r = "A find without a single chip", one = true, ev = "clean_find", give = {geode = 1}, items = ["i:crystal"]},
-	{tab = "mastery", icon = "scales", n = "Jackpot", t = "Someone will pay a fortune for that.", r = "A stone worth 10 000", one = true, ev = "jackpot", give = {coins = 2000}, items = ["kit:coin"]},
+	{tab = "mastery", icon = "scales", n = "Jackpot", t = "Someone will pay a fortune for that.", r = "A stone worth 6 000", one = true, ev = "jackpot", give = {coins = 2000}, items = ["kit:coin"]},
 
 	{tab = "secrets", icon = "broken_heart", n = "What Have You Done", t = "Someone will buy it. Someone always does.", r = "Sold a legendary stone", one = true, hide = true, ev = "sold_legend", give = {coins = 500}, items = ["kit:coin"]},
 	{tab = "secrets", icon = "cracked", n = "Butterfingers", t = "It was a nice stone. It was.", r = "A find dug out in pieces", one = true, hide = true, ev = "broken_find", give = {coins = 300}, items = ["i:cracked"]},
@@ -778,7 +778,7 @@ static func once(ev: String) -> void:
 static func _latch() -> void:
 	if int(Save.d.streak) >= 10: once("streak10")
 	for id in Save.d.atlas:
-		if int(Save.d.atlas[id].get("max_v", 0)) >= 10000: once("jackpot")
+		if int(Save.d.atlas[id].get("max_v", 0)) >= 6000: once("jackpot")   # (×0.6 with the prices, 15.11)
 	var h := Time.get_datetime_dict_from_system().hour as int
 	if h < 4: once("night")
 	if Save.d.atlas.size() >= 50: once("atlas50")

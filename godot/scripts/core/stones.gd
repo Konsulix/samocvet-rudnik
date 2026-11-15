@@ -42,7 +42,7 @@ static func roll_traits(id: int, legend: bool, gi: int, dl := 0) -> Array:
 
 ## a find's price above a mine's ceiling grows slowly (a soft cap): the jackpot stays, but one stone no longer buys a
 ## whole mine (playtest 31.10: 14 602 for an emerald when a drill cost 1–2 thousand)
-const CAP := 2500.0       # the first mine's; each next one ×(1 + CAP_AREA × mine)
+const CAP := 1500.0       # the first mine's (×0.6 with Worth.PRICE, 15.11); each next one ×(1 + CAP_AREA × mine)
 const CAP_AREA := 0.6
 static func capped(v: float, area: int) -> float:
 	var c := CAP * (1.0 + CAP_AREA * area)
