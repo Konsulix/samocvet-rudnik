@@ -326,7 +326,8 @@ static func _mine_dir(a: int) -> String:
 ## the banner's emblem: the beaten boss's sign, an empty socket while the boss stands, a lock on a mine not reached
 static func _sign(a: int, open: bool) -> String:
 	if a < 0 or not open: return "lock"
-	if a < Save.d.boss_won.size() and bool(Save.d.boss_won[a]):
+	# (the boss's own sign once it can be fought — the snake in it — not only once beaten)
+	if AtlasBoard.fight_open(a):
 		var sg: String = {0: "poloz", 1: "mistress", 2: "kraken", 3: "brontes", 7: "shubin"}.get(a, "empty")
 		return sg if ResourceLoader.exists("res://assets/atlas/emblem_%s.png" % sg) else "empty"
 	return "empty"
