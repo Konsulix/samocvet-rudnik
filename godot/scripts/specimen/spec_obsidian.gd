@@ -207,8 +207,10 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			cand.append(i)
 	# the old skin dull and pitted, the broken scoops mirror-black
 	var skin_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9})
+	# (the lantern's skin seen from inside too: through the window, a dark hollow, not the rock behind it)
+	var skin_in_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9, side = "double"})
 	var glass_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.03, coat = 0.4, coat_r = 0.01, env = 1.1})
-	var lamp_m := SpecMat.make({col = SpecMat.lin(0x6a3c16), glass = true, flat = false, thick = 1.6, frost = 0.0, prio = 2,
+	var lamp_m := SpecMat.make({col = SpecMat.lin(0x3c1e0a), glass = true, flat = false, thick = 1.6, frost = 0.0, prio = 2,
 		tint_body = 0.9, tint_glow = 0.12, dark_body = 0.7, deep_body = 1.8, coat = 0.6, coat_r = 0.02, rough = 0.02, seed = rng.next() * 40.0})
 	var first: Node3D = null
 	var placed := []
@@ -238,7 +240,7 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 		var mi := Node3D.new()
 		root.add_child(mi)
 		mi.transform = Transform3D(Basis(U.quat_to(Vector3.UP, nr.lerp(Vector3.UP, 0.4).normalized())) * Basis(Vector3.UP, rng.next() * TAU),
-			rock.position + at - nr * s * (0.5 if k == 0 else 0.45))
+			rock.position + at - nr * s * (0.32 if k == 0 else 0.45))
 		var skin := Color(0.03, 0.026, 0.024) * (0.7 + rng.next() * 0.5)
 		var parts := [Geo.new(), Geo.new(), Geo.new()]
 		var w := Vector3.UP
@@ -247,13 +249,26 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			# the lantern: a big tear with a window polished on it towards the viewer — smoky brown glass the
 			# light comes through, glowing like tea held to the sun; the rest of it in its dull skin
 			var tg := chunk(rng, s, 0, Vector3(1.05, 1.0, 0.95), 4)
-			w = (mi.transform.basis.inverse() * (view * 0.75 + nr * 0.5)).normalized()
+			w = (mi.transform.basis.inverse() * (view * 0.6 + nr * 0.6)).normalized()
 			var dmax := -9.0
 			for p in tg.v: dmax = maxf(dmax, p.dot(w))
-			# a tumbled window: a low dome, not a flat cut
+			# a tumbled window: a low dome, not a flat cut; round, as a polisher leaves it — its own clean disc of
+			# glass, the skin under it cut away
 			cut = dmax - s * 0.55
 			var rr := s * 1.7
 			var cc := w * (cut + s * 0.12 - rr)
+			var rc := 9.0
+			for t in range(0, tg.v.size(), 3):
+				# where the skin's surface crosses the cut: the window can be no wider
+				for e in 3:
+					var a0 := tg.v[t + e]
+					var a1 := tg.v[t + (e + 1) % 3]
+					var h0 := a0.dot(w) - cut
+					var h1 := a1.dot(w) - cut
+					if h0 * h1 < 0.0:
+						var x := a0.lerp(a1, h0 / (h0 - h1))
+						rc = minf(rc, (x - w * x.dot(w)).length())
+			rc *= 0.92
 			for i in tg.v.size():
 				var h := tg.v[i].dot(w) - cut
 				if h > 0.0:
@@ -264,14 +279,36 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 					tg.v[i] = dome if dome.dot(w) < tg.v[i].dot(w) else tg.v[i]
 					tg.own_n[i] = (tg.v[i] - cc).normalized()
 			for t in range(0, tg.v.size(), 3):
-				var on := 0
+				var inside := 0
 				for e in 3:
-					if tg.v[t + e].dot(w) > cut - 0.0005 * gs: on += 1
-				var pg: Geo = parts[2 if on == 3 else 0]
+					var p := tg.v[t + e]
+					if (p - w * p.dot(w)).length() < rc * 0.97 and p.dot(w) > cut - 0.001 * gs: inside += 1
+				if inside == 3: continue
 				for e in 3:
-					pg.v.append(tg.v[t + e])
-					pg.own_n.append(tg.own_n[t + e])
-					pg.col.append(skin)
+					parts[0].v.append(tg.v[t + e])
+					parts[0].own_n.append(tg.own_n[t + e])
+					parts[0].col.append(skin)
+			# the disc: rings round the window's middle, laid on the dome just over the skin
+			var t1 := w.cross(Vector3.UP if absf(w.y) < 0.9 else Vector3.RIGHT).normalized()
+			var t2 := w.cross(t1)
+			var NR := 12
+			var NS := 56
+			var ring := func(f: float, a: float) -> Vector3:
+				var off := (t1 * cos(a) + t2 * sin(a)) * rc * f
+				return cc + off + w * (sqrt(maxf(0.0, rr * rr - off.length_squared())) + 0.002 * gs)
+			var dg: Geo = parts[2]
+			for ri in NR:
+				var f0 := float(ri) / NR
+				var f1 := float(ri + 1) / NR
+				for si in NS:
+					var a0 := TAU * si / NS
+					var a1 := TAU * (si + 1) / NS
+					var quad := [ring.call(f0, a0), ring.call(f1, a0), ring.call(f1, a1), ring.call(f0, a1)]
+					for ix in [0, 1, 2, 0, 2, 3]:
+						var pv: Vector3 = quad[ix]
+						dg.v.append(pv)
+						dg.own_n.append((pv - cc).normalized())
+						dg.col.append(Color(1, 1, 1))
 		else:
 			var tg := chunk(rng, s, 1 + int(rng.next() * 3), Vector3(1.0 + rng.next() * 0.3, 0.8 + rng.next() * 0.3, 0.8 + rng.next() * 0.2), 3, 0.6)
 			var sc3: Vector3 = (tg.get_meta("shape") as Array)[2]
@@ -286,7 +323,7 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 					pg.col.append(skin if on >= 2 else Color(0.006, 0.005, 0.005))
 		for pi in 3:
 			if (parts[pi] as Geo).v.size():
-				U.mesh(parts[pi], [skin_m, glass_m, lamp_m][pi], mi).set_meta("col", true)
+				U.mesh(parts[pi], [skin_in_m if k == 0 else skin_m, glass_m, lamp_m][pi], mi).set_meta("col", true)
 		if k == 0:
 			# the light inside: warm, as if the sun stood behind it — it reaches the perlite round it too
 			var lamp := OmniLight3D.new()
@@ -297,11 +334,12 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			lamp.position = Vector3(0, s * 0.15, 0)
 			mi.add_child(lamp)
 			# and its glow: brightest in the middle of the window, where the light comes through, dark at the rim
-			var core := Geo.icosa(s * 0.42, 3).weld()
-			var cm := SpecMat.make({col = Color(1, 1, 1), unshaded = true, add = true, emis = Color(0, 0, 0), a = 1.0})
-			cm.set_shader_parameter("albedo", Vector3(0.9, 0.45, 0.14))
-			var cmi := U.mesh(core, cm, mi, w * (cut - s * 0.35))
-			cmi.set_meta("col", true)
+			for gl: Array in [[0.55, 0.1], [0.38, 0.18], [0.24, 0.3], [0.12, 0.4]]:
+				var core := Geo.icosa(s * float(gl[0]), 3).weld()
+				var cm := SpecMat.make({col = Color(1, 1, 1), unshaded = true, add = true, a = 1.0})
+				var k2: float = gl[1]
+				cm.set_shader_parameter("albedo", Vector3(1.0, 0.52, 0.18) * k2)
+				U.mesh(core, cm, mi, w * (cut - s * 0.45)).set_meta("col", true)
 		if first == null:
 			first = mi
 			b._mark("ob_tears", mi.position + nr * s * 0.6, nr)
