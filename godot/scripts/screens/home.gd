@@ -831,11 +831,15 @@ func _open_tasks() -> void:
 		h.add_child(tv)
 		var reach: bool = i <= open
 		var can: bool = not done and reach and Save.d.ore >= cost
-		var b := UI.button("✓" if done else str(cost) if reach else here, "gold" if can else "glass", 14)
+		var paid: Array = _steps_paid(a, String(t[0]), int(t[2]))
+		var pn: int = maxi(1, int(paid[0]))
+		var b := UI.button("✓" if done else ("%d ×%d" % [int(paid[1]), pn] if pn > 1 else str(cost)) if reach else here, "gold" if can else "glass", 14)
 		b.custom_minimum_size = Vector2(70, 40)
 		b.disabled = not can
 		var tid: String = t[0]
-		b.pressed.connect(func(): _build(tid, i))
+		b.pressed.connect(func():
+			Ov.close()
+			_build_many(tid, i, pn))
 		h.add_child(b)
 		row.add_child(h)
 		v.add_child(row)
@@ -859,15 +863,20 @@ func _open_next() -> void:
 	if not st.job.is_empty():
 		var cost: int = MineView.step_cost(a, String(st.job[0]), int(st.job[2]))
 		var can: bool = not st.job_done and Save.d.ore >= cost
+		var paid: Array = _steps_paid(a, String(st.job[0]), int(st.job[2]))
 		var bt: Button = null
 		if not st.job_done:
-			bt = Kit.button("Build", "btn_gold" if can else "btn_dark", 15, 0.0)
+			bt = Kit.button("Build ×%d" % int(paid[0]) if int(paid[0]) > 1 else "Build", "btn_gold" if can else "btn_dark", 15, 0.0)
 			bt.disabled = not can
 		var stp := _step_label(a, String(st.job[0]))
 		var i: int = st.k
 		var tid: String = st.job[0]
-		if bt: bt.pressed.connect(func(): _build(tid, i))
-		v.add_child(_need_row("ore", String(st.job[1]) + stp, "Done" if st.job_done else "%d %s · you have %d" % [cost, on, Save.d.ore], st.job_done, bt))
+		var pn: int = maxi(1, int(paid[0]))
+		if bt: bt.pressed.connect(func():
+			Ov.close()
+			_build_many(tid, i, pn))
+		var need := "%d %s for %d steps · you have %d" % [int(paid[1]), on, pn, Save.d.ore] if pn > 1 else "%d %s · you have %d" % [cost, on, Save.d.ore]
+		v.add_child(_need_row("ore", String(st.job[1]) + stp, "Done" if st.job_done else need, st.job_done, bt))
 	if not st.last:
 		var fe: int = st.fe
 		var cn: int = st.coins
@@ -981,6 +990,35 @@ func _step_label(a: int, tid: String) -> String:
 	var n := MineView.job_steps(a)
 	if n <= 1 or tid in Save.d.built[a]: return ""
 	return " · step %d/%d" % [MineView.job_step(a, tid) + 1, n]
+
+## how many steps of a job the ore in hand pays for, in a row from the next one, and what they cost together: [n, ore]
+func _steps_paid(a: int, tid: String, cost: int) -> Array:
+	var n := MineView.job_steps(a)
+	var s := MineView.job_step(a, tid)
+	var ore := int(Save.d.ore)
+	var k := 0
+	var sum := 0
+	while s + k < n:
+		var c := ceili(cost * (s + k + 1) / float(n)) - ceili(cost * (s + k) / float(n))
+		if ore < sum + c: break
+		sum += c
+		k += 1
+	return [k, sum]
+
+## (15.11) every step the ore pays for at one press: built in turn, each stage coming in quicker (MineView.reveal_k),
+## the next once the last has played — rather than pressing Build again and again with the stages lost in between
+var _building := false
+func _build_many(tid: String, i: int, n: int) -> void:
+	if _building: return
+	_building = true
+	MineView.reveal_k = 0.6 if n > 1 else 1.0
+	for k in n:
+		if k > 0:
+			await get_tree().create_timer(2.1).timeout
+			if not is_inside_tree(): break
+		_build(tid, i)
+	MineView.reveal_k = 1.0
+	_building = false
 
 ## one step of a job (all of it where jobs are not split): the ore is paid, the picture moves on a step; the last step
 ## finishes the job (the mine's chest, the way down)

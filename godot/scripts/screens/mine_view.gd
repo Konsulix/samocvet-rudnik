@@ -337,6 +337,10 @@ func _changes() -> void:
 			if focus_y < 0: focus_y = band_y(int(k)) + float(J.band) * 0.5
 
 ## a stage coming in over the old one: ink lines first, then the colour; at the end the still layer takes it over
+## how long a new stage takes to come in, against its own 2.6 s: Home._build_many plays several steps of a job in turn,
+## each quicker (15.11)
+static var reveal_k := 1.0
+
 func _reveal(path: String, pos: Vector2, delay: float, done: Callable, prev_path := "", place := "", order: Array = []) -> void:
 	var sp := Sprite2D.new()
 	sp.centered = false
@@ -375,9 +379,9 @@ func _reveal(path: String, pos: Vector2, delay: float, done: Callable, prev_path
 			cover.position = (qp - pos) * K
 			sp.add_child(cover)
 	var tw := sp.create_tween()
-	tw.tween_interval(delay)
+	tw.tween_interval(delay * reveal_k)
 	tw.tween_callback(func(): amb.shot("rockfall", -6.0, 0.9))
-	tw.tween_method(func(v: float): m.set_shader_parameter("p", v), 0.0, 1.0, 2.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(v: float): m.set_shader_parameter("p", v), 0.0, 1.0, 2.6 * reveal_k).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(func():
 		done.call()
 		still.queue_redraw()
