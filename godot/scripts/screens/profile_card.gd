@@ -26,7 +26,8 @@ static func open() -> void:
 ## the window's title with its brass rule, the close cross on the window's corner (out of the layout)
 static func _head(v: VBoxContainer, title: String) -> void:
 	v.add_child(UI.title(title, 22))
-	var r := Kit.rule(220)
+	# under it the genes' brass underline, as the Records' bars
+	var r := _bar(200.0)
 	r.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(r)
 	var x := Reveal.thin_close()
