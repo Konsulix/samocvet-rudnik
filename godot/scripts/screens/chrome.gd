@@ -312,9 +312,18 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	st.content_margin_right = 6
 	st.content_margin_top = 6
 	st.content_margin_bottom = 4 + UI.safe_bottom()
-	st.shadow_color = Color(0, 0, 0, 0.5)
-	st.shadow_size = 14
 	bar.add_theme_stylebox_override("panel", st)
+	# the screen fades into the bar: a soft darkening rises 30 pt over its top edge (no hard edge, no line)
+	bar.draw.connect(func():
+		const H := 30.0
+		var w := bar.size.x
+		var c := st.bg_color
+		var cols := PackedColorArray([Color(c, 0.0), Color(c, 0.0), Color(c, c.a), Color(c, c.a)])
+		# eased: two bands, the upper one fainter, so the fade has no visible start
+		bar.draw_polygon(PackedVector2Array([Vector2(0, -H), Vector2(w, -H), Vector2(w, -H * 0.45), Vector2(0, -H * 0.45)]),
+			PackedColorArray([Color(c, 0.0), Color(c, 0.0), Color(c, c.a * 0.3), Color(c, c.a * 0.3)]))
+		bar.draw_polygon(PackedVector2Array([Vector2(0, -H * 0.45), Vector2(w, -H * 0.45), Vector2(w, 0), Vector2(0, 0)]),
+			PackedColorArray([Color(c, c.a * 0.3), Color(c, c.a * 0.3), Color(c, c.a), Color(c, c.a)])))
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 5)
 	var tabs := [["map", "Mines", "map"], ["home", "Mine", "mine"], ["atlas", "Atlas", "collection"], ["museum", "Inventory", "equipment"]]
