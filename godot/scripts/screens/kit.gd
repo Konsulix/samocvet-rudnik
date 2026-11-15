@@ -7,7 +7,7 @@ const DIR := "res://assets/ui/kit/"
 ## frame -> [left, top, right, bottom corners (picture px), picture px per point]
 const FRAMES := {
 	window = [86, 86, 86, 86, 3.6], card = [48, 48, 48, 48, 3.4], tab = [48, 48, 48, 48, 3.4],
-	tab_on = [50, 50, 50, 50, 3.4], btn_green = [66, 44, 66, 44, 3.0], btn_slate = [66, 44, 66, 44, 3.0], btn_gold = [56, 44, 56, 44, 3.0],
+	tab_on = [50, 50, 50, 50, 3.4], btn_green = [66, 44, 66, 44, 3.0], btn_ruby = [66, 44, 66, 44, 3.0], btn_slate = [66, 44, 66, 44, 3.0], btn_gold = [56, 44, 56, 44, 3.0],
 	btn_dark = [46, 38, 46, 38, 3.0], title = [56, 36, 56, 36, 3.0], capsule = [72, 44, 72, 44, 3.2],
 	sq_gold = [36, 36, 36, 36, 3.0], sq_dark = [36, 36, 36, 36, 3.0],
 	bubble = [46, 46, 46, 46, 3.0],
@@ -18,13 +18,13 @@ const FRAMES := {
 ## plates whose round ends must keep their shape: scaled to the height, stretched only sideways (KitBox.fit_h)
 const FIT_H := ["capsule"]
 ## plates with a round rivet on each short end: half the rivet's height in picture px, kept as drawn (KitBox.pin)
-const PIN := {btn_green = 18.0, btn_slate = 18.0, title = 15.0}
+const PIN := {btn_green = 18.0, btn_ruby = 18.0, btn_slate = 18.0, title = 15.0}
 ## panels drawn as a hollow frame over a tiled slate (art/ui_kit/slate_fill.py, hollow_frame.py; the tile —
 ## slate_tile.py): frame -> [frame picture, tile, how far in the tile starts (picture px)]. Their own slate middle,
 ## repeated to fit, showed its joins as stripes (playtest 31.10)
 const FILLS := {window = ["window_frame", "slate", 24.0], btn_dark = ["btn_dark_frame", "btn_dark_slate", 14.0]}
 ## frames whose middle is seamless (art/ui_kit/seam_mid.py) and repeats along these axes instead of stretching
-const TILE := {btn_green = "x", btn_slate = "x", title = "x", card = "xy", tab = "xy"}
+const TILE := {btn_green = "x", btn_ruby = "x", btn_slate = "x", title = "x", card = "xy", tab = "xy"}
 const CREAM := Color("#f3e6c8")       # text on slate
 const AMBER := Color("#e6c47e")       # calm brass, like the frames (was #ffc95a)
 const DIM := Color("#a89c86")
@@ -102,7 +102,7 @@ static func button(text: String, frame := "btn_dark", font_size := 18, pad := -1
 	b.add_theme_font_override("font", UI.display)
 	b.add_theme_font_size_override("font_size", font_size)
 	var kind := frame.trim_suffix("_calm")
-	var fc := ON_GREEN if kind == "btn_green" else Color("#2b1a04") if kind in ["btn_gold", "sq_gold"] else CREAM
+	var fc := ON_GREEN if kind in ["btn_green", "btn_ruby"] else Color("#2b1a04") if kind in ["btn_gold", "sq_gold"] else CREAM
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(st, fc)
 	b.add_theme_color_override("font_disabled_color", Color(fc, 0.4))

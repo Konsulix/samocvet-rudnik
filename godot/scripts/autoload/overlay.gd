@@ -86,9 +86,11 @@ func text(s: String, size := 15, col := Color("#cbbfa6")) -> Label:
 
 ## a card's button in the drawn kit: green -> the green plate, gold -> brass, anything else -> dark slate
 func btn(label: String, kind: String, fn: Callable, enabled := true) -> Button:
-	var frame: String = {green = "btn_green", gold = "btn_gold"}.get(kind, "btn_dark")
-	var b := Kit.button(label, frame, 20 if frame == "btn_green" else 18, 6.0)
-	b.custom_minimum_size = Vector2(0, 60 if frame == "btn_green" else 50)
+	# (ruby: the green plate's face in the board's ruby, art/ui_kit/emerald_face.py — a boss fight)
+	var frame: String = {green = "btn_green", gold = "btn_gold", ruby = "btn_ruby"}.get(kind, "btn_dark")
+	var big := frame in ["btn_green", "btn_ruby"]
+	var b := Kit.button(label, frame, 20 if big else 18, 6.0)
+	b.custom_minimum_size = Vector2(0, 60 if big else 50)
 	b.disabled = not enabled
 	b.pressed.connect(fn)
 	return b

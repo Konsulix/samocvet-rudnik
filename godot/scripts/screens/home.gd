@@ -909,7 +909,7 @@ func _open_next() -> void:
 	elif st.job_done and _boss_waits():
 		var B: Dictionary = Data.AREAS[a].boss
 		v.add_child(Ov.text("Below, at %d m, %s guards the mine. Beat it to go on to the next one." % [int(B.m), B.n], 13, Color("#ffb0a0")))
-		v.add_child(Ov.btn("Fight · %s" % B.n, "red", func(): _fight_boss()))
+		v.add_child(Ov.btn("Fight · %s" % B.n, "ruby", func(): _fight_boss()))
 	elif st.job_done and a < Data.AREAS.size() - 1:
 		v.add_child(_next_mine_btn(a))
 	v.add_child(Ov.btn("All jobs", "glass", func():
@@ -939,14 +939,23 @@ func _boss_panel(sel: Array) -> void:
 	for f in free:
 		if not f in sel: sel.append(f)
 	var v := Ov.card(350)
-	Kit.lantern(Ov.holder())
 	_keep_clear()
-	v.add_child(UI.title(String(B.n), 26))
-	v.add_child(Kit.rule(220))
+	# not a level's window: the boss's own medallion on top (as in the atlas: its sign, a socket for each difficulty,
+	# a ruby in each one beaten, the empty ones flaring now and then), the name over a gene's brass bar, a ruby Fight
+	var md := BossMedal.new(ai())
+	md.custom_minimum_size = Vector2(118, 118)
+	md.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(md)
+	var nm := Reveal.chip(String(B.n), true)
+	nm.add_theme_font_override("font", UI.display)
+	nm.add_theme_font_size_override("font_size", 26)
+	nm.add_theme_color_override("font_color", Kit.CREAM)
+	nm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(nm)
 	v.add_child(Ov.text("%s · %d m" % [String(B.get("sub", "")), int(B.m)] if B.has("sub") else "%d m" % int(B.m), 14, UI.GOLD))
 	v.add_child(Ov.text("Take something to start with: specials wait on the board.", 13))
 	v.add_child(_pre_row(sel, free, func(): _boss_panel(sel)))
-	v.add_child(Ov.btn("Fight", "green", func():
+	v.add_child(Ov.btn("Fight", "ruby", func():
 		var sps := _pre_take(sel, free)
 		Ov.close()
 		play.emit(Save.d.level, sps, Data.depths(ai()).size())))
@@ -1118,7 +1127,7 @@ func _build(tid: String, i: int) -> void:
 		render()
 		var btns := []
 		if _boss_waits():
-			btns.append(["Fight · %s" % A.boss.n, "red", func(): _fight_boss()])
+			btns.append(["Fight · %s" % A.boss.n, "ruby", func(): _fight_boss()])
 		elif a < Data.AREAS.size() - 1:
 			btns.append(["Go to %s ›" % Data.AREAS[a + 1].n, "green", func():
 				Save.open_mine(a + 1)

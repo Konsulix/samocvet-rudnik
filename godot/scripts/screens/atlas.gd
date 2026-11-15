@@ -350,7 +350,7 @@ func _boss_card(a: int) -> void:
 	else:
 		v.add_child(Ov.text("Beaten at his worst. He'll fight that hard again.", 14, Kit.AMBER))
 	v.add_child(Ov.text("A life, like any level. Coins for the win, but the hoard was yours the first time.", 13))
-	v.add_child(Ov.btn("Fight again", "red", func():
+	v.add_child(Ov.btn("Fight again", "ruby", func():
 		Ov.close()
 		replay.emit(a)))
 	v.add_child(Ov.btn("Not now", "glass", func(): Ov.close()))
