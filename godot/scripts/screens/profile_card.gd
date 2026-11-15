@@ -69,7 +69,12 @@ static func _build() -> void:
 	g.add_theme_constant_override("v_separation", 8)
 	var s := Profile.showcase()
 	g.add_child(_portrait_sq())
-	g.add_child(_find_sq(s))
+	# the card a little smaller than the portrait's square: the drawn frame's ragged edge stops short of it, and at the
+	# same square the card looked a size bigger
+	var fc := CenterContainer.new()
+	fc.custom_minimum_size = Vector2(SQ, SQ)
+	fc.add_child(_find_sq(s))
+	g.add_child(fc)
 	var e := Kit.button("Edit", "btn_green", 16, 3.0)
 	e.custom_minimum_size = Vector2(SQ, 36)
 	e.pressed.connect(func(): _edit())
@@ -98,24 +103,25 @@ static func _portrait_sq() -> Control:
 ## the costliest stone hanging from the card's top edge (a cup on it; a tap on it says what it is); a tap on the stone
 ## opens its card
 static func _find_sq(s: Dictionary) -> Control:
+	const C := SQ * 0.85
 	var w := PanelContainer.new()
-	w.custom_minimum_size = Vector2(SQ, SQ)
+	w.custom_minimum_size = Vector2(C, C)
 	w.add_theme_stylebox_override("panel", Kit.box("card", 5.0))
 	var inner := Control.new()
-	inner.custom_minimum_size = Vector2(SQ - 10, SQ - 10)
+	inner.custom_minimum_size = Vector2(C - 10, C - 10)
 	inner.clip_contents = true
 	w.add_child(inner)
 	if s.is_empty():
 		var l := Kit.label("Your best find\nwill stand here", 12, UI.body_bold, Kit.DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.size = Vector2(SQ - 10, SQ - 10)
+		l.size = Vector2(C - 10, C - 10)
 		inner.add_child(l)
 		return w
 	var glow := TextureRect.new()
 	glow.texture = FxLayer.puff()
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.size = Vector2(SQ - 10, SQ - 10)
+	glow.size = Vector2(C - 10, C - 10)
 	glow.modulate = Color(Data.rarity_color(int(s.tier)), 0.45)
 	glow.material = FxLayer.add_material()
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -123,14 +129,14 @@ static func _find_sq(s: Dictionary) -> Control:
 	var img := TextureRect.new()
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	img.position = Vector2(SQ - 10, SQ - 10) * 0.08
-	img.size = Vector2(SQ - 10, SQ - 10) * 0.84
+	img.position = Vector2(C - 10, C - 10) * 0.08
+	img.size = Vector2(C - 10, C - 10) * 0.84
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(img)
 	var have := Atlas.cached(s)
 	if have: img.texture = have
 	else: Atlas.cutout(s, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
-	var tap := _flat_button(Vector2(SQ - 10, SQ - 10))
+	var tap := _flat_button(Vector2(C - 10, C - 10))
 	tap.pressed.connect(func():
 		Sfx.play("click")
 		_open_stone(s))
@@ -146,19 +152,20 @@ static func _find_sq(s: Dictionary) -> Control:
 static func _find_plate(s: Dictionary) -> Control:
 	var plate := PanelContainer.new()
 	plate.custom_minimum_size = Vector2(SQ, 36)
-	plate.add_theme_stylebox_override("panel", Kit.box("btn_gold", 3.0))
+	# dark, as the records' plates: dark letters on the brass did not read
+	plate.add_theme_stylebox_override("panel", Kit.box("btn_dark", 3.0))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 4)
 	if s.is_empty():
-		line.add_child(Kit.label("-", 14, UI.display, Color("#2a1d0e")))
+		line.add_child(Kit.label("-", 16, UI.display, Kit.DIM))
 	else:
 		var name := Stones.name_of(s)
-		line.add_child(Kit.label(name, 16 if name.length() <= 9 else (12 if name.length() <= 13 else 10), UI.display, Color("#2a1d0e")))
+		line.add_child(Kit.label(name, 16 if name.length() <= 9 else (12 if name.length() <= 13 else 10), UI.display, Kit.CREAM))
 		var coin := Kit.res_icon("coin", 16)
 		coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(coin)
-		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 16, UI.display, Color("#2a1d0e")))
+		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 16, UI.display, Kit.AMBER))
 	plate.add_child(line)
 	return plate
 
