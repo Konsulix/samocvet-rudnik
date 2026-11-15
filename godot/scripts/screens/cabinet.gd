@@ -43,17 +43,18 @@ func _ready() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	# the ceiling (art/ui_redesign/cabinet/ceiling: GPT painted the room on upward) over the room, up to the screen's
-	# top, under the top bar; its lowest 96 px fade over the room's own top
+	# top, under the top bar; its lowest 96 px fade over the room's own top (so it is drawn over the room)
 	ceiling = Control.new()
 	ceiling.size = size
 	ceiling.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ceiling.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	ceiling.draw.connect(_draw_ceiling)
-	add_child(ceiling)
 	var root := VBoxContainer.new()
 	root.size = size
 	root.add_theme_constant_override("separation", 0)
 	add_child(root)
+	# over the room (its fading foot lies over the room's own top: under the room the seam showed), under the bar
+	add_child(ceiling)
 	var pad := MarginContainer.new()
 	for side in ["left", "right"]: pad.add_theme_constant_override("margin_" + side, 12)
 	pad.add_theme_constant_override("margin_top", 10 + int(UI.safe_top()))
