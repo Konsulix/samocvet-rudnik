@@ -11,7 +11,7 @@ static var tab := "faces"
 ## the fresh things shown as new on this opening (looked at once the card is open: next time they are not new)
 static var _new: Array = []
 
-## the profile; `-- ui=profile [ptab=faces|frames|titles]` (a tab given: straight to Edit Profile)
+## the profile; `-- ui=profile [ptab=faces|frames|titles]` (a tab given: straight to Edit Profile; `prename`: the name)
 static func open() -> void:
 	var edit := false
 	for a in OS.get_cmdline_user_args():
@@ -19,7 +19,8 @@ static func open() -> void:
 			tab = a.substr(5)
 			edit = true
 	_new = Profile.fresh()
-	if edit: _edit()
+	if OS.get_cmdline_user_args().has("prename"): _rename()
+	elif edit: _edit()
 	else: _build()
 	if not _new.is_empty(): Profile.mark_seen(_new)
 
@@ -276,16 +277,41 @@ static func _edit() -> void:
 	var v := Ov.card(W)
 	v.add_theme_constant_override("separation", 12)
 	_head(v, "Edit Profile")
-	# the preview, no panel round it: the portrait as it is worn, the title worn under it (the names of the portrait
-	# and the frame read as riddles - "The Miner, Pit Props" - and are left out)
+	# the preview, no panel round it: the portrait as it is worn; beside it the player's name on a dark plate with a
+	# pencil (a tap renames), and the title worn under it
+	var ph := HBoxContainer.new()
+	ph.alignment = BoxContainer.ALIGNMENT_CENTER
+	ph.add_theme_constant_override("separation", 14)
 	var pc := Control.new()
 	pc.custom_minimum_size = Vector2(100, 100)
-	pc.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pc.add_child(Chrome.portrait(100, String(Profile.frame().id), String(Profile.face().id)))
-	v.add_child(pc)
-	var tl := Kit.label(Profile.title(), 16, UI.display, Kit.AMBER)
-	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(tl)
+	ph.add_child(pc)
+	var words := VBoxContainer.new()
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 6)
+	var plate := Kit.button("", "btn_dark", 16, 3.0)
+	plate.custom_minimum_size = Vector2(170, 38)
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 12
+	row.offset_right = -8
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var nm := Kit.label(Profile.player_name(), 16, UI.display, Kit.CREAM)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(nm)
+	var pen := _pencil(22.0)
+	pen.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(pen)
+	plate.add_child(row)
+	plate.pressed.connect(func(): _rename())
+	words.add_child(plate)
+	var tl := Kit.label(Profile.title(), 15, UI.display, Kit.AMBER)
+	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	words.add_child(tl)
+	ph.add_child(words)
+	v.add_child(ph)
 	v.add_child(_tabs())
 	# the tiles straight on the window (no panel round them); the same height on every tab: the window does not jump
 	var body := VBoxContainer.new()
@@ -297,6 +323,68 @@ static func _edit() -> void:
 	done.custom_minimum_size.x = 120
 	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(done)
+
+## a small brass pencil, drawn: a hexagon-faceted body corner to corner, a pale wooden cone and a dark lead at the
+## lower left, a ferrule and a dark eraser at the upper right
+static func _pencil(sz: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(sz, sz)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.draw.connect(func():
+		var a := Vector2(sz * 0.12, sz * 0.88)          # the lead's point
+		var b := Vector2(sz * 0.9, sz * 0.1)            # the eraser's end
+		var d := (b - a).normalized()
+		var n := d.orthogonal() * sz * 0.13
+		var p0 := a + d * sz * 0.26                     # where the wood's cone meets the body
+		var p1 := b - d * sz * 0.22                     # the ferrule
+		var p2 := b - d * sz * 0.12
+		var ink := Color(0.1, 0.06, 0.03)
+		# a dark rim first, then the parts
+		for q: PackedVector2Array in [PackedVector2Array([a, p0 + n * 1.25, b + n * 1.25, b - n * 1.25, p0 - n * 1.25])]:
+			c.draw_colored_polygon(q, ink)
+		c.draw_colored_polygon(PackedVector2Array([a + d * 1.2, p0 + n, p0 - n]), Color(0.86, 0.72, 0.52))
+		c.draw_colored_polygon(PackedVector2Array([a, a + d * sz * 0.1 + n * 0.4, a + d * sz * 0.1 - n * 0.4]), Color(0.18, 0.16, 0.16))
+		c.draw_colored_polygon(PackedVector2Array([p0 + n, p1 + n, p1, p0]), Color(0.98, 0.84, 0.5))
+		c.draw_colored_polygon(PackedVector2Array([p0, p1, p1 - n, p0 - n]), Color(0.72, 0.52, 0.22))
+		c.draw_colored_polygon(PackedVector2Array([p1 + n, p2 + n, p2 - n, p1 - n]), Color(0.62, 0.62, 0.58))
+		c.draw_colored_polygon(PackedVector2Array([p2 + n, b + n, b - n, p2 - n]), Color(0.55, 0.22, 0.2)))
+	return c
+
+## the name: a field with the name in it (the keyboard comes up), Save and Cancel; back to Edit Profile
+static func _rename() -> void:
+	Sfx.play("click")
+	var v := Ov.card(W)
+	v.add_theme_constant_override("separation", 12)
+	_head(v, "Your name")
+	var f := LineEdit.new()
+	f.text = String(Profile._prof().get("name", ""))
+	f.placeholder_text = "Miner"
+	f.max_length = Profile.NAME_MAX
+	f.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	f.custom_minimum_size = Vector2(240, 46)
+	f.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	f.add_theme_font_override("font", UI.display)
+	f.add_theme_font_size_override("font_size", 20)
+	f.add_theme_color_override("font_color", Kit.CREAM)
+	f.add_theme_color_override("font_placeholder_color", Kit.DIM)
+	f.add_theme_color_override("caret_color", Kit.AMBER)
+	for st in ["normal", "focus", "read_only"]: f.add_theme_stylebox_override(st, Kit.box("btn_dark", 8.0))
+	v.add_child(f)
+	var save := func():
+		Profile._prof()["name"] = f.text.strip_edges().substr(0, Profile.NAME_MAX)
+		Save.persist()
+		_edit()
+	f.text_submitted.connect(func(_t: String): save.call())
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	var cancel := Ov.btn("Cancel", "dark", func(): _edit())
+	var ok := Ov.btn("Save", "green", save)
+	for b: Button in [cancel, ok]:
+		b.custom_minimum_size.x = 120
+		row.add_child(b)
+	v.add_child(row)
+	f.call_deferred("grab_focus")
 
 static func _tabs() -> Control:
 	var h := HBoxContainer.new()

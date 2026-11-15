@@ -87,6 +87,12 @@ static func title() -> String:
 		if (RANKS.map(func(r): return String(r[1])) as Array).has(String(t[0])): best = String(t[0])
 	return best
 
+## the player's name (Edit Profile): what they typed, else "Miner"
+const NAME_MAX := 16
+static func player_name() -> String:
+	var n := String(_prof().get("name", "")).strip_edges()
+	return n if n != "" else "Miner"
+
 static func wear(kind: String, id: String) -> void:
 	_prof()[kind] = id
 	Save.persist()
