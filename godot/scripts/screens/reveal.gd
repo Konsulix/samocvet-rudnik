@@ -18,6 +18,7 @@ static var _name_l: Label   # the last card's name, for unmask()
 ## the reveal: a live specimen, its label, sell or keep. `others` were the stones not chosen.
 func show_stone(s: Dictionary, others := []) -> void:
 	var tier: int = s.tier
+	Diag.note("card: %s, tier %d, %d coins" % [Stones.name_of(s), tier, int(s.get("value", 0))])
 	Sfx.play("reveal", tier)
 	Sfx.buzz(140 if tier >= 3 else 40)
 	if not s.sid in Save.d.seen:

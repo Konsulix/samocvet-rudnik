@@ -958,6 +958,7 @@ func _dig() -> void:
 	Save.d.fe -= int(st.fe)
 	Save.d.coins -= int(st.coins)
 	var k: int = int(st.k) + 1
+	Diag.note("dig to %d m" % Data.depth_m(a, k))
 	Save.d.depth[a] = k
 	Save.d.depth_sel[a] = k
 	Save.persist()
@@ -1011,6 +1012,7 @@ var _building := false
 func _build_many(tid: String, i: int, n: int) -> void:
 	if _building: return
 	_building = true
+	Diag.note("build %s x%d" % [tid, n])
 	MineView.reveal_k = 0.45 if n > 1 else 1.0   # (0.2 s wait + 1.2 s: done before the next step at 1.5 s)
 	for k in n:
 		if k > 0:

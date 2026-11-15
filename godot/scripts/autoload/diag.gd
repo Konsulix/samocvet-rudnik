@@ -38,6 +38,11 @@ func _ready() -> void:
 	_keep_prev()
 	_file = FileAccess.open(RUN_LOG, FileAccess.WRITE)
 	note("start: %s, %s, %d cores" % [OS.get_model_name(), RenderingServer.get_video_adapter_name(), OS.get_processor_count()])
+	# (15.11) which build this journal is from: the commit the iOS build was made of (res://build_stamp.gd), else "dev"
+	var build := "dev"
+	if ResourceLoader.exists("res://build_stamp.gd"):
+		build = str((load("res://build_stamp.gd") as GDScript).get_script_constant_map().get("ID", "?"))
+	note("build %s" % build)
 
 ## add a line (safe from any thread)
 func note(s: String) -> void:
@@ -67,15 +72,26 @@ func _keep_prev() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			if _away_at == 0.0: _away_at = Time.get_unix_time_from_system()
 			note(AWAY)
 		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
-			note(BACK)
+			# (how long it was away: a long break may have let iOS clear its shader cache, or close the game)
+			var away := Time.get_unix_time_from_system() - _away_at if _away_at > 0.0 else 0.0
+			_away_at = 0.0
+			note("%s after %s" % [BACK, _span(away)] if away >= 1.0 else BACK)
 		NOTIFICATION_OS_MEMORY_WARNING:
 			note("iOS: MEMORY WARNING, free %d MB, vram %d MB" % [_mem_mb(), _vram_mb()])
 		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_PREDELETE:
 			if _file:
 				note(CLEAN)
 				_file = null
+
+var _away_at := 0.0
+
+static func _span(s: float) -> String:
+	if s < 120.0: return "%d s" % roundi(s)
+	if s < 7200.0: return "%d min" % roundi(s / 60.0)
+	return "%.1f h" % (s / 3600.0)
 
 ## the memory the system still has for us; -1 where it can't tell
 static func _mem_mb() -> int:

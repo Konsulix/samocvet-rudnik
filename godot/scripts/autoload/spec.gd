@@ -98,6 +98,10 @@ func _warm() -> void:
 			while warm_pause or _busy:
 				await get_tree().create_timer(0.25).timeout
 			_busy = true
+		# (a picture built between two of these clears the studio, and the balls' node with it: made again then)
+		if not is_instance_valid(balls) or not balls.is_inside_tree():
+			balls = Node3D.new()
+			studio.stage.add_child(balls)
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		mi.material_override = m
@@ -114,7 +118,7 @@ func _warm() -> void:
 				await get_tree().process_frame
 		done += 1
 		if done <= first: warm_progress = done / float(first)
-	balls.queue_free()
+	if is_instance_valid(balls): balls.queue_free()
 	warm_all_done = true
 	Diag.note("background shader warm-up done: %d more in %.1f s from the start" % [mats.size() - first, (Time.get_ticks_msec() - warm_t0) / 1000.0])
 	if _queue.size():

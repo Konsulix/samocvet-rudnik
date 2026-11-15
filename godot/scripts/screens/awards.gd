@@ -880,6 +880,7 @@ static func give_of(e: Dictionary) -> Dictionary:
 static func claim(e: Dictionary) -> void:
 	if _state(e) != "ready": return
 	var gv := give_of(e)
+	Diag.note("claim %s" % String(e.n))
 	Save.d.aw_got.append(String(e.n))
 	Save.d.coins += int(gv.get("coins", 0))
 	Save.d.lives += int(gv.get("lives", 0))

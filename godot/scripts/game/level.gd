@@ -36,6 +36,7 @@ var _swipes_in_flight := 0
 var _phase := ""
 var _side_created: Array = []
 var _side_until := 0
+var _queued_at := 0     # when a move waited for the next step (the journal says how long)
 var booster := ""
 var idle := 0.0
 var _hinted := false
@@ -138,6 +139,13 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	if chase and ResourceLoader.exists(MAIDEN_BG): bg.texture = load(MAIDEN_BG)
 	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase, level)
 	rich = bool(level.get("rich", false))
+	# the journal (♪ held): what was played and how it ended
+	Diag.note("-> level %d, %s, %d m%s, %d moves%s" % [n, String(Data.AREAS[Save.area()].n), Data.depth_m(Save.area(), dl) if dl < Data.depths(Save.area()).size() else 0,
+		(", " + model.beat) if String(model.beat) not in ["", "normal"] else "", model.moves, " (boss)" if model.boss_on() else " (prologue)" if prologue else ""])
+	finished.connect(func(res: Dictionary) -> void:
+		var mined: Dictionary = res.get("mined", {})
+		Diag.note("<- level %s, %d moves left, iron +%d, ore +%d, coins +%d%s" % ["won" if res.get("won", false) else "lost", maxi(0, model.moves),
+			int(mined.get("iron", 0)), int(mined.get("ore", 0)), int(res.get("coins", 0)), ", a find" if not (res.get("stone", {}) as Dictionary).is_empty() else ""]))
 	Save.persist()
 	var vp := get_viewport_rect().size
 	bg.size = vp
@@ -796,10 +804,13 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	model.use_move()
 	_render_moves()
 	_extra_moves += 1
-	if _phase == "blast": _side_blast(res.events, [] if res.special else res.swap_cells)
+	if _phase == "blast":
+		_side_blast(res.events, [] if res.special else res.swap_cells)
+		Diag.note("mid-cascade move: at once")
 	else:
 		_queued_ev.append_array(res.events)
 		if not res.special: _queued_sw = res.swap_cells
+		_queued_at = Time.get_ticks_msec()
 	_swipes_in_flight -= 1
 
 ## a special tapped while the board is still cascading (as in Royal Match): one at rest goes off in the next step
@@ -814,8 +825,12 @@ func _tap_mid(r: int, c: int) -> void:
 	model.use_move()
 	_render_moves()
 	_extra_moves += 1
-	if _phase == "blast": _side_blast([{t = 0.0, r = r, c = c, kind = "fx"}], [])
-	else: _queued_ev.append({t = 0.0, r = r, c = c, kind = "fx"})
+	if _phase == "blast":
+		_side_blast([{t = 0.0, r = r, c = c, kind = "fx"}], [])
+		Diag.note("mid-cascade tap: at once")
+	else:
+		_queued_ev.append({t = 0.0, r = r, c = c, kind = "fx"})
+		_queued_at = Time.get_ticks_msec()
 
 ## a move's own blast in the middle of a step's (the step is waiting out its hits, nothing is removed or falling yet):
 ## its match and specials go off now; the step waits for its hits and places its specials with its own
@@ -917,6 +932,9 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 	while true:
 		# a move made meanwhile joins this step: its special's events, its swap for where a new special goes
 		var ev := first + _queued_ev
+		if not _queued_ev.is_empty() and _queued_at > 0:
+			Diag.note("mid-cascade move: queued, went off after %d ms" % (Time.get_ticks_msec() - _queued_at))
+			_queued_at = 0
 		_queued_ev = []
 		first = []
 		if not _queued_sw.is_empty():
