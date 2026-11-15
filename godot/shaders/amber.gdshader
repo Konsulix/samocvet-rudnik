@@ -31,6 +31,7 @@ uniform vec3 spangle_col = vec3(1.0, 0.55, 0.12); // what the disc cracks shine 
 uniform float seed = 0.0;
 uniform sampler2D crack_tex : source_color, filter_linear_mipmap, repeat_enable;   // a scan of crazed dry crust
 uniform float crack_k = 0.0;
+uniform float hold_k = 1.0;    // 0: nothing behind counts as held — the light always comes through (an Apache tear's window)
 uniform float blue_k = 0.0;     // simetite: a blue glow on its skin, strongest at the grazing edges, drifting in patches
 
 varying vec3 v_op;
@@ -66,7 +67,7 @@ void fragment() {
 	vp.xyz /= vp.w;
 	float t_hit = dz > 1e-6 ? distance(vp.xyz, VERTEX) / ms : 99.0;
 	float chord = exit_t(v_op, d);
-	bool held = t_hit < chord;
+	bool held = hold_k > 0.5 && t_hit < chord;
 	float t_end = min(t_hit, chord);
 	float rad = max(axes.x, axes.y);
 

@@ -207,11 +207,7 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			cand.append(i)
 	# the old skin dull and pitted, the broken scoops mirror-black
 	var skin_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9})
-	# (the lantern's skin seen from inside too: through the window, a dark hollow, not the rock behind it)
-	var skin_in_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9, side = "double"})
 	var glass_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.03, coat = 0.4, coat_r = 0.01, env = 1.1})
-	var lamp_m := SpecMat.make({col = SpecMat.lin(0x6e3e12), glass = true, flat = false, thick = 1.6, frost = 0.0, prio = 2,
-		tint_body = 0.9, tint_glow = 0.18, dark_body = 0.5, deep_body = 1.8, env = 1.5, coat = 0.8, coat_r = 0.02, rough = 0.02, seed = rng.next() * 40.0})
 	var first: Node3D = null
 	var placed := []
 	var n := 6 + int(rng.next() * 5)
@@ -249,7 +245,13 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 		if k == 0:
 			# the lantern: a big tear with a window polished on it towards the viewer — smoky brown glass the
 			# light comes through, glowing like tea held to the sun; the rest of it in its dull skin
-			var tg := chunk(rng, s, 0, Vector3(1.05, 1.0, 0.95), 4)
+			# (two smooth chips broken off its skin, glossy black — never where the window goes)
+			var tg := chunk(rng, s, 2, Vector3(1.05, 1.0, 0.95), 4, 0.55)
+			var tsc: Vector3 = (tg.get_meta("shape") as Array)[2]
+			var chip := PackedByteArray()
+			chip.resize(tg.v.size())
+			for i in tg.v.size():
+				chip[i] = 0 if tg.own_n[i].dot((tg.v[i] / (tsc * tsc)).normalized()) > 0.9995 else 1
 			w = (mi.transform.basis.inverse() * (view * 0.6 + nr * 0.6)).normalized()
 			var dmax := -9.0
 			for p in tg.v: dmax = maxf(dmax, p.dot(w))
@@ -299,10 +301,12 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 					var o2 := p - w * p.dot(w) - shift
 					if o2.length() < float(rim.call(atan2(o2.dot(t2), o2.dot(t1)))) * 0.96: inside += 1
 				if inside == 3: continue
+				var nch := chip[t] + chip[t + 1] + chip[t + 2]
+				var pg: Geo = parts[1 if nch >= 2 else 0]
 				for e in 3:
-					parts[0].v.append(tg.v[t + e])
-					parts[0].own_n.append(tg.own_n[t + e])
-					parts[0].col.append(skin)
+					pg.v.append(tg.v[t + e])
+					pg.own_n.append(tg.own_n[t + e])
+					pg.col.append(Color(0.006, 0.005, 0.005) if nch >= 2 else skin)
 			# the glass: a coarse, jittered net over the outline, each triangle flat — broad polished facets
 			var NR := 6
 			var NS := 22
@@ -358,7 +362,26 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 					pg.col.append(skin if on >= 2 else Color(0.006, 0.005, 0.005))
 		for pi in 3:
 			if (parts[pi] as Geo).v.size():
-				U.mesh(parts[pi], [skin_in_m if k == 0 else skin_m, glass_m, lamp_m][pi], mi).set_meta("col", true)
+				var pm2: Material = [skin_m, glass_m, null][pi]
+				if pi == 2:
+					# the window: lit through like amber — the dark tea of the glass deepening with the way through it,
+					# a little smoke, a bubble or two, the studio's lamps bent through it
+					var am := ShaderMaterial.new()
+					am.shader = SpecFlower.AMBER
+					am.set_shader_parameter("sigma", Vector3(0.42, 0.9, 2.2) / (s * 2.2))
+					am.set_shader_parameter("axes", Vector3(1.05, 1.0, 0.95) * s * 1.02)
+					am.set_shader_parameter("hold_k", 0.0)
+					am.set_shader_parameter("back_k", 1.25)
+					am.set_shader_parameter("base_k", 0.55)
+					am.set_shader_parameter("flow_k", 0.45)
+					am.set_shader_parameter("dirt_k", 0.6)
+					am.set_shader_parameter("debris_k", 0.3)
+					am.set_shader_parameter("bubble_k", 0.4)
+					am.set_shader_parameter("crust_k", 0.0)
+					am.set_shader_parameter("light_col", Vector3(1.0, 0.8, 0.55))
+					am.set_shader_parameter("seed", rng.next() * 60.0)
+					pm2 = am
+				U.mesh(parts[pi], pm2, mi).set_meta("col", true)
 		if k == 0:
 			# the light inside: warm, as if the sun stood behind it — it reaches the perlite round it too
 			var lamp := OmniLight3D.new()
@@ -368,29 +391,87 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			lamp.shadow_enabled = false
 			lamp.position = Vector3(0, s * 0.15, 0)
 			mi.add_child(lamp)
-			# and its glow: brightest in the middle of the window, where the light comes through, dark at the rim
-			for gl: Array in [[0.55, 0.12], [0.38, 0.24], [0.24, 0.42], [0.12, 0.6]]:
-				var core := Geo.icosa(s * float(gl[0]), 3).weld()
-				var cm := SpecMat.make({col = Color(1, 1, 1), unshaded = true, add = true, a = 1.0})
-				var k2: float = gl[1]
-				cm.set_shader_parameter("albedo", Vector3(1.0, 0.52, 0.18) * k2)
-				U.mesh(core, cm, mi, shift + w * (cut - s * 0.45)).set_meta("col", true)
 		if first == null:
 			first = mi
 			b._mark("ob_tears", mi.position + nr * s * 0.6, nr)
-	# perlite cracks round each tear in rings, like the skins of an onion (it shrank round the glass as it hydrated)
+	# one tear has weathered out: an empty socket on top, the tear itself rolled down onto a ledge below
+	var pit_at := Vector3.ZERO
+	var pit_r := 0.0
+	var ps := (0.09 + rng.next() * 0.04) * gs
+	var pit_s := -99.0
+	for t in 40:
+		var vi: int = cand[int(rng.next() * cand.size())]
+		var ok := true
+		for q: Array in placed:
+			if rg.v[vi].distance_to(q[0]) < (ps + float(q[1])) * 1.15:
+				ok = false
+				break
+		var sc := rn[vi].dot(view) + rng.next() * 0.3
+		if ok and sc > pit_s:
+			pit_s = sc
+			pit_at = rg.v[vi]
+			pit_r = ps
+	# the loose tear: rolled just out of its socket, resting on the socket's lip on the side towards the viewer
+	var ledge := -1
+	if pit_r > 0.0:
+		var want := pit_at + view.slide(Vector3.UP).normalized() * pit_r * 1.25
+		var bd := 99.0
+		for i in rg.v.size():
+			var dd := rg.v[i].distance_to(want)
+			if dd < bd:
+				bd = dd
+				ledge = i
+	if ledge >= 0:
+		var lr := ps * 0.95
+		var lt := chunk(rng, lr, 2 + int(rng.next() * 2), Vector3(1.15, 0.85, 0.95), 3, 0.7)
+		var lsc: Vector3 = (lt.get_meta("shape") as Array)[2]
+		var lp := [Geo.new(), Geo.new()]
+		var lskin := Color(0.03, 0.026, 0.024)
+		for t in range(0, lt.v.size(), 3):
+			var on := 0
+			for e in 3:
+				if lt.own_n[t + e].dot((lt.v[t + e] / (lsc * lsc)).normalized()) > 0.9995: on += 1
+			var pg: Geo = lp[0 if on >= 2 else 1]
+			for e in 3:
+				pg.v.append(lt.v[t + e])
+				pg.own_n.append(lt.own_n[t + e])
+				pg.col.append(lskin if on >= 2 else Color(0.006, 0.005, 0.005))
+		var ln := Node3D.new()
+		root.add_child(ln)
+		ln.transform = Transform3D(Basis(U.quat_to(Vector3.UP, rn[ledge])) * Basis(Vector3.UP, rng.next() * TAU) * Basis(Vector3.RIGHT, 1.2),
+			rock.position + rg.v[ledge] + rn[ledge] * lr * 0.55)
+		for pi in 2:
+			if (lp[pi] as Geo).v.size():
+				U.mesh(lp[pi], [skin_m, glass_m][pi], ln).set_meta("col", true)
+	# perlite cracks round each tear in rings, like the skins of an onion (it shrank round the glass as it hydrated);
+	# a little wavering and broken, not drawn with compasses
+	var rnz := FastNoiseLite.new()
+	rnz.seed = int(rng.next() * 100000.0)
+	rnz.frequency = 2.5 / gs
 	var rn2 := rg.normals()
+	if pit_r > 0.0:
+		placed.append([pit_at, pit_r])
 	for i in rg.v.size():
 		var dark := 0.0
+		# the socket: a smooth round cup where the tear sat, darker inside
+		if pit_r > 0.0:
+			var pd := rg.v[i].distance_to(pit_at) / pit_r
+			if pd < 1.25:
+				var cup := 1.0 - smoothstep(0.0, 1.25, pd)
+				rg.v[i] -= rn2[i] * cup * cup * pit_r * 0.9
+				var c0 := rg.col[i]
+				rg.col[i] = Color(c0.r * (1.0 - 0.45 * cup), c0.g, c0.b * (1.0 - 0.45 * cup))
 		for q: Array in placed:
 			var r0: float = q[1]
-			var d := rg.v[i].distance_to(q[0]) - r0 * 0.75
+			var d := rg.v[i].distance_to(q[0]) - r0 * 0.75 + rnz.get_noise_3dv(rg.v[i]) * r0 * 0.12
 			if d <= 0.0 or d > r0 * 2.4: continue
 			var ph := d / (r0 * 0.42)
-			var line := 1.0 - smoothstep(0.0, 0.16, absf(ph - roundf(ph)))
+			var line := 1.0 - smoothstep(0.0, 0.22, absf(ph - roundf(ph)))
+			# broken here and there
+			line *= smoothstep(-0.65, -0.2, rnz.get_noise_3dv(rg.v[i] * 0.6 + Vector3(9, 0, 0)))
 			dark = maxf(dark, line * (1.0 - d / (r0 * 2.4)))
 		if dark > 0.0:
-			rg.v[i] -= rn2[i] * dark * 0.01 * gs
+			rg.v[i] -= rn2[i] * dark * 0.016 * gs
 			var c := rg.col[i]
-			rg.col[i] = Color(c.r * (1.0 - 0.7 * dark), c.g, c.b * (1.0 - 0.7 * dark))
+			rg.col[i] = Color(c.r * (1.0 - 0.8 * dark), c.g, c.b * (1.0 - 0.8 * dark))
 	return rock
