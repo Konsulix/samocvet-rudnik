@@ -83,7 +83,10 @@ static func _portrait() -> Control:
 
 ## a framed portrait `f` points square: the face (assets/ui/kit/face/<face>.png; none yet - the helmet icon) in the
 ## frame's window on dark slate, the frame over it (Profile.FRAMES). `tail`: the Poloz' tail comes out from under it
-static func portrait(f: float, frame_id: String, face_id: String, tail := false) -> Control:
+## `fit`: the frame scaled up to fill the square (the bosses' pictures have a wide empty margin), for the profile
+## `life`: the boss's touch alive on its frame too (the Poloz' tail under it, the Mistress' lizard, the Kraken's arm
+## over it), scaled with the frame
+static func portrait(f: float, frame_id: String, face_id: String, tail := false, fit := false, life := false) -> Control:
 	var w := Control.new()
 	w.custom_minimum_size = Vector2(f, f)
 	w.size = Vector2(f, f)
@@ -91,9 +94,10 @@ static func portrait(f: float, frame_id: String, face_id: String, tail := false)
 	var fr: Dictionary = Profile.FRAMES[0]
 	for e: Dictionary in Profile.FRAMES:
 		if String(e.id) == frame_id: fr = e
-	var o := f * float(fr.win[0])
-	var n := f * float(fr.win[1])
-	if tail and frame_id == "poloz": w.add_child(PortraitLife.make(frame_id, f))
+	var k := 0.96 / float(fr.get("span", 0.96)) if fit else 1.0
+	var o := f * (0.5 - (0.5 - float(fr.win[0])) * k)
+	var n := f * float(fr.win[1]) * k
+	if (tail or life) and frame_id == "poloz": w.add_child(_life(frame_id, f, k))
 	var back := ColorRect.new()
 	back.color = Color("#17130f")
 	back.position = Vector2(o - 1, o - 1)
@@ -120,12 +124,21 @@ static func portrait(f: float, frame_id: String, face_id: String, tail := false)
 	var frame := TextureRect.new()
 	frame.texture = Kit.tex("portrait/" + frame_id)
 	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.size = Vector2(f, f)
+	frame.size = Vector2(f, f) * k
+	frame.position = Vector2(f, f) * (1.0 - k) / 2.0
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# the pixel frames are stored ×3 so they scale down evenly (unscaled, their cells came out uneven)
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	w.add_child(frame)
+	if life and frame_id != "poloz": w.add_child(_life(frame_id, f, k))
 	return w
+
+## the frame's life, made for the frame at f and scaled about the middle as the frame is (k)
+static func _life(id: String, f: float, k: float) -> Node2D:
+	var p := PortraitLife.make(id, f)
+	p.scale = Vector2(k, k)
+	p.position = Vector2(f, f) * (1.0 - k) / 2.0
+	return p
 
 ## a small brass dot with a soft pulse on the portrait's upper right corner: something new on the miner's card
 static func _new_dot(f: float) -> Control:

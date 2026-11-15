@@ -141,7 +141,7 @@ static func _build() -> void:
 static func _portrait_sq() -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(SQ, SQ)
-	holder.add_child(Chrome.portrait(SQ, String(Profile.frame().id), String(Profile.face().id)))
+	holder.add_child(Chrome.portrait(SQ, String(Profile.frame().id), String(Profile.face().id), false, true, true))
 	var tap := _flat_button(Vector2(SQ, SQ))
 	tap.pressed.connect(func():
 		Sfx.play("click")
@@ -284,7 +284,7 @@ static func _edit() -> void:
 	ph.add_theme_constant_override("separation", 14)
 	var pc := Control.new()
 	pc.custom_minimum_size = Vector2(100, 100)
-	pc.add_child(Chrome.portrait(100, String(Profile.frame().id), String(Profile.face().id)))
+	pc.add_child(Chrome.portrait(100, String(Profile.frame().id), String(Profile.face().id), false, true, true))
 	ph.add_child(pc)
 	var words := VBoxContainer.new()
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -301,54 +301,28 @@ static func _edit() -> void:
 	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(nm)
-	var pen := _pencil(22.0)
+	var pen := Kit.icon("pencil", 22)
 	pen.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(pen)
 	plate.add_child(row)
 	plate.pressed.connect(func(): _rename())
-	words.add_child(plate)
 	var tl := Kit.label(Profile.title(), 15, UI.display, Kit.AMBER)
 	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	words.add_child(tl)
+	words.add_child(plate)
 	ph.add_child(words)
 	v.add_child(ph)
 	v.add_child(_tabs())
 	# the tiles straight on the window (no panel round them); the same height on every tab: the window does not jump
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", 6)
-	body.custom_minimum_size = Vector2(0, 204)
+	body.custom_minimum_size = Vector2(0, 212)
 	v.add_child(body)
 	_fill(body)
 	var done := Ov.btn("Done", "green", func(): _build())
 	done.custom_minimum_size.x = 120
 	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(done)
-
-## a small brass pencil, drawn: a hexagon-faceted body corner to corner, a pale wooden cone and a dark lead at the
-## lower left, a ferrule and a dark eraser at the upper right
-static func _pencil(sz: float) -> Control:
-	var c := Control.new()
-	c.custom_minimum_size = Vector2(sz, sz)
-	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.draw.connect(func():
-		var a := Vector2(sz * 0.12, sz * 0.88)          # the lead's point
-		var b := Vector2(sz * 0.9, sz * 0.1)            # the eraser's end
-		var d := (b - a).normalized()
-		var n := d.orthogonal() * sz * 0.13
-		var p0 := a + d * sz * 0.26                     # where the wood's cone meets the body
-		var p1 := b - d * sz * 0.22                     # the ferrule
-		var p2 := b - d * sz * 0.12
-		var ink := Color(0.1, 0.06, 0.03)
-		# a dark rim first, then the parts
-		for q: PackedVector2Array in [PackedVector2Array([a, p0 + n * 1.25, b + n * 1.25, b - n * 1.25, p0 - n * 1.25])]:
-			c.draw_colored_polygon(q, ink)
-		c.draw_colored_polygon(PackedVector2Array([a + d * 1.2, p0 + n, p0 - n]), Color(0.86, 0.72, 0.52))
-		c.draw_colored_polygon(PackedVector2Array([a, a + d * sz * 0.1 + n * 0.4, a + d * sz * 0.1 - n * 0.4]), Color(0.18, 0.16, 0.16))
-		c.draw_colored_polygon(PackedVector2Array([p0 + n, p1 + n, p1, p0]), Color(0.98, 0.84, 0.5))
-		c.draw_colored_polygon(PackedVector2Array([p0, p1, p1 - n, p0 - n]), Color(0.72, 0.52, 0.22))
-		c.draw_colored_polygon(PackedVector2Array([p1 + n, p2 + n, p2 - n, p1 - n]), Color(0.62, 0.62, 0.58))
-		c.draw_colored_polygon(PackedVector2Array([p2 + n, b + n, b - n, p2 - n]), Color(0.55, 0.22, 0.2)))
-	return c
 
 ## the name: a field with the name in it (the keyboard comes up), Save and Cancel; back to Edit Profile
 static func _rename() -> void:
@@ -417,12 +391,12 @@ static func _fill(body: VBoxContainer) -> void:
 static func _grid(body: VBoxContainer, list: Array, frames: bool) -> void:
 	var g := GridContainer.new()
 	g.columns = 3
-	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("h_separation", 6)
 	g.add_theme_constant_override("v_separation", 10)
 	var worn := String((Profile.frame() if frames else Profile.face()).id)
-	const T := 92.0
-	const S := 78.0
-	var inner := T - 6
+	const T := 98.0
+	const S := 98.0
+	var inner := T
 	for e: Dictionary in list:
 		var id := String(e.id)
 		var owned := Profile.has_frame(e) if frames else Profile.has_face(e)
@@ -432,7 +406,7 @@ static func _grid(body: VBoxContainer, list: Array, frames: bool) -> void:
 		var cell := Control.new()
 		cell.custom_minimum_size = Vector2(inner, inner)
 		tile.add_child(cell)
-		var por := Chrome.portrait(S, id if frames else String(Profile.frame().id), String(Profile.face().id) if frames else id)
+		var por := Chrome.portrait(S, id if frames else String(Profile.frame().id), String(Profile.face().id) if frames else id, false, true, true)
 		por.position = Vector2(inner - S, inner - S) / 2
 		if not owned: por.modulate = Color(0.5, 0.47, 0.45)
 		cell.add_child(por)
@@ -518,7 +492,7 @@ static func award_frame(area: int) -> void:
 	v.add_child(r)
 	var hold := Control.new()
 	hold.custom_minimum_size = Vector2(0, 190)
-	var por := Chrome.portrait(180, String(f.id), String(Profile.face().id), true)
+	var por := Chrome.portrait(180, String(f.id), String(Profile.face().id), false, true, true)
 	hold.add_child(por)
 	hold.resized.connect(func(): por.position.x = (hold.size.x - 180) / 2)
 	v.add_child(hold)

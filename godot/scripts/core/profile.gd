@@ -4,14 +4,15 @@ class_name Profile
 ## a new player has the starter frame, the miner and the first title; a boss beaten gives its frame (15.11).
 
 ## the frames: id -> {n = the name, how = what earns it, area = its boss's mine (beaten: owned), win = the window
-## [offset, size] as shares of the frame}; the picture is assets/ui/kit/portrait/<id>.png
+## [offset, size] as shares of the frame, span = how much of its picture the drawn frame spans (the bosses' frames
+## leave a wide margin for their life in the top bar; Chrome.portrait(fit) scales them up to fill)}; the picture is assets/ui/kit/portrait/<id>.png
 const FRAMES := [
-	{id = "timber", n = "Pit Props", how = "", win = [0.2731, 0.4537]},
-	{id = "poloz", n = "The Serpent's Coil", area = 0, win = [0.25, 0.5]},
-	{id = "mistress", n = "Malachite and Copper", area = 1, win = [0.2778, 0.4444]},
-	{id = "kraken", n = "Shipwreck Timber", area = 2, win = [0.2778, 0.4444]},
-	{id = "brontes", n = "Forged Iron", area = 3, win = [0.2778, 0.4444]},
-	{id = "shubin", n = "The Seam's Props", area = 7, win = [0.2778, 0.4444]},
+	{id = "timber", n = "Pit Props", how = "", win = [0.2731, 0.4537], span = 0.963},
+	{id = "poloz", n = "The Serpent's Coil", area = 0, win = [0.25, 0.5], span = 0.755},
+	{id = "mistress", n = "Malachite and Copper", area = 1, win = [0.2778, 0.4444], span = 0.769},
+	{id = "kraken", n = "Shipwreck Timber", area = 2, win = [0.2778, 0.4444], span = 0.796},
+	{id = "brontes", n = "Forged Iron", area = 3, win = [0.2778, 0.4444], span = 0.787},
+	{id = "shubin", n = "The Seam's Props", area = 7, win = [0.2778, 0.4444], span = 0.769},
 ]
 ## the portraits: id -> {n, how, told = a story beat that opens it (Save.told), award = an achievement claimed};
 ## the picture is assets/ui/kit/face/<id>.png
