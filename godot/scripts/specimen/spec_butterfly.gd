@@ -884,7 +884,17 @@ class Fly extends Node3D:
 				if wing == 3 and (glide_left <= 0.0 or pos.y < way.y - size * 0.7 or d < size * 1.5):
 					wing = 4
 					wph = 0.0
-			vel += (acc + Vector3(0.0, ay, 0.0)) * h
+			# coming in to land: steered at the point (its beats and sails alone hardly ever bring it there) — partly
+			# while it closes on the hover over the spot, wholly on the way down (the beats then only bob it); never
+			# faster than it flies
+			var steer := 0.0
+			if state == LAND: steer = 1.0 if stage == 1 else clampf(1.5 - to.length() / size * 0.5, 0.0, 0.7)
+			vel += (acc + Vector3(0.0, ay, 0.0)) * h * (1.0 - steer)
+			if steer > 0.0:
+				var dist := to.length()
+				var dv := to / maxf(dist, 1e-4) * minf(dist / size * 2.5, 2.2) * size
+				if lift > 0.0: dv.y += size * 0.6 * stroke
+				vel = vel.lerp(dv, minf(1.0, h * 8.0 * steer))
 			pos += vel * h
 			var hsp := hv.length() / size
 			mpitch = lerpf(mpitch, lerpf(0.3, -0.3, clampf(hsp / 5.0, 0.0, 1.0)) + (0.1 if sailing else 0.0) * -3.0, minf(1.0, h * 6.0))
@@ -913,16 +923,29 @@ class Fly extends Node3D:
 		if stage < 2:
 			_m_air(dt)
 			var hd := Vector2(pos.x - way.x, pos.z - way.z).length()
-			if stage == 0 and ((hd < size * 0.8 and absf(pos.y - way.y) < size * 1.2) or retarget < 4.0):
+			var dw := pos.distance_to(way)
+			# (the feet come down only where it is: the last touch eases it the last fraction of a span, no more — it
+			# used to be sent down on a timer from wherever it was and slid there, up to nine spans)
+			if stage == 0 and ((hd < size * 0.8 and absf(pos.y - way.y) < size * 1.2) or (retarget < 4.0 and dw < size * 2.0)):
 				stage = 1
 				retarget = 4.0
 				way = p + n * size * 0.2
-			elif stage == 1 and ((hd < size * 0.5 and pos.y - way.y < size * 0.45) or retarget < 2.8):
+			elif stage == 1 and ((hd < size * 0.5 and pos.y - way.y < size * 0.45) or (retarget < 2.8 and dw < size * 0.6)):
 				stage = 2
 				touch = 0.0
+				if OS.get_cmdline_user_args().has("landtrace"): print("LANDJUMP %.2f %s" % [pos.distance_to(p + n * size * 0.02) / size, "timeout" if retarget < 2.8 else "near"])
 				land_from = pos
 				vel = Vector3.ZERO
 				if full: _m_play("land", 0.12, 0.5)
+			elif retarget <= 0.0:
+				# it cannot get there (something in the way): it gives the spot up and flies on, to try again later
+				if OS.get_cmdline_user_args().has("landtrace"): print("LANDGIVEUP %.2f %d" % [dw / size, stage])
+				_claim(p, false)
+				state = FLY
+				land_key = Vector3.INF
+				timer = 1.0 + rng.next() * 2.0
+				_m_next()
+				return
 		else:
 			touch += dt
 			pos = land_from.lerp(p + n * size * 0.02, smoothstep(0.0, 0.22, touch))
