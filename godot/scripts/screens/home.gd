@@ -664,7 +664,15 @@ func _level_panel(dl: int, sel: Array) -> void:
 	drow.add_child(plus)
 	v.add_child(drow)
 	v.add_child(_veins_plaque(dl))
-	# pre-boosters to start with
+	v.add_child(_pre_row(sel, free, func(): _level_panel(dl, sel)))
+	v.add_child(Ov.btn("Play", "green", func():
+		var sps := _pre_take(sel, free)
+		Ov.close()
+		play.emit(n, sps, dl)))
+	v.add_child(Ov.btn("Back", "glass", func(): Ov.close()))
+
+## the specials to start with (Data.PRE): the streak's free ones lit, bought or kept ones toggled; `again` redraws the window
+func _pre_row(sel: Array, free: Array, again: Callable) -> HBoxContainer:
 	var pre := HBoxContainer.new()
 	pre.add_theme_constant_override("separation", 8)
 	for p in Data.PRE:
@@ -713,19 +721,19 @@ func _level_panel(dl: int, sel: Array) -> void:
 			else:
 				Ov.toast("Not enough coins")
 				return
-			_level_panel(dl, sel))
+			again.call())
 		pre.add_child(b)
-	v.add_child(pre)
-	v.add_child(Ov.btn("Play", "green", func():
-		var sps := []
-		for p in Data.PRE:
-			if p.id in sel:
-				if not p.id in free: Save.d.pre[p.id] -= 1
-				sps.append_array(p.sp)
-		Save.persist()
-		Ov.close()
-		play.emit(n, sps, dl)))
-	v.add_child(Ov.btn("Back", "glass", func(): Ov.close()))
+	return pre
+
+## the chosen specials as the board's own (sp ids), the kept ones used up (the streak's are free)
+func _pre_take(sel: Array, free: Array) -> Array:
+	var sps := []
+	for p in Data.PRE:
+		if p.id in sel:
+			if not p.id in free: Save.d.pre[p.id] -= 1
+			sps.append_array(p.sp)
+	Save.persist()
+	return sps
 
 func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -921,14 +929,28 @@ func _fight_boss() -> void:
 		Ov.close()
 		_on_play()
 		return
-	Ov.close()
-	# the streak's specials, as on any level (the fight button skipped the level window that hands them out; the
-	# bosses' health is tuned with them — streak 3, the dynamite)
+	_boss_panel([])
+
+## before the fight, as before a level: who waits below, the streak's specials and the ones to buy, Fight
+## (the fight button went straight in: no streak specials, nothing to buy; the bosses' health is tuned with the streak's)
+func _boss_panel(sel: Array) -> void:
+	var B: Dictionary = Data.AREAS[ai()].boss
 	var free := Data.streak_free(Save.d.streak)
-	var sps := []
-	for p in Data.PRE:
-		if p.id in free: sps.append_array(p.sp)
-	play.emit(Save.d.level, sps, Data.depths(ai()).size())
+	for f in free:
+		if not f in sel: sel.append(f)
+	var v := Ov.card(350)
+	Kit.lantern(Ov.holder())
+	_keep_clear()
+	v.add_child(UI.title(String(B.n), 26))
+	v.add_child(Kit.rule(220))
+	v.add_child(Ov.text("%s · %d m" % [String(B.get("sub", "")), int(B.m)] if B.has("sub") else "%d m" % int(B.m), 14, UI.GOLD))
+	v.add_child(Ov.text("Take something to start with: specials wait on the board.", 13))
+	v.add_child(_pre_row(sel, free, func(): _boss_panel(sel)))
+	v.add_child(Ov.btn("Fight", "green", func():
+		var sps := _pre_take(sel, free)
+		Ov.close()
+		play.emit(Save.d.level, sps, Data.depths(ai()).size())))
+	v.add_child(Ov.btn("Back", "glass", func(): Ov.close()))
 
 ## the first time the window can build: a note on its Build button, once the window has come up
 func _coach_build(bt: Button) -> void:
