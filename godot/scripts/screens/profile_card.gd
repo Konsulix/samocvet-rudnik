@@ -91,6 +91,38 @@ static func _build() -> void:
 	var c := card.custom_minimum_size.x
 	card.position = Vector2(SQ - c, SQ - c) / 2
 	fc.add_child(card)
+	# the card's frame once more over what is in it - its rim only, the four corners and the four edges (a kit box
+	# fills its middle): the ribbon's top goes under the rim
+	var rim := Control.new()
+	rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rim.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tex := Kit.tex("card")
+	var f: Array = Kit.FRAMES["card"]
+	rim.draw.connect(func():
+		var m := float(f[0])               # the corner, picture px
+		var k := float(f[4])               # picture px per point
+		var ts := tex.get_size()
+		var e := m / k * 0.5               # drawn: only the outer half of the corner's band (its brass), in points
+		var sz := rim.size
+		var src_e := m * 0.5
+		# corners: whole (their rivets), the slate in them is the card's own
+		var cw := m / k
+		rim.draw_texture_rect_region(tex, Rect2(0, 0, cw, cw), Rect2(0, 0, m, m))
+		rim.draw_texture_rect_region(tex, Rect2(sz.x - cw, 0, cw, cw), Rect2(ts.x - m, 0, m, m))
+		rim.draw_texture_rect_region(tex, Rect2(0, sz.y - cw, cw, cw), Rect2(0, ts.y - m, m, m))
+		rim.draw_texture_rect_region(tex, Rect2(sz.x - cw, sz.y - cw, cw, cw), Rect2(ts.x - m, ts.y - m, m, m))
+		# edges (stretched along)
+		rim.draw_texture_rect_region(tex, Rect2(cw, 0, sz.x - 2 * cw, e), Rect2(m, 0, ts.x - 2 * m, src_e))
+		rim.draw_texture_rect_region(tex, Rect2(cw, sz.y - e, sz.x - 2 * cw, e), Rect2(m, ts.y - src_e, ts.x - 2 * m, src_e))
+		rim.draw_texture_rect_region(tex, Rect2(0, cw, e, sz.y - 2 * cw), Rect2(0, m, src_e, ts.y - 2 * m))
+		rim.draw_texture_rect_region(tex, Rect2(sz.x - e, cw, e, sz.y - 2 * cw), Rect2(ts.x - src_e, m, src_e, ts.y - 2 * m)))
+	fc.add_child(rim)
+	var fit := func():
+		rim.position = card.position
+		rim.size = card.size
+		rim.queue_redraw()
+	card.resized.connect(fit)
+	fit.call()
 	g.add_child(fc)
 	var e := Kit.button("Edit", "btn_green", 16, 3.0)
 	e.custom_minimum_size = Vector2(SQ, 36)
@@ -162,6 +194,7 @@ static func _find_sq(s: Dictionary) -> Control:
 	var rr := RecordRibbon.make(w, inner)
 	rr.cup = true
 	rr.len_ = 40.0
+	rr.in_x = 26.0
 	rr.head = "Your costliest stone"
 	rr.lines = PackedStringArray(["The most valuable find you keep"])
 	inner.add_child(rr)

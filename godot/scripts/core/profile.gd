@@ -17,6 +17,7 @@ const FRAMES := [
 ## the picture is assets/ui/kit/face/<id>.png
 const FACES := [
 	{id = "miner", n = "The Miner", how = ""},
+	{id = "miner_w", n = "The Miner", how = ""},          # (her: both are the player's from the start)
 	{id = "guide", n = "The Old Miner", how = "Dig your way out of the old adit", told = "prologue"},
 	{id = "sister", n = "The Scholar", how = "Meet the one with the atlas", told = "s_sister_meet"},
 	{id = "brother", n = "The Apprentice", how = "Find him at the bottom of Proval", told = "s_proval_gate"},

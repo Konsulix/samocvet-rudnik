@@ -37,6 +37,8 @@ var cup := false:
 			c_dark = Color(0.015, 0.03, 0.11)
 			c_sheen = Color(0.15, 0.23, 0.52)
 var len_ := L
+## its middle this far in from the panel's edge (IN_X; the profile's card moves it clear of the corner bracket)
+var in_x := IN_X
 var c_silk := SILK
 var c_dark := SILK_DARK
 var c_sheen := SILK_SHEEN
@@ -79,7 +81,7 @@ static func make(card_: Control, info_: Control, last_of := false) -> RecordRibb
 ## where the ribbon hangs, in this control's space (generous, for a finger)
 func _hang() -> Rect2:
 	var ig: Rect2 = get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
-	var x := ig.position.x + IN_X if left else ig.end.x - IN_X
+	var x := ig.position.x + in_x if left else ig.end.x - in_x
 	return Rect2(x - W, ig.position.y - UP, W * 2.0, len_ + UP + 8.0)
 
 func _has_point(p: Vector2) -> bool:
@@ -291,7 +293,7 @@ func _draw() -> void:
 	if not is_instance_valid(info) or _t < 0.0: return     # the card opens first, then the ribbon drops
 	var to_me := get_global_transform().affine_inverse()
 	var ig: Rect2 = to_me * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
-	var top := Vector2(ig.position.x + IN_X if left else ig.end.x - IN_X, ig.position.y - UP)
+	var top := Vector2(ig.position.x + in_x if left else ig.end.x - in_x, ig.position.y - UP)
 	var mid := PackedVector2Array()
 	var lean := PackedFloat32Array()
 	for i in N + 1:
