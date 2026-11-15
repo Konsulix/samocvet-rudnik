@@ -434,6 +434,8 @@ static func _grid(body: VBoxContainer, list: Array, frames: bool) -> void:
 				Profile.wear("frame" if frames else "face", id)
 				_edit())
 		cell.add_child(b)
+		# an upper row over a lower one: what hangs off a frame (the Poloz' tail) is not hidden by the frame under it
+		tile.z_index = 10 - int(g.get_child_count() / 3)
 		g.add_child(tile)
 	var cc := CenterContainer.new()
 	cc.add_child(g)
