@@ -66,13 +66,12 @@ var _twitch_at := -10.0
 var _lid := 0.0
 var _slit := Vector2(5.5, 3.5)
 var _down := {}
-## the gallery's works (BoardMech draws them): belts under the stones, carts, kegs and buckets among them, the dark over
-## them and its lanterns over the dark; what moves them
-var belt_layer: Node2D
+## the gallery's works (BoardMech draws them): carts, kegs and buckets among the stones, the dark over them and its
+## lanterns over the dark; the conveyors over the stones (BeltView); what moves them
+var belt_view: BeltView
 var mech_layer: Node2D
 var dark_layer: Node2D
 var lamp_layer: Node2D
-var belt_phase := 0.0          # cells the belts have run
 var cart_bump := {}            # cart index -> when a stone went in
 var cart_go_at := {}           # cart index -> when it set off, full
 var keg_hit := {}              # cell key -> when a fuse burnt
@@ -102,7 +101,6 @@ func _init() -> void:
 
 func _ready() -> void:
 	under = _layer(_draw_under)
-	belt_layer = _layer(func(ci: Node2D): if model: BoardMech.draw_belts(self, ci))
 	gas_layer = _layer(_draw_gas)
 	var gm := ShaderMaterial.new()
 	gm.shader = preload("res://shaders/gas.gdshader")
@@ -121,6 +119,9 @@ func _ready() -> void:
 	gems = Node2D.new()
 	gems.light_mask = 0
 	add_child(gems)
+	belt_view = BeltView.new()
+	belt_view.light_mask = 0
+	add_child(belt_view)
 	over = _layer(_draw_over)
 	# Timber needs the same explicit shader as gems on iPhone with baked shaders.
 	over.material = BoardSprites.plain_material()
@@ -130,7 +131,6 @@ func _ready() -> void:
 	dark_layer.material = dm
 	lamp_layer = _layer(func(ci: Node2D):
 		if model:
-			BoardMech.draw_belt_rails(self, ci)
 			BoardMech.draw_lamps(self, ci, Time.get_ticks_msec() / 1000.0)
 			_draw_last(ci))
 	ink_layer = _layer(_draw_ink)
@@ -203,8 +203,8 @@ func rebuild(m: BoardModel) -> void:
 	keg_hit = {}
 	bucket_hit = {}
 	lit_at = {}
-	belt_phase = 0.0
 	BoardMech.dark_mask(self, 0.0)
+	belt_view.setup(self)
 	_has_mech = not m.carts.is_empty()
 	for r in m.R:
 		for c in m.C:
@@ -233,8 +233,8 @@ func _spawn_node(g: BoardModel.Gem, r: int, c: int) -> GemNode:
 func refresh() -> void:
 	_find_last()
 	queue_redraw()
-	belt_layer.queue_redraw()
 	mech_layer.queue_redraw()
+	ink_layer.queue_redraw()
 	dark_layer.queue_redraw()
 	lamp_layer.queue_redraw()
 	redraw_under()
@@ -674,6 +674,12 @@ func _draw_over(ci: Node2D) -> void:
 					ice(ci, cell_center(r, c), TS, cell("LOCK", r, c) == 4, r * 31 + c)
 			elif model.playable(r, c) and cell("LOCK", r, c) == 6:
 				_draw_scale(ci, r, c)
+			elif model.playable(r, c) and model.LOCK[r][c] == 7:
+				# the cove's ink hides its stone outright: a solid blot under the shader's curls (ink_layer)
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = Color(0.03, 0.028, 0.06)
+				sb.set_corner_radius_all(int(TS * 0.3))
+				ci.draw_style_box(sb, Rect2(cell_center(r, c) - Vector2(TS, TS) * 0.44, Vector2(TS, TS) * 0.88))
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	if hammer_over.x >= 0.0:
 		# the shadow of his hammer hanging over the cells: a dark blot that swells and shrinks as he weighs the blow
@@ -805,15 +811,6 @@ func white() -> Texture2D:
 func light_cell(r: int, c: int) -> void:
 	lit_at[r * C + c] = Time.get_ticks_msec() / 1000.0
 
-## the belts run one cell along, in time with their stones (Level._belts)
-func run_belts(dur: float) -> void:
-	var from := belt_phase
-	var tw := create_tween()
-	tw.tween_method(func(k: float) -> void:
-		belt_phase = from + k
-		belt_layer.queue_redraw()
-		lamp_layer.queue_redraw(), 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE)
-	await tw.finished
 
 ## the last few cells a goal still wants (LAST_FEW or fewer): they pulse, so the last one in the dark or a speck of mud
 ## left in a corner is not hunted for (Royal Match does the same)
@@ -1064,14 +1061,15 @@ func _eye_live(dt: float) -> void:
 ## with a cell of margin (1 just spilled, 0.55 on its last move), and the shader smooths and frays it into one blot
 var _ink_mask: ImageTexture
 func _draw_ink(ci: Node2D) -> void:
-	if model == null or not model.boss_on(): return
+	if model == null: return
 	var any := false
 	var img := Image.create(C + 2, R + 2, false, Image.FORMAT_L8)
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and cell("INK", r, c) > 0:
+			if model.playable(r, c) and (cell("INK", r, c) > 0 or cell("LOCK", r, c) == 7):
 				any = true
-				var v := 1.0 if int(cell("INK", r, c)) > 1 else 0.55
+				# the cove's ink (LOCK 7) stays put till a special washes it off: always thick
+				var v := 1.0 if int(cell("INK", r, c)) > 1 or cell("LOCK", r, c) == 7 else 0.55
 				img.set_pixel(c + 1, r + 1, Color(v, v, v))
 	if not any: return
 	if _ink_mask == null or _ink_mask.get_width() != C + 2 or _ink_mask.get_height() != R + 2:
@@ -1105,7 +1103,8 @@ func _draw_sea_over(ci: Node2D) -> void:
 					ci.draw_polyline(wave, Color(0.7, 0.9, 0.95, 0.85), maxf(1.5, TS * 0.05), true)
 	for tn: Dictionary in model.tentacles: _draw_tentacle(ci, tn, now)
 
-## where a tentacle comes over the rim: a cell's length out from its first cell, away from the board
+## where a tentacle comes over the rim: in a fight a cell's length out from its first cell, its cut end under the
+## boss frame's bar; on the cove's own levels (no frame of his) at the board's edge, so it doesn't lie across the frame
 func tentacle_root(tn: Dictionary) -> Vector2:
 	var b: Vector2i = tn.cells[0] if not tn.cells.is_empty() else Vector2i.ZERO
 	var into := Vector2i(1, 0)
@@ -1113,7 +1112,7 @@ func tentacle_root(tn: Dictionary) -> Vector2:
 		if not model.playable(b.x - d.x, b.y - d.y):
 			into = d
 			break
-	return cell_center(b.x, b.y) - Vector2(into.y, into.x) * TS * 1.1
+	return cell_center(b.x, b.y) - Vector2(into.y, into.x) * TS * (1.1 if model.boss_on() else 0.42)
 
 ## one tentacle: from beyond the rim through its cells' middles to its tip, swaying a little; it slides in tip first
 func _draw_tentacle(ci: Node2D, tn: Dictionary, now: float) -> void:
@@ -1134,7 +1133,17 @@ func _draw_tentacle(ci: Node2D, tn: Dictionary, now: float) -> void:
 	# its tip end, its cut root end under the frame's bar
 	if _arm_tex == null: _arm_tex = load("res://assets/boss/kraken/arm_s.png")
 	var hw := float(_arm_tex.get_height()) * 0.65 * TS / 37.0
-	Bend.draw(ci, pts, func(_q: float) -> float: return hw, _arm_tex, 1.0 - maxf(k, 0.02), 1.0)
+	if model.boss_on():
+		Bend.draw(ci, pts, func(_q: float) -> float: return hw, _arm_tex, 1.0 - maxf(k, 0.02), 1.0)
+		return
+	# the cove's own levels: a little slimmer, rising out of the dark at the board's edge (no frame bar of his over it)
+	hw *= 0.82
+	var span := Bend.length(pts)
+	var rise := minf(0.25, TS * 0.45 / maxf(span, 1.0))
+	Bend.draw(ci, pts, func(_q: float) -> float: return hw, _arm_tex, 1.0 - maxf(k, 0.02), 1.0, false,
+		func(q: float) -> Color:
+			var a := smoothstep(0.0, rise, q)
+			return Color(lerpf(0.25, 1.0, a), lerpf(0.25, 1.0, a), lerpf(0.3, 1.0, a), smoothstep(0.0, rise * 0.6, q)))
 
 
 # ---------------------------------------------------------------- Brontes' board

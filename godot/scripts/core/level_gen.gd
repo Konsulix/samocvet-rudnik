@@ -44,17 +44,18 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite", "crust"], load = 16},
 	{kinds = ["sand", "mud", "granite", "crust"], load = 17},
 ],
-## Whalebone Cove (9 depths): plain rock; the station's crane (the bucket) is its helper, from 150 m
+## Whalebone Cove (9 depths): training for the Kraken (docs/obstacles.md §6) - his tentacles from 100 m (AREA_FEATS),
+## his ink from 200 m (Royal Match's roof tile: only specials wash it off)
 2: [
 	{kinds = ["sand", "mud"], load = 10},
 	{kinds = ["sand", "mud", "granite"], load = 12},
 	{kinds = ["sand", "mud", "granite"], load = 13},
-	{kinds = ["sand", "mud", "granite"], load = 14},
-	{kinds = ["sand", "mud", "granite"], load = 15},
-	{kinds = ["sand", "mud", "granite"], load = 16},
-	{kinds = ["sand", "mud", "granite"], load = 16},
-	{kinds = ["sand", "mud", "granite"], load = 17},
-	{kinds = ["sand", "mud", "granite"], load = 18},
+	{kinds = ["sand", "mud", "granite", "ink"], load = 14},
+	{kinds = ["sand", "mud", "granite", "ink"], load = 15},
+	{kinds = ["sand", "mud", "granite", "ink"], load = 16},
+	{kinds = ["sand", "mud", "granite", "ink"], load = 16},
+	{kinds = ["sand", "mud", "granite", "ink"], load = 17},
+	{kinds = ["sand", "mud", "granite", "ink"], load = 18},
 ],
 ## Fire Horizon (9 depths): pumice and ash, basalt from 100 m, powder kegs (sulphur makes powder) from 150 m, iron
 ## staples (timber) from 300 m
@@ -71,7 +72,7 @@ const AREA_TIERS := {1: [
 ],
 ## Proval (9 depths) - the exam before the brother: snow and frozen mud, permafrost from 100 m, its own ice from 150 m,
 ## then the depths bring back what the four mines taught, one at a time (docs/mine5-proval.md §6): the Serpent's nuggets
-## to bring down at 200 m, the Mistress's nodules at 250 m, the cove's bucket at 300 m (AREA_FEATS), her crust at 350 m,
+## to bring down at 200 m, the Mistress's nodules at 250 m, her crust at 350 m,
 ## the fire's kegs at 400 m, timber at 450 m with all of it
 4: [
 	{kinds = ["sand", "mud"], load = 10},
@@ -109,9 +110,9 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 16},
 	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 17},
 ]}
-const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i"}
+const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i", ink = "x"}
 ## gas spreads and timber pins stones: a little of either goes a long way
-const CAP := {gas = 6, lock = 10, crust = 10, ice = 14, granite = 6}
+const CAP := {gas = 6, lock = 10, crust = 10, ice = 14, granite = 6, ink = 3}
 ## Copper Mountain's malachite nodules (mine -> how many at the first depth, one more every other depth, at most):
 ## the mine's own ore grows in them, so its boards carry less of the other obstacles (NOD_LOAD)
 const NODULES := {1: Vector2i(2, 4), 4: Vector2i(2, 3)}
@@ -121,19 +122,20 @@ const NOD_LOAD := 0.7
 ## sim_depth=D smart streak=0 sim_rows sim_free`); what a level asks for is kept within NEED_MAX
 ## the gallery's works (BoardModel: cart, keg, dark, belt, bucket) - one of them on most levels, two now and then
 ## deeper down. Each mine has only its own (AREA_FEATS: work -> the depth it comes in at, shown alone on the second
-## level played there): Copper Mountain the belt, the cove the bucket, the fire the kegs, Proval brings the cove's and
-## the fire's back. The cart (a ghost-cart mine) and the dark (a boss of its own) wait for their mines
-const FEATURES := ["cart", "keg", "dark", "belt", "bucket"]
-const AREA_FEATS := {1: {belt = 3}, 2: {bucket = 2}, 3: {keg = 2}, 4: {bucket = 5, keg = 7}}
+## level played there): Copper Mountain the belt, the fire the kegs, Proval brings the fire's back. The cove's levels
+## are to train for the Kraken (docs/obstacles.md: its tentacle and the rest, not made yet) - the bucket, which taught
+## nothing for him, is out (15.11). The cart (a ghost-cart mine) and the dark (a boss of its own) wait for their mines
+const FEATURES := ["cart", "keg", "dark", "belt", "bucket", "tentacle"]
+const AREA_FEATS := {1: {belt = 3}, 2: {tentacle = 1}, 3: {keg = 2}, 4: {keg = 7}}
 const FEATURE_P := 0.8
 ## a feature takes over part of a level's work: the plain obstacles shrink to this share of their load
-const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 1.0, bucket = 0.8}
+const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 0.6, bucket = 0.8, tentacle = 0.85}
 ## 10.11 refitted WITHOUT the streak's gifts (smart bot, no move limit, 408 levels of mines 1-5): the gifts are a
 ## reward that makes a level easier, not something it is built to need - a lost level resets the streak, and the
 ## retry was near hopeless without them (playtest 10.11). Granite was far underpriced (0.35 a cell, 16 of them took
 ## the bot ~40 moves): a cell costs 0.51, and each layer it lies behind the face of its wall 0.48 more (`*_deep`,
 ## _deep); cart, dark and gas are not in the data (no mine has them) and keep their old prices
-const WORK := {sand = 0.18, granite = 0.51, sand_deep = 0.03, granite_deep = 0.48, mud = 0.07, gas = 0.12, lock = 0.3, crust = 0.04, ice = 0.3, nod = 0.2, nug = 1.57, geo = 3.16, colour = 0.055, cart = 0.39, keg = 0.25, kegs = -0.2, dark = 0.0, belt = -1.97, bucket = 1.46}
+const WORK := {sand = 0.18, granite = 0.51, sand_deep = 0.03, granite_deep = 0.48, mud = 0.07, gas = 0.12, lock = 0.3, crust = 0.04, ice = 0.3, nod = 0.2, nug = 1.57, geo = 3.16, colour = 0.055, cart = 0.39, keg = 0.25, kegs = -0.2, dark = 0.0, belt = 0.9, bucket = 1.46, tentacle = 1.8, ink = 0.42}
 const BASE := 6.4
 ## a shape that is slower to work through than its cells say: a lower tier behind a throat
 const SCHEME_WORK := {tiers = 5.4}
@@ -204,7 +206,7 @@ const FIND_P := 0.6
 const BEATS := ["normal", "normal", "easy", "normal", "normal", "hard", "easy"]
 ## (super hard: fewer moves than the usual floor, MOVES.x - more cheap work alone hardly makes it harder)
 const BEAT := {"easy": {k = 1.55, load = 0.85}, "normal": {k = 1.32, load = 1.0},
-	"hard": {k = 1.02, load = 1.15}, "super": {k = 1.0, load = 1.3, floor = 8}}
+	"hard": {k = 1.02, load = 1.15}, "super": {k = 0.8, load = 1.3, floor = 8}}
 const HARD_FROM := 12    # no hard level before this one (Royal Match's first is level 39)
 const SUPER_FROM := 30
 ## the level's idea: one main work over a good part of the board, at most a little of another beside it. A soft
@@ -339,9 +341,9 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 			work += int(deep[k]) * float(WORK[k + "_deep"])
 	var goals := []
 	if used.has("sand") or used.has("granite"): goals.append(["rock"])
-	for k in ["mud", "gas", "lock", "crust", "ice"]:
+	for k in ["mud", "gas", "lock", "crust", "ice", "ink"]:
 		if used.has(k): goals.append([k])
-	for k in ["cart", "dark", "keg"]:
+	for k in ["cart", "dark", "keg", "belt", "tentacle"]:
 		if fdef.get("goal_" + k, false): goals.push_front([k])
 	if fdef.has("bucket"): goals.append(["nug"])
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new, and not as a
@@ -386,7 +388,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	var out := {map = "|".join(rows), goals = goals, moves = moves, hard = beat in ["hard", "super"], beat = beat, gen = true, colors = 5,
 		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme, feats = feats, feat_intro = feat_intro,
 		find = wins == 0 or rich or beat in ["hard", "super"] or rng.randf() < FIND_P}
-	for k in ["carts", "dark", "belts", "bucket"]:
+	for k in ["carts", "dark", "belts", "bucket", "tentacles"]:
 		if fdef.has(k): out[k] = fdef[k]
 	return out
 
@@ -421,6 +423,68 @@ static func _features(rng: RandomNumberGenerator, area: int, dl: int, wins: int,
 		if not w2.is_empty(): out.append(String(Stones.pick_w(w2, Rng32.new(rng.randi()))))
 	return out
 
+## where a conveyor may run: along the edges, each of its cells the lowest of its column (or the column below it all
+## conveyor), so nothing under it is cut off from the stones falling in. Paths of cells, end to end
+static func _belt_paths(rng: RandomNumberGenerator, grid: Array, dl: int) -> Array:
+	var low := []   # the lowest board cell of each column
+	for c in C:
+		var b := -1
+		for r in R:
+			if grid[r][c] != "#": b = r
+		low.append(b)
+	var free := func(q: Vector2i) -> bool: return q.x >= 0 and q.y >= 0 and q.x < R and q.y < C and grid[q.x][q.y] == "."
+	var out := []
+	# the bottom: the longest run of columns ending on the same row, all free
+	var rb: int = low[C / 2]
+	var c0 := C / 2
+	var c1 := C / 2
+	while c0 > 0 and low[c0 - 1] == rb and free.call(Vector2i(rb, c0 - 1)): c0 -= 1
+	while c1 < C - 1 and low[c1 + 1] == rb and free.call(Vector2i(rb, c1 + 1)): c1 += 1
+	var bottom_ok: bool = free.call(Vector2i(rb, C / 2)) and c1 - c0 + 1 >= 5
+	# a side column from row r0 down to its lowest cell
+	var side := func(c: int, h: int) -> Array:
+		var cells := []
+		var b: int = low[c]
+		for r in range(b - h + 1, b + 1):
+			if r < 2 or not free.call(Vector2i(r, c)): return []
+			cells.append(Vector2i(r, c))
+		return cells
+	var shapes := ["bottom", "side"] if dl < 2 else ["bottom", "side", "L", "L", "U"]
+	for sh: String in shapes:
+		match sh:
+			"bottom":
+				if bottom_ok:
+					var run := []
+					for c in range(c0, c1 + 1): run.append(Vector2i(rb, c))
+					out.append(run)
+			"side":
+				for c in [0, C - 1]:
+					var col: Array = side.call(c, rng.randi_range(4, 6))
+					if not col.is_empty(): out.append(col)
+			"L":
+				# down a side, then along the bottom towards the middle and past it
+				if not bottom_ok: continue
+				for c in [0, C - 1]:
+					if (c == 0 and c0 != 0) or (c == C - 1 and c1 != C - 1): continue
+					var col: Array = side.call(c, rng.randi_range(3, 5))
+					if col.is_empty() or (col.back() as Vector2i).x != rb: continue
+					var n := rng.randi_range(4, c1 - c0)
+					var path := col.duplicate()
+					for k in range(1, n):
+						path.append(Vector2i(rb, c + k if c == 0 else c - k))
+					out.append(path)
+			"U":
+				if not bottom_ok or c0 != 0 or c1 != C - 1: continue
+				var a: Array = side.call(0, rng.randi_range(2, 4))
+				var b: Array = side.call(C - 1, rng.randi_range(2, 4))
+				if a.is_empty() or b.is_empty() or (a.back() as Vector2i).x != rb or (b.back() as Vector2i).x != rb: continue
+				var path := a.duplicate()
+				for c in range(1, C - 1): path.append(Vector2i(rb, c))
+				b.reverse()
+				path.append_array(b)
+				out.append(path)
+	return out
+
 ## a cell the works may take: open, not a block cell, not a hole
 static func _free(grid: Array, groups: Dictionary, p: Vector2i) -> bool:
 	return p.x >= 0 and p.y >= 0 and p.x < R and p.y < C and grid[p.x][p.y] == "." and not p in groups.a and not p in groups.b
@@ -433,25 +497,38 @@ static func _place_features(rng: RandomNumberGenerator, grid: Array, groups: Dic
 	for f: String in order:
 		match f:
 			"belt":
-				# a conveyor two rows high across the board in its open part: its cells cleared of blocks
-				var rows := []
-				for r in range(1, R - 2):
-					var ok := true
-					for c in range(0, C):
-						for rr in [r, r + 1]:
-							if grid[rr][c] == "#": ok = false
-					if ok: rows.append(r)
-				if rows.is_empty(): continue
-				var r0: int = rows[rng.randi_range(0, rows.size() - 1)]
-				var c0 := 0 if rng.randf() < 0.6 else 1
-				for rr in [r0, r0 + 1]:
-					for c in range(c0, C - c0):
-						var q := Vector2i(rr, c)
-						groups.a.erase(q)
-						groups.b.erase(q)
-						grid[rr][c] = "="   # kept clear of everything else; "." again in the map
-				fdef.belts = [[r0, c0, r0 + 1, C - 1 - c0]]
-				work += float(WORK.belt)
+				# a conveyor (docs/obstacles.md §5) runs along the board's edges: the bottom row from side to side, a
+				# side column, an L (a side and the bottom) or a U (both sides and the bottom) - never across the
+				# middle, where the cells under it would never fill again. A basket in every slot, deeper ones more
+				# often under a tarp; the goal is the baskets. Its cells are cleared of blocks
+				var paths := _belt_paths(rng, grid, dl)
+				if paths.is_empty(): continue
+				var path: Array = paths[rng.randi_range(0, paths.size() - 1)]
+				if rng.randf() < 0.5: path.reverse()
+				var sealed := clampf(0.12 + 0.06 * dl, 0.12, 0.45)
+				var hp := ""
+				var hits := 0
+				var cells := []
+				for q: Vector2i in path:
+					groups.a.erase(q)
+					groups.b.erase(q)
+					grid[q.x][q.y] = "="   # kept clear of everything else; "." again in the map
+					var h := 2 if rng.randf() < sealed else 1
+					hp += str(h)
+					hits += h
+					cells.append([q.x, q.y])
+				fdef.belts = [{path = cells, hp = hp}]
+				fdef.goal_belt = true
+				fdef.n_belt = hits
+				work += hits * float(WORK.belt)
+			"tentacle":
+				# the Kraken's tentacles reach in over the rim (BoardModel lays them on the filled board): 1-3, cut off where
+				# they are hit; the goal is every cell they grip
+				var n := rng.randi_range(1, 2) + (1 if dl >= 4 else 0)
+				fdef.tentacles = {n = n, len = [3, 4 + mini(dl / 3, 2)]}
+				fdef.goal_tentacle = true
+				fdef.n_tentacle = n
+				work += n * float(WORK.tentacle)
 			"cart":
 				# one or two carts, mirrored, each wanting stones of its own colour from beside it
 				var spots := []

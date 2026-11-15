@@ -51,7 +51,6 @@ var _combo_move := false
 ## Avalanche: this long a cascade of one move, the finale apart (tests/cascade_odds.tscn: share of levels per bar)
 const AVALANCHE := 10
 var _dark0 := -1
-var _belt_mode := false
 var _belt_n := 0
 var eye_hits := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
@@ -199,7 +198,9 @@ func _board_theme() -> Array:
 			if model.KEG[r][c]: kegs = true
 	if bucket: return ["The Ore Bucket", "Knock nuggets out of it and bring them down"]
 	if has.call("keg"): return ["Powder Kegs", "Set every keg off"]
-	if not model.belts.is_empty(): return ["The Belt", "Its stones ride a step after every move"]
+	if has.call("tentacle"): return ["Tentacles", "Hit one to cut it off"]
+	if has.call("ink"): return ["Ink", "Only specials wash it off"]
+	if not model.belts.is_empty(): return ["The Conveyor", "Break every basket it carries"]
 	if kegs: return ["Blasting Day", "Kegs blow the rock round them"]
 	if has.call("nug"): return ["Gold Run", "Bring the nuggets down"]
 	if has.call("geo"): return ["The Geode", "Crack it open"]
@@ -956,7 +957,6 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 		# (nor in the finale: the won level's specials and moves turned to dynamite cascade by themselves — Avalanche came
 		# with nearly every first win, 15.11)
 		if cascade == AVALANCHE and not prologue and not model.finale: Awards.once("avalanche")
-		if _belt_mode: _belt_n += groups.size()
 		# a cascade's count over the stones that fell into place by themselves
 		if cascade >= 2 and not groups.is_empty():
 			var g0: Array = groups[0].cells
@@ -1178,6 +1178,14 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			fx.sparkle(e.r, float(e.c) + 0.5, Color(1.8, 1.4, 0.6), 18)
 			Sfx.play("cart_go")
 			Sfx.buzz(30)
+		"belt_hit":
+			board.belt_view.hit(int(e.bi), int(e.slot), int(e.hp))
+			if int(e.hp) == 0: _belt_n += 1
+			Sfx.buzz(20)
+		"belt_gone":
+			board.belt_view.gone(int(e.bi))
+			fx.shake = maxf(fx.shake, 6.0)
+			Sfx.buzz(40)
 		"keg":
 			board.keg_hit[int(e.r) * model.C + int(e.c)] = Time.get_ticks_msec() / 1000.0
 			fx.sparkle(e.r - 0.35, e.c, Color(2.0, 1.4, 0.5), 8)
@@ -1244,6 +1252,11 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			LevelBoss.sound(self, "cut", "crust")
 		"ink":
 			board.sea_over.queue_redraw()
+		"roof":
+			board.ink_layer.queue_redraw()
+			fx.debris(e.r, e.c, Color(0.08, 0.07, 0.16), 10)
+			fx.sparkle(e.r, e.c, Color(0.5, 0.85, 1.0), 6)
+			Sfx.play("kr_ink")
 		"eye_hit":
 			eye_hits += 1
 			if eye_hits == 3: Awards.once("boss:2:eye3")
@@ -1384,10 +1397,12 @@ const TIP := {
 	cart = "Fill the cart: match stones of its colour right beside it",
 	keg = "A powder keg! Match beside it three times and it blows up everything round it",
 	dark = "The gallery is dark. Match next to the light to carry it further",
-	belt = "A belt! After every move its stones ride a step along. Plan for where they will be",
+	belt = "A conveyor! Match next to a basket to break it. After every move the baskets ride a step along",
 	bucket = "Knock the ore bucket: a nugget tips out. Bring every nugget down to the bottom",
 	nod = "A malachite nodule: it grows every few moves. Hit it or match right beside it to cut its copper",
 	crust = "Malachite crust holds a stone. Match beside it or that stone to crack it off",
+	tentacle = "A tentacle grips these stones. Hit it anywhere: it is cut off from there to its tip",
+	ink = "Ink hides a stone and holds it. Only a special or a booster washes it off",
 	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
@@ -1428,7 +1443,7 @@ func _coach_next() -> void:
 		if gi >= 0: rects.append((goal_boxes[gi].root as Control).get_global_rect())
 		_coach_tap("find", rects)
 		return
-	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "sand", "mud", "granite", "gas", "lock", "ice"]:
+	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "tentacle", "ink", "sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
 		var cells := _obstacle_cells(id)
 		if cells.is_empty(): continue
@@ -1506,10 +1521,12 @@ func _obstacle_cells(id: String) -> Array:
 				"cart": on = model.CART[r][c] >= 0
 				"keg": on = model.KEG[r][c] > 0
 				"dark": on = model.DARK[r][c] > 0 and _beside_light(r, c)
-				"belt": on = model.BELT[r][c]
+				"belt": on = model.BELT[r][c] >= 0
 				"bucket": on = model.BUCKET[r][c] > 0
 				"nod": on = model.NOD[r][c] > 0
 				"crust": on = model.LOCK[r][c] == 2
+				"tentacle": on = model.LOCK[r][c] == 3
+				"ink": on = model.LOCK[r][c] == 7
 			if on: out.append(Vector2i(r, c))
 	return out
 
@@ -1535,25 +1552,13 @@ func _cells_rect(cells: Array) -> Rect2:
 		out = r if i == 0 else out.merge(r)
 	return out
 
-## the belts run a cell after every move: their stones ride along with them, and whatever lines up goes
+## the conveyors run a slot after every move: their baskets ride along (three broken in a move: Conveyor Chef)
 func _belts() -> void:
-	var res := model.belt_turn()
-	if res.turned.is_empty(): return
-	_belt_mode = true
-	_belt_n = 0
-	var dur := 0.34
-	var tw := create_tween().set_parallel(true)
-	for t: Array in res.turned:
-		var n: GemNode = board.nodes.get(int(t[0]))
-		if n == null: continue
-		var to: Vector2i = t[2]
-		tw.tween_property(n, "position", board.cell_center(to.x, to.y), dur).set_trans(Tween.TRANS_SINE)
-	board.run_belts(dur)
-	Sfx.play("belt")
-	await tw.finished
-	await _resolve([], [])
-	_belt_mode = false
 	if _belt_n >= 3: Awards.once("belt3")
+	_belt_n = 0
+	if model.belt_turn().turned.is_empty(): return
+	Sfx.play("belt")
+	await board.belt_view.turn()
 	await _flights_done()
 
 ## Copper Mountain: the malachite nodules grow; a full one overgrows and crusts the stones round it

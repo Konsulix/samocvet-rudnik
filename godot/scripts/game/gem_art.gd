@@ -332,6 +332,25 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 		"lock":
 			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
+		"ink":
+			BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(S / 2, S / 2), S * 0.8)
+			for q: Vector3 in [Vector3(0.5, 0.52, 0.34), Vector3(0.32, 0.4, 0.2), Vector3(0.66, 0.38, 0.2), Vector3(0.42, 0.7, 0.2), Vector3(0.68, 0.66, 0.18)]:
+				ci.draw_circle(Vector2(q.x, q.y) * S, q.z * S, Color(0.04, 0.035, 0.09, 0.97), true, -1.0, true)
+			ci.draw_arc(Vector2(0.44, 0.42) * S, 0.12 * S, PI * 1.1, PI * 1.6, 8, Color(0.4, 0.75, 0.95, 0.6), maxf(1.0, S * 0.04), true)
+		"tentacle":
+			var at := load("res://assets/boss/kraken/arm_s.png") as Texture2D
+			if at:
+				var pts := PackedVector2Array()
+				for i in 9:
+					var u := i / 8.0
+					pts.append(Vector2(0.08 + 0.84 * u, 0.78 - 0.5 * u + sin(u * 5.0) * 0.08) * S)
+				Bend.draw(ci, pts, func(q: float) -> float: return S * 0.14 * (1.0 - q * 0.6), at, 0.0, 1.0)
+		"belt":
+			var bt := BeltView.tex("basket")
+			if bt:
+				var bsz := Vector2(bt.get_size())
+				var bk := minf(S * 0.98 / bsz.x, S * 0.98 / bsz.y)
+				ci.draw_texture_rect(bt, Rect2(Vector2(S, S) * 0.5 - bsz * bk * 0.5, bsz * bk), false)
 		"cart", "keg", "dark":
 			var t := BoardMech.tex({cart = "cart_wide", keg = "keg", dark = "lantern"}[k])
 			if t == null: t = BoardMech.tex("cart")

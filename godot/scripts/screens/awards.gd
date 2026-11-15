@@ -166,7 +166,7 @@ static var LIST := [
 	{tab = "mastery", icon = "keg", n = "Powder Party", t = "Boom. Boom boom boom boom.", r = "Five kegs in one chain", one = true, ev = "kegs5", give = {coins = 500}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "domino", n = "Domino", t = "You lit one. They did the rest.", r = "Three kegs in one move", one = true, ev = "domino", give = {boost = {bore_h = 1, bore_v = 1}}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "lights_out", n = "Lights Out", t = "Darkness, gone in a single breath.", r = "Light six dark cells in one move", one = true, ev = "lights_out", give = {coins = 350}, items = ["kit:coin"]},
-	{tab = "mastery", icon = "conveyor", n = "Conveyor Chef", t = "Sit back. The belt is cooking.", r = "Three matches made by a belt in one turn", one = true, ev = "belt3", give = {coins = 350}, items = ["kit:coin"]},
+	{tab = "mastery", icon = "conveyor", n = "Conveyor Chef", t = "Sit back. The belt is cooking.", r = "Three conveyor baskets broken in one move", one = true, ev = "belt3", give = {coins = 350}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "overkill", n = "Overkill", t = "It was already beaten. You made sure.", r = "Win with a resonator and another special together", one = true, ev = "overkill", give = {boost = {pan = 2}}, items = ["res:res://assets/board/boosters/pan.png"]},
 	{tab = "mastery", icon = "lazy", n = "Lazy Miner", t = "The bottom of the board? Never heard of it.", r = "Win without a move in the lower half", one = true, ev = "lazy", give = {lives = 2}, items = ["kit:heart"]},
 	{tab = "mastery", icon = "flask", n = "Mad Alchemist", t = "What happens if you mix these two?", r = "new gems look",

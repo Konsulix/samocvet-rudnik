@@ -1,8 +1,8 @@
 class_name BoardMech
 extends RefCounted
-## How the gallery's works look on the board (BoardModel: carts, kegs, the ore bucket, belts, the dark and its
+## How the gallery's works look on the board (BoardModel: carts, kegs, the ore bucket, the dark and its
 ## lanterns), drawn into BoardView's layers. Pieces are GPT paintings in the board's style (art/board_mech/gen.sh,
-## cut.py -> assets/board/mech/); the belt, the badges, sparks and glows are drawn here.
+## cut.py -> assets/board/mech/); the badges, sparks and glows are drawn here. The conveyor has its own: BeltView.
 
 const DIR := "res://assets/board/mech/"
 const CART_GO_S := 1.1       # a full cart rolling off the board
@@ -124,114 +124,6 @@ static func draw_mech(v: BoardView, ci: CanvasItem, now: float) -> bool:
 
 static func hash_f(n: int) -> float:
 	return fposmod(sin(float(n) * 12.9898) * 43758.5453, 1.0)
-
-# ---------------------------------------------------------------- belts
-
-## a belt under its stones: a band of dark rubber round two rollers, its cleats running the way the stones ride, a
-## chevron a cell showing which way that is
-static func draw_belts(v: BoardView, ci: CanvasItem) -> void:
-	var m := v.model
-	var TS := v.TS
-	for loop: Array in m.belts:
-		if loop.is_empty(): continue
-		var r0 := 99
-		var r1 := -1
-		var c0 := 99
-		var c1 := -1
-		for p: Vector2i in loop:
-			r0 = mini(r0, p.x); r1 = maxi(r1, p.x); c0 = mini(c0, p.y); c1 = maxi(c1, p.y)
-		var top := v.PAD + r0 * TS
-		var bot := v.PAD + (r1 + 1) * TS
-		var x0 := v.PAD + c0 * TS
-		var x1 := v.PAD + (c1 + 1) * TS
-		var h := bot - top
-		# the frame under it, then the band: a stadium
-		var frame := StyleBoxFlat.new()
-		frame.bg_color = Color(0.16, 0.14, 0.13, 0.95)
-		frame.set_corner_radius_all(int(h * 0.5))
-		frame.border_color = Color(0.42, 0.36, 0.3, 0.9)
-		frame.set_border_width_all(maxi(1, int(TS * 0.05)))
-		ci.draw_style_box(frame, Rect2(x0 + TS * 0.02, top + TS * 0.04, x1 - x0 - TS * 0.04, h - TS * 0.08))
-		var band := StyleBoxFlat.new()
-		band.bg_color = Color(0.09, 0.085, 0.08, 1.0)
-		band.set_corner_radius_all(int(h * 0.42))
-		ci.draw_style_box(band, Rect2(x0 + TS * 0.1, top + TS * 0.12, x1 - x0 - TS * 0.2, h - TS * 0.24))
-		var mid_y := (top + bot) * 0.5
-		ci.draw_line(Vector2(x0 + h * 0.5, mid_y), Vector2(x1 - h * 0.5, mid_y), Color(0.32, 0.28, 0.24, 0.9), maxf(1.5, TS * 0.06))
-		# cleats and chevrons on both runs: the top one runs right, the bottom one left
-		var ph := fposmod(v.belt_phase, 1.0)
-		for run in 2:
-			var y0 := top + TS * 0.14 if run == 0 else mid_y + TS * 0.05
-			var y1 := mid_y - TS * 0.05 if run == 0 else bot - TS * 0.14
-			var dir := 1.0 if run == 0 else -1.0
-			var n := int((x1 - x0) / (TS * 0.5)) + 2
-			for i in n:
-				var x := x0 + fposmod((i * 0.5 + ph * dir) * TS, (x1 - x0))
-				if x < x0 + h * 0.36 or x > x1 - h * 0.36: continue
-				ci.draw_line(Vector2(x, y0), Vector2(x, y1), Color(0.3, 0.27, 0.24, 1.0), maxf(1.5, TS * 0.06))
-				ci.draw_line(Vector2(x - TS * 0.025, y0), Vector2(x - TS * 0.025, y1), Color(0.5, 0.45, 0.38, 0.5), maxf(1.0, TS * 0.02))
-			for i in (c1 - c0 + 1):
-				var cx := x0 + fposmod((i + 0.5 + ph * dir) * TS, (x1 - x0))
-				if cx < x0 + h * 0.4 or cx > x1 - h * 0.4: continue
-				var cy := (y0 + y1) * 0.5
-				var s := TS * 0.11
-				ci.draw_polyline(PackedVector2Array([Vector2(cx - s * dir, cy - s * 1.2), Vector2(cx + s * dir, cy), Vector2(cx - s * dir, cy + s * 1.2)]),
-					Color(0.95, 0.72, 0.3, 0.55), maxf(1.5, TS * 0.05))
-		# the rollers at the ends, turning with it
-		for e in 2:
-			var ctr := Vector2(x0 + h * 0.5 if e == 0 else x1 - h * 0.5, mid_y)
-			var rad := h * 0.36
-			ci.draw_circle(ctr, rad, Color(0.22, 0.2, 0.18))
-			ci.draw_arc(ctr, rad, 0, TAU, 28, Color(0.55, 0.48, 0.38), maxf(1.5, TS * 0.05), true)
-			var turn := v.belt_phase * TS / rad
-			for s in 4:
-				var a := turn + s * PI * 0.5
-				ci.draw_line(ctr, ctr + Vector2.from_angle(a) * rad * 0.85, Color(0.5, 0.44, 0.36), maxf(1.5, TS * 0.045))
-			ci.draw_circle(ctr, rad * 0.22, Color(0.7, 0.6, 0.42))
-
-## over the stones: the belt's frame rails along its outer edges and between its runs, brass chevrons on them running
-## with it, its drums' rims at the ends - so the belt is seen however full of stones it is
-static func draw_belt_rails(v: BoardView, ci: CanvasItem) -> void:
-	var m := v.model
-	var TS := v.TS
-	var ph := fposmod(v.belt_phase, 1.0)
-	for loop: Array in m.belts:
-		if loop.is_empty(): continue
-		var r0 := 99
-		var r1 := -1
-		var c0 := 99
-		var c1 := -1
-		for p: Vector2i in loop:
-			r0 = mini(r0, p.x); r1 = maxi(r1, p.x); c0 = mini(c0, p.y); c1 = maxi(c1, p.y)
-		var top := v.PAD + r0 * TS
-		var bot := v.PAD + (r1 + 1) * TS
-		var x0 := v.PAD + c0 * TS + TS * 0.08
-		var x1 := v.PAD + (c1 + 1) * TS - TS * 0.08
-		var mid := (top + bot) * 0.5
-		var w := maxf(2.0, TS * 0.07)
-		for y in [top + w * 0.5, bot - w * 0.5]:
-			ci.draw_line(Vector2(x0, y), Vector2(x1, y), Color(0.12, 0.1, 0.08, 0.9), w + 2.0)
-			ci.draw_line(Vector2(x0, y), Vector2(x1, y), Color(0.62, 0.52, 0.36), w)
-		# small chevrons on the rails, running: right along the top, left along the bottom, and on the middle seam
-		for run in 2:
-			var y: float = top + w * 0.5 if run == 0 else bot - w * 0.5
-			var dir := 1.0 if run == 0 else -1.0
-			for i in (c1 - c0 + 1) * 2:
-				var x := x0 + fposmod((i * 0.5 + ph * dir) * TS, x1 - x0)
-				var s := TS * 0.09
-				ci.draw_colored_polygon(PackedVector2Array([Vector2(x - s * dir, y - s), Vector2(x + s * dir, y), Vector2(x - s * dir, y + s)]), Color(1.0, 0.78, 0.35, 0.95))
-		ci.draw_line(Vector2(x0 + TS * 0.4, mid), Vector2(x1 - TS * 0.4, mid), Color(0.35, 0.3, 0.24, 0.55), maxf(1.5, TS * 0.04))
-		# the drums' rims at both ends, turning
-		for e in 2:
-			var ctr := Vector2(x0 + TS * 0.02 if e == 0 else x1 - TS * 0.02, mid)
-			var rad := (bot - top) * 0.5 - w
-			var a0 := PI * 0.5 if e == 0 else -PI * 0.5
-			ci.draw_arc(ctr, rad, a0, a0 + PI, 20, Color(0.12, 0.1, 0.08, 0.9), w + 2.0)
-			ci.draw_arc(ctr, rad, a0, a0 + PI, 20, Color(0.62, 0.52, 0.36), w)
-			var turn := v.belt_phase * TS / rad
-			for s in 3:
-				var a := a0 + fposmod(turn + s * PI / 3.0, PI)
-				ci.draw_circle(ctr + Vector2.from_angle(a) * rad, w * 0.9, Color(1.0, 0.78, 0.35))
 
 # ---------------------------------------------------------------- the dark
 

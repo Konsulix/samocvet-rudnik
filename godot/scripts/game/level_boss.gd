@@ -32,7 +32,9 @@ static func sea(lv: Level) -> BossSea: return lv.get_node_or_null("BossSea") as 
 
 ## a boss' own sound for a moment of the fight (its data's "sfx": hurt, phase, an action's name), or `fallback`
 static func sound(lv: Level, key: String, fallback := "") -> void:
-	var s := String(lv.model.boss.B.get("sfx", {}).get(key, fallback))
+	# (no boss on an ordinary level — the cove's tentacles are cut there too: its fallback)
+	var B: Dictionary = lv.model.boss.get("B", {})
+	var s := String(B.get("sfx", {}).get(key, fallback))
 	if s != "": Sfx.play(s)
 
 static func line(lv: Level, key: String, i := -1) -> void:
