@@ -75,8 +75,12 @@ static func genes(seed_v: int, sid: String, tr: Array, o: Dictionary = {}) -> Di
 			g.brood = 1 + int(rng.next() * 3) if rng.next() < 0.3 else 0
 			g.crushed = rng.next() < 0.15
 			# sea lilies behind it on the slab: some have them, some not (their own stream)
-			g.lilies = Rng32.new((seed_v * 2246822519 + 29) % 4294967296).next() < 0.5
-			for k in ["show", "nacre", "fire", "pal", "fill", "hetero", "pair", "hollow", "brood", "crushed", "lilies"]:
+			# (fewer than they were: with the living floor round it, a slab would be a crowd; none beside a coral)
+			g.lilies = Rng32.new((seed_v * 2246822519 + 29) % 4294967296).next() < 0.3
+			# the living floor round it (SpecReef, its own stream)
+			g.reef = SpecReef.genes(seed_v, 29)
+			if SpecReef.has_coral(g.reef): g.lilies = false
+			for k in ["show", "nacre", "fire", "pal", "fill", "hetero", "pair", "hollow", "brood", "crushed", "lilies", "reef"]:
 				if o.has(k): g[k] = o[k]
 			if g.hetero != "" and g.show == "split": g.show = "loose"
 			if g.show != "split":
@@ -118,11 +122,13 @@ static func accents(g: Dictionary) -> Array:
 		if g.get("crushed", false): out.append("crushed")
 		if String(g.get("hetero", "")) != "": out.append("hetero")
 		if g.show == "matrix" and g.get("lilies", false): out.append("lilies")
+		if g.show == "matrix": out.append_array(SpecReef.accents(g.get("reef", {})))
 		if int(g.get("pal", 0)) == 3: out.append("pyrite_sh")
 	return out
 
 ## the card's name for a fossil gene that carries a number (the nacre's share)
 static func gene_name(id: String, g: Dictionary) -> String:
+	if id.begins_with("sea:"): return SpecReef.gene_name(id)
 	if g.get("kind", "") == "petrified_wood":
 		return SpecWood.gene_name(id, g)
 	if g.get("kind", "") == "fulgurite":
@@ -628,6 +634,10 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 				spots.append(lp)
 			if spots.size():
 				SpecSea.bubbles(root, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
+			# the living floor: weed and corals behind, stars, shells and crabs before it, a swimmer round it
+			for rm: Array in SpecReef.grow(root, rk, rb, cands, occ, f.get("reef", {}), span, int(f.plates)):
+				var rx := U.rel_xform(rm[1] as Node3D, root)
+				b._mark(String(rm[0]), rx * (rm[2] as Vector3), Vector3.ZERO)
 		"loose":
 			var bs := Basis(Vector3.UP, (rng.next() - 0.5) * 0.8) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * gs)
 			shell = U.mesh(shell_geo(f, false), sm, root, Vector3.ZERO, bs)

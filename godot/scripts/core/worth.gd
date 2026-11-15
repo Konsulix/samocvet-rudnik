@@ -75,6 +75,8 @@ static func points(id: String, gene: Dictionary) -> float:
 	if id.begins_with("fly_"):
 		var k := id.substr(4)
 		return float(FLY.get(k, 1.4)) + 0.3 * maxi(0, (gene.get("fly_kinds", []) as Array).count(k) - 1)
+	# the living sea floor's scans (SpecReef): a swimmer most
+	if id.begins_with("sea:"): return SpecReef.points(id)
 	# a pseudomorph; an association, the more for a rarer second species
 	if id == "pseudo": return 2.4
 	if id == "assoc":
@@ -100,6 +102,7 @@ static func rank(id: String, gene: Dictionary) -> float:
 	if FOSSIL_RANK.has(id): return float(FOSSIL_RANK[id])
 	if FOSSIL_PTS.has(id) and float(FOSSIL_PTS[id]) > 0.0: return float(FOSSIL_PTS[id])
 	if id.begins_with("ch_") or id.begins_with("heart_"): return 1.5
+	if id.begins_with("sea:"): return SpecReef.points(id)
 	if TRAIT.has(id) or ACC.has(id) or id.begins_with("fly_") or id in ["pseudo", "assoc"]: return points(id, gene)
 	return 0.5
 

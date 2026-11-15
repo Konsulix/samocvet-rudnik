@@ -14,6 +14,8 @@ uniform float sat = 1.0;
 uniform float rough = 0.55;
 uniform float glow = 0.0;
 uniform float sway = 0.0;   // (the flowers, SpecFlora: the top leans to and fro, each plant to its own beat — the instance's alpha)
+uniform float back_k = 1.0;   // (how much light comes through from behind: a petal's full, a crab's shell or a sea shell little)
+uniform float swim = 0.0;   // (the sea's swimmers, SpecReef: a wave runs down the body from the head, +x, to the tail)
 uniform vec3 glow_col = vec3(0.03, 0.6, 0.17);
 uniform float cap_from = 0.62;   // (the cap: this far up the mushroom, of its height)
 global uniform float fluor_uv;
@@ -29,6 +31,11 @@ void vertex() {
 		VERTEX.x += (sin(TIME * 1.15 + ph) + 0.4 * sin(TIME * 2.7 + ph * 1.7)) * sway * h;
 		VERTEX.z += cos(TIME * 0.9 + ph * 1.3) * sway * 0.7 * h;
 	}
+	if (swim > 0.0) {
+		// (the head holds its line, the tail sweeps the most)
+		float back = clamp(0.5 - VERTEX.x, 0.0, 1.0);
+		VERTEX.z += sin(TIME * 3.2 + VERTEX.x * 6.0) * swim * (0.12 + back * back);
+	}
 }
 
 void fragment() {
@@ -42,10 +49,10 @@ void fragment() {
 	ROUGHNESS = rough;
 	SPECULAR = 0.35;
 	// (thin flesh: a little of the light behind comes through)
-	BACKLIGHT = c * 0.2;
+	BACKLIGHT = c * 0.2 * back_k;
 	// the far side of a petal or a leaf (a scan is one thin sheet): lit through from the side the light falls on, as a
 	// thin petal is — left at the flesh's 0.2 it went black where a petal curls over (the roses' hearts)
-	if (!FRONT_FACING) BACKLIGHT = c * 0.6;
+	if (!FRONT_FACING) BACKLIGHT = c * 0.6 * back_k;
 	float under = smoothstep(0.15, -0.45, normalize(v_on).y);
 	float cap = smoothstep(cap_from, cap_from + 0.26, v_op.y);
 	float br = (0.8 + 0.2 * sin(TIME * 1.3 + v_op.y * 4.0)) * (1.0 + fluor_uv * 1.5);

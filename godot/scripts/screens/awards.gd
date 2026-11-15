@@ -68,6 +68,22 @@ static var LIST := [
 	{tab = "coll", icon = "amber_forest", n = "A Forest in a Drop", t = "A whole spring wood went into the resin, a leaf at a time.", r = "coins", give = {coins = 700},
 		tags = ["sprig:flower_camellia", "sprig:flower_azalea", "sprig:flower_lotus", "sprig:flower_plum", "sprig:flower_magnolia", "sprig:leaf_fern", "sprig:leaf_oak", "sprig:leaf_oak_b", "sprig:leaf_pine"],
 		names = ["Camellia sprig", "Azalea", "Lotus", "Plum blossom", "Magnolia", "Fern frond", "Oak leaf", "Acorns", "Pine cones"]},
+	# the living sea floor of the sea finds (SpecReef): eight of each, scans
+	{tab = "coll", icon = "sea_coral", n = "Coral Garden", t = "Nobody planted it either. It took a few million years to grow.", r = "coins", give = {coins = 700},
+		tags = ["sea:coral_red", "sea:coral_organ", "sea:coral_blue", "sea:coral_staghorn", "sea:coral_pocillopora", "sea:coral_rosebrain", "sea:anemone_elegant", "sea:anemone_purple"],
+		names = ["Red coral", "Organ pipe coral", "Blue coral", "Staghorn coral", "Cauliflower coral", "Rose brain coral", "Elegant anemone", "Purple anemone"]},
+	{tab = "coll", icon = "sea_star", n = "Fallen Stars", t = "Five arms, no hurry. They lie where the tide left them.", r = "coins", give = {coins = 700},
+		tags = ["sea:star_bat", "sea:star_brittle", "sea:star_brittle_b", "sea:star_sand", "sea:star_cushion", "sea:star_sea", "sea:star_sunflower", "sea:urchin_purple"],
+		names = ["Bat star", "Brittle star", "Banded brittle star", "Sand star", "Cushion star", "Ochre star", "Sunflower star", "Purple urchin"]},
+	{tab = "coll", icon = "sea_shell", n = "She Sells Seashells", t = "By the seashore. Or four hundred metres under it.", r = "coins", give = {coins = 700},
+		tags = ["sea:shell_tun", "sea:shell_triton", "sea:shell_tridacna", "sea:shell_moon", "sea:shell_noble", "sea:shell_cone"],
+		names = ["Giant tun", "Knobbed triton", "Giant clam", "Moon scallop", "Noble scallop", "Marbled cone"]},
+	{tab = "coll", icon = "sea_crab", n = "Sideways", t = "Every one of them walked here. Not one of them walked straight.", r = "coins", give = {coins = 700},
+		tags = ["sea:crab_lobster", "sea:crab_hermit_b", "sea:crab_hermit_c", "sea:crab_fiddler", "sea:crab_frog", "sea:crab_elbow", "sea:crab_mantis", "sea:crab_isopod"],
+		names = ["Fan lobster", "Hermit crab", "Mediterranean hermit", "Fiddler crab", "Red frog crab", "Elbow crab", "Mantis shrimp", "Giant isopod"]},
+	{tab = "coll", icon = "sea_swim", n = "Here Be Monsters", t = "They circled the stone for a hundred million years. Now they circle yours.", r = "coins and a rare geode", give = {coins = 1200, geode = 2},
+		tags = ["sea:swim_coelacanth", "sea:swim_cretoxyrhina", "sea:swim_octopus", "sea:swim_mosasaurus", "sea:swim_ophthalmosaurus", "sea:swim_styxosaurus", "sea:swim_tylosaurus", "sea:swim_dallasaurus"],
+		names = ["Coelacanth", "Ginsu shark", "Giant octopus", "Mosasaur", "Ichthyosaur", "Plesiosaur", "Tylosaurus", "Dallasaurus"]},
 	{tab = "coll", icon = "obsidian", n = "Fifty Shades of Black", t = "Black is never just black.", r = "coins",
 		tags = ["ob:black", "ob:snowflake", "ob:mahogany", "ob:rainbow", "ob:tears"], names = ["Jet black", "Snowflake", "Mahogany", "Rainbow", "Apache tears"]},
 	{tab = "coll", icon = "flame", n = "Dragon's Palette", t = "Every shell burns with its own fire. One colour is only a rumour.", r = "a geode",
@@ -229,7 +245,8 @@ static func genes_of(s: Dictionary) -> Array:
 	if String(g.fx) != "": out.append("fx:" + String(g.fx))
 	if int(g.shroom) >= 0: out.append("shroom:%d" % int(g.shroom))
 	for t in s.get("traits", []): out.append("tr:" + String(t))
-	for a in g.accents: out.append("acc:" + String(a))
+	# (the living sea floor's scans are their own: "sea:coral_red", SpecReef)
+	for a in g.accents: out.append(("" if String(a).begins_with("sea:") else "acc:") + String(a))
 	# (which flowers, where it grows any: SpecFlora)
 	if (g.accents as Array).has("flowers"): out.append("flora:%d" % int(g.get("flora", 0)))
 	var f: Dictionary = g.fossil
@@ -299,6 +316,7 @@ static func _growth_id(t: String) -> String:
 	if t.begins_with("fly:"): return "fly_" + t.substr(4)
 	if t.begins_with("shroom:") and t != "shroom:4": return "mushrooms"
 	if t.begins_with("flora:"): return "flowers"
+	if t.begins_with("sea:"): return t
 	if t.begins_with("acc:") and t.substr(4) in ODD_ACC: return t.substr(4)
 	return ""
 
@@ -537,7 +555,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 10: return
+	if int(Save.d.get("gver", 0)) >= 11: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -554,8 +572,8 @@ static func backfill() -> void:
 	# (gver 7: pseudomorphs and pairs; the pairs seen so far, counted for Matchmaker)
 	Save.d.aw_ev.pairs = seen.filter(func(t: String) -> bool: return t.begins_with("pair:")).size()
 	# (gver 8: hopper fluorite for Matryoshka; gver 9: the kinds of flowers for Rock Garden; gver 10: every model held
-	# in amber and quartz — bug:, sprig:, quartz:)
-	Save.d.gver = 10
+	# in amber and quartz — bug:, sprig:, quartz:; gver 11: the living sea floor — sea:)
+	Save.d.gver = 11
 	Save.persist()
 
 ## one award's sheet alone, over another screen (the mine screen's medallions, AwardsRail): no list behind it.
@@ -1441,6 +1459,9 @@ func _where(e: Dictionary, item: String) -> String:
 		elif kind == "pair": sids = Array(tag.get_slice(":", 1).split("+"))
 		else: sids = GENE_SP.get(kind, [])
 		if kind == "pearl": return _in_mines(sids, "Something on the old sea floor guards it, %s.")
+		if kind == "sea":
+			if tag.begins_with("sea:swim_"): return _in_mines(["ammonite", "trilobite"], "Now and then it circles a slab of the old sea floor %s.")
+			return _in_mines(["ammonite", "trilobite"], "It lives on the slabs of the old sea floor %s, round what lies on them.")
 	elif item.begins_with("sp:"):
 		var id := item.trim_prefix("sp:")
 		if id.begins_with("skull_"):

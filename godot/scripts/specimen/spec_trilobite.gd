@@ -89,8 +89,12 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.keep = clampf(0.42 + 0.58 * pow(rng3.next(), 0.75), 0.42, 1.0)
 	g.wear_seed = int(rng3.next() * 100000.0) + 1
 	# sea lilies by it on its slab: some slabs have them, some not (their own stream, like the mushrooms)
-	g.lilies = Rng32.new((seed_v * 2246822519 + 13) % 4294967296).next() < 0.5
-	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep", "lilies"]:
+	# (fewer than they were: with the living floor round it, a slab would be a crowd; none beside a coral)
+	g.lilies = Rng32.new((seed_v * 2246822519 + 13) % 4294967296).next() < 0.3
+	# the living floor round it: weed, corals, stars, shells, crabs, a swimmer (SpecReef, its own stream)
+	g.reef = SpecReef.genes(seed_v, 13)
+	if SpecReef.has_coral(g.reef): g.lilies = false
+	for k in ["genus", "pal", "show", "seg", "spines", "moult", "bite", "soft", "mass", "oysters", "keep", "lilies", "reef"]:
 		if o.has(k): g[k] = o[k]
 	# a legendary one kept well (the awakening grows its own legs, whatever it is kept in)
 	if o.get("legend", false):
@@ -129,6 +133,7 @@ static func accents(g: Dictionary) -> Array:
 	if int(g.pal) == 6: out.append("opal")
 	if g.get("show", "") == "nodule": out.append("nodule")
 	if g.get("show", "") in ["matrix", "mass"] and g.get("lilies", false): out.append("lilies")
+	if g.get("show", "") in ["matrix", "mass"]: out.append_array(SpecReef.accents(g.get("reef", {})))
 	if int(g.get("oysters", 0)) > 0: out.append("oyster")
 	if g.get("moult", false): out.append("moult")
 	if g.get("bite", false): out.append("bite")
@@ -138,6 +143,7 @@ static func accents(g: Dictionary) -> Array:
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
+	if id.begins_with("sea:"): return SpecReef.gene_name(id)
 	match id:
 		"eyes": return "eyes of %d lenses" % _lens_count(g)
 		"stalks": return "stalked eyes"
@@ -793,6 +799,8 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 				spots.append(at)
 			if spots.size():
 				SpecSea.bubbles(holder, spots, Vector3.UP, span * 1.2, span * 0.012, 5)
+			# the living floor: weed and corals behind, stars, shells and crabs before it, a swimmer round it
+			marks.reef = SpecReef.grow(holder, rk, rb, cands, occ, f.get("reef", {}), span, int(f.seed))
 		"prepared":
 			# prepared the Moroccan way: standing proud on an oval of its matrix, the matrix round it carved down
 			# with an air-pen — a pale plate covered in wormy tool marks
@@ -938,6 +946,11 @@ static func build(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshIn
 		var lx := U.rel_xform(marks.lilies[0] as Node3D, root)
 		b._mark("lilies", lx * Vector3(0, float(marks.lilies[1]) * 0.9, 0), Vector3.ZERO)
 	marks.erase("lilies")
+	for rm: Array in marks.get("reef", []):
+		if String(rm[0]) in gene.accents:
+			var rx := U.rel_xform(rm[1] as Node3D, root)
+			b._mark(String(rm[0]), rx * (rm[2] as Vector3), Vector3.ZERO)
+	marks.erase("reef")
 	if marks.has("oyster") and "oyster" in gene.accents:
 		var ox := U.rel_xform(marks.oyster as Node3D, root)
 		b._mark("oyster", ox * Vector3(0, 0.8, 0.4), (ox.basis * Vector3.UP).normalized())

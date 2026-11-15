@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ckyjbhxvsbhdg"
+path="res://.godot/imported/anemone_elegant.obj-479c9cc1e938f6b16525a15b1fcfc8ae.mesh"
+
+[deps]
+
+files=["res://.godot/imported/anemone_elegant.obj-479c9cc1e938f6b16525a15b1fcfc8ae.mesh"]
+
+source_file="res://assets/specimen/sea/anemone_elegant.obj"
+dest_files=["res://.godot/imported/anemone_elegant.obj-479c9cc1e938f6b16525a15b1fcfc8ae.mesh", "res://.godot/imported/anemone_elegant.obj-479c9cc1e938f6b16525a15b1fcfc8ae.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
