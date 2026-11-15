@@ -28,6 +28,14 @@ var info: Control
 ## the second ribbon (last_of): the last kept stone with a gene an achievement shows - in the left corner, moss green,
 ## as long as the record's, a brass butterfly instead of the wreath (the awards' Finds, where those genes are collected)
 var left := false
+## the profile's costliest stone (ProfileCard): royal-blue silk and a brass cup instead of the wreath
+var cup := false:
+	set(v):
+		cup = v
+		if v:
+			c_silk = Color(0.06, 0.1, 0.32)
+			c_dark = Color(0.015, 0.03, 0.11)
+			c_sheen = Color(0.15, 0.23, 0.52)
 var len_ := L
 var c_silk := SILK
 var c_dark := SILK_DARK
@@ -44,6 +52,7 @@ var _t := -DELAY
 static var _weave: ImageTexture
 static var _laurel: ImageTexture
 static var _fly: ImageTexture
+static var _cup: ImageTexture
 
 ## goes into the info panel itself (after its content): the panel's rounded clip cuts its top into the corner
 static func make(card_: Control, info_: Control, last_of := false) -> RecordRibbon:
@@ -345,6 +354,11 @@ func _draw() -> void:
 		draw_texture_rect(butterfly(), Rect2(-Vector2(48, 48), Vector2(96, 96)), false)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
+	if cup:
+		draw_set_transform(mid[at], tilt, Vector2.ONE * (17.0 / 96.0))
+		draw_texture_rect(trophy(), Rect2(-Vector2(48, 50), Vector2(96, 96)), false)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_set_transform(mid[at] + Vector2(0, 0), tilt, Vector2.ONE * (WREATH_PT / 96.0))
 	var lt := laurel()
 	draw_texture_rect(lt, Rect2(-Vector2(48, 50), Vector2(96, 96)), false)
@@ -451,6 +465,61 @@ static func laurel() -> ImageTexture:
 	img.generate_mipmaps()
 	_laurel = ImageTexture.create_from_image(img)
 	return _laurel
+
+## the cup, painted once into a 96 px texture like the wreath: a bowl with a lip, two ring handles, a stem with a
+## knot, a stepped foot; worked brass lit from the left (each part shaded across its own width), its mouth dark, a
+## thin dark rim round everything
+static func trophy() -> ImageTexture:
+	if _cup != null: return _cup
+	const S := 96
+	const CX := 48.0
+	var hi := Color(1.0, 0.9, 0.62)
+	var md := Color(0.86, 0.66, 0.32)
+	var lo := Color(0.52, 0.34, 0.12)
+	var rim := Color(0.13, 0.06, 0.02)
+	# the round parts: [top, bottom, half width at a row (callable)]
+	var parts := [
+		[20.0, 25.0, func(_y: float) -> float: return 28.0],                                          # the lip
+		[24.0, 56.0, func(y: float) -> float: return 26.0 * sqrt(maxf(0.0, 1.0 - pow((y - 24.0) / 32.0, 2.0)))],   # the bowl
+		[54.0, 70.0, func(y: float) -> float: return 4.5 + 1.5 * absf(y - 62.0) / 8.0],                 # the stem
+		[59.0, 65.0, func(y: float) -> float: return 7.5 * sqrt(maxf(0.0, 1.0 - pow((y - 62.0) / 3.0, 2.0)))],     # the knot
+		[69.0, 76.0, func(y: float) -> float: return 9.0 + (y - 69.0) * 1.0],                            # the foot
+		[75.0, 81.0, func(_y: float) -> float: return 19.0],                                             # the plinth
+	]
+	var img := Image.create(S, S, true, Image.FORMAT_RGBA8)
+	for y in S:
+		for x in S:
+			var p := Vector2(x + 0.5, y + 0.5)
+			var out := Color(0, 0, 0, 0)
+			# the handles: rings beside the bowl, their outer halves
+			for side: float in [-1.0, 1.0]:
+				var hc := Vector2(CX + side * 26.0, 36.0)
+				var d := absf(p.distance_to(hc) - 9.0)
+				if (p.x - hc.x) * side > -2.0:
+					out = _over(out, rim, clampf(3.2 - d, 0.0, 1.0))
+					var lit := clampf(-(p - hc).normalized().dot(Vector2(-0.6, -0.8)), -1.0, 1.0)
+					out = _over(out, md.lerp(hi if lit < 0.0 else lo, absf(lit) * 0.6), clampf(2.0 - d, 0.0, 1.0))
+			for part: Array in parts:
+				var y0: float = part[0]
+				var y1: float = part[1]
+				var hw: float = (part[2] as Callable).call(clampf(p.y, y0, y1))
+				var edge := maxf(absf(p.x - CX) - hw, maxf(y0 - p.y, p.y - y1))
+				var cr := clampf(1.3 - edge, 0.0, 1.0)
+				if cr <= 0.0: continue
+				out = _over(out, rim, cr)
+				var cov := clampf(0.5 - edge, 0.0, 1.0)
+				if cov <= 0.0: continue
+				var u := (p.x - CX) / maxf(hw, 0.5)          # -1 at the lit left side .. 1 at the right
+				var c := md.lerp(hi, clampf(-u * 1.1 + 0.15, 0.0, 1.0)) if u < 0.15 else md.lerp(lo, clampf(u * 1.1, 0.0, 1.0))
+				c = c.lerp(hi, 0.5 * clampf(1.0 - absf(u + 0.45) * 5.0, 0.0, 1.0))      # a bright streak on the left
+				out = _over(out, c, cov)
+			# the bowl's mouth: a dark ellipse under the lip's top
+			var m := Vector2((p.x - CX) / 25.0, (p.y - 22.5) / 2.6)
+			if m.length() < 1.0: out = _over(out, lo.lerp(rim, 0.6), clampf((1.0 - m.length()) * 6.0, 0.0, 1.0))
+			img.set_pixel(x, y, out)
+	img.generate_mipmaps()
+	_cup = ImageTexture.create_from_image(img)
+	return _cup
 
 ## the butterfly, painted once into a 96 px texture like the wreath: four wings (the fore ones larger, swept up, an
 ## eyespot in each; the hind ones with a tail), a slim body, two antennae with knobs; worked brass, each wing's

@@ -1,7 +1,7 @@
 class_name ProfileCard
 ## The player's profile, opened by a tap on the portrait in the top bar (15.11; laid out as Royal Match's: looking and
 ## choosing apart). "Profile": the title, an inset panel with the portrait and the best find side by side in the same
-## dark niches ("Edit" on the portrait; "+" on the find picks another stone, a tap on it opens its card), and the
+## dark niches ("Edit" on the portrait; the ribbon with a cup marks it the costliest, a tap on it opens its card), and the
 ## Records panel - four icons, their words, the numbers on dark plates. "Edit Profile": a small preview, the tabs
 ## Portrait / Frame / Title, a grid of equal tiles (the worn one ticked, the locked dark with a lock: a tap says how).
 
@@ -57,34 +57,34 @@ static func _section(t: String) -> Control:
 	h.add_child(b)
 	return h
 
-## the profile: no panels round anything - the drawn frame and the stone stand on the window side by side, the same
-## size; under the frame "Edit", under the stone its name and price; then the records
+## the profile: the title and its rule; the framed portrait and the best find's card side by side, the same size;
+## under them "Edit" and the find's plate (its name and price); a rule; the records
 static func _build() -> void:
 	var v := Ov.card(W)
 	v.add_theme_constant_override("separation", 12)
 	_head(v, "Profile")
-	var top := HBoxContainer.new()
-	top.alignment = BoxContainer.ALIGNMENT_CENTER
-	top.add_theme_constant_override("separation", 22)
-	top.add_child(_portrait_sq())
-	top.add_child(_find_sq())
-	v.add_child(top)
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 22)
+	g.add_theme_constant_override("v_separation", 8)
+	var s := Profile.showcase()
+	g.add_child(_portrait_sq())
+	g.add_child(_find_sq(s))
+	var e := Kit.button("Edit", "btn_green", 16, 3.0)
+	e.custom_minimum_size = Vector2(SQ, 36)
+	e.pressed.connect(func(): _edit())
+	g.add_child(e)
+	g.add_child(_find_plate(s))
+	var cc := CenterContainer.new()
+	cc.add_child(g)
+	v.add_child(cc)
 	v.add_child(_section("Records"))
 	v.add_child(_records())
 
-## a column: the picture (SQ square), the line under it
-static func _column(pic: Control, under: Control) -> VBoxContainer:
-	var c := VBoxContainer.new()
-	c.add_theme_constant_override("separation", 6)
-	pic.custom_minimum_size = Vector2(SQ, SQ)
-	c.add_child(pic)
-	under.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	c.add_child(under)
-	return c
-
-## the portrait in its own drawn frame, "Edit" under it (a tap on the portrait opens Edit Profile too)
+## the portrait in its own drawn frame (a tap opens Edit Profile)
 static func _portrait_sq() -> Control:
 	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(SQ, SQ)
 	holder.add_child(Chrome.portrait(SQ, String(Profile.frame().id), String(Profile.face().id)))
 	var tap := _flat_button(Vector2(SQ, SQ))
 	tap.pressed.connect(func():
@@ -92,66 +92,75 @@ static func _portrait_sq() -> Control:
 		_edit())
 	holder.add_child(tap)
 	if not _new.is_empty(): holder.add_child(Chrome._new_dot(SQ))
-	var e := Kit.button("Edit", "btn_green", 14, 3.0)
-	e.custom_minimum_size = Vector2(84, 32)
-	e.pressed.connect(func(): _edit())
-	return _column(holder, e)
+	return holder
 
-## the best find: the stone itself, as big as the portrait, its rarity's soft glow behind it; under it its name and
-## price; "+" on its corner picks another stone, a tap on it opens its card
-static func _find_sq() -> Control:
-	var holder := Control.new()
-	var s := Profile.showcase()
+## the best find's card: the stone on the slate of a kit card, its rarity's soft glow behind it, and the ribbon of
+## the costliest stone hanging from the card's top edge (a cup on it; a tap on it says what it is); a tap on the stone
+## opens its card
+static func _find_sq(s: Dictionary) -> Control:
+	var w := PanelContainer.new()
+	w.custom_minimum_size = Vector2(SQ, SQ)
+	w.add_theme_stylebox_override("panel", Kit.box("card", 5.0))
+	var inner := Control.new()
+	inner.custom_minimum_size = Vector2(SQ - 10, SQ - 10)
+	inner.clip_contents = true
+	w.add_child(inner)
 	if s.is_empty():
 		var l := Kit.label("Your best find\nwill stand here", 12, UI.body_bold, Kit.DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.size = Vector2(SQ, SQ)
-		holder.add_child(l)
-		return _column(holder, Control.new())
+		l.size = Vector2(SQ - 10, SQ - 10)
+		inner.add_child(l)
+		return w
 	var glow := TextureRect.new()
 	glow.texture = FxLayer.puff()
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.size = Vector2(SQ, SQ)
+	glow.size = Vector2(SQ - 10, SQ - 10)
 	glow.modulate = Color(Data.rarity_color(int(s.tier)), 0.45)
 	glow.material = FxLayer.add_material()
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(glow)
+	inner.add_child(glow)
 	var img := TextureRect.new()
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	img.position = Vector2(SQ, SQ) * 0.06
-	img.size = Vector2(SQ, SQ) * 0.88
+	img.position = Vector2(SQ - 10, SQ - 10) * 0.08
+	img.size = Vector2(SQ - 10, SQ - 10) * 0.84
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(img)
+	inner.add_child(img)
 	var have := Atlas.cached(s)
 	if have: img.texture = have
 	else: Atlas.cutout(s, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
-	var tap := _flat_button(Vector2(SQ, SQ))
+	var tap := _flat_button(Vector2(SQ - 10, SQ - 10))
 	tap.pressed.connect(func():
 		Sfx.play("click")
 		_open_stone(s))
-	holder.add_child(tap)
-	var pin := Kit.icon_button("plus", 26)
-	pin.position = Vector2(SQ - 22, -4)
-	pin.pressed.connect(func(): _pick_stone())
-	holder.add_child(pin)
-	# the name and the price, one line (as tall as the Edit button beside it)
+	inner.add_child(tap)
+	var rr := RecordRibbon.make(w, inner)
+	rr.cup = true
+	rr.head = "Your costliest stone"
+	rr.lines = PackedStringArray(["The most valuable find you keep"])
+	inner.add_child(rr)
+	return w
+
+## the find's plate: its name and price on brass, as wide as the card
+static func _find_plate(s: Dictionary) -> Control:
+	var plate := PanelContainer.new()
+	plate.custom_minimum_size = Vector2(SQ, 36)
+	plate.add_theme_stylebox_override("panel", Kit.box("btn_gold", 3.0))
 	var line := HBoxContainer.new()
-	line.custom_minimum_size = Vector2(0, 32)
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 5)
-	var name := Stones.name_of(s)
-	var nm := Kit.label(name, 15 if name.length() <= 10 else 12, UI.display, Kit.CREAM)
-	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	line.add_child(nm)
-	var coin := Kit.res_icon("coin", 18)
-	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(coin)
-	var pr := Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 15, UI.display, Kit.AMBER)
-	pr.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	line.add_child(pr)
-	return _column(holder, line)
+	line.add_theme_constant_override("separation", 4)
+	if s.is_empty():
+		line.add_child(Kit.label("-", 14, UI.display, Color("#2a1d0e")))
+	else:
+		var name := Stones.name_of(s)
+		line.add_child(Kit.label(name, 16 if name.length() <= 9 else (12 if name.length() <= 13 else 10), UI.display, Color("#2a1d0e")))
+		var coin := Kit.res_icon("coin", 16)
+		coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(coin)
+		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 16, UI.display, Color("#2a1d0e")))
+	plate.add_child(line)
+	return plate
 
 static func _flat_button(sz: Vector2) -> Button:
 	var b := Button.new()
@@ -164,61 +173,6 @@ static func _flat_button(sz: Vector2) -> Button:
 static func _open_stone(s: Dictionary) -> void:
 	var v := Ov.card(350, Data.rarity_color(int(s.tier)))
 	Reveal.stone_card(v, s, 400, func(): _build())
-
-## the stones to show: the most valuable twenty-four kept, a tap puts one in the niche
-static func _pick_stone() -> void:
-	var v := Ov.card(W)
-	v.add_theme_constant_override("separation", 10)
-	_head(v, "Show in the niche")
-	var list: Array = Save.d.coll.duplicate()
-	list.sort_custom(func(a, b): return int(a.value) > int(b.value))
-	var g := GridContainer.new()
-	g.columns = 4
-	g.add_theme_constant_override("h_separation", 6)
-	g.add_theme_constant_override("v_separation", 6)
-	var shown := int(Profile.showcase().get("id", -1))
-	for s: Dictionary in list.slice(0, 24):
-		var cell := PanelContainer.new()
-		cell.custom_minimum_size = Vector2(70, 70)
-		cell.add_theme_stylebox_override("panel", Kit.box("btn_dark", 3.0, Color(0.8, 1.25, 0.8) if int(s.id) == shown else Color.WHITE))
-		var img := TextureRect.new()
-		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		img.custom_minimum_size = Vector2(60, 60)
-		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var have := Atlas.cached(s)
-		if have: img.texture = have
-		else: Atlas.cutout(s, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
-		cell.add_child(img)
-		var b := _flat_button(Vector2(70, 70))
-		var sid := int(s.id)
-		b.pressed.connect(func():
-			Sfx.play("click")
-			Profile.wear("stone", str(sid))
-			_build())
-		cell.add_child(b)
-		g.add_child(cell)
-	var box := _panel(8.0)
-	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(0, 310)
-	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var cc := CenterContainer.new()
-	cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cc.add_child(g)
-	sc.add_child(cc)
-	box.add_child(sc)
-	v.add_child(box)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
-	var best := Ov.btn("The best one", "dark", func():
-		Profile.wear("stone", "")
-		_build())
-	var back := Ov.btn("Done", "green", func(): _build())
-	for b: Button in [best, back]:
-		b.custom_minimum_size.x = 130
-		row.add_child(b)
-	v.add_child(row)
 
 ## the four records: an icon, its word, the number on a dark plate
 static func _records() -> Control:

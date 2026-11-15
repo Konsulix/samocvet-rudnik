@@ -110,12 +110,10 @@ static func mark_seen(keys: Array) -> void:
 		if not (Save.d.prof_seen as Array).has(k): Save.d.prof_seen.append(k)
 	Save.persist()
 
-## the stone in the card's niche: the one pinned (still kept), else the most valuable kept; {} - none yet
+## the stone in the profile's card: the most valuable kept; {} - none yet
 static func showcase() -> Dictionary:
-	var pin := String(_prof().get("stone", ""))
 	var best := {}
 	for s: Dictionary in Save.d.coll:
-		if pin != "" and str(int(s.id)) == pin: return s
 		if best.is_empty() or int(s.value) > int(best.value): best = s
 	return best
 
