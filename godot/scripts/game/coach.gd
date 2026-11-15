@@ -52,11 +52,12 @@ func hand(from: Vector2, to: Vector2) -> void:
 
 ## a first-time note, once (Save.told(id)): the screen dims but for `hole` (if any), `text` on a card; a touch on the
 ## hole goes through to it, with no hole any touch closes it. Over everything but the windows (layer 19)
-static func note(at: Node, id: String, text: String, hole := Rect2()) -> void:
+## (layer_n: over a window — Ov is layer 20 — a note on its button goes above it)
+static func note(at: Node, id: String, text: String, hole := Rect2(), layer_n := 19) -> void:
 	if off or Save.told(id) or not at.is_inside_tree(): return
 	Save.tell(id)
 	var layer := CanvasLayer.new()
-	layer.layer = 19
+	layer.layer = layer_n
 	at.add_child(layer)
 	var c := Coach.new()
 	layer.add_child(c)

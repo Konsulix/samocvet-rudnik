@@ -883,6 +883,9 @@ func _open_next() -> void:
 		if bt: bt.pressed.connect(func():
 			Ov.close()
 			_build_many(tid, i, pn))
+		# the first build: its button shown (over the window)
+		if bt and can and Save.told("c_next") and not Save.told("c_build"):
+			_coach_build(bt)
 		var need := "%d %s for %d steps · you have %d" % [int(paid[1]), on, pn, Save.d.ore] if pn > 1 else "%d %s · you have %d" % [cost, on, Save.d.ore]
 		v.add_child(_need_row("ore", String(st.job[1]) + stp, "Done" if st.job_done else need, st.job_done, bt))
 	if not st.last:
@@ -920,6 +923,12 @@ func _fight_boss() -> void:
 		return
 	Ov.close()
 	play.emit(Save.d.level, [], Data.depths(ai()).size())
+
+## the first time the window can build: a note on its Build button, once the window has come up
+func _coach_build(bt: Button) -> void:
+	await get_tree().create_timer(0.55).timeout
+	if is_instance_valid(bt) and bt.is_visible_in_tree():
+		Coach.note(self, "c_build", "Build: the ore goes into the mine, and you see it change.", bt.get_global_rect(), 21)
 
 ## one line of the checklist: badge, what, how far along, a tick (or a button doing it)
 func _need_row(kind: String, what: String, sub: String, ok: bool, action: Button) -> PanelContainer:
@@ -1297,8 +1306,9 @@ func _rise() -> void:
 	if _glide: _glide.kill()
 	_glide = create_tween()
 	var to := view.guide_head().y * view.scale.y - get_viewport_rect().size.y * 0.42
-	_glide.tween_method(_scroll_to, scroll, to, 4.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await get_tree().create_timer(4.9).timeout
+	# (2.8 s: at 4.5 it dragged — the first look at the mine is a quick ride up, not a wait)
+	_glide.tween_method(_scroll_to, scroll, to, 2.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await get_tree().create_timer(3.1).timeout
 	hold.queue_free()
 	if not is_inside_tree(): return
 	await StoryScene.play(self, "prologue_meet").finished
@@ -1315,14 +1325,21 @@ func _rise() -> void:
 	rv.unmask(gift)
 	await rv.finished
 	Save.tell("gift_got")
-	# and the first beams of the headframe, on him: the mine changes under the newcomer's hand straight away
+	# and the first beams of the headframe: his ore, the newcomer's hand — the Next plate shown, then its Build button
+	# (it used to build by itself: nothing learnt of how the mine is built)
 	var nx := next_step()
 	if not nx.job_done and is_inside_tree():
 		var tid := String(nx.job[0])
 		await _say("Now - help me raise the headframe. I've put by the ore for the first beams.")
 		Save.d.ore += MineView.step_cost(ai(), tid, int(nx.job[2]))
-		_build(tid, int(nx.k))
-		await get_tree().create_timer(3.4).timeout
+		Save.tell("g_build")    # (his line about it is just said)
+		render()
+		await get_tree().process_frame
+		if _tasks and is_instance_valid(_tasks):
+			Coach.note(self, "c_next", "This plate shows what to build next and what it needs. Tap it.", _tasks.get_global_rect())
+		# (he talks on once it is built: the build redraws the screen, and that lets him)
+		_guide_waits = false
+		return
 	_guide_waits = false
 	_guide_later(0.6)
 
