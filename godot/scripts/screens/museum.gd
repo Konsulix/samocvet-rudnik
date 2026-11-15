@@ -392,6 +392,13 @@ func _open_stack() -> void:
 func _open_first() -> void:
 	if Save.d.coll.size(): _open_stone(Save.d.coll[0])
 
+## for screenshots: ui=cut_first - the cutting card of the first uncut stone
+func _cut_first() -> void:
+	for s in Save.d.coll:
+		if s.get("cut", "") == "":
+			_cut_panel(s)
+			return
+
 ## for screenshots: ui=open_uncut
 func _open_uncut() -> void:
 	for s in Save.d.coll:
@@ -519,22 +526,21 @@ func _cut_panel(s: Dictionary) -> void:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 66)
 		b.disabled = Save.d.coins < int(c.cost)
-		var st := UI.glass(14, 0.7)
-		st.bg_color = Color("#2a1f44")
-		st.border_color = Color("#8a6ad0")
-		for k in ["normal", "hover", "pressed", "focus", "disabled"]: b.add_theme_stylebox_override(k, st)
+		# a dark slate plate of the kit (it was a purple glass one)
+		for k in ["normal", "hover", "focus", "disabled"]: b.add_theme_stylebox_override(k, Kit.box("btn_dark", 6.0))
+		b.add_theme_stylebox_override("pressed", Kit.box("btn_dark", 6.0, Color(0.78, 0.74, 0.68)))
 		var bv := VBoxContainer.new()
 		bv.position = Vector2(12, 8)
 		bv.size = Vector2(290, 52)
 		bv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bv.add_theme_constant_override("separation", 0)
 		var top := HBoxContainer.new()
-		var nl := UI.label(c.n, 15, UI.display, Color("#e8d8ff"))
+		var nl := Kit.label(c.n, 15, UI.display, Kit.CREAM)
 		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		top.add_child(nl)
-		top.add_child(UI.label("%d%%" % roundi(chance.call(c) * 100), 15, UI.display, UI.GOOD))
+		top.add_child(Kit.label("%d%%" % roundi(chance.call(c) * 100), 15, UI.display, UI.GOOD))
 		bv.add_child(top)
-		var sm := UI.label("success: %s · failure: %s · labour %d coins" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), int(c.cost)], 11, UI.body, UI.MUTED)
+		var sm := UI.label("success: %s · failure: %s · labour %d coins" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), int(c.cost)], 11, UI.body, Kit.DIM)
 		bv.add_child(sm)
 		b.add_child(bv)
 		if b.disabled: b.modulate.a = 0.5
@@ -712,13 +718,7 @@ func _workshop_row(j: Dictionary) -> PanelContainer:
 	val = roundi(val * float(j.m))
 	if cols.is_empty(): cols = ["#6a7080"]
 	var p := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0, 0, 0, 0.35)
-	ps.border_color = Color("#4a3a22")
-	ps.set_border_width_all(1)
-	ps.set_corner_radius_all(14)
-	ps.set_content_margin_all(8)
-	p.add_theme_stylebox_override("panel", ps)
+	p.add_theme_stylebox_override("panel", Kit.box("card", 10.0))   # a slate card of the kit (was a flat dark plate)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
 	var img := photo({seed = 7, jewel = {rid = j.id, cols = cols}}, 72)
@@ -736,8 +736,8 @@ func _workshop_row(j: Dictionary) -> PanelContainer:
 		var names := []
 		for x in st: names.append(Data.SP[x.sid].n)
 		v.add_child(note("From: %s → %s" % [", ".join(names), UI.coins(val)]))
-	var b := UI.button("Make" if st.size() else "No stones", "gold" if st.size() else "glass", 13)
-	b.custom_minimum_size = Vector2(0, 36)
+	var b := Kit.button("Make" if st.size() else "No stones", "btn_gold" if st.size() else "btn_dark", 14, 4.0)
+	b.custom_minimum_size = Vector2(110, 38)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.disabled = st.is_empty()
 	b.pressed.connect(func(): _craft(j))

@@ -1829,7 +1829,7 @@ func _on_quit() -> void:
 			Save.persist()
 			_close_panel()
 			finished.emit({won = false, n = model.n, depth = model.depth, boss = model.boss_on()}), true],
-		["Keep playing", "glass", _close_panel, true]])
+		["Keep playing", "green", _close_panel, true]])
 
 # ---------------------------------------------------------------- small UI helpers
 
@@ -2020,24 +2020,23 @@ func _show_looks() -> void:
 	add.call(locks)
 
 func _looks_head(text: String) -> Label:
-	var l := UI.label(text, 14, UI.body_bold, UI.MUTED)
+	var l := Kit.label(text, 14, UI.body_bold, Kit.DIM)
 	return l
 
 ## an option card: its label on top, room below (its first child's column) for previews; gold-edged when chosen
 func _looks_option(text: String, chosen: bool, height: float) -> Button:
-	var b := UI.button("", "glass", 15)
+	# a dark slate plate of the kit; the chosen one lit warm (its frame brighter, its name in brass)
+	var b := Kit.button("", "btn_dark", 15, 4.0)
 	b.custom_minimum_size = Vector2(0, height)
 	if chosen:
-		var border := UI.glass(14, 0.9)
-		border.border_color = UI.GOLD
-		border.set_border_width_all(2)
-		b.add_theme_stylebox_override("normal", border)
+		for k in ["normal", "hover"]:
+			b.add_theme_stylebox_override(k, Kit.box("btn_dark", 4.0, Color(1.3, 1.18, 0.92)))
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 2)
-	var l := UI.label(text + ("  ✓" if chosen else ""), 14, UI.display)
+	var l := Kit.label(text + ("  ✓" if chosen else ""), 14, UI.display, Kit.AMBER if chosen else Kit.CREAM)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(l)
@@ -2055,40 +2054,39 @@ func _set_look(key: String, value: Variant) -> void:
 	_close_panel()
 	_show_looks()
 
-## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]; returns its column
+## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]; returns its column.
+## The drawn kit's window, as Ov.card (it was the old glass plate): slate in a brass-and-iron frame, a brass rule
+## under the title, kit buttons (green -> the green plate, gold -> brass, anything else -> dark slate)
 func _panel(title_text: String, body_text: String, buttons: Array) -> VBoxContainer:
 	for ch in overlay.get_children(): ch.queue_free()
+	Sfx.play("open")
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(0.01, 0.02, 0.04, 0.62)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(dim)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
 	var card := PanelContainer.new()
-	var st := UI.glass(24, 0.92)
-	st.set_content_margin_all(18)
-	card.add_theme_stylebox_override("panel", st)
-	card.custom_minimum_size = Vector2(330, 0)
+	card.add_theme_stylebox_override("panel", Kit.box("window", 20.0))
+	card.custom_minimum_size = Vector2(340, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
 	v.add_child(UI.title(title_text, 22))
-	var body := UI.label(body_text, 15, UI.body, UI.MUTED)
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(body)
+	v.add_child(Kit.rule(220))
+	if body_text != "":
+		v.add_child(Ov.text(body_text))
 	for b in buttons:
-		var btn := UI.button(b[0], b[1], 17)
-		btn.custom_minimum_size = Vector2(0, 50)
-		btn.disabled = not b[3]
-		btn.pressed.connect(b[2])
-		v.add_child(btn)
+		v.add_child(Ov.btn(b[0], b[1], b[2], b[3]))
 	card.add_child(v)
 	center.add_child(card)
 	overlay.visible = true
-	card.scale = Vector2(0.85, 0.85)
-	card.pivot_offset = Vector2(165, 120)
-	create_tween().tween_property(card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	card.scale = Vector2(0.86, 0.86)
+	card.modulate.a = 0.0
+	card.resized.connect(func(): card.pivot_offset = card.size / 2)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(card, "modulate:a", 1.0, 0.16)
 	return v
 
 func _close_panel() -> void:

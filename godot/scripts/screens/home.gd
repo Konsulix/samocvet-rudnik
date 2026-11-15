@@ -810,22 +810,21 @@ func _open_tasks() -> void:
 		var t: Array = A.tasks[i]
 		var done: bool = t[0] in built
 		if not done: all_done = false
+		# a slate card of the kit (it was a glass strip); a finished job's card a touch green
 		var row := PanelContainer.new()
-		var st := UI.glass(14, 0.5)
-		if done: st.bg_color = Color(0.1, 0.25, 0.14, 0.6)
-		row.add_theme_stylebox_override("panel", st)
+		row.add_theme_stylebox_override("panel", Kit.box("card", 10.0, Color(0.82, 1.0, 0.84) if done else Color.WHITE))
 		var h := HBoxContainer.new()
 		var tv := VBoxContainer.new()
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tv.add_theme_constant_override("separation", 0)
-		var nl := UI.label(t[1], 14, UI.body_bold)
+		var nl := Kit.label(t[1], 14, UI.body_bold)
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tv.add_child(nl)
 		var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
 		var cost: int = MineView.step_cost(a, String(t[0]), int(t[2]))
 		var here := "%d m" % Data.depth_m(a, i)
 		var stp := _step_label(a, String(t[0]))
-		var sub := UI.label("Done" if done else "%s%s · %d %s · in the chest: %s" % [here, stp, cost, on, chest_text(ch)], 12, UI.body, UI.MUTED)
+		var sub := Kit.label("Done" if done else "%s%s · %d %s · in the chest: %s" % [here, stp, cost, on, chest_text(ch)], 12, UI.body, Kit.DIM)
 		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # unwrapped, the longest line widened the card past the screen
 		tv.add_child(sub)
 		h.add_child(tv)
@@ -833,8 +832,9 @@ func _open_tasks() -> void:
 		var can: bool = not done and reach and Save.d.ore >= cost
 		var paid: Array = _steps_paid(a, String(t[0]), int(t[2]))
 		var pn: int = maxi(1, int(paid[0]))
-		var b := UI.button("✓" if done else ("%d ×%d" % [int(paid[1]), pn] if pn > 1 else str(cost)) if reach else here, "gold" if can else "glass", 14)
-		b.custom_minimum_size = Vector2(70, 40)
+		var b := Kit.button("✓" if done else ("%d ×%d" % [int(paid[1]), pn] if pn > 1 else str(cost)) if reach else here, "btn_gold" if can else "btn_dark", 15, 4.0)
+		b.custom_minimum_size = Vector2(76, 44)
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.disabled = not can
 		var tid: String = t[0]
 		b.pressed.connect(func():
