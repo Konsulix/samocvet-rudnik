@@ -231,6 +231,19 @@ func reset() -> void:
 	d = blank()
 	persist()
 
+## as if the game were deleted and installed again: the save and its side files (.bak, .tmp) gone, the stones'
+## pictures on disk (user://thumbs), the loading screen's "first launch of this build" stamp; then a blank save in
+## memory, nothing written until the game writes it. The diagnostics log stays (it is how a playtest is read)
+func wipe_all() -> void:
+	for p: String in [path, path + ".bak", path + ".tmp", "user://boot_stamp.txt"]:
+		if FileAccess.file_exists(p): DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	var th := DirAccess.open("user://thumbs")
+	if th:
+		for f in th.get_files(): th.remove(f)
+	d = blank()
+	_pad_areas(d)
+	looks_to_board()
+
 ## ids double as the seeds of finds: step by a random amount so every new game digs up different stones
 func next_uid() -> int:
 	d.uid += 1 + randi() % 9973

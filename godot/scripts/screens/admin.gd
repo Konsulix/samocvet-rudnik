@@ -192,6 +192,16 @@ static func open() -> void:
 				Ov.close()
 				main().show_home()],
 			["Keep it", "glass", func(): Ov.close()]])))
+	# a reinstall: everything the game keeps on the phone gone, and the game from its loading screen — the prologue,
+	# the first-launch shader note, the guide's and the coach's first lines, all again
+	pr.add_child(_btn("Fresh install", false, func():
+		Ov.close()
+		Ov.panel("As if reinstalled?", "Everything goes: the save and its backups, the stones' pictures, every tip already seen. The game starts again from the loading screen and the prologue.", [
+			["Wipe everything", "red", func():
+				Ov.close()
+				Save.wipe_all()
+				main().get_tree().reload_current_scene()],
+			["Keep it", "glass", func(): Ov.close()]])))
 	v.add_child(pr)
 	# the mine screen with everything that moves on it: all jobs built, every depth open and lived in (crews come after
 	# two wins), a stone on every pedestal; and its rare events on demand
