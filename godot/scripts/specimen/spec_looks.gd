@@ -67,7 +67,7 @@ const LOOK := {
 	cuprite = {forms = [["pile", 4.0], ["cluster", 3.0]], kinds = [["druse", 4.0], ["crystal", 4.0]], rock = [["ironstone", 4.0], ["basalt", 1.0]], dark = 0.35,
 		glass = {tint = 0.6}},
 	aquamarine = {stria = [1.5, 1.0], forms = [["single", 4.0], ["floater", 2.0], ["columnar", 1.0], ["hexplates", 0.6]], kinds = [["crystal", 6.0], ["druse", 1.0]],
-		rock = [["quartzite", 3.0], ["slate", 1.0]], blunt = true, hk = 1.3, wk = 0.9, dark = 0.0},
+		rock = [["quartzite", 3.0], ["slate", 1.0]], blunt = true, hk = 1.3, wk = 0.9, dark = 0.0, zmodes = [0, 1], ir = 0.5, glass = {tint = 0.8, deep = 0.5}},
 	emerald = {trapiche = 0.2, stria = [0.8, 1.0], forms = [["single", 5.0], ["columnar", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["gypsum", 3.0], ["slate", 2.0]], blunt = true, dark = 0.0, wk = 1.25, glass = {tint = 0.85, dark = 0.25, frost = 0.15, glow = 0.3}},
 	# Whalebone Cove
 	gypsum = {forms = [["slabs", 3.0], ["rosette", 4.0], ["radial", 1.0], ["single", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],

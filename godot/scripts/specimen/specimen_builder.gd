@@ -361,6 +361,11 @@ func _specimen(o: Dictionary) -> Node3D:
 	# glass on the phone, its pale root into silver — the draws stay, so nothing else of the stone moves)
 	if metal: zone = 0.0
 	var zhue := 0.45
+	# (SpecLooks zmodes: which of the zonings a species may take — aquamarine's colour shifted half round the wheel went
+	# pink and orange and read as rainbow quartz; it zones colourless to blue only. The draw stays, so nothing else moves)
+	if look.has("zmodes"):
+		var zms: Array = look.zmodes
+		zmode = int(zms[zmode % zms.size()])
 	if look.has("zone"):
 		var zl: Array = look.zone
 		zmode = int(zl[0])
