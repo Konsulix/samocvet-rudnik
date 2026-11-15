@@ -888,7 +888,8 @@ class Fly extends Node3D:
 			# while it closes on the hover over the spot, wholly on the way down (the beats then only bob it); never
 			# faster than it flies
 			var steer := 0.0
-			if state == LAND: steer = 1.0 if stage == 1 else clampf(1.5 - to.length() / size * 0.5, 0.0, 0.7)
+			# (not while it sails: the sail is its own, a slow sink on spread wings — pulled at, it went stiff and straight)
+			if state == LAND and not sailing: steer = 1.0 if stage == 1 else clampf(1.0 - to.length() / size * 0.5, 0.0, 0.5)
 			vel += (acc + Vector3(0.0, ay, 0.0)) * h * (1.0 - steer)
 			if steer > 0.0:
 				var dist := to.length()
