@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tests/say_find.gd" id="1"]
+
+[node name="SayFind" type="Node"]
+script = ExtResource("1")

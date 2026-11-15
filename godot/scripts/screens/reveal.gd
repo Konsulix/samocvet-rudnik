@@ -22,6 +22,8 @@ func show_stone(s: Dictionary, others := []) -> void:
 	Sfx.buzz(140 if tier >= 3 else 40)
 	if not s.sid in Save.d.seen:
 		Save.d.seen.append(s.sid)
+	# the awards this find may complete, told apart from those complete before it (Awards.say_after_find)
+	var says_before := Awards.said_ready()
 	# into the atlas whether it is kept or sold
 	Save.note_find(s, Save.area(), mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])))
 	Save.persist()
@@ -41,6 +43,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 		Save.persist()
 		Sfx.play("coin")
 		Ov.close()
+		await Awards.say_after_find(says_before)
 		finished.emit()
 	var keep := func():
 		# where it was found: the mine's screen puts the best find of each depth on its pedestal
@@ -53,6 +56,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 		if not Save.told("t_inv"):
 			Save.tell("t_inv")
 			Ov.toast("Added to the inventory")
+		await Awards.say_after_find(says_before)
 		finished.emit()
 	# (a new record says so by its ribbon - a tap on it tells the rule the first time - not by a line on every find)
 	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)

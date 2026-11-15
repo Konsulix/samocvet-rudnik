@@ -826,6 +826,25 @@ static func check(quiet := false) -> Array:
 			Ov.toast("%s: %s" % [head, e.n] if fresh.size() == 1 else "%d new awards — see the cabinet" % fresh.size())
 	return fresh
 
+## the awards with a word of the scholar's (SAY) complete now, by name
+static func said_ready() -> Array:
+	var out: Array = []
+	for e in LIST:
+		if not SAY.has(String(e.n)): continue
+		var c := _count(e)
+		if c.y > 0 and c.x >= c.y: out.append(String(e.n))
+	return out
+
+## the scholar speaks as the card of the find that completed an award closes (Matryoshka: the hopper fluorite's), not
+## later at its claim, when the stone is long gone from the screen. before: said_ready() as the card opened
+static func say_after_find(before: Array) -> void:
+	if Coach.off or not Save.told("s_sister_meet"): return
+	for n: String in said_ready():
+		if n in before or Save.told("say:" + n) or (Save.d.aw_got as Array).has(n): continue
+		Save.tell("say:" + n)
+		var l: Array = SAY[n]
+		await StoryScene.say((Engine.get_main_loop() as SceneTree).root, [["sister", String(l[0]), String(l[1])]]).finished
+
 ## the awards shown at the side of the mine screen (AwardsRail), n at most: those waiting to be claimed, in the
 ## list's order — one still being gathered is not shown there
 static func rail(n: int) -> Array:
@@ -1485,7 +1504,9 @@ func _claim(e: Dictionary, sheet: Control, lay: Control, from: Control) -> void:
 	if gv.has("coins"): await coins_fly(self, _bar, from.get_global_rect().get_center(), int(gv.coins))
 	lay.queue_free()
 	await Awards.claim(e)
-	if SAY.has(String(e.n)) and Save.told("s_sister_meet"):
+	# (said already when the find that completed it was closed — say_after_find — not again at the claim)
+	if SAY.has(String(e.n)) and Save.told("s_sister_meet") and not Save.told("say:" + String(e.n)):
+		Save.tell("say:" + String(e.n))
 		var l: Array = SAY[String(e.n)]
 		await StoryScene.say(self, [["sister", String(l[0]), String(l[1])]]).finished
 	_busy = false
