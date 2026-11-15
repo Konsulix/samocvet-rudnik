@@ -276,22 +276,16 @@ static func _edit() -> void:
 	var v := Ov.card(W)
 	v.add_theme_constant_override("separation", 12)
 	_head(v, "Edit Profile")
-	# the preview, no panel round it (as on the profile): the portrait as it is worn, and what is worn in words
-	var ph := HBoxContainer.new()
-	ph.alignment = BoxContainer.ALIGNMENT_CENTER
-	ph.add_theme_constant_override("separation", 14)
+	# the preview, no panel round it: the portrait as it is worn, the title worn under it (the names of the portrait
+	# and the frame read as riddles - "The Miner, Pit Props" - and are left out)
 	var pc := Control.new()
-	pc.custom_minimum_size = Vector2(96, 96)
-	pc.add_child(Chrome.portrait(96, String(Profile.frame().id), String(Profile.face().id)))
-	ph.add_child(pc)
-	var words := VBoxContainer.new()
-	words.alignment = BoxContainer.ALIGNMENT_CENTER
-	words.add_theme_constant_override("separation", 0)
-	words.add_child(Kit.label(String(Profile.face().n), 18, UI.display, Kit.CREAM))
-	words.add_child(Kit.label(String(Profile.frame().n), 13, UI.body_bold, Kit.DIM))
-	words.add_child(Kit.label(Profile.title(), 14, UI.display, Kit.AMBER))
-	ph.add_child(words)
-	v.add_child(ph)
+	pc.custom_minimum_size = Vector2(100, 100)
+	pc.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pc.add_child(Chrome.portrait(100, String(Profile.frame().id), String(Profile.face().id)))
+	v.add_child(pc)
+	var tl := Kit.label(Profile.title(), 16, UI.display, Kit.AMBER)
+	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(tl)
 	v.add_child(_tabs())
 	# the tiles straight on the window (no panel round them); the same height on every tab: the window does not jump
 	var body := VBoxContainer.new()
@@ -300,7 +294,7 @@ static func _edit() -> void:
 	v.add_child(body)
 	_fill(body)
 	var done := Ov.btn("Done", "green", func(): _build())
-	done.custom_minimum_size.x = 160
+	done.custom_minimum_size.x = 120
 	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(done)
 
@@ -344,9 +338,9 @@ static func _grid(body: VBoxContainer, list: Array, frames: bool) -> void:
 	for e: Dictionary in list:
 		var id := String(e.id)
 		var owned := Profile.has_frame(e) if frames else Profile.has_face(e)
-		var tile := PanelContainer.new()
+		# no tile round each: the tick says which is worn
+		var tile := MarginContainer.new()
 		tile.custom_minimum_size = Vector2(T, T)
-		tile.add_theme_stylebox_override("panel", Kit.box("btn_dark", 3.0, Color(0.8, 1.25, 0.8) if id == worn else Color.WHITE))
 		var cell := Control.new()
 		cell.custom_minimum_size = Vector2(inner, inner)
 		tile.add_child(cell)
