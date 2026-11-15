@@ -188,7 +188,7 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 	var R := RockKit.rock(rng, "gypsum", "chunk", 32, 0.0)
 	var rg: Geo = R.geo
 	for i in rg.v.size():
-		rg.v[i] *= gs
+		rg.v[i] = rg.v[i] * gs + Vector3(0, -0.1 * gs, 0)
 	# finer on top, where the tears sit and the perlite cracks in rings round them
 	rg.subdivide(1, Vector3.DOWN, 0.0).weld()
 	var grey := SpecMat.hsl(0.6 + rng.next() * 0.05, 0.04 + rng.next() * 0.03, 0.42 + rng.next() * 0.08).srgb_to_linear()
@@ -196,21 +196,23 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 		dirt = {h = 99.0, a = 0.3, col = grey, fr = 0.0, scan = RockKit.SCAN_OF["gypsum"]}})
 	pm.set_meta("rock", true)
 	pm.set_shader_parameter("ir_k", 0.0)
-	var rock := U.mesh(rg, pm, root, Vector3(0, -0.1 * gs, 0))
+	var rock := U.mesh(rg, pm, root)
 	rock.set_meta("base", grey)
 	# the tears: on the top and the upper sides, the side towards the viewer first, never touching each other
 	var rn := rg.normals()
 	var view := Basis(Vector3.UP, -0.6) * Vector3.BACK
 	var cand := []
 	for i in range(0, rg.v.size(), 3):
-		if rn[i].y > 0.15 and rg.v[i].y > 0.0:
+		if rn[i].y > 0.15 and rg.v[i].y > -0.1 * gs:
 			cand.append(i)
 	# the old skin dull and pitted, the broken scoops mirror-black
 	var skin_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9})
 	var glass_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.03, coat = 0.4, coat_r = 0.01, env = 1.1})
 	var first: Node3D = null
+	# (the find's main piece is the lantern's skin: its box is where nothing of the rock's life may grow)
+	var lantern: MeshInstance3D = null
 	var placed := []
-	var n := 6 + int(rng.next() * 5)
+	var n := 4 + int(rng.next() * 4)
 	for k in n:
 		var s := (0.08 + rng.next() * 0.07) * gs if k else (0.22 + rng.next() * 0.04) * gs
 		var best := -1
@@ -381,7 +383,8 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 					am.set_shader_parameter("light_col", Vector3(1.0, 0.8, 0.55))
 					am.set_shader_parameter("seed", rng.next() * 60.0)
 					pm2 = am
-				U.mesh(parts[pi], pm2, mi).set_meta("col", true)
+				var pmi := U.mesh(parts[pi], pm2, mi)
+				if k == 0 and pi == 0: lantern = pmi
 		if k == 0:
 			# the light inside: warm, as if the sun stood behind it — it reaches the perlite round it too
 			var lamp := OmniLight3D.new()
@@ -442,7 +445,7 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			rock.position + rg.v[ledge] + rn[ledge] * lr * 0.55)
 		for pi in 2:
 			if (lp[pi] as Geo).v.size():
-				U.mesh(lp[pi], [skin_m, glass_m][pi], ln).set_meta("col", true)
+				U.mesh(lp[pi], [skin_m, glass_m][pi], ln)
 	# perlite cracks round each tear in rings, like the skins of an onion (it shrank round the glass as it hydrated);
 	# a little wavering and broken, not drawn with compasses
 	var rnz := FastNoiseLite.new()
@@ -474,4 +477,30 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 			rg.v[i] -= rn2[i] * dark * 0.016 * gs
 			var c := rg.col[i]
 			rg.col[i] = Color(c.r * (1.0 - 0.8 * dark), c.g, c.b * (1.0 - 0.8 * dark))
-	return rock
+	# what grows on the perlite (lichen, grass, flowers...: SpecimenBuilder's shared layer) — never on a tear, in its
+	# socket or in the rings round the lantern
+	for q: Array in placed:
+		b.keep_out.append([q[0], float(q[1]) * (1.6 if q == placed[0] else 1.1)])
+	if ledge >= 0:
+		b.keep_out.append([rg.v[ledge], ps * 1.2])
+	# (the rock's smooth normal, as every rock's: its bumps would leave no "flat top" for grass and flowers)
+	var rsc: Vector3 = R.scale
+	var lift := Vector3(0, 0.1 * gs, 0)
+	var snrm := func(w: Vector3) -> Vector3: return RockKit.rock_nrm(rsc, (w + lift) / gs)
+	var top := []
+	var hol := []
+	for i in range(0, rg.v.size(), 2):
+		var sn: Vector3 = snrm.call(rg.v[i])
+		if sn.y < 0.25: continue
+		top.append(rg.v[i])
+		if rg.col[i].r < 0.55 and i % 4 == 0: hol.append([rg.v[i], sn])
+	var st: Dictionary = b.st_ref
+	var srng := Rng32.new(int(rng.next() * 100000.0))
+	st.rocky = true
+	st.rock = rock
+	st.rock_geo = rg
+	st.hollows = hol
+	st.pick = func() -> Vector3: return top[int(srng.next() * top.size())] if top.size() else Vector3(0, 0.3 * gs, 0)
+	st.nrm = snrm
+	b.dt.col = grey
+	return lantern if lantern else rock

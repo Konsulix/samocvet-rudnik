@@ -67,6 +67,9 @@ static func of(o: Dictionary) -> Dictionary:
 	var form := ""
 	var odd_habit := ""
 	var fossil := SpecFossil.genes(seed_v, sid, tr, o) if habit == "fossil" else SpecObsidian.genes(seed_v, o) if habit == "obsidian" else {}
+	# Apache tears sit in a real rock (perlite, SpecObsidian._tears): it takes what grows on rock, the rest of the
+	# obsidians are bare glass
+	var tears := habit == "obsidian" and String(fossil.get("kind", "")) == "tears"
 	if habit == "fossil": form = sid
 	elif habit == "obsidian": form = "obsidian"
 	elif kind == "geode": form = "geode"
@@ -153,9 +156,10 @@ static func of(o: Dictionary) -> Dictionary:
 	var sea_floor := on_rock and sid in ["ammonite", "trilobite"]
 	if sea_floor:
 		apool = apool.filter(func(a: Array) -> bool: return a[0] in ["crust", "dust", "bubbles"])
-	# nor on a lump of glass
+	# nor on a lump of glass; on the perlite of Apache tears, the dry slopes of Etna: lichen first, grass, small
+	# flowers, a fern in a crack (no puffs: they sit on the main piece, here a tear)
 	if habit == "obsidian":
-		apool = []
+		apool = [["lichen", 1.6], ["straw", 1.0], ["flowers", 0.7], ["fronds", 0.35]] if tears else []
 	# the species' own say (SpecLooks): accents that do not suit it, and how often anything grows on it at all — or
 	# nothing does where its rock is hidden (the desert and iron roses)
 	var no_acc: Array = SpecLooks.never(sid)
@@ -278,7 +282,7 @@ static func of(o: Dictionary) -> Dictionary:
 			shroom = SpecFungi.roll(seed_v + 7919 * (k + 1))
 			if shroom >= 0: break
 	if "mushrooms" in no_acc: shroom = -1
-	if shroom >= 0 and not bare and not form in ["slice"] and not form == "sawn" and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
+	if shroom >= 0 and not bare and not form in ["slice"] and not form == "sawn" and not (form in ["floater", "radial", "geode", "nugget", "vein", "botryoid", "obsidian"] and not tears and not sid in ["flintstone", "jadeite", "hyalite", "opal"]) and not "mushrooms" in acc \
 			and not (habit == "fossil" and not on_rock) and not sea_floor:
 		acc.append("mushrooms")
 	else:
@@ -320,7 +324,7 @@ static func of(o: Dictionary) -> Dictionary:
 	for t in ["irid", "aurora"]:
 		if t in tr and (lustre in ["metal", "dark", "fossil"] or habit == "obsidian") and form != "botryoid": lost.append(t)
 	if "bubbles" in tr and (form in ["radial", "floater", "obsidian", "simetite"] or (habit == "fossil" and not on_rock)): lost.append("bubbles")
-	if "moss" in tr and (form in NO_BASE or sea_floor): lost.append("moss")   # (no moss on the sea floor)
+	if "moss" in tr and ((form in NO_BASE and not tears) or sea_floor): lost.append("moss")   # (no moss on the sea floor)
 	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
 	# a desert rose (gypsum full of sand) or an iron rose is opaque petals: nothing inside it shows — no water bubble,
 	# phantom, rutile, chlorite (it was rolled and named on the card, an "enhydro" on a rose of sand)
