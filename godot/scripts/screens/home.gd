@@ -944,7 +944,7 @@ func _boss_panel(sel: Array) -> void:
 	# a ruby in each one beaten, the empty ones flaring now and then), the name over a gene's brass bar, a ruby Fight
 	# (in one row: the medallion on the left, the name and where on the right — centred alone it left the sides empty)
 	var head := HBoxContainer.new()
-	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	head.alignment = BoxContainer.ALIGNMENT_BEGIN
 	head.add_theme_constant_override("separation", 14)
 	var md := BossMedal.new(ai())
 	md.custom_minimum_size = Vector2(104, 104)
@@ -958,13 +958,17 @@ func _boss_panel(sel: Array) -> void:
 	nm.add_theme_font_size_override("font_size", 25)
 	nm.add_theme_color_override("font_color", Kit.CREAM)
 	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	# (flush left with the lines under it: the chip's own side margin off on the left)
+	(nm.get_theme_stylebox("normal") as StyleBoxEmpty).content_margin_left = 0
 	col.add_child(nm)
 	if B.has("sub"):
 		col.add_child(Kit.label(String(B.sub), 14, UI.body_bold, UI.GOLD))
 	col.add_child(Kit.label("%d m" % int(B.m), 13, UI.body, Kit.DIM))
 	head.add_child(col)
 	v.add_child(head)
-	v.add_child(Ov.text("Take something to start with: specials wait on the board.", 13))
+	var hint := Ov.text("Take something to start with: specials wait on the board.", 13)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(hint)
 	v.add_child(_pre_row(sel, free, func(): _boss_panel(sel)))
 	v.add_child(Ov.btn("Fight", "ruby", func():
 		var sps := _pre_take(sel, free)
