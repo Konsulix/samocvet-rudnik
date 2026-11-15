@@ -189,10 +189,13 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 	var rg: Geo = R.geo
 	for i in rg.v.size():
 		rg.v[i] *= gs
+	# finer on top, where the tears sit and the perlite cracks in rings round them
+	rg.subdivide(1, Vector3.DOWN, 0.0).weld()
 	var grey := SpecMat.hsl(0.6 + rng.next() * 0.05, 0.04 + rng.next() * 0.03, 0.42 + rng.next() * 0.08).srgb_to_linear()
 	var pm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.5, ao = 1.0,
 		dirt = {h = 99.0, a = 0.3, col = grey, fr = 0.0, scan = RockKit.SCAN_OF["gypsum"]}})
 	pm.set_meta("rock", true)
+	pm.set_shader_parameter("ir_k", 0.0)
 	var rock := U.mesh(rg, pm, root, Vector3(0, -0.1 * gs, 0))
 	rock.set_meta("base", grey)
 	# the tears: on the top and the upper sides, the side towards the viewer first, never touching each other
@@ -205,11 +208,13 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 	# the old skin dull and pitted, the broken scoops mirror-black
 	var skin_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9})
 	var glass_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.03, coat = 0.4, coat_r = 0.01, env = 1.1})
+	var lamp_m := SpecMat.make({col = SpecMat.lin(0x6a3c16), glass = true, flat = false, thick = 1.6, frost = 0.0, prio = 2,
+		tint_body = 0.9, tint_glow = 0.12, dark_body = 0.7, deep_body = 1.8, coat = 0.6, coat_r = 0.02, rough = 0.02, seed = rng.next() * 40.0})
 	var first: Node3D = null
 	var placed := []
 	var n := 6 + int(rng.next() * 5)
 	for k in n:
-		var s := (0.08 + rng.next() * 0.07) * gs * (1.4 if k == 0 else 1.0)
+		var s := (0.08 + rng.next() * 0.07) * gs if k else (0.22 + rng.next() * 0.04) * gs
 		var best := -1
 		var best_s := -99.0
 		for t in 24:
@@ -221,7 +226,7 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 					ok = false
 					break
 			if not ok: continue
-			var sc := rn[vi].dot(view) * (1.0 if k == 0 else 0.3) + rn[vi].y * 0.5 + rng.next() * 0.3
+			var sc := rn[vi].dot(view) * (2.0 if k == 0 else 0.3) + rn[vi].y * 0.5 + rng.next() * 0.3
 			if sc > best_s:
 				best_s = sc
 				best = vi
@@ -229,28 +234,90 @@ static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 		var at := rg.v[best]
 		var nr := rn[best]
 		placed.append([at, s])
-		var tg := chunk(rng, s, 1 + int(rng.next() * 3), Vector3(1.0 + rng.next() * 0.3, 0.8 + rng.next() * 0.3, 0.8 + rng.next() * 0.2), 4 if k == 0 else 3, 0.6)
-		var sc3: Vector3 = (tg.get_meta("shape") as Array)[2]
-		var skin := Color(0.03, 0.026, 0.024) * (0.7 + rng.next() * 0.5)
-		var parts := [Geo.new(), Geo.new()]
-		for t in range(0, tg.v.size(), 3):
-			var on := 0
-			for e in 3:
-				if tg.own_n[t + e].dot((tg.v[t + e] / (sc3 * sc3)).normalized()) > 0.9995: on += 1
-			var pg: Geo = parts[0 if on >= 2 else 1]
-			for e in 3:
-				pg.v.append(tg.v[t + e])
-				pg.own_n.append(tg.own_n[t + e])
-				pg.col.append(skin if on >= 2 else Color(0.006, 0.005, 0.005))
 		# sunk in to nearly half its height, leaning with the rock
 		var mi := Node3D.new()
 		root.add_child(mi)
 		mi.transform = Transform3D(Basis(U.quat_to(Vector3.UP, nr.lerp(Vector3.UP, 0.4).normalized())) * Basis(Vector3.UP, rng.next() * TAU),
-			rock.position + at - nr * s * 0.45)
-		for pi in 2:
+			rock.position + at - nr * s * (0.5 if k == 0 else 0.45))
+		var skin := Color(0.03, 0.026, 0.024) * (0.7 + rng.next() * 0.5)
+		var parts := [Geo.new(), Geo.new(), Geo.new()]
+		var w := Vector3.UP
+		var cut := 0.0
+		if k == 0:
+			# the lantern: a big tear with a window polished on it towards the viewer — smoky brown glass the
+			# light comes through, glowing like tea held to the sun; the rest of it in its dull skin
+			var tg := chunk(rng, s, 0, Vector3(1.05, 1.0, 0.95), 4)
+			w = (mi.transform.basis.inverse() * (view * 0.75 + nr * 0.5)).normalized()
+			var dmax := -9.0
+			for p in tg.v: dmax = maxf(dmax, p.dot(w))
+			# a tumbled window: a low dome, not a flat cut
+			cut = dmax - s * 0.55
+			var rr := s * 1.7
+			var cc := w * (cut + s * 0.12 - rr)
+			for i in tg.v.size():
+				var h := tg.v[i].dot(w) - cut
+				if h > 0.0:
+					var q := tg.v[i] - w * h
+					var off := q - w * q.dot(w)
+					var y := sqrt(maxf(0.0, rr * rr - off.length_squared()))
+					var dome := cc + off + w * y
+					tg.v[i] = dome if dome.dot(w) < tg.v[i].dot(w) else tg.v[i]
+					tg.own_n[i] = (tg.v[i] - cc).normalized()
+			for t in range(0, tg.v.size(), 3):
+				var on := 0
+				for e in 3:
+					if tg.v[t + e].dot(w) > cut - 0.0005 * gs: on += 1
+				var pg: Geo = parts[2 if on == 3 else 0]
+				for e in 3:
+					pg.v.append(tg.v[t + e])
+					pg.own_n.append(tg.own_n[t + e])
+					pg.col.append(skin)
+		else:
+			var tg := chunk(rng, s, 1 + int(rng.next() * 3), Vector3(1.0 + rng.next() * 0.3, 0.8 + rng.next() * 0.3, 0.8 + rng.next() * 0.2), 3, 0.6)
+			var sc3: Vector3 = (tg.get_meta("shape") as Array)[2]
+			for t in range(0, tg.v.size(), 3):
+				var on := 0
+				for e in 3:
+					if tg.own_n[t + e].dot((tg.v[t + e] / (sc3 * sc3)).normalized()) > 0.9995: on += 1
+				var pg: Geo = parts[0 if on >= 2 else 1]
+				for e in 3:
+					pg.v.append(tg.v[t + e])
+					pg.own_n.append(tg.own_n[t + e])
+					pg.col.append(skin if on >= 2 else Color(0.006, 0.005, 0.005))
+		for pi in 3:
 			if (parts[pi] as Geo).v.size():
-				U.mesh(parts[pi], skin_m if pi == 0 else glass_m, mi).set_meta("col", true)
+				U.mesh(parts[pi], [skin_m, glass_m, lamp_m][pi], mi).set_meta("col", true)
+		if k == 0:
+			# the light inside: warm, as if the sun stood behind it — it reaches the perlite round it too
+			var lamp := OmniLight3D.new()
+			lamp.light_color = Color(1.0, 0.68, 0.36)
+			lamp.light_energy = 1.4
+			lamp.omni_range = s * 3.2
+			lamp.shadow_enabled = false
+			lamp.position = Vector3(0, s * 0.15, 0)
+			mi.add_child(lamp)
+			# and its glow: brightest in the middle of the window, where the light comes through, dark at the rim
+			var core := Geo.icosa(s * 0.42, 3).weld()
+			var cm := SpecMat.make({col = Color(1, 1, 1), unshaded = true, add = true, emis = Color(0, 0, 0), a = 1.0})
+			cm.set_shader_parameter("albedo", Vector3(0.9, 0.45, 0.14))
+			var cmi := U.mesh(core, cm, mi, w * (cut - s * 0.35))
+			cmi.set_meta("col", true)
 		if first == null:
 			first = mi
 			b._mark("ob_tears", mi.position + nr * s * 0.6, nr)
+	# perlite cracks round each tear in rings, like the skins of an onion (it shrank round the glass as it hydrated)
+	var rn2 := rg.normals()
+	for i in rg.v.size():
+		var dark := 0.0
+		for q: Array in placed:
+			var r0: float = q[1]
+			var d := rg.v[i].distance_to(q[0]) - r0 * 0.75
+			if d <= 0.0 or d > r0 * 2.4: continue
+			var ph := d / (r0 * 0.42)
+			var line := 1.0 - smoothstep(0.0, 0.16, absf(ph - roundf(ph)))
+			dark = maxf(dark, line * (1.0 - d / (r0 * 2.4)))
+		if dark > 0.0:
+			rg.v[i] -= rn2[i] * dark * 0.01 * gs
+			var c := rg.col[i]
+			rg.col[i] = Color(c.r * (1.0 - 0.7 * dark), c.g, c.b * (1.0 - 0.7 * dark))
 	return rock
