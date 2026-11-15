@@ -1,124 +1,169 @@
 class_name ProfileCard
-## The miner's card, opened by a tap on the portrait in the top bar (15.11, GPT mockup art/profile/out/mock_a2.png):
-## on top two squares side by side - the portrait in its frame and the best find in a slate niche with its name and
-## price on a brass plate (a tap opens its card, the pin picks another stone); then four records; then the tabs
-## Frames / Portraits / Titles - what is owned to wear, what is not as a dark shape with a lock and how to earn it.
+## The player's profile, opened by a tap on the portrait in the top bar (15.11; laid out as Royal Match's: looking and
+## choosing apart). "Profile": the title, an inset panel with the portrait and the best find side by side in the same
+## dark niches ("Edit" on the portrait; "+" on the find picks another stone, a tap on it opens its card), and the
+## Records panel - four icons, their words, the numbers on dark plates. "Edit Profile": a small preview, the tabs
+## Portrait / Frame / Title, a grid of equal tiles (the worn one ticked, the locked dark with a lock: a tap says how).
 
 const W := 350.0
-const SQ := 150.0
-static var tab := "frames"
-## (a snapshot opens on another tab: `-- ui=profile ptab=faces`)
+const SQ := 132.0
+static var tab := "faces"
 ## the fresh things shown as new on this opening (looked at once the card is open: next time they are not new)
 static var _new: Array = []
 
+## the profile; `-- ui=profile [ptab=faces|frames|titles]` (a tab given: straight to Edit Profile)
 static func open() -> void:
+	var edit := false
 	for a in OS.get_cmdline_user_args():
-		if a.begins_with("ptab="): tab = a.substr(5)
+		if a.begins_with("ptab="):
+			tab = a.substr(5)
+			edit = true
 	_new = Profile.fresh()
-	_build()
+	if edit: _edit()
+	else: _build()
 	if not _new.is_empty(): Profile.mark_seen(_new)
+
+## the window's title with its brass rule, the close cross on the window's corner (out of the layout)
+static func _head(v: VBoxContainer, title: String) -> void:
+	v.add_child(UI.title(title, 22))
+	var r := Kit.rule(220)
+	r.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(r)
+	var x := Reveal.thin_close()
+	x.pressed.connect(func(): Ov.close())
+	var holder := Ov.holder()
+	holder.add_child(x)
+	var place := func(): x.position = Vector2(holder.size.x - 48, 14)
+	holder.resized.connect(place)
+	place.call()
+
+## an inset panel of the window (the kit's card)
+static func _panel(pad := 10.0) -> PanelContainer:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", Kit.box("card", pad))
+	return p
+
+## a section's name between two brass rules: ——— Records ———
+static func _section(t: String) -> Control:
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 8)
+	var a := Kit.rule(70)
+	var b := Kit.rule(70)
+	a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(a)
+	h.add_child(Kit.label(t, 15, UI.display, Kit.AMBER))
+	h.add_child(b)
+	return h
 
 static func _build() -> void:
 	var v := Ov.card(W)
 	v.add_theme_constant_override("separation", 10)
-	# no title: the portrait and the find say what this is; the close cross alone on the top right
-	var head := HBoxContainer.new()
-	head.alignment = BoxContainer.ALIGNMENT_END
-	var x := Reveal.thin_close()
-	x.pressed.connect(func(): Ov.close())
-	head.add_child(x)
-	head.custom_minimum_size = Vector2(0, 26)
-	v.add_child(head)
+	_head(v, "Profile")
+	var who := _panel(10.0)
 	var top := HBoxContainer.new()
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
-	top.add_theme_constant_override("separation", 10)
+	top.add_theme_constant_override("separation", 12)
 	top.add_child(_portrait_sq())
 	top.add_child(_find_sq())
-	v.add_child(top)
-	v.add_child(_records())
-	v.add_child(_tabs(v))
-	var body := VBoxContainer.new()
-	body.add_theme_constant_override("separation", 6)
-	# (the same height on every tab: the card does not jump when the tab changes)
-	body.custom_minimum_size = Vector2(0, 200)
-	v.add_child(body)
-	_fill(body)
+	who.add_child(top)
+	v.add_child(who)
+	var rec := _panel(10.0)
+	var rv := VBoxContainer.new()
+	rv.add_theme_constant_override("separation", 8)
+	rv.add_child(_section("Records"))
+	rv.add_child(_records())
+	rec.add_child(rv)
+	v.add_child(rec)
 
-## the portrait, the size of the find's niche
-static func _portrait_sq() -> Control:
-	var w := Control.new()
-	w.custom_minimum_size = Vector2(SQ, SQ)
-	w.add_child(Chrome.portrait(SQ, String(Profile.frame().id), String(Profile.face().id)))
-	return w
-
-## the best find: a stone on slate in an iron-rimmed niche, its name and price on a brass plate along the bottom
-static func _find_sq() -> Control:
+## a dark niche square (the portrait's and the find's: the same)
+static func _niche() -> PanelContainer:
 	var w := PanelContainer.new()
 	w.custom_minimum_size = Vector2(SQ, SQ)
-	w.add_theme_stylebox_override("panel", Kit.box("card", 6.0, Color(0.72, 0.72, 0.78)))
+	w.add_theme_stylebox_override("panel", Kit.box("btn_dark", 4.0))
+	return w
+
+## the portrait in its niche, "Edit" on its corner (a tap anywhere on it opens Edit Profile)
+static func _portrait_sq() -> Control:
+	var w := _niche()
 	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(SQ - 12, SQ - 12)
+	holder.custom_minimum_size = Vector2(SQ - 8, SQ - 8)
+	w.add_child(holder)
+	holder.add_child(Chrome.portrait(SQ - 8, String(Profile.frame().id), String(Profile.face().id)))
+	var tap := _flat_button(Vector2(SQ - 8, SQ - 8))
+	tap.pressed.connect(func():
+		Sfx.play("click")
+		_edit())
+	holder.add_child(tap)
+	var e := Kit.button("Edit", "btn_green", 13, 2.0)
+	e.custom_minimum_size = Vector2(54, 28)
+	e.size = Vector2(54, 28)
+	e.position = Vector2(-4, SQ - 8 - 26)
+	e.pressed.connect(func(): _edit())
+	holder.add_child(e)
+	if not _new.is_empty(): holder.add_child(Chrome._new_dot(SQ - 8))
+	return w
+
+## the best find: the stone in its niche, its name and price on a brass plate along the bottom
+static func _find_sq() -> Control:
+	var w := _niche()
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(SQ - 8, SQ - 8)
 	holder.clip_contents = true
 	w.add_child(holder)
 	var s := Profile.showcase()
 	if s.is_empty():
-		var l := Kit.label("Your best find\nwill stand here", 13, UI.body_bold, Kit.DIM)
+		var l := Kit.label("Your best find\nwill stand here", 12, UI.body_bold, Kit.DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		l.size = holder.custom_minimum_size
 		holder.add_child(l)
 		return w
-	var img := TextureRect.new()
-	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	img.position = Vector2(6, 2)
-	img.size = Vector2(SQ - 24, SQ - 44)
-	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# a soft glow of its rarity behind the stone
 	var glow := TextureRect.new()
 	glow.texture = FxLayer.puff()
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.size = Vector2(SQ - 30, SQ - 50)
-	glow.position = Vector2(9, 4)
+	glow.size = Vector2(SQ - 24, SQ - 44)
+	glow.position = Vector2(8, 6)
 	glow.modulate = Color(Data.rarity_color(int(s.tier)), 0.5)
 	glow.material = FxLayer.add_material()
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(glow)
+	var img := TextureRect.new()
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	img.position = Vector2(4, 4)
+	img.size = Vector2(SQ - 16, SQ - 40)
+	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(img)
 	var have := Atlas.cached(s)
 	if have: img.texture = have
 	else: Atlas.cutout(s, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
-	# the plate
+	# the plate: one line, the name and the price (two lines did not fit the niche)
 	var plate := PanelContainer.new()
-	plate.add_theme_stylebox_override("panel", Kit.box("btn_gold", 3.0))
-	plate.position = Vector2(8, SQ - 12 - 42)
-	plate.size = Vector2(SQ - 28, 40)
+	plate.add_theme_stylebox_override("panel", Kit.box("btn_gold", 2.0))
+	plate.position = Vector2(2, SQ - 8 - 30)
+	plate.size = Vector2(SQ - 12, 28)
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pv := VBoxContainer.new()
-	pv.add_theme_constant_override("separation", -4)
-	pv.alignment = BoxContainer.ALIGNMENT_CENTER
-	var nm := Kit.label(Stones.name_of(s), 13 if Stones.name_of(s).length() < 15 else 11, UI.display, Color("#2a1d0e"))
-	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	nm.clip_text = true
-	pv.add_child(nm)
 	var pr := HBoxContainer.new()
 	pr.alignment = BoxContainer.ALIGNMENT_CENTER
 	pr.add_theme_constant_override("separation", 3)
-	var coin := Kit.res_icon("coin", 16)
-	pr.add_child(coin)
-	pr.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 13, UI.display, Color("#2a1d0e")))
-	pv.add_child(pr)
-	plate.add_child(pv)
+	var name := Stones.name_of(s)
+	var nm := Kit.label(name, 12 if name.length() <= 9 else (10 if name.length() <= 13 else 9), UI.display, Color("#2a1d0e"))
+	pr.add_child(nm)
+	pr.add_child(Kit.res_icon("coin", 14))
+	pr.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 12, UI.display, Color("#2a1d0e")))
+	plate.add_child(pr)
 	holder.add_child(plate)
-	# a tap on the stone opens its card; the pin in the corner picks another stone for the niche
-	var tap := _flat_button(Vector2(SQ - 12, SQ - 12))
+	# a tap on the stone opens its card; the "+" in the corner picks another stone for the niche
+	var tap := _flat_button(Vector2(SQ - 8, SQ - 8))
 	tap.pressed.connect(func():
 		Sfx.play("click")
 		_open_stone(s))
 	holder.add_child(tap)
 	var pin := Kit.icon_button("plus", 26)
-	pin.position = Vector2(SQ - 12 - 30, 2)
-	pin.tooltip_text = "Show another stone"
+	pin.position = Vector2(SQ - 8 - 28, 0)
 	pin.pressed.connect(func(): _pick_stone())
 	holder.add_child(pin)
 	return w
@@ -138,8 +183,8 @@ static func _open_stone(s: Dictionary) -> void:
 ## the stones to show: the most valuable twenty-four kept, a tap puts one in the niche
 static func _pick_stone() -> void:
 	var v := Ov.card(W)
-	v.add_child(UI.title("Show in the niche", 20))
-	v.add_child(Kit.rule(220))
+	v.add_theme_constant_override("separation", 10)
+	_head(v, "Show in the niche")
 	var list: Array = Save.d.coll.duplicate()
 	list.sort_custom(func(a, b): return int(a.value) > int(b.value))
 	var g := GridContainer.new()
@@ -150,7 +195,7 @@ static func _pick_stone() -> void:
 	for s: Dictionary in list.slice(0, 24):
 		var cell := PanelContainer.new()
 		cell.custom_minimum_size = Vector2(70, 70)
-		cell.add_theme_stylebox_override("panel", Kit.box("btn_gold" if int(s.id) == shown else "btn_dark", 3.0))
+		cell.add_theme_stylebox_override("panel", Kit.box("btn_dark", 3.0, Color(0.8, 1.25, 0.8) if int(s.id) == shown else Color.WHITE))
 		var img := TextureRect.new()
 		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -168,72 +213,112 @@ static func _pick_stone() -> void:
 			_build())
 		cell.add_child(b)
 		g.add_child(cell)
+	var box := _panel(8.0)
 	var sc := ScrollContainer.new()
-	sc.custom_minimum_size = Vector2(0, 330)
+	sc.custom_minimum_size = Vector2(0, 310)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var cc := CenterContainer.new()
 	cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cc.add_child(g)
 	sc.add_child(cc)
-	v.add_child(sc)
+	box.add_child(sc)
+	v.add_child(box)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(Ov.btn("The best one", "dark", func():
+	var best := Ov.btn("The best one", "dark", func():
 		Profile.wear("stone", "")
-		_build()))
-	row.add_child(Ov.btn("Back", "green", func(): _build()))
+		_build())
+	var back := Ov.btn("Done", "green", func(): _build())
+	for b: Button in [best, back]:
+		b.custom_minimum_size.x = 130
+		row.add_child(b)
 	v.add_child(row)
 
-## the four records as tiles: an icon, a word, the number
+## the four records: an icon, its word, the number on a dark plate
 static func _records() -> Control:
 	var h := HBoxContainer.new()
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_theme_constant_override("separation", 6)
 	for r: Array in Profile.records().slice(0, 4):
-		var p := Control.new()
-		p.custom_minimum_size = Vector2(76, 58)
 		var c := VBoxContainer.new()
-		c.add_theme_constant_override("separation", -2)
-		c.alignment = BoxContainer.ALIGNMENT_CENTER
+		c.add_theme_constant_override("separation", 2)
+		c.custom_minimum_size = Vector2(70, 0)
 		var ic: TextureRect
 		if String(r[0]).begins_with("res://"):
 			ic = TextureRect.new()
 			ic.texture = load(String(r[0]))
 			ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			ic.custom_minimum_size = Vector2(26, 26)
-		else: ic = Kit.icon(String(r[0]), 26)
+			ic.custom_minimum_size = Vector2(30, 30)
+		else: ic = Kit.icon(String(r[0]), 30)
 		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		c.add_child(ic)
-		var l := Kit.label(String(r[1]), 11, UI.body_bold, Kit.DIM)
+		var l := Kit.label(String(r[1]), 12, UI.body_bold, Kit.DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		c.add_child(l)
-		var n := Kit.label(String(r[2]), 16, UI.display, Kit.CREAM)
+		var plate := PanelContainer.new()
+		plate.add_theme_stylebox_override("panel", Kit.box("btn_dark", 2.0))
+		var n := Kit.label(String(r[2]), 15, UI.display, Kit.CREAM)
 		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		c.add_child(n)
-		c.size = Vector2(76, 58)
-		p.add_child(c)
-		h.add_child(p)
+		plate.add_child(n)
+		c.add_child(plate)
+		h.add_child(c)
 	return h
 
-static func _tabs(v: Control) -> Control:
+## Edit Profile: the preview, the tabs, the tiles; Done goes back to the profile
+static func _edit() -> void:
+	var v := Ov.card(W)
+	v.add_theme_constant_override("separation", 10)
+	_head(v, "Edit Profile")
+	# the preview: the portrait as it is worn, and what is worn in words
+	var pv := _panel(8.0)
+	var ph := HBoxContainer.new()
+	ph.add_theme_constant_override("separation", 12)
+	var pc := Control.new()
+	pc.custom_minimum_size = Vector2(84, 84)
+	pc.add_child(Chrome.portrait(84, String(Profile.frame().id), String(Profile.face().id)))
+	ph.add_child(pc)
+	var words := VBoxContainer.new()
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 0)
+	words.add_child(Kit.label(String(Profile.face().n), 17, UI.display, Kit.CREAM))
+	words.add_child(Kit.label(String(Profile.frame().n), 13, UI.body_bold, Kit.DIM))
+	words.add_child(Kit.label(Profile.title(), 13, UI.display, Kit.AMBER))
+	ph.add_child(words)
+	pv.add_child(ph)
+	v.add_child(pv)
+	v.add_child(_tabs())
+	var grid := _panel(10.0)
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 6)
+	# (the same height on every tab: the window does not jump when the tab changes)
+	body.custom_minimum_size = Vector2(0, 204)
+	grid.add_child(body)
+	v.add_child(grid)
+	_fill(body)
+	var done := Ov.btn("Done", "green", func(): _build())
+	done.custom_minimum_size.x = 160
+	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(done)
+
+static func _tabs() -> Control:
 	var h := HBoxContainer.new()
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_theme_constant_override("separation", 6)
-	for t: Array in [["frames", "Frames"], ["faces", "Portraits"], ["titles", "Titles"]]:
+	for t: Array in [["faces", "Portrait"], ["frames", "Frame"], ["titles", "Title"]]:
 		var id := String(t[0])
 		var b := Kit.button(String(t[1]), "btn_green" if tab == id else "btn_dark", 15, 4.0)
 		b.custom_minimum_size = Vector2(100, 38)
 		var dot := false
 		for k: String in _new:
-			if k.begins_with({frames = "frame:", faces = "face:", titles = "title:"}[id]): dot = true
+			if k.begins_with(String({frames = "frame:", faces = "face:", titles = "title:"}[id])): dot = true
 		if dot and tab != id: b.text = String(t[1]) + " •"
 		b.pressed.connect(func():
 			if tab == id: return
 			Sfx.play("click")
 			tab = id
-			_build())
+			_edit())
 		h.add_child(b)
 	return h
 
@@ -243,40 +328,45 @@ static func _fill(body: VBoxContainer) -> void:
 		"faces": _grid(body, Profile.FACES, false)
 		_: _titles(body)
 
-## frames or portraits, three to a row: the owned to wear (the worn one ticked), the rest dark with how to earn them
+## frames or portraits, three to a row, each on the same dark tile: the worn one ticked on a green-lit tile, the
+## locked dark with a lock (a tap says how it is earned); no names - the pictures speak for themselves
 static func _grid(body: VBoxContainer, list: Array, frames: bool) -> void:
 	var g := GridContainer.new()
 	g.columns = 3
-	g.add_theme_constant_override("h_separation", 12)
+	g.add_theme_constant_override("h_separation", 10)
 	g.add_theme_constant_override("v_separation", 10)
 	var worn := String((Profile.frame() if frames else Profile.face()).id)
-	const S := 92.0
+	const T := 92.0
+	const S := 78.0
+	var inner := T - 6
 	for e: Dictionary in list:
 		var id := String(e.id)
 		var owned := Profile.has_frame(e) if frames else Profile.has_face(e)
+		var tile := PanelContainer.new()
+		tile.custom_minimum_size = Vector2(T, T)
+		tile.add_theme_stylebox_override("panel", Kit.box("btn_dark", 3.0, Color(0.8, 1.25, 0.8) if id == worn else Color.WHITE))
 		var cell := Control.new()
-		cell.custom_minimum_size = Vector2(S, S)
+		cell.custom_minimum_size = Vector2(inner, inner)
+		tile.add_child(cell)
 		var por := Chrome.portrait(S, id if frames else String(Profile.frame().id), String(Profile.face().id) if frames else id)
-		if not owned: por.modulate = Color(0.4, 0.37, 0.36)
+		por.position = Vector2(inner - S, inner - S) / 2
+		if not owned: por.modulate = Color(0.5, 0.47, 0.45)
 		cell.add_child(por)
 		if not owned:
 			var lk := Kit.icon("lock", 30)
 			lk.size = Vector2(30, 30)
-			lk.position = Vector2(S - 30, S - 32) / 2 + Vector2(0, 0)
-			lk.position = Vector2((S - 30) / 2, (S - 30) / 2)
+			lk.position = Vector2(inner - 30, inner - 30) / 2
 			cell.add_child(lk)
 		if id == worn:
 			var ck := Kit.icon("check", 28)
 			ck.size = Vector2(28, 28)
-			ck.position = Vector2(S - 26, S - 26)
+			ck.position = Vector2(inner - 22, inner - 24)
 			cell.add_child(ck)
 		if (_new as Array).has(("frame:" if frames else "face:") + id):
-			var nw := Kit.label("NEW", 12, UI.display, Kit.AMBER)
-			nw.position = Vector2(0, -4)
+			var nw := Kit.label("NEW", 11, UI.display, Kit.AMBER)
+			nw.position = Vector2(2, -2)
 			cell.add_child(nw)
-		# a tap: the owned is worn; the locked says how it is earned (no names under the pictures: they speak for
-		# themselves, as in Royal Match's profile)
-		var b := _flat_button(Vector2(S, S))
+		var b := _flat_button(Vector2(inner, inner))
 		var how := Profile.frame_how(e) if frames else String(e.get("how", ""))
 		b.pressed.connect(func():
 			Sfx.play("click")
@@ -284,37 +374,45 @@ static func _grid(body: VBoxContainer, list: Array, frames: bool) -> void:
 				Ov.toast("%s · %s" % [String(e.n), how])
 			elif id != worn:
 				Profile.wear("frame" if frames else "face", id)
-				_build())
+				_edit())
 		cell.add_child(b)
-		g.add_child(cell)
+		g.add_child(tile)
 	var cc := CenterContainer.new()
 	cc.add_child(g)
 	body.add_child(cc)
 
-## the titles: brass plates, the worn one bright; the rest with how to earn them
+## the titles: plates, the worn one lit and ticked; the rest with how to earn them
 static func _titles(body: VBoxContainer) -> void:
 	var worn := Profile.title()
+	var sc := ScrollContainer.new()
+	sc.custom_minimum_size = Vector2(0, 204)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 4)
+	sc.add_child(col)
 	for t: Array in Profile.titles():
 		var nm := String(t[0])
 		var owned := bool(t[1])
 		var row := PanelContainer.new()
-		row.add_theme_stylebox_override("panel", Kit.box("btn_gold" if nm == worn else "btn_dark", 4.0))
+		row.add_theme_stylebox_override("panel", Kit.box("btn_dark", 4.0, Color(0.8, 1.25, 0.8) if nm == worn else Color.WHITE))
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 8)
-		var l := Kit.label(nm, 15, UI.display, Kit.CREAM if owned else Kit.DIM)
+		var l := Kit.label(nm, 15, UI.display, Kit.AMBER if nm == worn else (Kit.CREAM if owned else Kit.DIM))
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(l)
-		if not owned:
-			h.add_child(Kit.label(String(t[2]), 11, UI.body, Kit.DIM))
+		if not owned: h.add_child(Kit.label(String(t[2]), 11, UI.body, Kit.DIM))
+		elif nm == worn: h.add_child(Kit.icon("check", 22))
 		row.add_child(h)
 		if owned and nm != worn:
-			var b := _flat_button(Vector2(W - 40, 36))
+			var b := _flat_button(Vector2(W - 80, 34))
 			b.pressed.connect(func():
 				Sfx.play("click")
 				Profile.wear("title", nm)
-				_build())
+				_edit())
 			row.add_child(b)
-		body.add_child(row)
+		col.add_child(row)
+	body.add_child(sc)
 
 ## a boss beaten: its frame is the player's - shown big, dropping into place, to wear at once or later
 static func award_frame(area: int) -> void:
@@ -326,7 +424,9 @@ static func award_frame(area: int) -> void:
 	if (Save.d.get("prof_seen", []) as Array).has(key): return
 	var v := Ov.card(300)
 	v.add_child(UI.title("A new portrait frame", 20))
-	v.add_child(Kit.rule(200))
+	var r := Kit.rule(200)
+	r.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(r)
 	var hold := Control.new()
 	hold.custom_minimum_size = Vector2(0, 190)
 	var por := Chrome.portrait(180, String(f.id), String(Profile.face().id), true)
@@ -352,7 +452,7 @@ static func award_frame(area: int) -> void:
 		Profile.mark_seen([key])
 		Ov.close())
 	for b: Button in [later, wear]:
-		b.custom_minimum_size.x = 118
+		b.custom_minimum_size = Vector2(118, 50)
 		row.add_child(b)
 	v.add_child(row)
 	await Ov.closed
