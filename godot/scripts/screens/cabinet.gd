@@ -10,8 +10,8 @@ signal go(screen: String)
 
 const DIR := "res://assets/cabinet/"
 const ANCHOR_X := 0.58     # where the room is cropped across: 0 shows its left edge, 1 its right
-const ZOOM := 1.04          # the room a little bigger than the space: the empty floor at the bottom goes off screen
-const ANCHOR_Y := 0.25     # and the extra height is cut mostly at the bottom
+const ZOOM := 1.0           # the room fills the screen from its top (under the bar) to the tabs
+const ANCHOR_Y := 0.0      # its top at the screen's top: its own beams under the bar
 ## the objects in the room's picture: [file, centre x, bottom y (shares of the picture), width (share of its height)]
 const ITEMS := {
 	crates = ["crates", 0.215, 0.726, 0.124],
@@ -49,7 +49,11 @@ func _ready() -> void:
 	pad.add_theme_constant_override("margin_bottom", 6)
 	pad.z_index = 1
 	pad.add_child(Chrome.top_bar())
-	root.add_child(pad)
+	# the room starts at the screen's top, under the bar (its own beams there; before, a dark band stood above it):
+	# the bar floats over it, the room takes the whole height down to the tabs
+	pad.top_level = true
+	pad.size = Vector2(size.x, 0)
+	add_child(pad)
 	room = Control.new()
 	room.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	room.clip_contents = true
@@ -75,10 +79,12 @@ func _at(fx: float, fy: float) -> Vector2:
 func _draw_room() -> void:
 	var f := _fit()
 	room.draw_texture_rect(Kit.tex_at(DIR + "room.png"), Rect2(-float(f[2]), -float(f[3]), float(f[0]), float(f[1])), false)
-	# the room sinks into the dark at the top (under the bar) and at the bottom
+	# a soft shade at the top keeps the bar readable; the room sinks into the dark at the bottom
+	for i in 40:
+		var k := 1.0 - i / 40.0
+		room.draw_rect(Rect2(0, i * 2.0, room.size.x, 2.0), Color(0.05, 0.04, 0.03, 0.6 * k * k))
 	for i in 24:
 		var k := 1.0 - i / 24.0
-		room.draw_rect(Rect2(0, i, room.size.x, 1), Color(0.07, 0.055, 0.04, 0.85 * k * k))
 		room.draw_rect(Rect2(0, room.size.y - 1 - i, room.size.x, 1), Color(0.07, 0.055, 0.04, 0.9 * k * k))
 
 func _build() -> void:
