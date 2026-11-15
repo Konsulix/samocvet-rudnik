@@ -1011,10 +1011,10 @@ var _building := false
 func _build_many(tid: String, i: int, n: int) -> void:
 	if _building: return
 	_building = true
-	MineView.reveal_k = 0.6 if n > 1 else 1.0
+	MineView.reveal_k = 0.45 if n > 1 else 1.0   # (0.2 s wait + 1.2 s: done before the next step at 1.5 s)
 	for k in n:
 		if k > 0:
-			await get_tree().create_timer(2.1).timeout
+			await get_tree().create_timer(1.5).timeout
 			if not is_inside_tree(): break
 		_build(tid, i)
 	MineView.reveal_k = 1.0
