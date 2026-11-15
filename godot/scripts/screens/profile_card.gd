@@ -43,19 +43,15 @@ static func _panel(pad := 10.0) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", Kit.box("card", pad))
 	return p
 
-## a section's name between two brass rules: ——— Records ———
+## a section's name over a brass underline, as the genes' badges on a find's card (Reveal.chip), the line wider
 static func _section(t: String) -> Control:
-	var h := HBoxContainer.new()
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.add_theme_constant_override("separation", 8)
-	var a := Kit.rule(70)
-	var b := Kit.rule(70)
-	a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(a)
-	h.add_child(Kit.label(t, 15, UI.display, Kit.AMBER))
-	h.add_child(b)
-	return h
+	var l := Reveal.chip(t, true)
+	l.add_theme_font_override("font", UI.display)
+	l.add_theme_font_size_override("font_size", 16)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(200, 0)
+	l.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return l
 
 ## the profile: the title and its rule; the framed portrait and the best find's card side by side, the same size;
 ## under them "Edit" and the find's plate (its name and price); a rule; the records
@@ -71,9 +67,27 @@ static func _build() -> void:
 	g.add_child(_portrait_sq())
 	# the card a little smaller than the portrait's square: the drawn frame's ragged edge stops short of it, and at the
 	# same square the card looked a size bigger
-	var fc := CenterContainer.new()
+	var fc := Control.new()
 	fc.custom_minimum_size = Vector2(SQ, SQ)
-	fc.add_child(_find_sq(s))
+	var card := _find_sq(s)
+	var c := card.custom_minimum_size.x
+	card.position = Vector2(SQ - c, SQ - c) / 2
+	fc.add_child(card)
+	# the costliest stone's ribbon hangs from the card's bottom edge (from the top it covered the stone), over the
+	# plate's right end, drawn over the next row
+	if not s.is_empty():
+		var at := Control.new()
+		at.position = Vector2((SQ - c) / 2, (SQ + c) / 2 - 4)
+		at.size = Vector2(c, 0)
+		at.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		at.z_index = 2
+		fc.add_child(at)
+		var rr := RecordRibbon.make(card, at)
+		rr.cup = true
+		rr.len_ = 44.0
+		rr.head = "Your costliest stone"
+		rr.lines = PackedStringArray(["The most valuable find you keep"])
+		at.add_child(rr)
 	g.add_child(fc)
 	var e := Kit.button("Edit", "btn_green", 16, 3.0)
 	e.custom_minimum_size = Vector2(SQ, 36)
@@ -103,7 +117,7 @@ static func _portrait_sq() -> Control:
 ## the costliest stone hanging from the card's top edge (a cup on it; a tap on it says what it is); a tap on the stone
 ## opens its card
 static func _find_sq(s: Dictionary) -> Control:
-	const C := SQ * 0.85
+	const C := SQ * 0.92
 	var w := PanelContainer.new()
 	w.custom_minimum_size = Vector2(C, C)
 	w.add_theme_stylebox_override("panel", Kit.box("card", 5.0))
@@ -141,11 +155,6 @@ static func _find_sq(s: Dictionary) -> Control:
 		Sfx.play("click")
 		_open_stone(s))
 	inner.add_child(tap)
-	var rr := RecordRibbon.make(w, inner)
-	rr.cup = true
-	rr.head = "Your costliest stone"
-	rr.lines = PackedStringArray(["The most valuable find you keep"])
-	inner.add_child(rr)
 	return w
 
 ## the find's plate: its name and price on brass, as wide as the card
@@ -157,16 +166,20 @@ static func _find_plate(s: Dictionary) -> Control:
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
 	line.add_theme_constant_override("separation", 4)
+	# (the ribbon hangs over the plate's right end: the words keep left of it)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_right", 0 if s.is_empty() else 26)
+	pad.add_child(line)
 	if s.is_empty():
 		line.add_child(Kit.label("-", 16, UI.display, Kit.DIM))
 	else:
 		var name := Stones.name_of(s)
-		line.add_child(Kit.label(name, 16 if name.length() <= 9 else (12 if name.length() <= 13 else 10), UI.display, Kit.CREAM))
-		var coin := Kit.res_icon("coin", 16)
+		line.add_child(Kit.label(name, 14 if name.length() <= 9 else (11 if name.length() <= 12 else 9), UI.display, Kit.CREAM))
+		var coin := Kit.res_icon("coin", 14)
 		coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(coin)
-		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 16, UI.display, Kit.AMBER))
-	plate.add_child(line)
+		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 14, UI.display, Kit.AMBER))
+	plate.add_child(pad)
 	return plate
 
 static func _flat_button(sz: Vector2) -> Button:
