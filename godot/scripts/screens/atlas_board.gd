@@ -400,7 +400,7 @@ func _island_far(isl: Dictionary) -> void:
 	var sign := Atlas._sign(isl.a, open) if isl.a >= 0 else "lock"
 	draw_texture_rect(_emblem(sign), Rect2(c - Vector2(sg, sg), Vector2(sg, sg) * 2.0), false, Color(1, 1, 1, 1.0 if open else 0.75))
 	if isl.a >= 0 and Data.AREAS[isl.a].has("boss"):
-		_rubies(c, sg, rubies(isl.a) if open else 0, 2.2, open)
+		if open and sockets(isl.a): _rubies(c, sg, rubies(isl.a), 2.2, open)
 	var nm := "???" if isl.a < 0 else String(Data.AREAS[isl.a].n)
 	var y := c.y + RING + DOT + 62.0
 	_text(nm, Vector2(c.x, y), 54, UI.display, Kit.CREAM if open else Kit.DIM, true)
@@ -439,7 +439,7 @@ func _island(isl: Dictionary) -> void:
 	var sign := Atlas._sign(isl.a, open) if isl.a >= 0 else "lock"
 	draw_texture_rect(_emblem(sign), Rect2(sc - Vector2(sg, sg), Vector2(sg, sg) * 2.0), false, Color(1, 1, 1, 1.0 if open else 0.7))
 	if isl.a >= 0 and Data.AREAS[isl.a].has("boss"):
-		_rubies(sc, sg, rubies(isl.a) if open else 0, 1.0, open)
+		if open and sockets(isl.a): _rubies(sc, sg, rubies(isl.a), 1.0, open)
 	# under it: Replay, the name, n/m
 	var y := sc.y + sg + 6
 	if isl.won:
@@ -575,6 +575,22 @@ static func rubies(a: int) -> int:
 	var r: Array = Save.d.get("boss_rubies", [])
 	if a < r.size(): return clampi(int(r[a]), 0, 3)
 	return 1 if a < Save.d.boss_won.size() and bool(Save.d.boss_won[a]) else 0
+
+## the sockets come with the first win (the first ruby in one of them): before it the sign alone — sockets for
+## difficulties not yet even known said nothing
+static func sockets(a: int) -> bool:
+	return rubies(a) > 0
+
+## the boss can be fought (or has been): the mine's last depth dug and its last job built, as Home's Fight. Before
+## it the atlas shows no medallion at all, only the count of kinds found
+static func fight_open(a: int) -> bool:
+	if a < Save.d.boss_won.size() and bool(Save.d.boss_won[a]): return true
+	var A: Dictionary = Data.AREAS[a]
+	if not A.has("boss") or a >= (Save.d.depth as Array).size(): return false
+	var k: int = Save.d.depth[a]
+	if k < Data.depths(a).size() - 1: return false
+	var tasks: Array = A.get("tasks", [])
+	return k >= tasks.size() or String((tasks[k] as Array)[0]) in (Save.d.built[a] as Array)
 
 ## the three sockets on the boss's sign, at the points of a three-pointed star (top, lower right, lower left) on its
 ## ring, where the old four rivets were; a won one holds a cut ruby (GPT sprites, assets/atlas/board/); the glints on

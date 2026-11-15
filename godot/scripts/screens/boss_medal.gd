@@ -2,7 +2,7 @@ class_name BossMedal
 extends Control
 ## the boss's medallion in the window before its fight (Home._boss_panel): its sign as the atlas draws it once beaten
 ## (AtlasBoard._emblem), three sockets round it, a ruby in each difficulty beaten (AtlasBoard.rubies), the empty
-## ones flaring red now and then — a ruby still to be won (as AtlasPages.Medallion)
+## ones flaring red now and then — a ruby still to be won (as AtlasPages.Medallion); before the first win, the sign alone
 
 const SIGNS := {0: "poloz", 1: "mistress", 2: "kraken", 3: "brontes", 7: "shubin"}
 const FLASH_EVERY := 5.0
@@ -24,6 +24,8 @@ func _draw() -> void:
 	if not ResourceLoader.exists("res://assets/atlas/emblem_%s.png" % sign) and not ResourceLoader.exists("res://assets/atlas/board/emblem_%s.png" % sign):
 		sign = "empty"
 	draw_texture_rect(AtlasBoard._emblem(sign), Rect2(o, Vector2(s, s)), false)
+	# (no sockets before the first win: AtlasBoard.sockets)
+	if not AtlasBoard.sockets(a): return
 	var sg := s / 2.0
 	var n := AtlasBoard.rubies(a)
 	var h := sg * AtlasBoard.RUBY_S

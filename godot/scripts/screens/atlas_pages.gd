@@ -156,16 +156,19 @@ func _page(a: int, sz: Vector2) -> Control:
 	var ms := minf(cw, ch) * 0.86
 	# (the medallion and its count in the middle of the cell, now there is no Replay under them)
 	var my := mid.y + (ch - (ms + 22.0)) / 2.0
-	if A.has("boss") or not open:
+	# (no medallion until the boss can be fought: an empty one said nothing yet — the count alone, larger, in the middle)
+	var medal := not open or (A.has("boss") and AtlasBoard.fight_open(a))
+	if medal:
 		var m := Medallion.new(a, open, self)
 		m.size = Vector2(ms, ms)
 		m.position = Vector2(mid.x + (cw - ms) / 2.0, my)
 		p.add_child(m)
 		_taps.append([m, func(): atlas._boss_card(a)])
-	var cnt := Atlas._shadowed("%d/%d" % [n, ids.size()], 15, Kit.AMBER if done else Kit.CREAM)
+	var cnt := Atlas._shadowed("%d/%d" % [n, ids.size()], 15 if medal else 24, Kit.AMBER if done else Kit.CREAM)
 	cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cnt.position = Vector2(mid.x, my + ms + 2)
-	cnt.size = Vector2(cw, 20)
+	cnt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cnt.position = Vector2(mid.x, my + ms + 2) if medal else mid
+	cnt.size = Vector2(cw, 20) if medal else Vector2(cw, ch)
 	p.add_child(cnt)
 	if beasts.size():
 		var y := top + (ch + GAP) * 3
@@ -354,8 +357,8 @@ class Medallion extends Control:
 	func _draw() -> void:
 		var sg := size.x / 2.0
 		draw_texture_rect(AtlasBoard._emblem(Atlas._sign(a, open)), Rect2(Vector2.ZERO, size), false, Color(1, 1, 1, 1.0 if open else 0.7))
-		if not Data.AREAS[a].has("boss"): return
-		var n := AtlasBoard.rubies(a) if open else 0
+		if not Data.AREAS[a].has("boss") or not open or not AtlasBoard.sockets(a): return
+		var n := AtlasBoard.rubies(a)
 		var h := sg * AtlasBoard.RUBY_S
 		for i in 3:
 			var an := -PI / 2.0 + TAU * i / 3.0
