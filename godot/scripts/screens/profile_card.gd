@@ -90,24 +90,6 @@ static func _build() -> void:
 	var card := _find_sq(s)
 	var c := card.custom_minimum_size.x
 	card.position = Vector2(SQ - c, SQ - c) / 2
-	# the costliest stone's ribbon: its top tucked under the card's bottom edge (added first: the card covers it), it
-	# runs behind the plate (the next row draws over it) and its tail with the cup hangs below the plate
-	if not s.is_empty():
-		var at := Control.new()
-		at.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		fc.add_child(at)
-		var rr := RecordRibbon.make(card, at)
-		rr.cup = true
-		rr.len_ = 94.0
-		rr.head = "Your costliest stone"
-		rr.lines = PackedStringArray(["The most valuable find you keep"])
-		at.add_child(rr)
-		# (placed by the card's real size, once laid out)
-		var place := func():
-			at.position = card.position + Vector2(0, card.size.y - 6)
-			at.size = Vector2(card.size.x, 0)
-		card.resized.connect(place)
-		place.call()
 	fc.add_child(card)
 	g.add_child(fc)
 	var e := Kit.button("Edit", "btn_green", 16, 3.0)
@@ -176,26 +158,39 @@ static func _find_sq(s: Dictionary) -> Control:
 		Sfx.play("click")
 		_open_stone(s))
 	inner.add_child(tap)
+	# the costliest stone's ribbon in the top right corner, its top cut by the card's edge (as the record's on a find)
+	var rr := RecordRibbon.make(w, inner)
+	rr.cup = true
+	rr.len_ = 40.0
+	rr.head = "Your costliest stone"
+	rr.lines = PackedStringArray(["The most valuable find you keep"])
+	inner.add_child(rr)
 	return w
 
-## the find's plate: its name and price on brass, as wide as the card
+## the find's plate: its name and price on a dark plate that fits them (names and prices of any length), centred
+## under the card; a very long one in a smaller letter, never wider than the window's half
 static func _find_plate(s: Dictionary) -> Control:
 	var plate := PanelContainer.new()
-	plate.custom_minimum_size = Vector2(SQ, 36)
-	# dark, as the records' plates: dark letters on the brass did not read
-	plate.add_theme_stylebox_override("panel", Kit.box("btn_dark", 3.0))
+	plate.custom_minimum_size = Vector2(0, 36)
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plate.add_theme_stylebox_override("panel", Kit.box("btn_dark", 12.0))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 4)
+	line.add_theme_constant_override("separation", 5)
 	if s.is_empty():
-		line.add_child(Kit.label("-", 16, UI.display, Kit.DIM))
-	else:
-		var name := Stones.name_of(s)
-		line.add_child(Kit.label(name, 15 if name.length() <= 9 else (12 if name.length() <= 12 else 10), UI.display, Kit.CREAM))
-		var coin := Kit.res_icon("coin", 16)
-		coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		line.add_child(coin)
-		line.add_child(Kit.label(UI.fmt(roundi(float(s.value) * Save.coin_mul())), 15, UI.display, Kit.AMBER))
+		line.add_child(Kit.label("-", 15, UI.display, Kit.DIM))
+		plate.add_child(line)
+		return plate
+	var name := Stones.name_of(s)
+	var price := UI.fmt(roundi(float(s.value) * Save.coin_mul()))
+	var fs := 15
+	var font: Font = UI.display
+	while fs > 11 and font.get_string_size(name + " " + price, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 20 + 5 * 2 + 24 > W / 2 - 4: fs -= 1
+	line.add_child(Kit.label(name, fs, font, Kit.CREAM))
+	var coin := Kit.res_icon("coin", fs + 1)
+	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(coin)
+	line.add_child(Kit.label(price, fs, font, Kit.AMBER))
 	plate.add_child(line)
 	return plate
 
