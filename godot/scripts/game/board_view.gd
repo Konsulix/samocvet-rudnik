@@ -440,6 +440,47 @@ func restyle() -> void:
 	redraw_under()
 	over.queue_redraw()
 
+## (15.11) what a blast changed, shown as it was until its own hit lands: the model settles a whole blast at once
+## (run_blast), the show plays its hits over time — a layer redrawn for the first hit drew every later cell already
+## broken (sand gone, granite cracked before the drill got there). Level holds the changed cells (hold) and lets each
+## go at its hit (release); the layers read the cells through cell()
+const HELD := ["ROCK", "MUD", "GAS", "LOCK", "INK", "NOD", "BIL", "MELT"]
+var held := {}    # grid -> {cell index: the value shown}
+
+func cell(grid: String, r: int, c: int) -> int:
+	if not held.is_empty():
+		var h: Dictionary = held.get(grid, {})
+		var k := r * model.C + c
+		if h.has(k): return int(h[k])
+	return int((model.get(grid) as Array)[r][c])
+
+## the grids as they are now (before a blast)
+func snap() -> Dictionary:
+	var out := {}
+	for gname: String in HELD: out[gname] = (model.get(gname) as Array).duplicate(true)
+	return out
+
+## every cell the blast changed keeps its old look till release()
+func hold(before: Dictionary) -> void:
+	held = {}
+	for gname: String in HELD:
+		var now: Array = model.get(gname)
+		var was: Array = before[gname]
+		var h := {}
+		for r in model.R:
+			for c in model.C:
+				if (now[r] as Array)[c] != (was[r] as Array)[c]: h[r * model.C + c] = (was[r] as Array)[c]
+		if not h.is_empty(): held[gname] = h
+
+func release(r: int, c: int) -> void:
+	if held.is_empty(): return
+	var k := r * model.C + c
+	for gname: String in held.keys():
+		(held[gname] as Dictionary).erase(k)
+
+func release_all() -> void:
+	held = {}
+
 func redraw_under() -> void:
 	under.queue_redraw()
 	gas_layer.queue_redraw()
@@ -457,17 +498,17 @@ func _draw_under(ci: Node2D) -> void:
 			ci.draw_set_transform(p, 0, Vector2.ONE)
 			var cc := Vector2(TS, TS) * 0.5
 			if BoardSprites.gem_style != "":
-				if model.MUD[r][c]:
+				if cell("MUD", r, c):
 					if kit.light(): _clay(ci, cc, r, c)
 					else: BoardSprites.draw(ci, BoardSprites.blocker("mud"), cc, TS)
-				if model.ROCK[r][c]:
+				if cell("ROCK", r, c):
 					var bt := BoardSprites.blocker(_rock_look(r, c))
 					# on the light tray a block casts its own silhouette down-right, so light rock still stands off the tiles
 					if kit.light(): BoardSprites.draw(ci, bt, cc + Vector2(TS * 0.035, TS * 0.06), TS, Color(0.05, 0.05, 0.07, 0.5))
 					BoardSprites.draw(ci, bt, cc, TS)
 				continue
-			if model.MUD[r][c]: BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
-			if model.ROCK[r][c]: BoardSprites.draw(ci, BoardSprites.tex(ROCKS[mini(2, model.ROCK[r][c])]), cc, TS)
+			if cell("MUD", r, c): BoardSprites.draw(ci, BoardSprites.tex("mud"), cc, TS)
+			if cell("ROCK", r, c): BoardSprites.draw(ci, BoardSprites.tex(ROCKS[mini(2, cell("ROCK", r, c))]), cc, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 const ROCKS := ["rock0", "rock1", "rock2"]
@@ -498,7 +539,7 @@ func _draw_gas(ci: Node2D) -> void:
 	var over := 1.3
 	(ci.material as ShaderMaterial).set_shader_parameter("cell_px", TS)
 	(ci.material as ShaderMaterial).set_shader_parameter("overhang", over)
-	var gas := func(r: int, c: int) -> bool: return model.playable(r, c) and model.GAS[r][c] > 0
+	var gas := func(r: int, c: int) -> bool: return model.playable(r, c) and cell("GAS", r, c) > 0
 	for r in R:
 		for c in C:
 			if not gas.call(r, c): continue
@@ -510,7 +551,7 @@ func _draw_gas(ci: Node2D) -> void:
 ## granite (two hits), granite split by the first hit, or sandstone (one hit)
 func _rock_look(r: int, c: int) -> String:
 	if model.ROCK_MAX[r][c] >= 2:
-		return BoardSprites.granite() + ("" if model.ROCK[r][c] >= 2 else "_cracked")
+		return BoardSprites.granite() + ("" if cell("ROCK", r, c) >= 2 else "_cracked")
 	return BoardSprites.sand()
 
 func _draw_live(ci: Node2D) -> void:
@@ -520,14 +561,14 @@ func _draw_live(ci: Node2D) -> void:
 		for c in C:
 			if not model.playable(r, c): continue
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
-			if model.GAS[r][c] and BoardSprites.gem_style == "":
+			if cell("GAS", r, c) and BoardSprites.gem_style == "":
 				var w := 1.0 + sin(now * 2.5 + r + c) * 0.04
 				ci.draw_set_transform(p + Vector2(TS, TS) * 0.5 * (1.0 - w), 0, Vector2(w, w))
 				BoardSprites.draw(ci, BoardSprites.tex("gas"), Vector2(TS, TS) * 0.5, TS)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and model.NOD[r][c]: _draw_nodule(ci, r, c, now)
+			if model.playable(r, c) and cell("NOD", r, c): _draw_nodule(ci, r, c, now)
 	if BoardSprites.zone_style != "classic":
 		for gi in model.geos.size():
 			var geo: Dictionary = model.geos[gi]
@@ -563,7 +604,7 @@ func _draw_zone(ci: Node2D, kind: String, b: Dictionary, since_hit: float, now: 
 ## crevices between them fill in (a full one overgrowing goes back to its core at once)
 func _draw_nodule(ci: Node2D, r: int, c: int, now: float) -> void:
 	var v := BoardSprites.malachite_look(r, c)
-	var st: int = model.NOD[r][c]
+	var st: int = cell("NOD", r, c)
 	var ctr := cell_center(r, c)
 	var g: Dictionary = nod_grow.get(r * C + c, {})
 	var t := clampf((now - float(g.t0)) / NOD_GROW_S, 0.0, 1.0) if not g.is_empty() else 1.0
@@ -615,17 +656,17 @@ func _draw_over(ci: Node2D) -> void:
 	if model == null: return
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and model.LOCK[r][c] == 2:
+			if model.playable(r, c) and cell("LOCK", r, c) == 2:
 				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
-			elif model.playable(r, c) and model.LOCK[r][c] == 1:
+			elif model.playable(r, c) and cell("LOCK", r, c) == 1:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)
-			elif model.playable(r, c) and (model.LOCK[r][c] == 4 or model.LOCK[r][c] == 5):
+			elif model.playable(r, c) and (cell("LOCK", r, c) == 4 or cell("LOCK", r, c) == 5):
 				if BoardSprites.gem_style != "":
 					# the ice block rendered in Blender (prototype/tools/blender/ice_kit.py): see-through, the stone under it shows
-					BoardSprites.draw(ci, BoardSprites.blocker("ice" if model.LOCK[r][c] == 4 else "ice_cracked"), cell_center(r, c), TS)
+					BoardSprites.draw(ci, BoardSprites.blocker("ice" if cell("LOCK", r, c) == 4 else "ice_cracked"), cell_center(r, c), TS)
 				else:
-					ice(ci, cell_center(r, c), TS, model.LOCK[r][c] == 4, r * 31 + c)
-			elif model.playable(r, c) and model.LOCK[r][c] == 6:
+					ice(ci, cell_center(r, c), TS, cell("LOCK", r, c) == 4, r * 31 + c)
+			elif model.playable(r, c) and cell("LOCK", r, c) == 6:
 				_draw_scale(ci, r, c)
 	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	if hammer_over.x >= 0.0:
@@ -777,12 +818,12 @@ func _find_last() -> void:
 	last_cells.clear()
 	if model == null or model.boss_on(): return
 	var of := {dark = func(r: int, c: int) -> bool: return bool(model.DARK[r][c]),
-		mud = func(r: int, c: int) -> bool: return model.MUD[r][c] > 0,
-		rock = func(r: int, c: int) -> bool: return model.ROCK[r][c] > 0,
-		gas = func(r: int, c: int) -> bool: return model.GAS[r][c] > 0,
-		lock = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 1,
-		crust = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 2,
-		ice = func(r: int, c: int) -> bool: return model.LOCK[r][c] == 4 or model.LOCK[r][c] == 5}
+		mud = func(r: int, c: int) -> bool: return cell("MUD", r, c) > 0,
+		rock = func(r: int, c: int) -> bool: return cell("ROCK", r, c) > 0,
+		gas = func(r: int, c: int) -> bool: return cell("GAS", r, c) > 0,
+		lock = func(r: int, c: int) -> bool: return cell("LOCK", r, c) == 1,
+		crust = func(r: int, c: int) -> bool: return cell("LOCK", r, c) == 2,
+		ice = func(r: int, c: int) -> bool: return cell("LOCK", r, c) == 4 or cell("LOCK", r, c) == 5}
 	var few := 0   # off: on the board the rings read as gold coins (user, 4.11); `-- last=N` still shows them
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("last="): few = int(arg.get_slice("=", 1))   # testing: `-- last=99` lights them all
@@ -843,7 +884,7 @@ func _process(dt: float) -> void:
 func _has_gas() -> bool:
 	for r in R:
 		for c in C:
-			if model.GAS[r][c]: return true
+			if cell("GAS", r, c): return true
 	return false
 
 # ---------------------------------------------------------------- input
@@ -1022,9 +1063,9 @@ func _draw_ink(ci: Node2D) -> void:
 	var img := Image.create(C + 2, R + 2, false, Image.FORMAT_L8)
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and model.INK[r][c] > 0:
+			if model.playable(r, c) and cell("INK", r, c) > 0:
 				any = true
-				var v := 1.0 if int(model.INK[r][c]) > 1 else 0.55
+				var v := 1.0 if int(cell("INK", r, c)) > 1 else 0.55
 				img.set_pixel(c + 1, r + 1, Color(v, v, v))
 	if not any: return
 	if _ink_mask == null or _ink_mask.get_width() != C + 2 or _ink_mask.get_height() != R + 2:
@@ -1103,7 +1144,7 @@ func _draw_melt(ci: Node2D) -> void:
 	var over_k := 1.25
 	(ci.material as ShaderMaterial).set_shader_parameter("cell_px", TS)
 	(ci.material as ShaderMaterial).set_shader_parameter("overhang", over_k)
-	var melt := func(r: int, c: int) -> bool: return model.playable(r, c) and model.MELT[r][c] > 0
+	var melt := func(r: int, c: int) -> bool: return model.playable(r, c) and cell("MELT", r, c) > 0
 	for r in R:
 		for c in C:
 			if not melt.call(r, c): continue
@@ -1121,7 +1162,7 @@ func _draw_forge(ci: Node2D) -> void:
 	var kb := k             # a billet is baked a cell wide (export_brontes.py BILLET_PT)
 	for r in R:
 		for c in C:
-			var heat: int = model.BIL[r][c] if model.playable(r, c) else 0
+			var heat: int = cell("BIL", r, c) if model.playable(r, c) else 0
 			if heat <= 0: continue
 			var ctr := cell_center(r, c)
 			var since := now - float(bil_at.get(r * C + c, -10.0))

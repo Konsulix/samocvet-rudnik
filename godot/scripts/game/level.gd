@@ -914,12 +914,15 @@ func _resolve(first: Array, swap_cells: Array) -> void:
 				var g: BoardModel.Gem = model.G[r][c]
 				if g and g.merge.x >= 0: merges[g.id] = g.merge
 		model.fx = []
+		var before := board.snap()
 		var max_t := model.run_blast(ev)
+		board.hold(before)
 		_play_fx(model.fx.duplicate(), merges)
 		Sfx.play("pop", cascade)
 		if not created.is_empty():
 			get_tree().create_timer(0.12).timeout.connect(func(): Sfx.play("special"))
 		await _wait(max_t / 1000.0 + 0.26)
+		board.release_all()
 		for id in model.remove_dead():
 			if board.nodes.has(id): board.remove_node(id)
 		for g in model.place_specials(created):
@@ -956,7 +959,14 @@ func _play_fx(list: Array, merges: Dictionary) -> void:
 		if e.t <= 0.0: cb.call()
 		else: get_tree().create_timer(e.t / 1000.0).timeout.connect(cb)
 
+## the effects that change a cell's look: the cell shows its new state from the moment of its hit (BoardView.hold)
+const CELL_FX := ["rock", "gas", "mud", "lock", "crust", "ice", "scale", "ink", "nodule", "billet", "melt", "tentacle_cut"]
+
 func _fx_one(e: Dictionary, merges: Dictionary) -> void:
+	if String(e.type) in CELL_FX:
+		if e.has("cells"):
+			for p: Vector2i in e.cells: board.release(p.x, p.y)
+		elif e.has("r") and e.has("c"): board.release(int(e.r), int(e.c))
 	match String(e.type):
 		"clear":
 			if String(e.get("sp", "")) != "": _sp_move = true
