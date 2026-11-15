@@ -724,7 +724,9 @@ func _specimen(o: Dictionary) -> Node3D:
 		"single":
 			var srk: MeshInstance3D = use_rock.call("small" if rng.next() < 0.6 else "chunk")
 			var at := Vector3((rng.next() - 0.5) * 0.15, 0.22 if elongated else 0.1, (rng.next() - 0.5) * 0.15)
-			main = crystal.call(1.15 + rng.next() * 0.5, 1.2 + rng.next() * 0.3, at, lean.call(UP, 0.35), {scepter = "scepter" in tr})
+			var mh := 1.15 + rng.next() * 0.5
+			var ms := 1.2 + rng.next() * 0.3
+			main = crystal.call(mh, ms, at, lean.call(UP, 0.35), {scepter = "scepter" in tr})
 			_widen_rock(srk, main, st)
 			# now and then the rock climbs one side of it: the crystal half sunk in it, as it grew (its own stream)
 			var hug_r := Rng32.new((seed_v * 1812433253 + 97) % 4294967296)
@@ -759,6 +761,31 @@ func _specimen(o: Dictionary) -> Node3D:
 					var s := arms[ai].transform.basis.get_scale().y
 					arms[ai].transform = Transform3D(Basis(xv, yv, xv.cross(yv)) * Basis.from_scale(Vector3(s * 1.3, s, s * 0.5)), at)
 				_mark("twin", _mid(arms[1], 0.6))
+			elif "twin" in tr and habit == "cube":
+				# (15.11) a cube's penetration twin, as fluorite's: a second cube of the same size through the first, turned
+				# 60° about their shared body diagonal — its corners stand out of every face. (The prism's way below — a
+				# second crystal at the foot, leaning — left a cube's twin all but hidden inside the first: "twin" on the
+				# card, nothing to see)
+				var t: MeshInstance3D = crystal.call(mh, ms, at, UP)
+				var bb := (main.get_meta("geo") as Geo).aabb()
+				var cc := bb.get_center()
+				var ax := (bb.end - cc).normalized()
+				var rb := Basis(ax, deg_to_rad(60.0))
+				t.transform = main.transform * Transform3D(rb, cc - rb * cc)
+				# the callout on the corner standing out highest towards the viewer (not those on the shared diagonal)
+				var to_root := U.rel_xform(main, root)
+				var best_p := _mid(t, 0.7)
+				var best_k := -INF
+				for ci in 8:
+					var corner := bb.position + bb.size * Vector3(ci & 1, (ci >> 1) & 1, (ci >> 2) & 1)
+					var d := corner - cc
+					if d.normalized().cross(ax).length() < 0.2: continue
+					var q := to_root * (rb * d + cc)
+					var k := q.y + q.dot(VIEW_DIR) * 0.5
+					if k > best_k:
+						best_k = k
+						best_p = q
+				_mark("twin", best_p)
 			elif "twin" in tr:
 				var t: MeshInstance3D = crystal.call(1.0 + rng.next() * 0.4, 1.05, at, lean.call(Vector3(0.8, 1, 0.3), 0.3))
 				t.rotate_object_local(Vector3.BACK, 0.6)
