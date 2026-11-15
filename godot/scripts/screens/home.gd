@@ -942,17 +942,28 @@ func _boss_panel(sel: Array) -> void:
 	_keep_clear()
 	# not a level's window: the boss's own medallion on top (as in the atlas: its sign, a socket for each difficulty,
 	# a ruby in each one beaten, the empty ones flaring now and then), the name over a gene's brass bar, a ruby Fight
+	# (in one row: the medallion on the left, the name and where on the right — centred alone it left the sides empty)
+	var head := HBoxContainer.new()
+	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	head.add_theme_constant_override("separation", 14)
 	var md := BossMedal.new(ai())
-	md.custom_minimum_size = Vector2(118, 118)
-	md.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(md)
+	md.custom_minimum_size = Vector2(104, 104)
+	md.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(md)
+	var col := VBoxContainer.new()
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	col.add_theme_constant_override("separation", 4)
 	var nm := Reveal.chip(String(B.n), true)
 	nm.add_theme_font_override("font", UI.display)
-	nm.add_theme_font_size_override("font_size", 26)
+	nm.add_theme_font_size_override("font_size", 25)
 	nm.add_theme_color_override("font_color", Kit.CREAM)
-	nm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(nm)
-	v.add_child(Ov.text("%s · %d m" % [String(B.get("sub", "")), int(B.m)] if B.has("sub") else "%d m" % int(B.m), 14, UI.GOLD))
+	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	col.add_child(nm)
+	if B.has("sub"):
+		col.add_child(Kit.label(String(B.sub), 14, UI.body_bold, UI.GOLD))
+	col.add_child(Kit.label("%d m" % int(B.m), 13, UI.body, Kit.DIM))
+	head.add_child(col)
+	v.add_child(head)
 	v.add_child(Ov.text("Take something to start with: specials wait on the board.", 13))
 	v.add_child(_pre_row(sel, free, func(): _boss_panel(sel)))
 	v.add_child(Ov.btn("Fight", "ruby", func():
