@@ -161,6 +161,9 @@ static func open() -> void:
 	mk.add_child(_btn("+1 of each classic pair", false, func(): _pairs()))
 	mk.add_child(_btn("+1 of each pseudomorph", false, func(): _pseudos()))
 	mk.add_child(_btn("+8 ammonites, every kind", false, func(): _ammonites()))
+	# the living sea floor (SpecReef): a slab for every model of a group, to see them all and close its achievement
+	for rg: Array in [["coral", "coral"], ["star", "star"], ["shell", "shell"], ["crab", "crab"], ["swim", "swimmer"]]:
+		mk.add_child(_btn("+1 slab per %s" % String(rg[1]), false, func(): _reef_set(String(rg[0]), String(rg[1]))))
 	mk.add_child(_btn("+6 test skulls (same every time)", false, func(): _skull_set()))
 	mk.add_child(_btn("+16 beast skulls, one each", false, func(): _beast_set()))
 	# before / after on one install: the old bone shader and no batching of soil and moss (reopen the card to rebuild)
@@ -417,6 +420,35 @@ static func beast_stones() -> Array:
 
 ## eight ammonites, one of each look: sawn, a matched pair, crystal-lined chambers, a brood, crushed in shale, a
 ## heteromorph, dragon fire, jellyfish — seeds found that grow each
+## a sea slab for every model of a living-floor group (SpecReef.group: coral — corals and anemones, star — stars and the
+## urchin, shell, crab, swim): trilobites and ammonites in turn, each a seed whose slab holds that model (the floor is
+## the seed's own, its own stream: seeds are tried, ~100 for a swimmer — genes only, quick)
+static func _reef_set(g: String, word: String) -> void:
+	var keep_kind := f_kind
+	var keep_traits := f_traits
+	f_kind = ""
+	f_traits = []
+	var n := 0
+	var sd := 1 + randi() % 900000
+	var models := SpecReef.group(g)
+	for i in models.size():
+		var m: String = models[i]
+		var host := "trilobite" if i % 2 == 0 else "ammonite"
+		for t in 20000:
+			sd += 1
+			var st := _find(sd, host, "")
+			var ge := SpecTrilobite.genes(sd, st.get("traits", [])) if host == "trilobite" else SpecFossil.genes(sd, "ammonite", st.get("traits", []))
+			var slab := String(ge.get("show", "")) in (["matrix", "mass"] if host == "trilobite" else ["matrix"])
+			if slab and ("sea:" + m) in SpecReef.accents(ge.get("reef", {})):
+				_add(st)
+				n += 1
+				break
+	f_kind = keep_kind
+	f_traits = keep_traits
+	Save.persist()
+	Ov.toast("Added %d slabs, a %s on each" % [n, word])
+	_reopen()
+
 static func _ammonites() -> void:
 	var want := [
 		func(g: Dictionary) -> bool: return g.show == "split" and not g.pair and float(g.hollow) == 0.0,
