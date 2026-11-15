@@ -438,7 +438,8 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	var price := roundi(float(s.value) * Save.coin_mul())
 	# the last kept stone with an achievement's gene, or the species' record: the first press opens its ribbon's sheet
 	# (what would be lost), the second sells
-	var rib: RecordRibbon = v.get_meta("ribbon_last", v.get_meta("ribbon_rec", null))
+	# (get_meta with a null default still errors when the key is missing: has_meta first)
+	var rib: RecordRibbon = v.get_meta("ribbon_last") if v.has_meta("ribbon_last") else (v.get_meta("ribbon_rec") if v.has_meta("ribbon_rec") else null)
 	var armed := [rib == null]
 	var sell_b := Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0)
 	var sell := func():
