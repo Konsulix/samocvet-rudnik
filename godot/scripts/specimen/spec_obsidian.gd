@@ -28,8 +28,8 @@ static func gene_name(id: String) -> String:
 
 ## a conchoidal chunk: a lumpy ellipsoid with spherical scoops broken out of it. Every triangle takes the normal of the
 ## surface it lies on (the scoop's sphere, or the old rind), so the scoops are smooth and the ridges between them sharp
-static func chunk(rng: Rng32, r: float, n_scoops: int, sc: Vector3) -> Geo:
-	var base := Geo.icosa(1.0, 5)
+static func chunk(rng: Rng32, r: float, n_scoops: int, sc: Vector3, detail := 5, bite_k := 1.0) -> Geo:
+	var base := Geo.icosa(1.0, detail)
 	var nz := FastNoiseLite.new()
 	nz.seed = int(rng.next() * 100000.0)
 	nz.frequency = 1.1
@@ -41,7 +41,7 @@ static func chunk(rng: Rng32, r: float, n_scoops: int, sc: Vector3) -> Geo:
 		var d := RockKit.rd(rng)
 		var rs := r * (0.9 + rng.next() * 1.4)
 		# the sphere's centre outside the chunk, so it bites a dish out of it — wide, deep enough for sharp ridges
-		var bite := r * (0.22 + rng.next() * 0.38)
+		var bite := r * (0.22 + rng.next() * 0.38) * bite_k
 		scoops.append([d * (r * (sc.dot(d.abs()) / (d.abs().x + d.abs().y + d.abs().z)) * 1.0 + rs - bite) , rs])
 	var owner := PackedInt32Array()
 	owner.resize(base.v.size())
@@ -180,29 +180,77 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	b._mark("ob_" + kind, mi.transform * g.v[best], (mi.transform.basis * g.own_n[best]).normalized())
 	return mi
 
-## Apache tears: three to six small rounded nodules of glass, smoky brown where light goes through, on and half
-## in a lump of pale grey, frothy perlite
+## Apache tears: rounded nodules of black glass, half sunk in a lump of pale grey, frothy perlite (they weather out
+## of it). The perlite is the generator's own rock (relief and photo scan of vesicular lava, grey); a tear is a lumpy
+## egg whose old skin is dull, pitted, grey-black, with a scoop or two broken off it showing the mirror-black glass
 static func _tears(b: RefCounted, rng: Rng32, gs: float) -> MeshInstance3D:
 	var root: Node3D = b.root
-	var Q := RockKit.lump(rng, {r = 0.55 * gs, sx = 1.35, sy = 0.7, sz = 1.05, wave = 0.2, bumps = [[8, 0.6, 0.1]], pits = [60, 0.08, 0.07], seg = 48})
-	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.6, Color(0.42, 0.42, 0.41))
-	var pm := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, grain = 0.8, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0x8e8e88), fr = 0.0}})
-	var rock := U.mesh(qg, pm, root, Vector3(0, -0.15, 0))
-	# the nodules: black glass, mirror-smooth, a smoky brown glow where the light comes through their edge
-	var tm := SpecMat.make({col = SpecMat.lin(0x1a100a), rough = 0.04, coat = 0.3, coat_r = 0.01, env = 0.6, emis = SpecMat.lin(0x1a0a04) * 0.15})
-	var qn := qg.normals()
-	var first: MeshInstance3D = null
-	var n := 3 + int(rng.next() * 4)
+	var R := RockKit.rock(rng, "gypsum", "chunk", 32, 0.0)
+	var rg: Geo = R.geo
+	for i in rg.v.size():
+		rg.v[i] *= gs
+	var grey := SpecMat.hsl(0.6 + rng.next() * 0.05, 0.04 + rng.next() * 0.03, 0.42 + rng.next() * 0.08).srgb_to_linear()
+	var pm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.5, ao = 1.0,
+		dirt = {h = 99.0, a = 0.3, col = grey, fr = 0.0, scan = RockKit.SCAN_OF["gypsum"]}})
+	pm.set_meta("rock", true)
+	var rock := U.mesh(rg, pm, root, Vector3(0, -0.1 * gs, 0))
+	rock.set_meta("base", grey)
+	# the tears: on the top and the upper sides, the side towards the viewer first, never touching each other
+	var rn := rg.normals()
+	var view := Basis(Vector3.UP, -0.6) * Vector3.BACK
+	var cand := []
+	for i in range(0, rg.v.size(), 3):
+		if rn[i].y > 0.15 and rg.v[i].y > 0.0:
+			cand.append(i)
+	# the old skin dull and pitted, the broken scoops mirror-black
+	var skin_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, env = 0.7, grain = 0.9})
+	var glass_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.03, coat = 0.4, coat_r = 0.01, env = 1.1})
+	var first: Node3D = null
+	var placed := []
+	var n := 6 + int(rng.next() * 5)
 	for k in n:
-		var vi := int(rng.next() * qg.v.size())
-		for t in 40:
-			if qg.v[vi].y > 0.05 * gs: break
-			vi = int(rng.next() * qg.v.size())
-		var s := (0.12 + rng.next() * 0.09) * gs * (1.3 if k == 0 else 1.0)
-		var tg := Geo.icosa(s, 3).scale(1.0, 1.2 + rng.next() * 0.25, 0.9).jitter(s * 0.04, 3.0 / s, int(rng.next() * 100000))
-		var mi := U.mesh(tg, tm, root, rock.position + qg.v[vi] - qn[vi] * s * 0.15, Basis(U.quat_to(Vector3.UP, qn[vi])) * Basis(Vector3.UP, rng.next() * TAU))
-		mi.set_meta("col", true)
+		var s := (0.08 + rng.next() * 0.07) * gs * (1.4 if k == 0 else 1.0)
+		var best := -1
+		var best_s := -99.0
+		for t in 24:
+			var vi: int = cand[int(rng.next() * cand.size())]
+			var p := rg.v[vi]
+			var ok := true
+			for q: Array in placed:
+				if p.distance_to(q[0]) < (s + float(q[1])) * 0.95:
+					ok = false
+					break
+			if not ok: continue
+			var sc := rn[vi].dot(view) * (1.0 if k == 0 else 0.3) + rn[vi].y * 0.5 + rng.next() * 0.3
+			if sc > best_s:
+				best_s = sc
+				best = vi
+		if best < 0: continue
+		var at := rg.v[best]
+		var nr := rn[best]
+		placed.append([at, s])
+		var tg := chunk(rng, s, 1 + int(rng.next() * 3), Vector3(1.0 + rng.next() * 0.3, 0.8 + rng.next() * 0.3, 0.8 + rng.next() * 0.2), 4 if k == 0 else 3, 0.6)
+		var sc3: Vector3 = (tg.get_meta("shape") as Array)[2]
+		var skin := Color(0.03, 0.026, 0.024) * (0.7 + rng.next() * 0.5)
+		var parts := [Geo.new(), Geo.new()]
+		for t in range(0, tg.v.size(), 3):
+			var on := 0
+			for e in 3:
+				if tg.own_n[t + e].dot((tg.v[t + e] / (sc3 * sc3)).normalized()) > 0.9995: on += 1
+			var pg: Geo = parts[0 if on >= 2 else 1]
+			for e in 3:
+				pg.v.append(tg.v[t + e])
+				pg.own_n.append(tg.own_n[t + e])
+				pg.col.append(skin if on >= 2 else Color(0.006, 0.005, 0.005))
+		# sunk in to nearly half its height, leaning with the rock
+		var mi := Node3D.new()
+		root.add_child(mi)
+		mi.transform = Transform3D(Basis(U.quat_to(Vector3.UP, nr.lerp(Vector3.UP, 0.4).normalized())) * Basis(Vector3.UP, rng.next() * TAU),
+			rock.position + at - nr * s * 0.45)
+		for pi in 2:
+			if (parts[pi] as Geo).v.size():
+				U.mesh(parts[pi], skin_m if pi == 0 else glass_m, mi).set_meta("col", true)
 		if first == null:
 			first = mi
-			b._mark("ob_tears", mi.position + qn[vi] * s * 0.9, qn[vi])
-	return first
+			b._mark("ob_tears", mi.position + nr * s * 0.6, nr)
+	return rock
