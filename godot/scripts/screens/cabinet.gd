@@ -103,8 +103,12 @@ func _draw_ceiling() -> void:
 	var top := Kit.tex_at(DIR + "room_top.png")
 	var k := float(f[1]) / tx.get_height()           # points per picture px
 	var o := room.position + Vector2(-float(f[2]), -float(f[3]))   # the room picture's top left, in this screen
-	var h := top.get_height() * k
-	ceiling.draw_texture_rect(top, Rect2(o.x, o.y - CEIL_PX * k, float(f[0]), h), false)
+	# (the room picture's own top is GPT's redraw too: the two meet without a seam, so no overlap is drawn over it)
+	ceiling.draw_texture_rect(top, Rect2(o.x, o.y - CEIL_PX * k, float(f[0]), CEIL_PX * k), false)
+	# and the room picture's own top rows that the room's clip cuts away (it is cropped a little at the top): no gap
+	var cut := room.position.y - o.y + 2.0
+	if cut > 0.0:
+		ceiling.draw_texture_rect_region(tx, Rect2(o.x, o.y, float(f[0]), cut), Rect2(0, 0, tx.get_width(), cut / k))
 	for i in 40:
 		var a := 1.0 - i / 40.0
 		ceiling.draw_rect(Rect2(0, i * 2.0, ceiling.size.x, 2.0), Color(0.05, 0.04, 0.03, 0.55 * a * a))
