@@ -364,8 +364,13 @@ static func boss_report(area: int, n: int) -> String:
 		return "%s scale %s: won %.0f%% | fell %.0f%% | out of moves %.0f%% | moves used when won %.1f | tilt at the end %.1f" % [
 			B.n, JSON.stringify(B.scale), 100.0 * won / n, 100.0 * fell / n, 100.0 * (n - won - fell) / n, used / maxf(1.0, won), tilt / n]
 	var lines := PackedStringArray(["%s: hp %d, moves %d (+%d a board) | lost before | win%% | board reached 1/2/3 | hp left when lost | moves used when won" % [B.n, int(B.hp), int(B.moves), int(B.stage_moves)]])
-	for tries in [0, 2, 4, 6]:
-		var hp := roundi(int(B.hp) * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3
+	# (sim_first: the first try only — what the health is tuned on; sim_hp=N: another health to try)
+	var first := OS.get_cmdline_user_args().has("sim_first")
+	var base_hp := int(B.hp)
+	for x in OS.get_cmdline_user_args():
+		if String(x).begins_with("sim_hp="): base_hp = int(String(x).get_slice("=", 1))
+	for tries in ([0] if first else [0, 2, 4, 6]):
+		var hp := roundi(base_hp * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3
 		var wins := 0
 		var reach := [0, 0, 0]
 		var hp_left := 0

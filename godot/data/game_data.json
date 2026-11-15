@@ -1017,7 +1017,7 @@
     "n": "Great Poloz",
     "sub": "Keeper of Gold",
     "m": 350,
-    "hp": 2250,
+    "hp": 2370,
     "weak": 3,
     "dmg": {
      "weak": 10,
@@ -1264,7 +1264,7 @@
     "n": "The Mistress",
     "sub": "Copper Mountain",
     "m": 500,
-    "hp": 1980,
+    "hp": 2080,
     "weak": 2,
     "dmg": {
      "weak": 10,
@@ -1517,7 +1517,7 @@
     "n": "The Kraken",
     "sub": "Whalebone Cove",
     "m": 500,
-    "hp": 2550,
+    "hp": 2680,
     "weak": 1,
     "dmg": {
      "weak": 10,
@@ -1794,7 +1794,7 @@
     "n": "Brontes",
     "sub": "The Smith of Etna",
     "m": 500,
-    "hp": 2760,
+    "hp": 2900,
     "weak": 4,
     "dmg": {
      "weak": 10,

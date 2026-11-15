@@ -922,7 +922,13 @@ func _fight_boss() -> void:
 		_on_play()
 		return
 	Ov.close()
-	play.emit(Save.d.level, [], Data.depths(ai()).size())
+	# the streak's specials, as on any level (the fight button skipped the level window that hands them out; the
+	# bosses' health is tuned with them — streak 3, the dynamite)
+	var free := Data.streak_free(Save.d.streak)
+	var sps := []
+	for p in Data.PRE:
+		if p.id in free: sps.append_array(p.sp)
+	play.emit(Save.d.level, sps, Data.depths(ai()).size())
 
 ## the first time the window can build: a note on its Build button, once the window has come up
 func _coach_build(bt: Button) -> void:
