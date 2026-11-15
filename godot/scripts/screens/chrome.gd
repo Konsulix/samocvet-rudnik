@@ -307,8 +307,7 @@ static func nav_bar(active: String, on_go: Callable) -> PanelContainer:
 	var bar := PanelContainer.new()
 	var st := StyleBoxFlat.new()
 	st.bg_color = Color("#0d0c0b", 0.94)
-	st.border_color = Color("#6b5530")
-	st.border_width_top = 2
+	# (no brass line over the bar any more: left from the old interface, the tabs' own frames divide it)
 	st.content_margin_left = 6
 	st.content_margin_right = 6
 	st.content_margin_top = 6
