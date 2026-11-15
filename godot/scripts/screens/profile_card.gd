@@ -274,33 +274,30 @@ static func _records() -> Control:
 ## Edit Profile: the preview, the tabs, the tiles; Done goes back to the profile
 static func _edit() -> void:
 	var v := Ov.card(W)
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 12)
 	_head(v, "Edit Profile")
-	# the preview: the portrait as it is worn, and what is worn in words
-	var pv := _panel(8.0)
+	# the preview, no panel round it (as on the profile): the portrait as it is worn, and what is worn in words
 	var ph := HBoxContainer.new()
-	ph.add_theme_constant_override("separation", 12)
+	ph.alignment = BoxContainer.ALIGNMENT_CENTER
+	ph.add_theme_constant_override("separation", 14)
 	var pc := Control.new()
-	pc.custom_minimum_size = Vector2(84, 84)
-	pc.add_child(Chrome.portrait(84, String(Profile.frame().id), String(Profile.face().id)))
+	pc.custom_minimum_size = Vector2(96, 96)
+	pc.add_child(Chrome.portrait(96, String(Profile.frame().id), String(Profile.face().id)))
 	ph.add_child(pc)
 	var words := VBoxContainer.new()
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
 	words.add_theme_constant_override("separation", 0)
-	words.add_child(Kit.label(String(Profile.face().n), 17, UI.display, Kit.CREAM))
+	words.add_child(Kit.label(String(Profile.face().n), 18, UI.display, Kit.CREAM))
 	words.add_child(Kit.label(String(Profile.frame().n), 13, UI.body_bold, Kit.DIM))
-	words.add_child(Kit.label(Profile.title(), 13, UI.display, Kit.AMBER))
+	words.add_child(Kit.label(Profile.title(), 14, UI.display, Kit.AMBER))
 	ph.add_child(words)
-	pv.add_child(ph)
-	v.add_child(pv)
+	v.add_child(ph)
 	v.add_child(_tabs())
-	var grid := _panel(10.0)
+	# the tiles straight on the window (no panel round them); the same height on every tab: the window does not jump
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", 6)
-	# (the same height on every tab: the window does not jump when the tab changes)
 	body.custom_minimum_size = Vector2(0, 204)
-	grid.add_child(body)
-	v.add_child(grid)
+	v.add_child(body)
 	_fill(body)
 	var done := Ov.btn("Done", "green", func(): _build())
 	done.custom_minimum_size.x = 160
@@ -396,11 +393,16 @@ static func _titles(body: VBoxContainer) -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 4)
 	sc.add_child(col)
+	# (no bar: a finger drags the list)
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	for t: Array in Profile.titles():
 		var nm := String(t[0])
 		var owned := bool(t[1])
 		var row := PanelContainer.new()
-		row.add_theme_stylebox_override("panel", Kit.box("btn_dark", 4.0, Color(0.8, 1.25, 0.8) if nm == worn else Color.WHITE))
+		var rb := Kit.box("btn_dark", 4.0, Color(0.8, 1.25, 0.8) if nm == worn else Color.WHITE)
+		rb.content_margin_left = 14
+		rb.content_margin_right = 12
+		row.add_theme_stylebox_override("panel", rb)
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 8)
 		var l := Kit.label(nm, 15, UI.display, Kit.AMBER if nm == worn else (Kit.CREAM if owned else Kit.DIM))
