@@ -17,6 +17,7 @@ var force_uv := -1.0   # screenshots: uv=0..1 holds the flash still
 signal warmed
 var warm_done := false
 var warm_progress := 0.0
+var warm_secs := 0.0     # how long the shader warm-up took this launch (Boot writes it to the journal)
 
 func _process(_dt: float) -> void:
 	var ph := fmod(Time.get_ticks_msec() / 1000.0, 7.0) / 7.0
@@ -41,6 +42,7 @@ func _warm() -> void:
 	while _busy:
 		await get_tree().process_frame
 	_busy = true
+	var warm_t0 := Time.get_ticks_msec()
 	var balls := Node3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = 0.2
@@ -87,6 +89,7 @@ func _warm() -> void:
 		warm_progress = done / float(mats.size())
 	balls.queue_free()
 	BoardSprites.preload_all()
+	warm_secs = (Time.get_ticks_msec() - warm_t0) / 1000.0
 	warm_done = true
 	warmed.emit()
 	_busy = false

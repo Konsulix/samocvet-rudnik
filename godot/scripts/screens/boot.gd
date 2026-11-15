@@ -65,8 +65,11 @@ func _ready() -> void:
 	title.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	title.name = "Title"
 	add_child(title)
-	# on the first launch after an install the phone prepares its graphics once; say so if it takes a while
-	var note := UI.label("Preparing graphics for your device — only this once", 12, UI.body, Color("#8a93a6"))
+	# on the first launch of a build the phone prepares its graphics; say so if it takes a while. (15.11: "only this
+	# once" was said at every slow start — after a long break iOS may clear its compiled-shader cache and the
+	# warm-up is slow again: then it is plain "Preparing graphics")
+	_first = _first_of_build()
+	var note := UI.label("Preparing graphics for your device — only this once" if _first else "Preparing graphics…", 12, UI.body, Color("#8a93a6"))
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.name = "Note"
 	note.modulate.a = 0.0
@@ -100,6 +103,19 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(func(): size = get_viewport_rect().size)
 	resized.connect(_layout)
 	_layout()
+
+## this build's first launch on this phone: its stamp (res://build_stamp.gd, written by the iOS build) is not yet the
+## one kept in user://boot_stamp.txt (kept once the loading screen is done). No stamp (editor, tests): never first
+var _first := false
+const BOOT_STAMP := "user://boot_stamp.txt"
+static func _build_id() -> String:
+	if not ResourceLoader.exists("res://build_stamp.gd"): return ""
+	return str((load("res://build_stamp.gd") as GDScript).get_script_constant_map().get("ID", ""))
+
+func _first_of_build() -> bool:
+	var id := _build_id()
+	if id == "": return false
+	return not FileAccess.file_exists(BOOT_STAMP) or FileAccess.get_file_as_string(BOOT_STAMP).strip_edges() != id
 
 func _layout() -> void:
 	var c := size / 2
@@ -159,6 +175,13 @@ func _draw_halo() -> void:
 
 func _finish() -> void:
 	_leaving = true
+	# the journal (♪ held): how long the start took and whether it was this build's first — a slow start that is not the
+	# first is the phone having cleared its shader cache
+	Diag.note("loading screen %.1f s, shader warm-up %.1f s, %s" % [_t, Spec.warm_secs, "first launch of this build" if _first else "not the first launch"])
+	var id := _build_id()
+	if id != "":
+		var f := FileAccess.open(BOOT_STAMP, FileAccess.WRITE)
+		if f: f.store_string(id)
 	for p in _paths:
 		if ResourceLoader.load_threaded_get_status(p) == ResourceLoader.THREAD_LOAD_LOADED:
 			cache.append(ResourceLoader.load_threaded_get(p))
