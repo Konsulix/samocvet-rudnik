@@ -264,6 +264,7 @@ static func release_pool() -> void:
 	_find_pool = null
 
 func _exit_tree() -> void:
+	Spec.warm_pause = false
 	# hand the pooled studio back alive: it outlives this level
 	if find_studio and find_studio.vp.get_parent() == self:
 		find_studio.clear()
@@ -685,6 +686,7 @@ var _light_n := 0
 
 static var _rush_on := OS.get_cmdline_user_args().has("rush")
 func _process(dt: float) -> void:
+	Spec.warm_pause = not model.over   # (no shader warm-up stalls while the board is played: Spec._warm)
 	if _rush_on and model and not model.over: _rush(dt)
 	if find_spec:
 		find_spec.rotation.y += dt * 0.5

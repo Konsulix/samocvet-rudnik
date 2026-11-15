@@ -18,6 +18,12 @@ signal warmed
 var warm_done := false
 var warm_progress := 0.0
 var warm_secs := 0.0     # how long the shader warm-up took this launch (Boot writes it to the journal)
+## (15.11) the loading screen waits only for the common stone shaders (the mine's niches, a find's usual glass and
+## rock); the rest — mushrooms, legends, fossils, the sea, the showy minerals — warm up behind the home screen, one
+## at a time, and not while a level is being played (warm_pause: Level sets it). After iOS cleared its shader cache
+## the whole warm-up took ~30 s on the loading screen
+var warm_pause := false
+var warm_all_done := false
 
 func _process(_dt: float) -> void:
 	var ph := fmod(Time.get_ticks_msec() / 1000.0, 7.0) / 7.0
@@ -73,8 +79,25 @@ func _warm() -> void:
 		var xm := ShaderMaterial.new()
 		xm.shader = sh
 		mats.append(xm)
+	var first := SpecMat.COMMON.size()
 	var done := 0
 	for m in mats:
+		if done == first:
+			# the loading screen may go: the rest warms behind the home screen
+			BoardSprites.preload_all()
+			warm_secs = (Time.get_ticks_msec() - warm_t0) / 1000.0
+			warm_done = true
+			warmed.emit()
+			_busy = false
+			# (a picture asked for meanwhile waited in the queue: _pump starts only when the studio is free)
+			if _queue.size(): _pump()
+		if done >= first:
+			# (one every few frames, never while a level is played or a stone is being built)
+			for k in 6:
+				await get_tree().process_frame
+			while warm_pause or _busy:
+				await get_tree().create_timer(0.25).timeout
+			_busy = true
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
 		mi.material_override = m
@@ -82,17 +105,18 @@ func _warm() -> void:
 		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 		await RenderingServer.frame_post_draw
 		mi.visible = false
-		# breathe between compiles, so the loading screen keeps moving and its bar keeps filling
-		for k in 3:
-			await get_tree().process_frame
+		if done >= first:
+			_busy = false
+			if _queue.size(): _pump()
+		else:
+			# breathe between compiles, so the loading screen keeps moving and its bar keeps filling
+			for k in 3:
+				await get_tree().process_frame
 		done += 1
-		warm_progress = done / float(mats.size())
+		if done <= first: warm_progress = done / float(first)
 	balls.queue_free()
-	BoardSprites.preload_all()
-	warm_secs = (Time.get_ticks_msec() - warm_t0) / 1000.0
-	warm_done = true
-	warmed.emit()
-	_busy = false
+	warm_all_done = true
+	Diag.note("background shader warm-up done: %d more in %.1f s from the start" % [mats.size() - first, (Time.get_ticks_msec() - warm_t0) / 1000.0])
 	if _queue.size():
 		_pump()
 
