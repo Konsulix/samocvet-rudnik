@@ -38,42 +38,26 @@ static func top_bar() -> HBoxContainer:
 	h.add_child(right)
 	return h
 
-## the miner in his round iron frame, the player's level on a brass badge, the lives on a small plate under him
-## the portrait frames' windows: [offset, size] as shares of the frame (from the bosses' avatar .json)
-const PORTRAIT_INNER := {poloz = [0.25, 0.5], mistress = [0.2778, 0.4444], kraken = [0.2778, 0.4444], brontes = [0.2778, 0.4444], shubin = [0.2778, 0.4444]}
-
+## the player's portrait in the top bar: the frame and the face worn (Profile), the lives on its corner; a tap opens
+## the miner's card (ProfileCard). Something earned and not yet looked at: the portrait glows
 static func _portrait() -> Control:
 	const F := 72.0
-	var w := Control.new()
-	w.custom_minimum_size = Vector2(F, F)
-	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# a square frame from the mine's boss board (the serpent at Old Adit, malachite and copper at Copper Mountain,
-	# shipwreck planks, rope and whale bone at Whalebone Cove, forged iron at Fire Horizon),
-	# its window a dark slate with the miner in it (for now the helmet and pick; a portrait is to be drawn)
-	var id: String = {0: "poloz", 1: "mistress", 2: "kraken", 3: "brontes", 7: "shubin"}.get(Save.area(), "brontes")
-	var inner: Array = PORTRAIT_INNER[id]
-	var o := F * float(inner[0])
-	var n := F * float(inner[1])
-	var back := ColorRect.new()
-	back.color = Color("#17130f")
-	back.position = Vector2(o - 1, o - 1)
-	back.size = Vector2(n + 2, n + 2)
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the Poloz' tail comes out from under the frame: under everything of the portrait
-	if id == "poloz": w.add_child(PortraitLife.make(id, F))
-	w.add_child(back)
-	var face := Kit.icon("equipment", n * 0.86)
-	face.size = Vector2(n, n) * 0.86
-	face.position = Vector2(o, o) + Vector2(n, n) * 0.07
-	w.add_child(face)
-	var frame := TextureRect.new()
-	frame.texture = Kit.tex("portrait/" + id)
-	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.size = Vector2(F, F)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the Mistress's 1-pt pixel frame is stored ×3 so it scales down evenly (unscaled, its cells came out uneven)
-	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	w.add_child(frame)
+	var fid := String(Profile.frame().id)
+	var w := portrait(F, fid, String(Profile.face().id), true)
+	var tap := Button.new()
+	tap.flat = true
+	tap.focus_mode = Control.FOCUS_NONE
+	tap.size = Vector2(F, F)
+	tap.mouse_filter = Control.MOUSE_FILTER_STOP
+	tap.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	tap.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	tap.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	tap.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	tap.pressed.connect(func():
+		Sfx.play("click")
+		ProfileCard.open())
+	w.add_child(tap)
+	if not Profile.fresh().is_empty(): w.add_child(_new_dot(F))
 	var mins := Save.minutes_to_life()
 	# the lives: a heart on the frame's lower right corner with their number on it; while one is coming back,
 	# the minutes left in small print under the portrait
@@ -87,8 +71,8 @@ static func _portrait() -> Control:
 	hn.size = Vector2(32, 28)
 	hn.position = heart.position
 	w.add_child(hn)
-	# the mine's boss alive on it: a lizard of the Mistress', the Kraken's arm (over the heart too)
-	if id != "poloz": w.add_child(PortraitLife.make(id, F))
+	# the frame's boss alive on it: a lizard of the Mistress', the Kraken's arm (over the heart too)
+	if fid != "poloz": w.add_child(PortraitLife.make(fid, F))
 	if mins:
 		var tl := Kit.label("+1 in %dm" % mins, 11, UI.body_bold, Kit.DIM)
 		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -96,6 +80,67 @@ static func _portrait() -> Control:
 		tl.position = Vector2(-10, F + 4)
 		w.add_child(tl)
 	return w
+
+## a framed portrait `f` points square: the face (assets/ui/kit/face/<face>.png; none yet - the helmet icon) in the
+## frame's window on dark slate, the frame over it (Profile.FRAMES). `tail`: the Poloz' tail comes out from under it
+static func portrait(f: float, frame_id: String, face_id: String, tail := false) -> Control:
+	var w := Control.new()
+	w.custom_minimum_size = Vector2(f, f)
+	w.size = Vector2(f, f)
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fr: Dictionary = Profile.FRAMES[0]
+	for e: Dictionary in Profile.FRAMES:
+		if String(e.id) == frame_id: fr = e
+	var o := f * float(fr.win[0])
+	var n := f * float(fr.win[1])
+	if tail and frame_id == "poloz": w.add_child(PortraitLife.make(frame_id, f))
+	var back := ColorRect.new()
+	back.color = Color("#17130f")
+	back.position = Vector2(o - 1, o - 1)
+	back.size = Vector2(n + 2, n + 2)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	w.add_child(back)
+	var path := "res://assets/ui/kit/face/%s.png" % face_id
+	if ResourceLoader.exists(path):
+		var face := TextureRect.new()
+		face.texture = load(path)
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.stretch_mode = TextureRect.STRETCH_SCALE
+		# (a 1-pt pixel picture stored ×3, as the frames: scales down evenly)
+		face.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		face.position = Vector2(o, o) - Vector2(1, 1)
+		face.size = Vector2(n, n) + Vector2(2, 2)
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		w.add_child(face)
+	else:
+		var icon := Kit.icon("equipment", n * 0.86)
+		icon.size = Vector2(n, n) * 0.86
+		icon.position = Vector2(o, o) + Vector2(n, n) * 0.07
+		w.add_child(icon)
+	var frame := TextureRect.new()
+	frame.texture = Kit.tex("portrait/" + frame_id)
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.size = Vector2(f, f)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the pixel frames are stored ×3 so they scale down evenly (unscaled, their cells came out uneven)
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	w.add_child(frame)
+	return w
+
+## a small brass dot with a soft pulse on the portrait's upper right corner: something new on the miner's card
+static func _new_dot(f: float) -> Control:
+	var d := TextureRect.new()
+	d.texture = FxLayer.puff()
+	d.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	d.size = Vector2(26, 26)
+	d.position = Vector2(f - 20, -6)
+	d.modulate = Color(1.0, 0.82, 0.45)
+	d.material = FxLayer.add_material()
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tw := d.create_tween().set_loops()
+	tw.tween_property(d, "modulate:a", 0.35, 0.9).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(d, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
+	return d
 
 ## a capsule's number sits between these insets (points): clear of the icon on the left, of the rivet on the right
 const CAP_L := 24.0

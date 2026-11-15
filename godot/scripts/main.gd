@@ -877,6 +877,8 @@ func _on_level_finished(res: Dictionary) -> void:
 			await GeodeOpen.run([res.stone], {title = "Your find", short = true})
 		await GeodeOpen.run(res.bonus)
 		await _win_card(res)
+		# a boss beaten for the first time: its portrait frame (Profile)
+		if res.get("boss", false): await ProfileCard.award_frame(Save.area())
 	show_home()
 
 func _replay_done(res: Dictionary) -> void:

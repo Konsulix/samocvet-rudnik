@@ -849,6 +849,14 @@ func _open_tasks() -> void:
 
 ## the checklist for the next depth: this depth's job, the drill's iron and coins, each ticked off; Dig down
 ## once all three are met. At the last depth: its job, then the next mine.
+## the miner's card (a snapshot key: `ui=profile`)
+func _profile() -> void:
+	ProfileCard.open()
+
+## the boss's frame handed over (`-- beaten ui=award_frame`, on a save whose card has not seen it)
+func _award_frame() -> void:
+	ProfileCard.award_frame(Save.area())
+
 func _open_next() -> void:
 	var a := ai()
 	var st := next_step()

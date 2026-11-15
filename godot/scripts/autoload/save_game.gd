@@ -44,6 +44,8 @@ func blank() -> Dictionary:
 		reached = 0, mines = {},
 		# what grew on each stone whose card was built (Awards.saw_grown): id -> the growths' ids
 		grown = {},
+		# the profile (Profile): the frame, portrait and title worn (empty: the starter ones), and what earned was looked at
+		prof = {}, prof_seen = [],
 	}
 	b.vein = fresh_veins(0)
 	b.dwins = fresh_wins(0)
