@@ -1439,7 +1439,7 @@ func _shatter() -> void:
 	var mode: String = Stones.pick_w([["side", 4.0], ["top", 0.0 if flat else 3.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]] if k < 0.56
 		else [["side", 4.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]], dr)
 	var cuts: Array = []
-	if k < 0.56: cuts = [0.8 + dr.next() * 0.08]                        # Chipped: an end knocked off
+	if k < 0.56: cuts = [0.72 + dr.next() * 0.08]                       # Chipped: an end knocked off (deeper than the very tip: a spongy lump's tip is all froth, it came off as flakes)
 	else:
 		cuts = [0.42 + dr.next() * 0.16]                                 # Damaged: through the middle
 		# and a half broken again — near its middle (at 0.7–0.8 it cut a strip off, a plate); never a sawn slab: already
@@ -1577,6 +1577,44 @@ func _box_of(nodes: Array) -> AABB:
 			lo = lo.min(p)
 			hi = hi.max(p)
 	return AABB(lo, hi - lo) if lo.x <= hi.x else AABB()
+
+## (16.11) a spongy lump (a copper nugget) cut through falls apart past the break into a few tips of its froth, each
+## closed by its own little cap — they hung in the air by the piece. A half keeps only its pieces of real size: any
+## part joined to the rest by no edge, and under a third of the biggest, is dropped (whole, so nothing is left open)
+func _drop_islands(skin: Geo, face: Geo, w: Geo) -> void:
+	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 50000.0), roundi(p.y * 50000.0), roundi(p.z * 50000.0))
+	var parent := {}
+	var find := func(x: Vector3i) -> Vector3i:
+		var r := x
+		while parent.has(r) and parent[r] != r: r = parent[r]
+		return r
+	var tris := []   # [geo, start]
+	for g: Geo in [skin, face]:
+		for t in range(0, g.idx.size(), 3):
+			var ks := [key.call(w.v[g.idx[t]]), key.call(w.v[g.idx[t + 1]]), key.call(w.v[g.idx[t + 2]])]
+			for kk: Vector3i in ks:
+				if not parent.has(kk): parent[kk] = kk
+			var r0: Vector3i = find.call(ks[0])
+			for c in [1, 2]:
+				var rc: Vector3i = find.call(ks[c])
+				if rc != r0: parent[rc] = r0
+			tris.append([g, t, ks[0]])
+	var size := {}
+	for e: Array in tris:
+		var r: Vector3i = find.call(e[2])
+		size[r] = int(size.get(r, 0)) + 1
+	if size.size() < 2: return
+	var big := 0
+	for r in size: big = maxi(big, int(size[r]))
+	var keep_s := PackedInt32Array()
+	var keep_f := PackedInt32Array()
+	for e: Array in tris:
+		if int(size[find.call(e[2])]) * 3 < big: continue
+		var g: Geo = e[0]
+		var t: int = e[1]
+		(keep_s if g == skin else keep_f).append_array([g.idx[t], g.idx[t + 1], g.idx[t + 2]])
+	skin.idx = keep_s
+	face.idx = keep_f
 
 ## (16.11) the break is not a plane ("as if cut with a knife"): a wavy surface — the plane lifted by the noise, read
 ## in the plane's own two axes so every point over the same spot has the same height (both halves cut by it fit)
@@ -1949,6 +1987,7 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 			if fn.dot(out_n) < 0.0: fc.append_array([A, C, B])
 			else: fc.append_array([A, B, C])
 	face.idx = fc
+	_drop_islands(skin, face, w)
 	# only the points the half uses (16.11: the cut-away side's points left in it made every measure of the piece —
 	# its box, its reach along the ground — take in the other half too: the pieces were pushed twice as far apart)
 	var remap := PackedInt32Array()
