@@ -337,6 +337,40 @@ func _ready() -> void:
 				Save.note_find(st, 0, int(st.dl))   # (the atlas and the achievements know them, as finds of a level)
 				made += 1
 		Save.persist()
+	if args.has("lumps"):
+		# test data: the lumps that are no crystals, hurt by a careless dig (RockKit.chip) — copper in vein quartz, a copper
+		# nugget, malachite's lump and its sawn slab, each the same stone at integrity 100, 60 and 30:
+		# `-- save=lumps screen=stones lumps`; marked test, old ones from a previous run are replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("lumps", false))
+		var want := [["nativecu", "vein"], ["nativecu", "vein"], ["nativecu", "nugget"], ["malachite", "botryoid"], ["malachite", "sawn"]]
+		var sd := 170000
+		var made := 0
+		for w: Array in want:
+			var base := {}
+			for t in 4000:
+				sd += 1
+				var st := Stones.roll(sd, 1, 1.2, 2)
+				st.sid = w[0]
+				st.kind = "crystal"
+				st.legend = false
+				if String(SpecGenome.of(Spec.of_stone(st)).form) == String(w[1]):
+					base = st
+					break
+			if base.is_empty(): continue
+			for ig in [100, 60, 30]:
+				var st: Dictionary = base.duplicate(true)
+				st.integ = ig   # (the same id: the same stone, only hurt more — sell one and its twins may go with it, test only)
+				st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+				st.area = 1
+				st.dl = 2
+				st.value = Stones.price(st, 1, 2)
+				st.test = true
+				st.lumps = true
+				Save.d.coll.append(st)
+				if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
+				made += 1
+		print("lumps: ", made, " finds")
+		Save.persist()
 	if args.has("hugs"):
 		# test data: lone crystals half sunk in a side of their rock (SpecimenBuilder._hug_rock), a few of each species:
 		# `-- save=hugs screen=stones hugs`; marked test, old ones from a previous run are replaced
