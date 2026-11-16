@@ -325,6 +325,14 @@ static func chip(g: Geo, dm: Dictionary, view := Vector3(-0.5646, 0.0, 0.8253)) 
 	cell.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
 	cell.frequency = 5.0 / maxf(0.02, sz)
 	var nr := g.normals()
+	# (one normal per place: a sphere's seam has two points there, each its own normal — dented apart they tore it open)
+	var by_place := {}
+	for j in g.v.size():
+		var pk := Vector3i(roundi(g.v[j].x * 50000.0), roundi(g.v[j].y * 50000.0), roundi(g.v[j].z * 50000.0))
+		by_place[pk] = (by_place.get(pk, Vector3.ZERO) as Vector3) + nr[j]
+	for j in g.v.size():
+		var pk := Vector3i(roundi(g.v[j].x * 50000.0), roundi(g.v[j].y * 50000.0), roundi(g.v[j].z * 50000.0))
+		nr[j] = (by_place[pk] as Vector3).normalized()
 	var thr := 0.08 + k * 0.22 + bad * 0.2
 	for j in g.v.size():
 		var e := (cell.get_noise_3dv(g.v[j]) + 1.0) * 0.5

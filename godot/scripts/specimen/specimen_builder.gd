@@ -1492,7 +1492,7 @@ func _shatter() -> void:
 		# slab keeps its polished face to the viewer. Fallen pieces (top, slant, front) turn much further: they tumbled
 		var fwant := (VIEW_DIR * 0.8 + UP * 0.6 + across * sgn * 0.3).normalized()
 		var share: float = {"side": 0.25, "top": 0.75, "slant": 0.55, "front": 0.6}[m] + dr.next() * 0.15
-		if flat: share *= 0.4
+		if flat: share = 0.0   # (a sawn slab: its polished face, turned, mirrored a studio lamp and burnt white — it only slides)
 		var rot := Basis(Quaternion.IDENTITY.slerp(U.quat_to(-n, fwant), share)) * Basis(fwant, (dr.next() - 0.5) * 0.7 * (0.3 if flat else 1.0))
 		var bc := _box_of(b_side).get_center()
 		var tb := Transform3D(Basis.IDENTITY, bc) * Transform3D(rot, Vector3.ZERO) * Transform3D(Basis.IDENTITY, -bc)
@@ -1660,47 +1660,197 @@ func _side_of(nd: Node, at: Vector3, n: Vector3) -> float:
 	for p in pts: c += p / pts.size()
 	return (c - at).dot(n)
 
-## one side of a mesh cut by the plane (beyond: the far side): its points over the plane pressed onto it, the plane
-## made rough by the noise (the same for both halves: they fit); [the skin, the fracture] sharing the points
+## one side of a mesh cut by the plane (beyond: the far side): its triangles clipped at the plane (kept indexed, new
+## points on the cut edges shared by position — smooth shading stays, a sphere's seam closes), and the cut closed by a
+## cap: the outline of the cut, points inside it, triangulated, made rough by the noise (the same for both halves:
+## they fit) while its rim stays on the outline — closed, no hole. [the skin, the fracture] sharing the points.
+## (16.11: the far side pressed flat onto the plane left holes wherever the bumpy skin there faced inwards — the
+## piece showed as a hollow shell, "a thin leaf")
 func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float, beyond: bool) -> Array:
-	var s := 1.0 if beyond else -1.0
+	var sg := -1.0 if beyond else 1.0   # (this half keeps the points where (p - at)·n·sg <= 0)
+	var out_n := n * sg                  # the cap looks out of this half
+	var ti := t.affine_inverse()
 	var w := Geo.new()
 	w.v = g.v.duplicate()
 	w.col = g.col.duplicate() if g.col.size() == g.v.size() else PackedColorArray()
 	if w.col.is_empty(): w.fill_color(Color(1, 1, 1))
-	var ix := g.idx.duplicate()
+	var ix := g.idx
 	if ix.is_empty():
+		ix = PackedInt32Array()
 		ix.resize(g.v.size())
 		for i in g.v.size(): ix[i] = i
-	var ti := t.affine_inverse()
-	var on := PackedByteArray()
-	on.resize(w.v.size())
+	var e := PackedFloat32Array()
+	e.resize(w.v.size())
+	var pk := PackedVector3Array()
+	pk.resize(w.v.size())
 	for i in w.v.size():
-		var p := t * w.v[i]
-		var d := (p - at).dot(n) * -s
-		if d <= 0.0: continue   # (on this half's own side)
-		var q := p + n * s * d
-		q += n * rough.get_noise_3dv(q) * amp
-		w.v[i] = ti * q
-		on[i] = 1
-		# fresh stone: no weathering in the hollows (a touch below the skin's brightest: a fresh face washed out pale)
-		w.col[i] = Color(0.85, 0.85, 0.85, w.col[i].a)
+		var wp := t * w.v[i]
+		pk[i] = wp
+		var d := (wp - at).dot(n) * sg
+		e[i] = d if d != 0.0 else -1e-7
+	var made := {}     # the cut edge (its two ends by place) -> the new point on it
+	var adj := {}      # a point on the cut -> the points it joins along the cut
+	var key := func(i: int) -> Vector3i: return Vector3i(roundi(pk[i].x * 50000.0), roundi(pk[i].y * 50000.0), roundi(pk[i].z * 50000.0))
+	var cut := func(a: int, b: int) -> int:
+		var ka: Vector3i = key.call(a)
+		var kb: Vector3i = key.call(b)
+		var ek := [ka, kb] if str(ka) < str(kb) else [kb, ka]
+		if made.has(ek): return made[ek]
+		var f := e[a] / (e[a] - e[b])
+		var vi := w.v.size()
+		w.v.append(w.v[a].lerp(w.v[b], f))
+		w.col.append(w.col[a].lerp(w.col[b], f))
+		made[ek] = vi
+		return vi
+	var link := func(a: int, b: int) -> void:
+		if a == b: return
+		if not adj.has(a): adj[a] = []
+		if not adj.has(b): adj[b] = []
+		(adj[a] as Array).append(b)
+		(adj[b] as Array).append(a)
 	var skin := Geo.new()
+	var sk := PackedInt32Array()
+	for k in range(0, ix.size(), 3):
+		var tri := [ix[k], ix[k + 1], ix[k + 2]]
+		var keep := [e[tri[0]] <= 0.0, e[tri[1]] <= 0.0, e[tri[2]] <= 0.0]
+		var nk := int(keep[0]) + int(keep[1]) + int(keep[2])
+		if nk == 3:
+			sk.append_array(tri)
+		elif nk == 1:
+			# one corner kept (turned to the front, winding kept): it and two points on the cut
+			var r := 0 if keep[0] else 1 if keep[1] else 2
+			var a: int = tri[r]
+			var b: int = tri[(r + 1) % 3]
+			var c: int = tri[(r + 2) % 3]
+			var pab: int = cut.call(a, b)
+			var pac: int = cut.call(a, c)
+			sk.append_array([a, pab, pac])
+			link.call(pab, pac)
+		elif nk == 2:
+			# one corner cut off: a quad left, two triangles
+			var r := 0 if not keep[0] else 1 if not keep[1] else 2
+			var c: int = tri[r]
+			var a: int = tri[(r + 1) % 3]
+			var b: int = tri[(r + 2) % 3]
+			var pbc: int = cut.call(b, c)
+			var pca: int = cut.call(c, a)
+			sk.append_array([a, b, pbc, a, pbc, pca])
+			link.call(pbc, pca)
+	skin.idx = sk
+	# the outline of the cut, as loops — walked edge by edge (where two cut points fell on one place a point joins four
+	# edges: walked point by point the loop broke there and left a gap in the cap)
+	var loops := []
+	var used := {}
+	for s0: int in adj:
+		for s1: int in adj[s0]:
+			var ek0 := Vector2i(mini(s0, s1), maxi(s0, s1))
+			if used.has(ek0): continue
+			var loop := PackedInt32Array([s0])
+			used[ek0] = true
+			var prev := s0
+			var cur := s1
+			var guard := 0
+			while cur != s0 and guard < 100000:
+				guard += 1
+				loop.append(cur)
+				var nxt := -1
+				for o: int in adj[cur]:
+					var ek := Vector2i(mini(cur, o), maxi(cur, o))
+					if not used.has(ek):
+						used[ek] = true
+						nxt = o
+						break
+				if nxt < 0: break
+				prev = cur
+				cur = nxt
+			if loop.size() >= 3: loops.append(loop)
 	var face := Geo.new()
+	var fc := PackedInt32Array()
+	if loops.size():
+		# the cap in the plane's own two axes
+		var u := n.cross(UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()
+		var v2 := n.cross(u)
+		var pts := PackedVector2Array()
+		var ids := PackedInt32Array()
+		var polys := []
+		var lo := Vector2(INF, INF)
+		var hi := -lo
+		for loop: PackedInt32Array in loops:
+			var poly := PackedVector2Array()
+			for vi in loop:
+				var q := t * w.v[vi] - at
+				var p2 := Vector2(q.dot(u), q.dot(v2))
+				# (a point on the place of the one before it: dropped — the polygon's triangulation fails on it. The skin's
+				# edge between them has no length: nothing left open)
+				if poly.size() and p2.distance_squared_to(poly[poly.size() - 1]) < 1e-12: continue
+				poly.append(p2)
+				pts.append(p2)
+				ids.append(vi)
+				lo = lo.min(p2)
+				hi = hi.max(p2)
+			if poly.size() > 1 and poly[0].distance_squared_to(poly[poly.size() - 1]) < 1e-12:
+				poly.remove_at(poly.size() - 1)
+				pts.remove_at(pts.size() - 1)
+				ids.remove_at(ids.size() - 1)
+			polys.append(poly)
+		var edge_d := func(p: Vector2) -> float:
+			var best := INF
+			for poly: PackedVector2Array in polys:
+				for j in poly.size():
+					best = minf(best, p.distance_to(Geometry2D.get_closest_point_to_segment(p, poly[j], poly[(j + 1) % poly.size()])))
+			return best
+		# each loop triangulated as a polygon (its edges exactly the outline: a Delaunay over points cut corners past
+		# the skin's edge and left slits), then its triangles split at their middles, twice over the big ones, those
+		# middles lifted by the noise — the rough break; the rim stays on the outline
+		var step := maxf((hi - lo).length() / 11.0, 0.005)
+		var tri_list := []   # [[id, id, id], [p2, p2, p2]]
+		var base := 0
+		for li in loops.size():
+			var poly: PackedVector2Array = polys[li]
+			var tri_ix := Geometry2D.triangulate_polygon(poly)
+			if tri_ix.is_empty():
+				# (a loop crossing itself — a bumpy skin flattened by chips gives points on one place — will not take
+				# the polygon's way: a Delaunay over its points, the triangles whose middles are inside it)
+				var dl := Geometry2D.triangulate_delaunay(poly)
+				for k in range(0, dl.size(), 3):
+					if Geometry2D.is_point_in_polygon((poly[dl[k]] + poly[dl[k + 1]] + poly[dl[k + 2]]) / 3.0, poly):
+						tri_ix.append_array([dl[k], dl[k + 1], dl[k + 2]])
+			for k in range(0, tri_ix.size(), 3):
+				tri_list.append([[ids[base + tri_ix[k]], ids[base + tri_ix[k + 1]], ids[base + tri_ix[k + 2]]], [poly[tri_ix[k]], poly[tri_ix[k + 1]], poly[tri_ix[k + 2]]]])
+			base += poly.size()
+		var mid_pt := func(p2: Vector2) -> int:
+			var wq := at + u * p2.x + v2 * p2.y
+			wq += out_n * rough.get_noise_3dv(wq) * amp * smoothstep(0.0, step * 2.5, edge_d.call(p2))
+			w.v.append(ti * wq)
+			w.col.append(Color(0.85, 0.85, 0.85, 1.0))
+			return w.v.size() - 1
+		for round_i in 3:
+			var next := []
+			for tr: Array in tri_list:
+				var P: Array = tr[1]
+				var area := absf((P[1] - P[0]).cross(P[2] - P[0])) * 0.5
+				if area < step * step * 0.6:
+					next.append(tr)
+					continue
+				var c2: Vector2 = (P[0] + P[1] + P[2]) / 3.0
+				var ci: int = mid_pt.call(c2)
+				var I: Array = tr[0]
+				next.append([[I[0], I[1], ci], [P[0], P[1], c2]])
+				next.append([[I[1], I[2], ci], [P[1], P[2], c2]])
+				next.append([[I[2], I[0], ci], [P[2], P[0], c2]])
+			tri_list = next
+		for tr: Array in tri_list:
+			var I: Array = tr[0]
+			var A: int = I[0]
+			var B: int = I[1]
+			var C: int = I[2]
+			var fn := t.basis * (w.v[C] - w.v[B]).cross(w.v[A] - w.v[B])
+			if fn.dot(out_n) < 0.0: fc.append_array([A, C, B])
+			else: fc.append_array([A, B, C])
+	face.idx = fc
 	for x: Geo in [skin, face]:
 		x.v = w.v
 		x.col = w.col
-	for k in range(0, ix.size(), 3):
-		var f := on[ix[k]] == 1 and on[ix[k + 1]] == 1 and on[ix[k + 2]] == 1
-		if f:
-			# the whole far side pressed flat lies on the plane twice — its upper and its under skin, facing opposite
-			# ways (they fought: glassy streaks): only the sheet facing out of this half is the fracture
-			var a := w.v[ix[k]]
-			var b := w.v[ix[k + 1]]
-			var c := w.v[ix[k + 2]]
-			var fn := t.basis * (c - b).cross(a - b)
-			if fn.dot(n) * -s <= 0.0: continue
-		(face if f else skin).idx.append_array([ix[k], ix[k + 1], ix[k + 2]])
 	return [skin, face]
 
 ## a piece moved by `tf` in the find's space: its nodes, and the marks ([point, normal], callouts) of what grew on it
