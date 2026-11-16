@@ -46,13 +46,13 @@ const MODELS := {
 	crab_mantis = {g = "crab", n = "mantis shrimp", k = 1.1},
 	crab_isopod = {g = "crab", n = "giant isopod", k = 0.95},
 	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.8},
-	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0},
+	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true},
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.8},
-	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1},
-	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0},
-	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15},
-	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1},
-	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8},
+	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true},
+	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true},
+	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true},
+	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true},
+	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
 const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
@@ -135,6 +135,10 @@ static func mat(id: String) -> ShaderMaterial:
 		if float(md.get("sway", 0.0)) == 0.0: m.set_shader_parameter("back_k", 0.15)
 		if String(md.g) == "swim":
 			m.set_shader_parameter("swim", 0.06)
+		# (the big ones swim far off: the water between greys them into it)
+		if md.get("far", false):
+			m.set_shader_parameter("haze", 0.9)
+			m.set_shader_parameter("swim", 0.035)
 		_mat[id] = m
 	return _mat[id]
 
@@ -230,6 +234,20 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		sn.height = span * 0.38
 		sn.a = r.next() * TAU
 		sn.dir = 1.0 if r.next() < 0.5 else -1.0
+		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
+		# behind the find instead, huge and dim in the water, out past the card's edges, now this way, now back
+		if (MODELS[sw] as Dictionary).get("far", false):
+			sn.far = true
+			# (its path is in the find's own space, the top of what it grows under: a trilobite's slab is tipped up to
+			# the viewer afterwards, and "far behind" would tip up with it, out of the picture)
+			var top: Node3D = parent
+			while top.get_parent() is Node3D: top = top.get_parent() as Node3D
+			sn.frame = top
+			sn.sc = span * 3.2 * float((MODELS[sw] as Dictionary).k)
+			sn.radius = span * 3.4
+			sn.height = span * 0.12
+			sn.depth = span * 2.8
+			sn.a = 0.15 + r.next() * 0.5
 		sn._process(0.0)
 		# (no unseen box round its loop, as the hunter has: the studio would frame the loop and the find would shrink;
 		# its loop is kept tight round the slab instead, a fin now and then past the card's edge)
@@ -265,9 +283,17 @@ class Swim extends Node3D:
 	var dir := 1.0
 	var bank := 0.0
 	var tan := Vector3.RIGHT
+	var far := false
+	var frame: Node3D
+	var depth := 1.0
+	const PASS := 26.0   # (seconds across, far off)
+	const REST := 7.0    # (out of sight before it comes back the other way)
 	func at(t: float) -> Vector3:
 		return centre + Vector3(cos(t) * radius, height + sin(t * 2.0 + 0.6) * height * 0.25, sin(t) * radius * 0.7 * dir)
 	func _process(dt: float) -> void:
+		if far:
+			_pass(dt)
+			return
 		a += dt * TAU / 21.0
 		var p := at(a)
 		var nt := (at(a + 0.02) - p).normalized()
@@ -277,3 +303,20 @@ class Swim extends Node3D:
 		position = p
 		# (its head is the model's +x: turned to the way it goes)
 		basis = Basis.looking_at(nt, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc)
+
+	## far off: across behind the find (a: how far across, 0..1), a slow rise and fall, a little turn of its head as it
+	## goes; then out of sight a while, and back the other way
+	func _pass(dt: float) -> void:
+		a += dt / PASS
+		if a > 1.0 + REST / PASS:
+			a = 0.0
+			dir = -dir
+		visible = a <= 1.0
+		var s := clampf(a, 0.0, 1.0)
+		var x := lerpf(-radius, radius, s) * dir
+		position = centre + Vector3(x, height + sin(s * TAU * 0.8 + depth) * height * 0.12, -depth)
+		var wob := sin(s * TAU * 2.0) * 0.06
+		var want := Transform3D(Basis(Vector3.UP, (0.0 if dir > 0.0 else PI) + wob) * Basis(Vector3.RIGHT, sin(s * TAU) * 0.05) * Basis.from_scale(Vector3.ONE * sc), position)
+		if frame and is_instance_valid(frame) and get_parent() is Node3D:
+			want = SpecUtil.rel_xform(get_parent() as Node3D, frame).affine_inverse() * want
+		transform = want

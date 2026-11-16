@@ -378,3 +378,49 @@ B23 (морской крокодил стенеозавр), B24 (дунклео�
 `SpecReef` (`godot/scripts/specimen/spec_reef.gd`), модели — `godot/assets/specimen/sea/`, подготовка —
 `prototype/tools/sea/sea_prep.py`. Группы: водоросли 3, кораллы и актинии 8, звёзды и ёж 8, раковины 6 (решено: 6, не докачивать),
 крабы и прочие 8, пловцы 8. Ачивки — по 8 моделей, у раковин 6. Подробности — `CLAUDE.md`, «Что дальше», 14.11.
+
+## Рыбки (номера F1–F26, 16.11)
+
+Лист — `art/refs/fish_candidates.jpg`. Все — сканы ffishAsia-and-floraZia, CC0. Небольшие и яркие: плавают у самой плиты,
+как целакант (крупные ящеры теперь проходят вдали). ★ — рекомендую.
+
+### Яркие рифовые рыбки
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★F1 | [CC0 ハタタテダイ 🐠 Pennant Coralfish, H. acuminatus](https://sketchfab.com/3d-models/27f435f82a0443ef8980b42e4bd9105e) | ffishAsia-and-floraZia | CC0 | 815 тыс. |
+| ★F2 | [CC0 テングダイ 🐟 Striped Boarfish, E. acutirostris](https://sketchfab.com/3d-models/cd7e9e2d0cae4d6797ffd323618ee04e) | ffishAsia-and-floraZia | CC0 | 1092 тыс. |
+| ★F3 | [CC0 キツネダイ 🐟 Snooty Wrasse, Bodianus oxycephalus](https://sketchfab.com/3d-models/a1fa2be4f363454baadf35fafa403e6b) | ffishAsia-and-floraZia | CC0 | 1191 тыс. |
+| F4 | [CC0 ホシササノハベラ 🐟 ♀ Bambooleaf Wrasse, P. sieboldi](https://sketchfab.com/3d-models/ce4d7f7fc1d84015bf3c7de637963c67) | ffishAsia-and-floraZia | CC0 | 782 тыс. |
+| ★F5 | [CC0 アオブダイ 🐟 ♂ Knobsnout Parrotfish, S. ovifrons](https://sketchfab.com/3d-models/dac672386dd741af8485fcab811b9db4) | ffishAsia-and-floraZia | CC0 | 1426 тыс. |
+| F6 | [CC0 ナンヨウブダイ 🐟 ♂ Steephead Parrots](https://sketchfab.com/3d-models/9026105871bd49069936b6ac569e5c85) | ffishAsia-and-floraZia | CC0 | 1351 тыс. |
+| ★F7 | [CC0 シマハタ 🐟 Neptune Grouper, C. igarashiensis](https://sketchfab.com/3d-models/777d773273f343c6b11e647474fb1c0e) | ffishAsia-and-floraZia | CC0 | 1547 тыс. |
+| ★F8 | [CC0 ホウライヒメジ 🐟 Whitesanddle Goatfish](https://sketchfab.com/3d-models/3839d1880e0349c39af74b523b4c8f8c) | ffishAsia-and-floraZia | CC0 | 1267 тыс. |
+| F9 | [CC0 アヤメカサゴ 🐟 ♀ Yellowbarred Red Rockfish](https://sketchfab.com/3d-models/ad08c00119174058b4f7ad1b59746e7e) | ffishAsia-and-floraZia | CC0 | 1076 тыс. |
+| F10 | [CC0 チダイ 🐟 Crimson Sea Bream, Evynnis tumifrons](https://sketchfab.com/3d-models/592532a2390d48bfb6b4cd2f30f75aca) | ffishAsia-and-floraZia | CC0 | 714 тыс. |
+| F11 | [CC0 ホウボウ 🐟 Spiny Red Gurnard, C. spinosus](https://sketchfab.com/3d-models/55b3d626f5a74cd4bfd5f7f1867ce113) | ffishAsia-and-floraZia | CC0 | 809 тыс. |
+
+### Необычные: иглобрюхи, кузовки, морской чёрт, удильщик
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★F12 | [CC0 ハリセンボン 🐡 Inflated Balloonfish](https://sketchfab.com/3d-models/6e73c83cf10f4c6f8189dff3b4936ff6) | ffishAsia-and-floraZia | CC0 | 1209 тыс. |
+| F13 | [CC0 クサフグ 🐡 Grass Puffer, Takifugu niphobles](https://sketchfab.com/3d-models/12385c7b9f434a7b9d4023f581cb6faa) | ffishAsia-and-floraZia | CC0 | 803 тыс. |
+| ★F14 | [CC0 マツカサウオ 🐟 Pinecone Fish, M. japonica](https://sketchfab.com/3d-models/05d3eddea91e4910aa75da63e1bf474e) | ffishAsia-and-floraZia | CC0 | 639 тыс. |
+| F15 | [CC0 カワハギ 🐡 Thread-sail Filefish, S. cirrhifer](https://sketchfab.com/3d-models/9a9f5a1801a24b618fdf5de4b685852b) | ffishAsia-and-floraZia | CC0 | 920 тыс. |
+| ★F16 | [CC0 ゴイシウマヅラハギ 🐡 Goishi Filefish, T. tesselatus](https://sketchfab.com/3d-models/f0354fb2f78d46609b6a532db9a0e37b) | ffishAsia-and-floraZia | CC0 | 795 тыс. |
+| ★F17 | [CC0 キアンコウ 🐟 Yellow Goosefish, Lophius litulon](https://sketchfab.com/3d-models/6538a4e7b31949c2a01449b83b196796) | ffishAsia-and-floraZia | CC0 | 1623 тыс. |
+| F18 | [CC0 オニオコゼ 🐟 Devil Stinger, Inimicus japonicus](https://sketchfab.com/3d-models/ae3ac7359c184a219622e5ef9ca2c86f) | ffishAsia-and-floraZia | CC0 | 1211 тыс. |
+| F19 | [CC0 イズカサゴ 🐟 Izu Scorpionfish, S. neglecta](https://sketchfab.com/3d-models/25cd153b055b49c1a295d53b03bdbd2d) | ffishAsia-and-floraZia | CC0 | 1123 тыс. |
+| F20 | [CC0 ダルマオコゼ 🐟 Pitted Stonefish, Erosa erosa](https://sketchfab.com/3d-models/7db8da6be6434143af1bc618a4062fb3) | ffishAsia-and-floraZia | CC0 | 655 тыс. |
+
+### Головоногие и скаты
+
+| № | Модель | Автор | Лицензия | Треуг. |
+|---|---|---|---|---|
+| ★F21 | [CC0 コウイカ Golden Cuttlefish, Sepia esculenta](https://sketchfab.com/3d-models/4b651a9fd5ee497bbc5a6dd65ba6b72c) | ffishAsia-and-floraZia | CC0 | 2310 тыс. |
+| F22 | [CC0 コウイカ Golden Cuttlefish, Sepia esculenta](https://sketchfab.com/3d-models/0ddc83f783cd4f82ad06e71b07ef7e94) | ffishAsia-and-floraZia | CC0 | 1205 тыс. |
+| ★F23 | [CC0 アオリイカ Bigfin Reef Squid, S. lessoniana](https://sketchfab.com/3d-models/8457fc5fb9bc4db8a00fdec43a3f4456) | ffishAsia-and-floraZia | CC0 | 2313 тыс. |
+| F24 | [CC0 スルメイカ Japanese Flying Squid, T. pacificus](https://sketchfab.com/3d-models/5f0688cb4ab64a398784118130987a15) | ffishAsia-and-floraZia | CC0 | 1507 тыс. |
+| F25 | [CC0 アカエイ 🦈 ♀ Red Stingray, Hemitrygon akajei](https://sketchfab.com/3d-models/f309cd53efd544f4b22b33f0ebd2e07b) | ffishAsia-and-floraZia | CC0 | 1108 тыс. |
+| F26 | [CC0 ウチワザメ 🦈 ♂ Yellow-spotted Fanray, P. tangi](https://sketchfab.com/3d-models/7ca28b4c26684ee0a11e3db2afcc8f95) | ffishAsia-and-floraZia | CC0 | 2792 тыс. |
