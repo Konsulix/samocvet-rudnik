@@ -39,6 +39,11 @@ uniform float jaw = 0.0;
 uniform float jaw_x = 0.4;
 uniform float jaw_y = 0.1;
 uniform float jet = 0.0;
+uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
+uniform float eye_r = 0.008;
+uniform float blink_force = 0.0;   // (tests: shut the eyes)
+uniform float heave = 0.35;     // (the tail's wave a little up and down too: side on, a sideways wave is hardly seen)
+varying vec3 v_mp;
 
 // how hard it is swimming now: a few strong beats, then a glide (the same in SpecReef.Swim.burst)
 float burst(float t) {
@@ -47,12 +52,14 @@ float burst(float t) {
 
 void vertex() {
 	vec3 p = VERTEX;
+	v_mp = p;
 	float t = TIME;
 	float b = burst(t);
 	float tp = t * 6.2831 * swim_f + phase * 6.2831;
 	// the tail: weight from nothing at swim_from to all at the tail tip
 	float w = clamp((swim_from - p.x) / (swim_from + 0.5), 0.0, 1.0);
 	VERTEX.z += sin(tp - p.x * swim_k * 6.2831) * swim * b * (0.15 * w + w * w);
+	VERTEX.y += sin(tp - p.x * swim_k * 6.2831 + 1.3) * swim * heave * b * (0.15 * w + w * w);
 	// the head turns a little against the tail (a swimming body pivots about its middle)
 	VERTEX.z -= sin(tp) * swim * b * 0.2 * smoothstep(0.1, 0.5, p.x);
 	// the flippers, rowing
@@ -74,7 +81,7 @@ void vertex() {
 	}
 	// the jaw: open a while every so often, then shut
 	if (jaw > 0.0 && p.x > jaw_x) {
-		float open = pow(max(0.0, sin(t * 0.33 + phase * 6.2831 + 1.0)), 6.0) * jaw;
+		float open = pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0) * jaw;
 		float low = smoothstep(jaw_y + 0.012, jaw_y - 0.012, p.y);
 		VERTEX.y -= (p.x - jaw_x) * open * low;
 	}
@@ -93,6 +100,22 @@ void fragment() {
 	vec3 c = texture(tex_d, UV).rgb;
 	float l = dot(c, vec3(0.3, 0.5, 0.2));
 	c = mix(vec3(l), c, sat) * gain * tint;
+	// a blink every few seconds, now and then twice: the lid is the skin round the eye (the texture, blurred)
+	if (eye.x < 5.0) {
+		float f = fract(TIME * 0.21 + phase * 3.7);
+		float shut = 1.0 - smoothstep(0.0, 0.02, abs(f - 0.5));
+		shut = max(shut, (1.0 - smoothstep(0.0, 0.02, abs(f - 0.56))) * step(0.5, fract(phase * 7.3 + floor(TIME * 0.21 + phase * 3.7) * 0.37)));
+		shut = max(shut, blink_force);
+		float d = length(v_mp.xy - eye);
+		float lid = smoothstep(eye_r * 1.3, eye_r * 0.9, d) * shut;
+		// (the lid: the skin's colour, the texture averaged wide — the eye itself is too small to tint it — and a dark
+		// crease across its middle)
+		vec3 skin = textureLod(tex_d, UV, 6.0).rgb;
+		skin = mix(vec3(dot(skin, vec3(0.3, 0.5, 0.2))), skin, sat) * gain * tint;
+		skin *= 1.15 - 0.35 * smoothstep(eye_r * 0.18, 0.0, abs(v_mp.y - eye.y));
+		c = mix(c, skin, lid);
+
+	}
 	c = mix(c, haze_col, haze);
 	ALBEDO = c;
 	NORMAL_MAP = FRONT_FACING ? texture(tex_n, UV).rgb : vec3(0.5, 0.5, 1.0);

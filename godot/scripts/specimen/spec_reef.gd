@@ -46,14 +46,14 @@ const MODELS := {
 	crab_elbow = {g = "crab", n = "elbow crab", k = 1.0},
 	crab_mantis = {g = "crab", n = "mantis shrimp", k = 1.1},
 	crab_isopod = {g = "crab", n = "giant isopod", k = 0.95},
-	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.8, anim = {swim = 0.05, swim_f = 0.55, swim_k = 0.8, swim_from = 0.1, glide = 0.3, flip = 0.5, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.7, jaw = 0.25, jaw_x = 0.38, jaw_y = 0.16}},
-	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.11, swim_f = 1.0, swim_k = 0.9, swim_from = 0.05, glide = 0.5, flip = 0.12, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.35, jaw = 0.35, jaw_x = 0.33, jaw_y = 0.11}},
+	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.8, anim = {swim = 0.05, swim_f = 0.55, swim_k = 0.8, swim_from = 0.1, glide = 0.3, flip = 0.5, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.7, jaw = 0.3, jaw_x = 0.38, jaw_y = 0.185, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
+	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.11, swim_f = 1.0, swim_k = 0.9, swim_from = 0.05, glide = 0.5, flip = 0.2, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.35, jaw = 0.4, jaw_x = 0.34, jaw_y = 0.111, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.8, anim = {swim = 0.02, swim_f = 0.3, swim_k = 1.0, swim_from = 0.0, glide = 0.4, jet = 0.12}},
-	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {swim = 0.11, swim_f = 0.55, swim_k = 1.4, swim_from = 0.35, glide = 0.6, flip = 0.35, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.4, jaw = 0.5, jaw_x = 0.32, jaw_y = 0.085}},
-	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {swim = 0.11, swim_f = 1.2, swim_k = 0.7, swim_from = -0.1, glide = 0.45, flip = 0.25, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.3, jaw_x = 0.3, jaw_y = 0.09}},
-	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, flip = 0.45, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.09, neck_from = 0.0, jaw = 0.4, jaw_x = 0.44, jaw_y = 0.163}},
-	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {swim = 0.1, swim_f = 0.5, swim_k = 1.3, swim_from = 0.3, glide = 0.6, flip = 0.3, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.45, jaw = 0.5, jaw_x = 0.3, jaw_y = 0.09}},
-	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {swim = 0.13, swim_f = 0.8, swim_k = 1.6, swim_from = 0.4, glide = 0.55, flip = 0.4, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.8, jaw = 0.4, jaw_x = 0.38, jaw_y = 0.075}},
+	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {swim = 0.11, swim_f = 0.55, swim_k = 1.4, swim_from = 0.35, glide = 0.6, flip = 0.5, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.4, jaw = 0.5, jaw_x = 0.35, jaw_y = 0.088, eye_x = 0.384, eye_y = 0.109, eye_r = 0.007}},
+	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {swim = 0.11, swim_f = 1.2, swim_k = 0.7, swim_from = -0.1, glide = 0.45, flip = 0.35, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.35, jaw_x = 0.28, jaw_y = 0.115, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
+	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.6, jaw_x = 0.455, jaw_y = 0.165, eye_x = 0.474, eye_y = 0.174, eye_r = 0.005}},
+	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {swim = 0.1, swim_f = 0.5, swim_k = 1.3, swim_from = 0.3, glide = 0.6, flip = 0.45, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.45, jaw = 0.5, jaw_x = 0.356, jaw_y = 0.092, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
+	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {swim = 0.13, swim_f = 0.8, swim_k = 1.6, swim_from = 0.4, glide = 0.55, flip = 0.5, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.8, jaw = 0.45, jaw_x = 0.404, jaw_y = 0.068, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
 const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
@@ -135,10 +135,19 @@ static func mat(id: String) -> ShaderMaterial:
 		# thin legs and rims glowed)
 		if float(md.get("sway", 0.0)) == 0.0: m.set_shader_parameter("back_k", 0.15)
 		# a swimmer's own way of swimming (sea_swim.gdshader)
-		for k: String in (md.get("anim", {}) as Dictionary):
-			m.set_shader_parameter(k, float(md.anim[k]))
+		var an: Dictionary = md.get("anim", {})
+		for k: String in an:
+			if not k.begins_with("eye_"): m.set_shader_parameter(k, float(an[k]))
+		if an.has("eye_x"):
+			m.set_shader_parameter("eye", Vector2(float(an.eye_x), float(an.eye_y)))
+			m.set_shader_parameter("eye_r", float(an.eye_r))
 		# (the big ones swim far off: the water between greys them into it)
-		if md.get("far", false): m.set_shader_parameter("haze", 0.9)
+		if md.get("far", false):
+			m.set_shader_parameter("haze", 0.9)
+			# (seen side on and far: the body's sway is shown up and down more, and bigger, or it is not seen at all)
+			m.set_shader_parameter("heave", 0.9)
+			m.set_shader_parameter("swim", float(an.get("swim", 0.05)) * 1.5)
+			m.set_shader_parameter("flip", float(an.get("flip", 0.0)) * 1.4)
 		_mat[id] = m
 	return _mat[id]
 
@@ -238,10 +247,10 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		# behind the find instead, huge and dim in the water, out past the card's edges, now this way, now back
 		if (MODELS[sw] as Dictionary).get("far", false):
 			sn.far = true
-			sn.sc = span * 4.3 * float((MODELS[sw] as Dictionary).k)
-			sn.radius = span * 4.6
-			sn.height = span * 0.18
-			sn.depth = span * 3.9
+			sn.sc = span * 3.6 * float((MODELS[sw] as Dictionary).k)
+			sn.radius = span * 5.0
+			sn.height = span * 0.05
+			sn.depth = span * 6.0
 			sn.a = 0.15 + r.next() * 0.5
 		# (its path is in the find's own space — the top of what it grows under — but its turn is the world's: the find
 		# turned in the hand, it keeps swimming its way; a trilobite's slab tipped up to the eye does not tip it either)
@@ -316,8 +325,11 @@ class Swim extends Node3D:
 			visible = a <= 1.0
 			var s := clampf(a, 0.0, 1.0)
 			var rise := sin(s * TAU * 0.7 + ph * 5.0)
-			off = Vector3(lerpf(-radius, radius, s) * dir, height + rise * height * 0.5, -depth)
-			var yaw := sin(s * TAU * 1.6 + ph * 3.0) * 0.12
+			# (across on a slant — nearer at one end, further at the other — so it is seen three quarters on, not flat
+			# side on, and the sway of its tail shows)
+			var slant := depth * 0.45 * (1.0 if ph > 0.5 else -1.0)
+			off = Vector3(lerpf(-radius, radius, s) * dir, height + rise * height * 0.5, -depth + lerpf(-slant, slant, s))
+			var yaw := sin(s * TAU * 1.6 + ph * 3.0) * 0.12 - atan2(2.0 * slant, 2.0 * radius) * dir
 			bs = Basis(Vector3.UP, (0.0 if dir > 0.0 else PI) + yaw) * Basis(Vector3.BACK, cos(s * TAU * 0.7 + ph * 5.0) * 0.12)
 		else:
 			a += dt * TAU / 21.0 * lerpf(0.6, 1.25, b)
