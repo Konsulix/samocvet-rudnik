@@ -50,14 +50,14 @@ const MODELS := {
 	# behind it, the world's way whatever the find does. anim: the shader's (sea_swim.gdshader) and two of Swim's own —
 	# `go_f` the beats a second that push it on (the tail's swim_f unless given: a plesiosaur's are its flippers') and
 	# `stride` the body lengths it makes on each beat. A big animal beats slowly: every one its own pace
-	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, jaw = 0.3, jaw_x = 0.38, jaw_y = 0.185, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
-	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.4, jaw_x = 0.34, jaw_y = 0.111, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
-	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.28, stride = 0.75, jet = 0.16}},
-	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.5, jaw_x = 0.385, jaw_y = 0.064, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
-	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.35, jaw_x = 0.28, jaw_y = 0.115, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
-	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.6, jaw_x = 0.455, jaw_y = 0.165, eye_x = 0.474, eye_y = 0.174, eye_r = 0.005}},
-	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.5, jaw_x = 0.356, jaw_y = 0.092, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
-	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.45, jaw_x = 0.404, jaw_y = 0.068, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
+	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
+	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.06, jaw_x = 0.325, jaw_y = 0.1106, jaw_s = 0.0, jaw_shut = 0.4, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
+	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
+	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
+	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.04, jaw_x = 0.282, jaw_y = 0.1154, jaw_s = 0.09, jaw_shut = 0.32, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
+	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1637, jaw_s = -0.1, jaw_shut = 0.04, jaw_fan = 0.004, jaw_ramp = 0.006, eye_x = 0.474, eye_y = 0.174, eye_r = 0.005}},
+	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
+	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
 const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
@@ -141,7 +141,7 @@ static func mat(id: String) -> ShaderMaterial:
 		# a swimmer's own way of swimming (sea_swim.gdshader)
 		var an: Dictionary = md.get("anim", {})
 		for k: String in an:
-			if not k.begins_with("eye_") and k != "stride" and k != "go_f": m.set_shader_parameter(k, float(an[k]))
+			if not k.begins_with("eye_") and k != "stride" and k != "go_f" and k != "visit": m.set_shader_parameter(k, float(an[k]))
 		if an.has("eye_x"):
 			m.set_shader_parameter("eye", Vector2(float(an.eye_x), float(an.eye_y)))
 			m.set_shader_parameter("eye_r", float(an.eye_r))
@@ -258,6 +258,7 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		sn.beat = float(an.get("go_f", an.get("swim_f", 0.5)))
 		sn.stride = float(an.get("stride", 0.55))
 		sn.jet = float(an.get("jet", 0.0)) > 0.0
+		sn.visits = an.has("visit")
 		sn.seed_v = seed_v
 		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
 		# behind the find instead, huge and dim in the water, out past the card's edges: the world's way, whatever
@@ -339,6 +340,22 @@ class Swim extends Node3D:
 	var passes := 0
 	var deep := 0
 	var kind := 0
+	## a visit (a plesiosaur: `visit` in its anim): it comes in behind the find and slows, its long neck curving out to
+	## the eye till its head is by the find; looks it over, draws back, strikes at it — bubbles, the find jolts — chews,
+	## and goes on its way. stage: 0 coming, 1 at the find (tv seconds), 2 leaving
+	var visits := false
+	var stage := 0
+	var tv := 0.0
+	var hdg := Vector3.RIGHT
+	var stop := Vector3.ZERO
+	var snapped := false
+	var jolt := 0.0
+	var jolt_off := Vector3.ZERO
+	const HEAD := Vector2(0.5, 0.16)     # (the snout's tip, the model's units)
+	const NECK := 0.4                    # (how far aside the neck carries the head, the model's units)
+	## (where it bites, the world's units: before the find's upper half, past its middle — the neck lies across over the
+	## find; behind a tall slab the head was hidden)
+	var bite := Vector3(0.35, 0.75, 0.9)
 
 	## how hard it pushes on now, about 1 on the whole: a tail's strong beats and its glides, an octopus's squeeze and
 	## its coasting — the same as the shader's (burst, squeeze)
@@ -362,6 +379,7 @@ class Swim extends Node3D:
 		passes += 1
 		var r := Rng32.new((seed_v * 40503 + passes * 7919 + 17) % 4294967296)
 		var pick := [0, 0, 1, 1, 2, 2, 3, 4, 5]
+		if visits: pick.append_array([6, 6, 6])
 		var k2: int = pick[int(r.next() * pick.size()) % pick.size()]
 		# (not the same way twice running)
 		if k2 == kind: k2 = pick[(int(r.next() * pick.size()) + 3) % pick.size()]
@@ -380,7 +398,17 @@ class Swim extends Node3D:
 		var x0 := hw + sc * 0.56
 		var y0 := hw * 1.2 + sc * 0.52
 		deep = 0
+		stage = 0
 		match kind:
+			6:
+				# a visit: across behind the find, close, to where the neck's reach puts the head by it
+				hdg = Vector3(0.97 * dir, 0.0, 0.24).normalized()
+				bite = Vector3(0.35 * dir, 0.75, 0.9)
+				var peer := bite - hdg * 0.45 + Vector3(0, 0.45, 0)
+				stop = peer - (hdg * HEAD.x + Vector3.UP * HEAD.y + _aside() * NECK) * sc
+				pa = Vector3(-(x0 + 3.0) * dir, 1.0, -DEPTH * 0.9)
+				pc = stop - hdg * 7.0
+				pb = stop
 			0:
 				# across, on a slant: nearer at one end, further at the other (seen three quarters on)
 				var sl := d * lerpf(-0.4, 0.4, r.next())
@@ -432,7 +460,69 @@ class Swim extends Node3D:
 			n = n.get_parent() as Node3D
 		return top if not is_inside_tree() else get_parent() as Node3D
 
+	## the model's +z in the world, as it heads hdg (the side its neck bends to: the eye's)
+	func _aside() -> Vector3:
+		return (Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)) * Vector3.BACK
+
+	## at the find: the head's reach and the jaws by the clock
+	func _visit(dt: float) -> void:
+		tv += dt
+		var side := Vector3(0, 0, NECK)
+		var rc := Vector3.ZERO
+		var jw := 0.0
+		var hit := Vector3(0.45, -0.45, 0.0) / sc
+		if tv < 1.4:
+			# looks it over
+			rc = Vector3(0, -0.012, 0.012 * sin(tv * 3.0)) * smoothstep(0.0, 0.8, tv)
+		elif tv < 1.85:
+			# draws back, the jaws opening
+			var u := smoothstep(0.0, 1.0, (tv - 1.4) / 0.45)
+			rc = Vector3(0, -0.012, 0).lerp(Vector3(-0.03, 0.02, 0.0), u)
+			jw = u
+		elif tv < 1.97:
+			# strikes
+			var u2 := (tv - 1.85) / 0.12
+			rc = Vector3(-0.03, 0.02, 0.0).lerp(hit, u2 * u2)
+			jw = 1.0
+		else:
+			if not snapped:
+				snapped = true
+				_snap()
+			# and lifts its head again, chewing
+			var u3 := smoothstep(0.0, 1.0, (tv - 1.97) / 1.7)
+			rc = hit.lerp(Vector3(0, 0.012, 0), u3)
+			if tv > 2.15: jw = 0.3 * maxf(0.0, sin((tv - 2.15) * 11.0)) * (1.0 - u3)
+		if mat:
+			mat.set_shader_parameter("reach", side + rc)
+			mat.set_shader_parameter("jaw_force", jw)
+		transform = Transform3D(Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis.from_scale(Vector3.ONE * sc), stop + Vector3(0, sin(tv * 1.3) * 0.05, 0))
+		if tv > 3.9:
+			# on its way: off past the edge, deeper, its neck straightening as it goes
+			stage = 2
+			pa = stop
+			pc = stop + hdg * 6.0
+			pb = Vector3((FOV * (CAM + DEPTH) + sc * 0.56) * dir, 2.5, -DEPTH)
+			s = 0.0
+			vel = 0.0
+			tan = hdg
+			if mat: mat.set_shader_parameter("jaw_force", -1.0)
+
+	## the bite: a burst of bubbles at the find, and the find jolts
+	func _snap() -> void:
+		jolt = 1.0
+		var bb := Burst.new()
+		bb.top_level = true
+		add_child(bb)
+		bb.global_transform = Transform3D(Basis.IDENTITY, bite + Vector3(0, -0.2, 0.1))
+
 	func _process(dt: float) -> void:
+		if jolt > 0.0 or jolt_off != Vector3.ZERO:
+			jolt = maxf(0.0, jolt - dt * 1.5)
+			if home == null or not is_instance_valid(home): home = _home()
+			var jo := Vector3(0.02, -0.07, 0) * jolt * jolt * cos((1.0 - jolt) * 20.0)
+			if home:
+				home.position += jo - jolt_off
+				jolt_off = jo
 		var want := sc * stride * beat * go()
 		# (a body's weight: it gathers way and loses it slowly)
 		vel = want if vel < 0.0 else lerpf(vel, want, minf(1.0, dt * 1.5))
@@ -441,8 +531,25 @@ class Swim extends Node3D:
 				rest -= dt
 				if rest <= 0.0: new_pass()
 				return
+			if kind == 6 and stage == 1:
+				_visit(dt)
+				return
 			var dp := (pc - pa) * (2.0 * (1.0 - s)) + (pb - pc) * (2.0 * s)
-			s += vel * dt / maxf(0.01, dp.length())
+			# (a visit: it slows as it comes up to the find, the neck curving out; leaving, the neck straightens)
+			var slow := 1.0
+			if kind == 6 and mat:
+				if stage == 0:
+					slow = lerpf(1.0, 0.12, smoothstep(0.55, 1.0, s))
+					mat.set_shader_parameter("reach", Vector3(0, 0, NECK) * smoothstep(0.45, 1.0, s))
+				else:
+					mat.set_shader_parameter("reach", Vector3(0, 0, NECK) * (1.0 - smoothstep(0.0, 0.35, s)))
+			s += vel * slow * dt / maxf(0.01, dp.length())
+			if s >= 1.0 and kind == 6 and stage == 0:
+				stage = 1
+				tv = 0.0
+				snapped = false
+				_visit(0.0)
+				return
 			if s >= 1.0:
 				# out of sight a while, then another pass
 				visible = false
@@ -478,3 +585,35 @@ class Swim extends Node3D:
 		tan = nq
 		var k := rel.basis.get_scale().x
 		transform = rel.affine_inverse() * Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * k), mid + q)
+
+## a burst of bubbles (a plesiosaur's bite): out and up from a point, each its own way, growing a little and gone
+class Burst extends Node3D:
+	var items: Array = []
+	var t := 0.0
+	func _ready() -> void:
+		var bm := ShaderMaterial.new()
+		bm.shader = SpecSea.BUBBLE
+		bm.render_priority = 60
+		var mesh := Geo.sphere(1.0, 10, 7).to_mesh()
+		for k in 16:
+			var mi := MeshInstance3D.new()
+			mi.mesh = mesh
+			mi.material_override = bm
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(mi)
+			var a := k * 2.399
+			var u := fposmod(k * 0.618, 1.0)
+			items.append([mi, Vector3(cos(a) * (0.25 + u * 0.5), 0.5 + u * 0.9, sin(a) * (0.25 + u * 0.5)), 0.025 + 0.05 * fposmod(k * 0.377, 1.0), u * 0.25])
+		_process(0.0)
+	func _process(dt: float) -> void:
+		t += dt
+		for it: Array in items:
+			var mi: MeshInstance3D = it[0]
+			var v: Vector3 = it[1]
+			var tt := maxf(0.0, t - float(it[3]))
+			# (thrown out, then only rising, wobbling)
+			var p := Vector3(v.x, 0, v.z) * (1.0 - exp(-tt * 3.0)) * 0.6 + Vector3(sin(tt * 5.0 + v.x * 9.0) * 0.03, v.y * tt, 0)
+			var k := smoothstep(0.0, 0.08, tt) * (1.0 - smoothstep(1.6, 2.4, tt))
+			mi.visible = k > 0.0
+			mi.transform = Transform3D(Basis.from_scale(Vector3.ONE * float(it[2]) * (0.7 + tt * 0.25) * k), p)
+		if t > 2.8: queue_free()

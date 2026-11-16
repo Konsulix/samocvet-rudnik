@@ -70,16 +70,17 @@ MODELS = [
     # (swim_dolichorhynchops: its surface comes inside out: black, in shards — not used)
     # dict(name="swim_dolichorhynchops", file="живность большая/dolichorhynchops.glb", tris=6000, tex=1024, reach=True, gap=-1.0, turn=90),
     # (the mosasaur comes on its back: rolled over — its flippers down, the fluke's lobe up)
-    dict(name="swim_mosasaurus", file="живность большая/mosasaurus.glb", tris=6000, tex=1024, reach=True, tilt=(90, 90)),
+    dict(name="swim_mosasaurus", file="живность большая/mosasaurus.glb", tris=6000, tex=1024, reach=True, tilt=(90, 90), mouth=(0.376, 0.064, 0.0)),
     dict(name="swim_ophthalmosaurus", file="живность большая/opthalmosaurus.glb", tris=6000, tex=1024, reach=True, gap=-1.0, turn=90),
     # (swim_turtle: no plastron: an open shell from below — not used)
     # dict(name="swim_turtle", file="живность большая/sea_turtle.glb", tris=6000, tex=1024, reach=True),
-    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=6000, tex=1024, reach=True, turn=90),
-    dict(name="swim_tylosaurus", file="живность большая/tylosaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
+    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.4533, 0.1637, -0.1)),
+    dict(name="swim_tylosaurus", file="живность большая/tylosaurus.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.353, 0.107, -0.065)),
     dict(name="swim_dallasaurus", file="живность большая/dallasaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
     # (the octopus: a soft flat body, its arms close together — the light mesh lies further off the scan than a stiff
-    # shell's does, and the bake's rays fell short: black patches. It looks further (cage), and is a little less light)
-    dict(name="swim_octopus", file="живность большая/cc0___north_pacific_giant_octopus.glb", tris=9000, tex=1024, reach=True, cage=2.5),
+    # shell's does, and the bake's rays fell short: black patches. It looks further (cage), and is a little less light.
+    # The tips of its arms come off the scan in loose scraps, a row of dashes in the water: only its one whole piece is kept — `whole`)
+    dict(name="swim_octopus", file="живность большая/cc0___north_pacific_giant_octopus.glb", tris=9000, tex=1024, reach=True, cage=2.5, whole=True),
 ]
 
 def coords(o):
@@ -387,7 +388,71 @@ def light_uv(hi, name, tris, tex):
         export_uv=True, export_normals=True, export_triangulated_mesh=True, forward_axis="NEGATIVE_Z", up_axis="Y")
     return lo
 
-def light(hi, name, tris, remesh=False, cage=1.0):
+def cut_mouth(lo, mouth):
+    # a model whose lips are one skin (its teeth painted across them) cannot open its mouth: the jaw turned, the skin
+    # between only stretches. The light mesh is cut along the mouth's line, before the hinge — mouth: (x, up, slope) of
+    # the hinge and the line, as the game's model has them (SpecReef.MODELS jaw_x, jaw_y, jaw_s) — and the two lips
+    # parted, each with its own vertices
+    import bmesh
+    jx, jy, js = mouth
+    bm = bmesh.new()
+    bm.from_mesh(lo.data)
+    faces = [f for f in bm.faces if all(v.co.x > jx for v in f.verts)]
+    geom = list({v for f in faces for v in f.verts}) + list({e for f in faces for e in f.edges}) + faces
+    co, no = Vector((jx, 0.0, jy)), Vector((-js, 0.0, 1.0)).normalized()
+    res = bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-6, plane_co=co, plane_no=no)
+    edges = [g for g in res["geom_cut"] if isinstance(g, bmesh.types.BMEdge)]
+    # every face before the hinge and under the line is the lower jaw's: parted from the rest, with vertices of its own
+    # all along the line (teeth are thin spikes: parting only the cut's edges left some of them joined across it)
+    lower = [f for f in bm.faces if all(v.co.x > jx for v in f.verts) and (f.calc_center_median() - co).dot(no) < 0.0]
+    bmesh.ops.split(bm, geom=lower, use_only_faces=True)
+    lower = [f for f in bm.faces if all(v.co.x > jx for v in f.verts) and (f.calc_center_median() - co).dot(no) < 0.0]
+    low_v = {v for f in lower for v in f.verts}
+    # (the two lips lie one on the other: each is moved a hair to its own side of the line, so the game's shader can
+    # tell the lower jaw's from the upper's by where they are; off the line the parting is sewn up again)
+    # (and not only the cut's own vertices: the lips' lie within a hair of the line too, some on the wrong side of it)
+    on = [v for v in bm.verts if v.co.x > jx - 1e-4 and abs((v.co - co).dot(no)) < 0.002]
+    for v in on:
+        v.co += no * ((-0.002 if v in low_v else 0.002) - (v.co - co).dot(no))
+    on_set = set(on)
+    bmesh.ops.remove_doubles(bm, verts=[v for v in bm.verts if v not in on_set], dist=1e-7)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    bm.to_mesh(lo.data)
+    bm.free()
+    lo.data.update()
+    print("  mouth cut: %d edges" % len(edges), flush=True)
+
+def one_piece(lo):
+    # only the largest piece of the light mesh is kept: an octopus's thin arm tips come out of the lightening as loose
+    # scraps, a row of dashes in the water behind each arm
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(lo.data)
+    seen, best = set(), []
+    for v0 in bm.verts:
+        if v0 in seen:
+            continue
+        isle, stack = [], [v0]
+        seen.add(v0)
+        while stack:
+            v = stack.pop()
+            isle.append(v)
+            for e in v.link_edges:
+                w = e.other_vert(v)
+                if w not in seen:
+                    seen.add(w)
+                    stack.append(w)
+        if len(isle) > len(best):
+            best = isle
+    keep = set(best)
+    drop = [v for v in bm.verts if v not in keep]
+    print("  one piece: %d loose vertices dropped" % len(drop), flush=True)
+    bmesh.ops.delete(bm, geom=drop, context="VERTS")
+    bm.to_mesh(lo.data)
+    bm.free()
+    lo.data.update()
+
+def light(hi, name, tris, remesh=False, cage=1.0, mouth=None, whole=False):
     lo = hi.copy()
     lo.data = hi.data.copy()
     lo.name = name
@@ -415,6 +480,10 @@ def light(hi, name, tris, remesh=False, cage=1.0):
             mod = lo.modifiers.new("d", "DECIMATE")
             mod.ratio = tris / n
             bpy.ops.object.modifier_apply(modifier=mod.name)
+    if whole:
+        one_piece(lo)
+    if mouth:
+        cut_mouth(lo, mouth)
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.quads_convert_to_tris()
@@ -506,7 +575,7 @@ for M in MODELS:
         print("SEA", name, flush=True)
         stand(part, M.get("orient", False), M.get("keep_top", 0.0), M.get("tilt"), M.get("reach", False), M.get("turn", 0.0))
         full = len(tri_idx(part))
-        lo = light_uv(part, name, M["tris"], M.get("tex", TEX)) if M.get("keep_uv") else light(part, name, M["tris"], M.get("remesh", False), M.get("cage", 1.0))
+        lo = light_uv(part, name, M["tris"], M.get("tex", TEX)) if M.get("keep_uv") else light(part, name, M["tris"], M.get("remesh", False), M.get("cage", 1.0), M.get("mouth"), M.get("whole", False))
         print("SEA %s: %d -> %d tris, size %s" % (name, full, len(tri_idx(lo)), [round(v, 2) for v in lo.dimensions]), flush=True)
         if PREVIEW:
             picture(lo, name)

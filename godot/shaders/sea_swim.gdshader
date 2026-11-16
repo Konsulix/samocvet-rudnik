@@ -12,7 +12,8 @@
 //          about the body; the fore and hind pair (front of `flip_mid` or behind) a half beat apart, a plesiosaur's
 //          rowing; the down stroke the stronger
 //   neck:  past `neck_from` the neck sways side to side and the head nods (a plesiosaur looking about)
-//   jaw:   the lower jaw (past `jaw_x`, under `jaw_y`) drops open now and then and snaps shut
+//   jaw:   the lower jaw (before the hinge `jaw_x`, `jaw_y`, under the mouth's line of slope `jaw_s`) turns on its hinge:
+//          open now and then, shut else (`jaw_shut`: a model made gaping is shut first)
 //   jet:   an octopus, mantle first: the mantle swells slowly and squeezes fast, the arms close together behind on
 //          the squeeze and drift apart again (`swim_f` squeezes a second)
 // `phase` puts each one on its own beat. `haze`: the far ones grey into the deep water with their distance from the
@@ -49,10 +50,16 @@ uniform float flip_mid = 0.0;
 uniform float flip_f = 0.5;
 uniform float neck = 0.0;
 uniform float neck_from = 0.0;
-uniform float jaw = 0.0;
-uniform float jaw_x = 0.4;
+uniform float jaw = 0.0;        // (how far the jaw drops from shut, radians)
+uniform float jaw_x = 0.4;      // (its hinge, side on)
 uniform float jaw_y = 0.1;
+uniform float jaw_s = 0.0;      // (the mouth's line from the hinge forward: its slope, dy/dx)
+uniform float jaw_shut = 0.0;   // (a model made with its mouth open: the angle that shuts it)
+uniform float jaw_fan = 0.0;    // (the gape's angle at rest, shared out as a fan shuts; 0: jaw_shut. A mouth cut open by sea_prep.py has none: 0.004)
+uniform float jaw_ramp = 0.03;  // (so far before the hinge the jaw takes up its turn: a small head, less)
+uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
+uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
 uniform float eye_r = 0.008;
 uniform float blink_force = 0.0;   // (tests: shut the eyes)
@@ -82,6 +89,21 @@ void vertex() {
 	vec3 p = VERTEX;
 	v_mp = p;
 	float t = TIME;
+	// the jaw, first (in the body's own rest, before anything bends it): the lower jaw — all before the hinge and under
+	// the mouth's line — turns on its hinge. A turn, not a slide: slid down, the chin's skin only stretched. What lies
+	// in the gape between the jaws (a tongue, the mouth's lining) turns by its share, as a fan shuts. Shut most of the
+	// time (a model made gaping is shut by jaw_shut), open a while every so often
+	if (jaw > 0.0 || jaw_shut > 0.0) {
+		vec2 d = p.xy - vec2(jaw_x, jaw_y);
+		if (d.x > 0.0) {
+			float w = clamp((atan(jaw_s) - atan(d.y, d.x)) / (jaw_fan > 0.0 ? jaw_fan : max(jaw_shut, 0.004)), 0.0, 1.0) * smoothstep(0.0, jaw_ramp, d.x);
+			float open = jaw_force >= 0.0 ? jaw_force : pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0);
+			float a = (jaw * open - jaw_shut * (1.0 - open)) * w;
+			float ca = cos(a), sa = sin(a);
+			p.xy = vec2(jaw_x + d.x * ca + d.y * sa, jaw_y - d.x * sa + d.y * ca);
+			VERTEX = p;
+		}
+	}
 	float b = burst(t);
 	float tp = t * 6.2831 * swim_f + phase * 6.2831;
 	if (jet <= 0.0) {
@@ -103,31 +125,34 @@ void vertex() {
 		// and swept back a little as it strokes
 		VERTEX.x -= abs(s) * side * flip * 0.25;
 	}
-	// the neck: its sway grows to the head
-	if (neck > 0.0 && p.x > neck_from) {
+	// the neck: its sway grows to the head; `reach` carries the head off where SpecReef.Swim sends it (a strike)
+	if ((neck > 0.0 || dot(reach, reach) > 0.0) && p.x > neck_from) {
 		float n = (p.x - neck_from) / (0.5 - neck_from);
 		n = n * n;
 		VERTEX.z += sin(t * 0.55 + phase * 6.2831) * neck * n + sin(t * 1.3 + phase * 3.0) * neck * 0.25 * n;
 		VERTEX.y += sin(t * 0.4 + phase * 5.0) * neck * 0.55 * n;
+		VERTEX += reach * n;
 	}
-	// the jaw: open a while every so often, then shut
-	if (jaw > 0.0 && p.x > jaw_x) {
-		float open = pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0) * jaw;
-		float low = smoothstep(jaw_y + 0.012, jaw_y - 0.012, p.y);
-		VERTEX.y -= (p.x - jaw_x) * open * low;
-	}
-	// the octopus: the mantle (the head end, +x) fills slowly and squeezes fast; the arms (trailing, -x) are drawn
-	// together by each squeeze, a little later the further down them, and drift apart again; their tips wave
+	// the octopus (a scan of one laid out flat, its arms a fan on the table): the mantle (the head end, +x) fills
+	// slowly and squeezes fast; the fan of arms is rolled round the body's line into a skirt trailing behind, which
+	// each squeeze gathers — a little later the further down the arms — and lets spread again; waves run down the
+	// arms, and they twist a little
 	if (jet > 0.0) {
 		float c = t * swim_f + phase;
-		float arm = smoothstep(0.12, -0.45, p.x);
-		float sq = squeeze(c - arm * 0.22);
-		float mant = smoothstep(0.05, 0.3, p.x);
-		VERTEX.yz = mix(VERTEX.yz, VERTEX.yz * (1.0 + jet * (0.9 - 1.6 * squeeze(c))), mant);
-		VERTEX.yz *= 1.0 - arm * (0.25 + 0.5 * sq);
-		VERTEX.x -= arm * sq * 0.08;
-		VERTEX.y += sin(t * 1.3 + p.x * 9.0 + p.z * 14.0 + phase * 6.2831) * jet * 0.12 * arm * arm;
-		VERTEX.z += sin(t * 1.1 + p.x * 7.0 + phase * 4.0) * jet * 0.12 * arm * arm;
+		float arm = smoothstep(0.08, -0.15, p.x);
+		float tip = smoothstep(0.05, -0.45, p.x);
+		float sq = squeeze(c - tip * 0.25);
+		float mant = smoothstep(0.08, 0.25, p.x);
+		// (the mantle lay flat on the table: filled out again, taller)
+		VERTEX.yz = vec2(0.09, 0.0) + (p.yz - vec2(0.09, 0.0)) * vec2(1.0 + mant * 0.8, 1.0) * (1.0 + mant * jet * (1.0 - 2.2 * squeeze(c)));
+		float rad = 0.085 * (1.0 + (0.45 - 1.05 * sq) * tip);
+		float phi = p.z / 0.085 * 0.95 + sin(t * 0.7 + p.x * 5.0 + phase * 6.2831) * 0.3 * tip;
+		float rr = rad + (p.y - 0.035) + sin(t * 2.0 + p.x * 16.0 + phi * 2.0 + phase * 6.2831) * 0.018 * tip;
+		vec2 skirt = vec2(0.02 + rr * cos(phi), rr * sin(phi));
+		VERTEX.yz = mix(VERTEX.yz, skirt, arm);
+		VERTEX.x -= tip * sq * 0.05;
+		float na = phi * arm;
+		NORMAL = normalize(vec3(NORMAL.x, NORMAL.y * cos(na) - NORMAL.z * sin(na), NORMAL.y * sin(na) + NORMAL.z * cos(na)));
 	}
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_wn = normalize(mat3(MODEL_MATRIX) * NORMAL);
@@ -173,9 +198,13 @@ void fragment() {
 		skin *= 1.15 - 0.35 * smoothstep(eye_r * 0.18, 0.0, abs(v_mp.y - eye.y));
 		c = mix(c, skin, lid);
 	}
+	// (the inside of an open mouth, where the model has none: the far cheek seen from within — dark, red)
+	if (!FRONT_FACING && jaw > 0.0 && v_mp.x > jaw_x) c = mix(c, vec3(0.16, 0.03, 0.035), 0.85);
 	// the water between: the further off, the more of its colour — but the body keeps its light and shade (all one flat
 	// colour it was a card cut out)
 	float hz = haze > 0.0 ? mix(haze_min, haze, smoothstep(haze_d0, haze_d1, length(VERTEX))) : 0.0;
+	// (come close — a plesiosaur's head at the find — there is little water between)
+	hz *= clamp(length(VERTEX) / haze_d0, 0.3, 1.0);
 	vec3 e = haze_col * hz * 0.45;
 	if (caust > 0.0) {
 		// the light from the surface: the back lit, the belly in its own shade, a net of light wandering over the back

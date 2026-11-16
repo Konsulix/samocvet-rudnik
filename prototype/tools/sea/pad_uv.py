@@ -9,7 +9,9 @@ Unlike prototype/tools/pad_tex.py it does not take every black texel for empty (
 a shark's eye): what is empty is read off the .obj's UVs, and inside the islands only wide black patches count — what
 the bake's rays missed.
 
-    py prototype/tools/sea/pad_uv.py <godot/assets/specimen/sea> [name ...]
+    py prototype/tools/sea/pad_uv.py <godot/assets/specimen/sea> [dark=N] [name ...]
+
+dark=N (0..255): texels darker than N are empty too — the octopus (dark=60): its underside was never scanned.
 """
 import os
 import sys
@@ -35,7 +37,7 @@ def mask_of(obj: str, size: int) -> np.ndarray:
     return np.asarray(im) > 0
 
 
-def pad(path: str, obj: str) -> None:
+def pad(path: str, obj: str, dark: int = 0) -> None:
     im = Image.open(path)
     a = np.asarray(im.convert("RGB")).astype(np.float32)
     full = mask_of(obj, a.shape[0])
@@ -60,6 +62,19 @@ def pad(path: str, obj: str) -> None:
         if missed.any():
             print("  %d texels the bake missed" % int(missed.sum()), flush=True)
         empty |= missed
+        if dark > 0:
+            # a scan of a thing laid on a table has no underside: it comes out near black (an octopus's arms from
+            # below) — every texel darker than `dark` takes its neighbours' colour too
+            under = (a.max(-1) < dark) & full
+            print("  %d dark texels (the unscanned underside)" % int(under.sum()), flush=True)
+            empty |= under
+    if path.endswith("_n.png"):
+        # a relief texel that points INTO the surface (blue under half) is no relief: on a thin thing — an arm, a fin —
+        # the bake's ray went through to the far side. Lit by it the skin comes out black in blotches
+        wrong = (a[..., 2] < 140) & full
+        if wrong.any():
+            print("  %d relief texels pointing inwards" % int(wrong.sum()), flush=True)
+        empty |= wrong
     n0 = int(empty.sum())
     for _ in range(4096):
         if not empty.any():
@@ -82,9 +97,11 @@ def pad(path: str, obj: str) -> None:
 
 if __name__ == "__main__":
     d = sys.argv[1]
-    names = sys.argv[2:] or sorted(os.path.basename(p)[:-4] for p in glob.glob(os.path.join(d, "*.obj")))
+    args = [q for q in sys.argv[2:] if not q.startswith("dark=")]
+    dark = max([int(q[5:]) for q in sys.argv[2:] if q.startswith("dark=")] + [0])
+    names = args or sorted(os.path.basename(p)[:-4] for p in glob.glob(os.path.join(d, "*.obj")))
     for n in names:
         for tag in ("_d", "_n"):
             p = os.path.join(d, n + tag + ".png")
             if os.path.exists(p):
-                pad(p, os.path.join(d, n + ".obj"))
+                pad(p, os.path.join(d, n + ".obj"), dark)
