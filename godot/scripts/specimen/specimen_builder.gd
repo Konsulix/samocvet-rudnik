@@ -302,7 +302,9 @@ var _lumpy_d := {}
 
 ## (16.11) malachite's own surface, whole as it is: lopsided, bumped and dented — what a chipped lump (RockKit.chip at
 ## the strength of a Damaged find) looked like, which the user found the truer malachite; its own stream
+static var no_lumpy := false   # (tests/shatter_check: the whole lump without its dents and chips)
 func _lumpy() -> Dictionary:
+	if no_lumpy: return {}
 	if _lumpy_d.is_empty():
 		_lumpy_d = {k = 0.78, rng = Rng32.new((seed0 * 3266489917 + 101) % 4294967296)}
 	return _lumpy_d
@@ -2269,6 +2271,8 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 		if r >= 0.2 and not rho: RockKit.chip(g, _lumpy())
 		# (each next lump's face a hair further out: no two faces fight on the same plane)
 		var on := _saw(g, at, n * (0.0015 * k), n)
+		# (a fin of skin between the saw's face and a chip close by: set down, as RockKit.chip does its own)
+		if r >= 0.2 and not rho: RockKit._despike(g)
 		for i in g.v.size():
 			if on[i] == 1: g.col[i] = Color(1, 1, 1)
 		var m := U.mesh(g, bm, root, at)

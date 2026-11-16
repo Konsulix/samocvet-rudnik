@@ -11,6 +11,7 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("n", "6"))
 	var ig := int(args.get("integ", "30"))
+	SpecimenBuilder.no_lumpy = args.has("no_lumpy")
 	for want: Array in [["nativecu", "vein"], ["nativecu", "nugget"], ["malachite", "botryoid"], ["malachite", "sawn"]]:
 		if args.has("only") and String(args.only) != want[0] + "_" + want[1]: continue
 		var found := 0

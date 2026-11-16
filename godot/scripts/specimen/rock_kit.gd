@@ -338,8 +338,51 @@ static func chip(g: Geo, dm: Dictionary, view := Vector3(-0.5646, 0.0, 0.8253)) 
 		var e := (cell.get_noise_3dv(g.v[j]) + 1.0) * 0.5
 		if e >= thr: continue
 		var pit := sqrt(1.0 - e / thr)
-		g.v[j] -= nr[j] * pit * sz * (0.025 + k * 0.03)
+		# (into the stone, always: where a chip had pressed points flat onto its plane, a crushed triangle's normal could
+		# face inwards — a dent along it pushed the point out, a spike)
+		var into := -nr[j]
+		var to_c := c - g.v[j]
+		if into.dot(to_c) <= 0.0 and to_c.length_squared() > 1e-12: into = to_c.normalized()
+		g.v[j] += into * pit * sz * (0.025 + k * 0.03)
 		g.col[j] = g.col[j] * Color(1.0 - pit * 0.4, 1.0 - pit * 0.4, 1.0 - pit * 0.4, 1.0)
+	_despike(g)
+
+## points standing out of the ring of their neighbours by more than the ring's own size — a thin fin of skin left
+## between two chips pressed flat close by stood up as a spike (16.11, on a pristine sawn malachite) — set down into
+## the middle of their ring; twice, so a fin's two rows both go. Points on one place move together
+static func _despike(g: Geo) -> void:
+	if not g.indexed(): return
+	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 50000.0), roundi(p.y * 50000.0), roundi(p.z * 50000.0))
+	for pass_i in 2:
+		var ring := {}
+		var at := {}
+		for t in range(0, g.idx.size(), 3):
+			for c in 3:
+				var a := g.idx[t + c]
+				var ka: Vector3i = key.call(g.v[a])
+				at[ka] = g.v[a]
+				if not ring.has(ka): ring[ka] = {}
+				for o in 3:
+					if o == c: continue
+					var b := g.idx[t + o]
+					(ring[ka] as Dictionary)[key.call(g.v[b])] = g.v[b]
+		var move := {}
+		for ka in ring:
+			var nb: Dictionary = ring[ka]
+			if nb.size() < 3: continue
+			var p: Vector3 = at[ka]
+			var cen := Vector3.ZERO
+			var el := 0.0
+			for q: Vector3 in nb.values():
+				cen += q
+				el += p.distance_to(q)
+			cen /= nb.size()
+			el /= nb.size()
+			if el > 1e-5 and p.distance_to(cen) > el * 0.8: move[ka] = cen
+		if move.is_empty(): return
+		for vi in g.v.size():
+			var kv: Vector3i = key.call(g.v[vi])
+			if move.has(kv): g.v[vi] = move[kv]
 
 ## a chunky column: uneven polygon section, slanted broken top or a point, foot sunk into the rock
 ## o: {sides, w, d, h, point, slope, taper, y0}; zc: colour zoning as in crystal()
