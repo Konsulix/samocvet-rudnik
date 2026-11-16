@@ -1480,8 +1480,10 @@ func _shatter() -> void:
 		var amp := ext * 0.035
 		var a_side: Array = []
 		var b_side: Array = []
-		for nd: Node in grp:
-			var parts := _cut_node(nd, at, n, rough, amp)
+		for x in grp:
+			# (a fracture already cut with its skin, and freed, is passed over)
+			if not is_instance_valid(x): continue
+			var parts := _cut_node(x as Node, at, n, rough, amp)
 			a_side.append_array(parts[0])
 			b_side.append_array(parts[1])
 		if b_side.is_empty() or a_side.is_empty():
@@ -1577,30 +1579,62 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 	if not nd is Node3D: return [[nd], []]
 	var t := U.rel_xform(nd as Node3D, root)
 	if nd is MeshInstance3D and nd.has_meta("geo"):
+		# a piece of an earlier break is two meshes on the same points: its skin and its fracture ("mate"). Cut apart,
+		# each gave an open outline of its own and the caps did not meet — they are cut as one, the fracture's
+		# triangles keeping the fracture's material
+		var mate: MeshInstance3D = null
+		if nd.has_meta("mate") and is_instance_valid(nd.get_meta("mate")):
+			mate = nd.get_meta("mate")
+			if nd.get_meta("is_face", false): return [[], []]   # (its skin cuts it, and reports it)
 		var g: Geo = nd.get_meta("geo")
+		var face_from := -1
+		if mate:
+			var gf: Geo = mate.get_meta("geo")
+			var gc := Geo.new()
+			gc.v = g.v
+			gc.col = g.col
+			gc.idx = g.idx.duplicate()
+			face_from = gc.idx.size()
+			gc.idx.append_array(gf.idx)
+			g = gc
 		var nb := 0
 		for i in g.v.size():
 			if (t * g.v[i] - at).dot(n) > 0.0: nb += 1
-		if nb == 0: return [[nd], []]
-		if nb == g.v.size(): return [[], [nd]]
+		var whole := [nd] if not mate else [nd, mate]
+		if nb == 0: return [whole, []]
+		if nb == g.v.size(): return [[], whole]
 		var mi := nd as MeshInstance3D
-		var halves := [_half(g, t, at, n, rough, amp, false), _half(g, t, at, n, rough, amp, true)]
+		var halves := [_half(g, t, at, n, rough, amp, false, face_from), _half(g, t, at, n, rough, amp, true, face_from)]
 		var out := [[], []]
 		for h in 2:
-			for part: Geo in halves[h]:
-				if part.idx.is_empty(): continue
+			var made := []
+			for pi in 2:
+				var part: Geo = (halves[h] as Array)[pi]
+				if part.idx.is_empty():
+					made.append(null)
+					continue
 				var m := MeshInstance3D.new()
 				for mk in nd.get_meta_list(): m.set_meta(mk, nd.get_meta(mk))
+				m.remove_meta("mate")
+				m.remove_meta("is_face")
 				m.set_meta("geo", part)
 				m.material_override = mi.material_override
 				# (the fracture: matte and silky, not polished — glossy it read as glass or plastic)
-				if part == (halves[h] as Array)[1] and mi.material_override is ShaderMaterial: m.material_override = _matte(mi.material_override)
+				if pi == 1:
+					if mate: m.material_override = mate.material_override
+					elif mi.material_override is ShaderMaterial: m.material_override = _matte(mi.material_override)
+					m.set_meta("is_face", true)
 				m.transform = mi.transform
 				if mi.mesh: m.mesh = part.to_mesh()
 				nd.get_parent().add_child(m)
 				(out[h] as Array).append(m)
-		nd.get_parent().remove_child(nd)
-		nd.free()
+				made.append(m)
+			if made[0] and made[1]:
+				(made[0] as Node).set_meta("mate", made[1])
+				(made[1] as Node).set_meta("mate", made[0])
+		for x: Node in whole:
+			x.get_parent().remove_child(x)
+			x.free()
 		return out
 	if nd is MultiMeshInstance3D:
 		var mmi := nd as MultiMeshInstance3D
@@ -1666,7 +1700,7 @@ func _side_of(nd: Node, at: Vector3, n: Vector3) -> float:
 ## they fit) while its rim stays on the outline — closed, no hole. [the skin, the fracture] sharing the points.
 ## (16.11: the far side pressed flat onto the plane left holes wherever the bumpy skin there faced inwards — the
 ## piece showed as a hollow shell, "a thin leaf")
-func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float, beyond: bool) -> Array:
+func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float, beyond: bool, face_from := -1) -> Array:
 	var sg := -1.0 if beyond else 1.0   # (this half keeps the points where (p - at)·n·sg <= 0)
 	var out_n := n * sg                  # the cap looks out of this half
 	var ti := t.affine_inverse()
@@ -1710,12 +1744,14 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 		(adj[b] as Array).append(a)
 	var skin := Geo.new()
 	var sk := PackedInt32Array()
+	var fk := PackedInt32Array()   # (from an earlier break's fracture: stays fracture)
 	for k in range(0, ix.size(), 3):
+		var into := fk if face_from >= 0 and k >= face_from else sk
 		var tri := [ix[k], ix[k + 1], ix[k + 2]]
 		var keep := [e[tri[0]] <= 0.0, e[tri[1]] <= 0.0, e[tri[2]] <= 0.0]
 		var nk := int(keep[0]) + int(keep[1]) + int(keep[2])
 		if nk == 3:
-			sk.append_array(tri)
+			into.append_array(tri)
 		elif nk == 1:
 			# one corner kept (turned to the front, winding kept): it and two points on the cut
 			var r := 0 if keep[0] else 1 if keep[1] else 2
@@ -1724,7 +1760,7 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 			var c: int = tri[(r + 2) % 3]
 			var pab: int = cut.call(a, b)
 			var pac: int = cut.call(a, c)
-			sk.append_array([a, pab, pac])
+			into.append_array([a, pab, pac])
 			link.call(pab, pac)
 		elif nk == 2:
 			# one corner cut off: a quad left, two triangles
@@ -1734,7 +1770,7 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 			var b: int = tri[(r + 2) % 3]
 			var pbc: int = cut.call(b, c)
 			var pca: int = cut.call(c, a)
-			sk.append_array([a, b, pbc, a, pbc, pca])
+			into.append_array([a, b, pbc, a, pbc, pca])
 			link.call(pbc, pca)
 	skin.idx = sk
 	# the outline of the cut, as loops — walked edge by edge (where two cut points fell on one place a point joins four
@@ -1765,7 +1801,7 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 				cur = nxt
 			if loop.size() >= 3: loops.append(loop)
 	var face := Geo.new()
-	var fc := PackedInt32Array()
+	var fc := fk
 	if loops.size():
 		# the cap in the plane's own two axes
 		var u := n.cross(UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()
@@ -1848,9 +1884,24 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 			if fn.dot(out_n) < 0.0: fc.append_array([A, C, B])
 			else: fc.append_array([A, B, C])
 	face.idx = fc
+	# only the points the half uses (16.11: the cut-away side's points left in it made every measure of the piece —
+	# its box, its reach along the ground — take in the other half too: the pieces were pushed twice as far apart)
+	var remap := PackedInt32Array()
+	remap.resize(w.v.size())
+	remap.fill(-1)
+	var nv := PackedVector3Array()
+	var ncol := PackedColorArray()
 	for x: Geo in [skin, face]:
-		x.v = w.v
-		x.col = w.col
+		for j in x.idx.size():
+			var o := x.idx[j]
+			if remap[o] < 0:
+				remap[o] = nv.size()
+				nv.append(w.v[o])
+				ncol.append(w.col[o])
+			x.idx[j] = remap[o]
+	for x: Geo in [skin, face]:
+		x.v = nv
+		x.col = ncol
 	return [skin, face]
 
 ## a piece moved by `tf` in the find's space: its nodes, and the marks ([point, normal], callouts) of what grew on it
