@@ -1572,6 +1572,20 @@ func _box_of(nodes: Array) -> AABB:
 			hi = hi.max(p)
 	return AABB(lo, hi - lo) if lo.x <= hi.x else AABB()
 
+## (16.11) the break is not a plane ("as if cut with a knife"): a wavy surface — the plane lifted by the noise, read
+## in the plane's own two axes so every point over the same spot has the same height (both halves cut by it fit)
+func _plane_uv(n: Vector3) -> Array:
+	var u := n.cross(UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()
+	return [u, n.cross(u)]
+
+func _wave(p: Vector3, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float) -> float:
+	var uv := _plane_uv(n)
+	var q := p - at
+	return rough.get_noise_2d(q.dot(uv[0]), q.dot(uv[1])) * amp * BREAK_WAVE
+
+## how far the break's surface wanders off its plane, in the noise's own amplitude
+const BREAK_WAVE := 2.2
+
 ## one node split by the plane (at, n): [nodes on the near side, nodes beyond]. A mesh crossing it is cut in two,
 ## each half closed by the rough fracture (its own mesh, so the edge round it is sharp); a multimesh's copies are
 ## shared out; anything else goes whole to the side its middle is on
@@ -1599,7 +1613,8 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 			g = gc
 		var nb := 0
 		for i in g.v.size():
-			if (t * g.v[i] - at).dot(n) > 0.0: nb += 1
+			var wp := t * g.v[i]
+			if (wp - at).dot(n) - _wave(wp, at, n, rough, amp) > 0.0: nb += 1
 		var whole := [nd] if not mate else [nd, mate]
 		if nb == 0: return [whole, []]
 		if nb == g.v.size(): return [[], whole]
@@ -1720,7 +1735,7 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 	for i in w.v.size():
 		var wp := t * w.v[i]
 		pk[i] = wp
-		var d := (wp - at).dot(n) * sg
+		var d := ((wp - at).dot(n) - _wave(wp, at, n, rough, amp)) * sg
 		e[i] = d if d != 0.0 else -1e-7
 	var made := {}     # the cut edge (its two ends by place) -> the new point on it
 	var adj := {}      # a point on the cut -> the points it joins along the cut
@@ -1804,8 +1819,9 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 	var fc := fk
 	if loops.size():
 		# the cap in the plane's own two axes
-		var u := n.cross(UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()
-		var v2 := n.cross(u)
+		var uv := _plane_uv(n)
+		var u: Vector3 = uv[0]
+		var v2: Vector3 = uv[1]
 		var pts := PackedVector2Array()
 		var ids := PackedInt32Array()
 		var polys := []
@@ -1838,7 +1854,7 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 		# each loop triangulated as a polygon (its edges exactly the outline: a Delaunay over points cut corners past
 		# the skin's edge and left slits), then its triangles split at their middles, twice over the big ones, those
 		# middles lifted by the noise — the rough break; the rim stays on the outline
-		var step := maxf((hi - lo).length() / 11.0, 0.005)
+		var step := maxf((hi - lo).length() / 16.0, 0.004)
 		var tri_list := []   # [[id, id, id], [p2, p2, p2]]
 		var base := 0
 		for li in loops.size():
@@ -1856,11 +1872,13 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 			base += poly.size()
 		var mid_pt := func(p2: Vector2) -> int:
 			var wq := at + u * p2.x + v2 * p2.y
-			wq += out_n * rough.get_noise_3dv(wq) * amp * smoothstep(0.0, step * 2.5, edge_d.call(p2))
+			wq += n * _wave(wq, at, n, rough, amp)
+			# (and finer lumps over it, gone at the rim: the rim is the skin's own edge)
+			wq += out_n * rough.get_noise_3dv(wq * 2.3) * amp * 0.8 * smoothstep(0.0, step * 2.0, edge_d.call(p2))
 			w.v.append(ti * wq)
 			w.col.append(Color(0.85, 0.85, 0.85, 1.0))
 			return w.v.size() - 1
-		for round_i in 3:
+		for round_i in 4:
 			var next := []
 			for tr: Array in tri_list:
 				var P: Array = tr[1]
@@ -1875,6 +1893,9 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 				next.append([[I[1], I[2], ci], [P[1], P[2], c2]])
 				next.append([[I[2], I[0], ci], [P[2], P[0], c2]])
 			tri_list = next
+		# (split at their middles, the triangles fan out in long slivers — on copper a star of glints: flipped to
+		# better shapes, Delaunay's way, over the inside edges only — the rim stays the outline)
+		tri_list = _flip_slivers(tri_list)
 		for tr: Array in tri_list:
 			var I: Array = tr[0]
 			var A: int = I[0]
@@ -1903,6 +1924,71 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 		x.v = nv
 		x.col = ncol
 	return [skin, face]
+
+## Lawson's flips over a cap's triangles ([[id, id, id], [p2, p2, p2]]): an inside edge whose far corner lies in the
+## circle round the other triangle is turned the other way (where the two make a convex quad); edges with one
+## triangle — the rim — never move
+func _flip_slivers(tris: Array) -> Array:
+	var pos := {}
+	var T := []
+	for tr: Array in tris:
+		var I: Array = tr[0]
+		var P: Array = tr[1]
+		for c in 3: pos[int(I[c])] = P[c]
+		T.append([int(I[0]), int(I[1]), int(I[2])])
+	for pass_i in 8:
+		var edges := {}
+		for ti in T.size():
+			var t3: Array = T[ti]
+			for c in 3:
+				var a: int = t3[c]
+				var b: int = t3[(c + 1) % 3]
+				var ek := Vector2i(mini(a, b), maxi(a, b))
+				if not edges.has(ek): edges[ek] = []
+				(edges[ek] as Array).append(ti)
+		var flipped := 0
+		var touched := {}
+		for ek: Vector2i in edges:
+			var ts: Array = edges[ek]
+			if ts.size() != 2 or touched.has(ts[0]) or touched.has(ts[1]): continue
+			var A: Array = T[ts[0]]
+			var B: Array = T[ts[1]]
+			var a := ek.x
+			var b := ek.y
+			var c := -1
+			var d := -1
+			for x: int in A: if x != a and x != b: c = x
+			for x: int in B: if x != a and x != b: d = x
+			if c < 0 or d < 0 or c == d: continue
+			var pa: Vector2 = pos[a]
+			var pb: Vector2 = pos[b]
+			var pc: Vector2 = pos[c]
+			var pd: Vector2 = pos[d]
+			if not _in_circle(pa, pb, pc, pd): continue
+			# (only a convex quad: the new edge c-d must cross the old a-b)
+			if Geometry2D.segment_intersects_segment(pc, pd, pa, pb) == null: continue
+			T[ts[0]] = [c, d, a]
+			T[ts[1]] = [d, c, b]
+			touched[ts[0]] = true
+			touched[ts[1]] = true
+			flipped += 1
+		if flipped == 0: break
+	var out := []
+	for t3: Array in T:
+		out.append([t3, [pos[t3[0]], pos[t3[1]], pos[t3[2]]]])
+	return out
+
+## is d inside the circle through a, b, c (any winding)
+static func _in_circle(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
+	var ax := a.x - d.x
+	var ay := a.y - d.y
+	var bx := b.x - d.x
+	var by := b.y - d.y
+	var cx := c.x - d.x
+	var cy := c.y - d.y
+	var det := (ax * ax + ay * ay) * (bx * cy - cx * by) - (bx * bx + by * by) * (ax * cy - cx * ay) + (cx * cx + cy * cy) * (ax * by - bx * ay)
+	var orient := (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+	return det * signf(orient) > 1e-12
 
 ## a piece moved by `tf` in the find's space: its nodes, and the marks ([point, normal], callouts) of what grew on it
 func _move(nodes: Array, marks: Array, tf: Transform3D) -> void:
