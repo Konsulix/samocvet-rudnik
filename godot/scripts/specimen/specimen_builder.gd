@@ -1464,12 +1464,19 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xc4c8ce if copper else 0xccd2da), fr = 0.0, scan = 4}})
 	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.35)
 	# a careless dig knocks pieces off the quartz (the metal then lies on what is left)
-	RockKit.chip(qg, hurt)
+	RockKit.chip(qg, hurt, true)
 	# the haze behind it: the quartz is most of the find, so a cool grey with only a hint of the metal's colour
 	# (in the metal's own colour it tinted the white stone yellow)
 	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(Color(0.2, 0.24, 0.3), 0.75))
-	var main := U.mesh(qg, qm, root)
+	# (16.11) a fresh break is not the weathered skin: glassy, grey, glossy — the chalky crust round it says "knocked
+	# off"; in the skin's own scan it read as one more face of a quarried stone ("damaged in what?")
+	var parts := RockKit.breaks(qg)
+	var main := U.mesh(parts[0], qm, root)
+	if (parts[1] as Geo).idx.size():
+		var bm := SpecMat.make({col = SpecMat.lin(0xaab2ba), rough = 0.1, coat = 0.9, coat_r = 0.04, env = 1.6, grain = 0.04, flat = true})
+		U.mesh(parts[1], bm, root)
 	var qn := qg.normals()
+	var whole := func(vi: int) -> bool: return qg.col[vi].a > 0.75
 	var near := func(p: Vector3) -> int:
 		var best := 0
 		var bd := INF
@@ -1481,7 +1488,8 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 		return best
 	# the cracks run over the side the viewer sees (every find is shown turned 0.6 about y) and over the top
 	var view := Basis(UP, -0.6) * Vector3.BACK
-	var seen := func(vi: int) -> bool: return qn[vi].dot(view) > 0.25 or qn[vi].y > 0.6
+	# (never on a fresh break: the metal there went with the piece knocked off)
+	var seen := func(vi: int) -> bool: return (qn[vi].dot(view) > 0.25 or qn[vi].y > 0.6) and whole.call(vi)
 	# the crack itself: a dark seam (sulphides) the metal sits in
 	var seam := SpecMat.make({col = SpecMat.lin(0x2a2622), rough = 0.6, metal = 0.3})
 	for c in 3 + int(rng.next() * 3):
@@ -1496,9 +1504,13 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 			var nv: Vector3 = qn[vi]
 			var sz := w * (0.5 + rng.next() * 0.9)
 			var bs := Basis(U.quat_to(UP, nv)) * Basis(UP, rng.next() * TAU)
-			U.mesh(RockKit.crumble(rng, sz * 0.9, Vector3(1.3, 0.1, 0.32)), seam, root, qg.v[vi] - nv * sz * 0.05, bs)
+			# (none on a fresh break: it went with the piece knocked off)
+			var ok: bool = whole.call(vi)
+			var sg := RockKit.crumble(rng, sz * 0.9, Vector3(1.3, 0.1, 0.32))
+			if ok: U.mesh(sg, seam, root, qg.v[vi] - nv * sz * 0.05, bs)
 			if rng.next() < 0.7:
-				U.mesh(RockKit.crumble(rng, sz, Vector3(1.6, 0.4, 1.1)), mm, root, qg.v[vi] + nv * sz * 0.04, bs)
+				var mg := RockKit.crumble(rng, sz, Vector3(1.6, 0.4, 1.1))
+				if ok: U.mesh(mg, mm, root, qg.v[vi] + nv * sz * 0.04, bs)
 			# along the crack: a step forward, wandering, back onto the stone
 			d = (d + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 0.7).normalized()
 			d = (d - nv * d.dot(nv)).normalized()
@@ -1519,7 +1531,51 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 			vi = int(rng.next() * qg.v.size())
 		var sz := 0.025 + rng.next() * 0.045
 		U.mesh(RockKit.crumble(rng, sz, Vector3(1.3, 0.4, 1.0)), mm, root, qg.v[vi] - qn[vi] * sz * 0.1, Basis(U.quat_to(UP, qn[vi])))
+	_hairlines(qg, qn, view)
 	return main
+
+## (16.11) a hurt stone cracked by the blows: dark hairlines wandering over the side the viewer sees, out from the
+## fresh breaks — more and longer the worse it is. On the damage's own stream; none on an unhurt stone
+func _hairlines(qg: Geo, qn: PackedVector3Array, view: Vector3) -> void:
+	var k: float = hurt.get("k", 0.0)
+	if k <= 0.0: return
+	var dr: Rng32 = hurt.rng
+	var hm := SpecMat.make({col = SpecMat.lin(0x1c1a18), rough = 0.85})
+	var seg := Geo.box(1.0, 1.0, 1.0)
+	var lines := 2 + int(k * 5.0 + dr.next() * 1.5)
+	var surf := SpecSurf.new()
+	surf.add(qg, qn)
+	var buf := []
+	for c in lines:
+		# start on a break's rim where there is one (the blow that knocked it off cracked the rest), else anywhere seen
+		var vi := int(dr.next() * qg.v.size())
+		for t in 80:
+			var on_rim := qg.col[vi].a < 0.75
+			if (qn[vi].dot(view) > 0.2 or qn[vi].y > 0.5) and (on_rim or t > 40): break
+			vi = int(dr.next() * qg.v.size())
+		var p := qg.v[vi] + qn[vi] * 0.003
+		var nv := qn[vi]
+		var d := nv.cross(Vector3.UP if absf(nv.y) < 0.9 else Vector3.RIGHT).normalized().rotated(nv, dr.next() * TAU)
+		var step := 0.035
+		for s in int((10 + dr.next() * 12) * (0.6 + k)):
+			# back onto the real surface (a hair above it: the nearest vertex of the coarse quartz left it in the air)
+			var hit := surf.closest(p + d * step)
+			if hit.is_empty(): break
+			nv = hit[1]
+			# (over the rim to the far side: it stops — seen against the sky it hung in the air)
+			if nv.dot(view) < 0.05 and nv.y < 0.3: break
+			var q: Vector3 = (hit[0] as Vector3) + nv * 0.003
+			var dd := q - p
+			if dd.length() < 0.001: break
+			var w := 0.006 + 0.006 * k * (1.0 - float(s) / 30.0)
+			buf.append(Transform3D(Basis(U.quat_to(Vector3.RIGHT, dd.normalized())) * Basis.from_scale(Vector3(dd.length() * 1.15, w * 0.5, maxf(0.003, w))), (p + q) * 0.5))
+			p = q
+			d = (dd.normalized() + Vector3(dr.next() - 0.5, dr.next() - 0.5, dr.next() - 0.5) * 0.9).normalized()
+			d = (d - nv * d.dot(nv)).normalized()
+			# a branch now and then
+			if dr.next() < 0.06: d = d.rotated(nv, (dr.next() - 0.5) * 2.0)
+	if buf.size():
+		U.inst(seg, hm, buf.size(), func(i: int) -> Array: return [buf[i], Color(1, 1, 1)], root)
 
 # one flowing mass of melted-together grapes (or a stand of rounded stalagmites), banded like a polished slab, weathered in the hollows
 ## the lumpy species' material: banded, glossy (malachite deep green, its bands near black)
