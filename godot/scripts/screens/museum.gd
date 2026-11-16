@@ -418,6 +418,16 @@ func _open_last() -> void:
 			pick = s
 	if most: _open_stone(pick)
 
+## for screenshots: ui=open_n card=N - the card of the N-th stone of the collection (prints the list: N, species, integrity)
+func _open_n() -> void:
+	var want := 0
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("card="): want = int(a.substr(5))
+	for i in Save.d.coll.size():
+		var c: Dictionary = Save.d.coll[i]
+		print("card ", i, ": ", c.sid, " integ ", c.get("integ", 100), " id ", c.get("id", 0))
+	if want < Save.d.coll.size(): _open_stone(Save.d.coll[want])
+
 ## for screenshots: ui=open_record - a stone that is its species' atlas record (the "best of its kind" mark)
 func _open_record() -> void:
 	for s in Save.d.coll:

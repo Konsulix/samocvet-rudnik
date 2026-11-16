@@ -1442,7 +1442,7 @@ func _shatter() -> void:
 		cuts = [0.42 + dr.next() * 0.16]                                 # Damaged: through the middle
 		# and a half broken again — near its middle (at 0.7–0.8 it cut a strip off, a plate); never a sawn slab: already
 		# thin, its strips were plates
-		if k > 0.7 and dr.next() < 0.6 and not flat: cuts.append(0.58 + dr.next() * 0.1)
+		if k > 0.7 and dr.next() < 0.6 and not flat: cuts.append(0.5 + dr.next() * 0.12)
 	var across := UP.cross(VIEW_DIR).normalized()   # (the pieces part sideways across the picture)
 	var pieces: Array = [root.get_children()]
 	for ci in cuts.size():
@@ -1458,7 +1458,9 @@ func _shatter() -> void:
 		var bb := _box_of(grp)
 		var ext := bb.size.length()
 		var sgn := 1.0 if dr.next() < 0.5 else -1.0
-		var m := mode if ci == 0 else "side"   # (a second break: an end off one half)
+		# (a second break: across the first — the half's top knocked off. Along the first, as before, it sliced the
+		# half thinner again and the slice stood up as a plate)
+		var m := mode if ci == 0 else "top"
 		var n: Vector3
 		match m:
 			"top": n = UP + across * sgn * (0.15 + dr.next() * 0.25) + VIEW_DIR * (dr.next() - 0.3) * 0.4
@@ -1706,6 +1708,7 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 			return [[xa], [xb]]
 	return [[nd], []] if _side_of(nd, at, n) <= 0.0 else [[], [nd]]
 
+static var fallbacks := 0   # (tests/shatter_check: how often a cap's outline would not triangulate as a polygon)
 var _mattes := {}
 func _matte(m: ShaderMaterial) -> ShaderMaterial:
 	if not _mattes.has(m):
@@ -1873,28 +1876,50 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 		# middles lifted by the noise — the rough break; the rim stays on the outline
 		var step := maxf((hi - lo).length() / 16.0, 0.004)
 		var tri_list := []   # [[id, id, id], [p2, p2, p2]]
+		var fans := []       # loops that would not triangulate: [loop, its first point in pts]
 		var base := 0
 		for li in loops.size():
 			var poly: PackedVector2Array = polys[li]
 			var tri_ix := Geometry2D.triangulate_polygon(poly)
 			if tri_ix.is_empty():
-				# (a loop crossing itself — a bumpy skin flattened by chips gives points on one place — will not take
-				# the polygon's way: a Delaunay over its points, the triangles whose middles are inside it)
-				var dl := Geometry2D.triangulate_delaunay(poly)
-				for k in range(0, dl.size(), 3):
-					if Geometry2D.is_point_in_polygon((poly[dl[k]] + poly[dl[k + 1]] + poly[dl[k + 2]]) / 3.0, poly):
-						tri_ix.append_array([dl[k], dl[k + 1], dl[k + 2]])
+				# (a loop crossing itself — a bumpy skin gives points on one place, folds — will not take the polygon's
+				# way. A Delaunay over it cut corners and spanned the break with long triangles: spikes and slits. A fan
+				# from its middle instead, below — its rim exactly the outline)
+				fallbacks += 1
+				fans.append([li, base])
 			for k in range(0, tri_ix.size(), 3):
 				tri_list.append([[ids[base + tri_ix[k]], ids[base + tri_ix[k + 1]], ids[base + tri_ix[k + 2]]], [poly[tri_ix[k]], poly[tri_ix[k + 1]], poly[tri_ix[k + 2]]]])
 			base += poly.size()
+		# the rim's own heights over the plane (the cut points of the skin): next to the rim a point takes its nearest
+		# rim point's height, and only further in the wave's — where the two differed the cap stood up in a spike
+		var rim_h := PackedFloat32Array()
+		for k2 in pts.size():
+			rim_h.append((t * w.v[ids[k2]] - at).dot(n))
 		var mid_pt := func(p2: Vector2) -> int:
 			var wq := at + u * p2.x + v2 * p2.y
-			wq += n * _wave(wq, at, n, rough, amp)
+			var de: float = edge_d.call(p2)
+			var near_h := 0.0
+			var bd := INF
+			for k2 in pts.size():
+				var dd := p2.distance_squared_to(pts[k2])
+				if dd < bd:
+					bd = dd
+					near_h = rim_h[k2]
+			wq += n * lerpf(near_h, _wave(wq, at, n, rough, amp), smoothstep(0.0, step * 3.0, de))
 			# (and finer lumps over it, gone at the rim: the rim is the skin's own edge)
-			wq += out_n * rough.get_noise_3dv(wq * 2.3) * amp * 0.8 * smoothstep(0.0, step * 2.0, edge_d.call(p2))
+			wq += out_n * rough.get_noise_3dv(wq * 2.3) * amp * 0.8 * smoothstep(step, step * 3.0, de)
 			w.v.append(ti * wq)
 			w.col.append(Color(0.85, 0.85, 0.85, 1.0))
 			return w.v.size() - 1
+		for fl: Array in fans:
+			var poly: PackedVector2Array = polys[int(fl[0])]
+			var b0: int = fl[1]
+			var c2 := Vector2.ZERO
+			for q in poly: c2 += q / poly.size()
+			var ci: int = mid_pt.call(c2)
+			for j in poly.size():
+				var j2 := (j + 1) % poly.size()
+				tri_list.append([[ids[b0 + j], ids[b0 + j2], ci], [poly[j], poly[j2], c2]])
 		for round_i in 4:
 			var next := []
 			for tr: Array in tri_list:

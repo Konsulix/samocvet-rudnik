@@ -26,6 +26,7 @@ func _ready() -> void:
 			var line := "%s %s %d:" % [want[0], want[1], sd]
 			for i in [100, ig]:
 				st.integ = i
+				SpecimenBuilder.fallbacks = 0
 				var r := SpecimenBuilder.build(Spec.of_stone(st))
 				# all meshes together in the find's space: a piece's skin and its fracture are two meshes, one open edge each
 				var cnt := {}
@@ -35,7 +36,36 @@ func _ready() -> void:
 				var open := 0
 				for k in cnt:
 					if int(cnt[k]) == 1: open += 1
-				line += "  integ %d: %d meshes, %d open edges" % [i, ms.size(), open]
+				# spikes: triangles of a fracture turned hard away from the fracture's own facing (it should lie near flat)
+				var steep := 0
+				var ftris := 0
+				for m: MeshInstance3D in ms:
+					if not m.get_meta("is_face", false): continue
+					var g: Geo = m.get_meta("geo")
+					var avg := Vector3.ZERO
+					var fns := []
+					for tt in g.tri_count():
+						var a := g.v[g.idx[tt * 3]]
+						var b := g.v[g.idx[tt * 3 + 1]]
+						var c := g.v[g.idx[tt * 3 + 2]]
+						var fn := (c - b).cross(a - b)
+						avg += fn
+						fns.append(fn.normalized())
+					avg = avg.normalized()
+					for fn: Vector3 in fns:
+						ftris += 1
+						if fn.dot(avg) < 0.25: steep += 1
+				# (all meshes together in the find's space: a skin's rim point has its ring completed by the fracture)
+				var all_g := Geo.new()
+				for m: MeshInstance3D in ms:
+					if m.material_override is ShaderMaterial and float((m.material_override as ShaderMaterial).get_shader_parameter("metal")) > 0.5: continue
+					var g: Geo = m.get_meta("geo")
+					var tf := SpecUtil.rel_xform(m, r)
+					var ind := g.indexed()
+					for tt in g.tri_count():
+						for c in 3: all_g.v.append(tf * g.v[g.idx[tt * 3 + c] if ind else tt * 3 + c])
+				var peaks := _peaks(all_g)
+				line += "  integ %d: %d meshes, %d open edges, %d/%d steep, %d peaks, %d fallbacks" % [i, ms.size(), open, steep, ftris, peaks, SpecimenBuilder.fallbacks]
 				if args.has("who") and i != 100:
 					# per piece (a skin and its fracture share their points): which are open
 					var groups := {}
@@ -82,3 +112,31 @@ func _count(g: Geo, t: Transform3D, cnt: Dictionary) -> void:
 			if a == b: continue
 			var ks := str([a, b] if str(a) < str(b) else [b, a])
 			cnt[ks] = int(cnt.get(ks, 0)) + 1
+
+## points standing out of the ring of their neighbours by more than the ring's own size: spikes
+func _peaks(g: Geo) -> int:
+	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 20000.0), roundi(p.y * 20000.0), roundi(p.z * 20000.0))
+	var nb := {}
+	var ind := g.indexed()
+	for tt in g.tri_count():
+		var ps := []
+		for c in 3: ps.append(g.v[g.idx[tt * 3 + c] if ind else tt * 3 + c])
+		for c in 3:
+			var k: Vector3i = key.call(ps[c])
+			if not nb.has(k): nb[k] = [ps[c], {}]
+			for o in 3:
+				if o != c: (nb[k][1] as Dictionary)[key.call(ps[o])] = ps[o]
+	var out := 0
+	for k in nb:
+		var p: Vector3 = nb[k][0]
+		var ring: Dictionary = nb[k][1]
+		if ring.size() < 3: continue
+		var c := Vector3.ZERO
+		var el := 0.0
+		for q: Vector3 in ring.values():
+			c += q
+			el += p.distance_to(q)
+		c /= ring.size()
+		el /= ring.size()
+		if p.distance_to(c) > el * 0.9 and el > 1e-4: out += 1
+	return out
