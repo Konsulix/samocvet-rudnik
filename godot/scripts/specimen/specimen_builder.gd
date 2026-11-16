@@ -296,6 +296,7 @@ var _fb_c := PackedVector3Array()
 var _fb_r := PackedFloat32Array()
 
 var st_ref := {}
+var hurt := {}   # the find's damage from a careless dig (zcfg.dmg), for the lumps that are no crystals (RockKit.chip)
 
 func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 	return Transform3D(U.eul(e.x, e.y, e.z) * Basis.from_scale(sc), p)
@@ -384,6 +385,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	var dk := damage_of(int(o.get("integ", 100)))
 	# (a lone crystal is never snapped to a stump - the find would be gone with it; nor a group's first, its main one)
 	if dk > 0.0: zcfg.dmg = {k = dk, rng = Rng32.new((seed_v * 2246822519 + 7) % 4294967296), n = 0, stumps = not String(gene.form) in ["single", "floater", "columnar"]}
+	# (the lumps that are no crystals — a vein's quartz, a nugget, malachite — take it too: RockKit.chip)
+	hurt = zcfg.get("dmg", {})
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
 	var limonite := "limonite" in tr
 	var kind: String = o.get("kind", "crystal")
@@ -1416,13 +1419,17 @@ func _nugget(sid: String, col: Color) -> MeshInstance3D:
 	var lump := func(r: float, at: Vector3, o2 := {}) -> MeshInstance3D:
 		var o := {r = r, sx = 1.2 + rng.next() * 0.3, sy = 0.7 + rng.next() * 0.25, sz = 1.0, wave = 0.16, bumps = [[14, 0.5, 0.14], [40, 0.2, 0.05]], pits = [30, 0.12, 0.05], seg = 72}
 		o.merge(o2, true)
-		var m := U.mesh(RockKit.crumble(rng, r, Vector3(o.sx, o.sy, o.sz)), mm, root, at, U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
+		var lg: Geo = RockKit.crumble(rng, r, Vector3(o.sx, o.sy, o.sz))
+		# (the big ones knocked about by a careless dig; a speck stays a speck)
+		if r >= 0.2: RockKit.chip(lg, hurt)
+		var m := U.mesh(lg, mm, root, at, U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
 		return m
 	if not copper and rng.next() < 0.45:
 		# gold set in a lump of milky vein quartz
 		var Q := RockKit.lump(rng, {r = 0.55, sx = 1.25, sy = 0.85, sz = 1.0, wave = 0.22, bumps = [[8, 0.6, 0.12]], pits = [20, 0.15, 0.06], seg = 64})
-		var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xd2d6dc), fr = 0.0}})
+		var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xd2d6dc), fr = 0.0, scan = 4}})
 		var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.5)
+		RockKit.chip(qg, hurt)
 		first = U.mesh(qg, qm, root)
 		var n := 3 + int(floor(rng.next() * 4))
 		var k := 0
@@ -1451,10 +1458,13 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 		dirt = {h = -99.0, a = 0.3, col = crust, fr = 0.0, isl = 0.4 if copper else 0.3, fb = 0.0}})
 	# broken, not water-worn: few segments and flat faces give it the angular look of quarried quartz
 	var Q := RockKit.lump(rng, {r = 0.6, sx = 1.3 + rng.next() * 0.2, sy = 0.85, sz = 1.0, wave = 0.3, bumps = [[5, 0.9, 0.2], [12, 0.4, 0.07]], pits = [10, 0.15, 0.05], seg = 20})
-	# milky vein quartz: cold white, a little glossy
-	var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.32, coat = 0.4, coat_r = 0.2, grain = 0.2, ao = 1.0, flat = true,
-		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xc4c8ce if copper else 0xccd2da), fr = 0.0}})
+	# milky vein quartz: cold white, its grain and cracks from the white cliff scan (16.11: without a scan it was a
+	# smooth glossy lump — "soap", as the perlite was), only a little greasy
+	var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, grain = 0.2, ao = 1.0, flat = true,
+		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xc4c8ce if copper else 0xccd2da), fr = 0.0, scan = 4}})
 	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.35)
+	# a careless dig knocks pieces off the quartz (the metal then lies on what is left)
+	RockKit.chip(qg, hurt)
 	# the haze behind it: the quartz is most of the find, so a cool grey with only a hint of the metal's colour
 	# (in the metal's own colour it tinted the white stone yellow)
 	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(Color(0.2, 0.24, 0.3), 0.75))
@@ -1539,7 +1549,9 @@ func _mal_crust(col: Color, irk: float, use_rock: Callable, st: Dictionary) -> M
 		var nn: Vector3 = st.nrm.call(p)
 		var r := (0.1 + pow(rng.next(), 1.4) * 0.24) if k > 0 else 0.34
 		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 40})
-		var m := U.mesh(RockKit.tint_cav(L[0], L[1], 0.6), bm, root, p - nn * r * 0.45, U.eul(0, rng.next() * 6.3, 0))
+		var lg: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
+		if r >= 0.18: RockKit.chip(lg, hurt)
+		var m := U.mesh(lg, bm, root, p - nn * r * 0.45, U.eul(0, rng.next() * 6.3, 0))
 		if r > big:
 			big = r
 			main = m
@@ -1557,12 +1569,18 @@ func _botryoid(sid: String, col: Color, irk: float) -> void:
 			var len := 0.6 + rng.next() * 0.8
 			var L := RockKit.lump(rng, {r = 0.5, sx = 0.34 + rng.next() * 0.12, sy = len, sz = 0.34 + rng.next() * 0.12, wave = 0.05, k = 160.0, bumps = [[24, 0.38, 0.2], [70, 0.15, 0.06]], seg = 48})
 			var at := Vector3((rng.next() - 0.5) * 0.7, len * 0.35 - 0.2, (rng.next() - 0.5) * 0.5)
-			U.mesh(RockKit.tint_cav(L[0], L[1], 0.6), bm, root, at, U.eul((rng.next() - 0.5) * 0.35, rng.next() * 6.3, (rng.next() - 0.5) * 0.35))
+			var lg: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
+			RockKit.chip(lg, hurt)
+			U.mesh(lg, bm, root, at, U.eul((rng.next() - 0.5) * 0.35, rng.next() * 6.3, (rng.next() - 0.5) * 0.35))
 		var F := RockKit.lump(rng, {r = 0.55, sx = 1.3, sy = 0.35, sz = 1.0, wave = 0.1, k = 160.0, bumps = [[30, 0.32, 0.18], [90, 0.13, 0.06]], seg = 64})
-		U.mesh(RockKit.tint_cav(F[0], F[1], 0.6), bm, root, Vector3(0, -0.3, 0))
+		var fg: Geo = RockKit.tint_cav(F[0], F[1], 0.6)
+		RockKit.chip(fg, hurt)
+		U.mesh(fg, bm, root, Vector3(0, -0.3, 0))
 	else:
 		var M := RockKit.lump(rng, {r = 0.5, sx = 1.2 + rng.next() * 0.3, sy = 0.75 + rng.next() * 0.25, sz = 1.0, wave = 0.08, k = 160.0, bumps = [[30, 0.38, 0.26], [120, 0.13, 0.07]], seg = 72})
-		U.mesh(RockKit.tint_cav(M[0], M[1], 0.8), bm, root)
+		var mg: Geo = RockKit.tint_cav(M[0], M[1], 0.8)
+		RockKit.chip(mg, hurt)
+		U.mesh(mg, bm, root)
 		for k in int(floor(rng.next() * 3)):
 			var L := RockKit.lump(rng, {r = 0.16 + rng.next() * 0.12, wave = 0.06, k = 160.0, bumps = [[16, 0.5, 0.26], [40, 0.18, 0.08]], seg = 48})
 			U.mesh(RockKit.tint_cav(L[0], L[1], 0.6), bm, root, Vector3(rng.next() - 0.5, rng.next() * 0.6, rng.next() - 0.5).normalized() * 0.5)
@@ -1622,6 +1640,8 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 		at = at.slide(n) - n * (rng.next() * r * 0.7)
 		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 64})
 		var g: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
+		# (knocked about before it was sawn: the chips show as bites out of the polished face's rim)
+		if r >= 0.2: RockKit.chip(g, hurt)
 		# (each next lump's face a hair further out: no two faces fight on the same plane)
 		var on := _saw(g, at, n * (0.0015 * k), n)
 		for i in g.v.size():

@@ -285,6 +285,55 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 		var at := Vector3(s2.x * half * (0.25 + ch_d * 0.3), bb.position.y + ln * (0.35 + ch_y * 0.45), s2.z * half * (0.25 + ch_d * 0.3))
 		g.snap(at, (s2 + Vector3.UP * 0.55).normalized(), half * 0.08)
 
+## a lump hurt by a careless dig (16.11: a vein's quartz, a nugget, malachite's bubbles, a sawn slab — before, only
+## crystals showed the damage): pieces knocked off it — flat fresh breaks across the side the viewer sees and the top,
+## more and deeper the worse it is — and its skin pitted. On the damage's own stream (dm.rng): the lump is the same lump
+static func chip(g: Geo, dm: Dictionary, view := Vector3(-0.5646, 0.0, 0.8253)) -> void:
+	var k: float = dm.get("k", 0.0)
+	if k <= 0.0 or g.v.is_empty(): return
+	var dr: Rng32 = dm.rng
+	var bad := maxf(0.0, k - 0.55)
+	# (the mesh stays as it is, welded: only its points move — cut into triangles of its own, a smooth bubbly lump
+	# went flat-shaded, crumpled foil)
+	if g.col.size() != g.v.size(): g.fill_color(Color(1, 1, 1))
+	var bb := g.aabb()
+	var c := bb.get_center()
+	var sz := (bb.size.x + bb.size.y + bb.size.z) / 3.0
+	for i in 1 + int(k * 2.5 + bad * 4.0 + dr.next() * 0.8):
+		var dir := Vector3.UP
+		for t in 12:
+			dir = Vector3(dr.next() - 0.5, dr.next() - 0.35, dr.next() - 0.5).normalized()
+			if dir.dot(view) > 0.15 or dir.y > 0.55: break
+		# the break: a slice off the lump's far side that way, pressed flat with shallow conchoidal scoops, fresh —
+		# lighter than the weathered skin round it
+		var far := -INF
+		for p in g.v:
+			far = maxf(far, (p - c).dot(dir))
+		var at := c + dir * (far - sz * (0.05 + k * 0.1 + dr.next() * 0.07 + bad * 0.12))
+		var rough := sz * 0.012
+		for j in g.v.size():
+			var d := (g.v[j] - at).dot(dir)
+			if d <= 0.0: continue
+			var p := g.v[j] - dir * d
+			var w := sin(p.x * 41.0 + p.z * 17.0) * sin(p.y * 37.0 - p.x * 23.0) * 0.5 + 0.5
+			g.v[j] = p - dir * rough * w
+			var cc := g.col[j]
+			g.col[j] = Color(minf(1.0, cc.r * 0.6 + 0.45), minf(1.0, cc.g * 0.6 + 0.45), minf(1.0, cc.b * 0.6 + 0.45), cc.a)
+	# pits knocked into the skin: little dents, more and deeper the worse it is, darker in the bottom
+	var cell := FastNoiseLite.new()
+	cell.seed = int(dr.next() * 100000)
+	cell.noise_type = FastNoiseLite.TYPE_CELLULAR
+	cell.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	cell.frequency = 5.0 / maxf(0.02, sz)
+	var nr := g.normals()
+	var thr := 0.08 + k * 0.22 + bad * 0.2
+	for j in g.v.size():
+		var e := (cell.get_noise_3dv(g.v[j]) + 1.0) * 0.5
+		if e >= thr: continue
+		var pit := sqrt(1.0 - e / thr)
+		g.v[j] -= nr[j] * pit * sz * (0.025 + k * 0.03)
+		g.col[j] = g.col[j] * Color(1.0 - pit * 0.4, 1.0 - pit * 0.4, 1.0 - pit * 0.4, 1.0)
+
 ## a chunky column: uneven polygon section, slanted broken top or a point, foot sunk into the rock
 ## o: {sides, w, d, h, point, slope, taper, y0}; zc: colour zoning as in crystal()
 static func prism(rng: Rng32, o: Dictionary, zc: Dictionary) -> Geo:
