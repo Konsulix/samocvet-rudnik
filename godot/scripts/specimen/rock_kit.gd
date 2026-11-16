@@ -285,10 +285,9 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 		var at := Vector3(s2.x * half * (0.25 + ch_d * 0.3), bb.position.y + ln * (0.35 + ch_y * 0.45), s2.z * half * (0.25 + ch_d * 0.3))
 		g.snap(at, (s2 + Vector3.UP * 0.55).normalized(), half * 0.08)
 
-## a lump hurt by a careless dig (16.11: a vein's quartz, a nugget, malachite's bubbles, a sawn slab — before, only
-## crystals showed the damage): pieces knocked off it — flat fresh breaks across the side the viewer sees and the top,
+## a lump knocked about (16.11; now malachite's own lopsided, dented surface, SpecimenBuilder._lumpy): pieces knocked off it — flat fresh breaks across the side the viewer sees and the top,
 ## more and deeper the worse it is — and its skin pitted. On the damage's own stream (dm.rng): the lump is the same lump
-static func chip(g: Geo, dm: Dictionary, mark := false, view := Vector3(-0.5646, 0.0, 0.8253)) -> void:
+static func chip(g: Geo, dm: Dictionary, view := Vector3(-0.5646, 0.0, 0.8253)) -> void:
 	var k: float = dm.get("k", 0.0)
 	if k <= 0.0 or g.v.is_empty(): return
 	var dr: Rng32 = dm.rng
@@ -318,8 +317,7 @@ static func chip(g: Geo, dm: Dictionary, mark := false, view := Vector3(-0.5646,
 			var w := sin(p.x * 41.0 + p.z * 17.0) * sin(p.y * 37.0 - p.x * 23.0) * 0.5 + 0.5
 			g.v[j] = p - dir * rough * w
 			var cc := g.col[j]
-			# (alpha 0.5 marks the break: breaks() lifts it off as a mesh of its own, for a fresh glassy material)
-			g.col[j] = Color(minf(1.0, cc.r * 0.6 + 0.45), minf(1.0, cc.g * 0.6 + 0.45), minf(1.0, cc.b * 0.6 + 0.45), BREAK_A if mark else cc.a)
+			g.col[j] = Color(minf(1.0, cc.r * 0.6 + 0.45), minf(1.0, cc.g * 0.6 + 0.45), minf(1.0, cc.b * 0.6 + 0.45), cc.a)
 	# pits knocked into the skin: little dents, more and deeper the worse it is, darker in the bottom
 	var cell := FastNoiseLite.new()
 	cell.seed = int(dr.next() * 100000)
@@ -334,27 +332,6 @@ static func chip(g: Geo, dm: Dictionary, mark := false, view := Vector3(-0.5646,
 		var pit := sqrt(1.0 - e / thr)
 		g.v[j] -= nr[j] * pit * sz * (0.025 + k * 0.03)
 		g.col[j] = g.col[j] * Color(1.0 - pit * 0.4, 1.0 - pit * 0.4, 1.0 - pit * 0.4, 1.0)
-
-const BREAK_A := 0.5
-
-## a chipped lump's fresh breaks (RockKit.chip) lifted off it: [the weathered rest, the breaks] — triangles with all
-## three corners on a break go to the second; both share the points, so the seam between them is closed.
-## The breaks are empty when it was never hurt
-static func breaks(g: Geo) -> Array[Geo]:
-	var rest := Geo.new()
-	var brk := Geo.new()
-	if g.col.size() != g.v.size() or not g.indexed():
-		rest.v = g.v
-		rest.col = g.col
-		rest.idx = g.idx
-		return [rest, brk]
-	for x: Geo in [rest, brk]:
-		x.v = g.v
-		x.col = g.col
-	for t in range(0, g.idx.size(), 3):
-		var f := g.col[g.idx[t]].a < 0.75 and g.col[g.idx[t + 1]].a < 0.75 and g.col[g.idx[t + 2]].a < 0.75
-		(brk if f else rest).idx.append_array([g.idx[t], g.idx[t + 1], g.idx[t + 2]])
-	return [rest, brk]
 
 ## a chunky column: uneven polygon section, slanted broken top or a point, foot sunk into the rock
 ## o: {sides, w, d, h, point, slope, taper, y0}; zc: colour zoning as in crystal()

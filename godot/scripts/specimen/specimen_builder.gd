@@ -296,7 +296,16 @@ var _fb_c := PackedVector3Array()
 var _fb_r := PackedFloat32Array()
 
 var st_ref := {}
-var hurt := {}   # the find's damage from a careless dig (zcfg.dmg), for the lumps that are no crystals (RockKit.chip)
+var hurt := {}   # the find's damage from a careless dig (zcfg.dmg), for the lumps that are no crystals (_shatter)
+var seed0 := 1
+var _lumpy_d := {}
+
+## (16.11) malachite's own surface, whole as it is: lopsided, bumped and dented — what a chipped lump (RockKit.chip at
+## the strength of a Damaged find) looked like, which the user found the truer malachite; its own stream
+func _lumpy() -> Dictionary:
+	if _lumpy_d.is_empty():
+		_lumpy_d = {k = 0.78, rng = Rng32.new((seed0 * 3266489917 + 101) % 4294967296)}
+	return _lumpy_d
 
 func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 	return Transform3D(U.eul(e.x, e.y, e.z) * Basis.from_scale(sc), p)
@@ -304,6 +313,7 @@ func _rot_inst(p: Vector3, e: Vector3, sc: Vector3) -> Transform3D:
 func _specimen(o: Dictionary) -> Node3D:
 	var seed_v: int = int(o.get("seed", 1))
 	if seed_v == 0: seed_v = 1
+	seed0 = seed_v
 	rng = Rng32.new((seed_v * 2654435761) % 4294967296)
 	var sid: String = o.get("sid", "quartz")
 	var sp: Dictionary = Data.SP.get(sid, Data.SP.quartz)
@@ -1395,6 +1405,9 @@ func _specimen(o: Dictionary) -> Node3D:
 		dt.h = maxf(float(dt.h), 0.25) + 0.12
 		dt.a = 0.5
 		if main: _mark_on("limonite", main)
+	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11)
+	if hurt.size() and (layout in ["vein", "nugget"] or (sid == "malachite" and layout in ["botryoid", "sawn"])):
+		_shatter()
 	_finish()
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
@@ -1409,6 +1422,260 @@ func _specimen(o: Dictionary) -> Node3D:
 	st_ref = {}   # (its closures hold the builder: let it go)
 	return root
 
+## (16.11) a lump that is no crystal (a vein's quartz with its metal, a nugget, malachite) hurt by a careless dig is not
+## pitted and scribbled on ("plastic with a pen line across it") — it is broken: Chipped, a piece knocked off one end
+## lies beside it; Damaged, it is split through, two pieces apart (the worst, three), each fracture rough and in the
+## stone's own stuff, the faces turned to the viewer; crumbs and splinters of it at the foot. Everything grown on a
+## piece goes with it. On the damage's own stream: the find is the same find, broken
+func _shatter() -> void:
+	var k: float = hurt.get("k", 0.0)
+	if k < 0.2: return   # (Fine and better: whole)
+	var dr: Rng32 = hurt.rng
+	var cuts: Array = []
+	if k < 0.56: cuts = [0.8 + dr.next() * 0.08]                        # Chipped: an end knocked off
+	else:
+		cuts = [0.42 + dr.next() * 0.16]                                 # Damaged: through the middle
+		if k > 0.7 and dr.next() < 0.6: cuts.append(0.7 + dr.next() * 0.1)   # and an end off one half
+	var across := UP.cross(VIEW_DIR).normalized()   # (the pieces part sideways across the picture)
+	var pieces: Array = [root.get_children()]
+	for ci in cuts.size():
+		# the biggest piece breaks
+		var gi := 0
+		var best := -1.0
+		for i in pieces.size():
+			var bx := _box_of(pieces[i] as Array)
+			if bx.size.length() > best:
+				best = bx.size.length()
+				gi = i
+		var grp: Array = pieces[gi]
+		var bb := _box_of(grp)
+		var n := (across * (1.0 if dr.next() < 0.5 else -1.0) + Vector3(0, (dr.next() - 0.5) * 0.6, 0) + VIEW_DIR * (dr.next() - 0.5) * 0.5).normalized()
+		# the plane at a share of the way across the piece along n
+		var lo := INF
+		var hi := -INF
+		for nd: Node in grp:
+			for p: Vector3 in _pts_of(nd):
+				lo = minf(lo, p.dot(n))
+				hi = maxf(hi, p.dot(n))
+		if lo > hi: continue
+		var at := n * lerpf(lo, hi, float(cuts[ci]))
+		var rough := FastNoiseLite.new()
+		rough.seed = int(dr.next() * 100000)
+		rough.frequency = 4.0 / maxf(0.1, bb.size.length())
+		rough.fractal_octaves = 3
+		var amp := bb.size.length() * 0.035
+		var a_side: Array = []
+		var b_side: Array = []
+		for nd: Node in grp:
+			var parts := _cut_node(nd, at, n, rough, amp)
+			a_side.append_array(parts[0])
+			b_side.append_array(parts[1])
+		# the piece beyond the break: pushed off along n, turned about the upright so its fresh face shows to the viewer,
+		# tipped over away from the rest; then set down on the same ground
+		# (gently: turned hard into the studio's lamps a glossy skin flared white, like glass; a sawn slab keeps its polished
+		# face to the viewer)
+		var flat: bool = String(gene_m.get("form", "")) == "sawn"
+		var turn := (0.2 + dr.next() * 0.2) * (0.4 if flat else 1.0) * (1.0 if (-n).rotated(UP, 0.1).dot(VIEW_DIR) > (-n).dot(VIEW_DIR) else -1.0)
+		var tip := (0.08 + dr.next() * 0.17) * (0.2 if flat else 1.0)
+		var pivot := Vector3(at.x, bb.position.y, at.z)
+		# (tipped about UP x n: its top falls away, its fresh face looks up a little)
+		var tb := Transform3D(Basis(UP.cross(n).normalized(), tip) * Basis(UP, turn), Vector3.ZERO)
+		tb = Transform3D(Basis.IDENTITY, pivot + n * bb.size.length() * (0.06 + dr.next() * 0.08 + (0.05 if ci == 0 and cuts.size() > 1 else 0.0))) * tb * Transform3D(Basis.IDENTITY, -pivot)
+		# the callouts of what grew beyond the break go with it
+		var marks: Array = []
+		for id in grown:
+			for e: Array in grown[id]:
+				if ((e[0] as Vector3) - at).dot(n) > 0.0: marks.append(e)
+		_move(b_side, marks, tb)
+		var drop := _box_of(b_side).position.y - _box_of(a_side).position.y
+		_move(b_side, marks, Transform3D(Basis.IDENTITY, Vector3(0, -drop, 0)))
+		pieces[gi] = a_side
+		pieces.append(b_side)
+	# crumbs and splinters at the foot, of the stone's own stuff, most on the side the viewer sees
+	var all_n: Array = []
+	for g: Array in pieces: all_n.append_array(g)
+	var box := _box_of(all_n)
+	var mats: Array = []
+	for nd: Node in all_n:
+		if nd is MeshInstance3D and nd.has_meta("geo") and (nd as MeshInstance3D).material_override:
+			var gs := _box_of([nd]).size.length()
+			if gs > box.size.length() * 0.3: mats.append((nd as MeshInstance3D).material_override)
+	if mats.is_empty(): return
+	var ext := box.size.length()
+	for i in int(8 + k * 18):
+		# lying flat on the ground, small: crumbs and the odd flat splinter
+		var r := ext * (0.008 + pow(dr.next(), 2.0) * 0.026)
+		var sc := Vector3(1.0 + dr.next() * 0.6, 0.45 + dr.next() * 0.3, 0.8 + dr.next() * 0.4) if dr.next() < 0.7 else Vector3(1.6 + dr.next() * 0.8, 0.22, 0.55)
+		var p := Vector3(box.get_center().x + (dr.next() - 0.5) * box.size.x * 0.95, box.position.y + r * sc.y * 0.5, box.get_center().z + (dr.next() - 0.5) * box.size.z * 0.95)
+		p += VIEW_DIR * ext * 0.1 * dr.next()
+		U.mesh(RockKit.crumble(dr, r, sc, 8), mats[int(dr.next() * mats.size()) % mats.size()], root, p, U.eul((dr.next() - 0.5) * 0.4, dr.next() * 6.3, (dr.next() - 0.5) * 0.4))
+
+## the points of a node, in the find's space (a mesh's own; a multimesh's copies; anything else its place)
+func _pts_of(nd: Node) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	if not nd is Node3D: return out
+	var t := U.rel_xform(nd as Node3D, root)
+	if nd is MeshInstance3D and nd.has_meta("geo"):
+		var g: Geo = nd.get_meta("geo")
+		var step := maxi(1, g.v.size() / 400)
+		for i in range(0, g.v.size(), step): out.append(t * g.v[i])
+	elif nd is MultiMeshInstance3D:
+		var b: PackedFloat32Array = nd.get_meta("ibuf", nd.get_meta("mmbuf", PackedFloat32Array()))
+		for i in b.size() / 16: out.append(t * Vector3(b[i * 16 + 3], b[i * 16 + 7], b[i * 16 + 11]))
+	else:
+		out.append(t.origin)
+	return out
+
+func _box_of(nodes: Array) -> AABB:
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	for nd: Node in nodes:
+		for p in _pts_of(nd):
+			lo = lo.min(p)
+			hi = hi.max(p)
+	return AABB(lo, hi - lo) if lo.x <= hi.x else AABB()
+
+## one node split by the plane (at, n): [nodes on the near side, nodes beyond]. A mesh crossing it is cut in two,
+## each half closed by the rough fracture (its own mesh, so the edge round it is sharp); a multimesh's copies are
+## shared out; anything else goes whole to the side its middle is on
+func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float) -> Array:
+	if not nd is Node3D: return [[nd], []]
+	var t := U.rel_xform(nd as Node3D, root)
+	if nd is MeshInstance3D and nd.has_meta("geo"):
+		var g: Geo = nd.get_meta("geo")
+		var nb := 0
+		for i in g.v.size():
+			if (t * g.v[i] - at).dot(n) > 0.0: nb += 1
+		if nb == 0: return [[nd], []]
+		if nb == g.v.size(): return [[], [nd]]
+		var mi := nd as MeshInstance3D
+		var halves := [_half(g, t, at, n, rough, amp, false), _half(g, t, at, n, rough, amp, true)]
+		var out := [[], []]
+		for h in 2:
+			for part: Geo in halves[h]:
+				if part.idx.is_empty(): continue
+				var m := MeshInstance3D.new()
+				for mk in nd.get_meta_list(): m.set_meta(mk, nd.get_meta(mk))
+				m.set_meta("geo", part)
+				m.material_override = mi.material_override
+				# (the fracture: matte and silky, not polished — glossy it read as glass or plastic)
+				if part == (halves[h] as Array)[1] and mi.material_override is ShaderMaterial: m.material_override = _matte(mi.material_override)
+				m.transform = mi.transform
+				if mi.mesh: m.mesh = part.to_mesh()
+				nd.get_parent().add_child(m)
+				(out[h] as Array).append(m)
+		nd.get_parent().remove_child(nd)
+		nd.free()
+		return out
+	if nd is MultiMeshInstance3D:
+		var mmi := nd as MultiMeshInstance3D
+		var key := "ibuf" if nd.has_meta("ibuf") else "mmbuf" if nd.has_meta("mmbuf") else ""
+		if key != "" and mmi.multimesh:
+			var b: PackedFloat32Array = nd.get_meta(key)
+			var ba := PackedFloat32Array()
+			var bb2 := PackedFloat32Array()
+			for i in b.size() / 16:
+				var o := t * Vector3(b[i * 16 + 3], b[i * 16 + 7], b[i * 16 + 11])
+				if (o - at).dot(n) > 0.0: bb2.append_array(b.slice(i * 16, i * 16 + 16))
+				else: ba.append_array(b.slice(i * 16, i * 16 + 16))
+			if bb2.is_empty(): return [[nd], []]
+			if ba.is_empty(): return [[], [nd]]
+			var mk2 := func(buf: PackedFloat32Array) -> MultiMeshInstance3D:
+				var mm := MultiMesh.new()
+				mm.transform_format = MultiMesh.TRANSFORM_3D
+				mm.use_colors = mmi.multimesh.use_colors
+				mm.use_custom_data = mmi.multimesh.use_custom_data
+				mm.mesh = mmi.multimesh.mesh
+				mm.instance_count = buf.size() / 16
+				# (a buffer laid out with custom data is wider: copies are only shared out when it is the plain one)
+				mm.buffer = buf
+				var x := MultiMeshInstance3D.new()
+				for m3 in nd.get_meta_list(): x.set_meta(m3, nd.get_meta(m3))
+				x.set_meta(key, buf)
+				x.multimesh = mm
+				x.material_override = mmi.material_override
+				x.transform = mmi.transform
+				nd.get_parent().add_child(x)
+				return x
+			if mmi.multimesh.use_custom_data: return [[nd], []] if _side_of(nd, at, n) <= 0.0 else [[], [nd]]
+			var xa: MultiMeshInstance3D = mk2.call(ba)
+			var xb: MultiMeshInstance3D = mk2.call(bb2)
+			nd.get_parent().remove_child(nd)
+			nd.free()
+			return [[xa], [xb]]
+	return [[nd], []] if _side_of(nd, at, n) <= 0.0 else [[], [nd]]
+
+var _mattes := {}
+func _matte(m: ShaderMaterial) -> ShaderMaterial:
+	if not _mattes.has(m):
+		var c := U.mat_copy(m)
+		# (no coat, a dull sheen, no film: the studio's lamps on a flat glossy face flared it white, glass)
+		c.set_shader_parameter("rough", maxf(0.45, float(m.get_shader_parameter("rough"))))
+		c.set_shader_parameter("coat", 0.0)
+		c.set_shader_parameter("spec", 0.2)
+		c.set_shader_parameter("ir_k", 0.0)
+		if m in dt_mats: dt_mats.append(c)
+		_mattes[m] = c
+	return _mattes[m]
+
+func _side_of(nd: Node, at: Vector3, n: Vector3) -> float:
+	var pts := _pts_of(nd)
+	if pts.is_empty(): return -1.0
+	var c := Vector3.ZERO
+	for p in pts: c += p / pts.size()
+	return (c - at).dot(n)
+
+## one side of a mesh cut by the plane (beyond: the far side): its points over the plane pressed onto it, the plane
+## made rough by the noise (the same for both halves: they fit); [the skin, the fracture] sharing the points
+func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float, beyond: bool) -> Array:
+	var s := 1.0 if beyond else -1.0
+	var w := Geo.new()
+	w.v = g.v.duplicate()
+	w.col = g.col.duplicate() if g.col.size() == g.v.size() else PackedColorArray()
+	if w.col.is_empty(): w.fill_color(Color(1, 1, 1))
+	var ix := g.idx.duplicate()
+	if ix.is_empty():
+		ix.resize(g.v.size())
+		for i in g.v.size(): ix[i] = i
+	var ti := t.affine_inverse()
+	var on := PackedByteArray()
+	on.resize(w.v.size())
+	for i in w.v.size():
+		var p := t * w.v[i]
+		var d := (p - at).dot(n) * -s
+		if d <= 0.0: continue   # (on this half's own side)
+		var q := p + n * s * d
+		q += n * rough.get_noise_3dv(q) * amp
+		w.v[i] = ti * q
+		on[i] = 1
+		# fresh stone: no weathering in the hollows (a touch below the skin's brightest: a fresh face washed out pale)
+		w.col[i] = Color(0.85, 0.85, 0.85, w.col[i].a)
+	var skin := Geo.new()
+	var face := Geo.new()
+	for x: Geo in [skin, face]:
+		x.v = w.v
+		x.col = w.col
+	for k in range(0, ix.size(), 3):
+		var f := on[ix[k]] == 1 and on[ix[k + 1]] == 1 and on[ix[k + 2]] == 1
+		if f:
+			# the whole far side pressed flat lies on the plane twice — its upper and its under skin, facing opposite
+			# ways (they fought: glassy streaks): only the sheet facing out of this half is the fracture
+			var a := w.v[ix[k]]
+			var b := w.v[ix[k + 1]]
+			var c := w.v[ix[k + 2]]
+			var fn := t.basis * (c - b).cross(a - b)
+			if fn.dot(n) * -s <= 0.0: continue
+		(face if f else skin).idx.append_array([ix[k], ix[k + 1], ix[k + 2]])
+	return [skin, face]
+
+## a piece moved by `tf` in the find's space: its nodes, and the marks ([point, normal], callouts) of what grew on it
+func _move(nodes: Array, marks: Array, tf: Transform3D) -> void:
+	for nd: Node in nodes:
+		if nd is Node3D: (nd as Node3D).transform = tf * (nd as Node3D).transform
+	for e: Array in marks:
+		e[0] = tf * (e[0] as Vector3)
+		if (e[1] as Vector3) != Vector3.ZERO: e[1] = tf.basis * (e[1] as Vector3)
+
 # native metal: soft rounded lumps, hammered and pitted, with iron-oxide (or green patina on copper) packed into the hollows
 func _nugget(sid: String, col: Color) -> MeshInstance3D:
 	var copper := sid == "nativecu"
@@ -1419,17 +1686,13 @@ func _nugget(sid: String, col: Color) -> MeshInstance3D:
 	var lump := func(r: float, at: Vector3, o2 := {}) -> MeshInstance3D:
 		var o := {r = r, sx = 1.2 + rng.next() * 0.3, sy = 0.7 + rng.next() * 0.25, sz = 1.0, wave = 0.16, bumps = [[14, 0.5, 0.14], [40, 0.2, 0.05]], pits = [30, 0.12, 0.05], seg = 72}
 		o.merge(o2, true)
-		var lg: Geo = RockKit.crumble(rng, r, Vector3(o.sx, o.sy, o.sz))
-		# (the big ones knocked about by a careless dig; a speck stays a speck)
-		if r >= 0.2: RockKit.chip(lg, hurt)
-		var m := U.mesh(lg, mm, root, at, U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
+		var m := U.mesh(RockKit.crumble(rng, r, Vector3(o.sx, o.sy, o.sz)), mm, root, at, U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
 		return m
 	if not copper and rng.next() < 0.45:
 		# gold set in a lump of milky vein quartz
 		var Q := RockKit.lump(rng, {r = 0.55, sx = 1.25, sy = 0.85, sz = 1.0, wave = 0.22, bumps = [[8, 0.6, 0.12]], pits = [20, 0.15, 0.06], seg = 64})
 		var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.6, grain = 0.3, ao = 1.0, dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xd2d6dc), fr = 0.0, scan = 4}})
 		var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.5)
-		RockKit.chip(qg, hurt)
 		first = U.mesh(qg, qm, root)
 		var n := 3 + int(floor(rng.next() * 4))
 		var k := 0
@@ -1463,20 +1726,11 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 	var qm := SpecMat.make({col = Color(1, 1, 1), rough = 0.5, coat = 0.15, coat_r = 0.3, grain = 0.2, ao = 1.0, flat = true,
 		dirt = {h = 99.0, a = 0.3, col = SpecMat.lin(0xc4c8ce if copper else 0xccd2da), fr = 0.0, scan = 4}})
 	var qg: Geo = RockKit.tint_cav(Q[0], Q[1], 0.35)
-	# a careless dig knocks pieces off the quartz (the metal then lies on what is left)
-	RockKit.chip(qg, hurt, true)
 	# the haze behind it: the quartz is most of the find, so a cool grey with only a hint of the metal's colour
 	# (in the metal's own colour it tinted the white stone yellow)
 	root.set_meta("glow", (root.get_meta("glow", col) as Color).lerp(Color(0.2, 0.24, 0.3), 0.75))
-	# (16.11) a fresh break is not the weathered skin: glassy, grey, glossy — the chalky crust round it says "knocked
-	# off"; in the skin's own scan it read as one more face of a quarried stone ("damaged in what?")
-	var parts := RockKit.breaks(qg)
-	var main := U.mesh(parts[0], qm, root)
-	if (parts[1] as Geo).idx.size():
-		var bm := SpecMat.make({col = SpecMat.lin(0xaab2ba), rough = 0.1, coat = 0.9, coat_r = 0.04, env = 1.6, grain = 0.04, flat = true})
-		U.mesh(parts[1], bm, root)
+	var main := U.mesh(qg, qm, root)
 	var qn := qg.normals()
-	var whole := func(vi: int) -> bool: return qg.col[vi].a > 0.75
 	var near := func(p: Vector3) -> int:
 		var best := 0
 		var bd := INF
@@ -1488,8 +1742,7 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 		return best
 	# the cracks run over the side the viewer sees (every find is shown turned 0.6 about y) and over the top
 	var view := Basis(UP, -0.6) * Vector3.BACK
-	# (never on a fresh break: the metal there went with the piece knocked off)
-	var seen := func(vi: int) -> bool: return (qn[vi].dot(view) > 0.25 or qn[vi].y > 0.6) and whole.call(vi)
+	var seen := func(vi: int) -> bool: return qn[vi].dot(view) > 0.25 or qn[vi].y > 0.6
 	# the crack itself: a dark seam (sulphides) the metal sits in
 	var seam := SpecMat.make({col = SpecMat.lin(0x2a2622), rough = 0.6, metal = 0.3})
 	for c in 3 + int(rng.next() * 3):
@@ -1504,13 +1757,9 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 			var nv: Vector3 = qn[vi]
 			var sz := w * (0.5 + rng.next() * 0.9)
 			var bs := Basis(U.quat_to(UP, nv)) * Basis(UP, rng.next() * TAU)
-			# (none on a fresh break: it went with the piece knocked off)
-			var ok: bool = whole.call(vi)
-			var sg := RockKit.crumble(rng, sz * 0.9, Vector3(1.3, 0.1, 0.32))
-			if ok: U.mesh(sg, seam, root, qg.v[vi] - nv * sz * 0.05, bs)
+			U.mesh(RockKit.crumble(rng, sz * 0.9, Vector3(1.3, 0.1, 0.32)), seam, root, qg.v[vi] - nv * sz * 0.05, bs)
 			if rng.next() < 0.7:
-				var mg := RockKit.crumble(rng, sz, Vector3(1.6, 0.4, 1.1))
-				if ok: U.mesh(mg, mm, root, qg.v[vi] + nv * sz * 0.04, bs)
+				U.mesh(RockKit.crumble(rng, sz, Vector3(1.6, 0.4, 1.1)), mm, root, qg.v[vi] + nv * sz * 0.04, bs)
 			# along the crack: a step forward, wandering, back onto the stone
 			d = (d + Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5) * 0.7).normalized()
 			d = (d - nv * d.dot(nv)).normalized()
@@ -1531,51 +1780,7 @@ func _vein(sid: String, col: Color) -> MeshInstance3D:
 			vi = int(rng.next() * qg.v.size())
 		var sz := 0.025 + rng.next() * 0.045
 		U.mesh(RockKit.crumble(rng, sz, Vector3(1.3, 0.4, 1.0)), mm, root, qg.v[vi] - qn[vi] * sz * 0.1, Basis(U.quat_to(UP, qn[vi])))
-	_hairlines(qg, qn, view)
 	return main
-
-## (16.11) a hurt stone cracked by the blows: dark hairlines wandering over the side the viewer sees, out from the
-## fresh breaks — more and longer the worse it is. On the damage's own stream; none on an unhurt stone
-func _hairlines(qg: Geo, qn: PackedVector3Array, view: Vector3) -> void:
-	var k: float = hurt.get("k", 0.0)
-	if k <= 0.0: return
-	var dr: Rng32 = hurt.rng
-	var hm := SpecMat.make({col = SpecMat.lin(0x1c1a18), rough = 0.85})
-	var seg := Geo.box(1.0, 1.0, 1.0)
-	var lines := 2 + int(k * 5.0 + dr.next() * 1.5)
-	var surf := SpecSurf.new()
-	surf.add(qg, qn)
-	var buf := []
-	for c in lines:
-		# start on a break's rim where there is one (the blow that knocked it off cracked the rest), else anywhere seen
-		var vi := int(dr.next() * qg.v.size())
-		for t in 80:
-			var on_rim := qg.col[vi].a < 0.75
-			if (qn[vi].dot(view) > 0.2 or qn[vi].y > 0.5) and (on_rim or t > 40): break
-			vi = int(dr.next() * qg.v.size())
-		var p := qg.v[vi] + qn[vi] * 0.003
-		var nv := qn[vi]
-		var d := nv.cross(Vector3.UP if absf(nv.y) < 0.9 else Vector3.RIGHT).normalized().rotated(nv, dr.next() * TAU)
-		var step := 0.035
-		for s in int((10 + dr.next() * 12) * (0.6 + k)):
-			# back onto the real surface (a hair above it: the nearest vertex of the coarse quartz left it in the air)
-			var hit := surf.closest(p + d * step)
-			if hit.is_empty(): break
-			nv = hit[1]
-			# (over the rim to the far side: it stops — seen against the sky it hung in the air)
-			if nv.dot(view) < 0.05 and nv.y < 0.3: break
-			var q: Vector3 = (hit[0] as Vector3) + nv * 0.003
-			var dd := q - p
-			if dd.length() < 0.001: break
-			var w := 0.006 + 0.006 * k * (1.0 - float(s) / 30.0)
-			buf.append(Transform3D(Basis(U.quat_to(Vector3.RIGHT, dd.normalized())) * Basis.from_scale(Vector3(dd.length() * 1.15, w * 0.5, maxf(0.003, w))), (p + q) * 0.5))
-			p = q
-			d = (dd.normalized() + Vector3(dr.next() - 0.5, dr.next() - 0.5, dr.next() - 0.5) * 0.9).normalized()
-			d = (d - nv * d.dot(nv)).normalized()
-			# a branch now and then
-			if dr.next() < 0.06: d = d.rotated(nv, (dr.next() - 0.5) * 2.0)
-	if buf.size():
-		U.inst(seg, hm, buf.size(), func(i: int) -> Array: return [buf[i], Color(1, 1, 1)], root)
 
 # one flowing mass of melted-together grapes (or a stand of rounded stalagmites), banded like a polished slab, weathered in the hollows
 ## the lumpy species' material: banded, glossy (malachite deep green, its bands near black)
@@ -1606,7 +1811,7 @@ func _mal_crust(col: Color, irk: float, use_rock: Callable, st: Dictionary) -> M
 		var r := (0.1 + pow(rng.next(), 1.4) * 0.24) if k > 0 else 0.34
 		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 40})
 		var lg: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
-		if r >= 0.18: RockKit.chip(lg, hurt)
+		if r >= 0.18: RockKit.chip(lg, _lumpy())
 		var m := U.mesh(lg, bm, root, p - nn * r * 0.45, U.eul(0, rng.next() * 6.3, 0))
 		if r > big:
 			big = r
@@ -1626,16 +1831,16 @@ func _botryoid(sid: String, col: Color, irk: float) -> void:
 			var L := RockKit.lump(rng, {r = 0.5, sx = 0.34 + rng.next() * 0.12, sy = len, sz = 0.34 + rng.next() * 0.12, wave = 0.05, k = 160.0, bumps = [[24, 0.38, 0.2], [70, 0.15, 0.06]], seg = 48})
 			var at := Vector3((rng.next() - 0.5) * 0.7, len * 0.35 - 0.2, (rng.next() - 0.5) * 0.5)
 			var lg: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
-			RockKit.chip(lg, hurt)
+			if sid == "malachite": RockKit.chip(lg, _lumpy())
 			U.mesh(lg, bm, root, at, U.eul((rng.next() - 0.5) * 0.35, rng.next() * 6.3, (rng.next() - 0.5) * 0.35))
 		var F := RockKit.lump(rng, {r = 0.55, sx = 1.3, sy = 0.35, sz = 1.0, wave = 0.1, k = 160.0, bumps = [[30, 0.32, 0.18], [90, 0.13, 0.06]], seg = 64})
 		var fg: Geo = RockKit.tint_cav(F[0], F[1], 0.6)
-		RockKit.chip(fg, hurt)
+		if sid == "malachite": RockKit.chip(fg, _lumpy())
 		U.mesh(fg, bm, root, Vector3(0, -0.3, 0))
 	else:
 		var M := RockKit.lump(rng, {r = 0.5, sx = 1.2 + rng.next() * 0.3, sy = 0.75 + rng.next() * 0.25, sz = 1.0, wave = 0.08, k = 160.0, bumps = [[30, 0.38, 0.26], [120, 0.13, 0.07]], seg = 72})
 		var mg: Geo = RockKit.tint_cav(M[0], M[1], 0.8)
-		RockKit.chip(mg, hurt)
+		if sid == "malachite": RockKit.chip(mg, _lumpy())
 		U.mesh(mg, bm, root)
 		for k in int(floor(rng.next() * 3)):
 			var L := RockKit.lump(rng, {r = 0.16 + rng.next() * 0.12, wave = 0.06, k = 160.0, bumps = [[16, 0.5, 0.26], [40, 0.18, 0.08]], seg = 48})
@@ -1697,7 +1902,7 @@ func _sawn(sid: String, col: Color) -> MeshInstance3D:
 		var L := RockKit.lump(rng, {r = r, wave = 0.06, k = 160.0, bumps = [[16, 0.38, 0.2], [50, 0.15, 0.06]], seg = 64})
 		var g: Geo = RockKit.tint_cav(L[0], L[1], 0.6)
 		# (knocked about before it was sawn: the chips show as bites out of the polished face's rim)
-		if r >= 0.2: RockKit.chip(g, hurt)
+		if r >= 0.2 and not rho: RockKit.chip(g, _lumpy())
 		# (each next lump's face a hair further out: no two faces fight on the same plane)
 		var on := _saw(g, at, n * (0.0015 * k), n)
 		for i in g.v.size():
