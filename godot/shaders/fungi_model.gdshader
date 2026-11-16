@@ -15,9 +15,6 @@ uniform float rough = 0.55;
 uniform float glow = 0.0;
 uniform float sway = 0.0;   // (the flowers, SpecFlora: the top leans to and fro, each plant to its own beat — the instance's alpha)
 uniform float back_k = 1.0;   // (how much light comes through from behind: a petal's full, a crab's shell or a sea shell little)
-uniform float haze = 0.0;   // (a swimmer far off: the water between greys it into the deep)
-uniform vec3 haze_col : source_color = vec3(0.07, 0.13, 0.16);
-uniform float swim = 0.0;   // (the sea's swimmers, SpecReef: a wave runs down the body from the head, +x, to the tail)
 uniform vec3 glow_col = vec3(0.03, 0.6, 0.17);
 uniform float cap_from = 0.62;   // (the cap: this far up the mushroom, of its height)
 global uniform float fluor_uv;
@@ -33,24 +30,18 @@ void vertex() {
 		VERTEX.x += (sin(TIME * 1.15 + ph) + 0.4 * sin(TIME * 2.7 + ph * 1.7)) * sway * h;
 		VERTEX.z += cos(TIME * 0.9 + ph * 1.3) * sway * 0.7 * h;
 	}
-	if (swim > 0.0) {
-		// (the head holds its line, the tail sweeps the most)
-		float back = clamp(0.5 - VERTEX.x, 0.0, 1.0);
-		VERTEX.z += sin(TIME * 3.2 + VERTEX.x * 6.0) * swim * (0.12 + back * back);
-	}
 }
 
 void fragment() {
 	vec3 c = texture(tex_d, UV).rgb;
 	float l = dot(c, vec3(0.3, 0.5, 0.2));
 	c = mix(vec3(l), c, sat) * gain * tint * COLOR.rgb;
-	c = mix(c, haze_col, haze);
 	ALBEDO = c;
 	// (the relief only on the side it was baked for: on a petal's far side it turned the normal into the petal, and
 	// where a petal curls over — a rose's heart — that side went black)
 	NORMAL_MAP = FRONT_FACING ? texture(tex_n, UV).rgb : vec3(0.5, 0.5, 1.0);
-	ROUGHNESS = mix(rough, 1.0, haze);
-	SPECULAR = 0.35 * (1.0 - haze);
+	ROUGHNESS = rough;
+	SPECULAR = 0.35;
 	// (thin flesh: a little of the light behind comes through)
 	BACKLIGHT = c * 0.2 * back_k;
 	// the far side of a petal or a leaf (a scan is one thin sheet): lit through from the side the light falls on, as a
@@ -61,5 +52,5 @@ void fragment() {
 	float br = (0.8 + 0.2 * sin(TIME * 1.3 + v_op.y * 4.0)) * (1.0 + fluor_uv * 1.5);
 	// (the hottest of it goes a little white, as a light does)
 	vec3 gc = glow_col + vec3(0.1, 0.12, 0.1) * under * cap;
-	EMISSION = haze_col * haze * 0.55 + glow * gc * mix(0.05, 0.5 + 0.5 * under, cap) * br * (0.45 + 0.55 * l);
+	EMISSION = glow * gc * mix(0.05, 0.5 + 0.5 * under, cap) * br * (0.45 + 0.55 * l);
 }

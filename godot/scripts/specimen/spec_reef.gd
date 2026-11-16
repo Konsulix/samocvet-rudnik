@@ -9,6 +9,7 @@ extends RefCounted
 
 const DIR := "res://assets/specimen/sea/"
 const U := preload("res://scripts/specimen/spec_util.gd")
+const SWIM := preload("res://shaders/sea_swim.gdshader")
 
 ## each model: its group, its name on the card, its size (k, of its group's), its colour (gain, sat, tint), sway
 const MODELS := {
@@ -45,14 +46,14 @@ const MODELS := {
 	crab_elbow = {g = "crab", n = "elbow crab", k = 1.0},
 	crab_mantis = {g = "crab", n = "mantis shrimp", k = 1.1},
 	crab_isopod = {g = "crab", n = "giant isopod", k = 0.95},
-	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.8},
-	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true},
-	swim_octopus = {g = "swim", n = "giant octopus", k = 0.8},
-	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true},
-	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true},
-	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true},
-	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true},
-	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true},
+	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.8, anim = {swim = 0.05, swim_f = 0.55, swim_k = 0.8, swim_from = 0.1, glide = 0.3, flip = 0.5, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.7, jaw = 0.25, jaw_x = 0.38, jaw_y = 0.16}},
+	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.11, swim_f = 1.0, swim_k = 0.9, swim_from = 0.05, glide = 0.5, flip = 0.12, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.35, jaw = 0.35, jaw_x = 0.33, jaw_y = 0.11}},
+	swim_octopus = {g = "swim", n = "giant octopus", k = 0.8, anim = {swim = 0.02, swim_f = 0.3, swim_k = 1.0, swim_from = 0.0, glide = 0.4, jet = 0.12}},
+	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {swim = 0.11, swim_f = 0.55, swim_k = 1.4, swim_from = 0.35, glide = 0.6, flip = 0.35, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.4, jaw = 0.5, jaw_x = 0.32, jaw_y = 0.085}},
+	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {swim = 0.11, swim_f = 1.2, swim_k = 0.7, swim_from = -0.1, glide = 0.45, flip = 0.25, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.3, jaw_x = 0.3, jaw_y = 0.09}},
+	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, flip = 0.45, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.09, neck_from = 0.0, jaw = 0.4, jaw_x = 0.44, jaw_y = 0.163}},
+	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {swim = 0.1, swim_f = 0.5, swim_k = 1.3, swim_from = 0.3, glide = 0.6, flip = 0.3, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.45, jaw = 0.5, jaw_x = 0.3, jaw_y = 0.09}},
+	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {swim = 0.13, swim_f = 0.8, swim_k = 1.6, swim_from = 0.4, glide = 0.55, flip = 0.4, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.8, jaw = 0.4, jaw_x = 0.38, jaw_y = 0.075}},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
 const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
@@ -122,7 +123,7 @@ static func mat(id: String) -> ShaderMaterial:
 	if not _mat.has(id):
 		var md: Dictionary = MODELS[id]
 		var m := ShaderMaterial.new()
-		m.shader = SpecFungi.SHADER
+		m.shader = SWIM if String(md.g) == "swim" else SpecFungi.SHADER
 		m.set_shader_parameter("tex_d", load(DIR + id + "_d.png"))
 		m.set_shader_parameter("tex_n", load(DIR + id + "_n.png"))
 		m.set_shader_parameter("gain", float(md.get("gain", 1.35)))
@@ -133,12 +134,11 @@ static func mat(id: String) -> ShaderMaterial:
 		# (solid things — shells, crabs, stars, stony corals, the swimmers — let no light through: lit from behind their
 		# thin legs and rims glowed)
 		if float(md.get("sway", 0.0)) == 0.0: m.set_shader_parameter("back_k", 0.15)
-		if String(md.g) == "swim":
-			m.set_shader_parameter("swim", 0.06)
+		# a swimmer's own way of swimming (sea_swim.gdshader)
+		for k: String in (md.get("anim", {}) as Dictionary):
+			m.set_shader_parameter(k, float(md.anim[k]))
 		# (the big ones swim far off: the water between greys them into it)
-		if md.get("far", false):
-			m.set_shader_parameter("haze", 0.9)
-			m.set_shader_parameter("swim", 0.035)
+		if md.get("far", false): m.set_shader_parameter("haze", 0.9)
 		_mat[id] = m
 	return _mat[id]
 
@@ -238,16 +238,19 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		# behind the find instead, huge and dim in the water, out past the card's edges, now this way, now back
 		if (MODELS[sw] as Dictionary).get("far", false):
 			sn.far = true
-			# (its path is in the find's own space, the top of what it grows under: a trilobite's slab is tipped up to
-			# the viewer afterwards, and "far behind" would tip up with it, out of the picture)
-			var top: Node3D = parent
-			while top.get_parent() is Node3D: top = top.get_parent() as Node3D
-			sn.frame = top
-			sn.sc = span * 3.2 * float((MODELS[sw] as Dictionary).k)
-			sn.radius = span * 3.4
-			sn.height = span * 0.12
-			sn.depth = span * 2.8
+			sn.sc = span * 4.3 * float((MODELS[sw] as Dictionary).k)
+			sn.radius = span * 4.6
+			sn.height = span * 0.18
+			sn.depth = span * 3.9
 			sn.a = 0.15 + r.next() * 0.5
+		# (its path is in the find's own space — the top of what it grows under — but its turn is the world's: the find
+		# turned in the hand, it keeps swimming its way; a trilobite's slab tipped up to the eye does not tip it either)
+		var top: Node3D = parent
+		while top.get_parent() is Node3D: top = top.get_parent() as Node3D
+		sn.frame = top
+		sn.ph = r.next()
+		sn.glide = float(((MODELS[sw] as Dictionary).get("anim", {}) as Dictionary).get("glide", 0.5))
+		(body.material_override as ShaderMaterial).set_shader_parameter("phase", sn.ph)
 		sn._process(0.0)
 		# (no unseen box round its loop, as the hunter has: the studio would frame the loop and the find would shrink;
 		# its loop is kept tight round the slab instead, a fin now and then past the card's edge)
@@ -286,37 +289,50 @@ class Swim extends Node3D:
 	var far := false
 	var frame: Node3D
 	var depth := 1.0
-	const PASS := 26.0   # (seconds across, far off)
+	var ph := 0.0
+	var glide := 0.5
+	const PASS := 30.0   # (seconds across, far off, at an even pace)
 	const REST := 7.0    # (out of sight before it comes back the other way)
-	func at(t: float) -> Vector3:
-		return centre + Vector3(cos(t) * radius, height + sin(t * 2.0 + 0.6) * height * 0.25, sin(t) * radius * 0.7 * dir)
-	func _process(dt: float) -> void:
-		if far:
-			_pass(dt)
-			return
-		a += dt * TAU / 21.0
-		var p := at(a)
-		var nt := (at(a + 0.02) - p).normalized()
-		var turn := tan.cross(nt).y / maxf(dt, 0.001) if dt > 0.0 else 0.0
-		bank = lerpf(bank, clampf(-turn * 0.25, -0.4, 0.4), minf(1.0, dt * 2.0))
-		tan = nt
-		position = p
-		# (its head is the model's +x: turned to the way it goes)
-		basis = Basis.looking_at(nt, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc)
 
-	## far off: across behind the find (a: how far across, 0..1), a slow rise and fall, a little turn of its head as it
-	## goes; then out of sight a while, and back the other way
-	func _pass(dt: float) -> void:
-		a += dt / PASS
-		if a > 1.0 + REST / PASS:
-			a = 0.0
-			dir = -dir
-		visible = a <= 1.0
-		var s := clampf(a, 0.0, 1.0)
-		var x := lerpf(-radius, radius, s) * dir
-		position = centre + Vector3(x, height + sin(s * TAU * 0.8 + depth) * height * 0.12, -depth)
-		var wob := sin(s * TAU * 2.0) * 0.06
-		var want := Transform3D(Basis(Vector3.UP, (0.0 if dir > 0.0 else PI) + wob) * Basis(Vector3.RIGHT, sin(s * TAU) * 0.05) * Basis.from_scale(Vector3.ONE * sc), position)
-		if frame and is_instance_valid(frame) and get_parent() is Node3D:
-			want = SpecUtil.rel_xform(get_parent() as Node3D, frame).affine_inverse() * want
-		transform = want
+	## how hard it swims now: a few strong beats, then a glide — the same as the shader's tail (sea_swim.gdshader)
+	func burst() -> float:
+		var t := Time.get_ticks_msec() * 0.001
+		return lerpf(1.0 - glide, 1.0, smoothstep(-0.3, 0.7, sin(t * 0.42 + ph * TAU)))
+
+	func at(t: float) -> Vector3:
+		return Vector3(cos(t) * radius, height + sin(t * 2.0 + 0.6) * height * 0.25, sin(t) * radius * 0.7 * dir)
+
+	func _process(dt: float) -> void:
+		var b := burst()
+		var off: Vector3
+		var bs: Basis
+		if far:
+			# far off: across behind the find, quicker on its beats, slower gliding; rising and sinking, nosing about;
+			# then out of sight a while, and back the other way
+			a += dt / PASS * lerpf(0.55, 1.3, b)
+			if a > 1.0 + REST / PASS:
+				a = 0.0
+				dir = -dir
+			visible = a <= 1.0
+			var s := clampf(a, 0.0, 1.0)
+			var rise := sin(s * TAU * 0.7 + ph * 5.0)
+			off = Vector3(lerpf(-radius, radius, s) * dir, height + rise * height * 0.5, -depth)
+			var yaw := sin(s * TAU * 1.6 + ph * 3.0) * 0.12
+			bs = Basis(Vector3.UP, (0.0 if dir > 0.0 else PI) + yaw) * Basis(Vector3.BACK, cos(s * TAU * 0.7 + ph * 5.0) * 0.12)
+		else:
+			a += dt * TAU / 21.0 * lerpf(0.6, 1.25, b)
+			var p := at(a)
+			var nt := (at(a + 0.02) - p).normalized()
+			var turn := tan.cross(nt).y / maxf(dt, 0.001) if dt > 0.0 else 0.0
+			bank = lerpf(bank, clampf(-turn * 0.25, -0.4, 0.4), minf(1.0, dt * 2.0))
+			tan = nt
+			off = p
+			# (its head is the model's +x: turned to the way it goes)
+			bs = Basis.looking_at(nt, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank)
+		if frame and is_instance_valid(frame) and is_inside_tree() and frame.is_inside_tree():
+			# the find's place and size, but the world's turn
+			var fx := frame.global_transform
+			var k := fx.basis.get_scale().x
+			global_transform = Transform3D(bs * Basis.from_scale(Vector3.ONE * sc * k), fx * centre + off * k)
+		else:
+			transform = Transform3D(bs * Basis.from_scale(Vector3.ONE * sc), centre + off)
