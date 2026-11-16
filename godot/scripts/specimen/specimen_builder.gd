@@ -1440,7 +1440,9 @@ func _shatter() -> void:
 	if k < 0.56: cuts = [0.8 + dr.next() * 0.08]                        # Chipped: an end knocked off
 	else:
 		cuts = [0.42 + dr.next() * 0.16]                                 # Damaged: through the middle
-		if k > 0.7 and dr.next() < 0.6: cuts.append(0.7 + dr.next() * 0.1)   # and an end off one half
+		# and a half broken again — near its middle (at 0.7–0.8 it cut a strip off, a plate); never a sawn slab: already
+		# thin, its strips were plates
+		if k > 0.7 and dr.next() < 0.6 and not flat: cuts.append(0.58 + dr.next() * 0.1)
 	var across := UP.cross(VIEW_DIR).normalized()   # (the pieces part sideways across the picture)
 	var pieces: Array = [root.get_children()]
 	for ci in cuts.size():
@@ -1483,7 +1485,7 @@ func _shatter() -> void:
 		for x in grp:
 			# (a fracture already cut with its skin, and freed, is passed over)
 			if not is_instance_valid(x): continue
-			var parts := _cut_node(x as Node, at, n, rough, amp)
+			var parts := _cut_node(x as Node, at, n, rough, amp, hi - lo)
 			a_side.append_array(parts[0])
 			b_side.append_array(parts[1])
 		if b_side.is_empty() or a_side.is_empty():
@@ -1583,13 +1585,17 @@ func _wave(p: Vector3, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float
 	var q := p - at
 	return rough.get_noise_2d(q.dot(uv[0]), q.dot(uv[1])) * amp * BREAK_WAVE
 
-## how far the break's surface wanders off its plane, in the noise's own amplitude
-const BREAK_WAVE := 2.2
+## how far the break's surface wanders off its plane, in the noise's own amplitude (2.2 folded the cut over itself
+## where the skin ran nearly along it: needles in the fracture)
+const BREAK_WAVE := 1.5
+## a mesh that reaches less than this share of the broken piece's depth past the break is not cut, it goes whole
+## to its side
+const SLIVER := 0.07
 
 ## one node split by the plane (at, n): [nodes on the near side, nodes beyond]. A mesh crossing it is cut in two,
 ## each half closed by the rough fracture (its own mesh, so the edge round it is sharp); a multimesh's copies are
 ## shared out; anything else goes whole to the side its middle is on
-func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float) -> Array:
+func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: float, span_all := 1.0) -> Array:
 	if not nd is Node3D: return [[nd], []]
 	var t := U.rel_xform(nd as Node3D, root)
 	if nd is MeshInstance3D and nd.has_meta("geo"):
@@ -1612,12 +1618,23 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 			gc.idx.append_array(gf.idx)
 			g = gc
 		var nb := 0
+		var dlo := INF
+		var dhi := -INF
 		for i in g.v.size():
 			var wp := t * g.v[i]
-			if (wp - at).dot(n) - _wave(wp, at, n, rough, amp) > 0.0: nb += 1
+			var dd := (wp - at).dot(n) - _wave(wp, at, n, rough, amp)
+			if dd > 0.0: nb += 1
+			dlo = minf(dlo, dd)
+			dhi = maxf(dhi, dd)
 		var whole := [nd] if not mate else [nd, mate]
 		if nb == 0: return [whole, []]
 		if nb == g.v.size(): return [[], whole]
+		# (a mesh the break only grazes — a bubble, a rim of crust, a lump's edge — is not shaved: a thin slice of it
+		# went off with the other piece as a leaf, a plate. It goes whole to the side most of it is on)
+		# (measured against the whole piece being broken, not the mesh: a Chipped find's end is a thin share of its
+		# one big lump and must still come off)
+		if dhi < span_all * SLIVER: return [whole, []]
+		if -dlo < span_all * SLIVER: return [[], whole]
 		var mi := nd as MeshInstance3D
 		var halves := [_half(g, t, at, n, rough, amp, false, face_from), _half(g, t, at, n, rough, amp, true, face_from)]
 		var out := [[], []]
