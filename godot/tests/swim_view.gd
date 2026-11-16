@@ -40,10 +40,11 @@ func _ready() -> void:
 		if args.has("shut"): m.set_shader_parameter("blink_force", float(args.shut) if args.shut != "" else 1.0)
 		mi.material_override = m
 		add_child(mi)
-		mi.position = Vector3((i % 4) * 1.15 - 1.7, -(i / 4) * 0.75 + 0.3, (i / 4) * 0.75 - 0.3)
+		mi.position = Vector3((i % 4) * 1.15 - 1.72, -(i / 4) * 0.75 + 0.3, (i / 4) * 0.75 - 0.3)
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = 2.0
+	cam.keep_aspect = Camera3D.KEEP_WIDTH
+	cam.size = 4.8
 	cam.position = Vector3(0, 3.0, 0.01) if args.has("top") else Vector3(0, 0.9, 3.0)
 	add_child(cam)
 	cam.look_at(Vector3(0, 0, 0))
@@ -57,6 +58,7 @@ func _heads() -> void:
 	for c in get_children():
 		if c is MeshInstance3D: c.visible = false
 	var cam := get_viewport().get_camera_3d()
+	cam.keep_aspect = Camera3D.KEEP_HEIGHT
 	cam.size = 0.4
 	for i in ids.size():
 		var mi := get_child(2 + i) as MeshInstance3D

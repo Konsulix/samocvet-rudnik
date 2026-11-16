@@ -69,14 +69,17 @@ MODELS = [
     dict(name="swim_cretoxyrhina", file="живность большая/cretoxyrhina.glb", tris=6000, tex=1024, reach=True, turn=90),
     # (swim_dolichorhynchops: its surface comes inside out: black, in shards — not used)
     # dict(name="swim_dolichorhynchops", file="живность большая/dolichorhynchops.glb", tris=6000, tex=1024, reach=True, gap=-1.0, turn=90),
-    dict(name="swim_mosasaurus", file="живность большая/mosasaurus.glb", tris=6000, tex=1024, reach=True, tilt=(-90, 90)),
+    # (the mosasaur comes on its back: rolled over — its flippers down, the fluke's lobe up)
+    dict(name="swim_mosasaurus", file="живность большая/mosasaurus.glb", tris=6000, tex=1024, reach=True, tilt=(90, 90)),
     dict(name="swim_ophthalmosaurus", file="живность большая/opthalmosaurus.glb", tris=6000, tex=1024, reach=True, gap=-1.0, turn=90),
     # (swim_turtle: no plastron: an open shell from below — not used)
     # dict(name="swim_turtle", file="живность большая/sea_turtle.glb", tris=6000, tex=1024, reach=True),
     dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=6000, tex=1024, reach=True, turn=90),
     dict(name="swim_tylosaurus", file="живность большая/tylosaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
     dict(name="swim_dallasaurus", file="живность большая/dallasaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
-    dict(name="swim_octopus", file="живность большая/cc0___north_pacific_giant_octopus.glb", tris=6000, tex=1024, reach=True),
+    # (the octopus: a soft flat body, its arms close together — the light mesh lies further off the scan than a stiff
+    # shell's does, and the bake's rays fell short: black patches. It looks further (cage), and is a little less light)
+    dict(name="swim_octopus", file="живность большая/cc0___north_pacific_giant_octopus.glb", tris=9000, tex=1024, reach=True, cage=2.5),
 ]
 
 def coords(o):
