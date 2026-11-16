@@ -162,6 +162,32 @@ func _ready() -> void:
 			st.dl = i % 6
 			Save.d.coll.append(st)
 			if not sid in Save.d.seen: Save.d.seen.append(sid)
+	if args.has("seafloor"):
+		# test data: a sea find on its slab for each swimmer of the living sea floor (SpecReef), ammonites and trilobites
+		# in turn: `-- save=<name> screen=stones seafloor`; old ones from a previous run are replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("seafloor", false))
+		var sd := 90000
+		var i := 0
+		for sw: String in SpecReef.group("swim"):
+			var sid := "ammonite" if i % 2 == 0 else "trilobite"
+			var st := {}
+			while true:
+				st = Stones.roll(sd, 2, 1.2, 2)
+				st.sid = sid
+				st.kind = "fossil"
+				st.traits = []
+				st.legend = false
+				sd += 1
+				var fg := SpecFossil.genes(int(st.id), sid, [])
+				if fg.get("show", "") == "matrix" and String((fg.get("reef", {}) as Dictionary).get("swim", "")) == sw: break
+			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.area = 2
+			st.dl = i % 6
+			st.seafloor = true
+			Save.d.coll.append(st)
+			Save.note_find(st, 2, int(st.dl))
+			i += 1
+		Save.persist()
 	if args.has("trilobites"):
 		# test data: a trilobite of every kind and rarity in the collection: `-- screen=stones trilobites`;
 		# a seed is looked up for each, old ones from a previous run are replaced
