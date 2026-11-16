@@ -1431,6 +1431,11 @@ func _shatter() -> void:
 	var k: float = hurt.get("k", 0.0)
 	if k < 0.2: return   # (Fine and better: whole)
 	var dr: Rng32 = hurt.rng
+	# how it broke, the stone's own (16.11): an end knocked off sideways; its top knocked off; a slanting break, the
+	# wedge above slid down; a piece fallen forward to the viewer. (A Damaged find is split through: no top off)
+	var flat: bool = String(gene_m.get("form", "")) == "sawn"
+	var mode: String = Stones.pick_w([["side", 4.0], ["top", 0.0 if flat else 3.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]] if k < 0.56
+		else [["side", 4.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]], dr)
 	var cuts: Array = []
 	if k < 0.56: cuts = [0.8 + dr.next() * 0.08]                        # Chipped: an end knocked off
 	else:
@@ -1449,7 +1454,16 @@ func _shatter() -> void:
 				gi = i
 		var grp: Array = pieces[gi]
 		var bb := _box_of(grp)
-		var n := (across * (1.0 if dr.next() < 0.5 else -1.0) + Vector3(0, (dr.next() - 0.5) * 0.6, 0) + VIEW_DIR * (dr.next() - 0.5) * 0.5).normalized()
+		var ext := bb.size.length()
+		var sgn := 1.0 if dr.next() < 0.5 else -1.0
+		var m := mode if ci == 0 else "side"   # (a second break: an end off one half)
+		var n: Vector3
+		match m:
+			"top": n = UP + across * sgn * (0.15 + dr.next() * 0.25) + VIEW_DIR * (dr.next() - 0.3) * 0.4
+			"slant": n = across * sgn + UP * (0.7 + dr.next() * 0.5) + VIEW_DIR * (dr.next() - 0.5) * 0.4
+			"front": n = VIEW_DIR + across * sgn * (0.2 + dr.next() * 0.3) + UP * (dr.next() * 0.3)
+			_: n = across * sgn + Vector3(0, (dr.next() - 0.5) * 0.6, 0) + VIEW_DIR * (dr.next() - 0.5) * 0.5
+		n = n.normalized()
 		# the plane at a share of the way across the piece along n
 		var lo := INF
 		var hi := -INF
@@ -1461,32 +1475,43 @@ func _shatter() -> void:
 		var at := n * lerpf(lo, hi, float(cuts[ci]))
 		var rough := FastNoiseLite.new()
 		rough.seed = int(dr.next() * 100000)
-		rough.frequency = 4.0 / maxf(0.1, bb.size.length())
+		rough.frequency = 4.0 / maxf(0.1, ext)
 		rough.fractal_octaves = 3
-		var amp := bb.size.length() * 0.035
+		var amp := ext * 0.035
 		var a_side: Array = []
 		var b_side: Array = []
 		for nd: Node in grp:
 			var parts := _cut_node(nd, at, n, rough, amp)
 			a_side.append_array(parts[0])
 			b_side.append_array(parts[1])
-		# the piece beyond the break: pushed off along n, turned about the upright so its fresh face shows to the viewer,
-		# tipped over away from the rest; then set down on the same ground
-		# (gently: turned hard into the studio's lamps a glossy skin flared white, like glass; a sawn slab keeps its polished
-		# face to the viewer)
-		var flat: bool = String(gene_m.get("form", "")) == "sawn"
-		var turn := (0.2 + dr.next() * 0.2) * (0.4 if flat else 1.0) * (1.0 if (-n).rotated(UP, 0.1).dot(VIEW_DIR) > (-n).dot(VIEW_DIR) else -1.0)
-		var tip := (0.08 + dr.next() * 0.17) * (0.2 if flat else 1.0)
-		var pivot := Vector3(at.x, bb.position.y, at.z)
-		# (tipped about UP x n: its top falls away, its fresh face looks up a little)
-		var tb := Transform3D(Basis(UP.cross(n).normalized(), tip) * Basis(UP, turn), Vector3.ZERO)
-		tb = Transform3D(Basis.IDENTITY, pivot + n * bb.size.length() * (0.06 + dr.next() * 0.08 + (0.05 if ci == 0 and cuts.size() > 1 else 0.0))) * tb * Transform3D(Basis.IDENTITY, -pivot)
+		if b_side.is_empty() or a_side.is_empty():
+			pieces[gi] = a_side + b_side
+			continue
+		# the piece beyond the break turned about its middle so its fracture (facing -n) comes round towards the viewer
+		# and up — part of the way: turned hard into the studio's lamps a glossy skin flared white, like glass; a sawn
+		# slab keeps its polished face to the viewer. Fallen pieces (top, slant, front) turn much further: they tumbled
+		var fwant := (VIEW_DIR * 0.8 + UP * 0.6 + across * sgn * 0.3).normalized()
+		var share: float = {"side": 0.25, "top": 0.75, "slant": 0.55, "front": 0.6}[m] + dr.next() * 0.15
+		if flat: share *= 0.4
+		var rot := Basis(Quaternion.IDENTITY.slerp(U.quat_to(-n, fwant), share)) * Basis(fwant, (dr.next() - 0.5) * 0.7 * (0.3 if flat else 1.0))
+		var bc := _box_of(b_side).get_center()
+		var tb := Transform3D(Basis.IDENTITY, bc) * Transform3D(rot, Vector3.ZERO) * Transform3D(Basis.IDENTITY, -bc)
 		# the callouts of what grew beyond the break go with it
 		var marks: Array = []
 		for id in grown:
 			for e: Array in grown[id]:
 				if ((e[0] as Vector3) - at).dot(n) > 0.0: marks.append(e)
 		_move(b_side, marks, tb)
+		# then off to where it lies: along the ground (sideways, or forward for a piece fallen to the viewer), clear of
+		# the rest with a gap, and down onto the same ground
+		var h := Vector3(n.x, 0, n.z)
+		if m == "top": h = across * sgn
+		elif m == "front": h = (VIEW_DIR * 0.6 + across * sgn).normalized()   # (forward and aside: straight in front it hid the rest)
+		h = h.normalized() if h.length() > 0.01 else across * sgn
+		var pa := _span(a_side, h)
+		var pb := _span(b_side, h)
+		var gap := ext * (0.04 + dr.next() * 0.06 + (0.04 if ci == 0 and cuts.size() > 1 else 0.0))
+		_move(b_side, marks, Transform3D(Basis.IDENTITY, h * (pa.y - pb.x + gap)))
 		var drop := _box_of(b_side).position.y - _box_of(a_side).position.y
 		_move(b_side, marks, Transform3D(Basis.IDENTITY, Vector3(0, -drop, 0)))
 		pieces[gi] = a_side
@@ -1525,6 +1550,16 @@ func _pts_of(nd: Node) -> PackedVector3Array:
 	else:
 		out.append(t.origin)
 	return out
+
+## how far the nodes reach along h: (least, most)
+func _span(nodes: Array, h: Vector3) -> Vector2:
+	var lo := INF
+	var hi := -INF
+	for nd: Node in nodes:
+		for p in _pts_of(nd):
+			lo = minf(lo, p.dot(h))
+			hi = maxf(hi, p.dot(h))
+	return Vector2(lo, hi)
 
 func _box_of(nodes: Array) -> AABB:
 	var lo := Vector3(INF, INF, INF)
