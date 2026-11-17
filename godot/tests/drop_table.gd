@@ -12,11 +12,11 @@ func _ready() -> void:
 	var n := int(args.get("n", "3000"))
 	var nl := int(args.get("leg", "400"))
 	var out := {areas = [], all = {}}
-	var seen := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, flora = {}, tie = {}, legend = {}}
+	var seen := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, flora = {}, tie = {}, legend = {}, inc = {}}
 	for area in Data.AREAS.size():
 		var A: Dictionary = Data.AREAS[area]
 		var last := maxi(1, Data.depths(area).size())
-		var c := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, flora = {}, tie = {}, legend = {}, value = []}
+		var c := {sp = {}, traits = {}, acc = {}, fx = {}, fly = {}, shroom = {}, skin = {}, beast = {}, form = {}, kind = {}, flora = {}, tie = {}, legend = {}, inc = {}, value = []}
 		for i in n + nl:
 			var dl := i % last
 			var s := Stones.roll(900000 + area * 1000003 + i * 7919, area, 0.2 + dl * 0.35, dl)
@@ -40,6 +40,9 @@ func _ready() -> void:
 			if (g.accents as Array).has("flowers"): _add(c.flora, SpecFlora.NAMES[int(g.flora)])
 			if String(g.get("pseudo", "")) != "": _add(c.tie, "%s after %s" % [s.sid, g.pseudo])
 			if String(g.get("assoc", "")) != "": _add(c.tie, "%s with %s" % [s.sid, g.assoc])
+			var fz: Dictionary = g.get("fossil", {})
+			if String(fz.get("content", "")) == "insect": _add(c.inc, "bug:" + String(fz.bug))
+			if fz.has("sprig"): _add(c.inc, ("quartz:" if String(s.sid) == "flower_quartz" else "sprig:") + String(fz.sprig))
 			if s.legend: _add(c.legend, "legendary")
 			if s.get("form", "") == "skull":
 				_add(c.skin, String(s.skin))
