@@ -95,7 +95,26 @@ func show_spec(o: Dictionary) -> void:
 
 ## a swimmer's voice (its song as it passes, the rush of water before it, its roar): only while this card shows
 func _sea_call(what: String) -> void:
-	if is_visible_in_tree(): Sfx.play("sea_" + what)
+	if not is_visible_in_tree():
+		return
+	if what == "dark":
+		_dark()
+		return
+	Sfx.play("sea_" + what)
+
+## a plesiosaur's jaws shut over the eye: the view goes dark a moment, and clears
+func _dark() -> void:
+	var r := ColorRect.new()
+	r.color = Color(0.05, 0.01, 0.015, 0.0)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(r)
+	move_child(r, _img.get_index() + 1)
+	var tw := r.create_tween()
+	tw.tween_property(r, "color:a", 1.0, 0.1)
+	tw.tween_interval(0.16)
+	tw.tween_property(r, "color:a", 0.0, 0.45)
+	tw.tween_callback(r.queue_free)
 
 ## the glass struck from inside, at this point of the studio's world: cracks from there (a soft one: mist), the view
 ## shakes, the phone thumps

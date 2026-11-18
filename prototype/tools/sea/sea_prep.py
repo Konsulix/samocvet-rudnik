@@ -74,7 +74,11 @@ MODELS = [
     dict(name="swim_ophthalmosaurus", file="живность большая/opthalmosaurus.glb", tris=6000, tex=1024, reach=True, gap=-1.0, turn=90),
     # (swim_turtle: no plastron: an open shell from below — not used)
     # dict(name="swim_turtle", file="живность большая/sea_turtle.glb", tris=6000, tex=1024, reach=True),
-    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.4533, 0.1608, -0.114)),
+    # (a plesiosaur comes right up to the eye, the day it swallows a find: its head — the model's own head, teeth,
+    # tongue and eyes — is kept apart, nearly whole, with a texture of its own (<name>_head.*), and marked for the jaw:
+    # every vertex of the lower jaw red in the mesh's colours (split_head))
+    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=5000, tex=1024, reach=True, turn=90,
+        head=dict(mats=("head", "teeth", "material", "material_6"), tris=34000, tex=2048, hinge=(0.4533, 0.1608, -0.114))),
     dict(name="swim_tylosaurus", file="живность большая/tylosaurus.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.353, 0.107, -0.065)),
     dict(name="swim_dallasaurus", file="живность большая/dallasaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
     # (the octopus: a soft flat body, its arms close together — the light mesh lies further off the scan than a stiff
@@ -422,6 +426,101 @@ def cut_mouth(lo, mouth):
     lo.data.update()
     print("  mouth cut: %d edges" % len(edges), flush=True)
 
+def split_head(hi, H):
+    # the head's materials apart from the body's: two meshes of the one model, in the same place. The head's vertices
+    # are marked for the jaw in a colour attribute (red 1: the lower jaw's), by the model itself and not by a line —
+    # its teeth lock into one another, and any line through a shut mouth cuts them:
+    #  - the loose pieces (rows of teeth, eyes, tongue) by where they lie about the mouth's line: over it the upper jaw's
+    #  - the skin by the way round: from the chin and from the snout's top the skin is walked along its own edges,
+    #    before the hinge only, and each vertex is the jaw's it is nearer to — the two meet at the mouth's corners
+    import bmesh, heapq
+    jx, jy, js = H["hinge"]
+    names = [m.name if m else "" for m in hi.data.materials]
+    head_i = {i for i, n in enumerate(names) if n in H["mats"]}
+    skin_i = {i for i, n in enumerate(names) if n == H["mats"][0]}
+    teeth_i = {i for i, n in enumerate(names) if n == H["mats"][1]}
+    print("  materials", names, "head", sorted(head_i), flush=True)
+    outs = []
+    for want_head in (False, True):
+        o = hi.copy()
+        o.data = hi.data.copy()
+        bpy.context.scene.collection.objects.link(o)
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        drop = [f for f in bm.faces if (f.material_index in head_i) != want_head]
+        bmesh.ops.delete(bm, geom=drop, context="FACES")
+        bm.to_mesh(o.data)
+        bm.free()
+        o.data.update()
+        outs.append(o)
+    body, head = outs
+    bm = bmesh.new()
+    bm.from_mesh(head.data)
+    bm.verts.ensure_lookup_table()
+    lab = {}
+    line = lambda co: co.z - (jy + js * (co.x - jx))
+    # loose pieces
+    seen = set()
+    n_up = n_lo = 0
+    for v0 in bm.verts:
+        if v0.index in seen:
+            continue
+        isle, stack = [], [v0]
+        seen.add(v0.index)
+        while stack:
+            v = stack.pop()
+            isle.append(v)
+            for e in v.link_edges:
+                w = e.other_vert(v)
+                if w.index not in seen:
+                    seen.add(w.index)
+                    stack.append(w)
+        mats = {f.material_index for v in isle for f in v.link_faces}
+        if mats & skin_i:
+            continue
+        mid = sum((v.co for v in isle), Vector()) / len(isle)
+        # (the model's teeth come in rows, not one by one: a row by where it lies about the mouth's line — the middle
+        # between its roots and its tips, each measured from the line at its own place along the jaw)
+        rel = [line(v.co) for v in isle]
+        low = (max(rel) + min(rel)) * 0.5 < 0.0
+        if mats & teeth_i:
+            n_lo += low
+            n_up += not low
+        print("  piece of", [names[i] for i in mats], len(isle), "verts, about the line %.4f .. %.4f:" % (min(rel), max(rel)), "lower" if low else "upper", flush=True)
+        for v in isle:
+            lab[v.index] = 1.0 if low else 0.0
+    print("  teeth: %d upper, %d lower" % (n_up, n_lo), flush=True)
+    # the skin, from the chin and from the snout's top
+    skin = [v for v in bm.verts if v.index not in lab]
+    front = [v for v in skin if v.co.x > jx + 0.012]
+    seeds = [(min(front, key=lambda v: v.co.z), 1.0), (max(front, key=lambda v: v.co.z), 0.0)]
+    dist = {}
+    heap = []
+    for k, (v, l) in enumerate(seeds):
+        heapq.heappush(heap, (0.0, k, v.index, l))
+    while heap:
+        d, k, i, l = heapq.heappop(heap)
+        if i in dist:
+            continue
+        dist[i] = d
+        lab[i] = l
+        v = bm.verts[i]
+        for e in v.link_edges:
+            w = e.other_vert(v)
+            if w.index in dist or w.co.x < jx - 0.002:
+                continue
+            heapq.heappush(heap, (d + e.calc_length(), k, w.index, l))
+    col = bm.loops.layers.color.new("jaw")
+    for f in bm.faces:
+        for lp in f.loops:
+            r = lab.get(lp.vert.index, 0.0)
+            lp[col] = (r, 0.0, 0.0, 1.0)
+    print("  skin: %d of %d lower" % (sum(1 for v in skin if lab.get(v.index, 0.0) > 0.5), len(skin)), flush=True)
+    bm.to_mesh(head.data)
+    bm.free()
+    head.data.update()
+    return body, head
+
 def one_piece(lo):
     # only the largest piece of the light mesh is kept: an octopus's thin arm tips come out of the lightening as loose
     # scraps, a row of dashes in the water behind each arm
@@ -452,7 +551,7 @@ def one_piece(lo):
     bm.free()
     lo.data.update()
 
-def light(hi, name, tris, remesh=False, cage=1.0, mouth=None, whole=False):
+def light(hi, name, tris, remesh=False, cage=1.0, mouth=None, whole=False, colours=False):
     lo = hi.copy()
     lo.data = hi.data.copy()
     lo.name = name
@@ -530,8 +629,12 @@ def light(hi, name, tris, remesh=False, cage=1.0, mouth=None, whole=False):
     node.select = True
     nt.nodes.active = node
     only(lo)
+    if colours and lo.data.color_attributes:
+        lo.data.color_attributes.active_color = lo.data.color_attributes[0]
+        lo.data.color_attributes.render_color_index = 0
+        print("  colours:", lo.data.color_attributes[0].name, lo.data.color_attributes[0].domain, flush=True)
     bpy.ops.wm.obj_export(filepath=os.path.join(OUT, name + ".obj"), export_selected_objects=True, export_materials=False,
-        export_uv=True, export_normals=True, export_triangulated_mesh=True, forward_axis="NEGATIVE_Z", up_axis="Y")
+        export_uv=True, export_normals=True, export_colors=colours, export_triangulated_mesh=True, forward_axis="NEGATIVE_Z", up_axis="Y")
     return lo
 
 def picture(lo, name):
@@ -575,6 +678,17 @@ for M in MODELS:
         print("SEA", name, flush=True)
         stand(part, M.get("orient", False), M.get("keep_top", 0.0), M.get("tilt"), M.get("reach", False), M.get("turn", 0.0))
         full = len(tri_idx(part))
+        if M.get("head"):
+            # (the head first: the colour bake turns the file's materials into lights, and the relief wants them as they were)
+            H = M["head"]
+            body_hi, head_hi = split_head(part, H)
+            CUR_TEX = H["tex"]
+            hl = light(head_hi, name + "_head", H["tris"], False, 0.35, None, False, True)
+            print("SEA %s_head: %d tris" % (name, len(tri_idx(hl))), flush=True)
+            CUR_TEX = M.get("tex", TEX)
+            lo = light(body_hi, name, M["tris"], False, 1.0, None, False)
+            print("SEA %s: %d -> %d tris" % (name, full, len(tri_idx(lo))), flush=True)
+            continue
         lo = light_uv(part, name, M["tris"], M.get("tex", TEX)) if M.get("keep_uv") else light(part, name, M["tris"], M.get("remesh", False), M.get("cage", 1.0), M.get("mouth"), M.get("whole", False))
         print("SEA %s: %d -> %d tris, size %s" % (name, full, len(tri_idx(lo)), [round(v, 2) for v in lo.dimensions]), flush=True)
         if PREVIEW:

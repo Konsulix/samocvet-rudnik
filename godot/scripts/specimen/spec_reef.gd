@@ -55,7 +55,7 @@ const MODELS := {
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
 	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {nose = Vector3(0.494, 0.061, 0.0), ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
 	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {nose = Vector3(0.494, 0.118, 0.0), ram = 2.0, swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.04, jaw_x = 0.282, jaw_y = 0.1154, jaw_s = 0.09, jaw_shut = 0.32, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
-	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {nose = Vector3(0.494, 0.155, 0.004), swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1608, jaw_s = -0.114, jaw_shut = 0.12, jaw_fan = 0.004, jaw_ramp = 0.006, eye_paint = 1.0, paint_zc = 0.0022, paint_z0 = 0.003, eye_x = 0.477, eye_y = 0.1655, eye_r = 0.0031}},
+	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, head = "swim_styxosaurus_head", anim = {nose = Vector3(0.494, 0.155, 0.004), swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1608, jaw_s = -0.114, jaw_shut = 0.12, jaw_fan = 0.004, jaw_ramp = 0.006, eye_paint = 1.0, paint_zc = 0.0022, paint_z0 = 0.003, eye_x = 0.477, eye_y = 0.1655, eye_r = 0.0031}},
 	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {nose = Vector3(0.492, 0.093, 0.076), ram = 1.0, near = 2.5, swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
 	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {nose = Vector3(0.494, 0.08, 0.0), ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
@@ -282,6 +282,27 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 			sn.sc = Swim.LEN * float(md.k)
 			sn.first_pass(r.next())
 		bm.set_shader_parameter("phase", sn.ph)
+		# a head of its own (a plesiosaur's: it comes right up to the eye the day it swallows a find): the model's own
+		# head, teeth, tongue and eyes, its own texture, the lower jaw marked in the mesh — the same material otherwise,
+		# so it swims as one with the body
+		if md.has("head"):
+			var hid := String(md.head)
+			var hm := SpecUtil.mat_copy(bm)
+			hm.set_shader_parameter("tex_d", load(DIR + hid + "_d.png"))
+			hm.set_shader_parameter("tex_n", load(DIR + hid + "_n.png"))
+			hm.set_shader_parameter("jaw_mask", 1.0)
+			hm.set_shader_parameter("inside_k", 0.0)
+			for m2: ShaderMaterial in [bm, hm]:
+				m2.set_shader_parameter("eye_paint", 0.0)
+				m2.set_shader_parameter("eye", Vector2(9, 9))
+			bm.set_shader_parameter("jaw", 0.0)
+			bm.set_shader_parameter("jaw_shut", 0.0)
+			var hd := MeshInstance3D.new()
+			hd.mesh = mesh(hid)
+			hd.material_override = hm
+			hd.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			sn.add_child(hd)
+			sn.mat2 = hm
 		sn._process(0.0)
 		# (no unseen box round its loop, as the hunter has: the studio would frame the loop and the find would shrink;
 		# its loop is kept tight round the slab instead, a fin now and then past the card's edge)
@@ -333,6 +354,12 @@ class Swim extends Node3D:
 	static var test_kind := -2
 	var body: Node3D
 	var mat: ShaderMaterial
+	## (a head of its own, where the model has one: every parameter goes to both)
+	var mat2: ShaderMaterial
+
+	func _sp(k: String, v: Variant) -> void:
+		if mat: mat.set_shader_parameter(k, v)
+		if mat2 and not (k == "gain" and false): mat2.set_shader_parameter(k, v)
 	var sc := 1.0
 	var centre := Vector3.ZERO
 	var radius := 0.5
@@ -455,8 +482,8 @@ class Swim extends Node3D:
 		tan = Vector3.ZERO
 		visible = false
 		if mat:
-			mat.set_shader_parameter("reach", Vector3.ZERO)
-			mat.set_shader_parameter("curve", 0.0)
+			_sp("reach", Vector3.ZERO)
+			_sp("curve", 0.0)
 
 	## the find itself is gone from the card: all of it but the swimmer
 	func _hide_find(n: Node = null) -> void:
@@ -492,10 +519,10 @@ class Swim extends Node3D:
 			curve = lerpf(curve, clampf(tan.cross(nq).y / dt * 0.9, -0.45, 0.45), minf(1.0, dt * 2.0))
 		tan = nq
 		if mat:
-			mat.set_shader_parameter("fade", smoothstep(0.0, 1.6, keep_t))
-			mat.set_shader_parameter("curve", curve)
-			mat.set_shader_parameter("jaw_force", -1.0)
-			mat.set_shader_parameter("neck", neck0)
+			_sp("fade", smoothstep(0.0, 1.6, keep_t))
+			_sp("curve", curve)
+			_sp("jaw_force", -1.0)
+			_sp("neck", neck0)
 		transform = Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * KEEP_K), q)
 
 	## the jaws shut, just before the eye (the find is down its throat by then: nothing is drawn anywhere, the open
@@ -510,7 +537,7 @@ class Swim extends Node3D:
 			add_child(bb)
 			bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.3), Vector3(0, 0.6, CAM - 2.6))
 		if mat:
-			mat.set_shader_parameter("jaw_force", GULP_JAW * (1.0 - shut) if tv < 0.4 else 0.15 * absf(sin((tv - 0.4) * 7.0)) * (1.0 - smoothstep(0.9, 1.5, tv)))
+			_sp("jaw_force", GULP_JAW * (1.0 - shut) if tv < 0.4 else 0.15 * absf(sin((tv - 0.4) * 7.0)) * (1.0 - smoothstep(0.9, 1.5, tv)))
 	## its colours' own strength (the shader's gain), and how far it is dimmed now: at the glass it is right under the
 	## studio's lamps and burnt out to a pale grey, its skin lost — so near, it keeps DIM of its light
 	const DIM := 0.58
@@ -572,8 +599,8 @@ class Swim extends Node3D:
 		roared = false
 		curve = 0.0
 		if mat:
-			mat.set_shader_parameter("curve", 0.0)
-			mat.set_shader_parameter("swim", swim0)
+			_sp("curve", 0.0)
+			_sp("swim", swim0)
 		match kind:
 			7:
 				# straight at the eye, a little down from above (its body clears the find's top), into the glass
@@ -678,8 +705,8 @@ class Swim extends Node3D:
 			rc = hit.lerp(Vector3(0, 0.012, 0), u3)
 			if tv > 2.15: jw = 0.3 * maxf(0.0, sin((tv - 2.15) * 11.0)) * (1.0 - u3)
 		if mat:
-			mat.set_shader_parameter("reach", side + rc)
-			mat.set_shader_parameter("jaw_force", jw)
+			_sp("reach", side + rc)
+			_sp("jaw_force", jw)
 		transform = Transform3D(Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis.from_scale(Vector3.ONE * sc), stop + Vector3(0, sin(tv * 1.3) * 0.05, 0))
 		if tv > 3.9:
 			# on its way: off past the edge, deeper, its neck straightening as it goes
@@ -690,7 +717,7 @@ class Swim extends Node3D:
 			s = 0.0
 			vel = 0.0
 			tan = hdg
-			if mat: mat.set_shader_parameter("jaw_force", -1.0)
+			if mat: _sp("jaw_force", -1.0)
 
 	## at the glass: thrown back by the blow, shaking its head, the jaws closing (a poke: it hangs there, nodding, looking
 	## in) — then off, turning away into the deep
@@ -707,13 +734,13 @@ class Swim extends Node3D:
 			roll = 0.32 * sin(tv * 4.2) * exp(-tv * 1.3)
 			sink = 0.5 * smoothstep(0.1, 1.2, tv)
 			if mat:
-				mat.set_shader_parameter("jaw_force", maxf(0.0, 1.0 - tv * 1.6))
-				mat.set_shader_parameter("swim", swim0 * lerpf(0.3, 1.2, smoothstep(0.5, 1.2, tv)))
+				_sp("jaw_force", maxf(0.0, 1.0 - tv * 1.6))
+				_sp("swim", swim0 * lerpf(0.3, 1.2, smoothstep(0.5, 1.2, tv)))
 		else:
 			back = 0.12 * smoothstep(0.0, 0.4, tv) + 0.05 * sin(tv * 2.4)
 			curve = 0.18 * sin(tv * 1.9) * smoothstep(0.3, 1.0, tv) * (1.0 - smoothstep(2.2, 2.8, tv))
 			roll = 0.08 * sin(tv * 1.3)
-		if mat: mat.set_shader_parameter("curve", curve)
+		if mat: _sp("curve", curve)
 		var at_p := stop - hdg * back + Vector3.DOWN * sink
 		transform = Transform3D(b * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, roll) * Basis.from_scale(Vector3.ONE * sc * near_k), at_p)
 		if tv > (1.2 if rams == 1 else 2.8):
@@ -727,7 +754,7 @@ class Swim extends Node3D:
 			vel = 0.0
 			bank = roll
 			tan = hdg
-			if mat: mat.set_shader_parameter("jaw_force", -1.0)
+			if mat: _sp("jaw_force", -1.0)
 
 	## the bite: a burst of bubbles at the find, and the find jolts
 	func _snap() -> void:
@@ -778,7 +805,7 @@ class Swim extends Node3D:
 			if kind in [7, 8] and rest <= 0.0:
 				lit_to = lerpf(1.0, DIM, smoothstep(0.25, 0.9, s)) if stage == 0 else DIM if stage == 1 else lerpf(DIM, 1.0, smoothstep(0.1, 0.75, s))
 			lit = lerpf(lit, lit_to, minf(1.0, dt * 4.0))
-			mat.set_shader_parameter("gain", gain0 * lit)
+			_sp("gain", gain0 * lit)
 			var fq := maxf(tail_f0, QUICK)
 			var f_to := tail_f0
 			if kind in [7, 8] and rest <= 0.0:
@@ -788,14 +815,14 @@ class Swim extends Node3D:
 			if tail_f < 0.0: tail_f = tail_f0
 			tail_f = lerpf(tail_f, f_to, minf(1.0, dt * 3.0))
 			tail_ph = fposmod(tail_ph + TAU * (tail_f - tail_f0) * dt, TAU)
-			mat.set_shader_parameter("swim_ph", tail_ph)
+			_sp("swim_ph", tail_ph)
 			# near the eye it blinks, a quick one every second or so; on the blow its eyes shut a moment
 			var bl := 0.0
 			if kind in [7, 8] and rest <= 0.0 and ((stage == 0 and s > 0.55) or stage == 1 or (stage == 2 and s < 0.45)):
 				var c := fposmod(Time.get_ticks_msec() * 0.001 * 0.75 + ph, 1.0)
 				bl = smoothstep(0.0, 0.04, c) * (1.0 - smoothstep(0.09, 0.16, c))
 				if stage == 1 and rams == 1: bl = maxf(bl, 1.0 - smoothstep(0.2, 0.45, tv))
-			mat.set_shader_parameter("blink_force", bl)
+			_sp("blink_force", bl)
 		var want := sc * stride * beat * go()
 		# (charging the glass and making off, a slow giant goes as its quickened tail drives it: up to the pace of QUICK)
 		# (and one that comes less huge to the glass crosses the card slower to the eye: it makes that up)
@@ -826,17 +853,17 @@ class Swim extends Node3D:
 			if kind == 6 and mat:
 				if stage == 0:
 					slow = lerpf(1.0, 0.12, smoothstep(0.55, 1.0, s))
-					mat.set_shader_parameter("reach", Vector3(0, 0, NECK) * smoothstep(0.45, 1.0, s))
+					_sp("reach", Vector3(0, 0, NECK) * smoothstep(0.45, 1.0, s))
 				else:
-					mat.set_shader_parameter("reach", Vector3(0, 0, NECK) * (1.0 - smoothstep(0.0, 0.35, s)))
+					_sp("reach", Vector3(0, 0, NECK) * (1.0 - smoothstep(0.0, 0.35, s)))
 			var size := sc
 			if kind == 7:
 				if stage == 0:
 					# (the rush: it gathers speed all the way in; a poke comes up easily and slows at the glass)
 					slow = lerpf(2.0, 8.0, smoothstep(0.1, 0.8, s)) if rams == 1 else lerpf(2.0, 3.5, smoothstep(0.1, 0.6, s)) * lerpf(1.0, 0.15, smoothstep(0.8, 1.0, s))
-					if mat and rams == 1: mat.set_shader_parameter("jaw_force", smoothstep(0.8, 0.96, s))
+					if mat and rams == 1: _sp("jaw_force", smoothstep(0.8, 0.96, s))
 					size = sc * lerpf(1.0, near_k, smoothstep(0.1, 1.0, s))
-					if mat: mat.set_shader_parameter("swim", swim0 * lerpf(1.0, 1.8, smoothstep(0.1, 0.7, s)))
+					if mat: _sp("swim", swim0 * lerpf(1.0, 1.8, smoothstep(0.1, 0.7, s)))
 					# (the water before it reaches the find first: the find is swept off as it comes)
 					if rams == 1 and wash_t < 0.0 and s > 0.72:
 						wash_t = 0.0
@@ -847,15 +874,15 @@ class Swim extends Node3D:
 				else:
 					size = sc * lerpf(near_k, 1.0, smoothstep(0.05, 0.9, s))
 					slow = 1.8
-					if mat: mat.set_shader_parameter("swim", swim0 * lerpf(2.2, 1.0, smoothstep(0.0, 0.7, s)))
+					if mat: _sp("swim", swim0 * lerpf(2.2, 1.0, smoothstep(0.0, 0.7, s)))
 			if kind == 8:
 				if stage == 0:
 					slow = lerpf(3.0, 6.5, smoothstep(0.05, 0.6, s))
 					size = sc * lerpf(1.0, GULP_K, smoothstep(0.0, 0.8, s))
 					if mat:
 						# (the jaws wide from half way in: seen head on, all the way)
-						if not gulp_set: mat.set_shader_parameter("jaw_force", GULP_JAW * smoothstep(0.35, 0.6, s))
-						mat.set_shader_parameter("neck", neck0 * (1.0 - smoothstep(0.05, 0.35, s)))
+						if not gulp_set: _sp("jaw_force", GULP_JAW * smoothstep(0.35, 0.6, s))
+						_sp("neck", neck0 * (1.0 - smoothstep(0.05, 0.35, s)))
 				else:
 					# (the find in its jaws, and on past the eye at the same rush)
 					size = sc * GULP_K
@@ -871,13 +898,15 @@ class Swim extends Node3D:
 							if not gulp_set:
 								tv = 0.0
 								sea_call.emit("gulp")
+								sea_call.emit("dark")
 							_swallow(dt)
 					else:
-						# and off aside, twice as fast (as big as it is now, it must to seem the same rush), thinning
-						# away as it goes — a body that long would be half a minute passing
-						slow = 13.0
+						# and off: when the dark of its shut mouth lifts it is going by across the card and away into the
+						# deep, smaller with every length — one easy line, no turn on the spot
+						size = sc * lerpf(GULP_K * 0.45, 1.0, smoothstep(0.0, 0.8, s))
+						slow = 6.0
 						_swallow(dt)
-						if mat: mat.set_shader_parameter("fade", 1.0 - smoothstep(0.18, 0.45, s))
+						if mat: _sp("fade", 1.0 - smoothstep(0.55, 0.92, s))
 			s += vel * slow * dt / maxf(0.01, dp.length())
 			if s >= 1.0 and kind == 8 and stage == 0:
 				# the mouth is over the find: straight on to the eye
@@ -891,11 +920,14 @@ class Swim extends Node3D:
 				s = 0.0
 				return
 			if s >= 1.0 and kind == 8 and stage == 2:
-				# the jaws shut before the eye: off aside
+				# the jaws have shut before the eye (the card is dark a moment: SpecView): off, across and away
 				stage = 3
-				pa = pb
-				pc = pa + hdg * 2.0 + Vector3(dir * 7.0, -0.5, 0.0)
-				pb = pa + Vector3(dir * 46.0, -2.0, 22.0)
+				# (the path is its middle's, and its head rides nose.y of its size above that: the heights are the head's)
+				var k3 := sc * GULP_K * 0.45
+				pa = Vector3(-dir * 16.0, 0.5 - nose.y * k3, 3.0)
+				pc = Vector3(dir * 6.0, 0.9 - nose.y * k3, 0.0)
+				pb = Vector3(dir * 46.0, 4.0 - nose.y * sc, -34.0)
+				tan = Vector3.ZERO
 				s = 0.0
 				return
 			if s >= 1.0 and kind == 8 and stage == 3:
@@ -941,13 +973,13 @@ class Swim extends Node3D:
 				nt = face
 				if dt > 0.0:
 					curve = lerpf(curve, clampf(was.cross(face).y / dt * 0.55, -0.7, 0.7), minf(1.0, dt * 2.5))
-					if mat: mat.set_shader_parameter("curve", curve)
+					if mat: _sp("curve", curve)
 			# (it banks into its turns)
 			if dt > 0.0 and tan != Vector3.ZERO:
 				bank = lerpf(bank, clampf(-tan.cross(nt).y / dt * 1.6, -0.55, 0.55), minf(1.0, dt * 1.5))
 			tan = nt
 			if mat:
-				mat.set_shader_parameter("fade", smoothstep(0.0, 0.22, s) if deep > 0 else 1.0 - smoothstep(0.72, 0.98, s) if deep < 0 else 1.0)
+				_sp("fade", smoothstep(0.0, 0.22, s) if deep > 0 else 1.0 - smoothstep(0.72, 0.98, s) if deep < 0 else 1.0)
 			# (its head is the model's +x: turned to the way it goes)
 			transform = Transform3D(Basis.looking_at(nt, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * size), p)
 			return

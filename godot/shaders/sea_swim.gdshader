@@ -57,6 +57,8 @@ uniform float jaw_s = 0.0;      // (the mouth's line from the hinge forward: its
 uniform float jaw_shut = 0.0;   // (a model made with its mouth open: the angle that shuts it)
 uniform float jaw_fan = 0.0;    // (the gape's angle at rest, shared out as a fan shuts; 0: jaw_shut. A mouth cut open by sea_prep.py has none: 0.004)
 uniform float jaw_ramp = 0.03;  // (so far before the hinge the jaw takes up its turn: a small head, less)
+uniform float jaw_mask = 0.0;   // (1: the lower jaw is what the mesh's own colour marks red — a head kept whole, its teeth locking: sea_prep.py split_head)
+uniform float inside_k = 0.85;  // (how far the inside of the mouth is painted inside_col; 0: the model has a mouth of its own)
 uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
 uniform float swim_ph = 0.0;    // (the tail's beat run on by so much: SpecReef.Swim quickens it without a jump — a charge, a flight)
@@ -103,6 +105,7 @@ void vertex() {
 		vec2 d = p.xy - vec2(jaw_x, jaw_y);
 		if (d.x > 0.0) {
 			float w = clamp((atan(jaw_s) - atan(d.y, d.x)) / (jaw_fan > 0.0 ? jaw_fan : max(jaw_shut, 0.004)), 0.0, 1.0) * smoothstep(0.0, jaw_ramp, d.x);
+			if (jaw_mask > 0.0) w = step(0.5, COLOR.r) * smoothstep(0.0, jaw_ramp, d.x);
 			float open = jaw_force >= 0.0 ? jaw_force : pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0);
 			float a = (jaw * open - jaw_shut * (1.0 - open)) * w;
 			float ca = cos(a), sa = sin(a);
@@ -229,7 +232,7 @@ void fragment() {
 	if (!FRONT_FACING && jaw > 0.0 && v_mp.x > jaw_x && !(eye_paint > 0.0 && length(v_mp.xy - eye) < eye_r * 3.2)) {
 		// (a palate is not one flat colour: ridges across it, darker to the throat)
 		float ridge = 0.85 + 0.15 * sin(v_mp.x * 900.0);
-		c = mix(c, inside_col * ridge * mix(0.45, 1.0, smoothstep(jaw_x, jaw_x + 0.03, v_mp.x)), 0.85);
+		c = mix(c, inside_col * ridge * mix(0.45, 1.0, smoothstep(jaw_x, jaw_x + 0.03, v_mp.x)), inside_k);
 	}
 	// the water between: the further off, the more of its colour — but the body keeps its light and shade (all one flat
 	// colour it was a card cut out)
