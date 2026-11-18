@@ -437,7 +437,9 @@ class Swim extends Node3D:
 	signal gulped
 	signal gulp_over
 	const GULP_K := 7.2      # (its size at the find, of its far size: a head whose open jaws go round the find)
-	const GULP_RUN := 34.0   # (how far off it starts, straight behind the find)
+	const GULP_RUN := 30.0   # (how far behind the find its snout starts: all of it inside what the studio's camera draws)
+	const GULP_FAR := 230.0  # (how far off it seems to start: a speck)
+	const GULP_T := 3.4      # (seconds it is coming)
 	const GULP_JAW := 2.4    # (how wide the lower jaw goes for it, of its usual gape)
 	const GULP_UP := 0.42    # (and the upper one lifts by this share of that: the palate shows)
 	const GAPE := Vector3(0.478, 0.148, 0.004)   # (the middle of its open mouth, the model's units)
@@ -474,7 +476,7 @@ class Swim extends Node3D:
 		# one straight line all the way, and no turn anywhere on it: out of the card's middle, from a little above — seen
 		# coming over the find, not hidden behind it — down through the find and on under the eye, close: its back
 		# slides by below (not aside: tried, and it read as coming in from the wings)
-		hdg = Vector3(0.0, -0.34, 0.94).normalized()
+		hdg = Vector3(0.0, -0.24, 0.97).normalized()
 		hit_at = Vector3(0.0, 0.1, 0.0)
 		var hb := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		stop = hit_at - (hb * GAPE) * sc * GULP_K
@@ -489,6 +491,41 @@ class Swim extends Node3D:
 			_sp("reach", Vector3.ZERO)
 			_sp("curve", 0.0)
 			_sp("jaw_up", GULP_UP)
+
+	## coming for the find: a speck far off in the middle of the card that grows and grows — slowly, then all at once,
+	## as a thing does that comes straight at the eye at one pace. It cannot really start so far off (the studio's
+	## camera draws only so deep: a far beast came into being a head at a time, its flippers after), so its snout runs
+	## the last GULP_RUN in a line, and it is drawn the size it would look from GULP_FAR down to the find
+	func _come(dt: float) -> void:
+		s = minf(1.0, s + dt / GULP_T)
+		var b := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
+		var full := sc * GULP_K
+		var n1 := stop + b * nose * full
+		var n := n1 - hdg * GULP_RUN * (1.0 - s)
+		var eye := Vector3(0.0, 0.5, CAM)
+		var size := full * n.distance_to(eye) / lerpf(GULP_FAR, n1.distance_to(eye), s)
+		visible = true
+		if mat:
+			_sp("fade", smoothstep(0.0, 0.12, s))
+			# (the jaws wide from half way in: seen head on, all the way)
+			_sp("jaw_force", GULP_JAW * smoothstep(0.3, 0.6, s))
+			_sp("neck", 0.0)
+		transform = Transform3D(b * Basis.from_scale(Vector3.ONE * size), n - b * nose * size)
+		if not roared and s > 0.5:
+			roared = true
+			sea_call.emit("rush")
+		if s >= 1.0:
+			# the find is in its mouth: the jaws shut, and it swims on (_pass_by)
+			stage = 2
+			deep = 0
+			tv = 0.0
+			tr = 0.0
+			hd = hdg
+			hp = n1
+			# (at the pace it came)
+			vel = maxf(vel, 1.0)
+			sea_call.emit("gulp")
+			_pass_by(0.0)
 
 	## the find itself is gone from the card: all of it but the swimmer
 	func _hide_find(n: Node = null) -> void:
@@ -557,12 +594,12 @@ class Swim extends Node3D:
 	## long would sweep the eye away
 	func _pass_by(dt: float) -> void:
 		_swallow(dt)
-		var v := maxf(vel, 1.0) * lerpf(4.5, 8.0, smoothstep(1.0, 12.0, tr))
+		var v := GULP_RUN / GULP_T * lerpf(1.0, 1.7, smoothstep(1.0, 12.0, tr))
 		tr += v * dt
 		# (straight on, as it came: its line passes beside the eye and under it — nothing swings, nothing jerks)
 		hd = hdg
 		hp += hd * v * dt
-		var size := sc * lerpf(GULP_K, GULP_K * 0.36, smoothstep(0.3, 8.0, tr))
+		var size := sc * lerpf(GULP_K, GULP_K * 0.36, smoothstep(0.2, 6.0, tr))
 		_sp("neck", neck0 * smoothstep(10.0, 30.0, tr))
 		var b := Basis.looking_at(hd, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		transform = Transform3D(b * Basis.from_scale(Vector3.ONE * size), hp - b * nose * size)
@@ -875,9 +912,12 @@ class Swim extends Node3D:
 			if kind == 8 and stage == 2:
 				_pass_by(dt)
 				return
-			if kind == 8 and stage == 0 and wait_g > 0.0:
-				wait_g -= dt
-				visible = false
+			if kind == 8 and stage == 0:
+				if wait_g > 0.0:
+					wait_g -= dt
+					visible = false
+					return
+				_come(dt)
 				return
 			if rest > 0.0:
 				rest -= dt
@@ -917,26 +957,7 @@ class Swim extends Node3D:
 					size = sc * lerpf(near_k, 1.0, smoothstep(0.05, 0.9, s))
 					slow = 1.8
 					if mat: _sp("swim", swim0 * lerpf(2.2, 1.0, smoothstep(0.0, 0.7, s)))
-			if kind == 8:
-				if stage == 0:
-					slow = lerpf(3.0, 6.5, smoothstep(0.05, 0.6, s))
-					size = sc * lerpf(1.0, GULP_K, smoothstep(0.0, 0.8, s))
-					if mat:
-						# (the jaws wide from half way in: seen head on, all the way)
-						if not gulp_set: _sp("jaw_force", GULP_JAW * smoothstep(0.35, 0.6, s))
-						_sp("neck", neck0 * (1.0 - smoothstep(0.05, 0.35, s)))
 			s += vel * slow * dt / maxf(0.01, dp.length())
-			if s >= 1.0 and kind == 8 and stage == 0:
-				# the find is in its mouth: the jaws shut, and it swims on (_pass_by)
-				stage = 2
-				deep = 0
-				tv = 0.0
-				tr = 0.0
-				hd = hdg
-				hp = stop + (Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)) * nose * (sc * GULP_K)
-				sea_call.emit("gulp")
-				_pass_by(0.0)
-				return
 			if s >= 1.0 and kind == 7 and stage == 0:
 				stage = 1
 				tv = 0.0
