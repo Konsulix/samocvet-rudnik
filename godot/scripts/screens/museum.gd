@@ -331,8 +331,8 @@ func _tile(g: Array, w: float) -> Control:
 		bd.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		bd.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		bd.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bd.size = Vector2(26, 26)
-		bd.position = Vector2(w - lift - 31, 5)
+		bd.size = Vector2(30, 30)
+		bd.position = Vector2(w - lift - 34, 4)
 		b.add_child(bd)
 	elif cut_ok(s0):
 		var cm := Kit.label("✦", 12, UI.body_bold, Kit.AMBER)
