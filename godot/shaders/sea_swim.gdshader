@@ -64,6 +64,9 @@ uniform float curve = 0.0;      // (the whole body bent in a bow, the tail swept
 uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
 uniform float eye_r = 0.008;
+uniform float eye_paint = 0.0;     // (the eyes drawn here, both alike: a scan whose two eyes came out unlike — a plesiosaur's, one red, one orange)
+uniform float paint_zc = 0.0;      // (the head's middle line there, and how far off it an eye begins: the eye is on the head's sides, not its crown)
+uniform float paint_z0 = 0.0;
 uniform float blink_force = 0.0;   // (tests: shut the eyes)
 varying vec3 v_mp;
 varying vec3 v_wp;
@@ -192,16 +195,37 @@ void fragment() {
 		shut = max(shut, (1.0 - smoothstep(0.0, 0.02, abs(f - 0.56))) * step(0.5, fract(phase * 7.3 + floor(TIME * 0.21 + phase * 3.7) * 0.37)));
 		shut = max(shut, blink_force);
 		float d = length(v_mp.xy - eye);
-		float lid = smoothstep(eye_r * 1.3, eye_r * 0.9, d) * shut;
+		float on_side = eye_paint > 0.0 ? smoothstep(paint_z0 * 0.6, paint_z0, abs(v_mp.z - paint_zc)) : 1.0;
+		if (eye_paint > 0.0) {
+			// the skin round it first (the scan's own eye patch painted out), then an amber eye with a slit of a pupil
+			vec3 round_it = textureLod(tex_d, UV, 5.0).rgb;
+			round_it = vec3(dot(round_it, vec3(0.3, 0.5, 0.2))) * vec3(0.9, 0.96, 1.0) * gain * tint * 0.8;
+			c = mix(c, round_it, eye_paint * on_side * smoothstep(eye_r * 4.4, eye_r * 2.9, length((v_mp.xy - eye - vec2(0.0, eye_r * 0.6)) * vec2(1.0, 1.25))));
+			// (and whatever of the scan's red is left about the eyes, wherever it lies on either side: to plain skin)
+			float box = smoothstep(eye_r * 5.0, eye_r * 3.5, abs(v_mp.x - eye.x)) * smoothstep(eye.y - eye_r * 2.2, eye.y - eye_r * 1.4, v_mp.y);
+			float red = smoothstep(1.25, 1.7, c.r / max(c.g, 0.02));
+			c = mix(c, vec3(dot(c, vec3(0.3, 0.5, 0.2))) * vec3(0.9, 0.96, 1.0) * 0.75, eye_paint * box * red);
+			vec2 ed = (v_mp.xy - eye) / eye_r;
+			vec3 iris = mix(vec3(0.62, 0.36, 0.06), vec3(0.2, 0.08, 0.015), smoothstep(0.3, 1.0, length(ed)));
+			iris = mix(iris, vec3(0.01), smoothstep(0.34, 0.18, abs(ed.x)) * smoothstep(0.95, 0.7, abs(ed.y)));
+			iris += vec3(0.6) * smoothstep(0.2, 0.05, length(ed - vec2(0.3, 0.35)));
+			c = mix(c, iris, eye_paint * on_side * smoothstep(1.1, 0.9, length(ed)));
+			c = mix(c, vec3(0.02), eye_paint * on_side * smoothstep(0.14, 0.0, abs(length(ed) - 1.05)));
+		}
+		float lid = smoothstep(eye_r * 1.3, eye_r * 0.9, d) * shut * on_side;
 		// (the lid: the skin's colour, the texture averaged wide — the eye itself is too small to tint it — and a dark
 		// crease across its middle)
 		vec3 skin = textureLod(tex_d, UV, 6.0).rgb;
-		skin = mix(vec3(dot(skin, vec3(0.3, 0.5, 0.2))), skin, sat) * gain * tint;
+		// (only its lightness: averaged so wide the texture brings in what lies beside the eye on its sheet — a
+		// plesiosaur's red gums, another patch for the other eye — and the two lids came out red and orange)
+		skin = vec3(dot(skin, vec3(0.3, 0.5, 0.2))) * vec3(0.92, 0.97, 1.0) * gain * tint;
 		skin *= 1.15 - 0.35 * smoothstep(eye_r * 0.18, 0.0, abs(v_mp.y - eye.y));
 		c = mix(c, skin, lid);
 	}
 	// (the inside of an open mouth, where the model has none: the far cheek seen from within — dark, red)
-	if (!FRONT_FACING && jaw > 0.0 && v_mp.x > jaw_x) c = mix(c, vec3(0.16, 0.03, 0.035), 0.85);
+	// (not at the eyes' height where the eyes are drawn: a plesiosaur's scan has its skin inside out round one eye, and
+	// that eye came out a red patch)
+	if (!FRONT_FACING && jaw > 0.0 && v_mp.x > jaw_x && !(eye_paint > 0.0 && v_mp.y > eye.y - eye_r * 1.6)) c = mix(c, vec3(0.16, 0.03, 0.035), 0.85);
 	// the water between: the further off, the more of its colour — but the body keeps its light and shade (all one flat
 	// colour it was a card cut out)
 	float hz = haze > 0.0 ? mix(haze_min, haze, smoothstep(haze_d0, haze_d1, length(VERTEX))) : 0.0;
