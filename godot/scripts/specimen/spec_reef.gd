@@ -438,9 +438,9 @@ class Swim extends Node3D:
 	signal gulp_over
 	const GULP_K := 7.2      # (its size at the find, of its far size: a head whose open jaws go round the find)
 	const GULP_RUN := 34.0   # (how far off it starts, straight behind the find)
-	const GULP_JAW := 2.0    # (how wide the jaws go for it, of their usual gape)
+	const GULP_JAW := 2.4    # (how wide the lower jaw goes for it, of its usual gape)
+	const GULP_UP := 0.42    # (and the upper one lifts by this share of that: the palate shows)
 	const GAPE := Vector3(0.478, 0.148, 0.004)   # (the middle of its open mouth, the model's units)
-	const GULP_TURN := 0.6   # (how far aside it has turned, radians, by the time its body goes by the eye)
 	## (past the find: its snout's place and heading, and how far it has come since)
 	var hp := Vector3.ZERO
 	var hd := Vector3.BACK
@@ -471,8 +471,9 @@ class Swim extends Node3D:
 		# out of the middle of the card straight at the eye: one line, head on, the head coming over the find's top
 		# (level with the find: its open mouth — the middle of the gape, GAPE in the model — comes through the find's
 		# own middle, the jaws about it)
-		# (and on at the eye itself: the eye looks into the gape — palate above, the lower jaw below)
-		hdg = Vector3(0.0, 0.06, 1.0).normalized()
+		# one straight line all the way, and no turn anywhere on it: from above and a little to one side — seen coming,
+		# not hidden behind the find — down through the find and on, passing under the eye's other side, close
+		hdg = Vector3(0.3 * dir, -0.17, 0.94).normalized()
 		hit_at = Vector3(0.0, 0.1, 0.0)
 		var hb := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		stop = hit_at - (hb * GAPE) * sc * GULP_K
@@ -486,6 +487,7 @@ class Swim extends Node3D:
 		if mat:
 			_sp("reach", Vector3.ZERO)
 			_sp("curve", 0.0)
+			_sp("jaw_up", GULP_UP)
 
 	## the find itself is gone from the card: all of it but the swimmer
 	func _hide_find(n: Node = null) -> void:
@@ -526,6 +528,7 @@ class Swim extends Node3D:
 			_sp("fade", 1.0)
 			_sp("curve", curve)
 			_sp("jaw_force", -1.0)
+			_sp("jaw_up", 0.0)
 			_sp("neck", neck0)
 		transform = Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * KEEP_K), q)
 
@@ -555,14 +558,10 @@ class Swim extends Node3D:
 		_swallow(dt)
 		var v := maxf(vel, 1.0) * lerpf(4.5, 8.0, smoothstep(1.0, 12.0, tr))
 		tr += v * dt
-		var was := hd
-		# (aside at once, then nearly straight again: its snout clears the eye and the body comes after it along the
-		# same line — turned and left turned, the body, swinging on its head, would come through the eye)
-		hd = (Basis(Vector3.UP, dir * (GULP_TURN * smoothstep(0.2, 3.2, tr) - (GULP_TURN - 0.14) * smoothstep(3.2, 10.0, tr))) * hdg).normalized()
+		# (straight on, as it came: its line passes beside the eye and under it — nothing swings, nothing jerks)
+		hd = hdg
 		hp += hd * v * dt
 		var size := sc * lerpf(GULP_K, GULP_K * 0.36, smoothstep(1.0, 15.0, tr))
-		if dt > 0.0: curve = lerpf(curve, clampf(was.cross(hd).y / dt * 0.6, -0.6, 0.6), minf(1.0, dt * 2.5))
-		_sp("curve", curve)
 		_sp("neck", neck0 * smoothstep(10.0, 30.0, tr))
 		var b := Basis.looking_at(hd, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		transform = Transform3D(b * Basis.from_scale(Vector3.ONE * size), hp - b * nose * size)
