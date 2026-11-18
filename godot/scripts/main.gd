@@ -167,6 +167,9 @@ func _ready() -> void:
 			st.dl = i % 6
 			Save.d.coll.append(st)
 			if not sid in Save.d.seen: Save.d.seen.append(sid)
+	# (tests: the swallowed find given back as it was)
+	if args.has("ungulp"):
+		for st: Dictionary in Save.d.coll: st.erase("gulp")
 	if args.has("seafloor"):
 		# test data: a sea find on its slab for each swimmer of the living sea floor (SpecReef), ammonites and trilobites
 		# in turn: `-- save=<name> screen=stones seafloor`; old ones from a previous run are replaced

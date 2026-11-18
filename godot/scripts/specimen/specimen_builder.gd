@@ -1421,6 +1421,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		root.set_meta("glow", U.raw(0xe4ae39))
 	# hundreds of soil crumbs and moss sprigs drawn as a few objects (the same picture, far fewer draw calls)
 	U.batch(root)
+	# (a find the plesiosaur swallowed: only the plesiosaur is left on its card)
+	if o.get("gulp", false): SpecReef.swallowed(root)
 	st_ref = {}   # (its closures hold the builder: let it go)
 	return root
 

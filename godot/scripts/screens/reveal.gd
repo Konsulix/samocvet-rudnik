@@ -32,7 +32,7 @@ func show_stone(s: Dictionary, others := []) -> void:
 	var traits: Array = s.get("traits", [])
 	var shown := s.duplicate()
 	if name_as != "": shown.name_as = name_as
-	stone_card(v, shown, 400 if others.is_empty() else 360)
+	var view := stone_card(v, shown, 400 if others.is_empty() else 360)
 	if others.size():
 		var names := []
 		for o in others: names.append(Stones.name_of(o))
@@ -71,6 +71,68 @@ func show_stone(s: Dictionary, others := []) -> void:
 	else:
 		_btn_row = _row_make.call()
 	v.add_child(_btn_row)
+	# once in a game: the first find a plesiosaur circles, it swallows — there, on its card (Swim.gulp). The card stays,
+	# the plesiosaur alone on it; the find is the player's still, to be won back (hunt)
+	if name_as == "" and not Save.told("gulp"):
+		view.built.connect(func(p: Node3D) -> void:
+			for n in p.find_children("*", "Node3D", true, false):
+				if n.has_signal("gulped") and bool(n.get("visits")):
+					_gulp_flow(n, v, view, s, says_before)
+					return)
+
+## the plesiosaur takes the find from its card. Sell and Keep wait while it comes; when its jaws shut the find is kept
+## — swallowed (`gulp` on the stone) — and the card says so: nothing of the find's on it, and a way to go after it
+func _gulp_flow(sw: Node, v: VBoxContainer, view: SpecView, s: Dictionary, says_before: Variant) -> void:
+	for b in _btn_row.find_children("*", "BaseButton", true, false):
+		(b as BaseButton).disabled = true
+	var dim := _btn_row.create_tween()
+	dim.tween_property(_btn_row, "modulate:a", 0.35, 0.4)
+	sw.call("gulp", 1.6)
+	sw.connect("gulped", func() -> void:
+		Save.tell("gulp")
+		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), g = s.g, value = s.value, tier = s.tier,
+			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])), gulp = true})
+		Save.paid(s.get("id", -1))
+		Save.persist()
+		Diag.note("the plesiosaur swallowed " + Stones.name_of(s))
+		Sfx.buzz(90)
+		if not is_instance_valid(v): return
+		for c in view.get_children():
+			if c is SpecCallouts: c.queue_free()
+		for cn: Dictionary in view.tapped.get_connections():
+			view.tapped.disconnect(cn.callable)
+		for k: String in ["ribbon_rec", "ribbon_last"]:
+			if v.has_meta(k) and is_instance_valid(v.get_meta(k)): (v.get_meta(k) as Node).queue_free()
+		for c in v.get_children():
+			c.queue_free()
+		gulp_info(v)
+		var later := Kit.button("Later", "btn_dark", 17, 4.0)
+		var row := action_row(later, func():
+			Ov.close()
+			await Awards.say_after_find(says_before)
+			finished.emit(), hunt_button(), hunt)
+		row.modulate.a = 0.0
+		v.add_child(row)
+		# (the buttons come when it has had its look at the player)
+		row.create_tween().tween_property(row, "modulate:a", 1.0, 0.5).set_delay(2.2)
+	, CONNECT_ONE_SHOT)
+
+## what a swallowed find's card says instead of its weight, worth and genes
+static func gulp_info(v: VBoxContainer) -> void:
+	var stats := HBoxContainer.new()
+	stats.add_theme_constant_override("separation", 8)
+	_stat(stats, "Weight", "?")
+	_stat(stats, "Condition", "Swallowed", Color("#ff6a5a"))
+	_stat(stats, "Value", "?", UI.GOLD)
+	v.add_child(stats)
+	v.add_child(Ov.text("The plesiosaur took it whole. It is still yours — if you can get it back.", 13))
+
+static func hunt_button() -> Button:
+	return Kit.button("Hunt it down", "btn_ruby", 17, 4.0)
+
+## after the plesiosaur, for the find (the hunt itself is not made yet)
+static func hunt() -> void:
+	Ov.toast("The hunt is not ready yet")
 
 ## the joke is over: the stone's own name types in over `name_as`, and the usual buttons come
 func unmask(s: Dictionary) -> void:
@@ -235,7 +297,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	# turns round the panel's rounded corner and runs across its top — one ribbon, no joint
 	# the species' record (its atlas page): a silk bookmark tucked into the panel's corner, fluttering as the card
 	# opens; inside the panel, so its rounded clip cuts the ribbon's top, the rim lies over it
-	if mark and chips_max == 0 and not s.has("name_as") and is_record(s):
+	var gulp: bool = s.get("gulp", false)
+	if mark and chips_max == 0 and not s.has("name_as") and not gulp and is_record(s):
 		var rr := RecordRibbon.make(card, info)
 		rr.head = "Atlas record"
 		rr.lines = PackedStringArray(["Your finest " + String(Data.SP[s.sid].n)])
@@ -245,7 +308,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		info.add_child(rr)
 		v.set_meta("ribbon_rec", rr)
 	# the last kept stone with a gene an achievement shows (Awards.last_genes): a shorter green ribbon in the left corner
-	var lastg := Awards.last_genes(s) if chips_max == 0 and not s.has("name_as") else PackedStringArray()
+	var lastg := Awards.last_genes(s) if chips_max == 0 and not s.has("name_as") and not gulp else PackedStringArray()
 	if not lastg.is_empty():
 		# a tap on it names them (many have no badge: the life on a stone is shown by its callouts only)
 		var lr := RecordRibbon.make(card, info, true)
@@ -256,6 +319,10 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		info.add_child(lr)
 		v.set_meta("ribbon_last", lr)
 	card.add_child(_info_rim(card, info))
+	# (the plesiosaur swallowed it: the card has only the plesiosaur, and says so)
+	if gulp:
+		gulp_info(v)
+		return view
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)
 	_stat(stats, "Weight", Stones.fmt_weight(int(s.g)))

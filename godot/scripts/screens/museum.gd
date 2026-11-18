@@ -330,7 +330,7 @@ func _dupes() -> Array:
 	var out := []
 	var keep := Awards.keepers()    # nor the last one with a gene an achievement shows
 	for st in Save.d.coll:
-		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "" or Save.is_gift(st): continue
+		if st == best[Stones.atlas_id(st)] or bool(st.get("legend", false)) or String(st.get("cut", "")) != "" or Save.is_gift(st) or bool(st.get("gulp", false)): continue
 		if keep.has(int(st.get("id", 0))): continue
 		out.append(st)
 	return out
@@ -442,6 +442,13 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	Reveal.stone_card(v, s, 400, func(): Ov.close())
 	if group.size() > 1:
 		_swipe_between(v, s, group, from)
+	# (the plesiosaur swallowed it: neither cut nor sold till it is won back)
+	if s.get("gulp", false):
+		var hb := Reveal.hunt_button()
+		hb.custom_minimum_size = Vector2(0, 48)
+		hb.pressed.connect(Reveal.hunt)
+		v.add_child(hb)
+		return
 	var cut_done: bool = s.get("cut", "") != ""
 	if cut_done:
 		v.add_child(Ov.text("Cut: " + String(Data.CUTN[s.cut]), 13))
