@@ -144,16 +144,20 @@ static func gulp_watch(view: SpecView, v: VBoxContainer, row: Control, taken: Ca
 
 ## what a swallowed find's card says instead of its weight, worth and genes
 static func gulp_info(v: VBoxContainer) -> void:
-	var stats := HBoxContainer.new()
-	stats.add_theme_constant_override("separation", 8)
-	_stat(stats, "Weight", "?")
-	_stat(stats, "Condition", "Swallowed", Color("#ff6a5a"))
-	_stat(stats, "Value", "?", UI.GOLD)
-	v.add_child(stats)
-	v.add_child(Ov.text("The plesiosaur took it whole. It is still yours — if you can get it back.", 13))
+	# the hunt, where the find's weight and worth were: its ribbon (HuntRibbon) and a line on where it stands
+	var hs := HuntRibbon.state()
+	var cap := Kit.label("THE HUNT", 13, UI.display, Kit.AMBER)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.add_theme_constant_override("outline_size", 0)
+	v.add_child(cap)
+	v.add_child(HuntRibbon.new())
+	var line := Ov.text(HuntRibbon.line_text(hs), 13)
+	if bool(hs.lost): line.add_theme_color_override("font_color", Color("#d98a6a"))
+	v.add_child(line)
 
 static func hunt_button() -> Button:
-	return Kit.button("Hunt it down", "btn_ruby", 17, 4.0)
+	var hs := HuntRibbon.state()
+	return Kit.button(HuntRibbon.button_text(hs), "btn_gold" if HuntRibbon.at_geode(hs) else "btn_ruby", 17, 4.0)
 
 ## after the plesiosaur, for the find (the hunt itself is not made yet)
 static func hunt() -> void:
