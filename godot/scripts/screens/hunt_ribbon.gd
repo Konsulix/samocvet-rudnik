@@ -113,6 +113,17 @@ func _process(dt: float) -> void:
 	if not _drag: _x = lerpf(_x, _to, minf(1.0, dt * 8.0))
 	queue_redraw()
 
+## how far a node's picture reaches from its middle along the line
+func _rim(i: int) -> float:
+	var n: Variant = NODES[i]
+	return 36.0 if n is String and n == "boss" else 22.0 if n is String else 26.0
+
+## a bead of the line: a small brass ball — a dark rim, the body, a light from the top left
+func _bead(p: Vector2, gold: bool, a: float) -> void:
+	draw_circle(p + Vector2(0.3, 0.5), 2.5, Color(0, 0, 0, 0.55 * a))
+	draw_circle(p, 2.0, Color(Color("#d9a441") if gold else Color("#6b5633"), a))
+	draw_circle(p + Vector2(-0.6, -0.6), 0.9, Color(Color("#ffe9a8") if gold else Color("#a08a5c"), a))
+
 ## a node's middle on the control
 func _at(i: int) -> Vector2:
 	return Vector2(48.0 + STEP * i - _x, H * 0.5 + 2.0)
@@ -130,20 +141,17 @@ func _pic(t: Texture2D, mid: Vector2, k := 1.0, a := 1.0) -> void:
 
 func _draw() -> void:
 	var nx := _next_i()
-	# the line, node to node: gold up to the node to play, dark beyond; drawn in short runs so its ends can fade
-	var dark := tex("line_dark")
-	var gold := tex("line_gold")
+	# the dotted line, node to node: brass beads drawn here (cut from the sheet they kept a pink rim of its ground),
+	# set evenly in the gap between two nodes' rims — gold up to the node to play, dark beyond
 	for i in NODES.size() - 1:
 		var a := _at(i)
 		var b := _at(i + 1)
-		var t := gold if i < nx else dark
-		var lh := t.get_height() / PX
-		var runs := 6
-		for k in runs:
-			var x0 := lerpf(a.x, b.x, float(k) / runs)
-			var x1 := lerpf(a.x, b.x, float(k + 1) / runs)
-			var u0 := fposmod(STEP * i + (x0 - a.x), t.get_width() / PX) * PX
-			draw_texture_rect_region(t, Rect2(x0, a.y - lh * 0.5, x1 - x0, lh), Rect2(u0, 0, (x1 - x0) * PX, t.get_height()), Color(1, 1, 1, _edge((x0 + x1) * 0.5)))
+		var x0 := a.x + _rim(i) + 5.0
+		var x1 := b.x - _rim(i + 1) - 5.0
+		var cnt := maxi(1, int(round((x1 - x0) / 6.5)))
+		for k in cnt + 1:
+			var bx := lerpf(x0, x1, float(k) / cnt)
+			_bead(Vector2(bx, a.y), i < nx, _edge(bx))
 	for i in NODES.size():
 		var p := _at(i)
 		if p.x < -60.0 or p.x > size.x + 60.0:
