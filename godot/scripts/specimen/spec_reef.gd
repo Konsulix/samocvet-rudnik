@@ -262,6 +262,7 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		# (now and then it comes straight at the eye and strikes the card's glass: 1 rams it — the glass cracks,
 		# GlassCrack; 2 only pokes it with its snout — the glass mists. Swim's pass 7)
 		sn.rams = int(an.get("ram", 0.0))
+		sn.near_k = 0.9 if sn.rams == 1 else 0.6
 		sn.nose = Vector2(0.5, float(an.get("eye_y", 0.11)) + 0.01)
 		sn.seed_v = seed_v
 		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
@@ -363,11 +364,14 @@ class Swim extends Node3D:
 	## a ram (`ram` in its anim; pass 7): out of the deep straight at the eye, faster and faster, jaws opening — and into
 	## the card's glass (glass_hit: SpecView cracks it there and shakes); it reels back, shakes its head, turns away
 	## into the deep. A poke (rams 2): it comes up slowly, touches the glass with its snout, looks, and goes.
-	## The glass is GLASS before the find; a giant would not fit between the find and the eye, so it comes NEAR_K its
-	## far size by then (the eye cannot tell: it still grows all the way in). stage: 0 coming, 1 at the glass, 2 leaving
+	## The glass is GLASS before the find. At the glass it is near_k its far size (a rammer nearly whole: a monster's head
+	## fills the card; a poker smaller). The water it drives before it washes the find aside (wash_t: out fast with the
+	## blow, back gently). stage: 0 coming, 1 at the glass, 2 leaving
 	signal glass_hit(at: Vector3, soft: bool)
 	const GLASS := 4.0
-	const NEAR_K := 0.5
+	var near_k := 0.9
+	var wash_t := -1.0
+	var wash_off := Vector3.ZERO
 	var rams := 0
 	var nose := Vector2(0.5, 0.12)
 	var face := Vector3.BACK
@@ -423,7 +427,7 @@ class Swim extends Node3D:
 				hdg = Vector3(0.1 * dir, -0.28, 1.0).normalized()
 				hit_at = Vector3(-0.08 * dir, 0.42, GLASS)
 				var hb := Basis.looking_at(hdg, Vector3.UP)
-				stop = hit_at - (hdg * nose.x + hb * Vector3.UP * nose.y) * sc * NEAR_K
+				stop = hit_at - (hdg * nose.x + hb * Vector3.UP * nose.y) * sc * near_k
 				pa = Vector3(-dir * hw * 0.5, 4.5, -DEPTH * 1.7)
 				pc = stop - hdg * 12.0
 				pb = stop
@@ -550,7 +554,7 @@ class Swim extends Node3D:
 			back = 0.12 * smoothstep(0.0, 0.4, tv) + 0.05 * sin(tv * 2.4)
 			shake = sin(tv * 1.9) * 0.14 * smoothstep(0.3, 1.0, tv)
 		var at_p := stop - hdg * back
-		transform = Transform3D(b * Basis(Vector3.UP, PI / 2 + shake) * Basis.from_scale(Vector3.ONE * sc * NEAR_K), at_p)
+		transform = Transform3D(b * Basis(Vector3.UP, PI / 2 + shake) * Basis.from_scale(Vector3.ONE * sc * near_k), at_p)
 		if tv > (1.3 if rams == 1 else 2.8):
 			stage = 2
 			pa = at_p
@@ -577,6 +581,21 @@ class Swim extends Node3D:
 			if home:
 				home.position += jo - jolt_off
 				jolt_off = jo
+		if wash_t >= 0.0:
+			# the water driven before it: the find is swept aside and back, turning a little, and comes home gently
+			wash_t += dt
+			if home == null or not is_instance_valid(home): home = _home()
+			var e := (1.0 - exp(-wash_t * 6.0)) * (1.0 - smoothstep(0.7, 3.8, wash_t))
+			var wo := (Vector3(-dir * 1.1, -0.25, -0.7) + Vector3(0.06 * sin(wash_t * 5.0), 0.05 * sin(wash_t * 6.3), 0)) * e * (1.0 if rams == 1 else 0.12)
+			var par0 := home.get_parent() as Node3D if home else null
+			if par0 and home != self:
+				var lo := par0.global_transform.basis.inverse() * wo
+				home.position += lo - wash_off
+				wash_off = lo
+			if wash_t > 3.9:
+				wash_t = -1.0
+				if home: home.position -= wash_off
+				wash_off = Vector3.ZERO
 		var want := sc * stride * beat * go()
 		# (a body's weight: it gathers way and loses it slowly)
 		vel = want if vel < 0.0 else lerpf(vel, want, minf(1.0, dt * 1.5))
@@ -608,13 +627,19 @@ class Swim extends Node3D:
 					if mat and rams == 1: mat.set_shader_parameter("jaw_force", smoothstep(0.8, 0.96, s))
 				# (its size by how near it is: the same coming and going)
 				var z_now := (pa * ((1.0 - s) * (1.0 - s)) + pc * (2.0 * (1.0 - s) * s) + pb * (s * s)).z
-				size = sc * lerpf(1.0, NEAR_K, smoothstep(-DEPTH * 0.9, 0.5, z_now))
+				size = sc * lerpf(1.0, near_k, smoothstep(-DEPTH * 0.9, stop.z - 0.3, z_now))
 			s += vel * slow * dt / maxf(0.01, dp.length())
 			if s >= 1.0 and kind == 7 and stage == 0:
 				stage = 1
 				tv = 0.0
 				face = hdg
 				glass_hit.emit(hit_at, rams == 2)
+				wash_t = 0.0
+				if rams == 1:
+					var bb := Burst.new()
+					bb.top_level = true
+					add_child(bb)
+					bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.6), Vector3(-dir * 0.5, 0.0, 2.0))
 				_ram(0.0)
 				return
 			if s >= 1.0 and kind == 6 and stage == 0:

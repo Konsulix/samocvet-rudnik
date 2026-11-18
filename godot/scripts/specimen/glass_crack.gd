@@ -1,18 +1,21 @@
 class_name GlassCrack
 extends Control
 ## The card's "glass" struck from inside (a big swimmer of the old seas rams it: SpecReef.Swim, pass 7): a web of
-## cracks runs out from the blow — jagged rays, rings between them — holds a little, and heals away in LIFE seconds.
+## cracks runs out from the blow to the card's frame — jagged rays, rings between them — holds a little, and heals
+## from the frame back in to the blow, gone in LIFE seconds.
 ## A soft one (an ichthyosaur's curious poke) cracks nothing: the glass only mists over where the snout touched.
 ## Drawn in lines over the stone's view (a child of SpecView), no shader of its own.
 
 const LIFE := 5.0
-const GROW := 0.14   # (seconds the cracks take to run out)
+const GROW := 0.2    # (seconds the cracks take to run out to the frame)
+const HOLD := 1.6    # (then they heal, from the frame back to the blow, till LIFE)
 
 var at := Vector2.ZERO
 var soft := false
 var reach := 100.0
+var far := 1.0       # (the furthest corner of the card from the blow)
 var _t := 0.0
-## each line: its points, its width, when it starts (0..1 of GROW), whether it grows along itself (a ray) or comes whole
+## each line: its points (outwards from the blow), its width
 var _lines: Array = []
 static var _blob: GradientTexture2D
 
@@ -46,37 +49,42 @@ func _ready() -> void:
 		return
 	var r := RandomNumberGenerator.new()
 	r.randomize()
-	var n := r.randi_range(10, 14)
-	var step := reach * 0.07
+	var n := r.randi_range(11, 15)
+	var step := reach * 0.075
+	var box := Rect2(Vector2.ZERO, size).grow(step)
+	for c in [Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]:
+		far = maxf(far, at.distance_to(c))
 	var rays: Array = []
 	var a0 := r.randf() * TAU
 	for i in n:
 		var a := a0 + TAU * (i + r.randf_range(-0.3, 0.3)) / n
-		var len_k := r.randf_range(0.4, 1.0)
-		# (a few long ones: a web is not a circle)
-		if r.randf() < 0.25: len_k *= 1.35
-		var cnt := maxi(3, int(reach * len_k / step))
+		# most run all the way out to the card's frame; a few die on the way
+		var max_len := INF if r.randf() < 0.78 else reach * r.randf_range(0.5, 1.1)
 		var pts := PackedVector2Array([at])
 		var p := at
-		for k in cnt:
-			a += r.randf_range(-0.16, 0.16)
+		while pts.size() < 90 and box.has_point(p) and p.distance_to(at) < max_len:
+			a += r.randf_range(-0.13, 0.13)
+			# (it keeps on outwards: no curling back)
+			a = lerp_angle(a, (p - at).angle() if pts.size() > 1 else a, 0.25)
 			p += Vector2(cos(a), sin(a)) * step * r.randf_range(0.7, 1.3)
 			pts.append(p)
 		rays.append(pts)
-		_lines.append([pts, r.randf_range(1.1, 1.7), 0.0, true])
-		# a branch off it
-		if r.randf() < 0.55 and cnt > 4:
-			var from := r.randi_range(2, cnt - 2)
-			var ba := a + (0.45 if r.randf() < 0.5 else -0.45) + r.randf_range(-0.15, 0.15)
-			var bp: Vector2 = pts[from]
-			var bpts := PackedVector2Array([bp])
-			for k in r.randi_range(2, 4):
-				ba += r.randf_range(-0.2, 0.2)
-				bp += Vector2(cos(ba), sin(ba)) * step * r.randf_range(0.6, 1.1)
-				bpts.append(bp)
-			_lines.append([bpts, 1.0, float(from) / cnt, true])
+		_lines.append([pts, r.randf_range(1.1, 1.8)])
+		var cnt := pts.size() - 1
+		# branches off it
+		for bk in 2:
+			if r.randf() < 0.6 and cnt > 5:
+				var from := r.randi_range(2, cnt - 2)
+				var ba := (pts[from + 1] - pts[from]).angle() + (0.5 if r.randf() < 0.5 else -0.5) + r.randf_range(-0.15, 0.15)
+				var bp: Vector2 = pts[from]
+				var bpts := PackedVector2Array([bp])
+				for k in r.randi_range(2, 6):
+					ba += r.randf_range(-0.2, 0.2)
+					bp += Vector2(cos(ba), sin(ba)) * step * r.randf_range(0.6, 1.1)
+					bpts.append(bp)
+				_lines.append([bpts, 1.0])
 	# the rings: short cracks from ray to ray, closer together near the blow
-	var rings := [[2, 0.85], [4, 0.6], [7, 0.35], [10, 0.2]]
+	var rings := [[2, 0.85], [4, 0.65], [7, 0.4], [11, 0.25], [16, 0.14]]
 	for rg: Array in rings:
 		for i in n:
 			var pa: PackedVector2Array = rays[i]
@@ -88,7 +96,7 @@ func _ready() -> void:
 			var m := (pa[ia] + pb[ib]) * 0.5
 			# (a ring's piece sags a little towards the blow)
 			m = m.lerp(at, r.randf_range(0.02, 0.1))
-			_lines.append([PackedVector2Array([pa[ia], m, pb[ib]]), 1.0, minf(0.95, float(rg[0]) * step / reach), false])
+			_lines.append([PackedVector2Array([pa[ia], m, pb[ib]]), 1.0])
 
 func _process(dt: float) -> void:
 	_t += dt
@@ -106,27 +114,33 @@ func _draw() -> void:
 		var r2 := rr * 0.3
 		draw_texture_rect(blob(), Rect2(at - Vector2(r2, r2), Vector2(r2, r2) * 2.0), false, Color(1, 1, 1, 0.5 * k))
 		return
-	var g := clampf(_t / GROW, 0.0, 1.0)
-	var a := 1.0 - smoothstep(2.0, LIFE, _t)
+	# the cracks run out from the blow to the frame, hold, and heal from the frame back in to the blow: all that is
+	# nearer the blow than `front` shows
+	var front := far * 1.05 * minf(clampf(_t / GROW, 0.0, 1.0), 1.0 - smoothstep(HOLD, LIFE, _t))
+	var a := 1.0 - smoothstep(LIFE - 0.6, LIFE, _t)
 	# the blow's flash, and the crushed glass at its middle
 	var fl := 1.0 - smoothstep(0.0, 0.3, _t)
 	if fl > 0.0:
-		var fr := reach * 0.55
+		var fr := reach * 0.6
 		draw_texture_rect(blob(), Rect2(at - Vector2(fr, fr), Vector2(fr, fr) * 2.0), false, Color(1, 1, 1, 0.55 * fl))
-	var cr := reach * 0.13
+	var cr := minf(reach * 0.14, front)
 	draw_texture_rect(blob(), Rect2(at - Vector2(cr, cr), Vector2(cr, cr) * 2.0), false, Color(0.9, 0.96, 1.0, 0.4 * a))
 	var dark := Color(0, 0, 0, 0.4 * a)
 	var light := Color(0.9, 0.96, 1.0, 0.85 * a)
 	for ln: Array in _lines:
 		var pts: PackedVector2Array = ln[0]
-		var st := float(ln[2])
-		if g <= st:
+		var show := PackedVector2Array()
+		for k in pts.size():
+			var d := pts[k].distance_to(at)
+			if d > front:
+				# (cut at the front itself, not at the last whole piece: it creeps, it does not hop)
+				if k > 0:
+					var d0 := pts[k - 1].distance_to(at)
+					show.append(pts[k - 1].lerp(pts[k], clampf((front - d0) / maxf(0.01, d - d0), 0.0, 1.0)))
+				break
+			show.append(pts[k])
+		if show.size() < 2:
 			continue
-		var show := pts
-		if ln[3]:
-			var k2 := clampf((g - st) / maxf(0.05, 1.0 - st), 0.0, 1.0)
-			var cnt := clampi(int(ceil(k2 * (pts.size() - 1))) + 1, 2, pts.size())
-			show = pts.slice(0, cnt)
 		var w := float(ln[1])
 		var sh := PackedVector2Array()
 		for p in show:
@@ -136,4 +150,4 @@ func _draw() -> void:
 		var half := maxi(2, (show.size() + 1) / 2)
 		draw_polyline(show.slice(0, half), light, w, true)
 		if show.size() > half:
-			draw_polyline(show.slice(half - 1), Color(light, light.a * 0.7), w * 0.6, true)
+			draw_polyline(show.slice(half - 1), Color(light, light.a * 0.75), w * 0.65, true)
