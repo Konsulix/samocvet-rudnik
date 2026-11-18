@@ -66,9 +66,10 @@ const SAMPLES := {
 	# a big swimmer rams the card's glass from inside (GlassCrack): a heavy knock and the glass cracking, lower; an
 	# ichthyosaur's poke - a light tap on it
 	glass_ram = {f = ["bfh1_glass_breaking_02", "impactMining_000"], all = true, db = -10.0, pitch = 0.72},
-	# the old seas' swimmers on a find's card (SpecReef.Swim's sea_call): a call as one passes (whale-like, synthesised:
-	# prototype/tools/amb_whale.py), the water driven before a charging one, its roar as the jaws open
-	sea_song = {f = ["amb/sea/whale_0", "amb/sea/whale_1", "amb/sea/whale_2", "amb/sea/whale_3", "amb/sea/whale_4"], db = -15.0},
+	# the old seas' swimmers on a find's card (SpecReef.Swim's sea_call): a call as one passes — real whales, NOAA's
+	# hydrophone recordings cut into single calls (prototype/tools/amb_whale_rec.py; public domain) — the water driven
+	# before a charging one, its roar as the jaws open
+	sea_song = {f = ["amb/sea/whale_0", "amb/sea/whale_1", "amb/sea/whale_2", "amb/sea/whale_3", "amb/sea/whale_4", "amb/sea/whale_5", "amb/sea/whale_6", "amb/sea/whale_7"], db = -8.0},
 	sea_rush = {f = ["amb/sea/crash_1", "amb/sea/bubble_1"], all = true, db = -13.0, pitch = 0.6},
 	sea_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -10.0, pitch = 0.42},
 	glass_tap = {f = ["bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -18.0, pitch = 1.5},

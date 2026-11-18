@@ -128,3 +128,5 @@ Joseph Sardin и Pablo Bergel, BigSoundBank (CC0):
 - `knock` — три удара `impactPlank_medium_000` (Kenney, CC0, уже в игре) с эхом.
 - `hiss` (газ), `flame` (вспышка газа), `bell` (сигнальный колокол), `whistle` (гудок парохода) — синтез.
 - `maiden_laugh_0..1` — Joseph Sardin, [BigSoundBank #1660 «Laughter of children»](https://bigsoundbank.com/laughter-of-children-s1660.html) (CC0): два смешка девочки (0,10–0,48 и 2,76–3,13 с), смех Огневушки (`prototype/tools/maiden_laugh.py`).
+
+- `amb/sea/whale_0..7.ogg` — whale calls cut from NOAA PMEL Acoustics Program hydrophone recordings (Alaska humpback; blue whales of the NE Pacific, W Pacific, Atlantic and S Pacific and the "52 Hz" whale, sped up 10x by NOAA), https://www.pmel.noaa.gov/acoustics/whales/sounds/ — US government work, public domain. Cut by `prototype/tools/amb_whale_rec.py`.

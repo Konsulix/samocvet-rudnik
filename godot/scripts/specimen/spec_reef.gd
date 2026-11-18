@@ -390,6 +390,11 @@ class Swim extends Node3D:
 	var tail_f0 := 0.5
 	var tail_f := -1.0
 	var tail_ph := 0.0
+	## its colours' own strength (the shader's gain), and how far it is dimmed now: at the glass it is right under the
+	## studio's lamps and burnt out to a pale grey, its skin lost — so near, it keeps DIM of its light
+	const DIM := 0.58
+	var gain0 := -1.0
+	var lit := 1.0
 	var sing_in := 6.0
 	signal sea_call(what: String)
 	var rams := 0
@@ -425,6 +430,8 @@ class Swim extends Node3D:
 		# (not the same way twice running)
 		if k2 == kind: k2 = pick[(int(r.next() * pick.size()) + 3) % pick.size()]
 		kind = k if k >= 0 else k2
+		# (a card just opened: the second pass is always the charge at the glass — otherwise most would never see one)
+		if k < 0 and rams > 0 and passes == 2: kind = 7
 		if test_kind == -2:
 			test_kind = -1
 			for arg in OS.get_cmdline_user_args():
@@ -643,6 +650,14 @@ class Swim extends Node3D:
 				sing_in = 11.0 + 9.0 * fposmod(ph * 3.7 + passes * 0.37, 1.0)
 				if not (kind == 7 and stage < 2 and s > 0.4): sea_call.emit("song")
 		if far and mat and rams > 0:
+			if gain0 < 0.0:
+				var g0: Variant = mat.get_shader_parameter("gain")
+				gain0 = float(g0) if g0 != null else 1.35
+			var lit_to := 1.0
+			if kind == 7 and rest <= 0.0:
+				lit_to = lerpf(1.0, DIM, smoothstep(0.25, 0.9, s)) if stage == 0 else DIM if stage == 1 else lerpf(DIM, 1.0, smoothstep(0.1, 0.75, s))
+			lit = lerpf(lit, lit_to, minf(1.0, dt * 4.0))
+			mat.set_shader_parameter("gain", gain0 * lit)
 			var fq := maxf(tail_f0, QUICK)
 			var f_to := tail_f0
 			if kind == 7 and rest <= 0.0:
