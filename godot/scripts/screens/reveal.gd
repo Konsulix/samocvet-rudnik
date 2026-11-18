@@ -88,14 +88,16 @@ func show_stone(s: Dictionary, others := []) -> void:
 ## there): once the stone is built and a plesiosaur is with it, the card's buttons (`row`) wait while it comes; when
 ## its jaws shut, `taken` does the keeping (the stone marked `gulp`) and gives the buttons the card has from then on —
 ## and the card says what happened: nothing of the find's on it any more
+static var gulp_test := false   # a test key (-- gulp_test): it comes for the find at every opening of its card, and nothing is kept of it
+
 static func gulp_watch(view: SpecView, v: VBoxContainer, row: Control, taken: Callable) -> void:
-	if Save.told("gulp"):
+	if Save.told("gulp") and not gulp_test:
 		return
 	view.built.connect(func(p: Node3D) -> void:
 		var sw: Node = null
 		for n in p.find_children("*", "Node3D", true, false):
 			if n.has_signal("gulped") and bool(n.get("visits")): sw = n
-		if sw == null or Save.told("gulp") or not is_instance_valid(row):
+		if sw == null or (Save.told("gulp") and not gulp_test) or not is_instance_valid(row):
 			return
 		for b in row.find_children("*", "BaseButton", true, false):
 			(b as BaseButton).disabled = true
@@ -103,6 +105,14 @@ static func gulp_watch(view: SpecView, v: VBoxContainer, row: Control, taken: Ca
 		row.create_tween().tween_property(row, "modulate:a", 0.35, 0.4)
 		sw.call("gulp", 1.6)
 		sw.connect("gulped", func() -> void:
+			if gulp_test:
+				# (only the show: the card's buttons come back, the save knows nothing)
+				if is_instance_valid(row):
+					for b in row.find_children("*", "BaseButton", true, false):
+						(b as BaseButton).disabled = false
+					if row is BaseButton: (row as BaseButton).disabled = false
+					row.modulate.a = 1.0
+				return
 			Save.tell("gulp")
 			var next: Control = taken.call()
 			Save.persist()

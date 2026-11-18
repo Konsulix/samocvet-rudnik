@@ -84,6 +84,7 @@ func _ready() -> void:
 		var q := String(args.fly_in).split(",")
 		SpecButterfly.fly_in = Vector3(float(q[0]), float(q[1]), float(q[2]))
 	if args.has("chips"): Reveal.chips_max = int(args.chips)
+	if args.has("gulp_test"): Reveal.gulp_test = true
 	if args.has("story_auto"): StoryScene.auto = true   # the home screen as after the prologue: up from the bottom to the guide
 	if args.has("mine_event"):
 		if args.mine_event == "maiden": MineView.force_maiden = true    # (comes with the next event, ~10-16 s)
