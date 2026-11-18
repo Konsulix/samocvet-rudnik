@@ -48,8 +48,8 @@ func show_stone(s: Dictionary, others := []) -> void:
 		finished.emit()
 	var keep := func():
 		# where it was found: the mine's screen puts the best find of each depth on its pedestal
-		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = traits, legend = s.get("legend", false), g = s.g, value = s.value, tier = tier,
-			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()]))})
+		Save.d.coll.append(kept_entry(s, {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = traits, legend = s.get("legend", false), g = s.g, value = s.value, tier = tier,
+			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()]))}))
 		Save.paid(s.get("id", -1))
 		Save.persist()
 		Ov.close()
@@ -75,14 +75,23 @@ func show_stone(s: Dictionary, others := []) -> void:
 	# the plesiosaur alone on it; the find is the player's still, to be won back (hunt)
 	if name_as == "":
 		gulp_watch(view, v, _btn_row, func() -> Control:
-			Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), g = s.g, value = s.value, tier = s.tier,
-				area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])), gulp = true})
+			Save.d.coll.append(kept_entry(s, {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), g = s.g, value = s.value, tier = s.tier,
+				area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])), gulp = true}))
 			Save.paid(s.get("id", -1))
 			Diag.note("the plesiosaur swallowed " + Stones.name_of(s))
 			return action_row(Kit.button("Later", "btn_dark", 17, 4.0), func():
 				Ov.close()
 				await Awards.say_after_find(says_before)
 				finished.emit(), hunt_button(), hunt))
+
+## what goes into the inventory for a kept find: `entry` (what Keep sets: where it was found, the traits and tier as the
+## card shows them) and everything else the find carries as it is — its integrity above all (18.11: Keep built its
+## entry from a list of fields that left `integ` out, and a Fine find came back from the inventory Pristine, whole
+## again), and any gene a test or the admin pinned on it
+static func kept_entry(s: Dictionary, entry: Dictionary) -> Dictionary:
+	for k in s:
+		if not entry.has(k): entry[k] = s[k]
+	return entry
 
 ## the plesiosaur takes the find from its card (a find's reveal, or its card in the inventory if it never met one
 ## there): once the stone is built and a plesiosaur is with it, the card's buttons (`row`) wait while it comes; when
