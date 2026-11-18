@@ -471,9 +471,10 @@ class Swim extends Node3D:
 		# out of the middle of the card straight at the eye: one line, head on, the head coming over the find's top
 		# (level with the find: its open mouth — the middle of the gape, GAPE in the model — comes through the find's
 		# own middle, the jaws about it)
-		# one straight line all the way, and no turn anywhere on it: from above and a little to one side — seen coming,
-		# not hidden behind the find — down through the find and on, passing under the eye's other side, close
-		hdg = Vector3(0.3 * dir, -0.17, 0.94).normalized()
+		# one straight line all the way, and no turn anywhere on it: out of the card's middle, from a little above — seen
+		# coming over the find, not hidden behind it — down through the find and on under the eye, close: its back
+		# slides by below (not aside: tried, and it read as coming in from the wings)
+		hdg = Vector3(0.0, -0.34, 0.94).normalized()
 		hit_at = Vector3(0.0, 0.1, 0.0)
 		var hb := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		stop = hit_at - (hb * GAPE) * sc * GULP_K
@@ -561,7 +562,7 @@ class Swim extends Node3D:
 		# (straight on, as it came: its line passes beside the eye and under it — nothing swings, nothing jerks)
 		hd = hdg
 		hp += hd * v * dt
-		var size := sc * lerpf(GULP_K, GULP_K * 0.36, smoothstep(1.0, 15.0, tr))
+		var size := sc * lerpf(GULP_K, GULP_K * 0.36, smoothstep(0.3, 8.0, tr))
 		_sp("neck", neck0 * smoothstep(10.0, 30.0, tr))
 		var b := Basis.looking_at(hd, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		transform = Transform3D(b * Basis.from_scale(Vector3.ONE * size), hp - b * nose * size)
