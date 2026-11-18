@@ -804,64 +804,6 @@ func _veins_plaque(dl: int) -> Control:
 	cc.add_child(box)
 	return cc
 
-func _open_tasks() -> void:
-	var a := ai()
-	var A: Dictionary = Data.AREAS[a]
-	var built: Array = Save.d.built[a]
-	var open: int = Save.d.depth[a]
-	var on := String(Data.ore(a).n).to_lower()
-	var v := Ov.card(350)
-	v.add_child(UI.title(A.n, 22))
-	v.add_child(Ov.text("Each depth has one job, paid in %s from the levels you win. Finish it to dig deeper. You have %d %s." % [on, int(Save.d.ore), on], 14))
-	var all_done := true
-	for i in A.tasks.size():
-		var t: Array = A.tasks[i]
-		var done: bool = t[0] in built
-		if not done: all_done = false
-		# a slate card of the kit (it was a glass strip); a finished job's card a touch green
-		var row := PanelContainer.new()
-		row.add_theme_stylebox_override("panel", Kit.box("card", 10.0, Color(0.82, 1.0, 0.84) if done else Color.WHITE))
-		var h := HBoxContainer.new()
-		var tv := VBoxContainer.new()
-		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tv.add_theme_constant_override("separation", 0)
-		var nl := Kit.label(t[1], 14, UI.body_bold)
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		tv.add_child(nl)
-		var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
-		var cost: int = MineView.step_cost(a, String(t[0]), int(t[2]))
-		var here := "%d m" % Data.depth_m(a, i)
-		var stp := _step_label(a, String(t[0]))
-		var sub := Kit.label("Done" if done else "%s%s · %d %s · in the chest: %s" % [here, stp, cost, on, chest_text(ch)], 12, UI.body, Kit.DIM)
-		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # unwrapped, the longest line widened the card past the screen
-		tv.add_child(sub)
-		h.add_child(tv)
-		var reach: bool = i <= open
-		var can: bool = not done and reach and Save.d.ore >= cost
-		var paid: Array = _steps_paid(a, String(t[0]), int(t[2]))
-		var pn: int = maxi(1, int(paid[0]))
-		var b := Kit.button("✓" if done else ("%d ×%d" % [int(paid[1]), pn] if pn > 1 else str(cost)) if reach else here, "btn_gold" if can else "btn_dark", 15, 4.0)
-		b.custom_minimum_size = Vector2(76, 44)
-		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		b.disabled = not can
-		var tid: String = t[0]
-		b.pressed.connect(func():
-			Ov.close()
-			_build_many(tid, i, pn))
-		if reach and not done and not can:
-			# (18.11) not enough gold: the same red "!" as the window's other rows — a greyed price button meant the
-			# same thing in another way. A depth not reached yet keeps its "100 m"
-			var al := Kit.icon("alert", 24)
-			al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			h.add_child(al)
-		else:
-			h.add_child(b)
-		row.add_child(h)
-		v.add_child(row)
-	if all_done and a < Data.AREAS.size() - 1 and not _boss_waits():
-		v.add_child(_next_mine_btn(a))
-	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
-
 ## the checklist for the next depth: this depth's job, the drill's iron and coins, each ticked off; Dig down
 ## once all three are met. At the last depth: its job, then the next mine.
 ## the miner's card (a snapshot key: `ui=profile`)
