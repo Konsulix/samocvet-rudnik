@@ -53,6 +53,7 @@ uniform float silv_k = 0.0;
 uniform vec3 silv_col = vec3(1.0);   // the metal's tint: silver as it is; gold, copper (a boss's hoard)
 uniform float silv_net = 0.0;       // >0: not along the ridges but a net of thin veins through the rock (a hoard's boulder)
 uniform float micro_k = 0.0;        // fine pits and bumps over the rock, on top of its scan (a hoard's boulder)
+uniform float aa_k = 0.0;           // >0: detail finer than a pixel fades out instead of flickering (a hoard's boulder, 18.11)
 uniform float agate_k = 0.0;        // >0: a geode's rim band round a cave in the rock's face (the hoard); vertex green marks where it may be
 uniform vec2 agate_c = vec2(0.0);   // the cave's middle, in rock coordinates (x, y; the face looks along +z)
 uniform float agate_r[72];          // the cave's outline radius, angle by angle
@@ -161,7 +162,9 @@ void fragment() {
 	vec3 rk = d_col * (0.3 + 1.2 * fbm(v_rp * 26.0)) * (0.7 + 0.5 * vn(v_rp * 5.0));
 	rk = mix(rk, vec3(0.3, 0.11, 0.035) * (0.6 + 0.8 * vn(v_rp * 30.0)), smoothstep(0.55, 0.8, vn(v_rp * 9.0 + 5.0)) * 0.45);
 	// glittering mineral grains
-	float grains = smoothstep(0.86, 0.92, vn(v_rp * 70.0)) * 0.6;
+	// (aa_k: how many pixels a unit of the rock spans — noise with a period under ~3 pixels fades instead of shimmering)
+	float px_rp = length(fwidth(v_rp));
+	float grains = smoothstep(0.86, 0.92, vn(v_rp * 70.0)) * 0.6 * mix(1.0, 1.0 - smoothstep(0.2, 0.45, px_rp * 70.0), aa_k);
 	rk += vec3(0.55, 0.52, 0.48) * grains * 0.4;
 	rk = mix(rk, rk * 1.7 + 0.04, rim * 0.6);
 	float s_rough = 0.8;
@@ -239,9 +242,20 @@ void fragment() {
 		if (silv_net > 0.0) {
 			// thin veins crossing the rock as a net, as quartz veins in a split boulder: the isolines of two
 			// noises, a wider wandering one and finer ones branching off it, broken here and there
-			float v1 = 1.0 - smoothstep(0.003, 0.008, abs(fbm(v_rp * 1.6 + 7.0) - 0.5));
-			float v2 = 1.0 - smoothstep(0.002, 0.0055, abs(fbm(v_rp * 3.4 + 13.0) - 0.5));
-			float v3 = 1.0 - smoothstep(0.002, 0.006, abs(fbm(v_rp * 6.5 + 29.0) - 0.5));
+			float f1 = fbm(v_rp * 1.6 + 7.0) - 0.5;
+			float f2 = fbm(v_rp * 3.4 + 13.0) - 0.5;
+			float f3 = fbm(v_rp * 6.5 + 29.0) - 0.5;
+			float v1 = 1.0 - smoothstep(0.003, 0.008, abs(f1));
+			float v2 = 1.0 - smoothstep(0.002, 0.0055, abs(f2));
+			float v3 = 1.0 - smoothstep(0.002, 0.006, abs(f3));
+			if (aa_k > 0.0) {
+				// (18.11) a vein thinner than a pixel broke into a dotted line that crawled as the rock turned: its
+				// edge softened by a pixel's worth of the noise, and the vein dimmed by how much thinner than that it is
+				float w1 = fwidth(f1), w2 = fwidth(f2), w3 = fwidth(f3);
+				v1 = mix(v1, (1.0 - smoothstep(0.003 - w1, 0.008 + w1, abs(f1))) * min(1.0, 0.008 / max(w1 * 1.5, 1e-5)), aa_k);
+				v2 = mix(v2, (1.0 - smoothstep(0.002 - w2, 0.0055 + w2, abs(f2))) * min(1.0, 0.0055 / max(w2 * 1.5, 1e-5)), aa_k);
+				v3 = mix(v3, (1.0 - smoothstep(0.002 - w3, 0.006 + w3, abs(f3))) * min(1.0, 0.006 / max(w3 * 1.5, 1e-5)), aa_k);
+			}
 			sv = max(v1, max(v2 * smoothstep(0.45, 0.6, vn(v_rp * 3.0 + 1.0)), v3 * smoothstep(0.6, 0.72, vn(v_rp * 4.0 + 5.0))));
 			sv *= smoothstep(0.22, 0.32, vn(v_rp * 5.0 + 3.0)) * silv_net;
 		}
@@ -262,19 +276,21 @@ void fragment() {
 		}
 	}
 	vec3 gp = v_rp * 38.0;
-	n = normalize(n + (dirt * 1.1 * (1.0 - scan_k * 0.8) + frost * 0.25) * (vec3(vn(gp), vn(gp + 3.1), vn(gp + 5.7)) - 0.5));
+	n = normalize(n + (dirt * 1.1 * (1.0 - scan_k * 0.8) + frost * 0.25) * mix(1.0, 1.0 - smoothstep(0.2, 0.45, px_rp * 38.0), aa_k) * (vec3(vn(gp), vn(gp + 3.1), vn(gp + 5.7)) - 0.5));
 	n = normalize(mix(n, s_nv, dirt * scan_k));
 	if (micro_k > 0.0) {
 		// fine pits and bumps: the normal tilted by two finer noises, the pits a little darker
 		vec3 mp = v_rp * 26.0, mq = v_rp * 70.0;
-		vec3 dn = (vec3(vn(mp), vn(mp + 3.1), vn(mp + 5.7)) - 0.5) + (vec3(vn(mq), vn(mq + 3.1), vn(mq + 5.7)) - 0.5) * 0.6;
+		float k26 = mix(1.0, 1.0 - smoothstep(0.2, 0.45, px_rp * 26.0), aa_k);
+		float k70 = mix(1.0, 1.0 - smoothstep(0.2, 0.45, px_rp * 70.0), aa_k);
+		vec3 dn = (vec3(vn(mp), vn(mp + 3.1), vn(mp + 5.7)) - 0.5) * k26 + (vec3(vn(mq), vn(mq + 3.1), vn(mq + 5.7)) - 0.5) * 0.6 * k70;
 		n = normalize(n + dn * micro_k * dirt * (1.0 - s_glow.r * 3.0));
-		base *= mix(1.0, 0.72 + 0.5 * vn(mp + 9.0), micro_k * dirt * 0.6);
+		base *= mix(1.0, 0.72 + 0.5 * vn(mp + 9.0), micro_k * dirt * 0.6 * k26);
 	}
 #endif
 	if (grain > 0.0) {
 		vec3 gq = v_op * 60.0;
-		n = normalize(n + grain * (vec3(vn(gq), vn(gq + 3.1), vn(gq + 5.7)) - 0.5));
+		n = normalize(n + grain * mix(1.0, 1.0 - smoothstep(0.2, 0.45, length(fwidth(v_op)) * 60.0), aa_k) * (vec3(vn(gq), vn(gq + 3.1), vn(gq + 5.7)) - 0.5));
 	}
 	vec3 e = emis + s_glow;
 	vec3 e_ir = vec3(0.0);

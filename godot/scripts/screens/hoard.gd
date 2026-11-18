@@ -303,7 +303,7 @@ func _build(rng: RandomNumberGenerator) -> void:
 	var cut := rg.aabb().position.y + rg.aabb().size.y * 0.12
 	rg.rp = rg.v.duplicate()
 	var TH: Dictionary = THEME.get(area_i, THEME[0])
-	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, agate = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
+	var rm := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, grain = 0.35, ao = 1.0, flat = true, silv = 1.0, silv_net = 1.0, micro = 0.55, aa = 1.0, agate = 1.0, silv_col = VEIN_OF.get(area_i, Vector3.ONE),
 		dirt = {h = 99.0, a = 0.3, col = TH.get("rock", R.base), fr = 0.0, scan = int(RockKit.SCAN_OF[rtype])}})
 	rm.set_shader_parameter("agate_c", Vector2(cav_c.x, cav_c.y))
 	rm.set_shader_parameter("agate_r", rim_e)
