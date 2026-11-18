@@ -83,11 +83,27 @@ func show_spec(o: Dictionary) -> void:
 	_stand_in(null)
 	live = p
 	_aim = NAN   # (the next zoom aims anew at this stone)
+	# (a swimmer of the old seas may strike the card's glass: SpecReef.Swim)
+	for n in p.find_children("*", "Node3D", true, false):
+		if n.has_signal("glass_hit"): n.connect("glass_hit", _glass)
 	built.emit(p)
 	spin_v = 0.45
 	tilt = 0.0
 	if still:
 		live.rotation = Vector3(0.12, 0.6, 0)
+
+## the glass struck from inside, at this point of the studio's world: cracks from there (a soft one: mist), the view
+## shakes, the phone thumps
+var _shake := 0.0
+func _glass(at: Vector3, soft: bool) -> void:
+	if not is_visible_in_tree() or studio.vp.size.x < 2:
+		return
+	var px := studio.cam.unproject_position(at)
+	GlassCrack.strike(self, px / Vector2(studio.vp.size) * size, soft)
+	Sfx.play("glass_tap" if soft else "glass_ram")
+	if not soft:
+		_shake = 1.0
+		Sfx.buzz(70)
 
 ## while the live stone is built (a skull takes seconds, and waits for the build already running), its picture made
 ## earlier for a tile or the atlas stands in; it fades out as the live one comes (null: fade the one up now)
@@ -123,6 +139,9 @@ func _process(dt: float) -> void:
 		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	# (the camera's own rise is kept while the stone is not zoomed: the card sets it as it lays itself out)
 	if _zoom <= 1.001 and _zoom_to <= 1.001: _v0 = studio.cam.v_offset
+	if _shake > 0.0:
+		_shake = maxf(0.0, _shake - dt * 2.4)
+		studio.cam.h_offset = sin(_shake * 46.0) * 0.07 * _shake * _shake
 	if is_nan(_aim) and live: _aim = _aim_of(live)
 	if absf(_zoom - _zoom_to) > 0.001:
 		_zoom = lerpf(_zoom, _zoom_to, minf(1.0, dt * 12.0))

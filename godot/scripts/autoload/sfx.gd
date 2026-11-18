@@ -63,6 +63,10 @@ const SAMPLES := {
 	belt = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -15.0, pitch = 0.75},
 	# the gold pan: gravel rattling round it
 	pan = {f = ["bfh1_rock_falling_06", "bfh1_rock_falling_07"], db = -8.0, pitch = 1.5},
+	# a big swimmer rams the card's glass from inside (GlassCrack): a heavy knock and the glass cracking, lower; an
+	# ichthyosaur's poke - a light tap on it
+	glass_ram = {f = ["bfh1_glass_breaking_02", "impactMining_000"], all = true, db = -5.0, pitch = 0.72},
+	glass_tap = {f = ["bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -14.0, pitch = 1.5},
 	# buttons and windows: a book set down, a page turned (Kenney RPG Audio) — the old digital clicks were out of place
 	click = {f = ["bookPlace1", "bookPlace2", "bookPlace3"], db = -10.0},
 	tab = {f = ["switch_002"], db = -8.0},
