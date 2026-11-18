@@ -65,6 +65,13 @@ uniform float jet_x = 0.08;      // (where the arms begin, along the body)
 uniform float jet_y = 0.09;      // (the body's line, how high)
 uniform float jet_wrap = 1.0;    // (the octopus: its flat fan of arms rolled into a skirt; 0 — a squid, its arms a bundle already)
 uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
+uniform float crawl = 0.0;       // (a crab: its legs — out past leg_r from its middle, under leg_y — step in a wave round it)
+uniform float crawl_f = 1.0;
+uniform float leg_r = 0.18;
+uniform float leg_y = 0.25;
+uniform float walk = 0.0;        // (0 sitting — the legs only twitch; 1 walking, SpecReef.Crawl)
+uniform float feel = 0.0;        // (its feelers, past feel_x at the front: they wave)
+uniform float feel_x = 0.35;
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
 uniform float eye_r = 0.008;
 uniform float blink_force = 0.0;   // (tests: shut the eyes)
@@ -160,6 +167,25 @@ void vertex() {
 		VERTEX.x -= tip * sq * 0.05;
 		float na = phi * arm * jet_wrap;
 		NORMAL = normalize(vec3(NORMAL.x, NORMAL.y * cos(na) - NORMAL.z * sin(na), NORMAL.y * sin(na) + NORMAL.z * cos(na)));
+	}
+	// a crab's legs: each lifts and swings forward in turn round the body (a wave by the angle round it), fast and high
+	// walking, now and then a slow twitch sitting; its feelers wave
+	if (crawl > 0.0) {
+		float rr = length(p.xz);
+		float lw = smoothstep(leg_r, leg_r + 0.12, rr) * (1.0 - smoothstep(leg_y * 0.6, leg_y * 1.4, p.y));
+		float an = atan(p.z, p.x);
+		float sp = mix(0.25, 1.0, walk);
+		float ph = t * crawl_f * 6.2831 * mix(0.35, 2.2, walk) + an * 3.0 + phase * 6.2831;
+		// (sitting: the legs move only in short bursts, now and then)
+		float idle = mix(smoothstep(0.75, 1.0, sin(t * 0.7 + phase * 9.0 + an)), 1.0, walk);
+		float lift = pow(max(0.0, sin(ph)), 2.0) * crawl * lw * idle;
+		VERTEX.y += lift * 0.05 * sp * (rr - leg_r + 0.1) * 4.0;
+		VERTEX.xz += vec2(-sin(an), cos(an)) * cos(ph) * crawl * lw * idle * 0.025 * sp;
+		if (feel > 0.0 && abs(p.x) > feel_x) {
+			float fk = (abs(p.x) - feel_x) / (0.5 - feel_x);
+			VERTEX.y += sin(t * 2.1 + p.x * 18.0 + phase * 6.2831) * feel * fk * fk;
+			VERTEX.z += sin(t * 1.6 + p.x * 13.0 + phase * 4.0) * feel * 0.7 * fk * fk;
+		}
 	}
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_wn = normalize(mat3(MODEL_MATRIX) * NORMAL);

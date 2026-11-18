@@ -70,8 +70,8 @@ static var LIST := [
 		names = ["Camellia sprig", "Azalea", "Lotus", "Plum blossom", "Magnolia", "Fern frond", "Oak leaf", "Acorns", "Pine cones"]},
 	# the living sea floor of the sea finds (SpecReef): eight of each, scans
 	{tab = "coll", icon = "sea_coral", n = "Coral Garden", t = "Nobody planted it either. It took a few million years to grow.", r = "coins", give = {coins = 1200},
-		tags = ["sea:coral_red", "sea:coral_organ", "sea:coral_blue", "sea:coral_staghorn", "sea:coral_pocillopora", "sea:coral_rosebrain", "sea:anemone_elegant", "sea:anemone_purple"],
-		names = ["Red coral", "Organ pipe coral", "Blue coral", "Staghorn coral", "Cauliflower coral", "Rose brain coral", "Elegant anemone", "Purple anemone"]},
+		tags = ["sea:coral_organ", "sea:coral_blue", "sea:coral_staghorn", "sea:coral_pocillopora", "sea:coral_rosebrain", "sea:anemone_elegant", "sea:anemone_purple"],
+		names = ["Organ pipe coral", "Blue coral", "Staghorn coral", "Cauliflower coral", "Rose brain coral", "Elegant anemone", "Purple anemone"]},
 	{tab = "coll", icon = "sea_star", n = "Fallen Stars", t = "Five arms, no hurry. They lie where the tide left them.", r = "coins", give = {coins = 1200},
 		tags = ["sea:star_bat", "sea:star_brittle", "sea:star_brittle_b", "sea:star_sand", "sea:star_cushion", "sea:star_sea", "sea:star_sunflower", "sea:urchin_purple"],
 		names = ["Bat star", "Brittle star", "Banded brittle star", "Sand star", "Cushion star", "Ochre star", "Sunflower star", "Purple urchin"]},

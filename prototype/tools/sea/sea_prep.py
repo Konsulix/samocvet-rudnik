@@ -26,10 +26,12 @@ MODELS = [
     dict(name="weed_kelp", file="водоросли/kelp_with_animation.glb", tris=6000, gap=0.3),
     # corals and anemones: stand
     dict(name="coral_red", file="кораллы и ко/corallium_rubrum.glb", tris=8000),
-    dict(name="coral_organ", file="кораллы и ко/organ_pipe_coral_nhmw-zoo-ev-0000128.glb", tris=7000),
+    # (organ pipe, cauliflower, staghorn, the noble scallop, the urchin: a dense spiky surface, the light mesh lies off it
+    # and the bake's rays fell short — black triangles: they look further (cage) and keep more triangles)
+    dict(name="coral_organ", file="кораллы и ко/organ_pipe_coral_nhmw-zoo-ev-0000128.glb", tris=10000, cage=2.5),
     dict(name="coral_blue", file="кораллы и ко/blue_coral.glb", tris=7000),
-    dict(name="coral_staghorn", file="кораллы и ко/staghorn_coral.glb", tris=8000),
-    dict(name="coral_pocillopora", file="кораллы и ко/pocillopora_verrucosa_fresh_sample.glb", tris=7000),
+    dict(name="coral_staghorn", file="кораллы и ко/staghorn_coral.glb", tris=10000, cage=2.5),
+    dict(name="coral_pocillopora", file="кораллы и ко/pocillopora_verrucosa_fresh_sample.glb", tris=10000, cage=2.5),
     dict(name="coral_rosebrain", file="кораллы и ко/rose_brain_coral.glb", tris=6000),
     dict(name="anemone_elegant", file="кораллы и ко/elegant_anemone_sagartia_elegans.glb", tris=5000, tilt=(180, 0)),
     dict(name="anemone_purple", file="кораллы и ко/purple_sea_anemone_l.glb", tris=5000),
@@ -41,17 +43,19 @@ MODELS = [
     dict(name="star_cushion", file="звезды и еж/cushion_sea_star.glb", tris=4000, reach=True, tilt=(-90, 0)),
     dict(name="star_sea", file="звезды и еж/sea_star.glb", tris=4000, reach=True, tilt=(-90, 0)),
     dict(name="star_sunflower", file="звезды и еж/sunflower_sea_star.glb", tris=5000, reach=True, tilt=(-90, 0)),
-    dict(name="urchin_purple", file="звезды и еж/cc0__purple_sea_urchin_h._crassispina.glb", tris=8000, reach=True),
+    dict(name="urchin_purple", file="звезды и еж/cc0__purple_sea_urchin_h._crassispina.glb", tris=10000, reach=True, cage=2.5),
     # shells: lie
     # (shell_top: the scan's texture is a mosaic of tiny islands, it falls to a jumble at any light size — not used)
     # dict(name="shell_top", file="ракушки/818ed75ca81c46abb7133ff8bae3539e.glb", tris=5000, reach=True, weld=3.0, min_tris=1, gap=0.1, keep_uv=True, tex=1024),
-    dict(name="shell_tun", file="ракушки/cc0___giant_tun_tonna_olearium.glb", tris=5000, reach=True),
-    dict(name="shell_triton", file="ракушки/cc0___knobbed_triton_charonia_lampas.glb", tris=5000, reach=True),
+    dict(name="shell_tun", file="ракушки/cc0___giant_tun_tonna_olearium.glb", tris=5000, reach=True, tilt=(90, 0)),
+    dict(name="shell_triton", file="ракушки/cc0___knobbed_triton_charonia_lampas.glb", tris=5000, reach=True, tilt=(90, 0)),
     # (shell_neptune: the scan's texture is a mosaic of tiny islands, it falls to a jumble at any light size — not used)
     # dict(name="shell_neptune", file="ракушки/cc0___thick_neptune_snail_n._heros.glb", tris=5000, reach=True, weld=3.0, min_tris=1, gap=0.1, keep_uv=True, tex=1024),
     dict(name="shell_tridacna", file="ракушки/cc0__boring_clam_tridacna_crocea.glb", tris=5000, reach=True),
-    dict(name="shell_moon", file="ракушки/cc0__japanses_moon_scallop_y._japonicum.glb", tris=4000, reach=True),
-    dict(name="shell_noble", file="ракушки/cc0__noble_scallop_mimachlamys_nobilis.glb", tris=5000, reach=True),
+    dict(name="shell_moon", file="ракушки/cc0__japanses_moon_scallop_y._japonicum.glb", tris=4000, reach=True, tilt=(90, 0)),
+    # (the scallops and the two sea snails stood on edge, as on the scanner's table: laid down — a scallop flat, a snail on
+    # its side, its opening to the floor)
+    dict(name="shell_noble", file="ракушки/cc0__noble_scallop_mimachlamys_nobilis.glb", tris=7000, reach=True, cage=2.5, tilt=(90, 0)),
     dict(name="shell_cone", file="ракушки/snail_conus_marmoreus_pri_76850.glb", tris=4000, reach=True),
     # crabs and the like: lie
     dict(name="crab_lobster", file="крабы/888d324fef46406483039db4aa080d08.glb", tris=6000, reach=True),
@@ -502,7 +506,11 @@ def light(hi, name, tris, remesh=False, cage=1.0, mouth=None, whole=False):
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.quads_convert_to_tris()
-    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.012)
+    # (a scan lightened falls into thousands of little islands — a coral's, an urchin's: a margin round each ate the
+    # texture, and the coral's whole skin came to one hundredth of it, a few texels a triangle, black where they bled.
+    # Thin margins, and the islands packed again to fill it)
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.002)
+    bpy.ops.uv.pack_islands(rotate=True, margin=0.002)
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.ops.object.shade_smooth()
     # the bake: what the full mesh shows, onto the light one
