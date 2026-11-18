@@ -129,6 +129,31 @@ func _ready() -> void:
 	if d.atlas.is_empty():
 		for s in d.coll:
 			note_find(s, int(s.get("area", 0)), int(s.get("dl", 0)))
+	_mend_beasts()
+
+## (18.11) before the fix a beast's skull lost its genes on the way: the atlas kept it as a man's skull (no `beast`), and
+## Keep put it into the inventory as a plain crystal (no `form` either) — its page then read "sold". The page's own name
+## tells the beast: its best gets it back, and the kept stone with the same id gets the best's skull fields
+func _mend_beasts() -> void:
+	var mended := 0
+	for aid: String in d.atlas:
+		if not aid.begins_with("beast_"): continue
+		var e: Dictionary = d.atlas[aid]
+		if not e.has("best"): continue
+		var b: Dictionary = e.best
+		if b.has("beast"): continue
+		b.beast = aid.trim_prefix("beast_")
+		b.form = "skull"
+		for s: Dictionary in d.coll:
+			if int(s.id) != int(b.id) or s.has("beast"): continue
+			for k in b:
+				if not k in ["area", "dl"] and not s.has(k): s[k] = b[k]
+			s.beast = b.beast
+			s.form = "skull"
+		mended += 1
+	if mended:
+		print("save: mended ", mended, " beast skull(s)")
+		persist()
 
 ## the atlas remembers every species ever found, whatever became of the stone: sid -> {best = the most valuable
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
@@ -165,10 +190,14 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	e.max_v = maxi(int(e.max_v), int(s.value))
 	e.legend = bool(e.legend) or bool(s.get("legend", false))
 	if not e.has("best") or int(s.value) > int(e.best.value):
-		var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
-			g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
-		for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind", "integ"]:
-			if s.has(k): b[k] = s[k]
+		# (18.11: the whole find, not a list of its fields — the list left out a skull's genes, and a wolf's skull went
+		# into the atlas as a man's)
+		var b: Dictionary = s.duplicate(true)
+		b.kind = s.get("kind", "crystal")
+		b.traits = s.get("traits", [])
+		b.legend = s.get("legend", false)
+		b.area = a
+		b.dl = dl
 		e.best = b
 	d.atlas[aid] = e
 

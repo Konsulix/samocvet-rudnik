@@ -184,9 +184,12 @@ static func _find_sq(s: Dictionary) -> Control:
 	img.size = Vector2(C - 10, C - 10) * 0.84
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(img)
-	var have := Atlas.cached(s)
+	# (the builder's description of it, not the inventory's entry: given the entry, its seed was missing — another
+	# stone was built, a legendary with jellyfish in place of a fluorescent cuprite — 18.11)
+	var so := Spec.of_stone(s)
+	var have := Atlas.cached(so)
 	if have: img.texture = have
-	else: Atlas.cutout(s, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
+	else: Atlas.cutout(so, func(t: Texture2D): if is_instance_valid(img): img.texture = t, img)
 	var tap := _flat_button(Vector2(C - 10, C - 10))
 	tap.pressed.connect(func():
 		Sfx.play("click")

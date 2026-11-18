@@ -460,12 +460,13 @@ static func pity_roll(stone: Dictionary, area: int, luck: float, dl: int) -> Dic
 ## what is kept of a find to show it again (the same fields as the atlas's best): enough to build it and to tell
 ## whether it is still in the inventory (id)
 static func summary(s: Dictionary, a: int, dl: int) -> Dictionary:
-	var b := {id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false),
-		g = s.g, value = s.value, tier = s.tier, area = a, dl = dl}
-	for k in ["fx", "shroom", "form", "skin", "moss", "tree_kind", "stream", "wine", "flies", "fly_kind"]:
-		if s.has(k): b[k] = s[k]
-	for k in SpecSkull.KEYS:
-		if s.has(k): b[k] = s[k]
+	# (18.11: the whole find — its integrity, a beast's genes, whatever was pinned on it — not a list of fields)
+	var b: Dictionary = s.duplicate(true)
+	b.kind = s.get("kind", "crystal")
+	b.traits = s.get("traits", [])
+	b.legend = s.get("legend", false)
+	b.area = a
+	b.dl = dl
 	return b
 
 ## for each gene, the finest stone that shows it among those kept now (tag -> the stone); built once a render

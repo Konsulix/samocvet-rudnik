@@ -12,7 +12,14 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	Coach.off = true
 	var st := Stones.roll(int(args.get("seed", "301")), int(args.get("area", "3")), 0.8, 1)
-	st.sid = args.get("sid", "sulphur")
+	if args.has("beast"):
+		# (a beast's skull as a mine rolls it: the first seed of Old Adit's deepest depth that gives one)
+		for sd in range(1000, 60000):
+			st = Stones.roll(sd, 0, 0.8, 5)
+			if st.has("beast"): break
+		print("KEEPCHK rolled ", Stones.name_of(st), " (", st.sid, ", beast ", st.get("beast", "-"), ")")
+	else:
+		st.sid = args.get("sid", "sulphur")
 	st.integ = 86
 	var n0: int = Save.d.coll.size()
 	var r := Reveal.new()
@@ -33,6 +40,10 @@ func _ready() -> void:
 	var lost := []
 	for k in st:
 		if not kept.has(k): lost.append(k)
+	var aid := Stones.atlas_id(st)
+	var best: Dictionary = (Save.d.atlas.get(aid, {}) as Dictionary).get("best", {})
+	print("KEEPCHK atlas page ", aid, ": its best is ", Stones.name_of(best) if best.has("sid") else "-", " (beast ", best.get("beast", "-"), "), kept: ", Atlas.best_kept(aid),
+		"; inventory: ", Stones.name_of(kept), " (beast ", kept.get("beast", "-"), ")")
 	print("KEEPCHK found integ ", st.get("integ"), " (", Stones.condition(int(st.integ))[1], ") -> kept integ ", kept.get("integ"),
 		" (", Stones.condition(int(kept.get("integ", 100)))[1], "); fields of the find not kept: ", lost)
 	get_tree().quit()
