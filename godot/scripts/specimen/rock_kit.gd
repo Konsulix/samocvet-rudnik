@@ -280,9 +280,9 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 	var lift := dr.next()
 	var tilt := dr.next()
 	if roll < maxf(0.0, k - 0.4) * 0.9 and bool(dm.get("stumps", true)) and not first:
-		g.snap(Vector3(0, bb.position.y + ln * (0.2 + lift * 0.25), 0), (Vector3.UP + side * (0.3 + tilt * 0.5)).normalized(), ln * 0.025)
+		g.snap(Vector3(0, bb.position.y + ln * (0.2 + lift * 0.25), 0), (Vector3.UP + side * (0.3 + tilt * 0.5)).normalized(), ln * 0.025, Vector3.UP)
 	elif roll < minf(1.0, k * 1.6):
-		g.snap(Vector3(0, bb.end.y - ln * (0.1 + lift * (0.25 + bad * 0.8)), 0), (Vector3.UP + side * (0.2 + tilt * 0.7)).normalized(), ln * 0.018)
+		g.snap(Vector3(0, bb.end.y - ln * (0.1 + lift * (0.25 + bad * 0.8)), 0), (Vector3.UP + side * (0.2 + tilt * 0.7)).normalized(), ln * 0.018, Vector3.UP)
 	# a chunk knocked off its side: a slab of it gone down part of its length (a lone crystal too)
 	# (its draws only when badly hurt: what breaks on a lightly hurt stone does not move)
 	if bad > 0.0 and dr.next() < bad * 2.2:
@@ -291,7 +291,7 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 		var s2 := Vector3(-side.z, 0, side.x) if dr.next() < 0.5 else -side
 		var half := minf(bb.size.x, bb.size.z) * 0.5
 		var at := Vector3(s2.x * half * (0.25 + ch_d * 0.3), bb.position.y + ln * (0.35 + ch_y * 0.45), s2.z * half * (0.25 + ch_d * 0.3))
-		g.snap(at, (s2 + Vector3.UP * 0.55).normalized(), half * 0.08)
+		g.snap(at, (s2 + Vector3.UP * 0.55).normalized(), half * 0.08, s2)
 
 ## a lump knocked about (16.11; now malachite's own lopsided, dented surface, SpecimenBuilder._lumpy): pieces knocked off it — flat fresh breaks across the side the viewer sees and the top,
 ## more and deeper the worse it is — and its skin pitted. On the damage's own stream (dm.rng): the lump is the same lump

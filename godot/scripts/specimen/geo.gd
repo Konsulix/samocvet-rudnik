@@ -400,14 +400,20 @@ func erode(amount: float, seed_v: int, share := 1.0) -> Geo:
 
 ## broken off across a plane (through `at`, facing `n` out of the stone): everything beyond it is pressed onto it,
 ## a little rough, as a fresh fracture — frosted (vertex alpha low: the glass shader clouds it like an eaten pit)
-func snap(at: Vector3, n: Vector3, rough: float) -> Geo:
+## `along`: the way a point beyond is pushed back onto the plane (into the stone: its axis for a tip or a stump, inwards
+## across it for a chunk off its side). Pushed along the plane's own normal (the old way, `along` zero), a slanting
+## break swept the tip's points out sideways past the crystal's sides — a thin sheet bent off it like a leaf (18.11)
+func snap(at: Vector3, n: Vector3, rough: float, along := Vector3.ZERO) -> Geo:
 	to_soup()
 	if col.size() != v.size():
 		fill_color(Color(1, 1, 1))
+	var dir := n
+	if along != Vector3.ZERO and along.normalized().dot(n) > 0.2: dir = along.normalized()
+	var k := 1.0 / dir.dot(n)
 	for i in v.size():
 		var d := (v[i] - at).dot(n)
 		if d <= 0.0: continue
-		var p := v[i] - n * d
+		var p := v[i] - dir * d * k
 		# conchoidal: shallow scoops into the face, the same at a shared corner
 		var w := sin(p.x * 41.0 + p.z * 17.0) * sin(p.y * 37.0 - p.x * 23.0) * 0.5 + 0.5
 		v[i] = p - n * rough * w
