@@ -164,7 +164,9 @@ func _page(a: int, sz: Vector2) -> Control:
 		m.position = Vector2(mid.x + (cw - ms) / 2.0, my)
 		p.add_child(m)
 		_taps.append([m, func(): atlas._boss_card(a)])
-	var cnt := Atlas._shadowed("%d/%d" % [n, ids.size()], 15 if medal else 24, Kit.AMBER if done else Kit.CREAM)
+	# (named like the skulls' "Bones" below, at the same size: "2/8" alone, large, read as nothing in particular)
+	var cnt := Atlas._shadowed(("Stones %d/%d" if medal else "Stones
+%d/%d") % [n, ids.size()], 14, Kit.AMBER if done else Kit.CREAM)
 	cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cnt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	cnt.position = Vector2(mid.x, my + ms + 2) if medal else mid
