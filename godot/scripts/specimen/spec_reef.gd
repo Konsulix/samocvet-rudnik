@@ -259,6 +259,8 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		sn.stride = float(an.get("stride", 0.55))
 		sn.jet = float(an.get("jet", 0.0)) > 0.0
 		sn.visits = an.has("visit")
+		# (a plesiosaur's mouth is seen from within, the day it swallows a find: a palate's pink)
+		if sn.visits: bm.set_shader_parameter("inside_col", Color(0.74, 0.33, 0.36))
 		# (now and then it comes straight at the eye and strikes the card's glass: 1 rams it — the glass cracks,
 		# GlassCrack; 2 only pokes it with its snout — the glass mists. Swim's pass 7)
 		sn.rams = int(an.get("ram", 0.0))
@@ -409,9 +411,11 @@ class Swim extends Node3D:
 	signal gulp_over
 	const GULP_K := 7.2      # (its size at the find, of its far size: a head whose open jaws go round the find)
 	const GULP_RUN := 34.0   # (how far off it starts, straight behind the find)
-	const GULP_SNAP := 0.9   # (so far short of the find's middle the jaws begin to shut)
-	const GULP_JAW := 1.5    # (how wide the jaws go for it, of their usual gape)
-	const GAPE := Vector3(0.478, 0.151, 0.004)   # (the middle of its open mouth, the model's units)
+	const GULP_JAW := 2.0    # (how wide the jaws go for it, of their usual gape)
+	const GAPE := Vector3(0.478, 0.148, 0.004)   # (the middle of its open mouth, the model's units)
+	const GULP_AT := 1.7     # (so far short of the eye its snout is when the jaws shut)
+	const GULP_IN := 1.9     # (so far past the find's middle the find is down its throat, and gone)
+	var run2 := 1.0
 	const KEEP_K := 0.42     # (and keeping the card)
 	var keeper := false
 	var keep_t := 9.0        # (keeping the card: under 0 not there yet, then it comes up out of the dim)
@@ -438,7 +442,8 @@ class Swim extends Node3D:
 		# out of the middle of the card straight at the eye: one line, head on, the head coming over the find's top
 		# (level with the find: its open mouth — the middle of the gape, GAPE in the model — comes through the find's
 		# own middle, the jaws about it)
-		hdg = Vector3(0.0, -0.04, 1.0).normalized()
+		# (and on at the eye itself: the eye looks into the gape — palate above, the lower jaw below)
+		hdg = Vector3(0.0, 0.06, 1.0).normalized()
 		hit_at = Vector3(0.0, 0.1, 0.0)
 		var hb := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		stop = hit_at - (hb * GAPE) * sc * GULP_K
@@ -493,20 +498,17 @@ class Swim extends Node3D:
 			mat.set_shader_parameter("neck", neck0)
 		transform = Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * KEEP_K), q)
 
-	## the jaws shut round the find where it lies, as the open mouth comes over it: the find moves nowhere — it is
-	## inside, and gone with the beast. All on the move, the beast never checks
+	## the jaws shut, just before the eye (the find is down its throat by then: nothing is drawn anywhere, the open
+	## mouth simply came over it) — a burst of bubbles, and a chew or two as it goes
 	func _swallow(dt: float) -> void:
 		tv += dt
 		var shut := smoothstep(0.0, 0.13, tv)
-		gulp_set = true
-		if not took and shut >= 0.75:
-			took = true
-			_hide_find()
+		if not gulp_set:
+			gulp_set = true
 			var bb := Burst.new()
 			bb.top_level = true
 			add_child(bb)
-			bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.6), hit_at + Vector3(0, 0.5, 1.0))
-			gulped.emit()
+			bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.3), Vector3(0, 0.6, CAM - 2.6))
 		if mat:
 			mat.set_shader_parameter("jaw_force", GULP_JAW * (1.0 - shut) if tv < 0.4 else 0.15 * absf(sin((tv - 0.4) * 7.0)) * (1.0 - smoothstep(0.9, 1.5, tv)))
 	## its colours' own strength (the shader's gain), and how far it is dimmed now: at the glass it is right under the
@@ -854,33 +856,49 @@ class Swim extends Node3D:
 						# (the jaws wide from half way in: seen head on, all the way)
 						if not gulp_set: mat.set_shader_parameter("jaw_force", GULP_JAW * smoothstep(0.35, 0.6, s))
 						mat.set_shader_parameter("neck", neck0 * (1.0 - smoothstep(0.05, 0.35, s)))
-					if s > 1.0 - GULP_SNAP / GULP_RUN:
-						if not gulp_set:
-							tv = 0.0
-							sea_call.emit("gulp")
-						_swallow(dt)
-					if not roared and s > 0.55:
-						roared = true
-						sea_call.emit("rush")
 				else:
 					# (the find in its jaws, and on past the eye at the same rush)
-					# (as big as it is now, it must go by twice as fast to seem the same rush; it thins away as it goes —
-					# a body that long would be half a minute passing)
 					size = sc * GULP_K
-					slow = 13.0
-					_swallow(dt)
-					if mat: mat.set_shader_parameter("fade", 1.0 - smoothstep(0.22, 0.5, s))
+					if stage == 2:
+						# the open mouth comes on over the find and right up to the eye — slower, to be seen: the find goes
+						# down its throat, the eye looks into the gape; just before the eye the jaws shut
+						slow = 4.0
+						if not took and s * run2 > GULP_IN:
+							took = true
+							_hide_find()
+							gulped.emit()
+						if s > 1.0 - 0.9 / run2:
+							if not gulp_set:
+								tv = 0.0
+								sea_call.emit("gulp")
+							_swallow(dt)
+					else:
+						# and off aside, twice as fast (as big as it is now, it must to seem the same rush), thinning
+						# away as it goes — a body that long would be half a minute passing
+						slow = 13.0
+						_swallow(dt)
+						if mat: mat.set_shader_parameter("fade", 1.0 - smoothstep(0.18, 0.45, s))
 			s += vel * slow * dt / maxf(0.01, dp.length())
 			if s >= 1.0 and kind == 8 and stage == 0:
-				# the head is at the find: the jaws shut on it, and it goes straight on — past the eye, a little aside
+				# the mouth is over the find: straight on to the eye
 				stage = 2
 				deep = 0
+				var snout_z := (global_transform * nose).z
+				run2 = maxf(1.0, (CAM - GULP_AT - snout_z) / hdg.z)
 				pa = stop
-				pc = stop + hdg * 9.0
-				pb = stop + Vector3(dir * 22.0, -2.0, 60.0)
+				pb = stop + hdg * run2
+				pc = (pa + pb) * 0.5
 				s = 0.0
 				return
 			if s >= 1.0 and kind == 8 and stage == 2:
+				# the jaws shut before the eye: off aside
+				stage = 3
+				pa = pb
+				pc = pa + hdg * 2.0 + Vector3(dir * 7.0, -0.5, 0.0)
+				pb = pa + Vector3(dir * 46.0, -2.0, 22.0)
+				s = 0.0
+				return
+			if s >= 1.0 and kind == 8 and stage == 3:
 				keeper = true
 				keep_t = -1.2
 				visible = false

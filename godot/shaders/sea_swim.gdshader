@@ -67,6 +67,7 @@ uniform float eye_r = 0.008;
 uniform float eye_paint = 0.0;     // (the eyes drawn here, both alike: a scan whose two eyes came out unlike — a plesiosaur's, one red, one orange)
 uniform float paint_zc = 0.0;      // (the head's middle line there, and how far off it an eye begins: the eye is on the head's sides, not its crown)
 uniform float paint_z0 = 0.0;
+uniform vec3 inside_col : source_color = vec3(0.16, 0.03, 0.035);   // (the inside of the mouth: dark; a plesiosaur's, seen from within as it swallows the find, the pink of a palate)
 uniform float blink_force = 0.0;   // (tests: shut the eyes)
 varying vec3 v_mp;
 varying vec3 v_wp;
@@ -225,7 +226,11 @@ void fragment() {
 	// (the inside of an open mouth, where the model has none: the far cheek seen from within — dark, red)
 	// (not at the eyes' height where the eyes are drawn: a plesiosaur's scan has its skin inside out round one eye, and
 	// that eye came out a red patch)
-	if (!FRONT_FACING && jaw > 0.0 && v_mp.x > jaw_x && !(eye_paint > 0.0 && v_mp.y > eye.y - eye_r * 1.6)) c = mix(c, vec3(0.16, 0.03, 0.035), 0.85);
+	if (!FRONT_FACING && jaw > 0.0 && v_mp.x > jaw_x && !(eye_paint > 0.0 && length(v_mp.xy - eye) < eye_r * 3.2)) {
+		// (a palate is not one flat colour: ridges across it, darker to the throat)
+		float ridge = 0.85 + 0.15 * sin(v_mp.x * 900.0);
+		c = mix(c, inside_col * ridge * mix(0.45, 1.0, smoothstep(jaw_x, jaw_x + 0.03, v_mp.x)), 0.85);
+	}
 	// the water between: the further off, the more of its colour — but the body keeps its light and shade (all one flat
 	// colour it was a card cut out)
 	float hz = haze > 0.0 ? mix(haze_min, haze, smoothstep(haze_d0, haze_d1, length(VERTEX))) : 0.0;
