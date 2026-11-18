@@ -3,9 +3,10 @@ extends Node2D
 ## The conveyor on the board (BoardModel.belts, docs/obstacles.md §5): a belt running along a path of cells - the
 ## bottom row side to side, a side column, an L or a U round the edges - a malachite basket riding in each slot, open or
 ## under a tarp. Drawn over the stones (none stand in its cells), with its own bits and light.
-## The art is a GPT kit (art/belt_look/kit_b2.png, cut_kit.py -> assets/board/conveyor/): the slot's iron rails and
-## posts are cut from it and laid along the path's open sides, its end posts close the two ends; the rubber and its
-## cleats are drawn here and run with the baskets. Motion: the baskets ride a slot along after a move (a pull, a ride,
+## The art is a GPT kit (art/belt_look/kit_b2.png, cut_kit.py -> assets/board/conveyor/; the trough's cells - straight
+## runs, the four turns, the caps of a vertical run - art/belt_look/turns_b.png, gen_turns.sh, cut_turns.py): each cell
+## of the path lays its own piece, the end posts close the two ends; the rubber and its cleats are drawn here and run
+## with the baskets. The path goes round a turn on a curve (`_pt`), the baskets and the cleats both ride it, one slot a move. Motion: the baskets ride a slot along after a move (a pull, a ride,
 ## a settle, a rock), the one off the far end goes under the end post and comes in at the other; a knock tears the
 ## tarp off or cracks a basket and bursts it into shards; the last one gone, cracks run through it and it falls apart.
 ## Tried out first in tests/belt_lab.gd.
@@ -14,12 +15,6 @@ const DIR := "res://assets/board/conveyor/"
 const SHIFT_S := 0.55
 const CAP_CUT := 72.0      # px of the end cap's drum left off: only its post stands, inside the end cell
 const ITEM_K := 0.8        # a basket's width in cells
-const RAIL := 0.13         # a rail's thickness in cells
-# where the parts are on the slot art (px of slot.png, 322 x 304)
-const TOP_RAIL := Rect2(0, 0, 322, 40)
-const BOT_RAIL := Rect2(0, 262, 322, 42)
-const POST := Rect2(0, 0, 35, 304)
-const RIVET := Rect2(0, 0, 40, 40)
 const RUBBER := Color(0.16, 0.135, 0.125)
 const CLEAT := Color(0.29, 0.25, 0.23)
 
@@ -169,8 +164,40 @@ func _at(v: Dictionary, s: float) -> Vector2:
 	var TS := board.TS
 	if s <= 0.0: return _center(v, 0) + _dir(v, 0) * s * TS
 	if s >= n - 1: return _center(v, n - 1) + _dir(v, n - 1) * (s - (n - 1)) * TS
-	var i := int(floor(s))
-	return _center(v, i).lerp(_center(v, i + 1), s - i)
+	var k := int(floor(s + 0.5))
+	return _pt(v, k, s - k)
+
+## the edge cell k shares with the one before (way < 0) or after (way > 0); an end cell's open end: straight on
+func _edge(v: Dictionary, k: int, way: int) -> Vector2:
+	var n: int = (v.cells as Array).size()
+	var j := k + way
+	if j < 0 or j >= n: return _center(v, k) + _dir(v, k) * float(way) * board.TS * 0.5
+	return (_center(v, k) + _center(v, j)) * 0.5
+
+## is cell k a turn (its way in and way out at right angles)
+func _turn(v: Dictionary, k: int) -> bool:
+	var n: int = (v.cells as Array).size()
+	if k <= 0 or k >= n - 1: return false
+	var a := _center(v, k - 1) - _center(v, k)
+	var b := _center(v, k + 1) - _center(v, k)
+	return absf(a.dot(b)) < 0.5 * board.TS * board.TS
+
+## the point u (-0.5 .. 0.5) through cell k: straight across, or round a turn on a curve from edge to edge
+## (a basket at rest in a turn sits a little into its inner corner)
+func _pt(v: Dictionary, k: int, u: float) -> Vector2:
+	var a := _edge(v, k, -1)
+	var b := _edge(v, k, 1)
+	var t := u + 0.5
+	if not _turn(v, k): return a.lerp(b, t)
+	return a * (1.0 - t) * (1.0 - t) + _center(v, k) * 2.0 * t * (1.0 - t) + b * t * t
+
+## the way along the path at u through cell k
+func _tan(v: Dictionary, k: int, u: float) -> Vector2:
+	var a := _edge(v, k, -1)
+	var b := _edge(v, k, 1)
+	if not _turn(v, k): return (b - a).normalized()
+	var t := u + 0.5
+	return ((_center(v, k) - a) * 2.0 * (1.0 - t) + (b - _center(v, k)) * 2.0 * t).normalized()
 
 func _ease(x: float) -> float:
 	x = clampf(x, 0.0, 1.0)
@@ -276,43 +303,32 @@ func _draw() -> void:
 		# the rubber, its cleats running with the baskets
 		for i in n:
 			_draw_rubber(v, i, jit, ride)
-		# the rails and posts along every side that has no belt beside it, the end posts across the two ends
-		var st := tex("slot")
-		var t := RAIL * TS
+		# the trough: each cell its piece - a straight run or a turn, open where the belt goes on
 		for i in n:
-			var q: Vector2i = cells[i]
-			var c := _center(v, i) + jit
-			for side: Vector2i in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
-				var nb := q + side
-				if (i > 0 and cells[i - 1] == nb) or (i < n - 1 and cells[i + 1] == nb): continue
-				var sd := Vector2(side.y, side.x)   # (row, col) -> (x, y)
-				if (i == 0 and sd.dot(_dir(v, 0)) < -0.5) or (i == n - 1 and sd.dot(_dir(v, n - 1)) > 0.5): continue
-				match side:
-					Vector2i(-1, 0): draw_texture_rect_region(st, Rect2(c + Vector2(-TS * 0.5, -TS * 0.5), Vector2(TS, t)), TOP_RAIL)
-					Vector2i(1, 0): draw_texture_rect_region(st, Rect2(c + Vector2(-TS * 0.5, TS * 0.5 - t), Vector2(TS, t)), BOT_RAIL)
-					Vector2i(0, -1): draw_texture_rect_region(st, Rect2(c + Vector2(-TS * 0.5, -TS * 0.5), Vector2(t, TS)), POST)
-					Vector2i(0, 1):
-						draw_set_transform(c + Vector2(TS * 0.5, -TS * 0.5), 0.0, Vector2(-1, 1))
-						draw_texture_rect_region(st, Rect2(Vector2.ZERO, Vector2(t, TS)), POST)
-						draw_set_transform(Vector2.ZERO)
-			# a riveted plate on the inner corner of a turn
-			if i > 0 and i < n - 1:
-				var a := Vector2(cells[i - 1] - q)
-				var b := Vector2(cells[i + 1] - q)
-				if absf(a.dot(b)) < 0.5:
-					var corner := Vector2(a.y + b.y, a.x + b.x) * (TS * 0.5 - t * 0.5)
-					draw_texture_rect_region(st, Rect2(c + corner - Vector2(t, t) * 0.5, Vector2(t, t)), RIVET)
+			var pt := tex(_piece(v, i))
+			if pt: draw_texture_rect(pt, Rect2(_center(v, i) + jit - Vector2(TS, TS) * 0.5, Vector2(TS, TS)), false)
 		# the baskets: s slots along the path; the one off the far end comes back in at the near one
 		var cap := _cap_w()
+		# (lower ones over the upper: down a vertical run a basket's top lies over the one above it)
+		var order := []
 		for i in n:
 			if int(v.hp[i]) <= 0: continue
 			var s := float(i) + ride
-			_draw_basket(v, i, s, jit, cap)
-			if s > n - 1: _draw_basket(v, i, s - n, jit, cap)
-		# the end posts
+			order.append([s, i])
+			if s > n - 1: order.append([s - n, i])
+		order.sort_custom(func(x: Array, y: Array) -> bool: return _at(v, float(x[0])).y < _at(v, float(y[0])).y)
+		for o: Array in order: _draw_basket(v, int(o[1]), float(o[0]), jit, cap)
+		# the end posts (a vertical run's: its own caps, the flat side and a bit of the drum, inside the end cell)
 		for e in 2:
 			var i := 0 if e == 0 else n - 1
 			var d := _dir(v, i) * (-1.0 if e == 0 else 1.0)    # out of the belt
+			if absf(d.y) > 0.5:
+				var vt := tex("cap_t" if d.y < 0.0 else "cap_b")
+				var keep := float(vt.get_width()) * cap / TS     # px of it kept, as much as the side caps keep
+				var vsrc := Rect2(0, vt.get_height() - keep, vt.get_width(), keep) if d.y < 0.0 else Rect2(0, 0, vt.get_width(), keep)
+				var y0 := _center(v, i).y + (-TS * 0.5 if d.y < 0.0 else TS * 0.5 - cap)
+				draw_texture_rect_region(vt, Rect2(Vector2(_center(v, i).x - TS * 0.5, y0) + jit, Vector2(TS, cap)), vsrc)
+				continue
 			var ct := tex("cap_r")
 			var src := Rect2(0, 0, ct.get_width() - CAP_CUT, ct.get_height())
 			draw_set_transform(_center(v, i) + d * (TS * 0.5 - cap * 0.5) + jit, d.angle(), Vector2.ONE)
@@ -344,17 +360,26 @@ func _draw() -> void:
 			draw_texture_rect(t, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, a))
 		draw_set_transform(Vector2.ZERO)
 
-## a cell of rubber belt with three cleats across it, carried along by the ride (a turn's cell: the way it came in)
+## the trough's piece for cell i: which sides the belt goes on through (an end cell: straight on, under its post)
+func _piece(v: Dictionary, i: int) -> String:
+	if not _turn(v, i):
+		return "run_v" if absf(_dir(v, i).y) > 0.5 else "run_h"
+	var c := _center(v, i)
+	var w := (_center(v, i - 1) - c) + (_center(v, i + 1) - c)   # the two open ways together
+	return "turn_" + ("r" if w.x > 0.0 else "l") + ("d" if w.y > 0.0 else "u")
+
+## a cell of rubber belt with three cleats across it, carried along by the ride exactly as the baskets are (the same
+## path, the same slot a move): round a turn they fan out on its curve
 func _draw_rubber(v: Dictionary, i: int, jit: Vector2, ride: float) -> void:
 	var TS := board.TS
 	var c := _center(v, i) + jit
 	draw_rect(Rect2(c - Vector2(TS, TS) * 0.5, Vector2(TS, TS)), RUBBER)
-	var d := _dir(v, maxi(i - 1, 0)) if i > 0 else _dir(v, 0)
-	var across := Vector2(-d.y, d.x)
 	var w := maxf(2.0, TS * 0.07)
 	for k in 3:
-		var along := fposmod((k + 0.5) / 3.0 + ride / 3.0 * 3.0, 1.0) - 0.5
-		var m := c + d * along * TS
+		var u := fposmod((k + 0.5) / 3.0 + ride, 1.0) - 0.5
+		var m := _pt(v, i, u) + jit
+		var d := _tan(v, i, u)
+		var across := Vector2(-d.y, d.x)
 		var a := m - across * TS * 0.36
 		var b := m + across * TS * 0.36
 		draw_line(a + Vector2(0, w * 0.5), b + Vector2(0, w * 0.5), Color(0.05, 0.04, 0.04, 0.7), w)
