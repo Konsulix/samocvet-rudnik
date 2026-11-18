@@ -262,7 +262,8 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		# (now and then it comes straight at the eye and strikes the card's glass: 1 rams it — the glass cracks,
 		# GlassCrack; 2 only pokes it with its snout — the glass mists. Swim's pass 7)
 		sn.rams = int(an.get("ram", 0.0))
-		sn.near_k = 0.9 if sn.rams == 1 else 0.6
+		sn.near_k = 1.9 if sn.rams == 1 else 1.0
+		sn.swim0 = float(an.get("swim", 0.05))
 		sn.nose = Vector2(0.5, float(an.get("eye_y", 0.11)) + 0.01)
 		sn.seed_v = seed_v
 		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
@@ -364,14 +365,22 @@ class Swim extends Node3D:
 	## a ram (`ram` in its anim; pass 7): out of the deep straight at the eye, faster and faster, jaws opening — and into
 	## the card's glass (glass_hit: SpecView cracks it there and shakes); it reels back, shakes its head, turns away
 	## into the deep. A poke (rams 2): it comes up slowly, touches the glass with its snout, looks, and goes.
-	## The glass is GLASS before the find. At the glass it is near_k its far size (a rammer nearly whole: a monster's head
-	## fills the card; a poker smaller). The water it drives before it washes the find aside (wash_t: out fast with the
-	## blow, back gently). stage: 0 coming, 1 at the glass, 2 leaving
+	## The glass is GLASS before the find. At the glass it is near_k its far size (a rammer near twice: a monster, its
+	## head more than the card holds; a poker about its own). The water it drives before it sweeps the find off as it
+	## comes — aside, out of its way, rolling over — and the find drifts home gently when it has gone (wash_t).
+	## Struck, the beast is no board: its body whips (the shader's `curve`), it rolls, sinks back, and comes round in a
+	## long bend, the body curved into the turn, the tail driving hard. stage: 0 coming, 1 at the glass, 2 leaving.
+	## sea_call: what it sounds like now ("rush", "roar", "song" — SpecView plays them while the card shows)
 	signal glass_hit(at: Vector3, soft: bool)
 	const GLASS := 4.0
 	var near_k := 0.9
 	var wash_t := -1.0
-	var wash_off := Vector3.ZERO
+	var wash_base := Transform3D.IDENTITY
+	var swim0 := 0.05
+	var curve := 0.0
+	var roared := false
+	var sing_in := 6.0
+	signal sea_call(what: String)
 	var rams := 0
 	var nose := Vector2(0.5, 0.12)
 	var face := Vector3.BACK
@@ -421,6 +430,11 @@ class Swim extends Node3D:
 		var y0 := hw * 1.2 + sc * 0.52
 		deep = 0
 		stage = 0
+		roared = false
+		curve = 0.0
+		if mat:
+			mat.set_shader_parameter("curve", 0.0)
+			mat.set_shader_parameter("swim", swim0)
 		match kind:
 			7:
 				# straight at the eye, a little down from above (its body clears the find's top), into the glass
@@ -545,23 +559,34 @@ class Swim extends Node3D:
 		tv += dt
 		var b := Basis.looking_at(hdg, Vector3.UP)
 		var back := 0.0
-		var shake := 0.0
+		var roll := 0.0
+		var sink := 0.0
 		if rams == 1:
-			back = 0.9 * (1.0 - exp(-tv * 7.0)) + 0.25 * tv
-			shake = sin(tv * 16.0) * 0.16 * exp(-tv * 2.2) * smoothstep(0.12, 0.3, tv)
-			if mat: mat.set_shader_parameter("jaw_force", maxf(0.0, 1.0 - tv * 2.5))
+			# thrown back and still drifting, the body whipping from the blow, rolling, sinking a little; the jaws close
+			back = 1.6 * (1.0 - exp(-tv * 5.0)) + 0.9 * tv
+			curve = 0.55 * sin(tv * 8.0) * exp(-tv * 2.2) * smoothstep(0.0, 0.1, tv)
+			roll = 0.32 * sin(tv * 4.2) * exp(-tv * 1.3)
+			sink = 0.5 * smoothstep(0.1, 1.2, tv)
+			if mat:
+				mat.set_shader_parameter("jaw_force", maxf(0.0, 1.0 - tv * 1.6))
+				mat.set_shader_parameter("swim", swim0 * lerpf(0.3, 1.2, smoothstep(0.5, 1.2, tv)))
 		else:
 			back = 0.12 * smoothstep(0.0, 0.4, tv) + 0.05 * sin(tv * 2.4)
-			shake = sin(tv * 1.9) * 0.14 * smoothstep(0.3, 1.0, tv)
-		var at_p := stop - hdg * back
-		transform = Transform3D(b * Basis(Vector3.UP, PI / 2 + shake) * Basis.from_scale(Vector3.ONE * sc * near_k), at_p)
-		if tv > (1.3 if rams == 1 else 2.8):
+			curve = 0.18 * sin(tv * 1.9) * smoothstep(0.3, 1.0, tv) * (1.0 - smoothstep(2.2, 2.8, tv))
+			roll = 0.08 * sin(tv * 1.3)
+		if mat: mat.set_shader_parameter("curve", curve)
+		var at_p := stop - hdg * back + Vector3.DOWN * sink
+		transform = Transform3D(b * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, roll) * Basis.from_scale(Vector3.ONE * sc * near_k), at_p)
+		if tv > (1.2 if rams == 1 else 2.8):
+			# off: a long bend aside and away into the deep, gathering way from rest
 			stage = 2
 			pa = at_p
-			pc = at_p + Vector3(dir * 3.5, 0.6, -1.5)
-			pb = Vector3(dir * FOV * (CAM + DEPTH) * 0.5, 3.0, -DEPTH * 2.2)
+			pc = at_p + Vector3(dir * sc * near_k * 0.55, -0.4, -1.0)
+			pb = Vector3(dir * FOV * (CAM + DEPTH) * 1.3, 3.0, -DEPTH * 2.0)
 			deep = -1
 			s = 0.0
+			vel = 0.0
+			bank = roll
 			tan = hdg
 			if mat: mat.set_shader_parameter("jaw_force", -1.0)
 
@@ -582,20 +607,30 @@ class Swim extends Node3D:
 				home.position += jo - jolt_off
 				jolt_off = jo
 		if wash_t >= 0.0:
-			# the water driven before it: the find is swept aside and back, turning a little, and comes home gently
-			wash_t += dt
+			# the water driven before it: the find is swept off aside, out of its way, rolling right over as it goes,
+			# hangs there while the beast is at the glass, and drifts home gently, coming upright as it arrives
 			if home == null or not is_instance_valid(home): home = _home()
-			var e := (1.0 - exp(-wash_t * 6.0)) * (1.0 - smoothstep(0.7, 3.8, wash_t))
-			var wo := (Vector3(-dir * 1.1, -0.25, -0.7) + Vector3(0.06 * sin(wash_t * 5.0), 0.05 * sin(wash_t * 6.3), 0)) * e * (1.0 if rams == 1 else 0.12)
-			var par0 := home.get_parent() as Node3D if home else null
-			if par0 and home != self:
-				var lo := par0.global_transform.basis.inverse() * wo
-				home.position += lo - wash_off
-				wash_off = lo
-			if wash_t > 3.9:
+			if home and home != self and home.get_parent() is Node3D:
+				if wash_t == 0.0: wash_base = home.transform
+				wash_t += maxf(dt, 0.0001)
+				var soft_k := 1.0 if rams == 1 else 0.1
+				var e := smoothstep(0.0, 0.6, wash_t) * (1.0 - smoothstep(1.7, 5.6, wash_t))
+				var wo := (Vector3(-dir * 2.7, -0.55, -0.4) * e + Vector3(0.1 * sin(wash_t * 4.0), 0.08 * sin(wash_t * 5.3), 0) * e) * soft_k
+				var roll := TAU * smoothstep(0.0, 5.4, wash_t) * (1.0 if rams == 1 else 0.0)
+				var pb0 := (home.get_parent() as Node3D).global_transform.basis.orthonormalized().inverse()
+				var spin := Basis((pb0 * Vector3(0.25, 0.2, 1.0)).normalized(), -dir * roll) * Basis((pb0 * Vector3.RIGHT).normalized(), 0.5 * sin(PI * e) * soft_k)
+				home.transform = Transform3D(Basis.IDENTITY, pb0 * wo) * Transform3D(spin, Vector3.ZERO) * wash_base
+				if wash_t > 5.7:
+					wash_t = -1.0
+					home.transform = wash_base
+			else:
 				wash_t = -1.0
-				if home: home.position -= wash_off
-				wash_off = Vector3.ZERO
+		# its voice now and then, as it passes
+		if far and visible and rest <= 0.0:
+			sing_in -= dt
+			if sing_in <= 0.0:
+				sing_in = 11.0 + 9.0 * fposmod(ph * 3.7 + passes * 0.37, 1.0)
+				if not (kind == 7 and stage < 2 and s > 0.4): sea_call.emit("song")
 		var want := sc * stride * beat * go()
 		# (a body's weight: it gathers way and loses it slowly)
 		vel = want if vel < 0.0 else lerpf(vel, want, minf(1.0, dt * 1.5))
@@ -625,16 +660,26 @@ class Swim extends Node3D:
 					# (the rush: it gathers speed all the way in; a poke comes up easily and slows at the glass)
 					slow = lerpf(2.0, 8.0, smoothstep(0.1, 0.8, s)) if rams == 1 else lerpf(2.0, 3.5, smoothstep(0.1, 0.6, s)) * lerpf(1.0, 0.15, smoothstep(0.8, 1.0, s))
 					if mat and rams == 1: mat.set_shader_parameter("jaw_force", smoothstep(0.8, 0.96, s))
-				# (its size by how near it is: the same coming and going)
-				var z_now := (pa * ((1.0 - s) * (1.0 - s)) + pc * (2.0 * (1.0 - s) * s) + pb * (s * s)).z
-				size = sc * lerpf(1.0, near_k, smoothstep(-DEPTH * 0.9, stop.z - 0.3, z_now))
+					size = sc * lerpf(1.0, near_k, smoothstep(0.1, 1.0, s))
+					if mat: mat.set_shader_parameter("swim", swim0 * lerpf(1.0, 1.8, smoothstep(0.1, 0.7, s)))
+					# (the water before it reaches the find first: the find is swept off as it comes)
+					if rams == 1 and wash_t < 0.0 and s > 0.5:
+						wash_t = 0.0
+						sea_call.emit("rush")
+					if rams == 1 and not roared and s > 0.8:
+						roared = true
+						sea_call.emit("roar")
+				else:
+					size = sc * lerpf(near_k, 1.0, smoothstep(0.05, 0.9, s))
+					slow = 1.8
+					if mat: mat.set_shader_parameter("swim", swim0 * lerpf(2.2, 1.0, smoothstep(0.0, 0.7, s)))
 			s += vel * slow * dt / maxf(0.01, dp.length())
 			if s >= 1.0 and kind == 7 and stage == 0:
 				stage = 1
 				tv = 0.0
 				face = hdg
 				glass_hit.emit(hit_at, rams == 2)
-				wash_t = 0.0
+				if wash_t < 0.0: wash_t = 0.0
 				if rams == 1:
 					var bb := Burst.new()
 					bb.top_level = true
@@ -657,9 +702,13 @@ class Swim extends Node3D:
 			var p := pa * ((1.0 - s) * (1.0 - s)) + pc * (2.0 * (1.0 - s) * s) + pb * (s * s)
 			var nt := dp.normalized()
 			if kind == 7 and stage == 2:
-				# (from the glass it comes round slowly, a heavy body)
-				face = face.slerp(nt, minf(1.0, dt * 1.6)).normalized()
+				# (from the glass it comes round slowly, a heavy body — and bends into its turn, the head leading)
+				var was := face
+				face = face.slerp(nt, minf(1.0, dt * lerpf(0.5, 1.8, smoothstep(0.0, 0.35, s)))).normalized()
 				nt = face
+				if dt > 0.0:
+					curve = lerpf(curve, clampf(was.cross(face).y / dt * 0.55, -0.7, 0.7), minf(1.0, dt * 2.5))
+					if mat: mat.set_shader_parameter("curve", curve)
 			# (it banks into its turns)
 			if dt > 0.0 and tan != Vector3.ZERO:
 				bank = lerpf(bank, clampf(-tan.cross(nt).y / dt * 1.6, -0.55, 0.55), minf(1.0, dt * 1.5))

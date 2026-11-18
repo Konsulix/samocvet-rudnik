@@ -2,13 +2,13 @@ class_name GlassCrack
 extends Control
 ## The card's "glass" struck from inside (a big swimmer of the old seas rams it: SpecReef.Swim, pass 7): a web of
 ## cracks runs out from the blow to the card's frame — jagged rays, rings between them — holds a little, and heals
-## from the frame back in to the blow, gone in LIFE seconds.
+## from the blow outwards to the frame, gone in LIFE seconds.
 ## A soft one (an ichthyosaur's curious poke) cracks nothing: the glass only mists over where the snout touched.
 ## Drawn in lines over the stone's view (a child of SpecView), no shader of its own.
 
 const LIFE := 5.0
 const GROW := 0.2    # (seconds the cracks take to run out to the frame)
-const HOLD := 1.6    # (then they heal, from the frame back to the blow, till LIFE)
+const HOLD := 1.6    # (then they heal, from the blow out to the frame, till LIFE)
 
 var at := Vector2.ZERO
 var soft := false
@@ -114,9 +114,10 @@ func _draw() -> void:
 		var r2 := rr * 0.3
 		draw_texture_rect(blob(), Rect2(at - Vector2(r2, r2), Vector2(r2, r2) * 2.0), false, Color(1, 1, 1, 0.5 * k))
 		return
-	# the cracks run out from the blow to the frame, hold, and heal from the frame back in to the blow: all that is
-	# nearer the blow than `front` shows
-	var front := far * 1.05 * minf(clampf(_t / GROW, 0.0, 1.0), 1.0 - smoothstep(HOLD, LIFE, _t))
+	# the cracks run out from the blow to the frame, hold, and heal from the blow outwards — the glass closes over
+	# the middle first, the last of them gone at the frame: what lies between `inner` and `front` shows
+	var front := far * 1.05 * clampf(_t / GROW, 0.0, 1.0)
+	var inner := far * 1.05 * smoothstep(HOLD, LIFE, _t)
 	var a := 1.0 - smoothstep(LIFE - 0.6, LIFE, _t)
 	# the blow's flash, and the crushed glass at its middle
 	var fl := 1.0 - smoothstep(0.0, 0.3, _t)
@@ -124,7 +125,7 @@ func _draw() -> void:
 		var fr := reach * 0.6
 		draw_texture_rect(blob(), Rect2(at - Vector2(fr, fr), Vector2(fr, fr) * 2.0), false, Color(1, 1, 1, 0.55 * fl))
 	var cr := minf(reach * 0.14, front)
-	draw_texture_rect(blob(), Rect2(at - Vector2(cr, cr), Vector2(cr, cr) * 2.0), false, Color(0.9, 0.96, 1.0, 0.4 * a))
+	draw_texture_rect(blob(), Rect2(at - Vector2(cr, cr), Vector2(cr, cr) * 2.0), false, Color(0.9, 0.96, 1.0, 0.4 * (1.0 - smoothstep(HOLD - 0.4, HOLD + 0.5, _t))))
 	var dark := Color(0, 0, 0, 0.4 * a)
 	var light := Color(0.9, 0.96, 1.0, 0.85 * a)
 	for ln: Array in _lines:
@@ -132,12 +133,17 @@ func _draw() -> void:
 		var show := PackedVector2Array()
 		for k in pts.size():
 			var d := pts[k].distance_to(at)
+			# (cut at the fronts themselves, not at the last whole piece: they creep, they do not hop)
 			if d > front:
-				# (cut at the front itself, not at the last whole piece: it creeps, it does not hop)
-				if k > 0:
+				if k > 0 and not show.is_empty():
 					var d0 := pts[k - 1].distance_to(at)
 					show.append(pts[k - 1].lerp(pts[k], clampf((front - d0) / maxf(0.01, d - d0), 0.0, 1.0)))
 				break
+			if d < inner:
+				continue
+			if show.is_empty() and k > 0:
+				var d1 := pts[k - 1].distance_to(at)
+				if d1 < inner: show.append(pts[k - 1].lerp(pts[k], clampf((inner - d1) / maxf(0.01, d - d1), 0.0, 1.0)))
 			show.append(pts[k])
 		if show.size() < 2:
 			continue

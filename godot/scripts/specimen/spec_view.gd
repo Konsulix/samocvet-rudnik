@@ -86,11 +86,16 @@ func show_spec(o: Dictionary) -> void:
 	# (a swimmer of the old seas may strike the card's glass: SpecReef.Swim)
 	for n in p.find_children("*", "Node3D", true, false):
 		if n.has_signal("glass_hit"): n.connect("glass_hit", _glass)
+		if n.has_signal("sea_call"): n.connect("sea_call", _sea_call)
 	built.emit(p)
 	spin_v = 0.45
 	tilt = 0.0
 	if still:
 		live.rotation = Vector3(0.12, 0.6, 0)
+
+## a swimmer's voice (its song as it passes, the rush of water before it, its roar): only while this card shows
+func _sea_call(what: String) -> void:
+	if is_visible_in_tree(): Sfx.play("sea_" + what)
 
 ## the glass struck from inside, at this point of the studio's world: cracks from there (a soft one: mist), the view
 ## shakes, the phone thumps

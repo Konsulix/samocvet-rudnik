@@ -59,6 +59,7 @@ uniform float jaw_fan = 0.0;    // (the gape's angle at rest, shared out as a fa
 uniform float jaw_ramp = 0.03;  // (so far before the hinge the jaw takes up its turn: a small head, less)
 uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
+uniform float curve = 0.0;      // (the whole body bent in a bow, the tail swept most: a turn, a blow's whip — SpecReef.Swim)
 uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
 uniform float eye_r = 0.008;
@@ -76,7 +77,7 @@ float burst(float t) {
 float bend(float x, float tp, float b) {
 	float w = (swim_from - x) / (swim_from + 0.5);
 	float env = w > 0.0 ? w * w : swim_head * w * w / max(0.05, (0.5 - swim_from) * (0.5 - swim_from) / ((swim_from + 0.5) * (swim_from + 0.5)));
-	return sin(tp + x * swim_k * 6.2831) * swim * b * (0.03 + env);
+	return sin(tp + x * swim_k * 6.2831) * swim * b * (0.03 + env) + curve * ((x - 0.15) * (x - 0.15) - 0.05);
 }
 
 // an octopus's squeeze: 0 slack, up fast to 1, slowly back (the same in SpecReef.Swim.squeeze)
