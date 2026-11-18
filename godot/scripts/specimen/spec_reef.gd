@@ -407,9 +407,11 @@ class Swim extends Node3D:
 	## pass 8; stage: 0 coming, 2 the find taken and on past the eye
 	signal gulped
 	signal gulp_over
-	const GULP_K := 3.6      # (its size at the find, of its far size: a head whose jaws take the find whole)
-	const GULP_RUN := 30.0   # (how far off it starts, straight behind the find)
-	const GULP_SUCK := 2.6   # (so far short of the find the find starts into its mouth)
+	const GULP_K := 7.2      # (its size at the find, of its far size: a head whose open jaws go round the find)
+	const GULP_RUN := 34.0   # (how far off it starts, straight behind the find)
+	const GULP_SNAP := 0.9   # (so far short of the find's middle the jaws begin to shut)
+	const GULP_JAW := 1.5    # (how wide the jaws go for it, of their usual gape)
+	const GAPE := Vector3(0.478, 0.151, 0.004)   # (the middle of its open mouth, the model's units)
 	const KEEP_K := 0.42     # (and keeping the card)
 	var keeper := false
 	var keep_t := 9.0        # (keeping the card: under 0 not there yet, then it comes up out of the dim)
@@ -434,10 +436,12 @@ class Swim extends Node3D:
 		rest = 0.0
 		dir = 1.0 if ph < 0.5 else -1.0
 		# out of the middle of the card straight at the eye: one line, head on, the head coming over the find's top
-		hdg = Vector3(0.0, -0.1, 1.0).normalized()
-		hit_at = Vector3(0.0, 1.75, 0.4)
+		# (level with the find: its open mouth — the middle of the gape, GAPE in the model — comes through the find's
+		# own middle, the jaws about it)
+		hdg = Vector3(0.0, -0.04, 1.0).normalized()
+		hit_at = Vector3(0.0, 0.1, 0.0)
 		var hb := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
-		stop = hit_at - (hb * nose) * sc * GULP_K
+		stop = hit_at - (hb * GAPE) * sc * GULP_K
 		pa = stop - hdg * GULP_RUN
 		pc = stop - hdg * GULP_RUN * 0.5
 		pb = stop
@@ -489,35 +493,22 @@ class Swim extends Node3D:
 			mat.set_shader_parameter("neck", neck0)
 		transform = Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * KEEP_K), q)
 
-	## the jaws shut on the find as the head goes through where it was: the find is drawn into them, small, and gone —
-	## all on the move, the beast never checks
+	## the jaws shut round the find where it lies, as the open mouth comes over it: the find moves nowhere — it is
+	## inside, and gone with the beast. All on the move, the beast never checks
 	func _swallow(dt: float) -> void:
 		tv += dt
-		# (the find goes in first, the jaws still wide; then they shut)
-		var drawn := smoothstep(0.0, 0.3, tv)
-		var shut := smoothstep(0.26, 0.4, tv)
-		if home == null or not is_instance_valid(home): home = _home()
-		if not took and home and home != self and home.get_parent() is Node3D:
-			if not gulp_set:
-				gulp_set = true
-				gulp_base = home.transform
-			var k := 1.0 - drawn
-			# (into the mouth, behind the snout's tip — wherever the head has got to)
-			var mouth := global_transform * (nose - Vector3(0.02, 0.006, 0.0))
-			var into := (home.get_parent() as Node3D).global_transform.affine_inverse() * mouth
-			home.transform = Transform3D(Basis.from_scale(Vector3.ONE * maxf(0.03, k)), into * (1.0 - k)) * gulp_base
-			if shut >= 1.0:
-				took = true
-				_hide_find()
-				home.transform = gulp_base
-				var bb := Burst.new()
-				bb.top_level = true
-				add_child(bb)
-				bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.4), mouth + Vector3(0, 0.3, 0.3))
-				gulped.emit()
+		var shut := smoothstep(0.0, 0.13, tv)
 		gulp_set = true
+		if not took and shut >= 0.75:
+			took = true
+			_hide_find()
+			var bb := Burst.new()
+			bb.top_level = true
+			add_child(bb)
+			bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.6), hit_at + Vector3(0, 0.5, 1.0))
+			gulped.emit()
 		if mat:
-			mat.set_shader_parameter("jaw_force", 1.0 - shut if tv < 0.5 else 0.2 * absf(sin((tv - 0.5) * 7.0)) * (1.0 - smoothstep(1.0, 1.6, tv)))
+			mat.set_shader_parameter("jaw_force", GULP_JAW * (1.0 - shut) if tv < 0.4 else 0.15 * absf(sin((tv - 0.4) * 7.0)) * (1.0 - smoothstep(0.9, 1.5, tv)))
 	## its colours' own strength (the shader's gain), and how far it is dimmed now: at the glass it is right under the
 	## studio's lamps and burnt out to a pale grey, its skin lost — so near, it keeps DIM of its light
 	const DIM := 0.58
@@ -861,9 +852,9 @@ class Swim extends Node3D:
 					size = sc * lerpf(1.0, GULP_K, smoothstep(0.0, 0.8, s))
 					if mat:
 						# (the jaws wide from half way in: seen head on, all the way)
-						if not gulp_set: mat.set_shader_parameter("jaw_force", smoothstep(0.4, 0.62, s))
+						if not gulp_set: mat.set_shader_parameter("jaw_force", GULP_JAW * smoothstep(0.35, 0.6, s))
 						mat.set_shader_parameter("neck", neck0 * (1.0 - smoothstep(0.05, 0.35, s)))
-					if s > 1.0 - GULP_SUCK / GULP_RUN:
+					if s > 1.0 - GULP_SNAP / GULP_RUN:
 						if not gulp_set:
 							tv = 0.0
 							sea_call.emit("gulp")
@@ -873,17 +864,20 @@ class Swim extends Node3D:
 						sea_call.emit("rush")
 				else:
 					# (the find in its jaws, and on past the eye at the same rush)
+					# (as big as it is now, it must go by twice as fast to seem the same rush; it thins away as it goes —
+					# a body that long would be half a minute passing)
 					size = sc * GULP_K
-					slow = 6.5
+					slow = 13.0
 					_swallow(dt)
+					if mat: mat.set_shader_parameter("fade", 1.0 - smoothstep(0.22, 0.5, s))
 			s += vel * slow * dt / maxf(0.01, dp.length())
 			if s >= 1.0 and kind == 8 and stage == 0:
 				# the head is at the find: the jaws shut on it, and it goes straight on — past the eye, a little aside
 				stage = 2
 				deep = 0
 				pa = stop
-				pc = stop + hdg * 7.0
-				pb = stop + Vector3(dir * 14.0, -1.5, 26.0)
+				pc = stop + hdg * 9.0
+				pb = stop + Vector3(dir * 22.0, -2.0, 60.0)
 				s = 0.0
 				return
 			if s >= 1.0 and kind == 8 and stage == 2:
