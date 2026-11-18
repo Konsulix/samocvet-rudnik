@@ -391,19 +391,21 @@ func _ready() -> void:
 					if String(e.bug).begins_with("flower_") or String(e.bug).begins_with("leaf_"):
 						e.sprig = e.bug
 						e.erase("bug")
-				# the living sea floor pinned (SpecReef): reef=<tall,..>/<near,..>/<swimmer>, or reef=group:<g> — every model of
-				# that group in turn, one beside each find (weed, coral, star, shell, crab, swim)
+				# the living sea floor pinned (SpecReef): reef=<tall,..>/<near,..>/<swimmer>/<fish>[*N], or reef=group:<g> — every
+				# model of that group in turn, one beside each find (weed, coral, star, shell, crab, swim, fish — the fish 1, 2, 3 of them)
 				if args.has("reef"):
 					var rs := String(args.reef)
 					if rs.begins_with("group:"):
 						var gm := SpecReef.group(rs.trim_prefix("group:"))
 						var one: String = gm[k % gm.size()]
 						var gg := String((SpecReef.MODELS[one] as Dictionary).g)
-						e.reef = {tall = [one] if gg in ["weed", "coral"] else [], near = [] if gg in ["weed", "coral", "swim"] else [one], swim = one if gg == "swim" else ""}
+						e.reef = {tall = [one] if gg in ["weed", "coral"] else [], near = [] if gg in ["weed", "coral", "swim", "fish"] else [one], swim = one if gg == "swim" else "",
+							fish = one if gg == "fish" else "", fish_n = 1 + k % 3}
 					else:
 						var pr := rs.split("/")
 						e.reef = {tall = Array(pr[0].split(",", false)), near = Array(pr[1].split(",", false)) if pr.size() > 1 else [],
-							swim = pr[2] if pr.size() > 2 else ""}
+							swim = pr[2] if pr.size() > 2 else "", fish = pr[3].get_slice("*", 0) if pr.size() > 3 else "",
+							fish_n = int(pr[3].get_slice("*", 1)) if pr.size() > 3 and pr[3].contains("*") else 1}
 				if args.has("film"): e.film = int(args.film)
 				if args.has("pair"): e.pair = args.pair == "1"
 				if args.has("dendrites"): e.dendrites = args.dendrites == "1"

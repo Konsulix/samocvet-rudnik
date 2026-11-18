@@ -11,7 +11,10 @@ Sand Sea Star (*Astropecten scoparius*), Purple Sea Urchin (*H. crassispina*), G
 (*Tridacna crocea*), Japanese Moon Scallop (*Y. japonicum*), Noble Scallop (*Mimachlamys nobilis*), Smooth Fan
 Lobster, North Pacific Giant Octopus, Mauve-eyed Hermit Crab, Mediterranean Hermit Crab, Bowed Fiddler Crab (*T. arcuata*), Red Frog Crab
 (*Ranina ranina*), Elbow Crab (*Parthenope validus*), Japanese Mantis Shrimp
-(*O. oratoria*), Giant Isopod (*B. doederleinii*) — https://sketchfab.com/ffishAsia-and-floraZia
+(*O. oratoria*), Giant Isopod (*B. doederleinii*); the small fish — Steephead Parrotfish, Red Stingray
+(*Hemitrygon akajei*), Striped Puffer (*T. xanthopterus*), Crimson Sea Bream (*Evynnis tumifrons*), Balloonfish,
+Pennant Coralfish (*H. acuminatus*), Whitesaddle Goatfish, Spiny Red Gurnard (*C. spinosus*),
+Japanese Flying Squid (*T. pacificus*) — https://sketchfab.com/ffishAsia-and-floraZia
 
 ## CC0 — DigitalAtlasOfAncientLife
 

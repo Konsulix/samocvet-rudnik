@@ -128,7 +128,7 @@ static func accents(g: Dictionary) -> Array:
 
 ## the card's name for a fossil gene that carries a number (the nacre's share)
 static func gene_name(id: String, g: Dictionary) -> String:
-	if id.begins_with("sea:"): return SpecReef.gene_name(id)
+	if id.begins_with("sea:"): return SpecReef.gene_name(id, g.get("reef", {}))
 	if g.get("kind", "") == "petrified_wood":
 		return SpecWood.gene_name(id, g)
 	if g.get("kind", "") == "fulgurite":

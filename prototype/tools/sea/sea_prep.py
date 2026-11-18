@@ -81,6 +81,21 @@ MODELS = [
     # shell's does, and the bake's rays fell short: black patches. It looks further (cage), and is a little less light.
     # The tips of its arms come off the scan in loose scraps, a row of dashes in the water: only its one whole piece is kept — `whole`)
     dict(name="swim_octopus", file="живность большая/cc0___north_pacific_giant_octopus.glb", tris=9000, tex=1024, reach=True, cage=2.5, whole=True),
+    # the small fish that swim round the find (the sea's butterflies): scans, all upright in their files, head to -X:
+    # turned about
+    dict(name="fish_parrot", file="fish like butterslies/9026105871bd49069936b6ac569e5c85.glb", tris=5000, tex=1024, reach=True, turn=180),
+    dict(name="fish_stingray", file="fish like butterslies/cc0____red_stingray_hemitrygon_akajei.glb", tris=5000, tex=1024, reach=True, turn=180),
+    dict(name="fish_puffer", file="fish like butterslies/cc0____striped_puffer_t._xanthopterus.glb", tris=5000, tex=1024, reach=True, turn=180),
+    dict(name="fish_bream", file="fish like butterslies/cc0___crimson_sea_bream_evynnis_tumifrons.glb", tris=5000, tex=1024, reach=True, turn=180),
+    dict(name="fish_balloon", file="fish like butterslies/cc0___inflated_balloonfish.glb", tris=7000, tex=1024, reach=True, turn=180),
+    dict(name="fish_coralfish", file="fish like butterslies/cc0___pennant_coralfish_h._acuminatus.glb", tris=5000, tex=1024, reach=True, turn=180),
+    dict(name="fish_gurnard", file="fish like butterslies/cc0___spiny_red_gurnard_c._spinosus.glb", tris=6000, tex=1024, reach=True, turn=180),
+    # (the squid swims mantle first: as it lies in its file, its fins' end to +X, its arms trailing)
+    dict(name="fish_squid", file="fish like butterslies/cc0__japanese_flying_squid_t._pacificus.glb", tris=6000, tex=1024, reach=True, whole=True),
+    dict(name="fish_goatfish", file="fish like butterslies/cc0___whitesanddle_goatfish.glb", tris=5000, tex=1024, reach=True, turn=180),
+    # (downloaded too, not used — ten fish are enough: the knobsnout parrotfish (a second, darker parrotfish), the
+    # yellow goosefish (a brown bottom dweller), the sail-fin poacher (dark, its ragged sails a blot at this size))
+    # dict(name="fish_poacher", file="fish like butterslies/cc0___sail-fin_poacher_podothecus_sachi.glb", tris=6000, tex=1024, reach=True, turn=180),
 ]
 
 def coords(o):

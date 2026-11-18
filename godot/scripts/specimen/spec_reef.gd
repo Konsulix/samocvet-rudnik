@@ -46,11 +46,23 @@ const MODELS := {
 	crab_elbow = {g = "crab", n = "elbow crab", k = 1.0},
 	crab_mantis = {g = "crab", n = "mantis shrimp", k = 1.1},
 	crab_isopod = {g = "crab", n = "giant isopod", k = 0.95},
-	# the swimmers. A small fish (no `far`) loops round the find and turns with it in the hand; the giants (`far`) pass far
+	# the swimmers. A small fish (g "fish") loops round the find and turns with it in the hand; the giants (`far`) pass far
 	# behind it, the world's way whatever the find does. anim: the shader's (sea_swim.gdshader) and two of Swim's own —
 	# `go_f` the beats a second that push it on (the tail's swim_f unless given: a plesiosaur's are its flippers') and
 	# `stride` the body lengths it makes on each beat. A big animal beats slowly: every one its own pace
-	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
+	swim_coelacanth = {g = "fish", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
+	# the small fish (g "fish": the sea's butterflies — up to three of a kind, a little school round the find). Scans
+	# (ffishAsia, CC0); `flip` — their pectoral fins row; a ray's wings beat in a wave down them (flip_k); the squid
+	# goes by its jet, mantle first
+	fish_parrot = {g = "fish", n = "steephead parrotfish", k = 0.55, anim = {swim = 0.045, swim_f = 0.9, swim_k = 0.8, swim_from = 0.1, glide = 0.4, stride = 0.45}},
+	fish_stingray = {g = "fish", n = "red stingray", k = 0.62, anim = {swim = 0.03, swim_f = 0.6, swim_k = 1.0, swim_from = -0.1, glide = 0.2, go_f = 0.7, stride = 0.4, flip = 0.4, flip_w = 0.03, flip_x0 = -0.2, flip_x1 = 0.6, flip_mid = -1.0, flip_f = 0.7, flip_k = 1.1}},
+	fish_puffer = {g = "fish", n = "striped puffer", k = 0.5, anim = {swim = 0.035, swim_f = 1.1, swim_k = 0.7, swim_from = 0.0, glide = 0.3, stride = 0.35}},
+	fish_bream = {g = "fish", n = "crimson sea bream", k = 0.52, anim = {swim = 0.055, swim_f = 1.0, swim_k = 0.8, swim_from = 0.1, glide = 0.4, stride = 0.5}},
+	fish_balloon = {g = "fish", n = "balloonfish", k = 0.42, anim = {swim = 0.03, swim_f = 1.3, swim_k = 0.6, swim_from = -0.2, glide = 0.2, stride = 0.25}},
+	fish_coralfish = {g = "fish", n = "pennant coralfish", k = 0.45, anim = {swim = 0.045, swim_f = 1.2, swim_k = 0.7, swim_from = 0.05, glide = 0.35, stride = 0.45}},
+	fish_goatfish = {g = "fish", n = "whitesaddle goatfish", k = 0.52, anim = {swim = 0.055, swim_f = 1.0, swim_k = 0.85, swim_from = 0.1, glide = 0.4, stride = 0.5}},
+	fish_gurnard = {g = "fish", n = "red gurnard", k = 0.55, anim = {swim = 0.05, swim_f = 0.9, swim_k = 0.9, swim_from = 0.1, glide = 0.45, stride = 0.45, flip = 0.14, flip_w = 0.07, flip_x0 = 0.0, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.6}},
+	fish_squid = {g = "fish", n = "flying squid", k = 0.6, anim = {swim = 0.0, swim_f = 0.5, stride = 0.55, jet = 0.14, jet_x = -0.03, jet_y = 0.04, jet_wrap = 0.0}},
 	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.06, jaw_x = 0.325, jaw_y = 0.1106, jaw_s = 0.0, jaw_shut = 0.4, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
 	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
@@ -60,7 +72,7 @@ const MODELS := {
 	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
-const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
+const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58, fish = 0.68}
 
 static var _mesh := {}
 static var _mat := {}
@@ -78,6 +90,7 @@ static func label(id: String) -> String:
 ## always (sea oak or bladder wrack, one clump — the backdrop, not an accent), behind it maybe a coral or the giant
 ## kelp, before it most often one small thing (a star, an urchin, a shell, a crab), rarely two, and now and then a swimmer
 const COMMON := ["weed_claret", "weed_wiggle"]
+const WAS_SWIM := ["swim_coelacanth", "swim_cretoxyrhina", "swim_octopus", "swim_mosasaurus", "swim_ophthalmosaurus", "swim_styxosaurus", "swim_tylosaurus", "swim_dallasaurus"]
 static func genes(seed_v: int, salt: int) -> Dictionary:
 	var r := Rng32.new((seed_v * 2654435761 + salt * 977 + 41) % 4294967296)
 	var tall: Array = []
@@ -91,8 +104,21 @@ static func genes(seed_v: int, salt: int) -> Dictionary:
 		near.append(_pick(r, String(small[int(r.next() * 3.0)]), near))
 		if r.next() < 0.15 / 0.7: near.append(_pick(r, String(small[int(r.next() * 3.0)]), near))
 	if tall.is_empty() and near.is_empty(): tall.append(COMMON[int(r.next() * 2.0)])
-	var swim := _pick(r, "swim", []) if r.next() < 0.15 else ""
-	return {tall = tall, near = near, swim = swim, clumps = 1, stalks = 4 + int(r.next() * 4.0)}
+	# (the old roll of the swimmer, as it was — the coelacanth among them; it is a small fish now)
+	var swim: String = WAS_SWIM[int(r.next() * WAS_SWIM.size())] if r.next() < 0.15 else ""
+	var stalks := 4 + int(r.next() * 4.0)
+	# the small fish: their own stream. One kind to a find, one to three of it
+	var fr := Rng32.new((seed_v * 2246822519 + salt * 668265263 + 97) % 4294967296)
+	var f_roll := fr.next()
+	var kinds := group("fish")
+	var fish: String = kinds[int(fr.next() * kinds.size())] if f_roll < 0.22 else ""
+	var n_roll := fr.next()
+	if swim == "swim_coelacanth":
+		fish = swim
+		swim = ""
+	# (a giant passing behind, or a school of small fish — not both: together they took the eye off the find)
+	if swim != "": fish = ""
+	return {tall = tall, near = near, swim = swim, clumps = 1, stalks = stalks, fish = fish, fish_n = 1 if n_roll < 0.5 else 2 if n_roll < 0.82 else 3}
 
 ## whether the floor already has a coral standing (the sea lilies then keep away: one tall living thing is enough)
 static func has_coral(reef: Dictionary) -> bool:
@@ -108,15 +134,19 @@ static func accents(reef: Dictionary) -> Array:
 	for k: String in (reef.get("tall", []) as Array) + (reef.get("near", []) as Array):
 		out.append("sea:" + k)
 	if String(reef.get("swim", "")) != "": out.append("sea:" + String(reef.swim))
+	if String(reef.get("fish", "")) != "": out.append("sea:" + String(reef.fish))
 	return out
 
-static func gene_name(id: String) -> String:
-	return label(id.trim_prefix("sea:"))
+## its name on the card; the fish with how many of them: "pennant coralfish x3"
+static func gene_name(id: String, reef := {}) -> String:
+	var k := id.trim_prefix("sea:")
+	var n := int(reef.get("fish_n", 1)) if k == String(reef.get("fish", "")) else 1
+	return label(k) + (" ×%d" % n if n > 1 else "")
 
 ## the points it adds to a find's price: a swimmer most, a coral or a crab more than a weed
 static func points(id: String) -> float:
 	var g := String((MODELS.get(id.trim_prefix("sea:"), {}) as Dictionary).get("g", ""))
-	return float({weed = 0.2, coral = 0.9, star = 0.8, shell = 0.8, crab = 1.0, swim = 2.2}.get(g, 0.5))
+	return float({weed = 0.2, coral = 0.9, star = 0.8, shell = 0.8, crab = 1.0, swim = 2.2, fish = 1.5}.get(g, 0.5))
 
 static func mesh(id: String) -> Mesh:
 	if not _mesh.has(id):
@@ -127,7 +157,7 @@ static func mat(id: String) -> ShaderMaterial:
 	if not _mat.has(id):
 		var md: Dictionary = MODELS[id]
 		var m := ShaderMaterial.new()
-		m.shader = SWIM if String(md.g) == "swim" else SpecFungi.SHADER
+		m.shader = SWIM if String(md.g) in ["swim", "fish"] else SpecFungi.SHADER
 		m.set_shader_parameter("tex_d", load(DIR + id + "_d.png"))
 		m.set_shader_parameter("tex_n", load(DIR + id + "_n.png"))
 		m.set_shader_parameter("gain", float(md.get("gain", 1.35)))
@@ -141,7 +171,7 @@ static func mat(id: String) -> ShaderMaterial:
 		# a swimmer's own way of swimming (sea_swim.gdshader)
 		var an: Dictionary = md.get("anim", {})
 		for k: String in an:
-			if not k.begins_with("eye_") and k != "stride" and k != "go_f" and k != "visit": m.set_shader_parameter(k, float(an[k]))
+			if not k.begins_with("eye_") and not k in ["stride", "go_f", "visit"]: m.set_shader_parameter(k, float(an[k]))
 		if an.has("eye_x"):
 			m.set_shader_parameter("eye", Vector2(float(an.eye_x), float(an.eye_y)))
 			m.set_shader_parameter("eye_r", float(an.eye_r))
@@ -232,51 +262,73 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 					parent.add_child(st)
 					# (each leans a little its own way, as weed does in a current)
 					st.transform = Transform3D(Basis(Vector3.RIGHT, -(0.3 + r.next() * 0.35)) * Basis(Vector3.BACK, (r.next() - 0.5) * 0.4) * Basis(Vector3.UP, r.next() * TAU) * Basis.from_scale(Vector3.ONE * ssz), sa)
+	# the giant far behind, and the small fish round the find: one kind, up to three — a little school, the others
+	# following the first a little behind, a little further out or nearer in, higher or lower
 	var sw := String(reef.get("swim", ""))
 	if sw != "" and MODELS.has(sw):
-		var md: Dictionary = MODELS[sw]
-		var an: Dictionary = md.get("anim", {})
-		var sn := Swim.new()
-		parent.add_child(sn)
-		var body := MeshInstance3D.new()
-		body.mesh = mesh(sw)
-		# (its own copy: its beat, and a far one's fading in and out of the deep)
-		var bm := SpecUtil.mat_copy(mat(sw))
-		body.material_override = bm
-		body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		sn.add_child(body)
-		sn.body = body
-		sn.mat = bm
-		sn.sc = span * float(SIZE.swim) * float(md.k)
-		sn.centre = Vector3(mid.x, rb.end.y, mid.z)
-		sn.radius = span * 0.5
-		sn.height = span * 0.3
-		sn.a = r.next() * TAU
-		sn.dir = 1.0 if r.next() < 0.5 else -1.0
-		sn.ph = r.next()
-		sn.glide = float(an.get("glide", 0.5))
-		sn.beat = float(an.get("go_f", an.get("swim_f", 0.5)))
-		sn.stride = float(an.get("stride", 0.55))
-		sn.jet = float(an.get("jet", 0.0)) > 0.0
-		sn.visits = an.has("visit")
-		sn.seed_v = seed_v
-		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
-		# behind the find instead, huge and dim in the water, out past the card's edges: the world's way, whatever
-		# the find does in the hand (top_level: not a jot of the find's turning or rocking reaches it)
-		var far: bool = md.get("far", false)
-		if far:
-			sn.far = true
-			sn.top_level = true
-			sn.sc = Swim.LEN * float(md.k)
-			sn.first_pass(r.next())
-		bm.set_shader_parameter("phase", sn.ph)
-		sn._process(0.0)
-		# (no unseen box round its loop, as the hunter has: the studio would frame the loop and the find would shrink;
-		# its loop is kept tight round the slab instead, a fin now and then past the card's edge)
-		# (the callout: the fish itself; a far one — the water over the find, where it passes behind)
-		if far: out.append(["sea:" + sw, parent, sn.centre + Vector3(0, span * 0.45, -span * 0.2)])
+		var sn := _swimmer(parent, sw, span, mid, rb, r, seed_v, 1.0)
+		# (the callout: a far one — the water over the find, where it passes behind)
+		if sn.far: out.append(["sea:" + sw, parent, sn.centre + Vector3(0, span * 0.45, -span * 0.2)])
 		else: out.append(["sea:" + sw, sn, Vector3.ZERO])
+	var fk := String(reef.get("fish", ""))
+	if fk != "" and MODELS.has(fk):
+		var fr := Rng32.new((seed_v * 374761393 + 59) % 4294967296)
+		var fn := clampi(int(reef.get("fish_n", 1)), 1, 3)
+		var first: Swim = null
+		for i in fn:
+			var fs := _swimmer(parent, fk, span, mid, rb, fr, seed_v, 1.0 if fn == 1 else lerpf(0.95, 0.76, fr.next()))
+			if first == null:
+				first = fs
+				out.append(["sea:" + fk, fs, Vector3.ZERO])
+			else:
+				fs.lead = first
+				fs.lag = (0.45 + fr.next() * 0.3) * i
+				fs.radius *= lerpf(0.8, 1.15, fr.next())
+				fs.lift = span * lerpf(-0.09, 0.12, fr.next())
+				fs.dir = first.dir
+				fs._process(0.0)
 	return out
+
+## a swimmer of the model id, under parent: the giant (far) set on its first pass, a small fish on its loop
+static func _swimmer(parent: Node3D, sw: String, span: float, mid: Vector3, rb: AABB, r: Rng32, seed_v: int, size_k: float) -> Swim:
+	var md: Dictionary = MODELS[sw]
+	var an: Dictionary = md.get("anim", {})
+	var sn := Swim.new()
+	parent.add_child(sn)
+	var body := MeshInstance3D.new()
+	body.mesh = mesh(sw)
+	# (its own copy: its beat, and a far one's fading in and out of the deep)
+	var bm := SpecUtil.mat_copy(mat(sw))
+	body.material_override = bm
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	sn.add_child(body)
+	sn.body = body
+	sn.mat = bm
+	sn.sc = span * float(SIZE.get(String(md.g), 0.58)) * float(md.k) * size_k
+	sn.centre = Vector3(mid.x, rb.end.y, mid.z)
+	# (a small fish keeps close in: on a slab that fills the card a wider loop took it out past the card's edges)
+	sn.radius = span * (0.36 if String(md.g) == "fish" else 0.5)
+	sn.height = span * 0.3
+	sn.a = r.next() * TAU
+	sn.dir = 1.0 if r.next() < 0.5 else -1.0
+	sn.ph = r.next()
+	sn.glide = float(an.get("glide", 0.5))
+	sn.beat = float(an.get("go_f", an.get("swim_f", 0.5)))
+	sn.stride = float(an.get("stride", 0.55))
+	sn.jet = float(an.get("jet", 0.0)) > 0.0
+	sn.visits = an.has("visit")
+	sn.seed_v = seed_v
+	# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
+	# behind the find instead, huge and dim in the water, out past the card's edges: the world's way, whatever
+	# the find does in the hand (top_level: not a jot of the find's turning or rocking reaches it)
+	if md.get("far", false):
+		sn.far = true
+		sn.top_level = true
+		sn.sc = Swim.LEN * float(md.k)
+		sn.first_pass(r.next())
+	bm.set_shader_parameter("phase", sn.ph)
+	sn._process(0.0)
+	return sn
 
 ## a spot from cands for a thing of footprint r, clear of what is there (occ: [centre (x, z), radius]) — the discs
 ## taken are generous (a trilobite's covers its spines and the slab round it), so life may tuck in under their rims:
@@ -331,6 +383,10 @@ class Swim extends Node3D:
 	var vel := -1.0
 	## (a small fish: the find's root, what the hand turns)
 	var home: Node3D
+	## (a small fish of a school: the one it follows, so far behind it round the loop; and so much higher than it)
+	var lead: Swim
+	var lag := 0.0
+	var lift := 0.0
 	## a far one's pass: a curve from pa by pc to pb, s along it; `deep`: it comes out of the deep (1) or goes off into it (-1)
 	var pa := Vector3.ZERO
 	var pb := Vector3.ZERO
@@ -577,9 +633,10 @@ class Swim extends Node3D:
 		if par and home and par != home: rel = SpecUtil.rel_xform(par, home)
 		var up := (rel.basis * Vector3.UP).normalized()
 		var mid := rel * centre + up * height * 0.9 + Vector3.UP * height * 0.6
-		a += vel * dt / maxf(0.001, radius * 0.85)
-		var q := at(a)
-		var nq := (at(a + 0.02) - q).normalized()
+		if lead and is_instance_valid(lead): a = lead.a - lag
+		else: a += vel * dt / maxf(0.001, radius * 0.85)
+		var q := at(a) + Vector3(0, lift + sin(a * 3.0 + ph * TAU) * height * 0.12, 0)
+		var nq := (at(a + 0.02) - at(a)).normalized()
 		if dt > 0.0:
 			bank = lerpf(bank, clampf(-tan.cross(nq).y / dt * 0.25, -0.4, 0.4), minf(1.0, dt * 2.0))
 		tan = nq

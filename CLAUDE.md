@@ -92,7 +92,18 @@
   внутрь (луч запекания прошёл тонкое насквозь — чёрные пятна). **Плезиозавр клюёт находку** (`visit` в anim, проход 6, ~четверть
   проходов): подходит сзади вплотную, шея изгибается к зрителю и ложится над находкой (`reach` в шейдере), голова отводится,
   бьёт (`Swim._visit`), пузыри (`SpecReef.Burst`), находка вздрагивает; `reveal=90777 sid=trilobite kind=fossil swim_pass=6`.
-  Ключи `swim_view`: `solo=<модель> size= from=x,y,z`; `heads jaw=0|1 [only=<модель> hx= hy= hsize=] [cut]`. Рыбки-кандидаты (ffishAsia CC0) — `docs/sea-life.md`, F1–F26. Место — `SpecReef._room` (можно поднырнуть под край запретного
+  Ключи `swim_view`: `solo=<модель> size= from=x,y,z`; `heads jaw=0|1 [only=<модель> hx= hy= hsize=] [cut]`. **Рыбки — аналог бабочек** (18.11; `g = "fish"` в `MODELS`, 10 видов:
+  целакант, рыба-попугай, красный хвостокол, полосатый иглобрюх, морской карась, рыба-шар, вымпельная рыба-бабочка, барабулька, морской
+  петух, кальмар; сканы ffishAsia CC0 из `Desktop/sea/fish like butterslies`): на 21% плит (не вместе с ящером: или стайка, или гигант), свой поток (`genes`: `fish`, `fish_n`),
+  один вид на находку, 1–3 штуки (50/32/18%) стайкой — вторая и третья идут за первой по той же петле (`Swim.lead/lag/lift`),
+  крутятся вместе с образцом. Плашка «pennant coralfish ×3» (`SpecReef.gene_name(id, reef)`), цена 1,5 очка, ачивка Plenty of
+  Fish — 10 видов (значок `gen_parts.sh icons10`, `gver` 12); Here Be Monsters теперь 7 (без целаканта). Скат машет крыльями волной
+  (`flip_k`), кальмар идёт струёй (`jet_wrap` 0 — без сворачивания щупалец, `jet_x/jet_y`). В файлах рыбы лежат головой к −X —
+  `turn=180` (кальмар — как есть, мантией вперёд). Тёмные пятна под плавниками ярких рыб залиты (`pad_uv.py dark=30 fish_goatfish
+  fish_bream fish_gurnard`). Не взяты: второй попугай, удильщик, морская лисичка (тёмный комок в этом размере). Старый бросок
+  пловца не сдвинут (`WAS_SWIM`): где выпадал целакант — теперь рыбка-целакант. Проверка: `swim_view -- g=fish`, витрина
+  `reef=group:fish` или `reef=///fish_squid*3`, игра — `-- save=seafloor screen=stones seafloor` (печатает `reveal=…` каждой).
+  Рыбки-кандидаты (ffishAsia CC0) — `docs/sea-life.md`, F1–F26. Место — `SpecReef._room` (можно поднырнуть под край запретного
   круга трилобита). Плашки и выноски — `sea:<модель>`, цена — `SpecReef.points`. Ачивки: Coral Garden, Fallen Stars, She Sells
   Seashells (6 раковин — решено, не докачивать), Sideways, Here Be Monsters (значки GPT `gen_parts.sh icons9`, `gver` 11). Модели — `Desktop/sea` →
   `prototype/tools/sea/sea_prep.py -- <Desktop/sea> <assets/specimen/sea> [имена] [превью]` (43 модели, 4–8 тыс. треугольников,

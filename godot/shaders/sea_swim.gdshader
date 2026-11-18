@@ -48,6 +48,7 @@ uniform float flip_x0 = -0.5;
 uniform float flip_x1 = 0.5;
 uniform float flip_mid = 0.0;
 uniform float flip_f = 0.5;
+uniform float flip_k = 0.0;      // (a ray's wings: the stroke runs back down them, so many waves along the body)
 uniform float neck = 0.0;
 uniform float neck_from = 0.0;
 uniform float jaw = 0.0;        // (how far the jaw drops from shut, radians)
@@ -59,6 +60,9 @@ uniform float jaw_fan = 0.0;    // (the gape's angle at rest, shared out as a fa
 uniform float jaw_ramp = 0.03;  // (so far before the hinge the jaw takes up its turn: a small head, less)
 uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
+uniform float jet_x = 0.08;      // (where the arms begin, along the body)
+uniform float jet_y = 0.09;      // (the body's line, how high)
+uniform float jet_wrap = 1.0;    // (the octopus: its flat fan of arms rolled into a skirt; 0 — a squid, its arms a bundle already)
 uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
 uniform float eye_r = 0.008;
@@ -118,7 +122,7 @@ void vertex() {
 	// the flippers, rowing
 	float side = abs(p.z) - flip_w;
 	if (flip > 0.0 && side > 0.0 && p.x > flip_x0 && p.x < flip_x1) {
-		float fp = t * 6.2831 * flip_f + phase * 6.2831 + (p.x > flip_mid ? 0.0 : 3.1416);
+		float fp = t * 6.2831 * flip_f + phase * 6.2831 + (p.x > flip_mid ? 0.0 : 3.1416) + p.x * flip_k * 6.2831;
 		// (a stroke: fast and strong down, slow back up)
 		float s = sin(fp) + 0.35 * sin(2.0 * fp);
 		VERTEX.y += s * side * flip * (0.6 + 0.4 * b);
@@ -139,19 +143,21 @@ void vertex() {
 	// arms, and they twist a little
 	if (jet > 0.0) {
 		float c = t * swim_f + phase;
-		float arm = smoothstep(0.08, -0.15, p.x);
-		float tip = smoothstep(0.05, -0.45, p.x);
+		float arm = smoothstep(jet_x, jet_x - 0.23, p.x);
+		float tip = smoothstep(jet_x - 0.03, -0.45, p.x);
 		float sq = squeeze(c - tip * 0.25);
-		float mant = smoothstep(0.08, 0.25, p.x);
+		float mant = smoothstep(jet_x, jet_x + 0.17, p.x);
 		// (the mantle lay flat on the table: filled out again, taller)
-		VERTEX.yz = vec2(0.09, 0.0) + (p.yz - vec2(0.09, 0.0)) * vec2(1.0 + mant * 0.8, 1.0) * (1.0 + mant * jet * (1.0 - 2.2 * squeeze(c)));
+		VERTEX.yz = vec2(jet_y, 0.0) + (p.yz - vec2(jet_y, 0.0)) * vec2(1.0 + mant * 0.8 * jet_wrap, 1.0) * (1.0 + mant * jet * (1.0 - 2.2 * squeeze(c)));
 		float rad = 0.085 * (1.0 + (0.45 - 1.05 * sq) * tip);
 		float phi = p.z / 0.085 * 0.95 + sin(t * 0.7 + p.x * 5.0 + phase * 6.2831) * 0.3 * tip;
 		float rr = rad + (p.y - 0.035) + sin(t * 2.0 + p.x * 16.0 + phi * 2.0 + phase * 6.2831) * 0.018 * tip;
 		vec2 skirt = vec2(0.02 + rr * cos(phi), rr * sin(phi));
-		VERTEX.yz = mix(VERTEX.yz, skirt, arm);
+		VERTEX.yz = mix(VERTEX.yz, skirt, arm * jet_wrap);
+		// (a squid: its arms are a bundle already — drawn in a little by each squeeze, their tips waving)
+		if (jet_wrap < 0.5) VERTEX.yz = vec2(jet_y, 0.0) + (VERTEX.yz - vec2(jet_y, 0.0)) * (1.0 + (0.25 - 0.6 * sq) * tip) + vec2(sin(t * 2.0 + p.x * 14.0 + phase * 6.2831), cos(t * 1.7 + p.x * 11.0)) * 0.012 * tip;
 		VERTEX.x -= tip * sq * 0.05;
-		float na = phi * arm;
+		float na = phi * arm * jet_wrap;
 		NORMAL = normalize(vec3(NORMAL.x, NORMAL.y * cos(na) - NORMAL.z * sin(na), NORMAL.y * sin(na) + NORMAL.z * cos(na)));
 	}
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
