@@ -264,6 +264,7 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		sn.rams = int(an.get("ram", 0.0))
 		sn.near_k = float(an.get("near", 1.9)) if sn.rams == 1 else 1.0
 		sn.swim0 = float(an.get("swim", 0.05))
+		sn.tail_f0 = float(an.get("swim_f", 0.5))
 		sn.nose = Vector2(0.5, float(an.get("eye_y", 0.11)) + 0.01)
 		sn.seed_v = seed_v
 		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
@@ -380,6 +381,13 @@ class Swim extends Node3D:
 	var swim0 := 0.05
 	var curve := 0.0
 	var roared := false
+	## the tail's own beats a second, what it beats at now, and the phase that has run it on (the shader's swim_ph).
+	## Charging the glass and making off from it, a giant's slow tail looked lifeless: it beats quick then — never
+	## under QUICK a second, half as fast again in the rush (the Dallasaurus's own quick beat read best)
+	const QUICK := 0.62
+	var tail_f0 := 0.5
+	var tail_f := -1.0
+	var tail_ph := 0.0
 	var sing_in := 6.0
 	signal sea_call(what: String)
 	var rams := 0
@@ -633,6 +641,16 @@ class Swim extends Node3D:
 				sing_in = 11.0 + 9.0 * fposmod(ph * 3.7 + passes * 0.37, 1.0)
 				if not (kind == 7 and stage < 2 and s > 0.4): sea_call.emit("song")
 		if far and mat and rams > 0:
+			var fq := maxf(tail_f0, QUICK)
+			var f_to := tail_f0
+			if kind == 7 and rest <= 0.0:
+				if stage == 0: f_to = lerpf(tail_f0, fq * (1.45 if rams == 1 else 1.0), smoothstep(0.05, 0.5, s))
+				elif stage == 1: f_to = fq * (0.7 if rams == 1 else 0.8)
+				else: f_to = lerpf(fq * 1.35, tail_f0, smoothstep(0.35, 0.95, s))
+			if tail_f < 0.0: tail_f = tail_f0
+			tail_f = lerpf(tail_f, f_to, minf(1.0, dt * 3.0))
+			tail_ph = fposmod(tail_ph + TAU * (tail_f - tail_f0) * dt, TAU)
+			mat.set_shader_parameter("swim_ph", tail_ph)
 			# near the eye it blinks, a quick one every second or so; on the blow its eyes shut a moment
 			var bl := 0.0
 			if kind == 7 and rest <= 0.0 and ((stage == 0 and s > 0.55) or stage == 1 or (stage == 2 and s < 0.45)):

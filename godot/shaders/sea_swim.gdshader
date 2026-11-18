@@ -59,6 +59,7 @@ uniform float jaw_fan = 0.0;    // (the gape's angle at rest, shared out as a fa
 uniform float jaw_ramp = 0.03;  // (so far before the hinge the jaw takes up its turn: a small head, less)
 uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
+uniform float swim_ph = 0.0;    // (the tail's beat run on by so much: SpecReef.Swim quickens it without a jump — a charge, a flight)
 uniform float curve = 0.0;      // (the whole body bent in a bow, the tail swept most: a turn, a blow's whip — SpecReef.Swim)
 uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
@@ -106,7 +107,7 @@ void vertex() {
 		}
 	}
 	float b = burst(t);
-	float tp = t * 6.2831 * swim_f + phase * 6.2831;
+	float tp = t * 6.2831 * swim_f + phase * 6.2831 + swim_ph;
 	if (jet <= 0.0) {
 		// the tail: the spine a wave, every slice of the body set square to it
 		float z0 = bend(p.x, tp, b);
