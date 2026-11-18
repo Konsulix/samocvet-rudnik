@@ -271,7 +271,7 @@ void fragment() {
 			m = mix(m, 1.0, sv);
 			r = mix(r, clamp(sr * 0.6, 0.06, 0.35), sv);
 			// a cold glint of bright metal that the dark studio cannot swallow
-			s_glow = vec3(0.16, 0.17, 0.19) * silv_col * sv * (0.5 + 0.5 * vn(v_rp * 30.0));
+			s_glow = vec3(0.16, 0.17, 0.19) * silv_col * sv * (0.5 + 0.5 * mix(vn(v_rp * 30.0), 0.5, aa_k * smoothstep(0.2, 0.45, length(fwidth(v_rp)) * 30.0)));
 			n = normalize(mix(n, normalize(n + (VIEW_MATRIX * MODEL_MATRIX * vec4(tn.x, tn.y, 0.0, 0.0)).xyz * 0.5), sv));
 		}
 	}
@@ -291,6 +291,14 @@ void fragment() {
 	if (grain > 0.0) {
 		vec3 gq = v_op * 60.0;
 		n = normalize(n + grain * mix(1.0, 1.0 - smoothstep(0.2, 0.45, length(fwidth(v_op)) * 60.0), aa_k) * (vec3(vn(gq), vn(gq + 3.1), vn(gq + 5.7)) - 0.5));
+	}
+	if (aa_k > 0.0) {
+		// (18.11) specular anti-aliasing: where the normal turns a lot from one pixel to the next (the rock's fine
+		// relief, the scan, the metal's own relief) the highlight cannot be drawn sharp — it sparkled frame to frame.
+		// The surface is made rougher by how much it turns under a pixel (Kaplanyan), the highlight spreads instead
+		vec3 ndx = dFdx(n), ndy = dFdy(n);
+		float nvar = 0.25 * (dot(ndx, ndx) + dot(ndy, ndy));
+		r = mix(r, sqrt(clamp(r * r + min(2.0 * nvar, 0.25), 0.0, 1.0)), aa_k);
 	}
 	vec3 e = emis + s_glow;
 	vec3 e_ir = vec3(0.0);
