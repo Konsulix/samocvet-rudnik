@@ -14,7 +14,9 @@ const SIGNS := ["tentacle", "ink", "whirl", "glass", "wheel"]
 ## the nodes in order: a level's number, "geode", "boss"
 const NODES := [0, 1, 2, "geode", 3, 4, "boss"]
 const FIGHTS := 6
-const STEP := 76.0       # from one node's middle to the next, points
+const BEADS := 4         # the line's beads between two nodes
+const BEAD_PAD := 5.0    # a rim to the first bead
+const GAP := 2.0 * 5.0 + 3.0 * 6.5   # rim to rim: the pads and the beads' three steps
 const PX := 3.0          # texture pixels to a point (art/ui_redesign/swallowed/cut_parts.py)
 const H := 104.0
 
@@ -89,12 +91,20 @@ func _mode(i: int) -> int:
 	var nx := _next_i()
 	return 2 if i < nx else 1 if i == nx else 0
 
+## a node's middle along the ribbon: every gap holds four beads at one spacing, so a node stands by its own size and
+## its neighbour's (the boss, larger, a little further off)
+func _pos(i: int) -> float:
+	var x := 48.0
+	for k in i:
+		x += _rim(k) + _rim(k + 1) + GAP
+	return x
+
 func _span() -> float:
-	return STEP * (NODES.size() - 1) + 96.0
+	return _pos(NODES.size() - 1) + 60.0
 
 ## slid so that the node to play is in the middle (and never past the ribbon's ends)
 func _home() -> float:
-	return _clamp(48.0 + STEP * _next_i() - size.x * 0.5)
+	return _clamp(_pos(_next_i()) - size.x * 0.5)
 
 func _clamp(x: float) -> float:
 	return clampf(x, 0.0, maxf(0.0, _span() - size.x))
@@ -126,7 +136,7 @@ func _bead(p: Vector2, gold: bool, a: float) -> void:
 
 ## a node's middle on the control
 func _at(i: int) -> Vector2:
-	return Vector2(48.0 + STEP * i - _x, H * 0.5 + 2.0)
+	return Vector2(_pos(i) - _x, H * 0.5 + 2.0)
 
 ## how much of a thing at x shows: it fades out at the ribbon's cut ends (not where the ribbon itself ends)
 func _edge(x: float) -> float:
@@ -146,11 +156,10 @@ func _draw() -> void:
 	for i in NODES.size() - 1:
 		var a := _at(i)
 		var b := _at(i + 1)
-		var x0 := a.x + _rim(i) + 5.0
-		var x1 := b.x - _rim(i + 1) - 5.0
-		var cnt := maxi(1, int(round((x1 - x0) / 6.5)))
-		for k in cnt + 1:
-			var bx := lerpf(x0, x1, float(k) / cnt)
+		var x0 := a.x + _rim(i) + BEAD_PAD
+		var x1 := b.x - _rim(i + 1) - BEAD_PAD
+		for k in BEADS:
+			var bx := lerpf(x0, x1, float(k) / (BEADS - 1))
 			_bead(Vector2(bx, a.y), i < nx, _edge(bx))
 	for i in NODES.size():
 		var p := _at(i)
