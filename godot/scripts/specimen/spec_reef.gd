@@ -50,18 +50,18 @@ const MODELS := {
 	# behind it, the world's way whatever the find does. anim: the shader's (sea_swim.gdshader) and two of Swim's own —
 	# `go_f` the beats a second that push it on (the tail's swim_f unless given: a plesiosaur's are its flippers') and
 	# `stride` the body lengths it makes on each beat. A big animal beats slowly: every one its own pace
-	swim_coelacanth = {g = "fish", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
+	swim_coelacanth = {g = "fish", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013, jaw = 0.15, jaw_x = 0.412, jaw_y = 0.181, jaw_s = 0.05, jaw_f = 0.55}},
 	# the small fish (g "fish": the sea's butterflies — up to three of a kind, a little school round the find). Scans
 	# (ffishAsia, CC0); `flip` — their pectoral fins row; a ray's wings beat in a wave down them (flip_k); the squid
 	# goes by its jet, mantle first
-	fish_parrot = {g = "fish", n = "steephead parrotfish", k = 0.55, anim = {swim = 0.045, swim_f = 0.9, swim_k = 0.8, swim_from = 0.1, glide = 0.4, stride = 0.45}},
-	fish_stingray = {g = "fish", n = "red stingray", k = 0.62, anim = {swim = 0.03, swim_f = 0.6, swim_k = 1.0, swim_from = -0.1, glide = 0.2, go_f = 0.7, stride = 0.4, flip = 0.4, flip_w = 0.03, flip_x0 = -0.2, flip_x1 = 0.6, flip_mid = -1.0, flip_f = 0.7, flip_k = 1.1}},
-	fish_puffer = {g = "fish", n = "striped puffer", k = 0.5, anim = {swim = 0.035, swim_f = 1.1, swim_k = 0.7, swim_from = 0.0, glide = 0.3, stride = 0.35}},
-	fish_bream = {g = "fish", n = "crimson sea bream", k = 0.52, anim = {swim = 0.055, swim_f = 1.0, swim_k = 0.8, swim_from = 0.1, glide = 0.4, stride = 0.5}},
-	fish_balloon = {g = "fish", n = "balloonfish", k = 0.42, anim = {swim = 0.03, swim_f = 1.3, swim_k = 0.6, swim_from = -0.2, glide = 0.2, stride = 0.25}},
-	fish_coralfish = {g = "fish", n = "pennant coralfish", k = 0.45, anim = {swim = 0.045, swim_f = 1.2, swim_k = 0.7, swim_from = 0.05, glide = 0.35, stride = 0.45}},
-	fish_goatfish = {g = "fish", n = "whitesaddle goatfish", k = 0.52, anim = {swim = 0.055, swim_f = 1.0, swim_k = 0.85, swim_from = 0.1, glide = 0.4, stride = 0.5}},
-	fish_gurnard = {g = "fish", n = "red gurnard", k = 0.55, anim = {swim = 0.05, swim_f = 0.9, swim_k = 0.9, swim_from = 0.1, glide = 0.45, stride = 0.45, flip = 0.14, flip_w = 0.07, flip_x0 = 0.0, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.6}},
+	fish_parrot = {g = "fish", n = "steephead parrotfish", k = 0.55, anim = {swim = 0.045, swim_f = 0.9, swim_k = 0.8, swim_from = 0.1, glide = 0.4, stride = 0.45, jaw = 0.25, jaw_x = 0.456, jaw_y = 0.185, jaw_s = 0.5, jaw_shut = 0.8, jaw_f = 0.7}},
+	fish_stingray = {g = "fish", n = "red stingray", k = 0.62, anim = {swim = 0.012, swim_f = 0.6, swim_k = 1.0, swim_from = -0.1, glide = 0.2, go_f = 0.7, stride = 0.4, flip = 0.4, flip_w = 0.03, flip_x0 = -0.2, flip_x1 = 0.6, flip_mid = -1.0, flip_f = 0.7, flip_k = 1.1}},
+	fish_puffer = {g = "fish", n = "striped puffer", k = 0.5, anim = {swim = 0.035, swim_f = 1.1, swim_k = 0.7, swim_from = 0.0, glide = 0.3, stride = 0.35, jaw = 0.35, jaw_x = 0.477, jaw_y = 0.131, jaw_s = 0.0, jaw_shut = 0.2, jaw_f = 0.8}},
+	fish_bream = {g = "fish", n = "crimson sea bream", k = 0.52, anim = {swim = 0.055, swim_f = 1.0, swim_k = 0.8, swim_from = 0.1, glide = 0.4, stride = 0.5, jaw = 0.25, jaw_x = 0.429, jaw_y = 0.166, jaw_s = 0.26, jaw_shut = 0.25, jaw_f = 0.7}},
+	fish_balloon = {g = "fish", n = "balloonfish", k = 0.42, anim = {swim = 0.03, swim_f = 1.3, swim_k = 0.6, swim_from = -0.2, glide = 0.2, stride = 0.25, jaw = 0.3, jaw_x = 0.365, jaw_y = 0.204, jaw_s = 0.35, jaw_shut = 0.7, jaw_f = 0.8}},
+	fish_coralfish = {g = "fish", n = "pennant coralfish", k = 0.45, anim = {swim = 0.045, swim_f = 1.2, swim_k = 0.7, swim_from = 0.05, glide = 0.35, stride = 0.45, jaw = 0.3, jaw_x = 0.46, jaw_y = 0.348, jaw_s = 0.2, jaw_shut = 0.3, jaw_f = 0.75}},
+	fish_goatfish = {g = "fish", n = "whitesaddle goatfish", k = 0.52, anim = {swim = 0.055, swim_f = 1.0, swim_k = 0.85, swim_from = 0.1, glide = 0.4, stride = 0.5, jaw = 0.2, jaw_x = 0.417, jaw_y = 0.172, jaw_s = 0.05, jaw_shut = 0.45, jaw_f = 0.65}},
+	fish_gurnard = {g = "fish", n = "red gurnard", k = 0.55, anim = {swim = 0.05, swim_f = 0.9, swim_k = 0.9, swim_from = 0.1, glide = 0.45, stride = 0.45, flip = 0.14, flip_w = 0.07, flip_x0 = 0.0, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.6, jaw = 0.25, jaw_x = 0.385, jaw_y = 0.094, jaw_s = 0.26, jaw_shut = 0.2, jaw_f = 0.65}},
 	fish_squid = {g = "fish", n = "flying squid", k = 0.6, anim = {swim = 0.0, swim_f = 0.5, stride = 0.55, jet = 0.14, jet_x = -0.03, jet_y = 0.04, jet_wrap = 0.0}},
 	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.06, jaw_x = 0.325, jaw_y = 0.1106, jaw_s = 0.0, jaw_shut = 0.4, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
@@ -282,9 +282,11 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 				out.append(["sea:" + fk, fs, Vector3.ZERO])
 			else:
 				fs.lead = first
-				fs.lag = (0.45 + fr.next() * 0.3) * i
-				fs.radius *= lerpf(0.8, 1.15, fr.next())
-				fs.lift = span * lerpf(-0.09, 0.12, fr.next())
+				# (a body length or so behind the one before, round the loop, and out or in and up or down from its line —
+				# packed closer they swam through one another)
+				fs.lag = (fs.sc * lerpf(0.9, 1.3, fr.next()) / first.radius) * i
+				fs.radius = first.radius * (1.0 + (0.22 if i == 1 else -0.2) * (0.8 + fr.next() * 0.4))
+				fs.lift = span * (0.1 if i == 1 else -0.08) * (0.7 + fr.next() * 0.6)
 				fs.dir = first.dir
 				fs._process(0.0)
 	return out
