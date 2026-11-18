@@ -104,7 +104,7 @@ func _glass(at: Vector3, soft: bool) -> void:
 	if not is_visible_in_tree() or studio.vp.size.x < 2:
 		return
 	var px := studio.cam.unproject_position(at)
-	GlassCrack.strike(self, px / Vector2(studio.vp.size) * size, soft)
+	GlassCrack.strike(self, px / Vector2(studio.vp.size) * size, soft, _img.texture)
 	Sfx.play("glass_tap" if soft else "glass_ram")
 	if not soft:
 		_shake = 1.0
