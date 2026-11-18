@@ -912,18 +912,20 @@ func _open_next() -> void:
 		var ok: bool = st.job_done and Save.d.fe >= fe and Save.d.coins >= cn
 		var dig := Ov.btn("Dig down · %s" % st.tool, "green" if ok else "glass", func(): _dig(), ok)
 		v.add_child(dig)
-		if not ok:
-			v.add_child(Ov.text("Iron and %s come from the levels you win: every ore stone you break." % on, 12))
 	elif st.job_done and _boss_waits():
 		var B: Dictionary = Data.AREAS[a].boss
 		v.add_child(Ov.text("Below, at %d m, %s guards the mine. Beat it to go on to the next one." % [int(B.m), B.n], 13, Color("#ffb0a0")))
 		v.add_child(Ov.btn("Fight · %s" % B.n, "ruby", func(): _fight_boss()))
 	elif st.job_done and a < Data.AREAS.size() - 1:
 		v.add_child(_next_mine_btn(a))
-	v.add_child(Ov.btn("All jobs", "glass", func():
-		Ov.close()
-		_open_tasks()))
-	v.add_child(Ov.btn("Close", "glass", func(): Ov.close()))
+	# (18.11: no All jobs, no Close, no line on where iron comes from — the cross on the corner closes it, as the profile's)
+	var x := Reveal.thin_close()
+	x.pressed.connect(func(): Ov.close())
+	var holder := Ov.holder()
+	holder.add_child(x)
+	var place := func(): x.position = Vector2(holder.size.x - 48, 14)
+	holder.resized.connect(place)
+	place.call()
 
 ## the mine has a boss and it is not beaten yet
 func _boss_waits() -> bool:
