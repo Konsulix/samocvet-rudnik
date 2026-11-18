@@ -126,6 +126,15 @@ void vertex() {
 			}
 			float open = jaw_force >= 0.0 ? jaw_force : pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0);
 			float a = (jaw * open - jaw_shut * (1.0 - open)) * w - jaw * max(open, 0.0) * jaw_up * up;
+			// (the tongue — green in the mesh's colours: laid down on the floor of the mouth, the more the wider the
+			// mouth, and never quite still: a slow wave along it, its tip lifting)
+			if (jaw_mask > 0.0 && COLOR.g > 0.5) {
+				float along = clamp(d.x / 0.035, 0.0, 1.0);
+				d.y -= 0.0035 * (0.4 + 0.6 * clamp(open, 0.0, 1.0)) * (0.5 + 0.5 * along);
+				d.y += 0.0012 * sin(t * 2.3 + d.x * 160.0) * along * (0.3 + 0.7 * clamp(open, 0.0, 1.0));
+				p.z += 0.0008 * sin(t * 1.7 + d.x * 120.0) * along;
+				VERTEX.z = p.z;
+			}
 			float ca = cos(a), sa = sin(a);
 			p.xy = vec2(jaw_x + d.x * ca + d.y * sa, jaw_y - d.x * sa + d.y * ca);
 			VERTEX = p;

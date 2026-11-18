@@ -443,7 +443,7 @@ class Swim extends Node3D:
 	const GULP_RUN := 30.0   # (how far behind the find its snout starts: all of it inside what the studio's camera draws)
 	const GULP_FAR := 170.0  # (how far off it seems to start: a speck)
 	const GULP_T := 4.0      # (seconds it is coming)
-	const GULP_YAW := 0.8    # (how far to the right it has turned as its body goes by, radians)
+	const GULP_YAW := 0.85   # (how far to the right it has turned as its body goes by, radians)
 	const BITE := 0.5        # (seconds its jaws take to shut: a bite, not a switch)
 	## (where its snout has been, going by: the body is laid along it)
 	var trail: Array[Vector3] = []
@@ -524,7 +524,7 @@ class Swim extends Node3D:
 			roared = true
 			sea_call.emit("rush")
 		# (the jaws begin to shut a moment before the find is in them, and are shut a moment after: one bite, on the way)
-		if s > 1.0 - BITE * 0.45 / GULP_T:
+		if s > 1.0 - BITE * 0.6 / GULP_T:
 			if not gulp_set:
 				tv = 0.0
 				sea_call.emit("gulp")
@@ -536,7 +536,14 @@ class Swim extends Node3D:
 			tr = 0.0
 			hd = hdg
 			hp = n1
-			v_by = (GULP_FAR - n1.distance_to(eye)) / GULP_T
+			# (its snout's own pace as it came — not the far pace it seemed to have: at that the head was gone aside
+			# before the jaws had shut, the find still there)
+			v_by = GULP_RUN / GULP_T * 1.25
+			# (the mouth is over the find: the find is in it)
+			if not took:
+				took = true
+				_hide_find()
+				gulped.emit()
 			trail = [n1 - hdg * 300.0, n1]
 			_pass_by(0.0)
 
@@ -595,7 +602,7 @@ class Swim extends Node3D:
 			bb.top_level = true
 			add_child(bb)
 			bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.4), hit_at + Vector3(0, 0.7, 1.2))
-		if not took and shut >= 0.85:
+		if not took and shut >= 0.98:
 			took = true
 			_hide_find()
 			gulped.emit()
@@ -620,9 +627,11 @@ class Swim extends Node3D:
 	## eye away
 	func _pass_by(dt: float) -> void:
 		_swallow(dt)
-		var v := v_by * lerpf(1.0, 0.7, smoothstep(4.0, 30.0, tr))
+		var v := v_by * lerpf(1.0, 1.5, smoothstep(2.0, 14.0, tr))
 		tr += v * dt
-		hd = (Basis(Vector3.UP, GULP_YAW * smoothstep(0.0, 11.0, tr)) * hdg).normalized()
+		# (a long easy bend, begun at once and spread over more than its own length: turned quickly, the neck went
+		# off aside by itself and the body after it)
+		hd = (Basis(Vector3.UP, GULP_YAW * smoothstep(-1.0, 15.0, tr)) * hdg).normalized()
 		hp += hd * v * dt
 		if trail.is_empty() or hp.distance_to(trail[trail.size() - 1]) > 0.15: trail.append(hp)
 		var size := sc * lerpf(GULP_K, GULP_K * 0.5, smoothstep(0.2, 6.0, tr))

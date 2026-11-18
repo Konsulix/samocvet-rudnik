@@ -499,6 +499,23 @@ def split_head(hi, H):
         for v in isle:
             lab[v.index] = 1.0 if low else 0.0
     print("  teeth: %d upper, %d lower" % (n_up, n_lo), flush=True)
+    # the soft parts welded to the skin (a tongue, the eyes: the file's other materials) — each whole, by where it lies
+    # about the mouth's line; what lies under it is the tongue: the lower jaw's, and marked green besides, for the
+    # game to lay it down and stir it (walked with the skin it was torn between the jaws: a pillar in the open mouth)
+    tongue = set()
+    for mi in sorted(head_i - skin_i - teeth_i):
+        vs = {v for f in bm.faces if f.material_index == mi for v in f.verts if v.index not in lab}
+        if not vs:
+            continue
+        rel = [line(v.co) for v in vs]
+        # (a tongue lies along the line itself, half of it over: it is the part that reaches under the line at all)
+        low = min(rel) < -0.001
+        print("  soft part", names[mi], len(vs), "verts, about the line %.4f .. %.4f, mean %.4f:" % (min(rel), max(rel), sum(rel) / len(rel)), "lower (tongue)" if low else "upper", flush=True)
+        for v in vs:
+            lab[v.index] = 1.0 if low else 0.0
+            if low:
+                tongue.add(v.index)
+    fixed = set(lab)
     # the skin, from the chin and from the snout's top
     skin = [v for v in bm.verts if v.index not in lab]
     front = [v for v in skin if v.co.x > jx + 0.012]
@@ -509,7 +526,7 @@ def split_head(hi, H):
         heapq.heappush(heap, (0.0, k, v.index, l))
     while heap:
         d, k, i, l = heapq.heappop(heap)
-        if i in dist:
+        if i in dist or i in fixed:
             continue
         dist[i] = d
         lab[i] = l
@@ -523,7 +540,7 @@ def split_head(hi, H):
     for f in bm.faces:
         for lp in f.loops:
             r = lab.get(lp.vert.index, 0.0)
-            lp[col] = (r, 0.0, 0.0, 1.0)
+            lp[col] = (r, 1.0 if lp.vert.index in tongue else 0.0, 0.0, 1.0)
     print("  skin: %d of %d lower" % (sum(1 for v in skin if lab.get(v.index, 0.0) > 0.5), len(skin)), flush=True)
     bm.to_mesh(head.data)
     bm.free()
