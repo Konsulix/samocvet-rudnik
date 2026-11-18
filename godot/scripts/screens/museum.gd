@@ -169,6 +169,12 @@ func _cases() -> void:
 	var order := []
 	for st in list:
 		var gid := Stones.atlas_id(st)
+		# (the find the plesiosaur swallowed: a tile of its own, first of all — it is a thing to do, not a stone in a pile)
+		if bool(st.get("gulp", false)):
+			gid = "gulp:%s" % str(st.get("id", 0))
+			groups[gid] = [st]
+			order.push_front(gid)
+			continue
 		if not groups.has(gid):
 			groups[gid] = []
 			order.append(gid)
@@ -243,6 +249,27 @@ func _tile(g: Array, w: float) -> Control:
 			edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			box.add_child(edge)
 	var rc := Data.rarity_color(int(s0.tier))
+	# the swallowed find: a ruby light round its tile, breathing — something waits to be done here
+	var hunted: bool = s0.get("gulp", false)
+	const RUBY := Color("#e0342c")
+	if hunted:
+		var halo := Control.new()
+		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		halo.size = Vector2(w, w * 1.12)
+		halo.draw.connect(func():
+			# (a soft frame of light: rings of the tile's own rounded shape, fainter outwards)
+			for k in 7:
+				var sb := StyleBoxFlat.new()
+				sb.draw_center = false
+				sb.border_color = Color(RUBY, 0.2 * (1.0 - k / 7.0))
+				sb.set_border_width_all(2)
+				sb.set_corner_radius_all(10 + k)
+				sb.anti_aliasing = true
+				halo.draw_style_box(sb, Rect2(Vector2(-k - 1.0, -k - 1.0), halo.size + Vector2(k + 1.0, k + 1.0) * 2.0)))
+		box.add_child(halo)
+		var breathe := halo.create_tween().set_loops()
+		breathe.tween_property(halo, "modulate:a", 0.45, 0.9).set_trans(Tween.TRANS_SINE)
+		breathe.tween_property(halo, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
 	var b := Button.new()
 	b.position = Vector2(0, lift)
 	b.size = Vector2(w - lift, w * 1.12 - lift)
@@ -250,6 +277,10 @@ func _tile(g: Array, w: float) -> Control:
 	st.bg_color = Color("#17130f").lerp(spc, 0.06)
 	st.border_color = Color(Kit.AMBER, 0.38)
 	st.set_border_width_all(1)
+	if hunted:
+		st.border_color = Color(RUBY, 0.9)
+		st.set_border_width_all(2)
+		st.bg_color = Color("#17130f").lerp(RUBY, 0.07)
 	st.set_corner_radius_all(10)
 	st.anti_aliasing = true
 	for k in ["normal", "hover", "focus"]: b.add_theme_stylebox_override(k, st)
@@ -261,7 +292,8 @@ func _tile(g: Array, w: float) -> Control:
 	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	glow.draw.connect(func():
-		GemArt.radial_disc(glow, glow.size * Vector2(0.5, 0.6), glow.size.x * 0.55, Color(spc, 0.2), Color(spc, 0.06), Color(spc, 0.0)))
+		var gc := RUBY if hunted else spc
+		GemArt.radial_disc(glow, glow.size * Vector2(0.5, 0.6), glow.size.x * 0.55, Color(gc, 0.2), Color(gc, 0.06), Color(gc, 0.0)))
 	b.add_child(glow)
 	var img := TextureRect.new()
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -292,7 +324,17 @@ func _tile(g: Array, w: float) -> Control:
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	txt.add_child(rule)
 	b.add_child(txt)
-	if cut_ok(s0):
+	if hunted:
+		# the hunt's badge in the corner, no price: it is not a stone to weigh up now
+		var bd := TextureRect.new()
+		bd.texture = HuntRibbon.tex("badge")
+		bd.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bd.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		bd.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bd.size = Vector2(26, 26)
+		bd.position = Vector2(w - lift - 31, 5)
+		b.add_child(bd)
+	elif cut_ok(s0):
 		var cm := Kit.label("✦", 12, UI.body_bold, Kit.AMBER)
 		cm.position = Vector2(w - lift - 20, 6)
 		b.add_child(cm)
@@ -305,6 +347,7 @@ func _tile(g: Array, w: float) -> Control:
 	price.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	price.offset_right = -8
 	price.offset_bottom = -5
+	price.visible = not hunted
 	b.add_child(price)
 	if g.size() > 1:
 		var cnt := Kit.label("×%d" % g.size(), 11, UI.body_bold, Kit.DIM)
