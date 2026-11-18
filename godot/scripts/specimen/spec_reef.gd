@@ -24,7 +24,8 @@ const MODELS := {
 	coral_pocillopora = {g = "coral", n = "cauliflower coral", k = 0.8},
 	coral_rosebrain = {g = "coral", n = "rose brain coral", k = 0.65},
 	anemone_elegant = {g = "coral", n = "elegant anemone", k = 0.55, sway = 0.05},
-	anemone_purple = {g = "coral", n = "purple anemone", k = 0.55, sway = 0.05},
+	# (out too: the scan stands on its own grey disc of rock with pebbles)
+	anemone_purple = {g = "coral", n = "purple anemone", k = 0.55, sway = 0.05, out = true},
 	star_bat = {g = "star", n = "bat star", k = 0.9},
 	star_brittle = {g = "star", n = "brittle star", k = 1.1},
 	star_brittle_b = {g = "star", n = "banded brittle star", k = 1.1},
