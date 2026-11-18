@@ -7,6 +7,7 @@ class_name ProfileCard
 
 const W := 350.0
 const SQ := 140.0
+const ROW_H := 46.0   # Edit and the find's plate under the two squares, one height
 static var tab := "faces"
 ## the fresh things shown as new on this opening (looked at once the card is open: next time they are not new)
 static var _new: Array = []
@@ -127,7 +128,7 @@ static func _build() -> void:
 	fit.call()
 	g.add_child(fc)
 	var e := Kit.button("Edit", "btn_green", 16, 3.0)
-	e.custom_minimum_size = Vector2(SQ, 36)
+	e.custom_minimum_size = Vector2(SQ, ROW_H)
 	e.pressed.connect(func(): _edit())
 	g.add_child(e)
 	g.add_child(_find_plate(s))
@@ -205,32 +206,47 @@ static func _find_sq(s: Dictionary) -> Control:
 	inner.add_child(rr)
 	return w
 
-## the find's plate: its name and price on a dark plate that fits them (names and prices of any length), centred
-## under the card; a very long one in a smaller letter, never wider than the window's half
+## the find's plate: its name and price on a dark plate exactly as wide as the card's column (as Edit under the
+## portrait: the two columns stay mirrored about the window's middle, 18.11 - a plate fitted to a long name widened its
+## column and pushed the card off centre); the name over the price, a long name in a smaller letter
 static func _find_plate(s: Dictionary) -> Control:
 	var plate := PanelContainer.new()
-	plate.custom_minimum_size = Vector2(0, 36)
-	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plate.custom_minimum_size = Vector2(SQ, ROW_H)
+	plate.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	plate.add_theme_stylebox_override("panel", Kit.box("btn_dark", 12.0))
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 5)
+	line.add_theme_constant_override("separation", 4)
 	if s.is_empty():
 		line.add_child(Kit.label("-", 15, UI.display, Kit.DIM))
 		plate.add_child(line)
 		return plate
 	var name := Stones.name_of(s)
 	var price := UI.fmt(roundi(float(s.value) * Save.coin_mul()))
-	var fs := 15
 	var font: Font = UI.display
-	while fs > 11 and font.get_string_size(name + " " + price, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 20 + 5 * 2 + 24 > W / 2 - 4: fs -= 1
-	line.add_child(Kit.label(name, fs, font, Kit.CREAM))
+	var room := SQ - 26.0                     # inside the plate's rim
+	var wide := func(t: String, f: int) -> float: return font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, f).x
+	# two lines, always (Edit beside it as tall): the name (as big as fits), the price under it
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", -3)
+	var fs := 14
+	while fs > 10 and wide.call(name, fs) > room: fs -= 1
+	var nl := Kit.label(name, fs, font, Kit.CREAM)
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nl.custom_minimum_size = Vector2(room, 0)
+	col.add_child(nl)
+	_price(line, price, 13, font)
+	col.add_child(line)
+	plate.add_child(col)
+	return plate
+
+static func _price(line: HBoxContainer, price: String, fs: int, font: Font) -> void:
 	var coin := Kit.res_icon("coin", fs + 1)
 	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(coin)
 	line.add_child(Kit.label(price, fs, font, Kit.AMBER))
-	plate.add_child(line)
-	return plate
 
 static func _flat_button(sz: Vector2) -> Button:
 	var b := Button.new()
