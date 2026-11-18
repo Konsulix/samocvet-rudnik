@@ -59,7 +59,16 @@ uniform float jaw_fan = 0.0;    // (the gape's angle at rest, shared out as a fa
 uniform float jaw_ramp = 0.03;  // (so far before the hinge the jaw takes up its turn: a small head, less)
 uniform float jaw_mask = 0.0;   // (1: the lower jaw is what the mesh's own colour marks red — a head kept whole, its teeth locking: sea_prep.py split_head)
 uniform float inside_k = 0.85;  // (how far the inside of the mouth is painted inside_col; 0: the model has a mouth of its own)
+uniform float relief = 1.0;     // (how much of the baked relief shows; 0: the mesh's own smooth normals)
 uniform float jaw_up = 0.0;     // (with jaw_mask: the upper jaw lifts by this share of the lower one's drop — a gape wide enough to show the palate)
+// the body laid along the way it came (SpecReef.Swim, a plesiosaur going by the eye): its line from the snout back —
+// spine_n the snout's own place on it, spine1 and spine2 where the line is half a length and a whole length behind,
+// all in the model's own space — and every slice of the body carried over to it. A turn then is the body following
+// its head round, not a board swung about its end
+uniform float spine_k = 0.0;
+uniform vec3 spine_n = vec3(0.5, 0.15, 0.0);
+uniform vec3 spine1 = vec3(0.0, 0.15, 0.0);
+uniform vec3 spine2 = vec3(-0.5, 0.15, 0.0);
 uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
 uniform float swim_ph = 0.0;    // (the tail's beat run on by so much: SpecReef.Swim quickens it without a jump — a charge, a flight)
@@ -75,6 +84,7 @@ uniform float blink_force = 0.0;   // (tests: shut the eyes)
 varying vec3 v_mp;
 varying vec3 v_wp;
 varying vec3 v_wn;
+varying vec2 v_jaw;   // (with jaw_mask: whose the vertex is — 1 the lower jaw's — and how far the mouth is open)
 
 // how hard it is swimming now: a few strong beats, then a glide (the same in SpecReef.Swim.burst)
 float burst(float t) {
@@ -102,6 +112,8 @@ void vertex() {
 	// the mouth's line — turns on its hinge. A turn, not a slide: slid down, the chin's skin only stretched. What lies
 	// in the gape between the jaws (a tongue, the mouth's lining) turns by its share, as a fan shuts. Shut most of the
 	// time (a model made gaping is shut by jaw_shut), open a while every so often
+	v_jaw = vec2(0.0);
+	if (jaw_mask > 0.0) v_jaw = vec2(COLOR.r, max(0.0, jaw_force >= 0.0 ? jaw_force : pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0)));
 	if (jaw > 0.0 || jaw_shut > 0.0) {
 		vec2 d = p.xy - vec2(jaw_x, jaw_y);
 		if (d.x > 0.0) {
@@ -168,6 +180,11 @@ void vertex() {
 		VERTEX.x -= tip * sq * 0.05;
 		float na = phi * arm;
 		NORMAL = normalize(vec3(NORMAL.x, NORMAL.y * cos(na) - NORMAL.z * sin(na), NORMAL.y * sin(na) + NORMAL.z * cos(na)));
+	}
+	if (spine_k > 0.0) {
+		float u = clamp(spine_n.x - VERTEX.x, 0.0, 1.25);
+		vec3 on = spine_n * (2.0 * (u - 0.5) * (u - 1.0)) + spine1 * (-4.0 * u * (u - 1.0)) + spine2 * (2.0 * u * (u - 0.5));
+		VERTEX += (on - (spine_n - vec3(u, 0.0, 0.0))) * spine_k;
 	}
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_wn = normalize(mat3(MODEL_MATRIX) * NORMAL);
@@ -240,6 +257,12 @@ void fragment() {
 		float ridge = 0.85 + 0.15 * sin(v_mp.x * 900.0);
 		c = mix(c, inside_col * ridge * mix(0.45, 1.0, smoothstep(jaw_x, jaw_x + 0.03, v_mp.x)), inside_k);
 	}
+	// (a mouth wide open: the skin from jaw to jaw at its back is drawn out thin — a pillar of smeared texture; it is
+	// the dark of the throat instead)
+	if (jaw_mask > 0.0) {
+		float span = 1.0 - abs(2.0 * v_jaw.x - 1.0);
+		c = mix(c, vec3(0.05, 0.008, 0.012), smoothstep(0.03, 0.35, span) * clamp(v_jaw.y * 1.6, 0.0, 1.0));
+	}
 	// the water between: the further off, the more of its colour — but the body keeps its light and shade (all one flat
 	// colour it was a card cut out)
 	float hz = haze > 0.0 ? mix(haze_min, haze, smoothstep(haze_d0, haze_d1, length(VERTEX))) : 0.0;
@@ -256,6 +279,7 @@ void fragment() {
 	}
 	ALBEDO = mix(c, haze_col, hz);
 	NORMAL_MAP = FRONT_FACING ? texture(tex_n, UV).rgb : vec3(0.5, 0.5, 1.0);
+	NORMAL_MAP_DEPTH = relief;
 	ROUGHNESS = mix(rough, 0.85, hz);
 	SPECULAR = 0.4 * (1.0 - hz * 0.6);
 	EMISSION = e;

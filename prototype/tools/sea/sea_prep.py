@@ -77,7 +77,7 @@ MODELS = [
     # (a plesiosaur comes right up to the eye, the day it swallows a find: its head — the model's own head, teeth,
     # tongue and eyes — is kept apart, nearly whole, with a texture of its own (<name>_head.*), and marked for the jaw:
     # every vertex of the lower jaw red in the mesh's colours (split_head))
-    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=5000, tex=1024, reach=True, turn=90,
+    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=12000, tex=2048, reach=True, turn=90,
         head=dict(mats=("head", "teeth", "material", "material_6"), tris=34000, tex=2048, hinge=(0.4533, 0.1608, -0.114))),
     dict(name="swim_tylosaurus", file="живность большая/tylosaurus.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.353, 0.107, -0.065)),
     dict(name="swim_dallasaurus", file="живность большая/dallasaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
@@ -439,7 +439,10 @@ def split_head(hi, H):
     head_i = {i for i, n in enumerate(names) if n in H["mats"]}
     skin_i = {i for i, n in enumerate(names) if n == H["mats"][0]}
     teeth_i = {i for i, n in enumerate(names) if n == H["mats"][1]}
-    print("  materials", names, "head", sorted(head_i), flush=True)
+    # (a material left out altogether: a second skin lying on the first — the two fight for the same place, and a
+    # stripe runs where one gives way to the other)
+    drop_i = {i for i, n in enumerate(names) if n in H.get("drop", ())}
+    print("  materials", names, "head", sorted(head_i), "dropped", sorted(drop_i), flush=True)
     outs = []
     for want_head in (False, True):
         o = hi.copy()
@@ -447,13 +450,19 @@ def split_head(hi, H):
         bpy.context.scene.collection.objects.link(o)
         bm = bmesh.new()
         bm.from_mesh(o.data)
-        drop = [f for f in bm.faces if (f.material_index in head_i) != want_head]
+        drop = [f for f in bm.faces if (f.material_index in head_i) != want_head or f.material_index in drop_i]
         bmesh.ops.delete(bm, geom=drop, context="FACES")
         bm.to_mesh(o.data)
         bm.free()
         o.data.update()
         outs.append(o)
     body, head = outs
+    # (the head's materials its own: the colour bake turns a mesh's materials into lights (as_light), and the body's
+    # relief, baked after, wants the file's as they were — baked with lights for materials, half its back came out
+    # lit the wrong way, a stripe down the spine)
+    for i, m in enumerate(head.data.materials):
+        if m:
+            head.data.materials[i] = m.copy()
     bm = bmesh.new()
     bm.from_mesh(head.data)
     bm.verts.ensure_lookup_table()

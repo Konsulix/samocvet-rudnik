@@ -297,6 +297,9 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 				m2.set_shader_parameter("eye", Vector2(9, 9))
 			bm.set_shader_parameter("jaw", 0.0)
 			bm.set_shader_parameter("jaw_shut", 0.0)
+			# (the body's baked relief breaks along its spine — the two halves of the scan mirror one unwrap — a stripe
+			# down the back seen close: the body goes by its own smooth normals)
+			bm.set_shader_parameter("relief", 0.0)
 			var hd := MeshInstance3D.new()
 			hd.mesh = mesh(hid)
 			hd.material_override = hm
@@ -438,8 +441,13 @@ class Swim extends Node3D:
 	signal gulp_over
 	const GULP_K := 7.2      # (its size at the find, of its far size: a head whose open jaws go round the find)
 	const GULP_RUN := 30.0   # (how far behind the find its snout starts: all of it inside what the studio's camera draws)
-	const GULP_FAR := 230.0  # (how far off it seems to start: a speck)
-	const GULP_T := 3.4      # (seconds it is coming)
+	const GULP_FAR := 170.0  # (how far off it seems to start: a speck)
+	const GULP_T := 4.0      # (seconds it is coming)
+	const GULP_YAW := 0.8    # (how far to the right it has turned as its body goes by, radians)
+	const BITE := 0.5        # (seconds its jaws take to shut: a bite, not a switch)
+	## (where its snout has been, going by: the body is laid along it)
+	var trail: Array[Vector3] = []
+	var v_by := 20.0
 	const GULP_JAW := 2.4    # (how wide the lower jaw goes for it, of its usual gape)
 	const GULP_UP := 0.42    # (and the upper one lifts by this share of that: the palate shows)
 	const GAPE := Vector3(0.478, 0.148, 0.004)   # (the middle of its open mouth, the model's units)
@@ -507,24 +515,29 @@ class Swim extends Node3D:
 		visible = true
 		if mat:
 			_sp("fade", smoothstep(0.0, 0.12, s))
-			# (the jaws wide from half way in: seen head on, all the way)
-			_sp("jaw_force", GULP_JAW * smoothstep(0.3, 0.6, s))
+			# (the jaws wide from a third of the way in: seen head on, all the way)
+			if not gulp_set: _sp("jaw_force", GULP_JAW * smoothstep(0.25, 0.6, s))
 			_sp("neck", 0.0)
+			_sp("spine_k", 0.0)
 		transform = Transform3D(b * Basis.from_scale(Vector3.ONE * size), n - b * nose * size)
 		if not roared and s > 0.5:
 			roared = true
 			sea_call.emit("rush")
+		# (the jaws begin to shut a moment before the find is in them, and are shut a moment after: one bite, on the way)
+		if s > 1.0 - BITE * 0.45 / GULP_T:
+			if not gulp_set:
+				tv = 0.0
+				sea_call.emit("gulp")
+			_swallow(dt)
 		if s >= 1.0:
-			# the find is in its mouth: the jaws shut, and it swims on (_pass_by)
+			# the find is in its mouth: it swims on, at the pace it seemed to come (_pass_by)
 			stage = 2
 			deep = 0
-			tv = 0.0
 			tr = 0.0
 			hd = hdg
 			hp = n1
-			# (at the pace it came)
-			vel = maxf(vel, 1.0)
-			sea_call.emit("gulp")
+			v_by = (GULP_FAR - n1.distance_to(eye)) / GULP_T
+			trail = [n1 - hdg * 300.0, n1]
 			_pass_by(0.0)
 
 	## the find itself is gone from the card: all of it but the swimmer
@@ -570,49 +583,69 @@ class Swim extends Node3D:
 			_sp("neck", neck0)
 		transform = Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * KEEP_K), q)
 
-	## the jaws shut on the find, in its mouth: nothing is drawn anywhere — the open mouth came over it, they close,
-	## and it is gone with the beast; a burst of bubbles, a chew or two as it goes
+	## the jaws shut on the find, in its mouth — a bite with a beginning and an end, BITE long, not open one frame and
+	## shut the next: nothing is drawn anywhere — the open mouth came over the find, they close, and it is gone with the
+	## beast; a burst of bubbles, a chew or two as it goes
 	func _swallow(dt: float) -> void:
 		tv += dt
-		var shut := smoothstep(0.0, 0.14, tv)
+		var shut := smoothstep(0.0, BITE, tv)
 		if not gulp_set:
 			gulp_set = true
 			var bb := Burst.new()
 			bb.top_level = true
 			add_child(bb)
 			bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.4), hit_at + Vector3(0, 0.7, 1.2))
-		if not took and shut >= 0.8:
+		if not took and shut >= 0.85:
 			took = true
 			_hide_find()
 			gulped.emit()
 		if mat:
-			_sp("jaw_force", GULP_JAW * (1.0 - shut) if tv < 0.4 else 0.15 * absf(sin((tv - 0.4) * 7.0)) * (1.0 - smoothstep(0.9, 1.5, tv)))
+			_sp("jaw_force", GULP_JAW * (1.0 - shut) if tv < BITE else 0.12 * absf(sin((tv - BITE) * 6.0)) * (1.0 - smoothstep(BITE + 0.5, BITE + 1.3, tv)))
 
-	## past the find: it swims on by its head — no stop, no jump — turning aside as it goes, so that the eye, where
-	## its mouth was a moment ago, has its neck, then its body and flippers sliding by, close. It is led by its snout
-	## (hp along hd), the body behind it bent into the turn; and it is less huge with every length, or a body that
-	## long would sweep the eye away
+	## where its snout was, so far back along the way it came
+	func _back(dist: float) -> Vector3:
+		var i := trail.size() - 1
+		while i > 0:
+			var d := trail[i].distance_to(trail[i - 1])
+			if d >= dist:
+				return trail[i].lerp(trail[i - 1], dist / maxf(0.0001, d))
+			dist -= d
+			i -= 1
+		return trail[0]
+
+	## past the find: it swims on by its head — no stop, no jump, at the pace it seemed to come — bearing off to the
+	## right and down, and its body follows its head along the very way the head went (the shader's spine: laid on
+	## `trail`), so nothing swings: the head goes out by the card's lower right, and the neck, the body's left side,
+	## the flippers slide by the eye, close. It is less huge with every length, or a body that long would sweep the
+	## eye away
 	func _pass_by(dt: float) -> void:
 		_swallow(dt)
-		var v := GULP_RUN / GULP_T * lerpf(1.0, 1.7, smoothstep(1.0, 12.0, tr))
+		var v := v_by * lerpf(1.0, 0.7, smoothstep(4.0, 30.0, tr))
 		tr += v * dt
-		# (straight on, as it came: its line passes beside the eye and under it — nothing swings, nothing jerks)
-		hd = hdg
+		hd = (Basis(Vector3.UP, GULP_YAW * smoothstep(0.0, 11.0, tr)) * hdg).normalized()
 		hp += hd * v * dt
-		var size := sc * lerpf(GULP_K, GULP_K * 0.36, smoothstep(0.2, 6.0, tr))
-		_sp("neck", neck0 * smoothstep(10.0, 30.0, tr))
+		if trail.is_empty() or hp.distance_to(trail[trail.size() - 1]) > 0.15: trail.append(hp)
+		var size := sc * lerpf(GULP_K, GULP_K * 0.5, smoothstep(0.2, 6.0, tr))
 		var b := Basis.looking_at(hd, Vector3.UP) * Basis(Vector3.UP, PI / 2)
 		transform = Transform3D(b * Basis.from_scale(Vector3.ONE * size), hp - b * nose * size)
+		var inv := transform.affine_inverse()
+		_sp("neck", 0.0)
+		_sp("spine_n", nose)
+		_sp("spine1", inv * _back(size * 0.5))
+		_sp("spine2", inv * _back(size))
+		_sp("spine_k", 1.0)
 		visible = true
 		# (gone when its tail is past the eye)
-		if tr > CAM + size * 0.82:
+		if tr > CAM + size * 0.95:
 			keeper = true
 			keep_t = -0.15
 			visible = false
 			ka = PI * 0.15
 			tan = Vector3.ZERO
 			curve = 0.0
+			trail = []
 			_sp("curve", 0.0)
+			_sp("spine_k", 0.0)
 			gulp_over.emit()
 	## its colours' own strength (the shader's gain), and how far it is dimmed now: at the glass it is right under the
 	## studio's lamps and burnt out to a pale grey, its skin lost — so near, it keeps DIM of its light
