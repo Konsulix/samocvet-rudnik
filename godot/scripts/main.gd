@@ -86,6 +86,9 @@ func _ready() -> void:
 	if args.has("chips"): Reveal.chips_max = int(args.chips)
 	if args.has("gulp_test"): Reveal.gulp_test = true
 	# (the hunt's ribbon in a state, for pictures: hunt=N fights won, +g the geode opened, +x just lost — hunt=3, hunt=4g, hunt=4gx)
+	if args.has("hunt_step"):
+		HuntRibbon.step = true
+		HuntRibbon.test = {won = 0, geode = false, lost = false}
 	if args.has("hunt"):
 		var hv := String(args.hunt)
 		HuntRibbon.test = {won = int(hv), geode = "g" in hv, lost = "x" in hv}

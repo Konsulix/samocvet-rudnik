@@ -489,7 +489,14 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	if s.get("gulp", false):
 		var hb := Reveal.hunt_button()
 		hb.custom_minimum_size = Vector2(0, 48)
-		hb.pressed.connect(Reveal.hunt)
+		hb.pressed.connect(func():
+			# (tests, `hunt_step`: the button shows the hunt's next state on the same card)
+			if HuntRibbon.step:
+				HuntRibbon.advance()
+				Ov.close()
+				_open_stone(s, group)
+			else:
+				Reveal.hunt())
 		v.add_child(hb)
 		return
 	var cut_done: bool = s.get("cut", "") != ""

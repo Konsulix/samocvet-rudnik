@@ -20,6 +20,16 @@ const H := 104.0
 
 static var test := {}    # (`-- hunt=…`)
 static var _tex := {}
+## a test key (`-- hunt_step`): the card's hunt button walks the hunt through its states instead of starting a fight —
+## not started, 1, 2, at the geode, the geode opened, 4, 5 (the boss next), lost after the geode, and round again
+static var step := false
+const WALK := [[0, false, false], [1, false, false], [2, false, false], [3, false, false], [3, true, false], [4, true, false], [5, true, false], [3, true, true]]
+static var _walk_i := 0
+
+static func advance() -> void:
+	_walk_i = (_walk_i + 1) % WALK.size()
+	var w: Array = WALK[_walk_i]
+	test = {won = int(w[0]), geode = bool(w[1]), lost = bool(w[2])}
 
 var st := {}
 var _x := 0.0            # how far the ribbon is slid
