@@ -51,13 +51,13 @@ const MODELS := {
 	# `go_f` the beats a second that push it on (the tail's swim_f unless given: a plesiosaur's are its flippers') and
 	# `stride` the body lengths it makes on each beat. A big animal beats slowly: every one its own pace
 	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
-	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {ram = 1.0, swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.06, jaw_x = 0.325, jaw_y = 0.1106, jaw_s = 0.0, jaw_shut = 0.4, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
+	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {nose = Vector3(0.496, 0.136, 0.0), ram = 1.0, swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.06, jaw_x = 0.325, jaw_y = 0.1106, jaw_s = 0.0, jaw_shut = 0.4, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
-	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
-	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {ram = 2.0, swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.04, jaw_x = 0.282, jaw_y = 0.1154, jaw_s = 0.09, jaw_shut = 0.32, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
+	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {nose = Vector3(0.494, 0.061, 0.0), ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
+	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {nose = Vector3(0.494, 0.118, 0.0), ram = 2.0, swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.04, jaw_x = 0.282, jaw_y = 0.1154, jaw_s = 0.09, jaw_shut = 0.32, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
 	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1637, jaw_s = -0.1, jaw_shut = 0.04, jaw_fan = 0.004, jaw_ramp = 0.006, eye_x = 0.474, eye_y = 0.174, eye_r = 0.005}},
-	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {ram = 1.0, near = 2.5, swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
-	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
+	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {nose = Vector3(0.492, 0.093, 0.076), ram = 1.0, near = 2.5, swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
+	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {nose = Vector3(0.494, 0.08, 0.0), ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
 const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
@@ -141,7 +141,7 @@ static func mat(id: String) -> ShaderMaterial:
 		# a swimmer's own way of swimming (sea_swim.gdshader)
 		var an: Dictionary = md.get("anim", {})
 		for k: String in an:
-			if not k.begins_with("eye_") and k != "stride" and k != "go_f" and k != "visit": m.set_shader_parameter(k, float(an[k]))
+			if not k.begins_with("eye_") and not k in ["stride", "go_f", "visit", "ram", "near", "nose"]: m.set_shader_parameter(k, float(an[k]))
 		if an.has("eye_x"):
 			m.set_shader_parameter("eye", Vector2(float(an.eye_x), float(an.eye_y)))
 			m.set_shader_parameter("eye_r", float(an.eye_r))
@@ -265,7 +265,9 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		sn.near_k = float(an.get("near", 1.9)) if sn.rams == 1 else 1.0
 		sn.swim0 = float(an.get("swim", 0.05))
 		sn.tail_f0 = float(an.get("swim_f", 0.5))
-		sn.nose = Vector2(0.5, float(an.get("eye_y", 0.11)) + 0.01)
+		# (the tip of its snout in the model, measured: tests/swim_nose.gd — a Tylosaurus's scan has its whole fore
+		# half set aside of the middle line, and struck the glass with its cheek)
+		sn.nose = an.get("nose", Vector3(0.5, 0.11, 0.0))
 		sn.seed_v = seed_v
 		# a sea reptile, a shark: many metres long, it could never circle a stone a hand across — it passes far
 		# behind the find instead, huge and dim in the water, out past the card's edges: the world's way, whatever
@@ -391,7 +393,7 @@ class Swim extends Node3D:
 	var sing_in := 6.0
 	signal sea_call(what: String)
 	var rams := 0
-	var nose := Vector2(0.5, 0.12)
+	var nose := Vector3(0.5, 0.12, 0.0)
 	var face := Vector3.BACK
 	var hit_at := Vector3.ZERO
 
@@ -449,8 +451,8 @@ class Swim extends Node3D:
 				# straight at the eye, a little down from above (its body clears the find's top), into the glass
 				hdg = Vector3(0.1 * dir, -0.28, 1.0).normalized()
 				hit_at = Vector3(-0.08 * dir, 0.42, GLASS)
-				var hb := Basis.looking_at(hdg, Vector3.UP)
-				stop = hit_at - (hdg * nose.x + hb * Vector3.UP * nose.y) * sc * near_k
+				var hb := Basis.looking_at(hdg, Vector3.UP) * Basis(Vector3.UP, PI / 2)
+				stop = hit_at - (hb * nose) * sc * near_k
 				pa = Vector3(-dir * hw * 0.5, 4.5, -DEPTH * 1.7)
 				pc = stop - hdg * 12.0
 				pb = stop
@@ -660,7 +662,8 @@ class Swim extends Node3D:
 			mat.set_shader_parameter("blink_force", bl)
 		var want := sc * stride * beat * go()
 		# (charging the glass and making off, a slow giant goes as its quickened tail drives it: up to the pace of QUICK)
-		if far and rams > 0 and kind == 7: want *= maxf(1.0, QUICK / maxf(0.05, tail_f0))
+		# (and one that comes less huge to the glass crosses the card slower to the eye: it makes that up)
+		if far and rams > 0 and kind == 7: want *= maxf(1.0, QUICK / maxf(0.05, tail_f0)) * (2.5 / near_k if rams == 1 else 1.0)
 		# (a body's weight: it gathers way and loses it slowly)
 		vel = want if vel < 0.0 else lerpf(vel, want, minf(1.0, dt * 1.5))
 		if far:
@@ -775,15 +778,18 @@ class Burst extends Node3D:
 		bm.shader = SpecSea.BUBBLE
 		bm.render_priority = 60
 		var mesh := Geo.sphere(1.0, 10, 7).to_mesh()
-		for k in 16:
+		# (each its own way, size, speed and moment: laid out by a rule they rose as one wavy line)
+		var r := RandomNumberGenerator.new()
+		r.randomize()
+		for k in 18:
 			var mi := MeshInstance3D.new()
 			mi.mesh = mesh
 			mi.material_override = bm
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(mi)
-			var a := k * 2.399
-			var u := fposmod(k * 0.618, 1.0)
-			items.append([mi, Vector3(cos(a) * (0.25 + u * 0.5), 0.5 + u * 0.9, sin(a) * (0.25 + u * 0.5)), 0.025 + 0.05 * fposmod(k * 0.377, 1.0), u * 0.25])
+			var a := r.randf() * TAU
+			var out := r.randf_range(0.1, 0.8)
+			items.append([mi, Vector3(cos(a) * out, r.randf_range(0.35, 1.5), sin(a) * out), 0.02 + 0.06 * r.randf() * r.randf(), r.randf() * 0.45, r.randf() * TAU, r.randf_range(3.5, 7.0)])
 		_process(0.0)
 	func _process(dt: float) -> void:
 		t += dt
@@ -792,7 +798,7 @@ class Burst extends Node3D:
 			var v: Vector3 = it[1]
 			var tt := maxf(0.0, t - float(it[3]))
 			# (thrown out, then only rising, wobbling)
-			var p := Vector3(v.x, 0, v.z) * (1.0 - exp(-tt * 3.0)) * 0.6 + Vector3(sin(tt * 5.0 + v.x * 9.0) * 0.03, v.y * tt, 0)
+			var p := Vector3(v.x, 0, v.z) * (1.0 - exp(-tt * 3.0)) * 0.6 + Vector3(sin(tt * float(it[5]) + float(it[4])) * 0.035, v.y * tt, cos(tt * float(it[5]) * 0.8 + float(it[4])) * 0.03)
 			var k := smoothstep(0.0, 0.08, tt) * (1.0 - smoothstep(1.6, 2.4, tt))
 			mi.visible = k > 0.0
 			mi.transform = Transform3D(Basis.from_scale(Vector3.ONE * float(it[2]) * (0.7 + tt * 0.25) * k), p)
