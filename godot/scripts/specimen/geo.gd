@@ -329,7 +329,6 @@ func erode(amount: float, seed_v: int, share := 1.0) -> Geo:
 	var rr := maxf(0.02, minf(bb.size.x, bb.size.z) * 0.5)
 	var ymin := bb.position.y
 	var ymax := bb.end.y
-	var key := func(p: Vector3) -> Vector3i: return Vector3i(roundi(p.x * 5000.0), roundi(p.y * 5000.0), roundi(p.z * 5000.0))
 	var cell := FastNoiseLite.new()
 	cell.seed = seed_v
 	cell.noise_type = FastNoiseLite.TYPE_CELLULAR
@@ -339,45 +338,64 @@ func erode(amount: float, seed_v: int, share := 1.0) -> Geo:
 	soft.seed = seed_v + 7
 	soft.frequency = 1.6 / rr
 	soft.fractal_octaves = 3
-	var emin := {}
+	# (18.11) one number per place, then plain arrays: a crystal split for its damage is ~24 000 points at ~4 000
+	# places, and four dictionaries keyed by place over every point took most of a damaged stone's build. Same sums,
+	# same order, in doubles — the stone is the same to the bit
+	var uid := PackedInt32Array()
+	uid.resize(v.size())
+	var ids := {}
+	var first := PackedInt32Array()
+	for i in v.size():
+		var q := v[i]
+		var k := Vector3i(roundi(q.x * 5000.0), roundi(q.y * 5000.0), roundi(q.z * 5000.0))
+		var u: int = ids.get(k, -1)
+		if u < 0:
+			u = first.size()
+			ids[k] = u
+			first.append(i)
+		uid[i] = u
+	var n := first.size()
+	var emin := PackedFloat64Array()
+	emin.resize(n)
+	emin.fill(1e9)
 	for i in v.size():
 		var e := minf(bary[i].x, minf(bary[i].y, bary[i].z))
-		var k: Vector3i = key.call(v[i])
-		emin[k] = minf(emin.get(k, 1e9), e)
+		emin[uid[i]] = minf(emin[uid[i]], e)
 	# cell distances for every corner, then thresholds by share of the surface rather than by value
-	var cds := {}
-	for i in v.size():
-		var k: Vector3i = key.call(v[i])
-		if not cds.has(k):
-			cds[k] = cell.get_noise_3dv(v[i])
-	var sorted: Array = cds.values()
+	var cds := PackedFloat64Array()
+	cds.resize(n)
+	for u in n:
+		cds[u] = cell.get_noise_3dv(v[first[u]])
+	var sorted := cds.duplicate()
 	sorted.sort()
 	var lo: float = sorted[0]
 	var q_face: float = sorted[mini(sorted.size() - 1, int(sorted.size() * 0.16 * share))]
 	var q_edge: float = sorted[mini(sorted.size() - 1, int(sorted.size() * 0.4 * share))]
-	var depth := {}
-	var holes := {}
-	for k in cds:
-		var p := Vector3(k) / 5000.0
-		var edge := 1.0 - smoothstep(0.0, rr * 0.45, emin[k])
+	var depth := PackedFloat64Array()
+	depth.resize(n)
+	var holes := PackedFloat64Array()
+	holes.resize(n)
+	for u in n:
+		var q := v[first[u]]
+		var p := Vector3(Vector3i(roundi(q.x * 5000.0), roundi(q.y * 5000.0), roundi(q.z * 5000.0))) / 5000.0
+		var edge := 1.0 - smoothstep(0.0, rr * 0.45, emin[u])
 		var thr := lerpf(q_face, q_edge, edge)
 		# distinct holes (more of them near the edges); the faces between them stay flat
-		var pit := clampf((thr - float(cds[k])) / maxf(0.0001, thr - lo), 0.0, 1.0)
+		var pit := clampf((thr - cds[u]) / maxf(0.0001, thr - lo), 0.0, 1.0)
 		pit = sqrt(pit)
 		var f := (soft.get_noise_3dv(p) + 1.0) * 0.5
 		# the edges themselves gnawed raggedly
 		var gnaw := maxf(0.0, f - 0.5) * 1.2 * edge
-		depth[k] = amount * rr * (pit * 0.45 + gnaw * 0.3)
-		holes[k] = pit
+		depth[u] = amount * rr * (pit * 0.45 + gnaw * 0.3)
+		holes[u] = pit
 	if col.size() != v.size():
 		fill_color(Color(1, 1, 1))
 	for i in v.size():
-		var kk: Vector3i = key.call(v[i])
-		var d: float = depth[kk]
+		var d: float = depth[uid[i]]
 		var p := v[i]
 		var c := Vector3(0, clampf(p.y, ymin + rr, ymax - rr), 0)
 		v[i] = p + (c - p).normalized() * d
-		col[i].a = 1.0 - clampf(float(holes[kk]) * 1.3, 0.0, 1.0)
+		col[i].a = 1.0 - clampf(holes[uid[i]] * 1.3, 0.0, 1.0)
 	return self
 
 ## broken off across a plane (through `at`, facing `n` out of the stone): everything beyond it is pressed onto it,
@@ -401,9 +419,15 @@ func jitter(amp: float, freq: float, seed_v: int) -> Geo:
 	var fn := FastNoiseLite.new()
 	fn.seed = seed_v
 	fn.frequency = freq
+	# (once per place: a split triangle list has each corner about six times over, all the same point — 18.11)
+	var done := {}
 	for i in v.size():
 		var p := v[i]
-		v[i] = p + Vector3(fn.get_noise_3dv(p), fn.get_noise_3dv(p + Vector3(31.7, 0, 0)), fn.get_noise_3dv(p + Vector3(0, 0, 57.3))) * amp
+		var o: Variant = done.get(p)
+		if o == null:
+			o = Vector3(fn.get_noise_3dv(p), fn.get_noise_3dv(p + Vector3(31.7, 0, 0)), fn.get_noise_3dv(p + Vector3(0, 0, 57.3))) * amp
+			done[p] = o
+		v[i] = p + (o as Vector3)
 	return self
 
 # ---------------------------------------------------------------- generators (three.js r128 layouts)

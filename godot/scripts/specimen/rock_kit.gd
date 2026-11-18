@@ -235,6 +235,10 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	var dm: Dictionary = cfg.get("dmg", {})
 	var det0 := det
 	if ero > 0.0 or dm.size(): det = maxi(det, 3)
+	# (18.11) the damage's detail by budget, not always three splits: a shape that is fine already (a sulphur bipyramid,
+	# 128 triangles) split three times was 8 000 triangles a crystal, and a damaged druse took 12 times as long to
+	# build as a whole one. A plain prism keeps its three
+	while det > det0 and g.tri_count() * pow(4.0, det) > DMG_TRIS: det -= 1
 	if det > 0:
 		# (a seed off the damage's own stream when only the damage asked for the detail: the stone's layout stays)
 		g.subdivide(det).jitter(0.009 * (0.4 if ero > 0.0 or dm.size() else 1.0), 6.0, int((rng if det0 > 0 else dm.rng as Rng32).next() * 100000))
@@ -252,6 +256,10 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g.erode(ero, int(rng.next() * 100000))
 	damage(g, dm)
 	return g
+
+## most triangles a crystal is split to for its damage (pits, gnawed edges): a prism (84) still splits three times
+## (5 376), a sulphur bipyramid (128 — 8 192) twice
+const DMG_TRIS := 6000.0
 
 ## a crystal hurt by a careless dig (SpecimenBuilder: dmg = {k 0..1, rng - its own stream}): its faces pitted
 ## and its edges gnawed (deeper and over more of it the worse it is), its tip knocked off - or, badly hurt, the
