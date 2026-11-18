@@ -73,49 +73,55 @@ func show_stone(s: Dictionary, others := []) -> void:
 	v.add_child(_btn_row)
 	# once in a game: the first find a plesiosaur circles, it swallows — there, on its card (Swim.gulp). The card stays,
 	# the plesiosaur alone on it; the find is the player's still, to be won back (hunt)
-	if name_as == "" and not Save.told("gulp"):
-		view.built.connect(func(p: Node3D) -> void:
-			for n in p.find_children("*", "Node3D", true, false):
-				if n.has_signal("gulped") and bool(n.get("visits")):
-					_gulp_flow(n, v, view, s, says_before)
-					return)
+	if name_as == "":
+		gulp_watch(view, v, _btn_row, func() -> Control:
+			Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), g = s.g, value = s.value, tier = s.tier,
+				area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])), gulp = true})
+			Save.paid(s.get("id", -1))
+			Diag.note("the plesiosaur swallowed " + Stones.name_of(s))
+			return action_row(Kit.button("Later", "btn_dark", 17, 4.0), func():
+				Ov.close()
+				await Awards.say_after_find(says_before)
+				finished.emit(), hunt_button(), hunt))
 
-## the plesiosaur takes the find from its card. Sell and Keep wait while it comes; when its jaws shut the find is kept
-## — swallowed (`gulp` on the stone) — and the card says so: nothing of the find's on it, and a way to go after it
-func _gulp_flow(sw: Node, v: VBoxContainer, view: SpecView, s: Dictionary, says_before: Variant) -> void:
-	for b in _btn_row.find_children("*", "BaseButton", true, false):
-		(b as BaseButton).disabled = true
-	var dim := _btn_row.create_tween()
-	dim.tween_property(_btn_row, "modulate:a", 0.35, 0.4)
-	sw.call("gulp", 1.6)
-	sw.connect("gulped", func() -> void:
-		Save.tell("gulp")
-		Save.d.coll.append({id = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), g = s.g, value = s.value, tier = s.tier,
-			area = Save.area(), dl = mini(int(Save.d.depth_sel[Save.area()]), int(Save.d.depth[Save.area()])), gulp = true})
-		Save.paid(s.get("id", -1))
-		Save.persist()
-		Diag.note("the plesiosaur swallowed " + Stones.name_of(s))
-		Sfx.buzz(90)
-		if not is_instance_valid(v): return
-		for c in view.get_children():
-			if c is SpecCallouts: c.queue_free()
-		for cn: Dictionary in view.tapped.get_connections():
-			view.tapped.disconnect(cn.callable)
-		for k: String in ["ribbon_rec", "ribbon_last"]:
-			if v.has_meta(k) and is_instance_valid(v.get_meta(k)): (v.get_meta(k) as Node).queue_free()
-		for c in v.get_children():
-			c.queue_free()
-		gulp_info(v)
-		var later := Kit.button("Later", "btn_dark", 17, 4.0)
-		var row := action_row(later, func():
-			Ov.close()
-			await Awards.say_after_find(says_before)
-			finished.emit(), hunt_button(), hunt)
-		row.modulate.a = 0.0
-		v.add_child(row)
-		# (the buttons come when it has had its look at the player)
-		row.create_tween().tween_property(row, "modulate:a", 1.0, 0.5).set_delay(2.2)
-	, CONNECT_ONE_SHOT)
+## the plesiosaur takes the find from its card (a find's reveal, or its card in the inventory if it never met one
+## there): once the stone is built and a plesiosaur is with it, the card's buttons (`row`) wait while it comes; when
+## its jaws shut, `taken` does the keeping (the stone marked `gulp`) and gives the buttons the card has from then on —
+## and the card says what happened: nothing of the find's on it any more
+static func gulp_watch(view: SpecView, v: VBoxContainer, row: Control, taken: Callable) -> void:
+	if Save.told("gulp"):
+		return
+	view.built.connect(func(p: Node3D) -> void:
+		var sw: Node = null
+		for n in p.find_children("*", "Node3D", true, false):
+			if n.has_signal("gulped") and bool(n.get("visits")): sw = n
+		if sw == null or Save.told("gulp") or not is_instance_valid(row):
+			return
+		for b in row.find_children("*", "BaseButton", true, false):
+			(b as BaseButton).disabled = true
+		if row is BaseButton: (row as BaseButton).disabled = true
+		row.create_tween().tween_property(row, "modulate:a", 0.35, 0.4)
+		sw.call("gulp", 1.6)
+		sw.connect("gulped", func() -> void:
+			Save.tell("gulp")
+			var next: Control = taken.call()
+			Save.persist()
+			Sfx.buzz(90)
+			if not is_instance_valid(v): return
+			for c in view.get_children():
+				if c is SpecCallouts: c.queue_free()
+			for cn: Dictionary in view.tapped.get_connections():
+				view.tapped.disconnect(cn.callable)
+			for k: String in ["ribbon_rec", "ribbon_last"]:
+				if v.has_meta(k) and is_instance_valid(v.get_meta(k)): (v.get_meta(k) as Node).queue_free()
+			for c in v.get_children():
+				c.queue_free()
+			gulp_info(v)
+			next.modulate.a = 0.0
+			v.add_child(next)
+			# (the buttons come when it has had its look at the player)
+			next.create_tween().tween_property(next, "modulate:a", 1.0, 0.5).set_delay(2.2)
+		, CONNECT_ONE_SHOT))
 
 ## what a swallowed find's card says instead of its weight, worth and genes
 static func gulp_info(v: VBoxContainer) -> void:

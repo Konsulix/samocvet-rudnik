@@ -439,7 +439,7 @@ func _open_record() -> void:
 ## (the stone itself turns under the finger, so the swipe is taken below it), from: -1 / 1 the side it slides in from
 func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	var v := Ov.card(350, Data.rarity_color(int(s.tier)))
-	Reveal.stone_card(v, s, 400, func(): Ov.close())
+	var view := Reveal.stone_card(v, s, 400, func(): Ov.close())
 	if group.size() > 1:
 		_swipe_between(v, s, group, from)
 	# (the plesiosaur swallowed it: neither cut nor sold till it is won back)
@@ -487,6 +487,15 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 		v.add_child(sell_b)
 	else:
 		v.add_child(Reveal.action_row(Kit.button("Cut", "btn_dark", 17, 4.0), func(): _cut_panel(s), sell_b, sell))
+	# (a find the plesiosaur has not met yet — found before it could: it comes for it here, once in a game)
+	Reveal.gulp_watch(view, v, v.get_child(v.get_child_count() - 1) as Control, func() -> Control:
+		s.gulp = true
+		Diag.note("the plesiosaur swallowed " + Stones.name_of(s))
+		render.call_deferred()
+		var hb := Reveal.hunt_button()
+		hb.custom_minimum_size = Vector2(0, 48)
+		hb.pressed.connect(Reveal.hunt)
+		return hb)
 
 func _swipe_between(v: VBoxContainer, s: Dictionary, group: Array, from: int) -> void:
 	var i := group.find(s)
