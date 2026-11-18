@@ -53,11 +53,11 @@ const MODELS := {
 	swim_coelacanth = {g = "swim", n = "coelacanth", k = 0.55, anim = {swim = 0.07, swim_f = 0.8, swim_k = 0.8, swim_from = 0.15, glide = 0.35, stride = 0.5, flip = 0.3, flip_w = 0.09, flip_x0 = -0.25, flip_x1 = 0.2, flip_mid = 0.0, flip_f = 0.9, eye_x = 0.417, eye_y = 0.226, eye_r = 0.013}},
 	swim_cretoxyrhina = {g = "swim", n = "ginsu shark", k = 1.0, far = true, anim = {ram = 1.0, swim = 0.085, swim_f = 0.55, swim_k = 0.75, swim_from = 0.2, glide = 0.35, stride = 0.6, flip = 0.04, flip_w = 0.1, flip_x0 = 0.0, flip_x1 = 0.25, flip_mid = -1.0, flip_f = 0.3, jaw = 0.06, jaw_x = 0.325, jaw_y = 0.1106, jaw_s = 0.0, jaw_shut = 0.4, eye_x = 0.424, eye_y = 0.137, eye_r = 0.009}},
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
-	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {ram = 1.0, swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
+	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
 	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {ram = 2.0, swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.04, jaw_x = 0.282, jaw_y = 0.1154, jaw_s = 0.09, jaw_shut = 0.32, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
 	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1637, jaw_s = -0.1, jaw_shut = 0.04, jaw_fan = 0.004, jaw_ramp = 0.006, eye_x = 0.474, eye_y = 0.174, eye_r = 0.005}},
-	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {ram = 1.0, swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
-	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {ram = 1.0, swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
+	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {ram = 1.0, near = 2.5, swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
+	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
 ## the size of a group's thing, of the slab's span (for the weed and the corals their height; the rest their reach)
 const SIZE := {weed = 0.75, coral = 0.45, star = 0.38, shell = 0.28, crab = 0.34, swim = 0.58}
@@ -262,7 +262,7 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		# (now and then it comes straight at the eye and strikes the card's glass: 1 rams it — the glass cracks,
 		# GlassCrack; 2 only pokes it with its snout — the glass mists. Swim's pass 7)
 		sn.rams = int(an.get("ram", 0.0))
-		sn.near_k = 1.9 if sn.rams == 1 else 1.0
+		sn.near_k = float(an.get("near", 1.9)) if sn.rams == 1 else 1.0
 		sn.swim0 = float(an.get("swim", 0.05))
 		sn.nose = Vector2(0.5, float(an.get("eye_y", 0.11)) + 0.01)
 		sn.seed_v = seed_v
@@ -365,8 +365,9 @@ class Swim extends Node3D:
 	## a ram (`ram` in its anim; pass 7): out of the deep straight at the eye, faster and faster, jaws opening — and into
 	## the card's glass (glass_hit: SpecView cracks it there and shakes); it reels back, shakes its head, turns away
 	## into the deep. A poke (rams 2): it comes up slowly, touches the glass with its snout, looks, and goes.
-	## The glass is GLASS before the find. At the glass it is near_k its far size (a rammer near twice: a monster, its
-	## head more than the card holds; a poker about its own). The water it drives before it sweeps the find off as it
+	## The glass is GLASS before the find. At the glass it is near_k its far size (a rammer near twice, a sea lizard two and
+	## a half times — `near` in its anim: a monster, its head more than the card holds; a poker about its own). Near the
+	## eye it blinks now and then, and shuts its eyes on the blow. The water it drives before it sweeps the find off as it
 	## comes — aside, out of its way, rolling over — and the find drifts home gently when it has gone (wash_t).
 	## Struck, the beast is no board: its body whips (the shader's `curve`), it rolls, sinks back, and comes round in a
 	## long bend, the body curved into the turn, the tail driving hard. stage: 0 coming, 1 at the glass, 2 leaving.
@@ -614,7 +615,7 @@ class Swim extends Node3D:
 				if wash_t == 0.0: wash_base = home.transform
 				wash_t += maxf(dt, 0.0001)
 				var soft_k := 1.0 if rams == 1 else 0.1
-				var e := smoothstep(0.0, 0.6, wash_t) * (1.0 - smoothstep(1.7, 5.6, wash_t))
+				var e := smoothstep(0.0, 0.45, wash_t) * (1.0 - smoothstep(1.5, 5.4, wash_t))
 				var wo := (Vector3(-dir * 2.7, -0.55, -0.4) * e + Vector3(0.1 * sin(wash_t * 4.0), 0.08 * sin(wash_t * 5.3), 0) * e) * soft_k
 				var roll := TAU * smoothstep(0.0, 5.4, wash_t) * (1.0 if rams == 1 else 0.0)
 				var pb0 := (home.get_parent() as Node3D).global_transform.basis.orthonormalized().inverse()
@@ -631,6 +632,14 @@ class Swim extends Node3D:
 			if sing_in <= 0.0:
 				sing_in = 11.0 + 9.0 * fposmod(ph * 3.7 + passes * 0.37, 1.0)
 				if not (kind == 7 and stage < 2 and s > 0.4): sea_call.emit("song")
+		if far and mat and rams > 0:
+			# near the eye it blinks, a quick one every second or so; on the blow its eyes shut a moment
+			var bl := 0.0
+			if kind == 7 and rest <= 0.0 and ((stage == 0 and s > 0.55) or stage == 1 or (stage == 2 and s < 0.45)):
+				var c := fposmod(Time.get_ticks_msec() * 0.001 * 0.75 + ph, 1.0)
+				bl = smoothstep(0.0, 0.04, c) * (1.0 - smoothstep(0.09, 0.16, c))
+				if stage == 1 and rams == 1: bl = maxf(bl, 1.0 - smoothstep(0.2, 0.45, tv))
+			mat.set_shader_parameter("blink_force", bl)
 		var want := sc * stride * beat * go()
 		# (a body's weight: it gathers way and loses it slowly)
 		vel = want if vel < 0.0 else lerpf(vel, want, minf(1.0, dt * 1.5))
@@ -663,7 +672,7 @@ class Swim extends Node3D:
 					size = sc * lerpf(1.0, near_k, smoothstep(0.1, 1.0, s))
 					if mat: mat.set_shader_parameter("swim", swim0 * lerpf(1.0, 1.8, smoothstep(0.1, 0.7, s)))
 					# (the water before it reaches the find first: the find is swept off as it comes)
-					if rams == 1 and wash_t < 0.0 and s > 0.5:
+					if rams == 1 and wash_t < 0.0 and s > 0.72:
 						wash_t = 0.0
 						sea_call.emit("rush")
 					if rams == 1 and not roared and s > 0.8:

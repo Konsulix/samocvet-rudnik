@@ -2,20 +2,21 @@ class_name GlassCrack
 extends Control
 ## The card's "glass" struck from inside (a big swimmer of the old seas rams it: SpecReef.Swim, pass 7): a web of
 ## cracks runs out from the blow to the card's frame — jagged rays, rings between them — holds a little, and heals
-## from the blow outwards to the frame, gone in LIFE seconds.
+## from the blow outwards to the frame — not as one ring: each crack in its own time, one side of the web before
+## another — gone in LIFE seconds.
 ## A soft one (an ichthyosaur's curious poke) cracks nothing: the glass only mists over where the snout touched.
 ## Drawn in lines over the stone's view (a child of SpecView), no shader of its own.
 
 const LIFE := 5.0
 const GROW := 0.2    # (seconds the cracks take to run out to the frame)
-const HOLD := 1.6    # (then they heal, from the blow out to the frame, till LIFE)
+const HOLD := 1.3    # (then they heal, from the blow out to the frame, till LIFE)
 
 var at := Vector2.ZERO
 var soft := false
 var reach := 100.0
 var far := 1.0       # (the furthest corner of the card from the blow)
 var _t := 0.0
-## each line: its points (outwards from the blow), its width
+## each line: its points (outwards from the blow), its width, when it starts to heal and when it is gone
 var _lines: Array = []
 static var _blob: GradientTexture2D
 
@@ -98,6 +99,18 @@ func _ready() -> void:
 			m = m.lerp(at, r.randf_range(0.02, 0.1))
 			_lines.append([PackedVector2Array([pa[ia], m, pb[ib]]), 1.0])
 
+	# the glass does not heal as one ring closing: each crack in its own time, by where it lies — one side of the web
+	# goes early, another lingers (a slow wave round the blow, and every crack a little off its neighbours)
+	var p1 := r.randf() * TAU
+	var p2 := r.randf() * TAU
+	for ln: Array in _lines:
+		var pts2: PackedVector2Array = ln[0]
+		var th := (pts2[pts2.size() / 2] - at).angle()
+		var late := clampf(0.5 + 0.34 * sin(th + p1) + 0.22 * sin(2.0 * th + p2) + r.randf_range(-0.14, 0.14), 0.0, 1.0)
+		var t0 := HOLD + late * 1.7
+		ln.append(t0)
+		ln.append(minf(LIFE - 0.1, t0 + r.randf_range(1.1, 1.9)))
+
 func _process(dt: float) -> void:
 	_t += dt
 	if _t > LIFE:
@@ -117,7 +130,6 @@ func _draw() -> void:
 	# the cracks run out from the blow to the frame, hold, and heal from the blow outwards — the glass closes over
 	# the middle first, the last of them gone at the frame: what lies between `inner` and `front` shows
 	var front := far * 1.05 * clampf(_t / GROW, 0.0, 1.0)
-	var inner := far * 1.05 * smoothstep(HOLD, LIFE, _t)
 	var a := 1.0 - smoothstep(LIFE - 0.6, LIFE, _t)
 	# the blow's flash, and the crushed glass at its middle
 	var fl := 1.0 - smoothstep(0.0, 0.3, _t)
@@ -130,6 +142,7 @@ func _draw() -> void:
 	var light := Color(0.9, 0.96, 1.0, 0.85 * a)
 	for ln: Array in _lines:
 		var pts: PackedVector2Array = ln[0]
+		var inner := far * 1.05 * smoothstep(float(ln[2]), float(ln[3]), _t)
 		var show := PackedVector2Array()
 		for k in pts.size():
 			var d := pts[k].distance_to(at)
