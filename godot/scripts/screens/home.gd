@@ -848,7 +848,14 @@ func _open_tasks() -> void:
 		b.pressed.connect(func():
 			Ov.close()
 			_build_many(tid, i, pn))
-		h.add_child(b)
+		if reach and not done and not can:
+			# (18.11) not enough gold: the same red "!" as the window's other rows — a greyed price button meant the
+			# same thing in another way. A depth not reached yet keeps its "100 m"
+			var al := Kit.icon("alert", 24)
+			al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(al)
+		else:
+			h.add_child(b)
 		row.add_child(h)
 		v.add_child(row)
 	if all_done and a < Data.AREAS.size() - 1 and not _boss_waits():
@@ -881,9 +888,10 @@ func _open_next() -> void:
 		var can: bool = not st.job_done and Save.d.ore >= cost
 		var paid: Array = _steps_paid(a, String(st.job[0]), int(st.job[2]))
 		var bt: Button = null
-		if not st.job_done:
-			bt = Kit.button("Build ×%d" % int(paid[0]) if int(paid[0]) > 1 else "Build", "btn_gold" if can else "btn_dark", 15, 0.0)
-			bt.disabled = not can
+		# (18.11: the Build button only when it can be paid; short of gold the row shows the red "!" as the drill's
+		# rows do — the greyed button said the same thing another way)
+		if can:
+			bt = Kit.button("Build ×%d" % int(paid[0]) if int(paid[0]) > 1 else "Build", "btn_gold", 15, 0.0)
 		var stp := _step_label(a, String(st.job[0]))
 		var i: int = st.k
 		var tid: String = st.job[0]
