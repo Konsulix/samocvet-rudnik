@@ -817,6 +817,10 @@ func _award_frame() -> void:
 func _open_next() -> void:
 	var a := ai()
 	var st := next_step()
+	# all built and the boss waits: straight to the boss's window (18.11: the depth window only led to it)
+	if st.last and st.job_done and _boss_waits():
+		_fight_boss()
+		return
 	var on := String(Data.ore(a).n).to_lower()
 	var v := Ov.card(350)
 	_keep_clear()
@@ -854,10 +858,6 @@ func _open_next() -> void:
 		var ok: bool = st.job_done and Save.d.fe >= fe and Save.d.coins >= cn
 		var dig := Ov.btn("Dig down · %s" % st.tool, "green" if ok else "glass", func(): _dig(), ok)
 		v.add_child(dig)
-	elif st.job_done and _boss_waits():
-		var B: Dictionary = Data.AREAS[a].boss
-		v.add_child(Ov.text("Below, at %d m, %s guards the mine. Beat it to go on to the next one." % [int(B.m), B.n], 13, Color("#ffb0a0")))
-		v.add_child(Ov.btn("Fight · %s" % B.n, "ruby", func(): _fight_boss()))
 	elif st.job_done and a < Data.AREAS.size() - 1:
 		v.add_child(_next_mine_btn(a))
 	# (18.11: no All jobs, no Close, no line on where iron comes from — the cross on the corner closes it, as the profile's)
@@ -1087,25 +1087,35 @@ func _build(tid: String, i: int) -> void:
 		if not x[0] in Save.d.built[a]: all = false
 	if all:
 		await get_tree().create_timer(6.0 if uses_view() else 0.9).timeout   # the drawn mine plays the change (and the chamber its tremor) first
-		Save.d.coins += 500
-		Save.d.boost.pick += 1
-		Save.d.boost.bore_h += 1
-		Save.persist()
+		# (18.11: no reward window — the mine's award "Rigged: <mine>" pays it, at the edge with the others)
+		Awards.check()
 		render()
-		var btns := []
 		if _boss_waits():
-			btns.append(["Fight · %s" % A.boss.n, "ruby", func(): _fight_boss()])
-		elif a < Data.AREAS.size() - 1:
+			# who waits below: the story says it first (Old Adit), then the boss's window
+			while _bubble and is_inside_tree(): await get_tree().create_timer(0.3).timeout   # (the guide or a story is talking: let it end)
+			if not is_inside_tree(): return
+			var beat := _story_beat()
+			if beat != "" and not Coach.off:
+				_bubble = GuideBubble.new(view, "")   # (holds the place: the guide says nothing meanwhile)
+				var sc := StoryScene.play(self, beat)
+				await sc.finished
+				_bubble.queue_free()
+				_bubble = null
+				Save.tell("s_" + beat)
+			if is_inside_tree() and not Ov.is_open(): _fight_boss()
+			return
+		var btns := []
+		if a < Data.AREAS.size() - 1:
 			btns.append(["Go to %s ›" % Data.AREAS[a + 1].n, "green", func():
 				Save.open_mine(a + 1)
 				Save.persist()
 				Ov.close()
 				render(), true])
 		btns.append(["Later", "glass", func(): Ov.close()])
-		var tail := "" if a < Data.AREAS.size() - 1 else " New mines are coming in the next version."
+		var tail := "The way on is open." if a < Data.AREAS.size() - 1 else "New mines are coming in the next version."
 		# Proval ends the first arc: the gate is open and the apprentice waits beyond it (his fight is still to come)
-		if a == 4 and not A.has("boss"): tail = " The dwarven gate stands open. He is waiting beyond it."
-		Ov.panel(A.n + " is fitted out!", "Reward: 500 coins, a pickaxe and a rock drill." + tail, btns)
+		if a == 4 and not A.has("boss"): tail = "The dwarven gate stands open. He is waiting beyond it."
+		Ov.panel(A.n + " is fitted out!", tail, btns)
 
 ## a price in ore: the round badge and the number
 static func ore_tag(kind: String, n: int, fs: int) -> HBoxContainer:

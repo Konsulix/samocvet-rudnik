@@ -135,7 +135,14 @@ static var LIST := [
 	{tab = "mines", icon = "adit", n = "Every Stone of the Hill", t = "The old man knows them all. Do you?", r = "an artifact stand", items = ["mine:0"]},
 	{tab = "mines", icon = "serpent", n = "The Serpent Sleeps", t = "Gold doesn't come for free here.", r = "a trophy", one = true, boss = 0, items = ["i:serpent"]},
 	{tab = "mines", icon = "glow_stone", n = "Legend of the Adit", t = "One stone here is not like the others.", r = "a rare geode", one = true, legend = 0, items = ["i:glow_stone"]},
-	{tab = "mines", icon = "headframe", n = "Fully Rigged", t = "Every wheel turns, every lamp burns.", r = "coins", coins = 900, one = true, ev = "rigged:0", items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Old Adit", t = "Every wheel turns, every lamp burns.", r = "Fit out every job of Old Adit", one = true, ev = "rigged:0", mine = 0, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Copper Mountain", t = "The furnace roars, the wheel turns, the hall is open.", r = "Fit out every job of Copper Mountain", one = true, ev = "rigged:1", mine = 1, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Whalebone Cove", t = "The light is lit, the bell rings, the cove is yours.", r = "Fit out every job of Whalebone Cove", one = true, ev = "rigged:2", mine = 2, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Fire Horizon", t = "Every stair cut, every kiln alight.", r = "Fit out every job of Fire Horizon", one = true, ev = "rigged:3", mine = 3, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Proval", t = "Down the pit, all the way to the gate.", r = "Fit out every job of Proval", one = true, ev = "rigged:4", mine = 4, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Spider Hollow", t = "The galleries are swept and the threads are cut.", r = "Fit out every job of Spider Hollow", one = true, ev = "rigged:5", mine = 5, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Deathless Barrow", t = "Every hall of the mound lit up.", r = "Fit out every job of Deathless Barrow", one = true, ev = "rigged:6", mine = 6, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
+	{tab = "mines", icon = "headframe", n = "Rigged: Whispering Seam", t = "The pumps run and the bird sings.", r = "Fit out every job of Whispering Seam", one = true, ev = "rigged:7", mine = 7, give = {coins = 500, boost = {pick = 1, bore_h = 1}}, items = ["kit:coin"]},
 	{tab = "mines", icon = "eye", n = "Eye of the Miner", t = "The mine moves when you're not looking. Catch it moving.", r = "a portrait frame",
 		items = ["i:serpent", "i:serpent", "i:eye", "i:lizard"], evs = ["ev:0:hole", "ev:0:coil", "ev:0:eyes", "ev:0:lizard"]},
 
@@ -756,6 +763,7 @@ static func _state(e: Dictionary) -> String:
 	var c := _count(e)
 	if c.x >= c.y and c.y > 0: return "done" if (Save.d.aw_got as Array).has(String(e.n)) else "ready"
 	if e.get("hide", false): return "hidden"
+	if e.has("mine") and int(e.mine) > Save.reached(): return "hidden"   # a mine not reached yet keeps its name
 	return "open"
 
 ## a boss fought again gets harder: the first win is tier 1, each replay won the next, up to TIERS
@@ -812,9 +820,10 @@ static func _latch() -> void:
 			Save.d.aw_ev.pet_day = day
 		elif day - n("pet_day") >= 30: once("pet_rock")
 	elif n("pet_id") != 0: Save.d.aw_ev.pet_id = 0
-	# every job of Old Adit built to its last step
-	var jobs: Array = Data.AREAS[0].get("tasks", [])
-	if jobs.size() and jobs.all(func(t: Array) -> bool: return (Save.d.built[0] as Array).has(t[0])): once("rigged:0")
+	# every job of a mine built to its last step (one award a mine, 18.11: the reward of the old "fitted out" window)
+	for a in mini(Data.AREAS.size(), (Save.d.built as Array).size()):
+		var jobs: Array = Data.AREAS[a].get("tasks", [])
+		if jobs.size() and jobs.all(func(t: Array) -> bool: return (Save.d.built[a] as Array).has(t[0])): once("rigged:%d" % a)
 	# a depth of the mine worked to its floor, iron and ore both (the veins keep only the current mine's)
 	if n("worked_out") == 0:
 		var vs: Array = Save.d.get("vein", [])
