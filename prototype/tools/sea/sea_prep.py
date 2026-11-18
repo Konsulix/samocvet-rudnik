@@ -74,7 +74,7 @@ MODELS = [
     dict(name="swim_ophthalmosaurus", file="живность большая/opthalmosaurus.glb", tris=6000, tex=1024, reach=True, gap=-1.0, turn=90),
     # (swim_turtle: no plastron: an open shell from below — not used)
     # dict(name="swim_turtle", file="живность большая/sea_turtle.glb", tris=6000, tex=1024, reach=True),
-    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.4533, 0.1637, -0.1)),
+    dict(name="swim_styxosaurus", file="живность большая/styxosaurus_snowii.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.4533, 0.1608, -0.114)),
     dict(name="swim_tylosaurus", file="живность большая/tylosaurus.glb", tris=6000, tex=1024, reach=True, turn=90, mouth=(0.353, 0.107, -0.065)),
     dict(name="swim_dallasaurus", file="живность большая/dallasaurus.glb", tris=6000, tex=1024, reach=True, turn=90),
     # (the octopus: a soft flat body, its arms close together — the light mesh lies further off the scan than a stiff

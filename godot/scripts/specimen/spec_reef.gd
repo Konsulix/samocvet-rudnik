@@ -55,7 +55,7 @@ const MODELS := {
 	swim_octopus = {g = "swim", n = "giant octopus", k = 0.6, far = true, anim = {swim = 0.0, swim_f = 0.33, stride = 0.75, jet = 0.3}},
 	swim_mosasaurus = {g = "swim", n = "mosasaur", k = 1.1, far = true, anim = {nose = Vector3(0.494, 0.061, 0.0), ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.38, swim_k = 0.95, swim_from = 0.3, glide = 0.4, stride = 0.55, flip = 0.12, flip_w = 0.06, flip_x0 = -0.15, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.38, jaw = 0.42, jaw_x = 0.376, jaw_y = 0.064, jaw_s = 0.0, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.406, eye_y = 0.083, eye_r = 0.006}},
 	swim_ophthalmosaurus = {g = "swim", n = "ichthyosaur", k = 1.0, far = true, anim = {nose = Vector3(0.494, 0.118, 0.0), ram = 2.0, swim = 0.075, swim_f = 0.65, swim_k = 0.5, swim_from = 0.0, glide = 0.3, stride = 0.6, flip = 0.08, flip_w = 0.1, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = -1.0, flip_f = 0.4, jaw = 0.04, jaw_x = 0.282, jaw_y = 0.1154, jaw_s = 0.09, jaw_shut = 0.32, eye_x = 0.318, eye_y = 0.157, eye_r = 0.013}},
-	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {nose = Vector3(0.494, 0.155, 0.004), swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1637, jaw_s = -0.1, jaw_shut = 0.04, jaw_fan = 0.004, jaw_ramp = 0.006, eye_paint = 1.0, paint_zc = 0.0022, paint_z0 = 0.003, eye_x = 0.477, eye_y = 0.1655, eye_r = 0.0031}},
+	swim_styxosaurus = {g = "swim", n = "plesiosaur", k = 1.15, far = true, anim = {nose = Vector3(0.494, 0.155, 0.004), swim = 0.01, swim_f = 0.4, swim_k = 1.0, swim_from = -0.2, glide = 0.3, go_f = 0.32, stride = 0.6, visit = 1.0, flip = 0.7, flip_w = 0.07, flip_x0 = -0.45, flip_x1 = -0.05, flip_mid = -0.25, flip_f = 0.32, neck = 0.11, neck_from = 0.0, jaw = 0.5, jaw_x = 0.4533, jaw_y = 0.1608, jaw_s = -0.114, jaw_shut = 0.12, jaw_fan = 0.004, jaw_ramp = 0.006, eye_paint = 1.0, paint_zc = 0.0022, paint_z0 = 0.003, eye_x = 0.477, eye_y = 0.1655, eye_r = 0.0031}},
 	swim_tylosaurus = {g = "swim", n = "Tylosaurus", k = 1.1, far = true, anim = {nose = Vector3(0.492, 0.093, 0.076), ram = 1.0, near = 2.5, swim = 0.11, swim_f = 0.32, swim_k = 1.0, swim_from = 0.3, glide = 0.45, stride = 0.55, flip = 0.1, flip_w = 0.1, flip_x0 = -0.2, flip_x1 = 0.35, flip_mid = 0.1, flip_f = 0.32, jaw = 0.42, jaw_x = 0.353, jaw_y = 0.107, jaw_s = -0.065, jaw_shut = 0.025, jaw_fan = 0.004, eye_x = 0.408, eye_y = 0.104, eye_r = 0.007}},
 	swim_dallasaurus = {g = "swim", n = "Dallasaurus", k = 0.8, far = true, anim = {nose = Vector3(0.494, 0.08, 0.0), ram = 1.0, near = 2.5, swim = 0.1, swim_f = 0.6, swim_k = 1.1, swim_from = 0.35, glide = 0.5, stride = 0.5, flip = 0.15, flip_w = 0.065, flip_x0 = 0.05, flip_x1 = 0.3, flip_mid = 0.2, flip_f = 0.6, jaw = 0.35, jaw_x = 0.393, jaw_y = 0.0743, jaw_s = 0.05, jaw_shut = 0.1, eye_x = 0.452, eye_y = 0.094, eye_r = 0.006}},
 }
@@ -400,15 +400,17 @@ class Swim extends Node3D:
 	var tail_f := -1.0
 	var tail_ph := 0.0
 	## the swallowing (a plesiosaur, once in a game: Reveal.show_stone). gulp() sends it out of the deep straight at the
-	## find, jaws wide: it takes the find whole (`gulped`), comes on right up to the eye, chews, looks in, and makes
-	## off (`gulp_over`). From then on it keeps the card to itself (`keeper`): a slow round where the find was — till
-	## the find is won back. A find already swallowed is built so (SpecReef.swallowed).
-	## pass 8; stage: 0 coming, 1 the find taken and the head at the eye, 2 leaving
+	## find, from far off and faster all the way, its jaws opening as it comes up; they shut on the find as the head
+	## goes through it (`gulped`) and it tears on, past the eye a little aside — one rush, no stop (`gulp_over` when
+	## it is gone). Then it keeps the card to itself (`keeper`): a slow round where the find was — till the find is won
+	## back. A find already swallowed is built so (SpecReef.swallowed).
+	## pass 8; stage: 0 coming, 2 the find taken and on past the eye
 	signal gulped
 	signal gulp_over
 	const GULP_K := 2.2      # (its size at the find, of its far size)
 	const KEEP_K := 0.42     # (and keeping the card)
 	var keeper := false
+	var keep_t := 9.0        # (keeping the card: under 0 not there yet, then it comes up out of the dim)
 	var ka := 0.0
 	var wait_g := 0.0
 	var gulp_base := Transform3D.IDENTITY
@@ -458,6 +460,7 @@ class Swim extends Node3D:
 	func keep_alone() -> void:
 		_hide_find()
 		keeper = true
+		keep_t = 9.0
 		far = true
 		ka = ph * TAU
 		tan = Vector3.ZERO
@@ -468,7 +471,8 @@ class Swim extends Node3D:
 
 	## keeping the card: round and round where the find was, banking, its body bent to the turn
 	func _keep(dt: float) -> void:
-		visible = true
+		keep_t += dt
+		visible = keep_t > 0.0
 		ka += maxf(vel, 0.5) * KEEP_K * dt / 2.0
 		var q := _keep_at(ka)
 		var nq := (_keep_at(ka + 0.03) - q).normalized()
@@ -477,25 +481,26 @@ class Swim extends Node3D:
 			curve = lerpf(curve, clampf(tan.cross(nq).y / dt * 0.9, -0.45, 0.45), minf(1.0, dt * 2.0))
 		tan = nq
 		if mat:
-			mat.set_shader_parameter("fade", 1.0)
+			mat.set_shader_parameter("fade", smoothstep(0.0, 1.6, keep_t))
 			mat.set_shader_parameter("curve", curve)
 			mat.set_shader_parameter("jaw_force", -1.0)
 			mat.set_shader_parameter("neck", neck0)
 		transform = Transform3D(Basis.looking_at(nq, Vector3.UP) * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, bank) * Basis.from_scale(Vector3.ONE * sc * KEEP_K), q)
 
-	## at the find: the jaws shut on it — it is drawn into them, small, and gone — and the head comes on to the eye,
-	## chewing; a look in; and off
-	func _gulp(dt: float) -> void:
+	## the jaws shut on the find as the head goes through where it was: the find is drawn into them, small, and gone —
+	## all on the move, the beast never checks
+	func _swallow(dt: float) -> void:
 		tv += dt
-		var b := Basis.looking_at(hdg, Vector3.UP)
-		var shut := smoothstep(0.0, 0.16, tv)
+		var shut := smoothstep(0.0, 0.14, tv)
 		if home == null or not is_instance_valid(home): home = _home()
 		if not took and home and home != self and home.get_parent() is Node3D:
 			if not gulp_set:
 				gulp_set = true
 				gulp_base = home.transform
 			var k := 1.0 - shut
-			var into := (home.get_parent() as Node3D).global_transform.affine_inverse() * hit_at
+			# (into the mouth, just behind the snout's tip — wherever the head has got to)
+			var mouth := global_transform * (nose - Vector3(0.014, 0.004, 0.0))
+			var into := (home.get_parent() as Node3D).global_transform.affine_inverse() * mouth
 			home.transform = Transform3D(Basis.from_scale(Vector3.ONE * maxf(0.02, k)), into * (1.0 - k)) * gulp_base
 			if shut >= 1.0:
 				took = true
@@ -506,24 +511,8 @@ class Swim extends Node3D:
 				add_child(bb)
 				bb.global_transform = Transform3D(Basis.from_scale(Vector3.ONE * 1.4), hit_at + Vector3(0, 0.2, 0.4))
 				gulped.emit()
-		var jw := 1.0 - shut if tv < 0.3 else 0.3 * absf(sin((tv - 0.3) * 6.5)) * (1.0 - smoothstep(1.5, 2.1, tv))
-		curve = 0.12 * sin(tv * 1.7)
 		if mat:
-			mat.set_shader_parameter("jaw_force", jw)
-			mat.set_shader_parameter("curve", curve)
-		var at_p := stop + hdg * 3.0 * smoothstep(0.05, 0.8, tv) + Vector3(0, 0.08 * sin(tv * 2.1), 0)
-		transform = Transform3D(b * Basis(Vector3.UP, PI / 2) * Basis(Vector3.RIGHT, 0.1 * sin(tv * 1.3)) * Basis.from_scale(Vector3.ONE * sc * GULP_K), at_p)
-		if tv > 2.7:
-			stage = 2
-			pa = at_p
-			pc = at_p + Vector3(dir * sc * GULP_K * 0.4, -0.4, -1.0)
-			pb = Vector3(dir * FOV * (CAM + DEPTH) * 1.3, 3.0, -DEPTH * 2.0)
-			deep = -1
-			s = 0.0
-			vel = 0.0
-			face = hdg
-			tan = hdg
-			if mat: mat.set_shader_parameter("jaw_force", -1.0)
+			mat.set_shader_parameter("jaw_force", 1.0 - shut if tv < 0.25 else 0.22 * absf(sin((tv - 0.25) * 7.0)) * (1.0 - smoothstep(0.9, 1.6, tv)))
 	## its colours' own strength (the shader's gain), and how far it is dimmed now: at the glass it is right under the
 	## studio's lamps and burnt out to a pale grey, its skin lost — so near, it keeps DIM of its light
 	const DIM := 0.58
@@ -827,9 +816,6 @@ class Swim extends Node3D:
 				rest -= dt
 				if rest <= 0.0: new_pass()
 				return
-			if kind == 8 and stage == 1:
-				_gulp(dt)
-				return
 			if kind == 6 and stage == 1:
 				_visit(dt)
 				return
@@ -866,7 +852,7 @@ class Swim extends Node3D:
 					if mat: mat.set_shader_parameter("swim", swim0 * lerpf(2.2, 1.0, smoothstep(0.0, 0.7, s)))
 			if kind == 8:
 				if stage == 0:
-					slow = lerpf(2.0, 7.0, smoothstep(0.1, 0.8, s))
+					slow = lerpf(2.0, 4.6, smoothstep(0.1, 0.8, s))
 					size = sc * lerpf(1.0, GULP_K, smoothstep(0.1, 1.0, s))
 					if mat:
 						mat.set_shader_parameter("jaw_force", smoothstep(0.7, 0.93, s))
@@ -875,24 +861,31 @@ class Swim extends Node3D:
 						roared = true
 						sea_call.emit("rush")
 				else:
-					size = sc * lerpf(GULP_K, 1.0, smoothstep(0.05, 0.9, s))
-					slow = 1.8
-					if mat: mat.set_shader_parameter("neck", neck0 * smoothstep(0.2, 0.9, s))
+					# (the find in its jaws, and on past the eye at the same rush)
+					size = sc * GULP_K
+					slow = 4.6
+					_swallow(dt)
 			s += vel * slow * dt / maxf(0.01, dp.length())
 			if s >= 1.0 and kind == 8 and stage == 0:
-				stage = 1
+				# the head is at the find: the jaws shut on it, and it goes straight on — past the eye, a little aside
+				stage = 2
 				tv = 0.0
-				face = hdg
+				deep = 0
+				pa = stop
+				pc = stop + hdg * 12.0
+				pb = stop + Vector3(dir * 9.0, -1.0, 30.0)
+				s = 0.0
 				sea_call.emit("gulp")
-				_gulp(0.0)
+				_swallow(0.0)
 				return
 			if s >= 1.0 and kind == 8 and stage == 2:
 				keeper = true
+				keep_t = -1.2
+				visible = false
 				ka = ph * TAU
 				tan = Vector3.ZERO
 				curve = 0.0
 				gulp_over.emit()
-				_keep(0.0)
 				return
 			if s >= 1.0 and kind == 7 and stage == 0:
 				stage = 1
@@ -921,7 +914,7 @@ class Swim extends Node3D:
 			visible = true
 			var p := pa * ((1.0 - s) * (1.0 - s)) + pc * (2.0 * (1.0 - s) * s) + pb * (s * s)
 			var nt := dp.normalized()
-			if kind in [7, 8] and stage == 2:
+			if kind == 7 and stage == 2:
 				# (from the glass it comes round slowly, a heavy body — and bends into its turn, the head leading)
 				var was := face
 				face = face.slerp(nt, minf(1.0, dt * lerpf(0.5, 1.8, smoothstep(0.0, 0.35, s)))).normalized()
