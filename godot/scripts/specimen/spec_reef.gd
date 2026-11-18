@@ -659,6 +659,8 @@ class Swim extends Node3D:
 				if stage == 1 and rams == 1: bl = maxf(bl, 1.0 - smoothstep(0.2, 0.45, tv))
 			mat.set_shader_parameter("blink_force", bl)
 		var want := sc * stride * beat * go()
+		# (charging the glass and making off, a slow giant goes as its quickened tail drives it: up to the pace of QUICK)
+		if far and rams > 0 and kind == 7: want *= maxf(1.0, QUICK / maxf(0.05, tail_f0))
 		# (a body's weight: it gathers way and loses it slowly)
 		vel = want if vel < 0.0 else lerpf(vel, want, minf(1.0, dt * 1.5))
 		if far:
