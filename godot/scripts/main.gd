@@ -447,10 +447,16 @@ func _ready() -> void:
 		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("opals", false))
 		var sd := 190000
 		var made := 0
-		while made < 12 and sd < 260000:
+		var geodes := 0
+		while made < 12 and sd < 400000:
 			sd += 1
 			var st := Stones.roll(sd, 2, 1.2, 8)
 			if st.sid != "opal": continue
+			# (geodes are rare — 0.6 to 5 — but are what is being looked at: four of them, the rest as they come)
+			var geo := String(st.get("kind", "")) == "geode"
+			if geo and geodes >= 4: continue
+			if not geo and made - geodes >= 8: continue
+			if geo: geodes += 1
 			st.area = 2
 			st.dl = 8
 			st.integ = 100
@@ -458,7 +464,7 @@ func _ready() -> void:
 			st.test = true
 			Save.d.coll.append(st)
 			made += 1
-		print("opals: ", made)
+		print("opals: ", made, " geodes: ", geodes)
 	if args.has("flowers"):
 		# test data: two finds with every kind of flower (SpecFlora.KINDS), on open rock: `-- save=flowers screen=stones
 		# flowers`; marked test, old ones from a previous run are replaced (the kind is the stone's seed's: searched for)
