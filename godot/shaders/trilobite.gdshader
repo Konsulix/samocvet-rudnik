@@ -214,7 +214,12 @@ void fragment() {
 	// of jumping from pixel to pixel as the find turns
 	if (part != 2) {
 		vec3 ndx = dFdx(NORMAL), ndy = dFdy(NORMAL);
-		ro = sqrt(clamp(ro * ro + min(0.5 * (dot(ndx, ndx) + dot(ndy, ndy)), 0.25), 0.0, 1.0));
+		// (19.11: a spine's point is a degenerate triangle — the normal's change there is inf or NaN, and on a phone
+		// a NaN roughness drew the spines dark blue streaked with yellow: kept finite)
+		float nv = 0.5 * (dot(ndx, ndx) + dot(ndy, ndy));
+		if (isnan(nv) || isinf(nv)) nv = 0.25;
+		ro = sqrt(clamp(ro * ro + min(nv, 0.25), 0.0, 1.0));
+		if (isnan(ro)) ro = rough_k;
 	}
 	ALBEDO = c;
 	ROUGHNESS = clamp(ro, 0.04, 1.0);

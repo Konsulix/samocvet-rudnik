@@ -355,7 +355,9 @@ void fragment() {
 		// shell's fine relief under a metal sheen sparkled pixel by pixel as the find turned; and the tiny mirror grains
 		// (ro 0.1–0.12) go where they would be under a pixel
 		vec3 ndx = dFdx(nb), ndy = dFdy(nb);
-		ro = sqrt(clamp(ro * ro + min(0.5 * (dot(ndx, ndx) + dot(ndy, ndy)), 0.3), 0.0, 1.0));
+		float nv = 0.5 * (dot(ndx, ndx) + dot(ndy, ndy));
+		if (isnan(nv) || isinf(nv)) nv = 0.3;   // (a degenerate triangle: kept finite — a NaN roughness is garbage on a phone)
+		ro = sqrt(clamp(ro * ro + min(nv, 0.3), 0.0, 1.0));
 		ro = max(ro, mix(0.0, 0.3, smoothstep(0.2, 0.6, length(fwidth(p)) * 210.0)) * m);
 		ALBEDO = c;
 		METALLIC = m;

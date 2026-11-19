@@ -3660,8 +3660,18 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 	# (a fossil with no rock under it — loose, sawn — has nowhere for them: they stacked up in a column over its middle)
 	if "bubbles" in tr and not (Data.HABIT.get(sid, "") == "fossil" and not st.rock):
 		var made := []
+		# (19.11) a sea floor's fossil (a trilobite's, an ammonite's slab): the bubbles cling to its rock, small — its
+		# slab is moved and turned after its rock was laid (SpecTrilobite), and picked in the rock's own space, lifted
+		# up to half a unit they hung off the slab in the air, big as marbles
+		var sea_f: bool = Data.HABIT.get(sid, "") == "fossil" and st.rock is Node3D
+		var rt: Transform3D = U.rel_xform(st.rock, root) if sea_f and (st.rock as Node3D).is_inside_tree() else Transform3D.IDENTITY
 		var place := func(k: int) -> Array:
 			var v: Vector3 = (pick.call() as Vector3) * 1.02
+			if sea_f:
+				v = rt * (pick.call() as Vector3)
+				var s0 := (0.008 + rng.next() * 0.022) * rt.basis.get_scale().x
+				made.append([s0, v])
+				return [Transform3D(Basis.from_scale(Vector3(s0, s0 * 0.7, s0)), v), Color(1, 1, 1)]
 			v.y += rng.next() * 0.5
 			var s := 0.015 + rng.next() * 0.05
 			made.append([s, v])

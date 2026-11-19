@@ -304,6 +304,7 @@ void fragment() {
 		// The surface is made rougher by how much it turns under a pixel (Kaplanyan), the highlight spreads instead
 		vec3 ndx = dFdx(n), ndy = dFdy(n);
 		float nvar = 0.25 * (dot(ndx, ndx) + dot(ndy, ndy));
+		if (isnan(nvar) || isinf(nvar)) nvar = 0.125;
 		r = mix(r, sqrt(clamp(r * r + min(2.0 * nvar, 0.25), 0.0, 1.0)), aa_k);
 	}
 	vec3 e = emis + s_glow;
