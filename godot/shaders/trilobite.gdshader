@@ -41,6 +41,15 @@ varying vec3 v_cam;
 
 #include "res://shaders/opal.gdshaderinc"
 
+// how much of a detail of frequency f (cells per unit of u) to keep: a cell under ~2 pixels shimmers as the find turns
+// (the grain jumps from pixel to pixel, frame to frame) — it fades to its average instead
+float aa(vec2 u, float f) {
+	return 1.0 - smoothstep(0.2, 0.6, length(fwidth(u)) * f);
+}
+float aa3(vec3 u, float f) {
+	return 1.0 - smoothstep(0.2, 0.6, length(fwidth(u)) * f);
+}
+
 vec4 tri(sampler2D t, vec3 q, vec3 w) {
 	return texture(t, q.yz) * w.x + texture(t, q.xz) * w.y + texture(t, q.xy) * w.z;
 }
@@ -96,7 +105,7 @@ void fragment() {
 		float dome = sqrt(max(0.0, 1.0 - r * r)) + dot(d, tilt) * 0.5;
 		h = lens * dome * 0.0035;
 		vec3 lc = mix(vec3(0.02, 0.016, 0.012), base_col * 0.4, 0.2) * (0.6 + 0.8 * id);
-		vec3 rim = mix(dark_col, base_col, 0.6) * (0.75 + 0.3 * fbm(p * 120.0));
+		vec3 rim = mix(dark_col, base_col, 0.6) * (0.75 + 0.3 * mix(0.5, fbm(p * 120.0), aa3(p, 240.0)));
 		c = mix(rim, lc, lens);
 		// no lids to blink: now and then a ripple of light runs across the lenses instead, front to back
 		float ph = fract(TIME * 0.17 + seed * 0.13);
@@ -113,7 +122,7 @@ void fragment() {
 		c = rock_col * (0.55 + 0.7 * sc) * (0.8 + 0.3 * fbm(p * 30.0));
 		ro = 0.92;
 		me = 0.0;
-		h = fbm(p * 45.0) * 0.004 + vn(p * 140.0) * 0.001;
+		h = fbm(p * 45.0) * 0.004 * aa3(p, 90.0) + (vn(p * 140.0) - 0.5) * 0.001 * aa3(p, 140.0);
 		NORMAL = bump(n, VERTEX, h, 1.0);
 	} else {
 		vec2 b = UV;
@@ -123,15 +132,15 @@ void fragment() {
 		// granules: dense on the glabella, scattered over the rest by kind
 		vec3 gr = vor2(b * mix(95.0, 70.0, glab) + seed);
 		float gk = max(glab, tub_k * 0.6) * tub_k;
-		float tub = (1.0 - smoothstep(0.15, 0.42, gr.x)) * gk * step(0.25, gr.z);
+		float tub = (1.0 - smoothstep(0.15, 0.42, gr.x)) * gk * step(0.25, gr.z) * aa(b, mix(95.0, 70.0, glab));
 		vec3 fine = vor2(b * 260.0 + seed * 3.0);
-		float grain = (1.0 - smoothstep(0.1, 0.4, fine.x)) * 0.35;
+		float grain = (1.0 - smoothstep(0.1, 0.4, fine.x)) * 0.35 * aa(b, 260.0);
 		float wear = fbm(vec3(b * 18.0, seed));
 		vec3 tw0 = pow(abs(normalize(v_no)), vec3(4.0));
 		tw0 /= tw0.x + tw0.y + tw0.z;
 		vec3 sc = tri(scan_tex, p * 2.4 + seed, tw0).rgb;
 		float sl = dot(sc, vec3(0.3, 0.5, 0.2));
-		float pits = smoothstep(0.75, 0.9, vn(vec3(b * 140.0, seed))) * (1.0 - tub);
+		float pits = smoothstep(0.75, 0.9, vn(vec3(b * 140.0, seed))) * (1.0 - tub) * aa(b, 140.0);
 		h = tub * 0.0035 + grain * 0.0004 + (wear - 0.5) * 0.0006 + (sl - 0.4) * 0.0012 * scan_k - pits * 0.0005;
 		// colour: darker down in the furrows, lighter and polished on the high points the rock wore
 		c = mix(base_col, dark_col, furrow * 0.65);
@@ -145,9 +154,13 @@ void fragment() {
 		// patches, dull where it weathered
 		if (metal_k > 0.5) {
 			vec3 cg = vor2(b * 160.0 + seed);
+			// (crystals under a pixel or two: their own tilt and shade would sparkle pixel by pixel — where they would,
+			// the grain is drawn coarser instead, still a grain, not a polished ball)
+			float ck = aa(b, 160.0);
+			if (ck < 0.999) cg = mix(vor2(b * 55.0 + seed + 7.0), cg, ck);
 			h += (cg.z - 0.5) * 0.0014 + (1.0 - smoothstep(0.0, 0.08, cg.y)) * -0.0006;
-			float rust = smoothstep(0.52, 0.72, fbm(vec3(b * 4.0, seed + 20.0))) * (0.6 + 0.4 * fbm(vec3(b * 30.0, seed)));
-			c = mix(c, vec3(0.26, 0.14, 0.06) * (0.7 + 0.6 * fbm(vec3(b * 40.0, seed + 3.0))), rust * 0.85);
+			float rust = smoothstep(0.52, 0.72, fbm(vec3(b * 4.0, seed + 20.0))) * (0.6 + 0.4 * mix(0.5, fbm(vec3(b * 30.0, seed)), aa(b, 60.0)));
+			c = mix(c, vec3(0.26, 0.14, 0.06) * (0.7 + 0.6 * mix(0.5, fbm(vec3(b * 40.0, seed + 3.0)), aa(b, 80.0))), rust * 0.85);
 			ro = mix(ro * (0.8 + 0.6 * cg.z), 0.85, rust);
 			me = mix(me, 0.1, rust);
 			c *= 0.85 + 0.3 * cg.z;
@@ -196,6 +209,12 @@ void fragment() {
 	}
 	if (part == 1 && eye_glow > 0.0) {
 		EMISSION = glow_col * eye_glow * (0.35 + 0.65 * smoothstep(0.2, 0.9, 1.0 - h * 280.0)) * (0.75 + 0.25 * sin(TIME * 2.3));
+	}
+	// the shell made rougher where its normal turns fast under a pixel (Kaplanyan): the pyrite's glint spreads instead
+	// of jumping from pixel to pixel as the find turns
+	if (part != 2) {
+		vec3 ndx = dFdx(NORMAL), ndy = dFdy(NORMAL);
+		ro = sqrt(clamp(ro * ro + min(0.5 * (dot(ndx, ndx) + dot(ndy, ndy)), 0.25), 0.0, 1.0));
 	}
 	ALBEDO = c;
 	ROUGHNESS = clamp(ro, 0.04, 1.0);
