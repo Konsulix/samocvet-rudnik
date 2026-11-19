@@ -64,8 +64,8 @@ static func _blade_left(c: Dictionary, u: Vector3, crush: Vector3) -> float:
 	var k: float = dm.get("k", 0.0)
 	if k <= 0.0: return 1.0
 	var dr: Rng32 = dm.rng
-	if u.dot(crush) > 0.85 - k * 0.7: return 0.15 + dr.next() * 0.35
-	if dr.next() < k * 0.3: return 0.35 + dr.next() * 0.4
+	if u.dot(crush) > 0.8 - k * 0.9: return 0.08 + dr.next() * 0.3
+	if dr.next() < k * 0.5: return 0.25 + dr.next() * 0.4
 	return 1.0
 
 static func _crush_dir(c: Dictionary) -> Vector3:

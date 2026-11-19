@@ -829,7 +829,7 @@ func _specimen(o: Dictionary) -> Node3D:
 					if d.dot(nn) < 0.15: d = (d + nn).normalized()
 					var ln := (0.12 + pow(rng.next(), 0.7) * 0.42) * gs * reach
 					# (19.11) hurt by the dig: hairs snapped short, more the worse it is
-					if zcfg.has("dmg") and (zcfg.dmg.rng as Rng32).next() < float(zcfg.dmg.k) * 0.6: ln *= 0.2 + (zcfg.dmg.rng as Rng32).next() * 0.4
+					if zcfg.has("dmg") and (zcfg.dmg.rng as Rng32).next() < float(zcfg.dmg.k) * 0.9: ln *= 0.08 + (zcfg.dmg.rng as Rng32).next() * 0.32
 					var r := (0.0028 + rng.next() * 0.0022) * gs
 					hairs.append(Transform3D(Basis(quat_to_l(UP, d)) * Basis.from_scale(Vector3(r, ln, r)), p - nn * 0.01))
 			U.inst(Geo.cylinder(1.0, 0.35, 1.0, 5).translate(0, 0.5, 0), hm, hairs.size(), func(i: int) -> Array: return [hairs[i], Color(1, 1, 1)], root)
@@ -1036,9 +1036,17 @@ func _specimen(o: Dictionary) -> Node3D:
 					var r2 := (0.3 + rng.next() * 0.12) * gs
 					balls.append([Vector3(0, 0.05, 0) + dir * (0.55 * gs + r2) * 0.72, r2])
 				var rose := Geo.new()
+				# (19.11) hurt by the dig: the side it struck crushed — its blades broken down short and some gone, the
+				# sand between them showing; here and there over the rest one snapped (the damage's own stream)
+				var rdm: Dictionary = zcfg.get("dmg", {})
+				var rk_d: float = rdm.get("k", 0.0)
 				for ball: Array in balls:
 					var c0: Vector3 = ball[0]
 					var R: float = ball[1]
+					var crush := Vector3.UP
+					if rk_d > 0.0:
+						var dr0: Rng32 = rdm.rng
+						crush = (VIEW_DIR * 0.6 + UP * 0.5 + Vector3(dr0.next() - 0.5, dr0.next() - 0.5, dr0.next() - 0.5) * 1.2).normalized()
 					# the sand packed between the blades: a dull brown core that the gaps show
 					var core := Geo.icosa(R * 0.72, 3).to_soup()
 					for q in core.v.size():
@@ -1057,6 +1065,15 @@ func _specimen(o: Dictionary) -> Node3D:
 						var segs := 12
 						var lobes := 3.0 + float(k % 4)
 						var ph := rng.next() * TAU
+						if rk_d > 0.0:
+							var dr1: Rng32 = rdm.rng
+							# (a patch, not a side: a whole side crushed bared the sand ball under it, a faceted sphere)
+							if u.dot(crush) > 0.93 - rk_d * 0.3:
+								if dr1.next() < 0.15: continue
+								pr *= 0.45 + dr1.next() * 0.3
+								at = c0 + u * R * (0.5 + dr1.next() * 0.2)
+							elif dr1.next() < rk_d * 0.25:
+								pr *= 0.5 + dr1.next() * 0.3
 						var ring := func(rf: float, side: float) -> Array:
 							var out := []
 							for q in segs:
@@ -1245,6 +1262,34 @@ func _specimen(o: Dictionary) -> Node3D:
 			holder.rotation.y = rng.next() * TAU
 			var sk := SpecBranch.skeleton(rng, {r0 = (0.075 if copper else 0.055) * gs, len0 = 1.05 * gs, levels = 3, kids = [3, 4], kids2 = [2, 3], kid_r = 0.7,
 				kid_len = 0.62, spread = 0.75, gnarl = 0.9, up = 0.9, taper = 0.45})
+			# (19.11) hurt by the dig: twigs snapped off part way, and whatever grew past the break gone with them; the
+			# broken end torn, not tapered (the damage's own stream)
+			var tdm: Dictionary = zcfg.get("dmg", {})
+			if float(tdm.get("k", 0.0)) > 0.0:
+				var tr2: Rng32 = tdm.rng
+				var kept := []
+				for bi in sk.size():
+					var br: Dictionary = sk[bi]
+					if bi > 0:
+						# (a branch grows from a point of one before it: still there, or it went with the break)
+						var p0: Vector3 = (br.pts as Array)[0]
+						var on := false
+						for kb: Dictionary in kept:
+							var kp: Array = kb.pts
+							for qi in kp.size():
+								if p0.distance_to(kp[qi]) < float((kb.rad as Array)[qi]) * 1.8 + 0.002:
+									on = true
+									break
+							if on: break
+						if not on: continue
+						if dr_snap(tr2, float(tdm.k), int(br.depth)):
+							var n0 := (br.pts as Array).size()
+							var j := maxi(2, int(n0 * (0.15 + tr2.next() * 0.35)))
+							br.pts = (br.pts as Array).slice(0, j)
+							br.rad = (br.rad as Array).slice(0, j)
+							br.snapped = true
+					kept.append(br)
+				sk.assign(kept)
 			var ms := SpecBranch.build(holder, sk, {m = 7, sub = 2, lump = 0.45, ridge = 0.0, flat = 0.85, seed = seed_v}, cu)
 			for mi: MeshInstance3D in ms:
 				mi.set_meta("col", true)
@@ -1417,7 +1462,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		if main: _mark_on("limonite", main)
 	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11; 19.11 every
 	# botryoidal lump — chalcedony, jadeite, carnelian, flint, opal, hyalite… — a septarian nodule, obsidian, a lava bomb)
-	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith"] or (sid == "malachite" and layout == "sawn")):
+	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith", "geode", "slice"] or (sid == "malachite" and layout == "sawn")):
 		_glassy = layout == "obsidian"
 		_shatter()
 	_finish()
@@ -1458,7 +1503,7 @@ func _shatter() -> void:
 				(x as Node3D).transform = xt
 	# how it broke, the stone's own (16.11): an end knocked off sideways; its top knocked off; a slanting break, the
 	# wedge above slid down; a piece fallen forward to the viewer. (A Damaged find is split through: no top off)
-	var flat: bool = String(gene_m.get("form", "")) == "sawn"
+	var flat: bool = String(gene_m.get("form", "")) in ["sawn", "slice"]
 	var mode: String = Stones.pick_w([["side", 4.0], ["top", 0.0 if flat else 3.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]] if k < 0.56
 		else [["side", 4.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]], dr)
 	var cuts: Array = []
@@ -1789,6 +1834,10 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 			nd.free()
 			return [[xa], [xb]]
 	return [[nd], []] if _side_of(nd, at, n) <= 0.0 else [[], [nd]]
+
+## (19.11) a metal tree's twig hurt by the dig: snapped off part way? (the thin ones more often)
+func dr_snap(r: Rng32, k: float, depth: int) -> bool:
+	return r.next() < k * (0.55 + 0.2 * depth)
 
 var _cap_rim_col := false   # (_half: the cap's points coloured as the rim's — a mesh coloured by its points)
 var _glassy := false        # (_shatter: obsidian — black glass coloured by its points, breaking to the same glass)
