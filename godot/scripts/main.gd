@@ -441,6 +441,26 @@ func _ready() -> void:
 			made += 1
 		print("hugs: ", made, " finds")
 		Save.persist()
+	if args.has("enhydros"):
+		# test data: clear crystals with a water pocket (the "enhydro" trait), whole: `-- save=enh screen=stones enhydros`
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("enhydros", false))
+		var sd := 210000
+		var made := 0
+		while made < 10 and sd < 260000:
+			sd += 1
+			var st := Stones.roll(sd, 0, 1.2, 2)
+			if not st.sid in ["quartz", "amethyst", "calcite", "fluorite"] or st.get("kind", "") != "crystal": continue
+			var tr: Array = st.get("traits", [])
+			if not "enhydro" in tr: tr.append("enhydro")
+			st.traits = tr
+			st.area = 0
+			st.dl = 2
+			st.integ = 100
+			st.enhydros = true
+			st.test = true
+			Save.d.coll.append(st)
+			made += 1
+		print("enhydros: ", made)
 	if args.has("opals"):
 		# test data: a dozen opals as Whalebone Cove gives them (boulder, black, jelly, pseudomorphs, geodes), whole:
 		# `-- save=opals screen=stones opals`; marked test, old ones from a previous run are replaced
