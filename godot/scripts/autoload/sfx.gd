@@ -72,6 +72,8 @@ const SAMPLES := {
 	sea_song = {f = ["amb/sea/whale_0", "amb/sea/whale_1", "amb/sea/whale_2", "amb/sea/whale_3", "amb/sea/whale_4", "amb/sea/whale_5", "amb/sea/whale_6", "amb/sea/whale_7"], db = -8.0},
 	# (its jaws shutting on a find: a heavy low knock and the rush of water after it — the wet squelch tried first was silly)
 	sea_gulp = {f = ["impactMining_002", "amb/sea/crash_0"], all = true, db = -7.0, pitch = 0.5},
+	# (a shower over an opal egg: SpecView._wet — the cove's rattle of water, soft and quick)
+	opal_rain = {f = ["amb/sea/crash_1"], db = -16.0, pitch = 1.6},
 	sea_rush = {f = ["amb/sea/crash_1", "amb/sea/bubble_1"], all = true, db = -13.0, pitch = 0.6},
 	sea_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -10.0, pitch = 0.42},
 	glass_tap = {f = ["bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -18.0, pitch = 1.5},

@@ -281,8 +281,16 @@ func _wet() -> void:
 	var w0v: Variant = (ms[0] as ShaderMaterial).get_shader_parameter("wet")
 	var w0 := float(w0v) if w0v != null else 0.0
 	if _wet_tw: _wet_tw.kill()
+	# a shower over the card first: streaks of rain falling from the top, splashing where the stone is
+	var rain := Rain.new()
+	rain.size = size
+	rain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rain.clip_contents = true
+	add_child(rain)
+	Sfx.play("opal_rain")
 	_wet_tw = create_tween()
-	_wet_tw.tween_method(set_w, w0, 1.0, 0.5).set_trans(Tween.TRANS_SINE)
+	_wet_tw.tween_interval(0.35)
+	_wet_tw.tween_method(set_w, w0, 1.0, 0.7).set_trans(Tween.TRANS_SINE)
 	_wet_tw.tween_interval(1.6)
 	_wet_tw.tween_method(set_w, 1.0, 0.0, 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
@@ -320,3 +328,50 @@ func _zoom_gesture(e: InputEvent) -> bool:
 		return true
 	# while two fingers are down the emulated mouse must not turn the stone either
 	return _touch.size() > 1 and e is InputEventMouseMotion
+
+## (19.11) the rain a tap on an opal egg brings (SpecView._wet): slanted streaks falling from the card's top, thicker
+## and brighter near, faint far, for ~1.6 s, the last ones fading; little splashes round the middle where they land
+class Rain extends Control:
+	var t := 0.0
+	var drops: Array = []     # [x, start, speed, length, near]
+	var splash: Array = []    # [x, y, born]
+	const DUR := 1.6
+	const SLANT := 0.12
+
+	func _ready() -> void:
+		var r := RandomNumberGenerator.new()
+		r.randomize()
+		for i in 140:
+			var near := r.randf()
+			drops.append([r.randf_range(-0.1, 1.1) * size.x, r.randf() * (DUR - 0.45), lerpf(1.6, 2.6, near) * size.y, lerpf(0.05, 0.12, near) * size.y, near])
+		for i in 26:
+			splash.append([size.x * r.randf_range(0.25, 0.75), size.y * r.randf_range(0.42, 0.68), r.randf_range(0.3, DUR - 0.2)])
+
+	func _process(dt: float) -> void:
+		t += dt
+		if t > DUR + 0.5:
+			queue_free()
+			return
+		queue_redraw()
+
+	func _draw() -> void:
+		var fade := 1.0 - smoothstep(DUR - 0.35, DUR + 0.3, t)
+		for d: Array in drops:
+			var age := t - float(d[1])
+			if age < 0.0: continue
+			var y := -float(d[3]) + age * float(d[2])
+			if y > size.y: continue
+			var x := float(d[0]) - y * SLANT
+			var a := (0.18 + 0.5 * float(d[4])) * fade
+			var w := lerpf(1.0, 2.6, float(d[4]))
+			draw_line(Vector2(x, y), Vector2(x - float(d[3]) * SLANT, y + float(d[3])), Color(0.82, 0.9, 1.0, a), w, true)
+		for sp: Array in splash:
+			var age := t - float(sp[2])
+			if age < 0.0 or age > 0.35: continue
+			var k := age / 0.35
+			var c := Color(0.85, 0.92, 1.0, (1.0 - k) * 0.55 * fade)
+			var p := Vector2(float(sp[0]), float(sp[1]))
+			# a ring spreading, two droplets thrown up
+			draw_arc(p, 4.0 + k * 14.0, PI, TAU, 12, c, 1.4, true)
+			for sx: float in [-1.0, 1.0]:
+				draw_circle(p + Vector2(sx * (3.0 + k * 10.0), -10.0 * sin(k * PI)), 1.6, c)
