@@ -229,8 +229,13 @@ void fragment() {
 		vec3 hair = vor2(vec2(p.x * 6.0 - p.z * 4.0, p.y * 6.0 + p.z * 5.0) + (vn(p * 14.0) - 0.5) * 0.6);
 		float crack = (1.0 - smoothstep(0.0, 0.02, hair.y)) * smoothstep(0.45, 0.6, h3(vec3(floor(hair.zz * 9.0), 3.0)));
 		// close up the stone has a fine texture of its own: pores, a sandy grain, the odd glinting crystal
-		float micro = fbm(p * 140.0);
-		float pore = smoothstep(0.72, 0.9, vn(p * 260.0));
+		// (19.11: each faded to its average where a cell would be under ~2 pixels — on a pyrite shell's metal they
+		// sparkled pixel by pixel as the find turned)
+		float pxp = length(fwidth(p));
+		float micro = mix(0.5, fbm(p * 140.0), 1.0 - smoothstep(0.2, 0.6, pxp * 140.0));
+		float pore = smoothstep(0.72, 0.9, vn(p * 260.0)) * (1.0 - smoothstep(0.2, 0.6, pxp * 260.0));
+		grain.z = mix(0.5, grain.z, 1.0 - smoothstep(0.2, 0.6, pxp * 55.0));
+		pits *= 1.0 - smoothstep(0.2, 0.6, pxp * 55.0);
 		// the scanned stone: its colour, veins and roughness; its lightness pressed in as relief
 		vec3 tw = pow(abs(normalize(v_no)), vec3(4.0));
 		tw /= tw.x + tw.y + tw.z;
@@ -346,6 +351,12 @@ void fragment() {
 			m = fill == 2 ? 0.8 : 0.0;
 			ro = 0.3;
 		}
+		// (19.11) the glint spread where the normal turns fast under a pixel (Kaplanyan, as the trilobite's): a pyrite
+		// shell's fine relief under a metal sheen sparkled pixel by pixel as the find turned; and the tiny mirror grains
+		// (ro 0.1–0.12) go where they would be under a pixel
+		vec3 ndx = dFdx(nb), ndy = dFdy(nb);
+		ro = sqrt(clamp(ro * ro + min(0.5 * (dot(ndx, ndx) + dot(ndy, ndy)), 0.3), 0.0, 1.0));
+		ro = max(ro, mix(0.0, 0.3, smoothstep(0.2, 0.6, length(fwidth(p)) * 210.0)) * m);
 		ALBEDO = c;
 		METALLIC = m;
 		ROUGHNESS = clamp(ro, 0.05, 1.0);
