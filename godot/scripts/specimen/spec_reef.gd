@@ -30,8 +30,8 @@ const MODELS := {
 	star_brittle = {g = "star", n = "brittle star", k = 1.1},
 	star_brittle_b = {g = "star", n = "banded brittle star", k = 1.1},
 	star_sand = {g = "star", n = "sand star", k = 1.0},
-	star_cushion = {g = "star", n = "cushion star", k = 0.85},
-	star_sea = {g = "star", n = "ochre star", k = 1.0},
+	star_cushion = {g = "star", n = "cushion star", k = 0.85, fix = Vector3(180, 0, 0)},
+	star_sea = {g = "star", n = "ochre star", k = 1.0, cut = 0.45},
 	star_sunflower = {g = "star", n = "sunflower star", k = 1.15},
 	urchin_purple = {g = "star", n = "purple urchin", k = 0.7},
 	shell_tun = {g = "shell", n = "giant tun", k = 1.0, gain = 0.8},
@@ -164,7 +164,8 @@ static func mesh(id: String) -> Mesh:
 		# on its head, the blue coral and the organ pipe on their sides): turned upright here, the turn baked into
 		# its points, so its foot (foot_of) is its real foot
 		var fx: Vector3 = (MODELS.get(id, {}) as Dictionary).get("fix", Vector3.ZERO)
-		if fx != Vector3.ZERO and m:
+		var cut: float = (MODELS.get(id, {}) as Dictionary).get("cut", 0.0)
+		if (fx != Vector3.ZERO or cut > 0.0) and m:
 			var b := Basis.from_euler(fx * (PI / 180.0))
 			var arr := m.surface_get_arrays(0)
 			var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
@@ -177,6 +178,24 @@ static func mesh(id: String) -> Mesh:
 			for i in ns.size(): ns[i] = b * ns[i]
 			arr[Mesh.ARRAY_VERTEX] = vs
 			arr[Mesh.ARRAY_NORMAL] = ns
+			# (cut: the scan's mount — a peg under the ochre star — taken off: triangles wholly below this share of
+			# its height go; then it rests on its arms)
+			if cut > 0.0:
+				var hi := 0.0
+				for v in vs: hi = maxf(hi, v.y)
+				var lim := hi * cut
+				var ix: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+				var keep := PackedInt32Array()
+				var lo2 := INF
+				if ix.is_empty():
+					for t in range(0, vs.size(), 3): ix.append_array([t, t + 1, t + 2])
+				for t in range(0, ix.size(), 3):
+					if vs[ix[t]].y < lim and vs[ix[t + 1]].y < lim and vs[ix[t + 2]].y < lim: continue
+					keep.append_array([ix[t], ix[t + 1], ix[t + 2]])
+					lo2 = minf(lo2, minf(vs[ix[t]].y, minf(vs[ix[t + 1]].y, vs[ix[t + 2]].y)))
+				for i in vs.size(): vs[i].y -= lo2
+				arr[Mesh.ARRAY_VERTEX] = vs
+				arr[Mesh.ARRAY_INDEX] = keep
 			arr[Mesh.ARRAY_TANGENT] = null
 			var am := ArrayMesh.new()
 			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)

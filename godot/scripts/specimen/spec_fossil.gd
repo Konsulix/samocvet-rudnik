@@ -573,17 +573,32 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 		"matrix":
 			# lying on a slab of its rock, a third of it still in the stone, tipped up to show its coil
 			var rk: MeshInstance3D = use_rock.call("slab")
-			var rb: AABB = rk.transform * (rk.get_meta("geo") as Geo).aabb()
+			var rb0: AABB = rk.transform * (rk.get_meta("geo") as Geo).aabb()
+			# (19.11) the slab a quarter wider every way across, the shell and everything on it their size as before:
+			# more floor round them, not more things (it was a small stone under a big shell)
+			# (the rock's own points, so all that rests on it — moss, crust, the reef's heights — sees the wider slab)
+			const WIDE := Vector3(1.25, 1.0, 1.25)
+			var rg: Geo = rk.get_meta("geo")
+			for i in rg.v.size(): rg.v[i] *= WIDE
+			rk.mesh = rg.to_mesh()
+			var st: Dictionary = b.st_ref
+			if st.has("pick"):
+				var p0: Callable = st.pick
+				var n0: Callable = st.nrm
+				st.pick = func() -> Vector3: return (p0.call() as Vector3) * WIDE
+				st.nrm = func(w: Vector3) -> Vector3: return (n0.call(w / WIDE) as Vector3)
+				st.hollows = (st.get("hollows", []) as Array).map(func(h: Array) -> Array: return [(h[0] as Vector3) * WIDE, h[1]])
+			var rb: AABB = rk.transform * rg.aabb()
 			var crushed: bool = f.get("crushed", false)
 			var brood := int(f.get("brood", 0))
-			var s := minf(rb.size.x, rb.size.z) * (0.4 if brood > 0 else 0.5)
+			var s := minf(rb0.size.x, rb0.size.z) * (0.4 if brood > 0 else 0.5)
 			# crushed: lying flat in the shale, squashed to a third of its thickness, barely standing out of it
 			var tip := 0.04 if crushed else 0.35 + rng.next() * 0.3
 			var sz := s * (0.3 if crushed else 1.0)
 			var bs := Basis(Vector3.UP, rng.next() * TAU) * Basis(Vector3.RIGHT, -PI / 2 + tip) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3(s, s, sz))
 			var at := Vector3(rb.get_center().x, rb.end.y - rb.size.y * 0.12 + s * sin(tip) * 0.55, rb.get_center().z)
 			if crushed: at.y = rb.end.y - rb.size.y * 0.06
-			if brood > 0: at += Vector3(-rb.size.x * 0.12, 0, 0)
+			if brood > 0: at += Vector3(-rb0.size.x * 0.12, 0, 0)
 			shell = U.mesh(shell_geo(f, false), sm, root, at, bs)
 			if crushed:
 				b._mark("crushed", at + Vector3(0, s * 0.08, 0), Vector3.UP)
@@ -596,7 +611,7 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 				f2.turns = float(f.turns) - 0.5 - br.next() * 0.7
 				var s2 := s * (0.3 + br.next() * 0.22)
 				var ang := br.next() * TAU
-				var p2 := Vector3(rb.get_center().x + rb.size.x * (0.18 + 0.12 * k) * cos(ang), rb.end.y - rb.size.y * 0.1 + s2 * 0.25, rb.get_center().z + rb.size.z * 0.28 * sin(ang))
+				var p2 := Vector3(rb.get_center().x + rb0.size.x * (0.18 + 0.12 * k) * cos(ang), rb.end.y - rb.size.y * 0.1 + s2 * 0.25, rb.get_center().z + rb0.size.z * 0.28 * sin(ang))
 				var t2 := 0.2 + br.next() * 0.5
 				var b2 := Basis(Vector3.UP, br.next() * TAU) * Basis(Vector3.RIGHT, -PI / 2 + t2) * Basis(Vector3.BACK, br.next() * TAU) * Basis.from_scale(Vector3.ONE * s2)
 				var young := U.mesh(shell_geo(f2, false), _mat(f2, 0, false, _plates(f2, float(f2.turns) * TAU)), root, p2, b2)
@@ -612,7 +627,7 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 			# (tipped up on its edge, the shell takes less of the slab than its size)
 			occ.append([Vector2(at.x, at.z), s * (0.8 if not f.get("crushed", false) else 1.0)])
 			var lrng := Rng32.new(int(f.plates) * 5 + 23)
-			var span := minf(rb.size.x, rb.size.z)
+			var span := minf(rb0.size.x, rb0.size.z)   # (the things' size: as on the slab before it was widened)
 			# (out to the slab's edge: the shell fills its middle)
 			var cands := SpecTrilobite._top_spots(rk, rb, 0.48)
 			var lm := SpecSea.life_mat(0, span * 0.45, span * 0.03, 0.8, 0.55, 0.4)
