@@ -1232,7 +1232,7 @@ class Swim extends Node3D:
 				var was: Vector3 = pushed[i]
 				pushed[i] = at if was == Vector3.INF else was.lerp(at, minf(1.0, dt * 4.0))
 				# (as wide as the fish is long, about)
-				var wr := f.global_transform.basis.get_scale().x * 0.55
+				var wr := f.global_transform.basis.get_scale().x * 0.4
 				var p: Vector3 = pushed[i]
 				v = Vector4(p.x, p.y, p.z, wr)
 			for m: ShaderMaterial in weeds:

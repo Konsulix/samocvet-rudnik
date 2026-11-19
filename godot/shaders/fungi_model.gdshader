@@ -42,8 +42,11 @@ void vertex() {
 			if (q.w <= 0.0) continue;
 			vec3 d = wp - q.xyz;
 			float dl = length(d);
-			float k = 1.0 - smoothstep(q.w * 0.4, q.w * 1.6, dl);
-			shove += normalize(d + vec3(0.0001)) * k * q.w * 0.9;
+			// (19.11) a soft nudge aside, not a hollow: pushed out to a fixed distance, the stalks inside the fish's
+			// reach piled up on a sphere round it — "a huge ball" in the weed. Now each moves a share of its own way out,
+			// most at a middle distance, little right at the fish and little far off
+			float k = smoothstep(0.0, q.w * 0.7, dl) * (1.0 - smoothstep(q.w * 0.7, q.w * 1.8, dl));
+			shove += normalize(d + vec3(0.0001)) * k * q.w * 0.3;
 		}
 		mat3 inv = inverse(mat3(MODEL_MATRIX));
 		VERTEX += inv * shove * smoothstep(0.05, 0.6, VERTEX.y);
