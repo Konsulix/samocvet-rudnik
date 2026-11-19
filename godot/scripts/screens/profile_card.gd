@@ -196,6 +196,14 @@ static func _find_sq(s: Dictionary) -> Control:
 		Sfx.play("click")
 		_open_stone(s))
 	inner.add_child(tap)
+	# (19.11) the card can be laid out bigger than C (its row stretches it): the glow and the stone fill what it
+	# really is — fixed at C they left a dark strip of bare card down its right and along its bottom
+	inner.resized.connect(func():
+		var z := inner.size
+		glow.size = z
+		img.position = z * 0.08
+		img.size = z * 0.84
+		tap.size = z)
 	# the costliest stone's ribbon in the top right corner, its top cut by the card's edge (as the record's on a find)
 	var rr := RecordRibbon.make(w, inner)
 	rr.cup = true
