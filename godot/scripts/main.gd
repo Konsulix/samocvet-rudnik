@@ -456,10 +456,15 @@ func _ready() -> void:
 			var geo := String(st.get("kind", "")) == "geode"
 			if geo and geodes >= 4: continue
 			if not geo and made - geodes >= 8: continue
-			if geo: geodes += 1
+			if geo:
+				# (each rare side of an egg shown once — rolled they are a 20–25% chance — and one crazed by the dig)
+				var extra: Array = [[], ["halves"], ["inner_light"], ["pocket"]][geodes]
+				if extra.size(): st.accents = extra
+				geodes += 1
 			st.area = 2
 			st.dl = 8
-			st.integ = 100
+			# (the first egg and the first two others hurt by the dig: crazing, broken pieces)
+			st.integ = 35 if (geo and geodes == 1) or (not geo and made - geodes < 2) else 100
 			st.opals = true
 			st.test = true
 			Save.d.coll.append(st)
