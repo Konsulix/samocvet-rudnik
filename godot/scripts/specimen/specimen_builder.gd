@@ -2973,13 +2973,18 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 				var rr := Vector2(edge.x, edge.z).length() * 0.9 * float(ri) / nr
 				var u := float(ri) / nr
 				# a low dome, the polish catching the light across it
-				fg.v.append(Vector3(cos(a) * rr, sin(a) * rr, 0.012 + 0.07 * (1.0 - u * u)))
+				# (sunk a little under the rind at its edge: the opal seen into the stone, not a lid laid on it)
+				fg.v.append(Vector3(cos(a) * rr, sin(a) * rr, -0.012 + 0.07 * (1.0 - u * u)))
+				fg.col.append(Color(u, 0, 0))
 		for ri in nr:
 			for ai in na:
 				var i0 := ri * (na + 1) + ai
 				var i1 := i0 + na + 1
 				fg.idx.append_array([i0, i1, i0 + 1, i0 + 1, i1, i1 + 1])
-		fg.fill_color(Color(1, 1, 1))
+		om2.set_shader_parameter("egg_on", 1.0)
+		# half broken raw (conchoidal ripples), half polished
+		om2.set_shader_parameter("egg_rough", 1.0 if rng.next() < 0.5 else 0.0)
+		om2.set_shader_parameter("egg_milk", Color(0.52, 0.52, 0.5) if rng.next() < 0.6 else Color(0.56, 0.47, 0.37))
 		main = U.mesh(fg, om2, shell)
 		main.rotation.x = PI / 2
 		main.set_meta("local", true)
