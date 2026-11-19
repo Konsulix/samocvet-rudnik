@@ -438,6 +438,27 @@ static func _swimmer(parent: Node3D, sw: String, span: float, mid: Vector3, rb: 
 		sn.sc = Swim.LEN * float(md.k)
 		sn.first_pass(r.next())
 	bm.set_shader_parameter("phase", sn.ph)
+	# its head as a mesh of its own, at full quality (the plesiosaur's: its teeth, tongue and eyes; its jaws marked
+	# in the mesh — jaw_mask); its copy of the material, every parameter to both (Swim._sp). (19.11: this was lost in
+	# the merge of the sea-life branch — the plesiosaur swam headless)
+	var hid := String(md.get("head", ""))
+	if hid != "":
+		var hm := SpecUtil.mat_copy(bm)
+		hm.set_shader_parameter("tex_d", load(DIR + hid + "_d.png"))
+		hm.set_shader_parameter("tex_n", load(DIR + hid + "_n.png"))
+		hm.set_shader_parameter("jaw_mask", 1.0)
+		hm.set_shader_parameter("inside_k", 0.0)
+		for m2: ShaderMaterial in [bm, hm]:
+			m2.set_shader_parameter("eye_paint", 0.0)
+			m2.set_shader_parameter("eye", Vector2(9, 9))
+		bm.set_shader_parameter("jaw", 0.0)
+		bm.set_shader_parameter("jaw_shut", 0.0)
+		var hd := MeshInstance3D.new()
+		hd.mesh = mesh(hid)
+		hd.material_override = hm
+		hd.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sn.add_child(hd)
+		sn.mat2 = hm
 	sn._process(0.0)
 	return sn
 
