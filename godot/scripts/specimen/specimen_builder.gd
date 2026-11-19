@@ -318,6 +318,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	seed0 = seed_v
 	rng = Rng32.new((seed_v * 2654435761) % 4294967296)
 	var sid: String = o.get("sid", "quartz")
+	_sid = sid
 	var sp: Dictionary = Data.SP.get(sid, Data.SP.quartz)
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var tr: Array = o.get("traits", [])
@@ -1839,6 +1840,7 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 func dr_snap(r: Rng32, k: float, depth: int) -> bool:
 	return r.next() < k * (0.55 + 0.2 * depth)
 
+var _sid := ""   # (the species being built, for the builders that are not handed it: _geode)
 var _cap_rim_col := false   # (_half: the cap's points coloured as the rim's — a mesh coloured by its points)
 var _glassy := false        # (_shatter: obsidian — black glass coloured by its points, breaking to the same glass)
 static var fallbacks := 0   # (tests/shatter_check: how often a cap's outline would not triangulate as a polygon)
@@ -2883,7 +2885,12 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		var s := 0.008 + rng.next() * 0.014
 		var c := col * (0.6 + rng.next() * 0.5)
 		c.a = 1.0
-		return [_rot_inst(d * (wall_r.call(d) as float) * 0.985, e, Vector3(s, s * 1.7, s)), c]
+		# (19.11) on the wall itself — a point of the wall's own mesh near that way: the wall's radius guessed from
+		# the nearest of a sparse set left some floating in the cave
+		var vi := int(rng.next() * inner_g.v.size()) % inner_g.v.size()
+		var wp: Vector3 = inner_g.v[vi]
+		if wp.length() < 0.05: wp = d * (wall_r.call(d) as float)
+		return [_rot_inst(wp * 0.995, e, Vector3(s, s * 1.7, s)), c]
 	U.inst(Geo.octa(1), SpecMat.make({rough = 0.08, coat = 1.0, flat = true, env = 2.4}), 800, place, shell)
 	# agate rind: fine bands from the dark outer crust through grey and milky layers to a hint of the stone's own colour
 	var hue := SpecMat.get_hsl(Color(sp.c)).x
@@ -2896,6 +2903,13 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			if t < 0.12: return SpecMat.hsl(0.07, 0.25, 0.14 + t)
 			var u := fposmod(t * 5.3 + sin(t * 23.0) * 0.18, float(ag.size()))
 			return Color.hex(int(ag[int(u)]) << 8 | 0xff).lerp(Color.hex(int(ag[(int(u) + 1) % ag.size()]) << 8 | 0xff), smoothstep(0.7, 1.0, fposmod(u, 1.0)))
+		# (19.11) an opal egg: a thin rind of white and grey common opal round its fire; chrysocolla: turquoise bands
+		if _sid == "opal":
+			if t < 0.18: return SpecMat.hsl(0.08, 0.2, 0.16 + t)
+			return SpecMat.hsl(0.58, 0.08 + j * 0.04, 0.34 + t * 0.16 + j * 0.06)
+		if _sid == "chrysocolla":
+			if t < 0.18: return SpecMat.hsl(0.07, 0.3, 0.14 + t)
+			return SpecMat.hsl(0.52 + j * 0.03, 0.6 + j * 0.15, 0.18 + t * 0.18 + j * 0.06)
 		if t < 0.25:
 			return SpecMat.hsl((20.0 + j * 8.0) / 360.0, 0.35 + j * 0.15, 0.12 + t * 0.4 + j * 0.06)
 		return SpecMat.hsl(hue if t > 0.8 else (30.0 + j * 180.0) / 360.0, 0.3 if t > 0.8 else 0.06 + j * 0.08, 0.18 + t * 0.28 + j * 0.12)
@@ -2944,20 +2958,58 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		c_tip = Color(0.95, 0.96, 0.98).lerp(col, 0.35)
 	var prismy := elongated or habit == "cube"
 	var main: MeshInstance3D = null
-	if habit == "botryoid" and inner == habit:
-		# a lumpy species (opal) lines its cave with bubbles sunk half into the wall — a lining, not a cave filled
-		# with balls of glass; opal's play of colour flashing in them
-		var bm := _opal_mat(rng, 2.5)
+	if _sid == "opal":
+		# (19.11) an opal egg broken open: no cave — the half filled to its lip with precious opal, its broken face
+		# polished, the fire over the whole of it (a cave of a few bubbles in one corner read as unfinished)
+		var om2 := _opal_mat(rng, 3.6, int(Stones.pick_w([[2, 3.0], [1, 2.0], [0, 1.5]], rng)))
+		var fg := Geo.new()
+		var nr := 10
+		var na := 64
+		for ri in nr + 1:
+			for ai in na + 1:
+				var a := TAU * ai / na
+				var edge: Vector3 = outer.v[32 * 65 + roundi(fposmod(PI - a, TAU) / TAU * 64.0)]
+				# (over the inner part of the rind: a thin rind round it, not a wide white ring)
+				var rr := Vector2(edge.x, edge.z).length() * 0.9 * float(ri) / nr
+				var u := float(ri) / nr
+				# a low dome, the polish catching the light across it
+				fg.v.append(Vector3(cos(a) * rr, sin(a) * rr, 0.012 + 0.07 * (1.0 - u * u)))
+		for ri in nr:
+			for ai in na:
+				var i0 := ri * (na + 1) + ai
+				var i1 := i0 + na + 1
+				fg.idx.append_array([i0, i1, i0 + 1, i0 + 1, i1, i1 + 1])
+		fg.fill_color(Color(1, 1, 1))
+		main = U.mesh(fg, om2, shell)
+		main.rotation.x = PI / 2
+		main.set_meta("local", true)
+	elif habit == "botryoid" and inner == habit:
+		# a lumpy species lines its cave with bubbles sunk half into the wall — a lining, not a cave filled with balls
+		# of glass. (19.11) Chrysocolla: its whole cave under a turquoise crust, bubbles of every size crowding,
+		# a sparkle of tiny clear quartz over them ("gem silica"); the rest: opal's play of colour flashing in them
+		var chry := _sid == "chrysocolla"
+		# (deep, opaque turquoise: glassy and pale it read as bath foam)
+		var bm: Material = SpecMat.make({col = SpecMat.lin(0x0590b0), rough = 0.4, coat = 0.25, coat_r = 0.3, env = 0.5, bd = 0.35, ir = 0.0}) if chry else _opal_mat(rng, 2.5)
 		var bub := []
-		for k in 120 + int(rng.next() * 60):
+		for k in (820 + int(rng.next() * 200)) if chry else (120 + int(rng.next() * 60)):
 			# (kept off the lip and sunk only into the wall's inner half, so none shows through the outside)
-			var d := Vector3(rng.next() - 0.5, rng.next() * 0.8 + 0.2, rng.next() - 0.5).normalized()
-			var s := 0.04 + pow(rng.next(), 2.0) * 0.09
+			var d := Vector3(rng.next() - 0.5, (rng.next() * 0.86 + 0.14) if chry else (rng.next() * 0.8 + 0.2), rng.next() - 0.5).normalized()
+			var s := (0.05 + pow(rng.next(), 2.0) * 0.11) * (0.5 + 0.5 * smoothstep(0.14, 0.35, d.y)) if chry else (0.04 + pow(rng.next(), 2.0) * 0.09)
 			bub.append(Transform3D(Basis(quat_to_l(UP, -d)) * Basis.from_scale(Vector3(s, s * 0.55, s)), d * (wall_r.call(d) as float) * 0.97))
 		main = U.mesh(Geo.sphere(1, 20, 14), bm, shell)
 		main.transform = bub[0]
 		main.set_meta("local", true)
 		U.inst(Geo.sphere(1, 16, 12), bm, bub.size() - 1, func(i: int) -> Array: return [bub[i + 1], Color(1, 1, 1)], shell)
+		if chry:
+			# drusy quartz over the crust: tiny clear points on the crowns of the bubbles, glittering
+			var spk := []
+			for t0: Transform3D in bub:
+				var top := t0.origin + t0.basis.y * 0.98
+				for q in 2 + int(rng.next() * 3):
+					var jit := (t0.basis.x * (rng.next() - 0.5) + t0.basis.z * (rng.next() - 0.5)) * 0.9
+					var ss := 0.006 + rng.next() * 0.008
+					spk.append(_rot_inst(top + jit * 0.5, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3(ss, ss * 1.8, ss)))
+			U.inst(Geo.octa(1), SpecMat.make({col = Color(0.95, 0.97, 1.0), rough = 0.05, coat = 1.0, flat = true, env = 2.6}), spk.size(), func(i: int) -> Array: return [spk[i], Color(1, 1, 1)], shell)
 	for k in (0 if main else 80 + int(floor(rng.next() * 40))):
 		var d := Vector3(rng.next() - 0.5, rng.next() * 0.95 + 0.05, rng.next() - 0.5).normalized()
 		var f := pow(rng.next(), 1.6)
