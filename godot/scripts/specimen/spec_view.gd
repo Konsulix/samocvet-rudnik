@@ -160,8 +160,93 @@ func _stand_in(t: Texture2D) -> void:
 	_hint.texture = t
 	_hint.modulate.a = 1.0
 
+## (19.11) shaken: the phone given a jolt while the card is open — dust sifts off the stone, butterflies and fireflies
+## start up and scatter, the crumbs at a broken find's foot rattle, an enhydro's bubble sloshes, the stone itself
+## trembles, the phone buzzes. (A jolt: the push past gravity over SHAKE_G m/s², at most once a second)
+const SHAKE_G := 13.0
+var _shake_cd := 0.0
+func shake_find(k := 1.0) -> void:
+	if not is_instance_valid(live) or not is_visible_in_tree(): return
+	_shake = maxf(_shake, 0.6 * k)
+	Sfx.buzz(45)
+	var bb := AABB()
+	var first := true
+	for n in live.find_children("*", "", true, false):
+		if n is SpecButterfly.Fly:
+			var f: SpecButterfly.Fly = n
+			if f.state == SpecButterfly.Fly.SIT: f.timer = 0.0
+			elif f.state == SpecButterfly.Fly.LAND: f.state = SpecButterfly.Fly.FLY
+			f.vel += Vector3(randf() - 0.5, randf() * 0.6, randf() - 0.5) * f.size * 6.0 * k
+		elif n.has_method("jolt"):
+			n.call("jolt", k)
+		elif n is MeshInstance3D and n.has_meta("crumb"):
+			var m := n as MeshInstance3D
+			var p0 := m.position
+			var r0 := m.rotation
+			var hop := m.get_aabb().size.length() * (0.3 + randf() * 0.5) * k
+			var tw := m.create_tween()
+			tw.tween_property(m, "position", p0 + Vector3(0, hop, 0), 0.08).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(m, "rotation", r0 + Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * 0.6, 0.16)
+			tw.tween_property(m, "position", p0, 0.12).set_ease(Tween.EASE_IN)
+		if n is MeshInstance3D and n.has_meta("geo") and (n as MeshInstance3D).visible:
+			var ab: AABB = (n as MeshInstance3D).global_transform * (n as MeshInstance3D).get_aabb()
+			bb = ab if first else bb.merge(ab)
+			first = false
+	if first: return
+	# dust sifting off the stone: soft motes shaken loose over its upper part, a few hopping up, most sifting down
+	# and drifting (square bright quads read as confetti)
+	var dust := CPUParticles3D.new()
+	dust.one_shot = true
+	dust.explosiveness = 0.7
+	dust.amount = int(140 * k)
+	dust.lifetime = 2.2
+	dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	dust.emission_box_extents = Vector3(bb.size.x * 0.35, bb.size.y * 0.3, bb.size.z * 0.35)
+	dust.direction = Vector3(0, -1, 0)
+	dust.spread = 75.0
+	dust.initial_velocity_min = 0.0
+	dust.initial_velocity_max = bb.size.y * 0.18
+	dust.gravity = Vector3(0, -bb.size.y * 0.35, 0)
+	dust.damping_min = bb.size.y * 0.05
+	dust.damping_max = bb.size.y * 0.15
+	dust.scale_amount_min = 0.3
+	dust.scale_amount_max = 1.0
+	var qm := QuadMesh.new()
+	qm.size = Vector2.ONE * bb.size.length() * 0.01
+	var dm := StandardMaterial3D.new()
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	dm.vertex_color_use_as_albedo = true
+	var dot := GradientTexture2D.new()
+	dot.fill = GradientTexture2D.FILL_RADIAL
+	dot.fill_from = Vector2(0.5, 0.5)
+	dot.fill_to = Vector2(1.0, 0.5)
+	var dg := Gradient.new()
+	dg.set_color(0, Color(1, 1, 1, 1))
+	dg.set_color(1, Color(1, 1, 1, 0))
+	dot.gradient = dg
+	dm.albedo_texture = dot
+	qm.material = dm
+	dust.mesh = qm
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.78, 0.72, 0.62, 0.0))
+	ramp.add_point(0.12, Color(0.78, 0.72, 0.62, 0.55))
+	ramp.set_color(ramp.get_point_count() - 1, Color(0.78, 0.72, 0.62, 0.0))
+	dust.color_ramp = ramp
+	live.get_parent().add_child(dust)
+	dust.global_position = Vector3(bb.get_center().x, bb.end.y - bb.size.y * 0.35, bb.get_center().z)
+	dust.emitting = true
+	get_tree().create_timer(2.5).timeout.connect(dust.queue_free)
+
 func _process(dt: float) -> void:
 	_since += dt
+	_shake_cd = maxf(0.0, _shake_cd - dt)
+	if _shake_cd <= 0.0 and is_instance_valid(live):
+		var jerk := (Input.get_accelerometer() - Input.get_gravity()).length()
+		if jerk > SHAKE_G:
+			_shake_cd = 1.0
+			shake_find(clampf(jerk / SHAKE_G - 0.4, 0.6, 1.6))
 	if _since >= 1.0 / FPS - 0.002 and is_visible_in_tree():
 		_since = 0.0
 		studio.vp.render_target_update_mode = SubViewport.UPDATE_ONCE

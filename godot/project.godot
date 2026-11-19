@@ -50,3 +50,8 @@ heart_beat={
 "type": "float",
 "value": 0.0
 }
+
+[input_devices]
+
+sensors/enable_accelerometer=true
+sensors/enable_gravity=true

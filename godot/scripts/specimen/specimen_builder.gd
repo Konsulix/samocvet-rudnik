@@ -1624,6 +1624,7 @@ func _shatter() -> void:
 		var cm: Material = mats[mk]
 		if _glassy and cm is ShaderMaterial: cm = _matte(cm)
 		var cmi := U.mesh(cg, cm, root, p, U.eul((dr.next() - 0.5) * 0.4, dr.next() * 6.3, (dr.next() - 0.5) * 0.4))
+		cmi.set_meta("crumb", true)   # (a shake of the phone rattles them: SpecView.shake_find)
 		if (mcols[mk] as Color).r >= 0.0:
 			cg.col.resize(cg.v.size())
 			cg.col.fill(mcols[mk])
@@ -3749,8 +3750,20 @@ class Enhydro extends Node3D:
 	var vel := Vector3.ZERO
 	var _last := Basis()
 	var _has_last := false
+	## "up" for the bubble: away from the pull of the earth as the phone feels it (19.11 — tilt the phone, the bubble
+	## goes to its new top: a real stone with water in it, held), turned into the card's camera; on a desk (no
+	## sensor) the studio's own up
+	static func world_up(node: Node3D) -> Vector3:
+		var g := Input.get_gravity()
+		var cam := node.get_viewport().get_camera_3d() if node.is_inside_tree() else null
+		if g.length() > 1.0 and cam:
+			# (device space: x right, y up the screen, z out of it — as the camera's own axes)
+			return (cam.global_transform.basis * (-g.normalized())).normalized()
+		return Vector3.UP
+	func jolt(k: float) -> void:
+		vel += Vector3(randf() - 0.5, randf() - 0.5, randf() - 0.5) * (rad.length() * 6.0 * k)
 	func _target() -> Vector3:
-		var up := (global_transform.basis.inverse() * Vector3.UP) if is_inside_tree() else Vector3.UP
+		var up := (global_transform.basis.inverse() * world_up(self)) if is_inside_tree() else Vector3.UP
 		if up.length() < 1e-5: up = Vector3.UP
 		var d := up.normalized()
 		# the point of the pocket's wall that way, the bubble's own radius in from it

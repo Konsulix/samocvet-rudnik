@@ -433,6 +433,8 @@ func _ready() -> void:
 			v.studio.cam.fov = v._fov0 / v._zoom
 		# pinch=Z: zoomed in as a player's pinch does (SpecView: to a crystal's lower third)
 		if args.has("pinch"): v._zoom_to = float(args.pinch)
+		# shake=S: the phone shaken S s after the stone is built (SpecView.shake_find) — for frames
+		if args.has("shake"): v.built.connect(func(_p: Node3D) -> void: v.get_tree().create_timer(float(args.shake)).timeout.connect(v.shake_find))
 		# rain: an opal egg's shower as a tap brings it (SpecView._wet), played out — for frames
 		if args.has("rain"): v.built.connect(func(_p: Node3D) -> void: v.get_tree().create_timer(float(args.rain)).timeout.connect(v._wet))
 		# wet: an opal egg wetted as by a tap on the card (SpecView._wet), held wet for the shot
