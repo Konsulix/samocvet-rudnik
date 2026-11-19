@@ -906,32 +906,32 @@
     [
      "headframe",
      "Restore the headframe",
-     29
+     44
     ],
     [
      "power",
      "Power up",
-     31
+     46
     ],
     [
      "pump",
      "Pump the flooded level",
-     33
+     50
     ],
     [
      "yard",
      "Ore yard",
-     35
+     52
     ],
     [
      "camp",
      "Miners' camp",
-     37
+     56
     ],
     [
      "chamber",
      "Open the gold chamber",
-     39
+     58
     ]
    ],
    "ore": {
@@ -1103,47 +1103,47 @@
     [
      "hoist",
      "Steam hoist",
-     29
+     44
     ],
     [
      "wheel",
      "Water wheel pump",
-     31
+     46
     ],
     [
      "draught",
      "Fire draught furnace",
-     32
+     48
     ],
     [
      "arches",
      "Iron arches",
-     33
+     50
     ],
     [
      "smelter",
      "Copper smelter",
-     34
+     51
     ],
     [
      "incline",
      "Incline railway",
-     35
+     52
     ],
     [
      "lapidary",
      "Lapidary workshop",
-     36
+     54
     ],
     [
      "block",
      "Free the great block",
-     38
+     57
     ],
     [
      "hall",
      "Stone Flower hall",
-     39
+     58
     ]
    ],
    "ore": {
@@ -1360,47 +1360,47 @@
     [
      "landing",
      "Cave landing",
-     40
+     60
     ],
     [
      "tryworks",
      "Engine house",
-     41
+     62
     ],
     [
      "crane",
      "Steam crane",
-     42
+     63
     ],
     [
      "bulkhead",
      "Sea door",
-     43
+     64
     ],
     [
      "arch",
      "Whalebone stair",
-     44
+     66
     ],
     [
      "chapel",
      "Seamen's chapel",
-     45
+     68
     ],
     [
      "lighthouse",
      "Lighthouse",
-     46
+     69
     ],
     [
      "skeleton",
      "Free the sea dragon",
-     48
+     72
     ],
     [
      "grotto",
      "Sea grotto",
-     50
+     75
     ]
    ],
    "ore": {
@@ -1633,47 +1633,47 @@
     [
      "kiln",
      "Sulphur kilns",
-     52
+     78
     ],
     [
      "stair",
      "The stair",
-     53
+     80
     ],
     [
      "draught",
      "Air chimney",
-     54
+     81
     ],
     [
      "chapel",
      "Saint Barbara",
-     55
+     82
     ],
     [
      "mules",
      "Sorting shed",
-     56
+     84
     ],
     [
      "winder",
      "Steam winder",
-     57
+     86
     ],
     [
      "wall",
      "Shore the giants' wall",
-     58
+     87
     ],
     [
      "bridge",
      "Bridge the sulphur river",
-     60
+     90
     ],
     [
      "gate",
      "The forge gate",
-     62
+     93
     ]
    ],
    "ore": {
@@ -1909,47 +1909,47 @@
     [
      "barracks",
      "Warm barracks",
-     64
+     96
     ],
     [
      "gantry",
      "The gantry",
-     65
+     98
     ],
     [
      "power",
      "Power station",
-     66
+     99
     ],
     [
      "searchlight",
      "Searchlight tower",
-     67
+     100
     ],
     [
      "chute",
      "Coal chute",
-     68
+     102
     ],
     [
      "palace",
      "Culture palace",
-     69
+     104
     ],
     [
      "thaw",
      "Thaw the ice lens",
-     70
+     105
     ],
     [
      "icestair",
      "Ice stair",
-     72
+     108
     ],
     [
      "gate",
      "The dwarven gate",
-     74
+     111
     ]
    ],
    "ore": {
@@ -2080,47 +2080,47 @@
     [
      "houses",
      "Miners' row",
-     64
+     96
     ],
     [
      "wheel",
      "Water wheel",
-     65
+     98
     ],
     [
      "smelter",
      "Smelting hut",
-     66
+     99
     ],
     [
      "kura",
      "Silver store",
-     67
+     100
     ],
     [
      "bridge",
      "Rope bridge",
-     68
+     102
     ],
     [
      "shrine",
      "The shrine",
-     69
+     104
     ],
     [
      "cocoons",
      "Cut the cocoons",
-     70
+     105
     ],
     [
      "lanterns",
      "Lantern road",
-     72
+     108
     ],
     [
      "lair",
      "The lair's rope",
-     74
+     111
     ]
    ],
    "ore": {
@@ -2251,47 +2251,47 @@
     [
      "camp",
      "Expedition camp",
-     76
+     114
     ],
     [
      "gin",
      "Horse whim",
-     77
+     116
     ],
     [
      "sieves",
      "Sifting yard",
-     78
+     117
     ],
     [
      "finds",
      "Finds hut",
-     79
+     118
     ],
     [
      "idols",
      "Stone idols",
-     80
+     120
     ],
     [
      "well",
      "The well",
-     81
+     122
     ],
     [
      "egg",
      "Crack the egg",
-     82
+     123
     ],
     [
      "hoard",
      "The hoard",
-     84
+     126
     ],
     [
      "needle",
      "The needle",
-     86
+     129
     ]
    ],
    "ore": {
@@ -2422,47 +2422,47 @@
     [
      "adit",
      "The adit",
-     76
+     114
     ],
     [
      "lamps",
      "Lamp house",
-     77
+     116
     ],
     [
      "fan",
      "Draught furnace",
-     78
+     117
     ],
     [
      "headframe",
      "Headframe",
-     79
+     118
     ],
     [
      "staithe",
      "Coal pier",
-     80
+     120
     ],
     [
      "church",
      "Cave church",
-     81
+     122
     ],
     [
      "burn",
      "Burn the gas",
-     82
+     123
     ],
     [
      "fall",
      "The old fall",
-     84
+     126
     ],
     [
      "lull",
      "The lullaby",
-     86
+     129
     ]
    ],
    "ore": {
