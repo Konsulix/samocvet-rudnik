@@ -83,6 +83,8 @@ uniform float crawl = 0.0;       // (a crab: its legs — out past leg_r from it
 uniform float crawl_f = 1.0;
 uniform float leg_r = 0.18;
 uniform float leg_y = 0.25;
+uniform float leg_red = 0.0;     // (a hermit: only what is the crab's own red colour is legs — its borrowed shell's spikes, far
+                                 // out and low as legs are, flapped as legs; 1: the shell kept still)
 uniform float walk = 0.0;        // (0 sitting — the legs only twitch; 1 walking, SpecReef.Crawl)
 uniform float feel = 0.0;        // (its feelers, past feel_x at the front: they wave)
 uniform float feel_x = 0.35;
@@ -214,6 +216,10 @@ void vertex() {
 	if (crawl > 0.0) {
 		float rr = length(p.xz);
 		float lw = smoothstep(leg_r, leg_r + 0.12, rr) * (1.0 - smoothstep(leg_y * 0.6, leg_y * 1.4, p.y));
+		if (leg_red > 0.0) {
+			vec3 tc = textureLod(tex_d, UV, 2.0).rgb;
+			lw *= mix(1.0, smoothstep(0.1, 0.22, tc.r - max(tc.g, tc.b) * 1.3), leg_red);
+		}
 		float an = atan(p.z, p.x);
 		float sp = mix(0.25, 1.0, walk);
 		float ph = t * crawl_f * 6.2831 * mix(0.35, 2.2, walk) + an * 3.0 + phase * 6.2831;
