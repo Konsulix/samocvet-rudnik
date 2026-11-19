@@ -424,3 +424,7 @@ B23 (морской крокодил стенеозавр), B24 (дунклео�
 | F24 | [CC0 スルメイカ Japanese Flying Squid, T. pacificus](https://sketchfab.com/3d-models/5f0688cb4ab64a398784118130987a15) | ffishAsia-and-floraZia | CC0 | 1507 тыс. |
 | F25 | [CC0 アカエイ 🦈 ♀ Red Stingray, Hemitrygon akajei](https://sketchfab.com/3d-models/f309cd53efd544f4b22b33f0ebd2e07b) | ffishAsia-and-floraZia | CC0 | 1108 тыс. |
 | F26 | [CC0 ウチワザメ 🦈 ♂ Yellow-spotted Fanray, P. tangi](https://sketchfab.com/3d-models/7ca28b4c26684ee0a11e3db2afcc8f95) | ffishAsia-and-floraZia | CC0 | 2792 тыс. |
+
+## Рыбки вокруг находки (18.11)
+
+Сделано: 10 рыбок-«бабочек» (целакант + 9 сканов ffishAsia из `Desktop/sea/fish like butterslies`), до трёх одного вида стайкой вокруг находки, крутятся вместе с образцом. Подробности — `CLAUDE.md`, «Что дальше», 14.11 (абзац «Рыбки — аналог бабочек»).

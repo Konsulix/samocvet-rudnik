@@ -143,7 +143,7 @@ static func accents(g: Dictionary) -> Array:
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
-	if id.begins_with("sea:"): return SpecReef.gene_name(id)
+	if id.begins_with("sea:"): return SpecReef.gene_name(id, g.get("reef", {}))
 	match id:
 		"eyes": return "eyes of %d lenses" % _lens_count(g)
 		"stalks": return "stalked eyes"

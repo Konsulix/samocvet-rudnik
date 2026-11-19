@@ -48,6 +48,7 @@ uniform float flip_x0 = -0.5;
 uniform float flip_x1 = 0.5;
 uniform float flip_mid = 0.0;
 uniform float flip_f = 0.5;
+uniform float flip_k = 0.0;      // (a ray's wings: the stroke runs back down them, so many waves along the body)
 uniform float neck = 0.0;
 uniform float neck_from = 0.0;
 uniform float jaw = 0.0;        // (how far the jaw drops from shut, radians)
@@ -69,11 +70,22 @@ uniform float spine_k = 0.0;
 uniform vec3 spine_n = vec3(0.5, 0.15, 0.0);
 uniform vec3 spine1 = vec3(0.0, 0.15, 0.0);
 uniform vec3 spine2 = vec3(-0.5, 0.15, 0.0);
+uniform float jaw_f = 0.0;      // (a small fish: its mouth opens and shuts gently all the time, so often a second — it breathes)
 uniform float jaw_force = -1.0; // (0..1: held so far open — SpecReef.Swim's strike, tests; under 0 it opens by itself)
 uniform float jet = 0.0;
+uniform float jet_x = 0.08;      // (where the arms begin, along the body)
+uniform float jet_y = 0.09;      // (the body's line, how high)
+uniform float jet_wrap = 1.0;    // (the octopus: its flat fan of arms rolled into a skirt; 0 — a squid, its arms a bundle already)
 uniform float swim_ph = 0.0;    // (the tail's beat run on by so much: SpecReef.Swim quickens it without a jump — a charge, a flight)
 uniform float curve = 0.0;      // (the whole body bent in a bow, the tail swept most: a turn, a blow's whip — SpecReef.Swim)
 uniform vec3 reach = vec3(0.0);   // (the head carried off by so much, the neck bending to it: x on, y up, z aside)
+uniform float crawl = 0.0;       // (a crab: its legs — out past leg_r from its middle, under leg_y — step in a wave round it)
+uniform float crawl_f = 1.0;
+uniform float leg_r = 0.18;
+uniform float leg_y = 0.25;
+uniform float walk = 0.0;        // (0 sitting — the legs only twitch; 1 walking, SpecReef.Crawl)
+uniform float feel = 0.0;        // (its feelers, past feel_x at the front: they wave)
+uniform float feel_x = 0.35;
 uniform vec2 eye = vec2(9.0);   // (the eye, side on: x along, y up; both eyes, either side)
 uniform float eye_r = 0.008;
 uniform float eye_paint = 0.0;     // (the eyes drawn here, both alike: a scan whose two eyes came out unlike — a plesiosaur's, one red, one orange)
@@ -124,7 +136,7 @@ void vertex() {
 				w = lower * smoothstep(0.0, jaw_ramp, d.x);
 				up = (1.0 - lower) * smoothstep(0.0, 0.012, d.x);
 			}
-			float open = jaw_force >= 0.0 ? jaw_force : pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0);
+			float open = jaw_force >= 0.0 ? jaw_force : jaw_f > 0.0 ? 0.5 + 0.5 * sin(t * jaw_f * 6.2831 + phase * 6.2831) : pow(max(0.0, sin(t * 0.62 + phase * 6.2831 + 1.0)), 4.0);
 			float a = (jaw * open - jaw_shut * (1.0 - open)) * w - jaw * max(open, 0.0) * jaw_up * up;
 			// (the tongue — green in the mesh's colours: laid down on the floor of the mouth, the more the wider the
 			// mouth, and never quite still: a slow wave along it, its tip lifting)
@@ -154,7 +166,7 @@ void vertex() {
 	// the flippers, rowing
 	float side = abs(p.z) - flip_w;
 	if (flip > 0.0 && side > 0.0 && p.x > flip_x0 && p.x < flip_x1) {
-		float fp = t * 6.2831 * flip_f + phase * 6.2831 + (p.x > flip_mid ? 0.0 : 3.1416);
+		float fp = t * 6.2831 * flip_f + phase * 6.2831 + (p.x > flip_mid ? 0.0 : 3.1416) + p.x * flip_k * 6.2831;
 		// (a stroke: fast and strong down, slow back up)
 		float s = sin(fp) + 0.35 * sin(2.0 * fp);
 		VERTEX.y += s * side * flip * (0.6 + 0.4 * b);
@@ -175,25 +187,46 @@ void vertex() {
 	// arms, and they twist a little
 	if (jet > 0.0) {
 		float c = t * swim_f + phase;
-		float arm = smoothstep(0.08, -0.15, p.x);
-		float tip = smoothstep(0.05, -0.45, p.x);
+		float arm = smoothstep(jet_x, jet_x - 0.23, p.x);
+		float tip = smoothstep(jet_x - 0.03, -0.45, p.x);
 		float sq = squeeze(c - tip * 0.25);
-		float mant = smoothstep(0.08, 0.25, p.x);
+		float mant = smoothstep(jet_x, jet_x + 0.17, p.x);
 		// (the mantle lay flat on the table: filled out again, taller)
-		VERTEX.yz = vec2(0.09, 0.0) + (p.yz - vec2(0.09, 0.0)) * vec2(1.0 + mant * 0.8, 1.0) * (1.0 + mant * jet * (1.0 - 2.2 * squeeze(c)));
+		VERTEX.yz = vec2(jet_y, 0.0) + (p.yz - vec2(jet_y, 0.0)) * vec2(1.0 + mant * 0.8 * jet_wrap, 1.0) * (1.0 + mant * jet * (1.0 - 2.2 * squeeze(c)));
 		float rad = 0.085 * (1.0 + (0.45 - 1.05 * sq) * tip);
 		float phi = p.z / 0.085 * 0.95 + sin(t * 0.7 + p.x * 5.0 + phase * 6.2831) * 0.3 * tip;
 		float rr = rad + (p.y - 0.035) + sin(t * 2.0 + p.x * 16.0 + phi * 2.0 + phase * 6.2831) * 0.018 * tip;
 		vec2 skirt = vec2(0.02 + rr * cos(phi), rr * sin(phi));
-		VERTEX.yz = mix(VERTEX.yz, skirt, arm);
+		VERTEX.yz = mix(VERTEX.yz, skirt, arm * jet_wrap);
+		// (a squid: its arms are a bundle already — drawn in a little by each squeeze, their tips waving)
+		if (jet_wrap < 0.5) VERTEX.yz = vec2(jet_y, 0.0) + (VERTEX.yz - vec2(jet_y, 0.0)) * (1.0 + (0.25 - 0.6 * sq) * tip) + vec2(sin(t * 2.0 + p.x * 14.0 + phase * 6.2831), cos(t * 1.7 + p.x * 11.0)) * 0.012 * tip;
 		VERTEX.x -= tip * sq * 0.05;
-		float na = phi * arm;
+		float na = phi * arm * jet_wrap;
 		NORMAL = normalize(vec3(NORMAL.x, NORMAL.y * cos(na) - NORMAL.z * sin(na), NORMAL.y * sin(na) + NORMAL.z * cos(na)));
 	}
 	if (spine_k > 0.0) {
 		float u = clamp(spine_n.x - VERTEX.x, 0.0, 1.25);
 		vec3 on = spine_n * (2.0 * (u - 0.5) * (u - 1.0)) + spine1 * (-4.0 * u * (u - 1.0)) + spine2 * (2.0 * u * (u - 0.5));
 		VERTEX += (on - (spine_n - vec3(u, 0.0, 0.0))) * spine_k;
+	}
+	// a crab's legs: each lifts and swings forward in turn round the body (a wave by the angle round it), fast and high
+	// walking, now and then a slow twitch sitting; its feelers wave
+	if (crawl > 0.0) {
+		float rr = length(p.xz);
+		float lw = smoothstep(leg_r, leg_r + 0.12, rr) * (1.0 - smoothstep(leg_y * 0.6, leg_y * 1.4, p.y));
+		float an = atan(p.z, p.x);
+		float sp = mix(0.25, 1.0, walk);
+		float ph = t * crawl_f * 6.2831 * mix(0.35, 2.2, walk) + an * 3.0 + phase * 6.2831;
+		// (sitting: the legs move only in short bursts, now and then)
+		float idle = mix(smoothstep(0.75, 1.0, sin(t * 0.7 + phase * 9.0 + an)), 1.0, walk);
+		float lift = pow(max(0.0, sin(ph)), 2.0) * crawl * lw * idle;
+		VERTEX.y += lift * 0.05 * sp * (rr - leg_r + 0.1) * 4.0;
+		VERTEX.xz += vec2(-sin(an), cos(an)) * cos(ph) * crawl * lw * idle * 0.025 * sp;
+		if (feel > 0.0 && abs(p.x) > feel_x) {
+			float fk = (abs(p.x) - feel_x) / (0.5 - feel_x);
+			VERTEX.y += sin(t * 2.1 + p.x * 18.0 + phase * 6.2831) * feel * fk * fk;
+			VERTEX.z += sin(t * 1.6 + p.x * 13.0 + phase * 4.0) * feel * 0.7 * fk * fk;
+		}
 	}
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_wn = normalize(mat3(MODEL_MATRIX) * NORMAL);

@@ -8,6 +8,7 @@ var path := "user://swim.png"
 var t := 0.0
 var k := 0
 var heads := false
+var group := "swim"
 var cut := false
 var jaw_force := 0.0
 var hx := 0.3
@@ -35,7 +36,9 @@ func _ready() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation = Vector3(-0.9, 0.5, 0)
 	add_child(sun)
-	var ids := SpecReef.group("swim")
+	# g=fish: the small fish, not the giants
+	group = String(args.get("g", "swim"))
+	var ids := SpecReef.group(group)
 	for i in ids.size():
 		var id: String = ids[i]
 		var mi := MeshInstance3D.new()
@@ -46,7 +49,7 @@ func _ready() -> void:
 		if args.has("shut"): m.set_shader_parameter("blink_force", float(args.shut) if args.shut != "" else 1.0)
 		mi.material_override = m
 		add_child(mi)
-		mi.position = Vector3((i % 4) * 1.15 - 1.72, -(i / 4) * 0.75 + 0.3, (i / 4) * 0.75 - 0.3)
+		mi.position = Vector3((i % 4) * 1.15 - 1.72, -(i / 4) * 0.75 + 0.3 + (0.35 if ids.size() > 8 else 0.0), (i / 4) * 0.75 - 0.3 - (0.35 if ids.size() > 8 else 0.0))
 	# solo=<id>: that one alone, large (size=1.3 across the view's height), from `from=x,y,z`
 	if args.has("solo"):
 		for i in ids.size():
@@ -78,7 +81,7 @@ func _ready() -> void:
 
 ## heads: each swimmer's head alone, large, side on, with a grid of model units (0.02) — to find its eyes and jaw
 func _heads() -> void:
-	var ids := SpecReef.group("swim")
+	var ids := SpecReef.group(group)
 	for c in get_children():
 		if c is MeshInstance3D: c.visible = false
 	var cam := get_viewport().get_camera_3d()

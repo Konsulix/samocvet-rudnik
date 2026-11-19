@@ -6,10 +6,14 @@ func _init() -> void:
 	var cnt := {}
 	var items := 0
 	var pts := 0.0
+	var fishes := {}
 	for i in n:
 		var g := SpecReef.genes(i * 7 + 1, 29)
 		var all: Array = (g.tall as Array) + (g.near as Array)
 		if String(g.swim) != "": all.append(g.swim)
+		if String(g.fish) != "":
+			all.append(g.fish)
+			fishes[int(g.fish_n)] = int(fishes.get(int(g.fish_n), 0)) + 1
 		items += all.size()
 		for k: String in all:
 			var gp := String((SpecReef.MODELS[k] as Dictionary).g)
@@ -17,8 +21,9 @@ func _init() -> void:
 			cnt[k] = int(cnt.get(k, 0)) + 1
 			pts += SpecReef.points("sea:" + k)
 	print("REEF finds %d, things per find %.2f, points per find %.2f" % [n, float(items) / n, pts / n])
-	for gp in ["weed", "coral", "star", "shell", "crab", "swim"]:
+	for gp in ["weed", "coral", "star", "shell", "crab", "swim", "fish"]:
 		print("REEF %-6s %5.1f%% of finds" % [gp, 100.0 * int(cnt.get(gp, 0)) / n])
+	print("REEF fish by one, two, three: ", fishes)
 	var rare := []
 	for k: String in SpecReef.MODELS:
 		rare.append([int(cnt.get(k, 0)), k])

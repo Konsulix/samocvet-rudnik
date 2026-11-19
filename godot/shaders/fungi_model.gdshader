@@ -15,6 +15,11 @@ uniform float rough = 0.55;
 uniform float glow = 0.0;
 uniform float sway = 0.0;   // (the flowers, SpecFlora: the top leans to and fro, each plant to its own beat — the instance's alpha)
 uniform float back_k = 1.0;   // (how much light comes through from behind: a petal's full, a crab's shell or a sea shell little)
+// (the sea's weed, SpecReef: the small fish swimming through it push it aside — where each fish is (world) and how wide:
+// w 0 for none)
+uniform vec4 push0 = vec4(0.0, -1000.0, 0.0, 0.0);
+uniform vec4 push1 = vec4(0.0, -1000.0, 0.0, 0.0);
+uniform vec4 push2 = vec4(0.0, -1000.0, 0.0, 0.0);
 uniform vec3 glow_col = vec3(0.03, 0.6, 0.17);
 uniform float cap_from = 0.62;   // (the cap: this far up the mushroom, of its height)
 global uniform float fluor_uv;
@@ -29,6 +34,19 @@ void vertex() {
 		float h = VERTEX.y * VERTEX.y;
 		VERTEX.x += (sin(TIME * 1.15 + ph) + 0.4 * sin(TIME * 2.7 + ph * 1.7)) * sway * h;
 		VERTEX.z += cos(TIME * 0.9 + ph * 1.3) * sway * 0.7 * h;
+		// (a fish passing: the stalk bends away from it, the more the higher up it — its foot stays in the rock)
+		vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		vec3 shove = vec3(0.0);
+		for (int i = 0; i < 3; i++) {
+			vec4 q = i == 0 ? push0 : i == 1 ? push1 : push2;
+			if (q.w <= 0.0) continue;
+			vec3 d = wp - q.xyz;
+			float dl = length(d);
+			float k = 1.0 - smoothstep(q.w * 0.4, q.w * 1.6, dl);
+			shove += normalize(d + vec3(0.0001)) * k * q.w * 0.9;
+		}
+		mat3 inv = inverse(mat3(MODEL_MATRIX));
+		VERTEX += inv * shove * smoothstep(0.05, 0.6, VERTEX.y);
 	}
 }
 

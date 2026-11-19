@@ -70,8 +70,8 @@ static var LIST := [
 		names = ["Camellia sprig", "Azalea", "Lotus", "Plum blossom", "Magnolia", "Fern frond", "Oak leaf", "Acorns", "Pine cones"]},
 	# the living sea floor of the sea finds (SpecReef): eight of each, scans
 	{tab = "coll", icon = "sea_coral", n = "Coral Garden", t = "Nobody planted it either. It took a few million years to grow.", r = "coins", give = {coins = 700},
-		tags = ["sea:coral_red", "sea:coral_organ", "sea:coral_blue", "sea:coral_staghorn", "sea:coral_pocillopora", "sea:coral_rosebrain", "sea:anemone_elegant", "sea:anemone_purple"],
-		names = ["Red coral", "Organ pipe coral", "Blue coral", "Staghorn coral", "Cauliflower coral", "Rose brain coral", "Elegant anemone", "Purple anemone"]},
+		tags = ["sea:coral_organ", "sea:coral_blue", "sea:coral_staghorn", "sea:coral_pocillopora", "sea:coral_rosebrain", "sea:anemone_elegant"],
+		names = ["Organ pipe coral", "Blue coral", "Staghorn coral", "Cauliflower coral", "Rose brain coral", "Elegant anemone"]},
 	{tab = "coll", icon = "sea_star", n = "Fallen Stars", t = "Five arms, no hurry. They lie where the tide left them.", r = "coins", give = {coins = 700},
 		tags = ["sea:star_bat", "sea:star_brittle", "sea:star_brittle_b", "sea:star_sand", "sea:star_cushion", "sea:star_sea", "sea:star_sunflower", "sea:urchin_purple"],
 		names = ["Bat star", "Brittle star", "Banded brittle star", "Sand star", "Cushion star", "Ochre star", "Sunflower star", "Purple urchin"]},
@@ -82,8 +82,12 @@ static var LIST := [
 		tags = ["sea:crab_lobster", "sea:crab_hermit_b", "sea:crab_hermit_c", "sea:crab_fiddler", "sea:crab_frog", "sea:crab_elbow", "sea:crab_mantis", "sea:crab_isopod"],
 		names = ["Fan lobster", "Hermit crab", "Mediterranean hermit", "Fiddler crab", "Red frog crab", "Elbow crab", "Mantis shrimp", "Giant isopod"]},
 	{tab = "coll", icon = "sea_swim", n = "Here Be Monsters", t = "They circled the stone for a hundred million years. Now they circle yours.", r = "coins and a rare geode", give = {coins = 1200, geode = 2},
-		tags = ["sea:swim_coelacanth", "sea:swim_cretoxyrhina", "sea:swim_octopus", "sea:swim_mosasaurus", "sea:swim_ophthalmosaurus", "sea:swim_styxosaurus", "sea:swim_tylosaurus", "sea:swim_dallasaurus"],
-		names = ["Coelacanth", "Ginsu shark", "Giant octopus", "Mosasaur", "Ichthyosaur", "Plesiosaur", "Tylosaurus", "Dallasaurus"]},
+		tags = ["sea:swim_cretoxyrhina", "sea:swim_octopus", "sea:swim_mosasaurus", "sea:swim_ophthalmosaurus", "sea:swim_styxosaurus", "sea:swim_tylosaurus", "sea:swim_dallasaurus"],
+		names = ["Ginsu shark", "Giant octopus", "Mosasaur", "Ichthyosaur", "Plesiosaur", "Tylosaurus", "Dallasaurus"]},
+	# (the small fish that school round a sea find: the sea's butterflies, ten kinds)
+	{tab = "coll", icon = "sea_fish", n = "Plenty of Fish", t = "A stone on the sea floor is never alone for long.", r = "coins and a rare geode", give = {coins = 900, geode = 2},
+		tags = ["sea:swim_coelacanth", "sea:fish_parrot", "sea:fish_stingray", "sea:fish_puffer", "sea:fish_bream", "sea:fish_balloon", "sea:fish_coralfish", "sea:fish_goatfish", "sea:fish_gurnard", "sea:fish_squid"],
+		names = ["Coelacanth", "Steephead parrotfish", "Red stingray", "Striped puffer", "Crimson sea bream", "Balloonfish", "Pennant coralfish", "Whitesaddle goatfish", "Red gurnard", "Flying squid"]},
 	{tab = "coll", icon = "obsidian", n = "Fifty Shades of Black", t = "Black is never just black.", r = "coins",
 		tags = ["ob:black", "ob:snowflake", "ob:mahogany", "ob:rainbow", "ob:tears"], names = ["Jet black", "Snowflake", "Mahogany", "Rainbow", "Apache tears"]},
 	{tab = "coll", icon = "flame", n = "Dragon's Palette", t = "Every shell burns with its own fire. One colour is only a rumour.", r = "a geode",
@@ -563,7 +567,7 @@ func _shown(item: String) -> Array:
 ## the genes of every find kept before the achievements came: read once (gver 3: the first finds as summaries,
 ## so a tap can open their card)
 static func backfill() -> void:
-	if int(Save.d.get("gver", 0)) >= 11: return
+	if int(Save.d.get("gver", 0)) >= 12: return
 	var seen: Array = Save.d.get("genes", [])
 	var first: Dictionary = Save.d.get("gfirst", {})
 	for s in Save.d.coll:
@@ -580,8 +584,8 @@ static func backfill() -> void:
 	# (gver 7: pseudomorphs and pairs; the pairs seen so far, counted for Matchmaker)
 	Save.d.aw_ev.pairs = seen.filter(func(t: String) -> bool: return t.begins_with("pair:")).size()
 	# (gver 8: hopper fluorite for Matryoshka; gver 9: the kinds of flowers for Rock Garden; gver 10: every model held
-	# in amber and quartz — bug:, sprig:, quartz:; gver 11: the living sea floor — sea:)
-	Save.d.gver = 11
+	# in amber and quartz — bug:, sprig:, quartz:; gver 11: the living sea floor — sea:; gver 12: its small fish)
+	Save.d.gver = 12
 	Save.persist()
 
 ## one award's sheet alone, over another screen (the mine screen's medallions, AwardsRail): no list behind it.
@@ -1470,7 +1474,8 @@ func _where(e: Dictionary, item: String) -> String:
 		else: sids = GENE_SP.get(kind, [])
 		if kind == "pearl": return _in_mines(sids, "Something on the old sea floor guards it, %s.")
 		if kind == "sea":
-			if tag.begins_with("sea:swim_"): return _in_mines(["ammonite", "trilobite"], "Now and then it circles a slab of the old sea floor %s.")
+			if tag.begins_with("sea:fish_") or tag == "sea:swim_coelacanth": return _in_mines(["ammonite", "trilobite"], "Now and then a few of them school round a slab of the old sea floor %s.")
+			if tag.begins_with("sea:swim_"): return _in_mines(["ammonite", "trilobite"], "Now and then it passes far behind a slab of the old sea floor %s.")
 			return _in_mines(["ammonite", "trilobite"], "It lives on the slabs of the old sea floor %s, round what lies on them.")
 	elif item.begins_with("sp:"):
 		var id := item.trim_prefix("sp:")
