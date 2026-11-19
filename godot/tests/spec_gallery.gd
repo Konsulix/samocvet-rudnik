@@ -433,6 +433,13 @@ func _ready() -> void:
 			v.studio.cam.fov = v._fov0 / v._zoom
 		# pinch=Z: zoomed in as a player's pinch does (SpecView: to a crystal's lower third)
 		if args.has("pinch"): v._zoom_to = float(args.pinch)
+		# wet: an opal egg wetted as by a tap on the card (SpecView._wet), held wet for the shot
+		if args.has("wet"): v.built.connect(func(_p: Node3D) -> void:
+			v._wet()
+			if v._wet_tw: v._wet_tw.kill()
+			for n in v.live.find_children("*", "MeshInstance3D", true, false):
+				var m := (n as MeshInstance3D).material_override as ShaderMaterial
+				if m and m.get_shader_parameter("egg_on") != null: m.set_shader_parameter("wet", 1.0))
 		if list[i].has("fx") and not args.has("clean"):
 			var l := Label.new()
 			l.text = SpecLegend.FX_N.get(list[i].fx, list[i].fx)

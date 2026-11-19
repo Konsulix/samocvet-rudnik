@@ -247,7 +247,30 @@ func _tap(e: InputEvent) -> void:
 		if now - _press_ms < 350 and e.position.distance_to(_press) < 12.0 and now - _tap_ms > 150:
 			_tap_ms = now
 			tapped.emit()
+			_wet()
 		_press_ms = -1
+
+## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
+## a few seconds it dries back (shaders/opal_seam.gdshader, wet)
+var _wet_tw: Tween
+func _wet() -> void:
+	if not is_instance_valid(live): return
+	var ms: Array = []
+	for n in live.find_children("*", "MeshInstance3D", true, false):
+		var m := (n as MeshInstance3D).material_override as ShaderMaterial
+		if not m: continue
+		var eo: Variant = m.get_shader_parameter("egg_on")
+		if eo != null and float(eo) > 0.0 and not m in ms: ms.append(m)
+	if ms.is_empty(): return
+	var set_w := func(x: float) -> void:
+		for m: ShaderMaterial in ms: m.set_shader_parameter("wet", x)
+	var w0v: Variant = (ms[0] as ShaderMaterial).get_shader_parameter("wet")
+	var w0 := float(w0v) if w0v != null else 0.0
+	if _wet_tw: _wet_tw.kill()
+	_wet_tw = create_tween()
+	_wet_tw.tween_method(set_w, w0, 1.0, 0.5).set_trans(Tween.TRANS_SINE)
+	_wet_tw.tween_interval(1.6)
+	_wet_tw.tween_method(set_w, 1.0, 0.0, 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 ## pinch, wheel and double tap; true when the event was a zoom (it then does not turn the stone)
 func _zoom_gesture(e: InputEvent) -> bool:

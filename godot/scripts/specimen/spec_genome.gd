@@ -14,6 +14,7 @@ const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "col
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "flowers", mushrooms = "mushrooms",
+	halves = "both halves", inner_light = "inner light", pocket = "crystal pocket",
 	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
 	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", barite = "barite blades", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
@@ -214,6 +215,12 @@ static func of(o: Dictionary) -> Dictionary:
 			assoc = String(o.get("assoc", SpecLooks.assoc_of(seed_v, sid, true)))
 			if not assoc in SpecLooks.PERCH: assoc = ""
 	if assoc != "": acc.append("assoc")
+	# (19.11) an opal egg's rarer sides: both halves of it found, a light inside it, a pocket of crystals in its heart
+	if sid == "opal" and form == "geode":
+		var er := Rng32.new((seed_v * 2246822519 + 401) % 4294967296)
+		if er.next() < 0.25: acc.append("halves")
+		if er.next() < 0.2: acc.append("inner_light")
+		if er.next() < 0.2: acc.append("pocket")
 	# the way a tourmaline's colour runs along it (SpecForms.TOURM), or a polished slice: its own gene
 	if sid == "tourmaline" and form in ["pencils", "slice"] and String(o.get("form", form)) == form:
 		acc.append("tm_slice" if form == "slice" else "tm_" + String(SpecForms.tourm_of(seed_v)[0]).replace(" ", "_"))

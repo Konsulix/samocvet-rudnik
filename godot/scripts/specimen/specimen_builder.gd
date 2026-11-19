@@ -1463,7 +1463,8 @@ func _specimen(o: Dictionary) -> Node3D:
 		if main: _mark_on("limonite", main)
 	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11; 19.11 every
 	# botryoidal lump — chalcedony, jadeite, carnelian, flint, opal, hyalite… — a septarian nodule, obsidian, a lava bomb)
-	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith", "geode", "slice"] or (sid == "malachite" and layout == "sawn")):
+	# (an opal egg is not broken apart — its lid of opal slid off its shell: it crazes instead, _geode)
+	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith", "geode", "slice"] or (sid == "malachite" and layout == "sawn")) and not (layout == "geode" and sid == "opal"):
 		_glassy = layout == "obsidian"
 		_shatter()
 	_finish()
@@ -1600,7 +1601,7 @@ func _shatter() -> void:
 	var mats: Array = []
 	var mcols: Array = []   # (a mesh coloured by its points: its crumbs take its mean colour — plain, they were white)
 	for nd: Node in all_n:
-		if nd is MeshInstance3D and nd.has_meta("geo") and (nd as MeshInstance3D).material_override:
+		if nd is MeshInstance3D and nd.has_meta("geo") and (nd as MeshInstance3D).material_override and not nd.has_meta("no_crumbs"):
 			var gs := _box_of([nd]).size.length()
 			if gs > box.size.length() * 0.3:
 				mats.append((nd as MeshInstance3D).material_override)
@@ -2832,13 +2833,33 @@ func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed
 	var sz := (bb.size.x + bb.size.y + bb.size.z) / 3.0
 	for i in vg.v.size(): vg.v[i] += nr[i] * sz * 0.004
 	var c := bb.get_center()
-	# (a layer lying more or less flat, as the stone's beds do: across the face the viewer sees)
+	# (19.11, "just a belt") mostly the stone broken along its seam: a flat face to the viewer, the opal over it in
+	# a ragged field with islands of ironstone left in it; else the seam through the stone, swelling and pinching
+	var face := r2.next() < 0.65
 	var bn := (UP + Vector3(r2.next() - 0.5, 0, r2.next() - 0.5) * 0.9).normalized()
+	var bd := bn.dot(c) + (r2.next() - 0.35) * bb.size.y * 0.3
+	if face:
+		bn = (rk.transform.basis.inverse() * (VIEW_DIR + UP * 0.45 + Vector3(r2.next() - 0.5, 0, r2.next() - 0.5) * 0.3)).normalized()
+		var far := -INF
+		for p in rg.v: far = maxf(far, p.dot(bn))
+		bd = far - sz * (0.14 + r2.next() * 0.08)
+		# the broken face: everything beyond the plane pressed (almost) flat onto it, rock and seam alike
+		var fl := FastNoiseLite.new()
+		fl.seed = int(r2.next() * 100000)
+		fl.frequency = 2.5 / sz
+		for g2: Geo in [rg, vg]:
+			for i in g2.v.size():
+				var dd := g2.v[i].dot(bn) - bd
+				if dd > 0.0: g2.v[i] -= bn * (dd * 0.92 - fl.get_noise_3dv(g2.v[i]) * sz * 0.01)
+		for i in vg.v.size(): vg.v[i] += bn * sz * 0.003 if vg.v[i].dot(bn) > bd - sz * 0.02 else Vector3.ZERO
+		rk.mesh = rg.to_mesh()
+		keep_out.append([rk.transform * (c + bn * (bd - bn.dot(c))), sz * 0.6])
 	gm.set_shader_parameter("band_on", 1.0)
+	gm.set_shader_parameter("band_face", 1.0 if face else 0.0)
 	gm.set_shader_parameter("band_n", bn)
-	gm.set_shader_parameter("band_d", bn.dot(c) + (r2.next() - 0.35) * bb.size.y * 0.3)
+	gm.set_shader_parameter("band_d", bd)
 	gm.set_shader_parameter("band_w", sz * (0.05 + r2.next() * 0.04))
-	if r2.next() < 0.5:
+	if not face and r2.next() < 0.5:
 		var bn2 := (bn + Vector3(r2.next() - 0.5, r2.next() - 0.5, r2.next() - 0.5) * 1.2).normalized()
 		gm.set_shader_parameter("band2_n", bn2)
 		gm.set_shader_parameter("band2_d", bn2.dot(c) + (r2.next() - 0.5) * bb.size.y * 0.4)
@@ -2941,6 +2962,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	# (an opal egg's rind: its ironstone, the rock's own scan over the bands — smooth it read as chocolate)
 	var rim_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, flat = true, side = "double", dirt = {h = 99.0, a = 0.45, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}}) if _sid == "opal" else SpecMat.make({col = Color(1, 1, 1), rough = 0.8, flat = true, side = "double"})
 	var rim := U.mesh(rg, rim_m, shell)
+	rim.set_meta("no_crumbs", true)   # (its colour is in its points: crumbs of it came out white)
 	rim.rotation.x = PI / 2
 	# pointed crystals crowding the cave: milky at their roots, deep colour at the tips
 	var gd: Dictionary = cmat_spec.call()
@@ -2973,6 +2995,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		var scoops := []
 		for k in (3 + int(rng.next() * 3)) if raw else 0:
 			scoops.append([Vector2(rng.next() - 0.5, rng.next() - 0.5) * 1.0, 0.18 + rng.next() * 0.22, 0.02 + rng.next() * 0.025])
+		var acc_e: Array = gene_m.get("accents", [])
+		# a pocket in its heart (rare): a bowl in the middle of the face, lined with little clear crystals
+		var pr := (0.2 + rng.next() * 0.08) if "pocket" in acc_e else 0.0
 		var fg := Geo.new()
 		var nr := 24
 		var na := 96
@@ -2992,6 +3017,8 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 						# a dish, its rim raised a hair: the light catches the ridge between two scoops
 						z -= float(sc[2]) * (maxf(0.0, 1.0 - dd * dd) - 0.25 * exp(-pow((dd - 1.0) / 0.12, 2.0)))
 				z *= smoothstep(1.0, 0.85, u) * 0.85 + 0.15   # (meets the rind at its edge)
+				if pr > 0.0 and u < pr * 1.15:
+					z -= 0.2 * pow(maxf(0.0, 1.0 - pow(u / (pr * 1.15), 2.0)), 0.6)
 				fg.v.append(Vector3(p2.x, p2.y, z))
 				fg.col.append(Color(u, 0, 0))
 		for ri in nr:
@@ -3003,9 +3030,37 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		# half broken raw (conchoidal ripples), half polished
 		om2.set_shader_parameter("egg_rough", 1.0 if raw else 0.0)
 		om2.set_shader_parameter("egg_milk", Color(0.52, 0.52, 0.5) if rng.next() < 0.6 else Color(0.56, 0.47, 0.37))
+		om2.set_shader_parameter("egg_pocket", pr)
+		# hurt by the dig: the opal crazed — a net of fine cracks over its face, wider and more of it the worse
+		om2.set_shader_parameter("egg_crack", float(hurt.get("k", 0.0)))
+		var glow := "inner_light" in acc_e
+		om2.set_shader_parameter("egg_glow", 1.0 if glow else 0.0)
 		main = U.mesh(fg, om2, shell)
 		main.rotation.x = PI / 2
 		main.set_meta("local", true)
+		if pr > 0.0:
+			# the pocket's lining: little clear points standing out of its bowl
+			var spots := []
+			for i in fg.v.size():
+				# (strewn, not on the mesh's rings: on its points they stood in circles, a fingerprint)
+				if float(fg.col[i].r) < pr * 0.9 and rng.next() < 0.5:
+					spots.append(fg.v[i] + Vector3((rng.next() - 0.5) * 0.06, (rng.next() - 0.5) * 0.06, -0.006))
+			# (grey glassy points, few: white and dense they read as a blob of snow)
+			var pm := SpecMat.make({col = Color(0.36, 0.38, 0.42), rough = 0.05, coat = 1.0, flat = true, env = 1.8})
+			U.inst(Geo.octa(1), pm, spots.size(), func(i: int) -> Array:
+				var dirc := (Vector3.BACK + Vector3(rng.next() - 0.5, rng.next() - 0.5, 0.0) * 0.9).normalized()
+				var ss := 0.006 + pow(rng.next(), 2.0) * 0.012
+				return [Transform3D(Basis(quat_to_l(UP, dirc)) * Basis.from_scale(Vector3(ss, ss * 2.0, ss)), spots[i] + dirc * ss * 0.3), Color(1, 1, 1)], main)
+		if glow:
+			# a light inside it: the core glows and lights the rind round it
+			var fl := OmniLight3D.new()
+			var fh := float(om2.get_shader_parameter("fire_h"))
+			fl.light_color = Color.from_hsv(fposmod(fh * 0.8, 1.0), 0.6, 1.0)
+			fl.light_energy = 0.9
+			fl.omni_range = 1.2
+			fl.shadow_enabled = false
+			fl.position = Vector3(0, 0, 0.35)
+			main.add_child(fl)
 	elif habit == "botryoid" and inner == habit:
 		# a lumpy species lines its cave with bubbles sunk half into the wall — a lining, not a cave filled with balls
 		# of glass. (19.11) Chrysocolla: its whole cave under a turquoise crust, bubbles of every size crowding,
@@ -3049,6 +3104,19 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		c.set_meta("local", true)
 		if not main: main = c
 	shell.transform = Transform3D(U.eul(-PI / 2 - 0.55, 0.35, 0), Vector3.ZERO)
+	if _sid == "opal":
+		var acc_h: Array = gene_m.get("accents", [])
+		if "halves" in acc_h:
+			# both halves of the egg (rare): side by side, mirrored as they came apart, faces up to the viewer
+			var twin := shell.duplicate() as Node3D
+			root.add_child(twin)
+			shell.transform = Transform3D(U.eul(-PI / 2 - 0.5, 0.5, 0.08), Vector3(-0.82, 0, 0.05))
+			twin.transform = Transform3D(Basis.from_scale(Vector3(-1, 1, 1)), Vector3.ZERO) * shell.transform
+			twin.position.z -= 0.05
+			_mark("halves", U.rel_xform(main, root) * Vector3(0, 0, 0.05))
+		var fc := U.rel_xform(main, root) * Vector3(0, 0, 0.05)
+		if "inner_light" in acc_h: _mark("inner_light", fc)
+		if "pocket" in acc_h: _mark("pocket", fc)
 	# moss, tufts and the rest settle on the outside of the shell
 	st.rock = outer_mesh
 	st.pick = func() -> Vector3:
