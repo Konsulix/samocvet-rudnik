@@ -441,6 +441,24 @@ func _ready() -> void:
 			made += 1
 		print("hugs: ", made, " finds")
 		Save.persist()
+	if args.has("opals"):
+		# test data: a dozen opals as Whalebone Cove gives them (boulder, black, jelly, pseudomorphs, geodes), whole:
+		# `-- save=opals screen=stones opals`; marked test, old ones from a previous run are replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("opals", false))
+		var sd := 190000
+		var made := 0
+		while made < 12 and sd < 260000:
+			sd += 1
+			var st := Stones.roll(sd, 2, 1.2, 8)
+			if st.sid != "opal": continue
+			st.area = 2
+			st.dl = 8
+			st.integ = 100
+			st.opals = true
+			st.test = true
+			Save.d.coll.append(st)
+			made += 1
+		print("opals: ", made)
 	if args.has("flowers"):
 		# test data: two finds with every kind of flower (SpecFlora.KINDS), on open rock: `-- save=flowers screen=stones
 		# flowers`; marked test, old ones from a previous run are replaced (the kind is the stone's seed's: searched for)
