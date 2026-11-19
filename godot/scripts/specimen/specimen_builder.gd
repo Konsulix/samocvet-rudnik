@@ -3204,7 +3204,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		# a long pocket along the crystal, as a negative crystal is, kept well inside it
 		cav.rad = Vector3(w * 0.24, minf(hh * 0.26, w * 0.85), w * 0.2)
 		cav.position = Vector3(bb.get_center().x, maxf(0.0, bb.position.y) + hh * (0.45 + rng.next() * 0.15), bb.get_center().z)
-		cav.br = minf(cav.rad.x, cav.rad.z) * 0.7
+		cav.br = minf(cav.rad.x, cav.rad.z) * 0.42
 		main.add_child(cav)
 		em.set_shader_parameter("enh_k", 1.0)
 		em.set_shader_parameter("enh_c", cav.position)
@@ -3745,7 +3745,10 @@ class Enhydro extends Node3D:
 	var rad := Vector3.ONE
 	var br := 0.05
 	var mat: ShaderMaterial
-	var at := Vector3.ZERO   # the bubble, in the pocket's space
+	var at := Vector3.ZERO    # the bubble, in the pocket's space
+	var vel := Vector3.ZERO
+	var _last := Basis()
+	var _has_last := false
 	func _target() -> Vector3:
 		var up := (global_transform.basis.inverse() * Vector3.UP) if is_inside_tree() else Vector3.UP
 		if up.length() < 1e-5: up = Vector3.UP
@@ -3757,9 +3760,34 @@ class Enhydro extends Node3D:
 		if mat: mat.set_shader_parameter("enh_b", Vector4(position.x + at.x, position.y + at.y, position.z + at.z, br))
 	func settle() -> void:
 		at = _target()
+		vel = Vector3.ZERO
 		_put()
 	func _ready() -> void:
 		settle()
+	## (19.11) alive: it floats to the top on a spring — overshoots and rocks a little before it settles; and when the
+	## stone is turned the water lags behind the turning glass, so the bubble slides back along the pocket's top and
+	## then rolls home (a finger dragging the stone sends it running)
 	func _process(dt: float) -> void:
-		at = at.lerp(_target(), 1.0 - exp(-dt * 1.6))
+		dt = minf(dt, 0.05)
+		var gb := global_transform.basis.orthonormalized()
+		if _has_last and dt > 0.0:
+			# the turn since the last frame, in the pocket's own space: the water stays behind it
+			var dq := (gb.inverse() * _last).get_rotation_quaternion()
+			var ang := dq.get_angle()
+			if ang > 1e-5 and ang < 1.0:
+				var ax := dq.get_axis()
+				vel += ax.cross(at) * (ang / dt) * 0.9
+		_last = gb
+		_has_last = true
+		var tgt := _target()
+		vel += (tgt - at) * 26.0 * dt
+		vel *= exp(-dt * 3.2)
+		at += vel * dt
+		# kept inside the pocket
+		var q := at / (rad - Vector3.ONE * br * 1.05).max(Vector3.ONE * 1e-4)
+		if q.length() > 1.0:
+			at = at / q.length()
+			var nrm := (at / ((rad - Vector3.ONE * br) * (rad - Vector3.ONE * br)).max(Vector3.ONE * 1e-6)).normalized()
+			# (against the wall: it stops going out, a small bounce back)
+			if vel.dot(nrm) > 0.0: vel -= nrm * vel.dot(nrm) * 1.3
 		_put()

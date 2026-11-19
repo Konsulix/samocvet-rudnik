@@ -423,11 +423,18 @@ void fragment() {
 				vec3 hp = v_op + rd * t0;
 				vec3 en = normalize((hp - enh_c) / (enh_r * enh_r));
 				float eg = 1.0 - abs(dot(en, rd));
-				float wall = smoothstep(0.06, 0.42, eg);
-				vec3 water = body * vec3(0.8, 0.95, 1.05) + vec3(0.01, 0.02, 0.03);
-				body = mix(body, water * 0.6, 0.85 * enh_k);
-				body *= 1.0 - 0.92 * wall * enh_k;
-				enh_dk = max(0.85, wall) * enh_k;
+				// the water is a lens: what is behind the crystal seen through it shifted and enlarged — the sign of a
+				// liquid (a darker patch read as nothing). The pocket's own normal, as the screen sees it, pushes it
+				vec3 env = (VIEW_MATRIX * MODEL_MATRIX * vec4(en, 0.0)).xyz;
+				float thk = 1.0 - eg;
+				vec2 luv = SCREEN_UV - bend + env.xy * vec2(-1.0, 1.0) * 0.07 * thk;
+				vec3 lens = behind(luv, blur * 0.5) * absorb * vec3(0.92, 1.0, 1.06);
+				body = mix(body, lens * 1.05, 0.9 * enh_k);
+				// its wall: a thin dark line where it turns away, a faint bright lip just inside it
+				float line = smoothstep(0.72, 0.95, eg);
+				float lip = smoothstep(0.45, 0.72, eg) * (1.0 - line);
+				body = body * (1.0 - 0.8 * line * enh_k) + vec3(0.06, 0.07, 0.08) * lip * enh_k;
+				enh_dk = max(0.55, line) * enh_k;
 				// the bubble, inside: the same ray on into the water
 				vec3 bp = hp - enh_b.xyz;
 				float bb2 = dot(bp, rd);
@@ -437,10 +444,11 @@ void fragment() {
 					vec3 bh = hp + rd * (-bb2 - sqrt(bd));
 					vec3 bn = normalize(bh - enh_b.xyz);
 					float br = 1.0 - abs(dot(bn, rd));
-					float brim = smoothstep(0.12, 0.5, br);
-					float spot = pow(max(0.0, dot(bn, normalize(-rd + vec3(-0.3, 0.9, 0.0)))), 24.0);
-					vec3 inb = body * 1.25 + vec3(0.04);
-					body = mix(body, mix(inb, vec3(0.004), brim), enh_k) + vec3(1.0) * spot * 1.4 * enh_k;
+					// (a soft rim, not a black ring — that read as an eyeball; the middle clear and bright)
+					float brim = smoothstep(0.35, 0.9, br);
+					float spot = pow(max(0.0, dot(bn, normalize(-rd + vec3(-0.3, 0.9, 0.0)))), 40.0);
+					vec3 inb = body * 1.2 + vec3(0.03);
+					body = mix(body, mix(inb, body * 0.15, brim), enh_k) + vec3(1.0) * spot * 1.6 * enh_k;
 					enh_dk = max(enh_dk, max(0.5, brim) * enh_k);
 				}
 			}
