@@ -218,6 +218,9 @@ static func mat(id: String) -> ShaderMaterial:
 		# (solid things — shells, crabs, stars, stony corals, the swimmers — let no light through: lit from behind their
 		# thin legs and rims glowed)
 		if float(md.get("sway", 0.0)) == 0.0: m.set_shader_parameter("back_k", 0.15)
+		# (19.11) a crab does not swim: the shader's tail wave (swim 0.05 by default) bent its whole body side to side
+		# as weed sways — off; only its legs step (crawl)
+		if String(md.g) == "crab": m.set_shader_parameter("swim", 0.0)
 		# a swimmer's own way of swimming (sea_swim.gdshader)
 		var an: Dictionary = md.get("anim", {})
 		for k: String in an:
