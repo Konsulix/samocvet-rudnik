@@ -177,9 +177,9 @@ func shake_find(k := 1.0) -> void:
 			if f.state == SpecButterfly.Fly.SIT: f.timer = 0.0
 			elif f.state == SpecButterfly.Fly.LAND: f.state = SpecButterfly.Fly.FLY
 			f.vel += Vector3(randf() - 0.5, randf() * 0.6, randf() - 0.5) * f.size * 6.0 * k
-		elif n.has_method("jolt"):
+		if n.has_method("jolt"):
 			n.call("jolt", k)
-		elif n is MeshInstance3D and n.has_meta("crumb"):
+		if n is MeshInstance3D and n.has_meta("crumb"):
 			var m := n as MeshInstance3D
 			var p0 := m.position
 			var r0 := m.rotation

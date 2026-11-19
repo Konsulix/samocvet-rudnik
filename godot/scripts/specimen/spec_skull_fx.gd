@@ -807,6 +807,15 @@ class Flicker extends Node:
 class Swarm extends Node3D:
 	var flies := []
 	var lights := []
+	## (19.11) shaken (SpecView.shake_find): the swarm bursts outward and every one flashes at once, then drifts back
+	func jolt(k: float) -> void:
+		t = fmod(t, 22.0)
+		for f: Dictionary in flies:
+			var fly: SpecButterfly.Fly = f.fly
+			var away := (fly.pos - fly.box.get_center()).normalized()
+			if away.length() < 0.1: away = Vector3(randf() - 0.5, 0.5, randf() - 0.5).normalized()
+			fly.vel += away * fly.size * 9.0 * k
+			f.ph = -t   # (all flash together now)
 	var x0 := 0.0
 	var xs := 1.0
 	var t := 0.0

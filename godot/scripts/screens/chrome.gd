@@ -231,6 +231,13 @@ static func settings() -> void:
 		Sfx.apply_mute()
 		snd.text = _sound_name())
 	v.add_child(snd)
+	var vib := Ov.btn("Vibration: off" if Save.d.get("no_buzz", false) else "Vibration: on", "glass", func(): pass)
+	vib.pressed.connect(func():
+		Save.d.no_buzz = not Save.d.get("no_buzz", false)
+		Save.persist()
+		vib.text = "Vibration: off" if Save.d.no_buzz else "Vibration: on"
+		Sfx.buzz(30))
+	v.add_child(vib)
 	v.add_child(Ov.btn("Story so far", "glass", func(): story_card()))
 	var tips := Ov.btn("Show tips again", "glass", func(): pass)
 	tips.pressed.connect(func():

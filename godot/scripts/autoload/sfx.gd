@@ -295,8 +295,12 @@ func pick_stream() -> AudioStream:
 const BUZZ_MAX := 120
 var _buzz_until := 0
 
+## a tap of the phone's haptics. Off with the game's own Vibration switch (Settings); the phone's own settings rule
+## too — iOS plays no app haptics with Accessibility → Touch → Vibration off, and none at all in Low Power Mode
+## (an app cannot read those switches: the system just stays still). (19.11: the sound's mute no longer silences it —
+## the two are separate switches now)
 func buzz(ms := 20) -> void:
-	if Save.d.get("mute", false): return
+	if Save.d.get("no_buzz", false): return
 	var now := Time.get_ticks_msec()
 	if now < _buzz_until: return
 	ms = clampi(ms, 1, BUZZ_MAX)
