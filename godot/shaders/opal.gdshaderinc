@@ -109,39 +109,55 @@ vec3 opal_play(vec3 p, vec3 v, vec3 n, float fh, float spread, float s, float t,
 // under the nearer. fh: the leading hue (0 red .. 1 violet); spread: how far the patches stray from it (0.2 the blues
 // and greens of most stones, 0.5 the whole spectrum of a harlequin); k: patches per unit (bigger: smaller patches);
 // soft: 0 crisp mosaic .. 1 soft blobs of a jelly opal. Returns the fire's light; glow: how bright.
+// one patch of the harlequin: its colour and how bright it is, at q (its cell id), seen along v
+vec4 _harl_patch(vec3 cell, vec3 q, vec3 v, vec3 n, float fh, float spread, float t) {
+	// (many cells join into one patch — big flashes of odd shapes among small ones, not a honeycomb of one size)
+	vec3 ctr = cell + vec3(h3(cell), h3(cell + 1.7), h3(cell + 3.1)) * 0.85 + 0.075;
+	vec3 id = h3(cell + 31.0) < 0.6 ? floor(ctr * 0.42) + 500.0 : cell;
+	float r = h3(id + 5.3);
+	vec3 gd = normalize(vec3(h3(id + 11.0), h3(id + 13.0), h3(id + 17.0)) - 0.5 + n * 0.5);
+	float ang = dot(v, gd);
+	float lit = smoothstep(0.45, 0.95, sin(ang * 5.0 + r * 20.0 + t * 0.8) * 0.5 + 0.5);
+	// the light falls across the patch from one side, and its colour runs along it (one patch is never one flat colour)
+	float across = dot(q - ctr, gd);
+	lit *= 0.55 + 0.45 * smoothstep(-0.6, 0.6, across + sin(ang * 4.0 + r * 9.0) * 0.5);
+	lit = mix(0.06, 1.0, lit);
+	float band = 0.88 + 0.12 * sin(dot(q, gd) * 7.0 + ang * 10.0);
+	float h = fh + (r - 0.5) * spread * 2.2 + ang * 0.12 + across * spread * 0.5 + t * 0.05;
+	float on = step(0.3, h3(id + 23.0));
+	return vec4(spectral(h), lit * band * on);
+}
+
 vec3 opal_harl(vec3 p, vec3 v, vec3 n, float fh, float spread, float s, float t, float k, float sf, out float glow) {
 	float cosv = max(abs(dot(v, n)), 0.3);
 	vec3 acc = vec3(0.0);
 	float cover = 0.0;
 	for (int i = 0; i < 2; i++) {
 		float fi = float(i);
-		vec3 q = (p - v * (0.02 + 0.05 * fi) / cosv) * k * (1.0 + fi * 0.7) + s + fi * 31.0;
-		// (the patches not a regular honeycomb: drawn out and bent)
-		q += (vec3(vn(q * 0.33), vn(q * 0.33 + 5.0), vn(q * 0.33 + 9.0)) - 0.5) * 1.3;
+		vec3 q0 = (p - v * (0.02 + 0.05 * fi) / cosv) * k * (1.0 + fi * 0.7) + s + fi * 31.0;
+		// (19.11, second pass: "a stained-glass window") drawn out into ribbons one way across the stone and bent;
+		// neighbours run into each other at their edges. (A grain that wandered over the stone, and patch sizes
+		// zoomed by region, swirled it all into marbled rings)
+		vec3 grain = normalize(vec3(h3(vec3(s, 1.0, 2.0)), h3(vec3(s, 3.0, 4.0)), h3(vec3(s, 5.0, 6.0))) - 0.5 + vec3(0.0, 0.001, 0.0));
+		vec3 q = q0 - grain * dot(q0, grain) * 0.5;
+		q += (vec3(vn(q * 0.33), vn(q * 0.33 + 5.0), vn(q * 0.33 + 9.0)) - 0.5) * 1.6;
 		vec3 c = floor(q);
 		float d1 = 9.0, d2 = 9.0;
-		vec3 id = vec3(0.0);
+		vec3 id1 = vec3(0.0), id2 = vec3(0.0);
 		for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
 			vec3 g = c + vec3(float(x), float(y), float(z));
 			vec3 pt = g + vec3(h3(g), h3(g + 1.7), h3(g + 3.1)) * 0.85 + 0.075;
 			float d = distance(pt, q);
-			if (d < d1) { d2 = d1; d1 = d; id = g; } else if (d < d2) { d2 = d; }
+			if (d < d1) { d2 = d1; id2 = id1; d1 = d; id1 = g; } else if (d < d2) { d2 = d; id2 = g; }
 		}
-		float r = h3(id + 5.3);
-		// (patches meet with no gap — a dark line round each read as leaded glass; a soft opal's blur into each other)
-		float inside = smoothstep(0.0, 0.012 + sf * 0.35, d2 - d1);
-		// each patch throws its light one way: lit only when seen from round there
-		vec3 gd = normalize(vec3(h3(id + 11.0), h3(id + 13.0), h3(id + 17.0)) - 0.5 + n * 0.5);
-		float ang = dot(v, gd);
-		float lit = smoothstep(0.45, 0.95, sin(ang * 5.0 + r * 20.0 + t * 0.8) * 0.5 + 0.5);
-		lit = mix(0.06, 1.0, lit);
-		// a rolling flash: bands of light across the patch, moving as it turns
-		float band = 0.85 + 0.15 * sin(dot(q, gd) * 7.0 + ang * 10.0);
-		float h = fh + (r - 0.5) * spread * 2.2 + ang * 0.12 + t * 0.05;
-		vec3 col = spectral(h);
-		float on = step(0.3, h3(id + 23.0));   // (some patches empty: the body between)
-		float wt = clamp(inside * lit * band * on, 0.0, 1.0);
-		acc += col * wt * (1.0 - cover) * (1.0 - 0.3 * fi) * 1.35;
+		vec4 a = _harl_patch(id1, q, v, n, fh, spread, t);
+		vec4 b = _harl_patch(id2, q, v, n, fh, spread, t);
+		// (across the border the two blend: soft for a jelly opal, a short run for the rest — here and there crisp)
+		float bw = mix(0.12, 0.45, sf) * (0.35 + vn(q * 0.6 + 70.0));
+		float wa = 0.5 + 0.5 * clamp((d2 - d1) / bw, 0.0, 1.0);
+		vec3 col = mix(b.rgb * b.a, a.rgb * a.a, wa);
+		float wt = clamp(mix(b.a, a.a, wa), 0.0, 1.0);
+		acc += col * (1.0 - cover) * (1.0 - 0.3 * fi) * 1.35;
 		cover = min(1.0, cover + wt * 0.9);
 	}
 	// pinfire: a few tiny sparks
