@@ -3189,30 +3189,26 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 			U.mesh(Geo.cylinder(0.004, 0.004, len, 4), gm, main, at, U.eul((rng.next() - 0.5) * 0.8, rng.next() * 3, (rng.next() - 0.5) * 0.8))
 		_mark("rutile", _mid(main, 0.55))
 	if ok and "enhydro" in tr:
-		# a pocket of water in the crystal (G1): only its far wall is drawn — pale, watery — and in it the gas bubble,
-		# a bright bead, drifting up whichever way the stone is turned
+		# a pocket of water in the crystal (G1), its gas bubble drifting up whichever way the stone is turned — drawn in
+		# the glass itself (spec.gdshaderinc enh_*): the eye's ray, bent in at the face, finds the pocket and the bubble,
+		# so they swim as the stone turns. (Meshes inside were lost behind the glass, and drawn over it they were a
+		# sticker: an outline and a ball)
 		var w := minf(bb.size.x, bb.size.z)
 		var hh := bb.end.y - maxf(0.0, bb.position.y)
+		var em: ShaderMaterial = SpecUtil.mat_copy(mat) if main.material_override == mat else main.material_override
+		main.material_override = em
+		em.set_shader_parameter("frost_k", 0.0)
+		em.set_shader_parameter("ir_k", 0.0)   # (the rainbow film over the face hid what is inside)
 		var cav := Enhydro.new()
-		# (a long pocket along the crystal, as a negative crystal is)
-		cav.rad = Vector3(w * 0.22, minf(hh * 0.3, w * 0.9), w * 0.2)
+		cav.mat = em
+		# a long pocket along the crystal, as a negative crystal is, kept well inside it
+		cav.rad = Vector3(w * 0.24, minf(hh * 0.26, w * 0.85), w * 0.2)
 		cav.position = Vector3(bb.get_center().x, maxf(0.0, bb.position.y) + hh * (0.45 + rng.next() * 0.15), bb.get_center().z)
-		cav.rotation = Vector3((rng.next() - 0.5) * 0.4, rng.next() * TAU, (rng.next() - 0.5) * 0.4)
+		cav.br = minf(cav.rad.x, cav.rad.z) * 0.7
 		main.add_child(cav)
-		# (drawn after the glass and past its depth — shaders/enhydro.gdshader: behind the glass the pocket was a white smudge)
-		var wall := ShaderMaterial.new()
-		wall.shader = ENHYDRO
-		wall.render_priority = 21
-		wall.set_shader_parameter("part", 0)
-		U.mesh(Geo.sphere(1, 28, 18), wall, cav).scale = cav.rad
-		var br := minf(cav.rad.x, minf(cav.rad.y, cav.rad.z)) * 0.62
-		var bm := ShaderMaterial.new()
-		bm.shader = ENHYDRO
-		bm.render_priority = 22
-		bm.set_shader_parameter("part", 1)
-		cav.bubble = U.mesh(Geo.sphere(1, 20, 14), bm, cav)
-		cav.bubble.scale = Vector3.ONE * br
-		cav.br = br
+		em.set_shader_parameter("enh_k", 1.0)
+		em.set_shader_parameter("enh_c", cav.position)
+		em.set_shader_parameter("enh_r", cav.rad)
 		cav.settle()
 		_mark("enhydro", main.transform * cav.position)
 	if ok and gi < 2:
@@ -3743,23 +3739,27 @@ func _finish() -> void:
 			gg.tag = float(n.get_meta("part", 0.04 + 0.96 * fposmod(parts_i * 0.6180339 + 0.37, 1.0)))
 		(n as MeshInstance3D).mesh = gg.to_mesh()
 
-const ENHYDRO := preload("res://shaders/enhydro.gdshader")
-## an enhydro's pocket (G1): the gas bubble keeps to the top of its water, the top being wherever "up" is now
+## an enhydro's pocket (G1): the gas bubble keeps to the top of its water, the top being wherever "up" is now; it is
+## drawn by the crystal's glass (spec.gdshaderinc enh_b), this only moves it (in the crystal's own space)
 class Enhydro extends Node3D:
 	var rad := Vector3.ONE
 	var br := 0.05
-	var bubble: MeshInstance3D
+	var mat: ShaderMaterial
+	var at := Vector3.ZERO   # the bubble, in the pocket's space
 	func _target() -> Vector3:
 		var up := (global_transform.basis.inverse() * Vector3.UP) if is_inside_tree() else Vector3.UP
 		if up.length() < 1e-5: up = Vector3.UP
 		var d := up.normalized()
 		# the point of the pocket's wall that way, the bubble's own radius in from it
 		var k := 1.0 / sqrt(pow(d.x / rad.x, 2.0) + pow(d.y / rad.y, 2.0) + pow(d.z / rad.z, 2.0))
-		return d * maxf(0.0, k - br * 1.05)
+		return d * maxf(0.0, k - br * 1.1)
+	func _put() -> void:
+		if mat: mat.set_shader_parameter("enh_b", Vector4(position.x + at.x, position.y + at.y, position.z + at.z, br))
 	func settle() -> void:
-		if bubble: bubble.position = _target()
+		at = _target()
+		_put()
 	func _ready() -> void:
 		settle()
 	func _process(dt: float) -> void:
-		if bubble:
-			bubble.position = bubble.position.lerp(_target(), 1.0 - exp(-dt * 1.6))
+		at = at.lerp(_target(), 1.0 - exp(-dt * 1.6))
+		_put()

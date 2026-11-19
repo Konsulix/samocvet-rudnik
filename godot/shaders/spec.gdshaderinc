@@ -37,6 +37,12 @@ uniform float star_k = 0.0;
 // emerald's trapiche: six dark arms from a dark hexagonal core, through the whole length of the crystal (object space,
 // along y): seen as a wheel in its flat end and as dark bands through its sides. trap_r: the crystal's radius
 uniform float trap_k = 0.0;
+// an enhydro (19.11): a pocket of water in the crystal and its gas bubble, found by the eye's ray bent in at the face
+// (object space: the pocket an ellipsoid at enh_c with radii enh_r, the bubble a sphere enh_b.xyz radius enh_b.w)
+uniform float enh_k = 0.0;
+uniform vec3 enh_c = vec3(0.0);
+uniform vec3 enh_r = vec3(0.1);
+uniform vec4 enh_b = vec4(0.0, 0.0, 0.0, 0.03);
 uniform float trap_r = 0.4;
 uniform float trap_a = 0.5236;
 uniform float dark_k = 0.0;
@@ -394,6 +400,52 @@ void fragment() {
 		vec3 tn = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
 		body = mix(body, dot(body, vec3(0.3, 0.5, 0.2)) * tn * 1.5 + tn * 0.05, 0.8 * cham_k);
 	}
+	float enh_dk = 0.0;   // how much of the face's own glare to take off over the pocket (it hid it)
+	if (enh_k > 0.0) {
+		// the ray from the eye, bent in at the face (glass ~1.55), meets the pocket: its wall dark where it turns away
+		// (light leaves water for glass at a glance — the dark outline every fluid inclusion has), the water inside a
+		// touch cooler and clearer; in it the bubble, its rim black (light bends off a bubble's edge), a spot of light
+		// in it. Seen through the face, so it shifts and swims as the stone turns
+		mat4 einv = inverse(MODEL_MATRIX);
+		vec3 eo = (einv * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
+		vec3 ed = normalize(v_op - eo);
+		vec3 fn = normalize(v_no);
+		if (dot(fn, ed) > 0.0) fn = -fn;
+		vec3 rd = refract(ed, fn, 0.66);
+		if (dot(rd, rd) < 1e-4) rd = ed;
+		vec3 p = (v_op - enh_c) / enh_r;
+		vec3 d = rd / enh_r;
+		float A = dot(d, d), B = dot(p, d), C = dot(p, p) - 1.0;
+		float disc = B * B - A * C;
+		if (disc > 0.0) {
+			float t0 = (-B - sqrt(disc)) / A;
+			if (t0 > 0.0) {
+				vec3 hp = v_op + rd * t0;
+				vec3 en = normalize((hp - enh_c) / (enh_r * enh_r));
+				float eg = 1.0 - abs(dot(en, rd));
+				float wall = smoothstep(0.06, 0.42, eg);
+				vec3 water = body * vec3(0.8, 0.95, 1.05) + vec3(0.01, 0.02, 0.03);
+				body = mix(body, water * 0.6, 0.85 * enh_k);
+				body *= 1.0 - 0.92 * wall * enh_k;
+				enh_dk = max(0.85, wall) * enh_k;
+				// the bubble, inside: the same ray on into the water
+				vec3 bp = hp - enh_b.xyz;
+				float bb2 = dot(bp, rd);
+				float bc = dot(bp, bp) - enh_b.w * enh_b.w;
+				float bd = bb2 * bb2 - bc;
+				if (bd > 0.0 && -bb2 - sqrt(bd) > 0.0) {
+					vec3 bh = hp + rd * (-bb2 - sqrt(bd));
+					vec3 bn = normalize(bh - enh_b.xyz);
+					float br = 1.0 - abs(dot(bn, rd));
+					float brim = smoothstep(0.12, 0.5, br);
+					float spot = pow(max(0.0, dot(bn, normalize(-rd + vec3(-0.3, 0.9, 0.0)))), 24.0);
+					vec3 inb = body * 1.25 + vec3(0.04);
+					body = mix(body, mix(inb, vec3(0.004), brim), enh_k) + vec3(1.0) * spot * 1.4 * enh_k;
+					enh_dk = max(enh_dk, max(0.5, brim) * enh_k);
+				}
+			}
+		}
+	}
 	float trap = 0.0;
 	if (trap_k > 0.0) {
 		// the arms reach the faces, as a real trapiche's do: on the flat end a star round a dark core, on the sides dark
@@ -580,6 +632,8 @@ void fragment() {
 	// a night sky inside: the faces' white studio glare and lit surface would grey it out, so they dim to a glint
 	ALBEDO *= 1.0 - 0.85 * star_k * (1.0 - dirt);
 	ALBEDO *= 1.0 - 0.9 * trap * (1.0 - dirt);
+	ALBEDO *= 1.0 - 0.95 * enh_dk * (1.0 - dirt);
+	SPECULAR *= 1.0 - 0.6 * enh_dk;
 	SPECULAR *= 1.0 - 0.5 * trap;
 	SPECULAR *= 1.0 - 0.7 * star_k * (1.0 - dirt);
 	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.8 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
