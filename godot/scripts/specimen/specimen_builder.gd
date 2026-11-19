@@ -649,7 +649,13 @@ func _specimen(o: Dictionary) -> Node3D:
 					var g := Geo.cylinder(w, w * 0.97, th, 6).translate(0, th * 0.5, 0)
 					g.mark_edges()
 					g.subdivide(1).jitter(w * 0.012, 4.0 / w, int(rng.next() * 100000))
+					# (19.11) hurt by the dig: each plate pitted, a piece of its rim knocked off — no tip to lose
 					g.fill_color(Color(1, 1, 1))
+					if zcfg.has("dmg"):
+						var d2: Dictionary = (zcfg.dmg as Dictionary).duplicate()
+						d2.flat = true
+						RockKit.damage(g.subdivide(1), d2)
+						zcfg.dmg.n = d2.n
 					var c := U.mesh(g, cm, root)
 					var off := Vector3((rng.next() - 0.5) * w0 * 0.08, y, (rng.next() - 0.5) * w0 * 0.08)
 					# each plate a little tilted of its own: the steps catch the light one by one
@@ -822,6 +828,8 @@ func _specimen(o: Dictionary) -> Node3D:
 					var d := (nn + _rv() * 1.6).normalized()
 					if d.dot(nn) < 0.15: d = (d + nn).normalized()
 					var ln := (0.12 + pow(rng.next(), 0.7) * 0.42) * gs * reach
+					# (19.11) hurt by the dig: hairs snapped short, more the worse it is
+					if zcfg.has("dmg") and (zcfg.dmg.rng as Rng32).next() < float(zcfg.dmg.k) * 0.6: ln *= 0.2 + (zcfg.dmg.rng as Rng32).next() * 0.4
 					var r := (0.0028 + rng.next() * 0.0022) * gs
 					hairs.append(Transform3D(Basis(quat_to_l(UP, d)) * Basis.from_scale(Vector3(r, ln, r)), p - nn * 0.01))
 			U.inst(Geo.cylinder(1.0, 0.35, 1.0, 5).translate(0, 0.5, 0), hm, hairs.size(), func(i: int) -> Array: return [hairs[i], Color(1, 1, 1)], root)

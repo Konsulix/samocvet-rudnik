@@ -32,6 +32,48 @@ static func _show_spot(b: RefCounted, st: Dictionary, tries := 8, up := 1.0) -> 
 
 ## wulfenite: thin square plates of orange glass stood on their edges and corners at every angle, a few big ones and
 ## their small kin, bevelled all round; the middle of a plate deeper in colour than its rim
+## (19.11) the find hurt by a careless dig (zcfg.dmg, the damage's own stream): one crystal of its own — a pane, a
+## pencil — pitted, its edges gnawed, its tip or corner knocked off, as RockKit.crystal does its crystals
+static func _hurt(g: Geo, c: Dictionary, flat := false) -> void:
+	var dm: Dictionary = (c.zcfg as Dictionary).get("dmg", {})
+	if dm.is_empty(): return
+	var det := 3
+	while det > 0 and g.tri_count() * pow(4.0, det) > RockKit.DMG_TRIS: det -= 1
+	if det > 0: g.subdivide(det)
+	if flat:
+		var d2 := dm.duplicate()
+		d2.flat = true
+		RockKit.damage(g, d2)
+		dm.n = d2.n
+	else: RockKit.damage(g, dm)
+
+## a crust or a growth of many crystals in one mesh (smithsonite's bubbles, bismuth's stairs): pieces knocked off
+## it and its skin dented, as a lump (RockKit.chip)
+static func _chip(g: Geo, c: Dictionary, soft := 1.0) -> void:
+	var dm: Dictionary = (c.zcfg as Dictionary).get("dmg", {})
+	if dm.is_empty(): return
+	# (soft: a thin crust over its rock — a break down through the whole of it shaved the crust off altogether)
+	var d2 := dm.duplicate()
+	d2.k = float(dm.k) * soft
+	RockKit.chip(g, d2)
+
+## a blade of a spray (cavansite's balls, erythrite's fans): how much of its length is left. The side the dig struck
+## is crushed — its blades broken short — and here and there over the rest one snapped
+static func _blade_left(c: Dictionary, u: Vector3, crush: Vector3) -> float:
+	var dm: Dictionary = (c.zcfg as Dictionary).get("dmg", {})
+	var k: float = dm.get("k", 0.0)
+	if k <= 0.0: return 1.0
+	var dr: Rng32 = dm.rng
+	if u.dot(crush) > 0.85 - k * 0.7: return 0.15 + dr.next() * 0.35
+	if dr.next() < k * 0.3: return 0.35 + dr.next() * 0.4
+	return 1.0
+
+static func _crush_dir(c: Dictionary) -> Vector3:
+	var dm: Dictionary = (c.zcfg as Dictionary).get("dmg", {})
+	if dm.is_empty(): return Vector3.UP
+	var dr: Rng32 = dm.rng
+	return (VIEW * 0.6 + UP * 0.5 + Vector3(dr.next() - 0.5, dr.next() - 0.5, dr.next() - 0.5) * 1.2).normalized()
+
 static func tablets(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var rng: Rng32 = b.rng
 	var st: Dictionary = c.st
@@ -60,6 +102,7 @@ static func tablets(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		g.translate(0, w * (0.95 if corner else 0.62), 0)
 		g.mark_edges()
 		g.subdivide(1).jitter(w * 0.012, 3.0 / w, int(rng.next() * 100000))
+		_hurt(g, c)
 		# the pane's colour: deep in its middle, paler and yellower to the bevelled rim
 		g.col.resize(g.v.size())
 		var mid := Vector3(0, w * (0.95 if corner else 0.62), 0)
@@ -249,11 +292,12 @@ static func balls(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var core := Geo.icosa(R * 0.5, 1).to_soup()
 		_add(g, core, Transform3D(Basis.IDENTITY, c0), deep * 0.5, deep * 0.5, false, true)
 		var cnt := int(230 + rng.next() * 90)
+		var crush := _crush_dir(c)
 		for i in cnt:
 			var u := Vector3(rng.next() - 0.5, rng.next() - 0.5, rng.next() - 0.5).normalized()
 			if u.dot(nn) < -0.35: u = (u - nn * 2.0 * u.dot(nn)).normalized()
 			var x := u.cross(UP if absf(u.y) < 0.9 else Vector3.RIGHT).normalized().rotated(u, rng.next() * TAU)
-			var L := R * (0.86 + rng.next() * 0.16)
+			var L := R * (0.86 + rng.next() * 0.16) * _blade_left(c, u, crush)
 			var w := R * (0.1 + rng.next() * 0.07)
 			var bs := Basis(x * w, u * L, u.cross(x) * w * 0.26)
 			# no two blades quite the same blue: some deep, some bright, a few nearly ink
@@ -322,6 +366,7 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var star := rng.next() < 0.3
 		var arc := TAU if star else 1.6 + rng.next() * 1.6
 		var cnt := int((120 + rng.next() * 70) * (arc / 2.4))
+		var crush := _crush_dir(c)
 		for i in cnt:
 			var a := (rng.next() - 0.5) * arc
 			var lift := (rng.next() - 0.3) * 0.5
@@ -330,7 +375,7 @@ static func fans(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 			# longest in the middle of the fan, ragged
 			var shape := 0.8 if star else 0.55 + 0.45 * cos(a * PI / arc)
 			# long ones and a crowd of short ones filling the heart of the spray
-			var L := R * shape * (0.7 + rng.next() * 0.4) * (1.0 if rng.next() < 0.6 else 0.35 + rng.next() * 0.3)
+			var L := R * shape * (0.7 + rng.next() * 0.4) * (1.0 if rng.next() < 0.6 else 0.35 + rng.next() * 0.3) * _blade_left(c, u, crush)
 			var w := R * (0.009 + rng.next() * 0.017)
 			var x := (fn.cross(u)).normalized().rotated(u, (rng.next() - 0.5) * 1.4)
 			var bs := Basis(x * w, u * L, u.cross(x) * w * 0.2)
@@ -413,6 +458,7 @@ static func grapes(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var m := ShaderMaterial.new()
 	m.shader = PEARL
 	m.set_shader_parameter("seed", float(int(c.seed) % 89))
+	_chip(g, c, 0.4)
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	return mi
@@ -599,6 +645,7 @@ static func staircase(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var m := ShaderMaterial.new()
 	m.shader = BISMUTH
 	m.set_shader_parameter("seed", float(int(c.seed) % 89))
+	_chip(g, c)
 	var mi: MeshInstance3D = U.mesh(g, m, b.root)
 	mi.set_meta("col", true)
 	b.root.set_meta("face", true)
@@ -708,6 +755,7 @@ static func pencils(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		var h := (1.15 + rng.next() * 0.5) * gs * f
 		var g := _pencil(rng, r, h, stops, (rng.next() - 0.5) * 0.14)
 		g.mark_edges(30.0)
+		_hurt(g, c)
 		var mi: MeshInstance3D = U.mesh(g, cm, b.root)
 		var p: Vector3 = p0
 		if k > 0:
