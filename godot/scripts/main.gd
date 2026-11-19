@@ -451,6 +451,8 @@ func _ready() -> void:
 			var st := Stones.roll(sd, 0, 1.2, 2)
 			if not st.sid in ["quartz", "amethyst", "calcite", "fluorite"] or st.get("kind", "") != "crystal": continue
 			var tr: Array = st.get("traits", [])
+			# (as the game has them: not in a dark crystal, nor with a phantom)
+			if "phantom" in tr or String(SpecGenome.of(st).lustre) == "dark": continue
 			if not "enhydro" in tr: tr.append("enhydro")
 			st.traits = tr
 			st.area = 0

@@ -3188,7 +3188,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 			var at := Vector3(bb.get_center().x + (rng.next() - 0.5) * w * 0.4, maxf(0.0, bb.position.y) + hh * (0.25 + rng.next() * 0.45), bb.get_center().z + (rng.next() - 0.5) * w * 0.4)
 			U.mesh(Geo.cylinder(0.004, 0.004, len, 4), gm, main, at, U.eul((rng.next() - 0.5) * 0.8, rng.next() * 3, (rng.next() - 0.5) * 0.8))
 		_mark("rutile", _mid(main, 0.55))
-	if ok and "enhydro" in tr:
+	if ok and "enhydro" in tr and not "enhydro" in (gene_m.get("lost", []) as Array):
 		# a pocket of water in the crystal (G1), its gas bubble drifting up whichever way the stone is turned — drawn in
 		# the glass itself (spec.gdshaderinc enh_*): the eye's ray, bent in at the face, finds the pocket and the bubble,
 		# so they swim as the stone turns. (Meshes inside were lost behind the glass, and drawn over it they were a
