@@ -55,7 +55,7 @@ static var LIST := [
 		tags = ["flora:0", "flora:1", "flora:2", "flora:3", "flora:4", "flora:5", "flora:6", "flora:7"],
 		names = ["Mountain violet", "Gentian", "Tiger lily", "Wild rose", "Daisy", "Golden daisy", "Azalea", "Crested iris"]},
 	{tab = "coll", icon = "moss_stone", n = "A Rolling Stone", t = "Gathers no moss. Yours did.", r = "coins and a geode",
-		tags = ["tr:moss", "acc:lichen", "acc:fronds", "acc:flowers"], names = ["Moss", "Lichen", "Fern fronds", "Tiny flowers"]},
+		tags = ["tr:moss", "acc:lichen", "acc:fronds", "acc:flowers"], names = ["Moss", "Lichen", "Fern fronds", "Flowers"]},
 	{tab = "coll", icon = "star_crystal", n = "Once in a Blue Moon", t = "Some stones are alive. Find every one of them.", r = "the Hall of Legends", opens = true, legends = true},
 	{tab = "coll", icon = "trilobite", n = "Crystal Eyes", t = "They saw the world through stone lenses. Some of them are still staring.", r = "trilobite portrait",
 		tags = ["genus:elrathia", "genus:phacops", "genus:asaphus", "genus:dicranurus", "genus:walliserops", "genus:isotelus"], names = ["Elrathia", "Phacops", "Asaphus", "Dicranurus", "Walliserops", "Isotelus"]},

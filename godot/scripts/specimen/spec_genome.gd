@@ -13,7 +13,7 @@ const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "col
 	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", septaria = "septarian nodule", hair = "hair sprays", coxcomb = "cockscomb", starburst = "star discs", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
-	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "tiny flowers", mushrooms = "mushrooms",
+	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "flowers", mushrooms = "mushrooms",
 	nacre = "ammolite nacre", sutures = "suture lines", ch_calcite = "honey calcite fill", ch_white = "white calcite fill",
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
 	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", barite = "barite blades", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
