@@ -329,77 +329,36 @@ func _zoom_gesture(e: InputEvent) -> bool:
 	# while two fingers are down the emulated mouse must not turn the stone either
 	return _touch.size() > 1 and e is InputEventMouseMotion
 
-## (19.11) the rain a tap on an opal egg brings (SpecView._wet): a squall over the card — the light goes grey-blue,
-## rain in three depths (a haze of fine far streaks, the middle, a few big near drops blurred past the eye), each streak
-## a tapered stroke bright at its head and fading up its tail, slanting with a gust that sways; crowns of splashes and
-## spreading rings where it lands on the stone, a mist rising at the bottom; then it thins out and the light comes back
-class Rain extends Control:
+## (19.11) the rain a tap on an opal egg brings (SpecView._wet): a shower over the card, drawn by its own shader
+## (shaders/rain.gdshader: four depths of falling streaks, the near ones out of focus); the light goes a touch greyer
+## while it falls; it comes on in a breath and thins away. (Drawn as lines with splashes and a mist it read as nothing
+## like rain)
+class Rain extends ColorRect:
+	const SHADER := preload("res://shaders/rain.gdshader")
+	const DUR := 2.0
 	var t := 0.0
-	var drops: Array = []     # [x, start, speed, length, width, alpha, layer]
-	var splash: Array = []    # [x, y, born, size]
-	var rng := RandomNumberGenerator.new()
-	const DUR := 1.8
+	var m: ShaderMaterial
 
 	func _ready() -> void:
-		rng.randomize()
-		# far haze, middle, near
-		for spec: Array in [[320, 0.9, 1.5, 0.05, 0.8, 0.22, 0], [150, 1.2, 1.9, 0.11, 1.8, 0.5, 1], [18, 1.7, 2.6, 0.28, 6.0, 0.22, 2]]:
-			for i in int(spec[0]):
-				drops.append([rng.randf_range(-0.2, 1.2) * size.x, rng.randf() * (DUR - 0.5), rng.randf_range(float(spec[1]), float(spec[2])) * size.y,
-					float(spec[3]) * size.y * rng.randf_range(0.7, 1.3), float(spec[4]) * rng.randf_range(0.7, 1.3), float(spec[5]), int(spec[6])])
-		for i in 34:
-			splash.append([size.x * rng.randf_range(0.34, 0.66), size.y * rng.randf_range(0.36, 0.66), rng.randf_range(0.3, DUR - 0.25), rng.randf_range(0.7, 1.4)])
+		color = Color(1, 1, 1, 1)
+		m = ShaderMaterial.new()
+		m.shader = SHADER
+		m.set_shader_parameter("aspect", size.y / maxf(1.0, size.x))
+		m.set_shader_parameter("seed", randf() * 10.0)
+		material = m
+		var veil := ColorRect.new()
+		veil.color = Color(0.04, 0.07, 0.11, 0.0)
+		veil.size = size
+		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		veil.show_behind_parent = true
+		add_child(veil)
+		set_meta("veil", veil)
 
 	func _process(dt: float) -> void:
 		t += dt
-		if t > DUR + 0.8:
+		if t > DUR + 0.7:
 			queue_free()
 			return
-		queue_redraw()
-
-	func _streak(head: Vector2, dir: Vector2, ln: float, w: float, a: float) -> void:
-		var side := Vector2(-dir.y, dir.x) * w * 0.5
-		var tail := head - dir * ln
-		var c_head := Color(0.86, 0.93, 1.0, a)
-		var c_tail := Color(0.7, 0.82, 0.95, 0.0)
-		draw_polygon(PackedVector2Array([head + side, head - side, tail]), PackedColorArray([c_head, c_head, c_tail]))
-
-	func _draw() -> void:
-		var on := smoothstep(0.0, 0.25, t) * (1.0 - smoothstep(DUR - 0.3, DUR + 0.6, t))
-		# the light goes grey-blue under the squall
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.11, 0.32 * on))
-		var gust := 0.16 + 0.06 * sin(t * 2.3)
-		var dir := Vector2(-gust, 1.0).normalized()
-		for d: Array in drops:
-			var age := t - float(d[1])
-			if age < 0.0: continue
-			var y := age * float(d[2])
-			if y - float(d[3]) > size.y: continue
-			var head := Vector2(float(d[0]), 0.0) + dir * (y / dir.y)
-			var a := float(d[5]) * on
-			if int(d[6]) == 2:
-				# near drops: out of focus — a wide faint stroke and a thinner core
-				_streak(head, dir, float(d[3]), float(d[4]) * 2.2, a * 0.35)
-			_streak(head, dir, float(d[3]), float(d[4]), a)
-		for sp: Array in splash:
-			var age := t - float(sp[2])
-			if age < 0.0 or age > 0.45: continue
-			var k := age / 0.45
-			var p := Vector2(float(sp[0]), float(sp[1]))
-			var sz := float(sp[3])
-			var c := Color(0.88, 0.94, 1.0, (1.0 - k) * 0.7 * on)
-			# a flattened ring spreading over the surface
-			draw_set_transform(p, 0.0, Vector2(1.0, 0.35))
-			draw_arc(Vector2.ZERO, (3.0 + k * 16.0) * sz, 0.0, TAU, 20, c, 1.3, true)
-			draw_set_transform(Vector2.ZERO)
-			# a crown of droplets thrown up and falling back
-			for j in 6:
-				var ang := -PI * (0.12 + 0.76 * j / 5.0)
-				var r := (2.0 + k * 13.0) * sz
-				var q := p + Vector2(cos(ang) * r, sin(ang) * r * 0.9 + 26.0 * sz * k * k)
-				draw_circle(q, (1.6 - k) * sz, c)
-		# a mist rising off the bottom where it all lands
-		var mist := 0.22 * on
-		for i in 20:
-			var h := size.y * (0.05 + i * 0.012)
-			draw_rect(Rect2(0, size.y - h, size.x, h), Color(0.75, 0.82, 0.9, mist / 20.0))
+		var on := smoothstep(0.0, 0.25, t) * (1.0 - smoothstep(DUR - 0.4, DUR + 0.6, t))
+		m.set_shader_parameter("on", on)
+		(get_meta("veil") as ColorRect).color.a = 0.22 * on
