@@ -18,12 +18,12 @@ const MODELS := {
 	weed_wiggle = {g = "weed", n = "bladder wrack", k = 0.85, sway = 0.07, gain = 5.0, sat = 0.85, tint = Color(1.25, 1.0, 0.75)},
 	# (out: no longer comes on a new find — the scan stands on its own pink lump of rock, a floor on the floor)
 	coral_red = {g = "coral", n = "red coral", k = 1.0, tint = Color(1.0, 0.62, 0.5), sat = 1.4, out = true},
-	coral_organ = {g = "coral", n = "organ pipe coral", k = 0.8},
-	coral_blue = {g = "coral", n = "blue coral", k = 0.9},
+	coral_organ = {g = "coral", n = "organ pipe coral", k = 0.8, fix = Vector3(-28, 0, 0)},
+	coral_blue = {g = "coral", n = "blue coral", k = 0.9, fix = Vector3(-20, 0, 0)},
 	coral_staghorn = {g = "coral", n = "staghorn coral", k = 1.0},
 	coral_pocillopora = {g = "coral", n = "cauliflower coral", k = 0.8},
 	coral_rosebrain = {g = "coral", n = "rose brain coral", k = 0.65},
-	anemone_elegant = {g = "coral", n = "elegant anemone", k = 0.55, sway = 0.05},
+	anemone_elegant = {g = "coral", n = "elegant anemone", k = 0.55, sway = 0.05, fix = Vector3(180, 0, 0)},
 	# (out too: the scan stands on its own grey disc of rock with pebbles)
 	anemone_purple = {g = "coral", n = "purple anemone", k = 0.55, sway = 0.05, out = true},
 	star_bat = {g = "star", n = "bat star", k = 0.9},
@@ -159,7 +159,29 @@ static func points(id: String) -> float:
 
 static func mesh(id: String) -> Mesh:
 	if not _mesh.has(id):
-		_mesh[id] = load(DIR + id + ".obj") as Mesh
+		var m := load(DIR + id + ".obj") as Mesh
+		# (19.11) a scan that came in leaning or upside down (its prep's own turn wrong for it — the elegant anemone
+		# on its head, the blue coral and the organ pipe on their sides): turned upright here, the turn baked into
+		# its points, so its foot (foot_of) is its real foot
+		var fx: Vector3 = (MODELS.get(id, {}) as Dictionary).get("fix", Vector3.ZERO)
+		if fx != Vector3.ZERO and m:
+			var b := Basis.from_euler(fx * (PI / 180.0))
+			var arr := m.surface_get_arrays(0)
+			var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+			var lo := INF
+			for i in vs.size():
+				vs[i] = b * vs[i]
+				lo = minf(lo, vs[i].y)
+			for i in vs.size(): vs[i].y -= lo
+			for i in ns.size(): ns[i] = b * ns[i]
+			arr[Mesh.ARRAY_VERTEX] = vs
+			arr[Mesh.ARRAY_NORMAL] = ns
+			arr[Mesh.ARRAY_TANGENT] = null
+			var am := ArrayMesh.new()
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			m = am
+		_mesh[id] = m
 	return _mesh[id]
 
 static func mat(id: String) -> ShaderMaterial:
@@ -231,7 +253,9 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		var yaw := r.next() * TAU
 		# (a tall thing leans back, away from the viewer, as the sea lilies do: the slab is held up to the eye, and
 		# upright it would stand over the find in the picture)
-		var back := Basis(Vector3.RIGHT, -(0.25 + r.next() * 0.2)) if it[1] and g != "weed" else Basis(Vector3.RIGHT, -(0.35 + r.next() * 0.25)) if it[1] else Basis.IDENTITY
+		# (19.11: a coral only a touch — leaning 15–25° a stony coral read as knocked over, an anemone as falling)
+		var lean_c := r.next()
+		var back := Basis(Vector3.RIGHT, -(0.06 + lean_c * 0.08)) if it[1] and g != "weed" else Basis(Vector3.RIGHT, -(0.35 + lean_c * 0.25)) if it[1] else Basis.IDENTITY
 		var pose: Variant = null
 		for shrink: float in [1.0, 0.9, 0.8, 0.7]:
 			for tries in 14:
