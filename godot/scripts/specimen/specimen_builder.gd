@@ -2905,8 +2905,10 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			return Color.hex(int(ag[int(u)]) << 8 | 0xff).lerp(Color.hex(int(ag[(int(u) + 1) % ag.size()]) << 8 | 0xff), smoothstep(0.7, 1.0, fposmod(u, 1.0)))
 		# (19.11) an opal egg: a thin rind of white and grey common opal round its fire; chrysocolla: turquoise bands
 		if _sid == "opal":
-			if t < 0.18: return SpecMat.hsl(0.08, 0.2, 0.16 + t)
-			return SpecMat.hsl(0.58, 0.08 + j * 0.04, 0.34 + t * 0.16 + j * 0.06)
+			# (brown ironstone round it, mottled, and only at its inner edge a thin translucent milky line of common
+			# opal: a wide even grey ring read as plastic)
+			if t < 0.86: return SpecMat.hsl(0.06 + j * 0.015, 0.38 + j * 0.1, 0.16 + t * 0.12 + j * 0.05)
+			return SpecMat.hsl(0.58, 0.06, 0.42 + (t - 0.86) * 1.2)
 		if _sid == "chrysocolla":
 			if t < 0.18: return SpecMat.hsl(0.07, 0.3, 0.14 + t)
 			return SpecMat.hsl(0.52 + j * 0.03, 0.6 + j * 0.15, 0.18 + t * 0.18 + j * 0.06)
@@ -2936,7 +2938,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	for i in rg.v.size():
 		var t := 1.0 - float(i / 65) / 16.0
 		rg.col[i] = (band.call(clampf(t, 0.0, 1.0)) as Color).srgb_to_linear()
-	var rim := U.mesh(rg, SpecMat.make({col = Color(1, 1, 1), rough = 0.8, flat = true, side = "double"}), shell)
+	# (an opal egg's rind: its ironstone, the rock's own scan over the bands — smooth it read as chocolate)
+	var rim_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, flat = true, side = "double", dirt = {h = 99.0, a = 0.45, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}}) if _sid == "opal" else SpecMat.make({col = Color(1, 1, 1), rough = 0.8, flat = true, side = "double"})
+	var rim := U.mesh(rg, rim_m, shell)
 	rim.rotation.x = PI / 2
 	# pointed crystals crowding the cave: milky at their roots, deep colour at the tips
 	var gd: Dictionary = cmat_spec.call()
@@ -2962,19 +2966,33 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		# (19.11) an opal egg broken open: no cave — the half filled to its lip with precious opal, its broken face
 		# polished, the fire over the whole of it (a cave of a few bubbles in one corner read as unfinished)
 		var om2 := _opal_mat(rng, 3.6, int(Stones.pick_w([[2, 3.0], [1, 2.0], [0, 1.5]], rng)))
+		var raw := rng.next() < 0.5
+		# the face in the mesh itself (19.11: a flat lid with a picture on it): a dome, and — on a raw break — a few
+		# shallow conchoidal scoops, each a smooth dish with a lip, overlapping; polished, only the dome and a soft
+		# unevenness
+		var scoops := []
+		for k in (3 + int(rng.next() * 3)) if raw else 0:
+			scoops.append([Vector2(rng.next() - 0.5, rng.next() - 0.5) * 1.0, 0.18 + rng.next() * 0.22, 0.02 + rng.next() * 0.025])
 		var fg := Geo.new()
-		var nr := 10
-		var na := 64
+		var nr := 24
+		var na := 96
 		for ri in nr + 1:
 			for ai in na + 1:
 				var a := TAU * ai / na
 				var edge: Vector3 = outer.v[32 * 65 + roundi(fposmod(PI - a, TAU) / TAU * 64.0)]
 				# (over the inner part of the rind: a thin rind round it, not a wide white ring)
-				var rr := Vector2(edge.x, edge.z).length() * 0.9 * float(ri) / nr
 				var u := float(ri) / nr
-				# a low dome, the polish catching the light across it
+				var rr := Vector2(edge.x, edge.z).length() * 0.9 * u
+				var p2 := Vector2(cos(a) * rr, sin(a) * rr)
 				# (sunk a little under the rind at its edge: the opal seen into the stone, not a lid laid on it)
-				fg.v.append(Vector3(cos(a) * rr, sin(a) * rr, -0.012 + 0.07 * (1.0 - u * u)))
+				var z := -0.012 + (0.09 if not raw else 0.06) * (1.0 - u * u)
+				for sc: Array in scoops:
+					var dd := p2.distance_to(sc[0]) / float(sc[1])
+					if dd < 1.25:
+						# a dish, its rim raised a hair: the light catches the ridge between two scoops
+						z -= float(sc[2]) * (maxf(0.0, 1.0 - dd * dd) - 0.25 * exp(-pow((dd - 1.0) / 0.12, 2.0)))
+				z *= smoothstep(1.0, 0.85, u) * 0.85 + 0.15   # (meets the rind at its edge)
+				fg.v.append(Vector3(p2.x, p2.y, z))
 				fg.col.append(Color(u, 0, 0))
 		for ri in nr:
 			for ai in na:
@@ -2983,7 +3001,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 				fg.idx.append_array([i0, i1, i0 + 1, i0 + 1, i1, i1 + 1])
 		om2.set_shader_parameter("egg_on", 1.0)
 		# half broken raw (conchoidal ripples), half polished
-		om2.set_shader_parameter("egg_rough", 1.0 if rng.next() < 0.5 else 0.0)
+		om2.set_shader_parameter("egg_rough", 1.0 if raw else 0.0)
 		om2.set_shader_parameter("egg_milk", Color(0.52, 0.52, 0.5) if rng.next() < 0.6 else Color(0.56, 0.47, 0.37))
 		main = U.mesh(fg, om2, shell)
 		main.rotation.x = PI / 2

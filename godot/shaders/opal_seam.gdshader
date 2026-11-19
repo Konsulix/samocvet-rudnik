@@ -57,24 +57,24 @@ void fragment() {
 	float milk = 0.0;
 	float edge_dark = 1.0;
 	if (egg_on > 0.0) {
-		// the layers, by distance in from the rind (wavering, as an agate's bands do)
-		float w = 1.0 - v_u + (fbm(v_op * 3.0 + seed) - 0.5) * 0.09;
-		float core = smoothstep(0.52, 0.62, w);
-		float ring = smoothstep(0.24, 0.27, w) * (1.0 - smoothstep(0.34, 0.37, w));
-		float ring2 = smoothstep(0.43, 0.45, w) * (1.0 - smoothstep(0.47, 0.49, w)) * 0.8;
-		fire_m = max(core, max(ring, ring2));
-		// milky common opal next to the rind and between the fire; clear opal (dark, seen into) the rest
-		milk = (1.0 - smoothstep(0.08, 0.14, w)) + smoothstep(0.37, 0.39, w) * (1.0 - smoothstep(0.42, 0.44, w));
-		milk = clamp(milk * (1.0 - fire_m), 0.0, 1.0);
-		edge_dark = 0.45 + 0.55 * smoothstep(0.0, 0.2, w);
+		// the layers, by distance in from the rind (wavering, as an agate's bands do) — soft, no drawn lines: a haze
+		// of common opal by the rind that the fire glows up through from deeper down, a brighter ring of fire, the
+		// core all fire. (Thin bands with hard edges read as a contour map)
+		float w = 1.0 - v_u + (fbm(v_op * 2.4 + seed) - 0.5) * 0.12;
+		// a wide haze by the rind; then clear opal, dark, with a glowing ring of fire in it; the core all fire
+		float ring = exp(-pow((w - 0.4) / 0.05, 2.0));
+		fire_m = clamp(0.22 + 0.78 * smoothstep(0.54, 0.68, w) + ring * 0.85, 0.0, 1.0);
+		milk = 1.0 - smoothstep(0.17, 0.3, w);
+		edge_dark = 0.55 + 0.45 * smoothstep(0.0, 0.25, w);
 		// the break's surface: shallow conchoidal scoops — ripple rings round a few centres — over a soft unevenness
+		// (the scoops and steps of the break are in the mesh; here only the fine ripple of a raw break)
 		float h = 0.0;
 		for (int i = 0; i < 3; i++) {
 			vec3 c = vec3(h3(vec3(seed, float(i), 1.0)), h3(vec3(seed, float(i), 2.0)), 0.0) - vec3(0.5, 0.5, 0.0);
 			float r = length(v_op.xy - c.xy * 0.9);
-			h += sin(r * (26.0 + float(i) * 9.0) - float(i)) * exp(-r * 1.6) * 0.5;
+			h += sin(r * (40.0 + float(i) * 11.0) - float(i)) * exp(-r * 2.0) * 0.5;
 		}
-		h = (h + (fbm(v_op * 5.0 + seed) - 0.5) * 1.2) * 0.008 * mix(0.15, 1.0, egg_rough);
+		h = (h + (fbm(v_op * 7.0 + seed) - 0.5)) * 0.003 * egg_rough;
 		nm = bump(nm, v_op, h, 1.0);
 	}
 	float g;
@@ -89,7 +89,7 @@ void fragment() {
 	// (on a light body the fire is less glowing light, more colour: it would wash the milk to white)
 	float lt = opal_body == 1 ? 1.0 : 0.0;
 	// (deep colour, not pastel: the fire's light kept under what the tonemap whitens)
-	bc = mix(bc, lin(egg_milk) * (0.85 + 0.3 * m), milk * 0.8);
+	bc = mix(bc, lin(egg_milk) * (0.85 + 0.3 * m), milk * 0.85);
 	ALBEDO = (bc * (1.0 - clamp(g * 1.4, 0.0, 0.85)) + fire * mix(0.08, 0.75, lt)) * edge_dark;
 	EMISSION = fire * mix(0.85, 0.6, lt) * (1.0 + 0.5 * flow_k) * edge_dark;
 	if (egg_on > 0.0) NORMAL = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(nm, 0.0)).xyz);
