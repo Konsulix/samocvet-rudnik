@@ -1407,8 +1407,10 @@ func _specimen(o: Dictionary) -> Node3D:
 		dt.h = maxf(float(dt.h), 0.25) + 0.12
 		dt.a = 0.5
 		if main: _mark_on("limonite", main)
-	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11)
-	if hurt.size() and (layout in ["vein", "nugget"] or (sid == "malachite" and layout in ["botryoid", "sawn"])):
+	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11; 19.11 every
+	# botryoidal lump — chalcedony, jadeite, carnelian, flint, opal, hyalite… — a septarian nodule, obsidian, a lava bomb)
+	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith"] or (sid == "malachite" and layout == "sawn")):
+		_glassy = layout == "obsidian"
 		_shatter()
 	_finish()
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
@@ -1435,6 +1437,17 @@ func _shatter() -> void:
 	var k: float = hurt.get("k", 0.0)
 	if k < 0.2: return   # (Fine and better: whole)
 	var dr: Rng32 = hurt.rng
+	# (a pebble lies in a holder that turns it: a holder is no mesh, it went whole to one side and nothing broke — its
+	# meshes are laid out under the root, in place)
+	for c: Node in root.get_children():
+		if c is Node3D and not c is VisualInstance3D and c.get_script() == null and c.get_child_count() > 0:
+			var t := (c as Node3D).transform
+			for x: Node in c.get_children():
+				if not x is Node3D: continue
+				var xt := t * (x as Node3D).transform
+				c.remove_child(x)
+				root.add_child(x)
+				(x as Node3D).transform = xt
 	# how it broke, the stone's own (16.11): an end knocked off sideways; its top knocked off; a slanting break, the
 	# wedge above slid down; a piece fallen forward to the viewer. (A Damaged find is split through: no top off)
 	var flat: bool = String(gene_m.get("form", "")) == "sawn"
@@ -1531,10 +1544,18 @@ func _shatter() -> void:
 	for g: Array in pieces: all_n.append_array(g)
 	var box := _box_of(all_n)
 	var mats: Array = []
+	var mcols: Array = []   # (a mesh coloured by its points: its crumbs take its mean colour — plain, they were white)
 	for nd: Node in all_n:
 		if nd is MeshInstance3D and nd.has_meta("geo") and (nd as MeshInstance3D).material_override:
 			var gs := _box_of([nd]).size.length()
-			if gs > box.size.length() * 0.3: mats.append((nd as MeshInstance3D).material_override)
+			if gs > box.size.length() * 0.3:
+				mats.append((nd as MeshInstance3D).material_override)
+				var mc := Color(-1, 0, 0)
+				var gg: Geo = nd.get_meta("geo")
+				if _glassy and gg.col.size() > 0:
+					mc = Color(0, 0, 0, 0)
+					for c4 in gg.col: mc += c4 / gg.col.size()
+				mcols.append(mc)
 	if mats.is_empty(): return
 	var ext := box.size.length()
 	for i in int(8 + k * 18):
@@ -1543,7 +1564,16 @@ func _shatter() -> void:
 		var sc := Vector3(1.0 + dr.next() * 0.6, 0.45 + dr.next() * 0.3, 0.8 + dr.next() * 0.4) if dr.next() < 0.7 else Vector3(1.6 + dr.next() * 0.8, 0.22, 0.55)
 		var p := Vector3(box.get_center().x + (dr.next() - 0.5) * box.size.x * 0.95, box.position.y + r * sc.y * 0.5, box.get_center().z + (dr.next() - 0.5) * box.size.z * 0.95)
 		p += VIEW_DIR * ext * 0.1 * dr.next()
-		U.mesh(RockKit.crumble(dr, r, sc, 8), mats[int(dr.next() * mats.size()) % mats.size()], root, p, U.eul((dr.next() - 0.5) * 0.4, dr.next() * 6.3, (dr.next() - 0.5) * 0.4))
+		var mk := int(dr.next() * mats.size()) % mats.size()
+		var cg := RockKit.crumble(dr, r, sc, 8)
+		var cm: Material = mats[mk]
+		if _glassy and cm is ShaderMaterial: cm = _matte(cm)
+		var cmi := U.mesh(cg, cm, root, p, U.eul((dr.next() - 0.5) * 0.4, dr.next() * 6.3, (dr.next() - 0.5) * 0.4))
+		if (mcols[mk] as Color).r >= 0.0:
+			cg.col.resize(cg.v.size())
+			cg.col.fill(mcols[mk])
+			cmi.mesh = cg.to_mesh()
+			cmi.set_meta("col", true)
 
 ## the points of a node, in the find's space (a mesh's own; a multimesh's copies; anything else its place)
 func _pts_of(nd: Node) -> PackedVector3Array:
@@ -1680,6 +1710,7 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 		if dhi < span_all * SLIVER: return [whole, []]
 		if -dlo < span_all * SLIVER: return [[], whole]
 		var mi := nd as MeshInstance3D
+		_cap_rim_col = _glassy
 		var halves := [_half(g, t, at, n, rough, amp, false, face_from), _half(g, t, at, n, rough, amp, true, face_from)]
 		var out := [[], []]
 		for h in 2:
@@ -1698,7 +1729,8 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 				# (the fracture: matte and silky, not polished — glossy it read as glass or plastic)
 				if pi == 1:
 					if mate: m.material_override = mate.material_override
-					elif mi.material_override is ShaderMaterial: m.material_override = _matte(mi.material_override)
+					# (obsidian — coloured by its points — breaks to the same glassy shell it is: no matte copy)
+					elif mi.material_override is ShaderMaterial and not _glassy: m.material_override = _matte(mi.material_override)
 					m.set_meta("is_face", true)
 				m.transform = mi.transform
 				if mi.mesh: m.mesh = part.to_mesh()
@@ -1750,13 +1782,17 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 			return [[xa], [xb]]
 	return [[nd], []] if _side_of(nd, at, n) <= 0.0 else [[], [nd]]
 
+var _cap_rim_col := false   # (_half: the cap's points coloured as the rim's — a mesh coloured by its points)
+var _glassy := false        # (_shatter: obsidian — black glass coloured by its points, breaking to the same glass)
 static var fallbacks := 0   # (tests/shatter_check: how often a cap's outline would not triangulate as a polygon)
 var _mattes := {}
 func _matte(m: ShaderMaterial) -> ShaderMaterial:
 	if not _mattes.has(m):
 		var c := U.mat_copy(m)
 		# (no coat, a dull sheen, no film: the studio's lamps on a flat glossy face flared it white, glass)
-		c.set_shader_parameter("rough", maxf(0.45, float(m.get_shader_parameter("rough"))))
+		# (a material of its own shader — obsidian's, a lava bomb's — has no "rough": left as it is)
+		var r0: Variant = m.get_shader_parameter("rough")
+		if r0 != null: c.set_shader_parameter("rough", maxf(0.45, float(r0)))
 		c.set_shader_parameter("coat", 0.0)
 		c.set_shader_parameter("spec", 0.2)
 		c.set_shader_parameter("ir_k", 0.0)
@@ -1941,17 +1977,21 @@ func _half(g: Geo, t: Transform3D, at: Vector3, n: Vector3, rough: FastNoiseLite
 			var wq := at + u * p2.x + v2 * p2.y
 			var de: float = edge_d.call(p2)
 			var near_h := 0.0
+			var near_k := 0
 			var bd := INF
 			for k2 in pts.size():
 				var dd := p2.distance_squared_to(pts[k2])
 				if dd < bd:
 					bd = dd
 					near_h = rim_h[k2]
+					near_k = k2
 			wq += n * lerpf(near_h, _wave(wq, at, n, rough, amp), smoothstep(0.0, step * 3.0, de))
 			# (and finer lumps over it, gone at the rim: the rim is the skin's own edge)
 			wq += out_n * rough.get_noise_3dv(wq * 2.3) * amp * 0.8 * smoothstep(step, step * 3.0, de)
 			w.v.append(ti * wq)
-			w.col.append(Color(0.85, 0.85, 0.85, 1.0))
+			# (a mesh coloured by its points — obsidian's black, a snowflake's white — takes its nearest rim point's:
+			# the plain grey burnt white on it)
+			w.col.append(w.col[ids[near_k]] if _cap_rim_col else Color(0.85, 0.85, 0.85, 1.0))
 			return w.v.size() - 1
 		for fl: Array in fans:
 			var poly: PackedVector2Array = polys[int(fl[0])]
