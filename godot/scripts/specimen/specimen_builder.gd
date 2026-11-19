@@ -2538,14 +2538,19 @@ func _jade(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIns
 const FACE := preload("res://shaders/face.gdshader")
 const OPAL_SEAM := preload("res://shaders/opal_seam.gdshader")
 
-## precious opal's own play of colour (shaders/opal_seam.gdshader): black, white or crystal body, its fire's colour
-func _opal_mat(r: Rng32, scale: float) -> ShaderMaterial:
+## precious opal's own play of colour (shaders/opal_seam.gdshader): its body and its fire, as the photographs have
+## them: most stones blue and green, some a full harlequin with red, some green and gold, a few red-orange
+## (body: -1 by chance, else 0 black, 1 milky, 2 crystal)
+func _opal_mat(r: Rng32, scale: float, body := -1) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = OPAL_SEAM
-	m.set_shader_parameter("opal_body", int(Stones.pick_w([[0, 4.0], [1, 1.5], [2, 1.5]], r)))
-	m.set_shader_parameter("fire_h", r.next())
-	m.set_shader_parameter("fire_spread", 0.3 + r.next() * 0.3)
+	var b := body if body >= 0 else int(Stones.pick_w([[0, 4.0], [1, 2.0], [2, 1.5]], r))
+	m.set_shader_parameter("opal_body", b)
+	var fire: Array = Stones.pick_w([[[0.66, 0.16], 5.0], [[0.5, 0.48], 2.5], [[0.4, 0.14], 1.5], [[0.12, 0.16], 1.0]], r)
+	m.set_shader_parameter("fire_h", float(fire[0]) + (r.next() - 0.5) * 0.08)
+	m.set_shader_parameter("fire_spread", float(fire[1]))
 	m.set_shader_parameter("fire_scale", scale)
+	m.set_shader_parameter("soft", 0.7 if b == 1 else 0.1)
 	m.set_shader_parameter("seed", r.next() * 40.0)
 	m.set_shader_parameter("flow_k", 1.0 if gene_m.fx == "dragonfire" else 0.0)
 	return m
@@ -2794,30 +2799,51 @@ func _beads(col: Color, use_rock: Callable, st: Dictionary, gs: float) -> MeshIn
 	U.inst(Geo.sphere(1, 18, 12), gm, beads.size(), func(i: int) -> Array: return [beads[i], Color(1, 1, 1)], root)
 	return rk
 
-# precious opal in its brown ironstone (F15, "boulder opal"): patches and thin seams of opal over the broken face,
-# play of colour flashing in them (the opal-fire flakes of the glass shader)
+# precious opal (F15; 19.11 after photographs): mostly boulder opal — a seam of it across the broken face of brown
+# ironstone, the fire a mosaic of patches, with a few smaller patches about; or a piece of black opal, its window
+# polished; or a milky "jelly" opal, soft blobs of colour in its white
 func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed_v: int) -> MeshInstance3D:
-	var rk: MeshInstance3D = use_rock.call("chunk")
 	var r2 := Rng32.new((seed_v * 3266489917 + 59) % 4294967296)
-	var gm := _opal_mat(r2, 3.0)
-	var main: MeshInstance3D = null
-	for k in 4 + int(rng.next() * 4):
-		var best: Vector3 = st.pick.call()
-		for t in 8:
-			var q: Vector3 = st.pick.call()
-			if (st.nrm.call(q) as Vector3).dot(VIEW_DIR) > (st.nrm.call(best) as Vector3).dot(VIEW_DIR): best = q
-		var nn := ((st.nrm.call(best) as Vector3) + best.normalized()).normalized()
-		# a patch, or a short seam, sunk in the rock so only its face shows (made bigger and scaled down: the
-		# opal's flakes are cells of its own coordinates: this size gives flashes a few to a patch)
-		var seam := rng.next() < 0.35
-		var L := RockKit.lump(rng, {r = 0.8, sx = 1.0, sy = 0.3, sz = 0.7, wave = 0.2, k = 60.0, bumps = [[6, 0.8, 0.15]], seg = 40})
-		var w := (0.2 + rng.next() * 0.18) * gs
-		var sc := Vector3(w * (1.6 if seam else 1.0), w * 0.7, w * (0.45 if seam else 0.85)) * 0.625
-		keep_out.append([best, w * 1.3])
-		var m := U.mesh(L[0], gm, root)
-		m.transform = Transform3D(Basis(quat_to_l(UP, nn)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(sc), best - nn * w * 0.07)
-		if not main: main = m
-	return main if main else rk
+	var show: String = Stones.pick_w([["boulder", 6.0], ["black", 2.5], ["jelly", 2.0]], r2)
+	if show != "boulder":
+		# a loose piece: a rounded lump of opal, its face to the viewer — black with fire, or milky
+		var gm2 := _opal_mat(r2, 4.5 if show == "black" else 2.4, 0 if show == "black" else 1)
+		# (a domed piece, smooth as a polished stone: a lumpy potato in a mosaic read as a stained-glass ball)
+		var L2 := RockKit.lump(rng, {r = 0.8, sx = 1.0, sy = 0.45, sz = 0.72, wave = 0.12, k = 40.0, bumps = [[4, 0.8, 0.07]], seg = 48})
+		var holder := Node3D.new()
+		root.add_child(holder)
+		var face := (VIEW_DIR + UP * 0.6).normalized()
+		holder.transform = Transform3D(Basis(quat_to_l(UP, face)) * Basis(UP, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * 0.62 * gs), Vector3.ZERO)
+		var pm := U.mesh(L2[0], gm2, holder)
+		pm.set_meta("col", true)
+		return pm
+	var rk: MeshInstance3D = use_rock.call("chunk")
+	var gm := _opal_mat(r2, 9.0, int(Stones.pick_w([[0, 3.0], [2, 1.0]], r2)))
+	# the vein: the rock's own skin a hair out, shown only where a wavy layer of opal crosses it (the shader cuts
+	# the rest away) — it runs over the stone as a band, pinching and swelling; sometimes a second, thinner one
+	var rg: Geo = rk.get_meta("geo")
+	var vg := Geo.new()
+	vg.v = rg.v.duplicate()
+	vg.idx = rg.idx.duplicate()
+	var nr := rg.normals()
+	var bb := rg.aabb()
+	var sz := (bb.size.x + bb.size.y + bb.size.z) / 3.0
+	for i in vg.v.size(): vg.v[i] += nr[i] * sz * 0.004
+	var c := bb.get_center()
+	# (a layer lying more or less flat, as the stone's beds do: across the face the viewer sees)
+	var bn := (UP + Vector3(r2.next() - 0.5, 0, r2.next() - 0.5) * 0.9).normalized()
+	gm.set_shader_parameter("band_on", 1.0)
+	gm.set_shader_parameter("band_n", bn)
+	gm.set_shader_parameter("band_d", bn.dot(c) + (r2.next() - 0.35) * bb.size.y * 0.3)
+	gm.set_shader_parameter("band_w", sz * (0.05 + r2.next() * 0.04))
+	if r2.next() < 0.5:
+		var bn2 := (bn + Vector3(r2.next() - 0.5, r2.next() - 0.5, r2.next() - 0.5) * 1.2).normalized()
+		gm.set_shader_parameter("band2_n", bn2)
+		gm.set_shader_parameter("band2_d", bn2.dot(c) + (r2.next() - 0.5) * bb.size.y * 0.4)
+	var vm := U.mesh(vg, gm, root)
+	vm.transform = rk.transform
+	vm.set_meta("col", true)
+	return vm
 
 # a cracked-open geode: rough shell, agate rind, a cave of crystals inside
 func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated: bool, metal: bool, cmat_spec: Callable, make_cmat: Callable, crystal: Callable, st: Dictionary) -> MeshInstance3D:

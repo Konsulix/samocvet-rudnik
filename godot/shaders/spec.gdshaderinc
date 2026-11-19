@@ -447,13 +447,30 @@ void fragment() {
 		}
 	}
 	if (opal_k > 0.0) {
-		// play of colour: flakes that flash pure spectral colours as the stone turns
-		vec3 q = v_op * 11.0;
-		vec3 cell = floor(q);
-		float h = h3(cell);
-		float fl = smoothstep(0.55, 1.0, sin(h * 37.0 + TIME * 1.4 + edge_k * 7.0) * 0.5 + 0.5);
-		vec3 sc = 0.5 + 0.5 * cos(6.2832 * (h * 3.0 + edge_k + TIME * 0.05 + vec3(0.0, 0.33, 0.67)));
-		body += sc * fl * opal_k * 1.6 * (1.0 - smoothstep(0.35, 0.5, length(fract(q) - 0.5)));
+		// play of colour (19.11): the harlequin of precious opal (opal.gdshaderinc opal_harl) — a mosaic of angular
+		// patches through the body, each one colour, each flashing on as the face turns its way; patches meet
+		// without a gap. (Were round spectral flakes on a grid: read as coloured dots, "strange little circles")
+		vec3 oq = v_op * 7.0 + g_seed;
+		oq += (vec3(vn(oq * 0.33), vn(oq * 0.33 + 5.0), vn(oq * 0.33 + 9.0)) - 0.5) * 1.3;
+		vec3 oc = floor(oq);
+		float od1 = 9.0, od2 = 9.0;
+		vec3 oid = vec3(0.0);
+		for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+			vec3 g = oc + vec3(float(x), float(y), float(z));
+			vec3 pt = g + vec3(h3(g), h3(g + 1.7), h3(g + 3.1)) * 0.85 + 0.075;
+			float d = distance(pt, oq);
+			if (d < od1) { od2 = od1; od1 = d; oid = g; } else if (d < od2) { od2 = d; }
+		}
+		float orr = h3(oid + 5.3);
+		vec3 ogd = normalize(vec3(h3(oid + 11.0), h3(oid + 13.0), h3(oid + 17.0)) - 0.5);
+		float oang = dot(n, ogd) + edge_k * 0.6;
+		float olit = smoothstep(0.45, 0.95, sin(oang * 6.0 + orr * 20.0 + TIME * 0.15) * 0.5 + 0.5);
+		float oband = 0.85 + 0.15 * sin(dot(oq, ogd) * 7.0 + oang * 10.0);
+		float ohue = 0.62 + (orr - 0.5) * 0.9 + oang * 0.12;
+		vec3 ocol = 0.5 + 0.5 * cos(6.2832 * (ohue + vec3(0.0, 0.33, 0.67)));
+		ocol = ocol * ocol;   // (deep, not pastel)
+		float oon = step(0.3, h3(oid + 23.0)) * smoothstep(0.0, 0.012, od2 - od1);
+		body += ocol * olit * oband * oon * opal_k * 1.4;
 	}
 	// (a night sky inside clears the milk: it would wash the stars out)
 	milk *= 1.0 - 0.85 * star_k;
