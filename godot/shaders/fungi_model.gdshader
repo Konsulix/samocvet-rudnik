@@ -21,12 +21,34 @@ uniform vec4 push0 = vec4(0.0, -1000.0, 0.0, 0.0);
 uniform vec4 push1 = vec4(0.0, -1000.0, 0.0, 0.0);
 uniform vec4 push2 = vec4(0.0, -1000.0, 0.0, 0.0);
 uniform vec3 glow_col = vec3(0.03, 0.6, 0.17);
-uniform float cap_from = 0.62;   // (the cap: this far up the mushroom, of its height)
+uniform float cap_from = 0.62;
+// (19.11) a sea star alive: now and then one arm curls its tip up and lays it down again, an arm at a time round it,
+// slowly; arms: how many (sunflower star: many), arm_r: its reach in the model, phase: its own beat
+uniform float arm_lift = 0.0;
+uniform float arms = 5.0;
+uniform float arm_r = 0.5;
+uniform float arm_ph = 0.0;   // (the cap: this far up the mushroom, of its height)
 global uniform float fluor_uv;
 varying vec3 v_op;
 varying vec3 v_on;
 
 void vertex() {
+	if (arm_lift > 0.0) {
+		vec2 cxz = VERTEX.xz;
+		float rr = length(cxz) / arm_r;
+		float an = atan(cxz.y, cxz.x);
+		// which arm moves now: it steps round the star every few seconds, rests in between
+		float cyc = TIME * 0.22 + arm_ph;
+		float which = floor(cyc) * 2.39996;
+		float u = fract(cyc);
+		float up = smoothstep(0.0, 0.35, u) * (1.0 - smoothstep(0.55, 0.95, u));
+		// (one arm: the angle off the moving one, wrapped round; an arm's width is a share of the circle)
+		float da = abs(mod(an - which + 3.14159, 6.28318) - 3.14159);
+		float near = exp(-pow(da * arms / 2.6, 2.0));
+		float lift = up * near * smoothstep(0.25, 1.0, rr);
+		VERTEX.y += lift * lift * arm_lift * arm_r;
+		VERTEX.xz *= 1.0 - lift * 0.08;
+	}
 	v_op = VERTEX;
 	v_on = NORMAL;
 	if (sway > 0.0) {

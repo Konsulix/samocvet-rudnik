@@ -32,7 +32,7 @@ const MODELS := {
 	star_sand = {g = "star", n = "sand star", k = 1.0},
 	star_cushion = {g = "star", n = "cushion star", k = 0.85, fix = Vector3(180, 0, 0)},
 	star_sea = {g = "star", n = "ochre star", k = 1.0, cut = 0.45},
-	star_sunflower = {g = "star", n = "sunflower star", k = 1.15},
+	star_sunflower = {g = "star", n = "sunflower star", k = 1.15, arms = 20.0},
 	urchin_purple = {g = "star", n = "purple urchin", k = 0.7},
 	shell_tun = {g = "shell", n = "giant tun", k = 1.0, gain = 0.8},
 	shell_triton = {g = "shell", n = "knobbed triton", k = 1.15},
@@ -218,6 +218,14 @@ static func mat(id: String) -> ShaderMaterial:
 		# (solid things — shells, crabs, stars, stony corals, the swimmers — let no light through: lit from behind their
 		# thin legs and rims glowed)
 		if float(md.get("sway", 0.0)) == 0.0: m.set_shader_parameter("back_k", 0.15)
+		# (a sea star lifts an arm now and then — not the urchin: fungi_model.gdshader arm_lift)
+		if String(md.g) == "star" and not id.begins_with("urchin"):
+			var ms := mesh(id)
+			var ab := ms.get_aabb() if ms else AABB()
+			m.set_shader_parameter("arm_lift", 0.7 * sqrt(5.0 / float(md.get("arms", 5.0))))   # (a thin arm of many: less)
+			m.set_shader_parameter("arms", float(md.get("arms", 5.0)))
+			m.set_shader_parameter("arm_r", maxf(0.05, maxf(maxf(-ab.position.x, ab.end.x), maxf(-ab.position.z, ab.end.z))))
+			m.set_shader_parameter("arm_ph", float(hash(id) % 1000) / 137.0)
 		# (19.11) a crab does not swim: the shader's tail wave (swim 0.05 by default) bent its whole body side to side
 		# as weed sways — off; only its legs step (crawl)
 		if String(md.g) == "crab": m.set_shader_parameter("swim", 0.0)
