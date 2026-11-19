@@ -1784,6 +1784,12 @@ func _cut_node(nd: Node, at: Vector3, n: Vector3, rough: FastNoiseLite, amp: flo
 				# (the fracture: matte and silky, not polished — glossy it read as glass or plastic)
 				if pi == 1:
 					if mate: m.material_override = mate.material_override
+					# (a boulder opal's seam: its fracture shows the seam running on through the stone — the same opal,
+					# drawn a hair over the rock's own fracture. Matte, the opal read as a film on a hollow rock)
+					elif nd.has_meta("seam"):
+						var sm := U.mat_copy(mi.material_override)
+						sm.set_shader_parameter("push", 0.003)
+						m.material_override = sm
 					# (obsidian — coloured by its points — breaks to the same glassy shell it is: no matte copy)
 					elif mi.material_override is ShaderMaterial and not _glassy: m.material_override = _matte(mi.material_override)
 					m.set_meta("is_face", true)
@@ -2866,6 +2872,8 @@ func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed
 	var vm := U.mesh(vg, gm, root)
 	vm.transform = rk.transform
 	vm.set_meta("col", true)
+	vm.set_meta("seam", true)
+	vm.set_meta("no_crumbs", true)
 	return vm
 
 # a cracked-open geode: rough shell, agate rind, a cave of crystals inside
@@ -2968,6 +2976,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var rim := U.mesh(rg, rim_m, shell)
 	rim.set_meta("no_crumbs", true)   # (its colour is in its points: crumbs of it came out white)
 	rim.set_meta("local", true)
+	if _sid == "opal":
+		rim_m.set_meta("wet_rock", true)   # (SpecView._wet: the rind darkens as wet stone does)
+		outer_mesh.material_override.set_meta("wet_rock", true)
 	rim.rotation.x = PI / 2
 	# pointed crystals crowding the cave: milky at their roots, deep colour at the tips
 	var gd: Dictionary = cmat_spec.call()

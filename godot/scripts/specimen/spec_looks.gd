@@ -263,7 +263,7 @@ const AFFINITY := {
 	emerald = {love = {inkspots = 3.0, clouds = 3.0, crust = 3.0}, never = ["irid", "bubbles", "floater", "pompom", "straw"]},
 	gypsum = {love = {inkspots = 3.0, bubbles = 3.0, enhydro = 3.0}, never = ["rutile", "irid"]},
 	celestine = {love = {druzy = 3.0, zoned = 3.0}, never = ["rutile", "moss"]},
-	opal = {never = ["bubbles", "pompom", "straw", "needles"]},
+	opal = {never = ["bubbles", "pompom", "straw", "needles", "irid", "aurora"]},
 	sulphur = {love = {bubbles = 3.0}, never = ["moss", "mushrooms", "lichen", "fronds", "flowers"]},
 	aragonite = {never = ["rutile", "phantom"]},
 	olivine = {never = ["moss", "mushrooms", "coral", "rutile", "phantom"]},

@@ -270,8 +270,14 @@ func _eggs() -> Array:
 func _wet() -> void:
 	var ms := _eggs()
 	if ms.is_empty(): return
+	var rocks: Array = []
+	for n in live.find_children("*", "MeshInstance3D", true, false):
+		var rm := (n as MeshInstance3D).material_override as ShaderMaterial
+		if rm and rm.has_meta("wet_rock") and not rm in rocks: rocks.append(rm)
 	var set_w := func(x: float) -> void:
 		for m: ShaderMaterial in ms: m.set_shader_parameter("wet", x)
+		# (wet stone: darker)
+		for m: ShaderMaterial in rocks: m.set_shader_parameter("albedo", Vector3.ONE * (1.0 - 0.38 * x))
 	var w0v: Variant = (ms[0] as ShaderMaterial).get_shader_parameter("wet")
 	var w0 := float(w0v) if w0v != null else 0.0
 	if _wet_tw: _wet_tw.kill()

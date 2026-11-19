@@ -41,7 +41,10 @@ varying vec3 v_no;
 
 #include "res://shaders/opal.gdshaderinc"
 
+uniform float push = 0.0;   // pushed out along its normal: a seam's fracture over the rock's own, without fighting it
+
 void vertex() {
+	VERTEX += NORMAL * push;
 	v_op = VERTEX;
 	v_no = NORMAL;
 	v_u = COLOR.r;
@@ -55,7 +58,7 @@ void fragment() {
 		// patches of opal fill cracks here and there — as a boulder opal's face shows them
 		float wv = (fbm(v_op * 2.2 + seed) - 0.5) * band_w * 4.0;
 		float pinch = smoothstep(0.3, 0.62, fbm(v_op * 1.3 + seed + 9.0));
-		float th = band_w * (0.15 + 1.7 * pinch);
+		float th = band_w * (push > 0.0 ? 0.3 + 2.2 * pinch : 0.15 + 1.7 * pinch);
 		float d1 = abs(dot(v_op, band_n) - band_d + wv);
 		float d2 = abs(dot(v_op, band2_n) - band2_d + wv * 0.7);
 		// the veinlets: thin crooked lines (where noise crosses its middle), only in part of the stone
@@ -66,13 +69,18 @@ void fragment() {
 			// the broken face: opal over it, its edge ragged, islands of ironstone left in it
 			float into = dot(v_op, band_n) - band_d + (fbm(v_op * 3.0 + seed) - 0.5) * band_w * 3.0;
 			float isl = fbm(v_op * 4.0 + seed + 20.0);
-			if (into < -band_w * 0.6 || isl > 0.68) discard;
+			// (a slab of opal under the face, thick: a break through the stone shows it running in, not a film.
+			// Islands of ironstone only on the face itself)
+			// (on the stone's skin only the face; on a fracture through it — push > 0 — the slab under it)
+			float deep = push > 0.0 ? band_w * (2.6 + 1.6 * fbm(v_op * 1.7 + seed + 5.0)) : band_w * 0.6;
+			if (into < -deep || (isl > 0.68 && into > -band_w * 0.5)) discard;
 		} else if (d1 > th && d2 > th * 0.5 && !(vl < band_w * 0.22 * vk) && lens < 0.5) discard;
 	}
 	vec3 vm = normalize(v_cam - v_op);
 	vec3 nm = normalize(v_no);
 	float fire_m = 1.0;
 	float crack = 0.0;
+	float drop = 0.0;
 	float milk = 0.0;
 	float edge_dark = 1.0;
 	if (egg_on > 0.0) {
@@ -86,8 +94,8 @@ void fragment() {
 		milk = 1.0 - smoothstep(0.17, 0.3, w);
 		edge_dark = 0.55 + 0.45 * smoothstep(0.0, 0.25, w);
 		// wet, hydrophane opal clears: its haze goes, the fire comes up through all of it
-		milk *= 1.0 - wet * 0.95;
-		fire_m = mix(fire_m, 1.0, wet * 0.8);
+		milk *= 1.0 - wet * 0.9;
+		fire_m = mix(fire_m, 1.0, wet * 0.6);
 		if (egg_pocket > 0.0) {
 			float pk = 1.0 - smoothstep(egg_pocket * 0.95, egg_pocket * 1.15, v_u);
 			fire_m *= 1.0 - pk;
@@ -103,8 +111,13 @@ void fragment() {
 			h += sin(r * (40.0 + float(i) * 11.0) - float(i)) * exp(-r * 2.0) * 0.5;
 		}
 		h = (h + (fbm(v_op * 7.0 + seed) - 0.5)) * 0.003 * egg_rough * (1.0 - wet * 0.8);
-		// a film of water over it, trembling
-		h += sin(v_op.x * 60.0 + TIME * 3.0) * sin(v_op.y * 55.0 - TIME * 2.4) * 0.0005 * wet;
+		// beads of water over it: little domes, each its own size, that catch the lamps as bright points; they
+		// shrink away as it dries
+		vec3 dc = vor2(v_op.xy * 7.0 + seed * 3.0);
+		float dr = (0.16 + 0.24 * dc.z) * smoothstep(0.0, 0.6, wet) * step(0.4, dc.z);
+		float dome = sqrt(max(0.0, 1.0 - pow(dc.x / max(dr, 1e-4), 2.0)));
+		h += dome * 0.012;
+		drop = step(0.001, dome);
 		if (egg_crack > 0.0) {
 			// crazing: the edges of cells over the face, in patches (more of the face the worse), a dark hairline
 			// with a bright lip that catches the light
@@ -134,27 +147,21 @@ void fragment() {
 	float lt = opal_body == 1 ? 1.0 : 0.0;
 	// (deep colour, not pastel: the fire's light kept under what the tonemap whitens)
 	bc = mix(bc, lin(egg_milk) * (0.85 + 0.3 * m), milk * 0.85);
+	bc *= 1.0 - wet * 0.35;
 	ALBEDO = (bc * (1.0 - clamp(g * 1.4, 0.0, 0.85)) + fire * mix(0.08, 0.75, lt)) * edge_dark * (1.0 - crack * 0.75) + vec3(0.25) * crack * 0.3;
 	fire *= 1.0 - crack * 0.8;
-	EMISSION = fire * mix(0.85, 0.6, lt) * (1.0 + 0.5 * flow_k + wet * 1.1) * edge_dark;
-	if (egg_on > 0.0 && wet > 0.01) {
-		// water running down the face in thin rivulets, catching the light (the face's own "down": -y in its plane)
-		float wob = (fbm(v_op * 4.0 + seed) - 0.5) * 0.35;
-		float lane = abs(fract((v_op.x + wob) * 5.0) - 0.5);
-		float lid = floor((v_op.x + wob) * 5.0);
-		float run = fract(v_op.y * 1.6 + TIME * 0.7 + h3(vec3(lid, seed, 3.0)) * 7.0);
-		// (a few short glistening runs, not lines over the whole face — those read as scratches)
-		float riv = (1.0 - smoothstep(0.03, 0.12, lane)) * smoothstep(0.0, 0.15, run) * (1.0 - smoothstep(0.3, 0.45, run)) * step(0.45, h3(vec3(lid, seed, 9.0)));
-		EMISSION += vec3(0.55, 0.62, 0.7) * riv * wet * 0.22;
-	}
+	// wet: deeper, not brighter — the colours saturate, the body darkens as wet stone does
+	float wl = dot(fire, vec3(0.3, 0.5, 0.2));
+	fire = max(mix(vec3(wl), fire, 1.0 + wet * 0.8), 0.0);
+	EMISSION = fire * mix(0.85, 0.6, lt) * (1.0 + 0.5 * flow_k + wet * 0.15) * edge_dark;
 	if (egg_on > 0.0 && egg_glow > 0.0) {
 		// the light inside: the core glows of its own, pulsing slowly
 		float core = smoothstep(0.75, 0.2, v_u);
 		EMISSION += (fire * 1.4 + spectral(fire_h) * 0.25) * core * egg_glow * (0.85 + 0.15 * sin(TIME * 1.3));
 	}
 	if (egg_on > 0.0 || band_on > 0.0) NORMAL = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(nm, 0.0)).xyz);
-	ROUGHNESS = mix(mix(0.05, 0.16, egg_rough * egg_on), 0.02, wet);
-	SPECULAR = 0.5;
+	ROUGHNESS = mix(mix(0.05, 0.16, egg_rough * egg_on), 0.0, wet);
+	SPECULAR = mix(0.5, 1.0, drop * wet);
 	CLEARCOAT = 1.0;
 	CLEARCOAT_ROUGHNESS = 0.03;
 	// (milky: light passes into it)
