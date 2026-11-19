@@ -253,9 +253,10 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		var yaw := r.next() * TAU
 		# (a tall thing leans back, away from the viewer, as the sea lilies do: the slab is held up to the eye, and
 		# upright it would stand over the find in the picture)
-		# (19.11: a coral only a touch — leaning 15–25° a stony coral read as knocked over, an anemone as falling)
+		# (19.11: a coral only a touch — leaning 15–25° a stony coral read as knocked over, an anemone as falling; the
+		# weed 8–16°, it was 20–34°: the green stalks lay over to one side)
 		var lean_c := r.next()
-		var back := Basis(Vector3.RIGHT, -(0.06 + lean_c * 0.08)) if it[1] and g != "weed" else Basis(Vector3.RIGHT, -(0.35 + lean_c * 0.25)) if it[1] else Basis.IDENTITY
+		var back := Basis(Vector3.RIGHT, -(0.06 + lean_c * 0.08)) if it[1] and g != "weed" else Basis(Vector3.RIGHT, -(0.14 + lean_c * 0.14)) if it[1] else Basis.IDENTITY
 		var pose: Variant = null
 		for shrink: float in [1.0, 0.9, 0.8, 0.7]:
 			for tries in 14:
