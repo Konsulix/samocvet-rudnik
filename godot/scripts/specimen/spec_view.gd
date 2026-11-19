@@ -88,6 +88,10 @@ func show_spec(o: Dictionary) -> void:
 		if n.has_signal("glass_hit"): n.connect("glass_hit", _glass)
 		if n.has_signal("sea_call"): n.connect("sea_call", _sea_call)
 	built.emit(p)
+	# (19.11) an opal egg can be wetted by a tap (_wet): said once, the first time one is open
+	if not Coach.off and not Save.told("t_wet") and not _eggs().is_empty():
+		Save.tell("t_wet")
+		Ov.toast("Tap the opal: water wakes its fire")
 	spin_v = 0.45
 	tilt = 0.0
 	if still:
@@ -253,14 +257,18 @@ func _tap(e: InputEvent) -> void:
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
 ## a few seconds it dries back (shaders/opal_seam.gdshader, wet)
 var _wet_tw: Tween
-func _wet() -> void:
-	if not is_instance_valid(live): return
+func _eggs() -> Array:
 	var ms: Array = []
+	if not is_instance_valid(live): return ms
 	for n in live.find_children("*", "MeshInstance3D", true, false):
 		var m := (n as MeshInstance3D).material_override as ShaderMaterial
 		if not m: continue
 		var eo: Variant = m.get_shader_parameter("egg_on")
 		if eo != null and float(eo) > 0.0 and not m in ms: ms.append(m)
+	return ms
+
+func _wet() -> void:
+	var ms := _eggs()
 	if ms.is_empty(): return
 	var set_w := func(x: float) -> void:
 		for m: ShaderMaterial in ms: m.set_shader_parameter("wet", x)

@@ -2878,6 +2878,10 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var om := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}})
 	om.set_meta("rock", true)
 	var outer_mesh := U.mesh(outer, om, shell)
+	# (19.11) its scan laid on in its own space: the shell is turned to show its face, and the scan's three sides were
+	# taken in the find's space but weighed by the shell's own normals — on part of it the scan ran along the surface,
+	# stretched into streaks (every geode)
+	outer_mesh.set_meta("local", true)
 	# the cave's wall: the warped shell itself, a little in (a round bowl inside poked out through the shell where it
 	# was warped in, and lit pale it read as a sheet of glass over the cave); dark, so what grows on it shows
 	var wr := []
@@ -2963,6 +2967,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var rim_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, flat = true, side = "double", dirt = {h = 99.0, a = 0.45, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}}) if _sid == "opal" else SpecMat.make({col = Color(1, 1, 1), rough = 0.8, flat = true, side = "double"})
 	var rim := U.mesh(rg, rim_m, shell)
 	rim.set_meta("no_crumbs", true)   # (its colour is in its points: crumbs of it came out white)
+	rim.set_meta("local", true)
 	rim.rotation.x = PI / 2
 	# pointed crystals crowding the cave: milky at their roots, deep colour at the tips
 	var gd: Dictionary = cmat_spec.call()
@@ -3110,7 +3115,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			# both halves of the egg (rare): side by side, mirrored as they came apart, faces up to the viewer
 			var twin := shell.duplicate() as Node3D
 			root.add_child(twin)
-			shell.transform = Transform3D(U.eul(-PI / 2 - 0.5, 0.5, 0.08), Vector3(-0.82, 0, 0.05))
+			shell.transform = Transform3D(U.eul(-PI / 2 - 0.5, 0.5, 0.08), Vector3(-1.05, 0, 0.05))
 			twin.transform = Transform3D(Basis.from_scale(Vector3(-1, 1, 1)), Vector3.ZERO) * shell.transform
 			twin.position.z -= 0.05
 			_mark("halves", U.rel_xform(main, root) * Vector3(0, 0, 0.05))

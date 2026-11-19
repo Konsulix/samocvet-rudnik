@@ -86,8 +86,8 @@ void fragment() {
 		milk = 1.0 - smoothstep(0.17, 0.3, w);
 		edge_dark = 0.55 + 0.45 * smoothstep(0.0, 0.25, w);
 		// wet, hydrophane opal clears: its haze goes, the fire comes up through all of it
-		milk *= 1.0 - wet * 0.85;
-		fire_m = mix(fire_m, 1.0, wet * 0.55);
+		milk *= 1.0 - wet * 0.95;
+		fire_m = mix(fire_m, 1.0, wet * 0.8);
 		if (egg_pocket > 0.0) {
 			float pk = 1.0 - smoothstep(egg_pocket * 0.95, egg_pocket * 1.15, v_u);
 			fire_m *= 1.0 - pk;
@@ -116,6 +116,11 @@ void fragment() {
 		}
 		nm = bump(nm, v_op, h, 1.0);
 	}
+	if (band_on > 0.0) {
+		// the boulder's face is a break, not glass: a fine unevenness its glints catch on (flat, it read as soap)
+		float hb = (fbm(v_op * 9.0 + seed) - 0.5) * 0.004 + (vn(v_op * 30.0 + seed) - 0.5) * 0.0012;
+		nm = bump(nm, v_op, hb, 1.0);
+	}
 	float g;
 	vec3 fire = opal_harl(v_op, vm, nm, fire_h, fire_spread, seed, flow_k * TIME, fire_scale, soft, g);
 	fire *= fire_m;
@@ -131,13 +136,23 @@ void fragment() {
 	bc = mix(bc, lin(egg_milk) * (0.85 + 0.3 * m), milk * 0.85);
 	ALBEDO = (bc * (1.0 - clamp(g * 1.4, 0.0, 0.85)) + fire * mix(0.08, 0.75, lt)) * edge_dark * (1.0 - crack * 0.75) + vec3(0.25) * crack * 0.3;
 	fire *= 1.0 - crack * 0.8;
-	EMISSION = fire * mix(0.85, 0.6, lt) * (1.0 + 0.5 * flow_k + wet * 0.7) * edge_dark;
+	EMISSION = fire * mix(0.85, 0.6, lt) * (1.0 + 0.5 * flow_k + wet * 1.1) * edge_dark;
+	if (egg_on > 0.0 && wet > 0.01) {
+		// water running down the face in thin rivulets, catching the light (the face's own "down": -y in its plane)
+		float wob = (fbm(v_op * 4.0 + seed) - 0.5) * 0.35;
+		float lane = abs(fract((v_op.x + wob) * 5.0) - 0.5);
+		float lid = floor((v_op.x + wob) * 5.0);
+		float run = fract(v_op.y * 1.6 + TIME * 0.7 + h3(vec3(lid, seed, 3.0)) * 7.0);
+		// (a few short glistening runs, not lines over the whole face — those read as scratches)
+		float riv = (1.0 - smoothstep(0.03, 0.12, lane)) * smoothstep(0.0, 0.15, run) * (1.0 - smoothstep(0.3, 0.45, run)) * step(0.45, h3(vec3(lid, seed, 9.0)));
+		EMISSION += vec3(0.55, 0.62, 0.7) * riv * wet * 0.22;
+	}
 	if (egg_on > 0.0 && egg_glow > 0.0) {
 		// the light inside: the core glows of its own, pulsing slowly
 		float core = smoothstep(0.75, 0.2, v_u);
 		EMISSION += (fire * 1.4 + spectral(fire_h) * 0.25) * core * egg_glow * (0.85 + 0.15 * sin(TIME * 1.3));
 	}
-	if (egg_on > 0.0) NORMAL = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(nm, 0.0)).xyz);
+	if (egg_on > 0.0 || band_on > 0.0) NORMAL = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(nm, 0.0)).xyz);
 	ROUGHNESS = mix(mix(0.05, 0.16, egg_rough * egg_on), 0.02, wet);
 	SPECULAR = 0.5;
 	CLEARCOAT = 1.0;

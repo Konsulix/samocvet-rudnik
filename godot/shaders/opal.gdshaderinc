@@ -153,7 +153,7 @@ vec3 opal_harl(vec3 p, vec3 v, vec3 n, float fh, float spread, float s, float t,
 		vec4 a = _harl_patch(id1, q, v, n, fh, spread, t);
 		vec4 b = _harl_patch(id2, q, v, n, fh, spread, t);
 		// (across the border the two blend: soft for a jelly opal, a short run for the rest — here and there crisp)
-		float bw = mix(0.12, 0.45, sf) * (0.35 + vn(q * 0.6 + 70.0));
+		float bw = mix(0.08, 0.45, sf) * (0.35 + vn(q * 0.6 + 70.0));
 		float wa = 0.5 + 0.5 * clamp((d2 - d1) / bw, 0.0, 1.0);
 		vec3 col = mix(b.rgb * b.a, a.rgb * a.a, wa);
 		float wt = clamp(mix(b.a, a.a, wa), 0.0, 1.0);
