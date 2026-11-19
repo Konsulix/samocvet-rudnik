@@ -36,7 +36,24 @@ static func top_bar() -> HBoxContainer:
 	row.add_child(gear)
 	right.add_child(row)
 	h.add_child(right)
+	# a portrait or frame put on in the profile (or something new looked at) shows in the bar at once, not only on
+	# the next screen: the portrait is rebuilt when what it shows changed (the save says "changed" on every write)
+	var key := [_portrait_key()]
+	var redo := func():
+		if not is_instance_valid(h) or _portrait_key() == key[0]: return
+		key[0] = _portrait_key()
+		var old := h.get_child(0)
+		var nw := _portrait()
+		h.add_child(nw)
+		h.move_child(nw, 0)
+		old.queue_free()
+	Save.changed.connect(redo)
+	h.tree_exiting.connect(func():
+		if Save.changed.is_connected(redo): Save.changed.disconnect(redo))
 	return h
+
+static func _portrait_key() -> String:
+	return "%s|%s|%s|%d" % [Profile.frame().id, Profile.face().id, Profile.fresh().is_empty(), Save.d.lives]
 
 ## the player's portrait in the top bar: the frame and the face worn (Profile), the lives on its corner; a tap opens
 ## the miner's card (ProfileCard). Something earned and not yet looked at: the portrait glows
