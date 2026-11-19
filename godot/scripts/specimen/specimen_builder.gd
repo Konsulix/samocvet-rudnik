@@ -3194,14 +3194,23 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		var w := minf(bb.size.x, bb.size.z)
 		var hh := bb.end.y - maxf(0.0, bb.position.y)
 		var cav := Enhydro.new()
-		cav.rad = Vector3(w * 0.27, minf(hh * 0.2, w * 0.45), w * 0.17)
+		# (a long pocket along the crystal, as a negative crystal is)
+		cav.rad = Vector3(w * 0.22, minf(hh * 0.3, w * 0.9), w * 0.2)
 		cav.position = Vector3(bb.get_center().x, maxf(0.0, bb.position.y) + hh * (0.45 + rng.next() * 0.15), bb.get_center().z)
 		cav.rotation = Vector3((rng.next() - 0.5) * 0.4, rng.next() * TAU, (rng.next() - 0.5) * 0.4)
 		main.add_child(cav)
-		var wall := SpecMat.make({col = SpecMat.lin(0x9fbccc), rough = 0.12, coat = 1.0, coat_r = 0.05, env = 1.8, side = "back", emis = SpecMat.lin(0x10181c)})
+		# (drawn after the glass and past its depth — shaders/enhydro.gdshader: behind the glass the pocket was a white smudge)
+		var wall := ShaderMaterial.new()
+		wall.shader = ENHYDRO
+		wall.render_priority = 21
+		wall.set_shader_parameter("part", 0)
 		U.mesh(Geo.sphere(1, 28, 18), wall, cav).scale = cav.rad
-		var br := minf(cav.rad.x, minf(cav.rad.y, cav.rad.z)) * 0.68
-		cav.bubble = U.mesh(Geo.sphere(1, 20, 14), SpecMat.make({col = Color(0.95, 0.97, 1.0), rough = 0.08, coat = 1.0, env = 2.4, emis = SpecMat.lin(0x6a7880)}), cav)
+		var br := minf(cav.rad.x, minf(cav.rad.y, cav.rad.z)) * 0.62
+		var bm := ShaderMaterial.new()
+		bm.shader = ENHYDRO
+		bm.render_priority = 22
+		bm.set_shader_parameter("part", 1)
+		cav.bubble = U.mesh(Geo.sphere(1, 20, 14), bm, cav)
 		cav.bubble.scale = Vector3.ONE * br
 		cav.br = br
 		cav.settle()
@@ -3734,6 +3743,7 @@ func _finish() -> void:
 			gg.tag = float(n.get_meta("part", 0.04 + 0.96 * fposmod(parts_i * 0.6180339 + 0.37, 1.0)))
 		(n as MeshInstance3D).mesh = gg.to_mesh()
 
+const ENHYDRO := preload("res://shaders/enhydro.gdshader")
 ## an enhydro's pocket (G1): the gas bubble keeps to the top of its water, the top being wherever "up" is now
 class Enhydro extends Node3D:
 	var rad := Vector3.ONE
