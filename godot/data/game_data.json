@@ -1794,7 +1794,7 @@
     "n": "Brontes",
     "sub": "The Smith of Etna",
     "m": 500,
-    "hp": 2900,
+    "hp": 2520,
     "weak": 4,
     "dmg": {
      "weak": 10,
@@ -1805,21 +1805,13 @@
     "stage_moves": 5,
     "act": {
      "hammer": {},
-     "bellows": {
+     "crucible": {
       "n": 2,
-      "take": 30,
-      "dmg": [
-       0,
-       0,
-       15,
-       30,
-       50
-      ]
+      "dmg": 60
      },
-     "pour": {
-      "n": 3,
-      "run": 1,
-      "cut": 5
+     "forge": {
+      "len": 3,
+      "dmg": 40
      },
      "bolt": {
       "dmg": 25,
@@ -1833,17 +1825,17 @@
     "lines": {
      "start": "Another digger in my forge. Hold still. I'll shape you.",
      "stage": [
-      "The sulphur runs for me. Mind your feet.",
+      "Iron for you. Melt it if you can.",
       "Now I forge what I forged for Zeus. Watch the sky."
      ],
      "combo": "Hah! You strike like a smith.",
      "win": "Enough. The forge goes cold. Take your sulphur and let me sleep.",
      "lose": "Into the slag with you.",
-     "billet": "Strike while it's hot. If you can.",
-     "take": "Cold iron comes home to me.",
+     "billet": "A billet for your trouble. Strike it hot.",
      "hammer": "Hah?! What did you hide under my hammer?",
      "daze": "My bolt... my head rings...",
-     "bolt": "Thunder!"
+     "bolt": "Thunder!",
+     "pot": "Mind my crucibles. They bite."
     },
     "sfx": {
      "hurt": "br_roar",
@@ -1852,9 +1844,6 @@
      "clang": "br_clang",
      "anvil": "br_anvil",
      "bellows": "br_bellows",
-     "pour": "br_pour",
-     "run": "br_run",
-     "take": "br_take",
      "bolt": "br_bolt",
      "daze": "br_daze"
     },
@@ -1864,30 +1853,29 @@
       "every": 3,
       "acts": [
        "hammer",
-       "bellows"
+       "crucible"
       ],
-      "map": "##.....##|#.......#|..b...b..|.........|.........|.........|.........|.........|#.......#|###...###"
+      "map": "##.....##|#.......#|..P...P..|.........|.h.....h.|.........|.........|.........|#.......#|###...###"
      },
      {
-      "name": "The sulphur river",
+      "name": "The billets",
       "every": 3,
       "acts": [
-       "pour",
-       "bellows",
-       "hammer",
-       "pour"
+       "forge",
+       "crucible",
+       "hammer"
       ],
-      "map": "##.u.u.##|#.......#|.........|.b.....b.|.........|.........|.........|.........|#.......#|##.....##"
+      "map": "##.....##|#.......#|.........|TTT...TTT|.........|.........|.........|.........|#.......#|##.....##"
      },
      {
       "name": "The thunderbolt",
       "every": 3,
       "acts": [
        "hammer",
-       "bellows",
-       "pour"
+       "crucible",
+       "forge"
       ],
-      "map": "#.......#|.........|..b...b..|.........|...A.....|.........|.........|.........|#.......#|##.....##"
+      "map": "#.......#|.........|..P...P..|.........|...A.....|.........|.........|.........|#.......#|##.....##"
      }
     ]
    }

@@ -41,7 +41,8 @@ var GAS := []
 ## is hidden and held - it can't be moved or matched, and only a special or a booster washes the ink off
 var LOCK := []      # 1: timber, 2: malachite crust (Copper Mountain: cracks off from a match beside it too), 3: a tentacle's grip,
                     # 4/5: ice (Proval: a stone frozen in, thick then cracked; a hit or a match beside it takes a layer)
-                    # 6: forge scale (Brontes' hammer: knocked off like a crust)
+                    # 6: molten metal (Fire Horizon, Royal Match's Honey): the stone under it can't be moved or
+                    # matched; a match beside it or any hit clears it (Brontes' hammer and bolt pour it too)
 var NOD := []       # a malachite nodule's layers, 0 = none (Copper Mountain): cut off, it gives its layers as ore
 var NOD_T := []     # moves until it grows its next layer
 var CAGE := []      # the canary's cage on Shubin's board (2x2, "Q" on the map: its top left): a wall nothing falls through
@@ -60,23 +61,29 @@ var SEA := []
 ## his tentacles: [{id, cells: from the rim to the tip}], their stones gripped (LOCK 3); a hit cuts one there, a match
 ## beside its tip cuts the tip; left on the board, each drags the stone at its tip into the deep when he acts, and heals him
 var tentacles := []
+## the cove's own tide (its levels, not the fight): every `every` moves the sea floods the bottom `rows` rows for `moves`
+## moves - nothing there moves, matches or is hit - then ebbs; `wait` - moves till the next flood (1: it rises now)
+var tide := {}
 var _tid := 0
 ## the maelstrom's ring round its water, clockwise: its stones go round a cell after every move
 var ring := []
 ## his eye on the last board: {r, c, shut (moves it stays shut after a hit)}
 var eye := {}
-## Brontes (Fire Horizon): BIL a billet's heat (0 none, 1 cold, 2 red, 3 orange, 4 white) - a blocker; struck hot (a hit or
-## a match beside it) it is ruined and hurts him by its heat, struck cold it is only cleared; left cold when he acts, he
-## takes it back and heals. MELT: molten sulphur, a blocker that runs onto a stone beside it after every move nobody touched
-## it; cooled by a hit or a match beside it. ANV: his anvil (2x2, "A" on the map: its top left), the thunderbolt on it
-var BIL := []
-var MELT := []
+## Fire Horizon (docs/obstacles.md): POT a crucible (Royal Match's Honey Pot) - a blocker, 2 knocks (a match beside it
+## or a hit, once a blast): broken, it spills molten metal (LOCK 6) over the plain stones round it. TUBE: a billet (Royal
+## Match's Metal Tube) - a bar of blocker cells (index into tubes, -1 none) fixed by its base to the board's edge; only
+## specials and boosters touch it, each blast melting the cell at its free tip, so it shrinks towards its base; the
+## last cell gone, it is gone. In Brontes' fight a broken
+## crucible and each cell melted off a billet hurt him. ANV: his anvil (2x2, "A" on the map: its top left), the
+## thunderbolt on it
+var POT := []
+var TUBE := []
+var tubes := []      # {cells: [Vector2i] from the base at the edge to the tip, vert}
 var ANV := []
 ## the thunderbolt he forges on his anvil: {r, c, ch (its charge), cols (where it will strike, set the move before), daze
 ## (moves he stays dazed: hits hurt twice)}; it charges every move nobody struck the anvil, each blast on it takes a
 ## charge off; at 0 he is dazed, full it strikes
 var bolt := {}
-var _melt_hit := false
 var _anvil_hit := false
 var GEOC := []
 var VOID := []
@@ -292,10 +299,10 @@ func boss_plan() -> void:
 		cells = _tide_cells(int(A.get("rows", 2)))
 	if act == "hammer":
 		cells = _hammer_cells()
-	if act == "bellows":
+	if act == "crucible":
 		cells = _plain_cells(int(A.get("n", 2)), true)
-	if act == "pour":
-		cells = _pour_cells(int(A.get("n", 3)))
+	if act == "forge":
+		cells = _tube_cells(int(A.get("len", 3)))
 	boss.intent = {act = act, cells = cells}
 
 # ------------------------------------------------------------------ Shubin and the canary (docs/mine8-shubin.md §7)
@@ -498,7 +505,7 @@ func _plain_cells(n_want: int, away := false) -> Array:
 	while out.size() < n_want and not cand.is_empty():
 		var p: Vector2i = cand.pop_at(rng.randi_range(0, cand.size() - 1))
 		if away and (out.any(func(q: Vector2i) -> bool: return absi(q.x - p.x) + absi(q.y - p.y) <= 2) \
-				or DIRS4.any(func(d: Vector2i) -> bool: return playable(p.x + d.x, p.y + d.y) and BIL[p.x + d.x][p.y + d.y] > 0)):
+				or DIRS4.any(func(d: Vector2i) -> bool: return playable(p.x + d.x, p.y + d.y) and POT[p.x + d.x][p.y + d.y] > 0)):
 			continue
 		out.append(p)
 	return out
@@ -520,7 +527,6 @@ func _hammer_cells() -> Array:
 				if not playable(p.x, p.y) or ANV[p.x][p.y]: continue
 				cells.append(p)
 				if _plain(p.x, p.y): v += 1.0
-				elif BIL[p.x][p.y]: v += 0.5
 		if not was.is_empty() and Vector2i(r, c) == was[0]: v -= 6.0
 		v += rng.randf() * 2.0
 		if v > best_v:
@@ -530,39 +536,70 @@ func _hammer_cells() -> Array:
 	boss.hammer_was = [boss.get("hammer_at", Vector2i.ZERO)]
 	return best
 
-## molten sulphur spills from his forge at the top: a run down a column from its first cell, n long
-func _pour_cells(n_want: int) -> Array:
-	var cols := range(C)
-	cols.shuffle()
-	for c: int in cols:
-		var r := 0
-		while r < R and not playable(r, c): r += 1
-		var run := []
-		while r < R and run.size() < n_want and _plain(r, c):
-			run.append(Vector2i(r, c))
-			r += 1
-		if run.size() >= mini(2, n_want): return run
-	return _plain_cells(mini(2, n_want))
-
-## the forge's own move after each of the player's (Brontes): billets cool a step, molten sulphur nobody touched runs
-## onto a stone beside it (down first), the thunderbolt charges unless the anvil was struck - full, it strikes the
-## columns marked the move before; his daze wears off.
-## Returns {cooled, ran: [cell], bolt: {cols, cells, heal} | {}}
-func forge_turn() -> Dictionary:
-	var out := {cooled = false, ran = [], bolt = {}}
-	if not boss_on(): return out
-	for r in R:
+## where he lays a billet: fixed to the board's edge, n plain stones in from a side (along a row) or up from the bottom
+## (shorter if none is that long, never under 2), not on the top row nor beside another billet. Base first
+func _tube_cells(n_want: int) -> Array:
+	for want in range(n_want, 1, -1):
+		var cand := []
+		var starts := []   # [base cell, the way in]
+		for r in range(1, R - 1):
+			for c in C:
+				if not playable(r, c): continue
+				if not playable(r, c - 1): starts.append([Vector2i(r, c), Vector2i(0, 1)])
+				if not playable(r, c + 1): starts.append([Vector2i(r, c), Vector2i(0, -1)])
 		for c in C:
-			if BIL[r][c] > 1:
-				BIL[r][c] -= 1
-				out.cooled = true
-	if not _melt_hit:
-		var A: Dictionary = boss.B.act.get("pour", {})
-		for i in int(A.get("run", 1)):
-			var p := _melt_run()
-			if p.x < 0: break
-			out.ran.append(p)
-	_melt_hit = false
+			for r in range(R - 1, 1, -1):
+				if playable(r, c) and not playable(r + 1, c): starts.append([Vector2i(r, c), Vector2i(-1, 0)])
+		for st: Array in starts:
+			var run := []
+			for i in want:
+				var p: Vector2i = (st[0] as Vector2i) + (st[1] as Vector2i) * i
+				var near := false
+				for d: Vector2i in DIRS4:
+					if playable(p.x + d.x, p.y + d.y) and TUBE[p.x + d.x][p.y + d.y] >= 0: near = true
+				if p.x < 1 or not _plain(p.x, p.y) or near: break
+				run.append(p)
+			if run.size() == want: cand.append(run)
+		if not cand.is_empty(): return cand[rng.randi_range(0, cand.size() - 1)]
+	return []
+
+## a billet from its cells, base first: {cells, base, dir (base -> tip), vert}. A billet of one cell points away from
+## the edge it is fixed to
+func _tube_of(cells: Array) -> Dictionary:
+	var base: Vector2i = cells[0]
+	var dir := Vector2i(0, 1)
+	if cells.size() > 1: dir = (cells[1] as Vector2i) - base
+	else:
+		for d: Vector2i in DIRS4:
+			if not playable(base.x - d.x, base.y - d.y): dir = d
+	return {cells = cells, base = base, dir = dir, vert = dir.x != 0}
+
+## the cells of the billets still on the board
+func tube_left() -> int:
+	var k := 0
+	for tb: Dictionary in tubes: k += (tb.cells as Array).size()
+	return k
+
+## a broken crucible's metal runs over the plain stones round it (the 8 cells); a metal goal grows by them
+const POT_SPILL := 180.0
+func _spill(t: float, r: int, c: int) -> void:
+	var cells := []
+	for d: Vector2i in DIRS8:
+		var p := Vector2i(r + d.x, c + d.y)
+		if not open(p.x, p.y) or LOCK[p.x][p.y] or _cleared.has(p.x * C + p.y): continue
+		var g: Gem = G[p.x][p.y]
+		if g == null or g.sp != "" or g.item != "" or not g.alive(): continue
+		LOCK[p.x][p.y] = 6
+		cells.append(p)
+	var gi := goal_index("metal")
+	if gi >= 0: goals[gi].left = int(goals[gi].left) + cells.size()
+	_fx(t, "spill", {r = r, c = c, cells = cells})
+
+## the forge's own move after each of the player's (Brontes): the thunderbolt charges unless the anvil was struck -
+## full, it strikes the columns marked the move before; his daze wears off. Returns {bolt: {cols, cells, heal} | {}}
+func forge_turn() -> Dictionary:
+	var out := {bolt = {}}
+	if not boss_on(): return out
 	if not bolt.is_empty():
 		var TA: Dictionary = boss.B.act.get("bolt", {})
 		if int(bolt.daze) > 0:
@@ -578,30 +615,6 @@ func forge_turn() -> Dictionary:
 			bolt.cols = []
 	_anvil_hit = false
 	return out
-
-## one cell of molten sulphur runs onto a plain stone beside it: down most often, sideways, rarely up; (-1, -1) if none can
-func _melt_run() -> Vector2i:
-	var cand := []
-	var wsum := 0.0
-	for r in R:
-		for c in C:
-			if not MELT[r][c]: continue
-			for d: Vector2i in DIRS4:
-				var p := Vector2i(r + d.x, c + d.y)
-				if not _plain(p.x, p.y): continue
-				var w := 3.0 if d.x > 0 else 0.4 if d.x < 0 else 1.5
-				cand.append([p, w])
-				wsum += w
-	if cand.is_empty(): return Vector2i(-1, -1)
-	var x := rng.randf() * wsum
-	for e: Array in cand:
-		x -= float(e[1])
-		if x <= 0.0:
-			var p: Vector2i = e[0]
-			G[p.x][p.y] = null
-			MELT[p.x][p.y] = 1
-			return p
-	return Vector2i(-1, -1)
 
 ## the two columns the thunderbolt will strike: among the fullest, one each side of the anvil
 func _bolt_cols() -> Array:
@@ -630,7 +643,7 @@ func bolt_cells() -> Array:
 			if playable(r, c) and not ANV[r][c]: out.append(Vector2i(r, c))
 	return out
 
-## the thunderbolt strikes its columns: their plain stones fuse with scale, he heals; it starts again low
+## the thunderbolt strikes its columns: molten metal over their plain stones, he heals; it starts again low
 func _bolt_strike(TA: Dictionary) -> Dictionary:
 	if (bolt.cols as Array).is_empty(): bolt.cols = _bolt_cols()
 	var res := {cols = (bolt.cols as Array).duplicate(), cells = [], heal = 0}
@@ -755,6 +768,28 @@ func _tide_cells(rows: int) -> Array:
 		if got >= rows: break
 	return out
 
+## the rows the cove's tide floods: the bottom ones
+func tide_cells() -> Array:
+	return _tide_cells(int(tide.get("rows", 2)))
+
+## the cove's tide after a move: the water in ebbs a move; at its time the sea floods the bottom rows.
+## Returns {} with no tide, else {flood: [cells], ebbed: bool}
+func tide_turn() -> Dictionary:
+	if tide.is_empty(): return {}
+	var out := {flood = [], ebbed = false}
+	for r in R:
+		for c in C:
+			if TIDE[r][c]:
+				TIDE[r][c] -= 1
+				if TIDE[r][c] == 0: out.ebbed = true
+	tide.wait = int(tide.wait) - 1
+	if int(tide.wait) <= 0:
+		tide.wait = int(tide.get("every", 5))
+		for p: Vector2i in tide_cells():
+			TIDE[p.x][p.y] = int(tide.get("moves", 2))
+			out.flood.append(p)
+	return out
+
 ## the greens the lizards will take: a share of the boss' weak colour on the board, at random
 func lizard_marks(prefer: Array = []) -> Array:
 	var A: Dictionary = boss.B.act.get("lizards", {})
@@ -789,19 +824,13 @@ func boss_turn() -> Dictionary:
 	var A: Dictionary = boss.B.act.get(it.act, {})
 	# whatever he does, the tentacles left on the board first drag the stones at their tips into the deep
 	if not tentacles.is_empty(): _drag(out, boss.B.act.get("tentacle", {}))
-	# and he takes back the billets left to go cold
-	_take_billets(out)
 	if it.act == "hammer":
-		# stones under it scale over, billets glow white again, the player's specials there go off (the level sets them off)
+		# molten metal splashes over the stones under it, the player's specials there go off (the level sets them off)
 		out.blast = []
-		out.hot = []
 		for p: Vector2i in it.cells:
 			if not playable(p.x, p.y): continue
 			var g: Gem = G[p.x][p.y]
-			if BIL[p.x][p.y]:
-				BIL[p.x][p.y] = 4
-				out.hot.append(p)
-			elif g and g.sp != "" and open(p.x, p.y) and not LOCK[p.x][p.y]:
+			if g and g.sp != "" and open(p.x, p.y) and not LOCK[p.x][p.y]:
 				out.blast.append(p)
 			elif _plain(p.x, p.y):
 				LOCK[p.x][p.y] = 6
@@ -809,27 +838,30 @@ func boss_turn() -> Dictionary:
 			out.cells.append(p)
 		boss_plan()
 		return out
-	if it.act == "bellows":
-		# the forge breathes: every billet glows white, new ones come in on plain stones
-		for r in R:
-			for c in C:
-				if BIL[r][c]: BIL[r][c] = 4
+	if it.act == "crucible":
+		# he sets crucibles full of metal down on plain stones
 		var cells: Array = it.cells.filter(func(p: Vector2i) -> bool: return _plain(p.x, p.y))
 		if cells.size() < int(A.get("n", 2)): cells = _plain_cells(int(A.get("n", 2)), true)
 		for p: Vector2i in cells:
 			out.removed.append((G[p.x][p.y] as Gem).id)
 			G[p.x][p.y] = null
-			BIL[p.x][p.y] = 4
+			POT[p.x][p.y] = 2
 			out.cells.append(p)
 		boss_plan()
 		return out
-	if it.act == "pour":
-		for p: Vector2i in it.cells:
-			if not _plain(p.x, p.y): continue
-			out.removed.append((G[p.x][p.y] as Gem).id)
-			G[p.x][p.y] = null
-			MELT[p.x][p.y] = 1
-			out.cells.append(p)
+	if it.act == "forge":
+		# he lays a billet across the board, on a run of plain stones
+		var cells: Array = it.cells
+		if cells.is_empty() or not cells.all(func(p: Vector2i) -> bool: return _plain(p.x, p.y)):
+			cells = _tube_cells(int(A.get("len", 3)))
+		if not cells.is_empty():
+			for p: Vector2i in cells:
+				out.removed.append((G[p.x][p.y] as Gem).id)
+				G[p.x][p.y] = null
+				TUBE[p.x][p.y] = tubes.size()
+			out.ti = tubes.size()
+			tubes.append(_tube_of(cells.duplicate()))
+			out.cells = cells
 		boss_plan()
 		return out
 	if it.act == "tentacle":
@@ -897,21 +929,6 @@ func boss_turn() -> Dictionary:
 		out.heal = int(goals[gi].left) - before
 	boss_plan()
 	return out
-
-## the billets gone cold he takes back to his forge: each heals him (never past this board's share). out.taken gets them
-func _take_billets(out: Dictionary) -> void:
-	var A: Dictionary = boss.B.act.get("bellows", {})
-	out.taken = []
-	if not A.has("take"): return
-	var gi := goal_index("boss")
-	var before := int(goals[gi].left)
-	for r in R:
-		for c in C:
-			if BIL[r][c] == 1:
-				BIL[r][c] = 0
-				out.taken.append(Vector2i(r, c))
-				goals[gi].left = mini(boss_top(), int(goals[gi].left) + int(A.take))
-	out.heal = int(out.heal) + int(goals[gi].left) - before
 
 ## every tentacle on the board takes the stone at its tip down into the deep: he heals (never past this board's share).
 ## The cell stays gripped, empty; out.drag gets {tid, r, c, id}
@@ -1075,6 +1092,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	flower = {}
 	cage = {}
 	tentacles = []
+	tide = {}
 	ring = []
 	eye = {}
 	bolt = {}
@@ -1090,7 +1108,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	if gen and boss.is_empty():
 		for k in ore_p: ore_p[k] = float(ore_p[k]) * minf(1.0, 72.0 / (R * C)) * minf(1.0, 26.0 / maxi(1, moves))
 	CART = _grid(-1); KEG = _grid(0); LAMP = _grid(false); DARK = _grid(0); BUCKET = _grid(0); BELT = _grid(-1); carts = []; belts = []
-	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); CAGE = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false); BIL = _grid(0); MELT = _grid(0); ANV = _grid(false)
+	G = _grid(null); ROCK = _grid(0); MUD = _grid(0); GAS = _grid(0); LOCK = _grid(0); NOD = _grid(0); NOD_T = _grid(0); FLW = _grid(false); CAGE = _grid(false); INK = _grid(0); TIDE = _grid(0); SEA = _grid(0); GEOC = _grid(-1); VOID = _grid(false); FIND = _grid(false); POT = _grid(0); TUBE = _grid(-1); tubes = []; ANV = _grid(false)
 	var rocks := 0; var muds := 0; var nugs := 0; var gas := 0; var locks := 0
 	for r in R:
 		var row: String = rows[r] if r < rows.size() else ""
@@ -1135,10 +1153,12 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 						for dc in sn: SEA[r + dr][c + dc] = 1 if ch == "O" else 2
 					if ch == "O": ring = _ring_round(r, c, 3, 3)
 					else: eye = {r = r, c = c, shut = 0}
-				"b":
-					BIL[r][c] = 4
-				"u":
-					MELT[r][c] = 1
+				"h":
+					LOCK[r][c] = 6
+				"P":
+					POT[r][c] = 2
+				"T", "Y":
+					TUBE[r][c] = -2   # a billet's cell: joined into bars below
 				"A":
 					bolt = {r = r, c = c, ch = 2, cols = [], daze = 0}
 					for d in QUAD:
@@ -1167,6 +1187,21 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					geos.append({r = r, c = c, w = 2, h = 2, hp = ghp, hp_max = ghp, done = false})
 					for d in QUAD:
 						GEOC[r + d.x][c + d.y] = gi
+	# the billets: runs of "T" along a row and of "Y" down a column, each one bar
+	for r in R:
+		for c in C:
+			if TUBE[r][c] != -2: continue
+			var vert := (r < rows.size() and c < rows[r].length() and rows[r][c] == "Y")
+			var cells := []
+			var q := Vector2i(r, c)
+			while q.x < R and q.y < C and TUBE[q.x][q.y] == -2:
+				TUBE[q.x][q.y] = tubes.size()
+				cells.append(q)
+				q += Vector2i(1, 0) if vert else Vector2i(0, 1)
+			# its base is the end against the board's edge (a hole or the rim beyond it)
+			var out_a: Vector2i = cells[0] - (Vector2i(1, 0) if vert else Vector2i(0, 1))
+			if playable(out_a.x, out_a.y): cells.reverse()
+			tubes.append(_tube_of(cells))
 	# the dark: a mask like the map ("d" unlit); the belts: rectangles [r0, c0, r1, c1] whose rim the stones ride round,
 	# clockwise
 	var dk: PackedStringArray = String(def.get("dark", "")).split("|") if def.get("dark", "") != "" else PackedStringArray()
@@ -1210,7 +1245,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					var rr: int = r + d.x
 					var cc: int = c + d.y
 					if not playable(rr, cc) or ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or LOCK[rr][cc] or MUD[rr][cc] or NOD[rr][cc] or FLW[rr][cc] or G[rr][cc] != null \
-							or CART[rr][cc] >= 0 or KEG[rr][cc] or BUCKET[rr][cc] or BELT[rr][cc] >= 0 or DARK[rr][cc]:
+							or CART[rr][cc] >= 0 or KEG[rr][cc] or BUCKET[rr][cc] or BELT[rr][cc] >= 0 or DARK[rr][cc] or POT[rr][cc] or TUBE[rr][cc] >= 0:
 						ok = false
 				if ok:
 					spots.append([r, c, absf(r + fh * 0.5 - R * 0.72) + absf(c + fw * 0.5 - C / 2.0) * 0.7])
@@ -1275,6 +1310,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"crust": goals.append({k = "crust", t = -1, left = _count_lock(2)})
 			"ice": goals.append({k = "ice", t = -1, left = _count_lock(4) + _count_lock(5)})
 			"ink": goals.append({k = "ink", t = -1, left = _count_lock(7)})
+			"metal": goals.append({k = "metal", t = -1, left = _count_lock(6)})
+			"pot": goals.append({k = "pot", t = -1, left = _count(POT)})
+			"tube": goals.append({k = "tube", t = -1, left = tube_left()})
 			"tentacle": goals.append({k = "tentacle", t = -1, left = 0})
 			"geo": goals.append({k = "geo", t = -1, left = geos.size()})
 			"cart": goals.append({k = "cart", t = -1, left = carts.size()})
@@ -1296,6 +1334,10 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 					G[r][c] = new_gem(t)
 		if find_groups().is_empty() and has_moves():
 			break
+	var TI: Dictionary = def.get("tide", {})
+	if not TI.is_empty():
+		tide = TI.duplicate()
+		tide.wait = int(TI.get("every", 5))
 	# the cove's tentacles (no Kraken behind them: they only hold their stones till cut) reach in over the filled board
 	var TD: Dictionary = def.get("tentacles", {})
 	for i in int(TD.get("n", 0)):
@@ -1351,7 +1393,7 @@ func _free_cells() -> Array:
 	var a := []
 	for r in range(1, R - 1):
 		for c in C:
-			if playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and G[r][c] == null and not LOCK[r][c] and not MUD[r][c] and not NOD[r][c] and not FLW[r][c] and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c]:
+			if playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and G[r][c] == null and not LOCK[r][c] and not MUD[r][c] and not NOD[r][c] and not FLW[r][c] and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c] and not POT[r][c] and TUBE[r][c] < 0:
 				a.append(Vector2i(r, c))
 	return a
 
@@ -1505,14 +1547,14 @@ func playable(r: int, c: int) -> bool:
 
 func open(r: int, c: int) -> bool:
 	return playable(r, c) and not ROCK[r][c] and not GAS[r][c] and GEOC[r][c] < 0 and not FIND[r][c] and not NOD[r][c] and not FLW[r][c] and not CAGE[r][c] and not SEA[r][c] and not TIDE[r][c] \
-		and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c] and not BIL[r][c] and not MELT[r][c] and not ANV[r][c] \
+		and CART[r][c] < 0 and not KEG[r][c] and not BUCKET[r][c] and not LAMP[r][c] and not POT[r][c] and TUBE[r][c] < 0 and not ANV[r][c] \
 		and BELT[r][c] < 0
 
 ## the colour a cell counts as for matching, -1 if it can't match
 func col(r: int, c: int) -> int:
 	if r < 0 or c < 0 or r >= R or c >= C: return -1
 	var g: Gem = G[r][c]
-	if g == null or g.sp != "" or g.item != "" or not g.alive() or TIDE[r][c] or LOCK[r][c] == 7: return -1
+	if g == null or g.sp != "" or g.item != "" or not g.alive() or TIDE[r][c] or LOCK[r][c] == 7 or LOCK[r][c] == 6: return -1
 	return g.t
 
 func gem_at(r: int, c: int) -> Gem:
@@ -1747,24 +1789,27 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 				_fx(t, "eye_hit", {r = float(eye.r) + 0.5, c = float(eye.c) + 0.5})
 				_boss_damage(int(A.get("dmg", 60)), int(eye.r), int(eye.c), t)
 		return
-	if BIL[r][c]:    # a billet: hot, ruined and he feels it; cold, only cleared
+	if POT[r][c]:    # a crucible: a knock a blast; the second breaks it and its metal spills over the stones round it
 		if _rock_hit.has(k): return
 		_rock_hit[k] = true
-		var heat: int = BIL[r][c]
-		BIL[r][c] = 0
-		var BA: Dictionary = boss.B.act.get("bellows", {}) if boss_on() else {}
-		var hd: Array = BA.get("dmg", [0, 0, 15, 30, 50])
-		_fx(t, "billet", {r = r, c = c, heat = heat})
-		if boss_on() and int(hd[heat]): _boss_damage(int(hd[heat]), r, c, t)
+		POT[r][c] -= 1
+		_fx(t, "pot", {r = r, c = c, left = POT[r][c]})
+		if POT[r][c] == 0:
+			_goal_hit("pot", -1, r, c, t)
+			if boss_on(): _boss_damage(int(boss.B.act.get("crucible", {}).get("dmg", 60)), r, c, t)
+			_push_fn(t + POT_SPILL, _spill.bind(r, c))
 		return
-	if MELT[r][c]:   # molten sulphur cools into a lump and breaks off
-		if _rock_hit.has(k): return
-		_rock_hit[k] = true
-		MELT[r][c] = 0
-		_melt_hit = true
-		_fx(t, "melt", {r = r, c = c})
-		var PA: Dictionary = boss.B.act.get("pour", {}) if boss_on() else {}
-		if int(PA.get("cut", 0)): _boss_damage(int(PA.cut), r, c, t)
+	if TUBE[r][c] >= 0:   # a billet: only a special or a booster melts it - a cell off its tip a blast, towards its base
+		var ti: int = TUBE[r][c]
+		if kind == "adj" or kind == "match" or _rock_hit.has(-100 - ti): return
+		_rock_hit[-100 - ti] = true
+		var cells: Array = tubes[ti].cells
+		var p: Vector2i = cells.pop_back()
+		TUBE[p.x][p.y] = -1
+		var dir := Vector2i(0, 1) if cells.is_empty() else p - (cells[cells.size() - 1] as Vector2i)
+		_goal_hit("tube", -1, p.x, p.y, t)
+		_fx(t, "tube", {r = p.x, c = p.y, ti = ti, left = cells.size(), dr = dir.x, dc = dir.y})
+		if boss_on(): _boss_damage(int(boss.B.act.get("forge", {}).get("dmg", 40)), p.x, p.y, t)
 		return
 	if ANV[r][c]:    # the anvil: a blast on it knocks a charge off the thunderbolt; the last one dazes him
 		if _rock_hit.has(-3) or bolt.is_empty(): return
@@ -1867,12 +1912,12 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 		return
 	if LOCK[r][c]:   # the timber breaks, the stone under it stays; a crust also cracks off from a match beside it
 		var crust: bool = LOCK[r][c] >= 2
-		var scale: bool = LOCK[r][c] == 6
+		var metal: bool = LOCK[r][c] == 6
 		if kind == "adj" and (not crust or _rock_hit.has(k)): return
 		_rock_hit[k] = true
 		LOCK[r][c] = 0
-		if not scale: _goal_hit("crust" if crust else "lock", -1, r, c, t)
-		_fx(t, "scale" if scale else "crust" if crust else "lock", {r = r, c = c})
+		_goal_hit("metal" if metal else "crust" if crust else "lock", -1, r, c, t)
+		_fx(t, "metal" if metal else "crust" if crust else "lock", {r = r, c = c})
 		_cleared[k] = true
 		return
 	var g: Gem = G[r][c]
@@ -1905,7 +1950,7 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 			var rr: int = r + d.x
 			var cc: int = c + d.y
 			if playable(rr, cc) and (ROCK[rr][cc] or GAS[rr][cc] or GEOC[rr][cc] >= 0 or FIND[rr][cc] or NOD[rr][cc] or LOCK[rr][cc] >= 2 or FLW[rr][cc] or SEA[rr][cc] == 2 \
-					or KEG[rr][cc] or BUCKET[rr][cc] or BIL[rr][cc] or MELT[rr][cc] or ANV[rr][cc] or BELT[rr][cc] >= 0):
+					or KEG[rr][cc] or BUCKET[rr][cc] or POT[rr][cc] or ANV[rr][cc] or BELT[rr][cc] >= 0):
 				hit(rr, cc, t, "adj", lit)
 
 ## a cell of the dark is lit
@@ -2094,8 +2139,10 @@ func drill_target(r: int, c: int) -> Vector2i:
 			elif SEA[rr][cc] == 2 and int(eye.get("shut", 1)) <= 0: w = 6
 			elif LOCK[rr][cc] == 3: w = 6 if need.has("tentacle") else 4
 			elif LOCK[rr][cc] == 7: w = 7 if need.has("ink") else 3
-			elif BIL[rr][cc] >= 2 or ANV[rr][cc] and int(bolt.get("ch", 0)) > 0: w = 5
-			elif BIL[rr][cc] or MELT[rr][cc]: w = 3
+			elif TUBE[rr][cc] >= 0: w = 7 if need.has("tube") or boss_on() else 4
+			elif POT[rr][cc]: w = 6 if need.has("pot") or boss_on() else 3
+			elif LOCK[rr][cc] == 6: w = 5 if need.has("metal") else 2
+			elif ANV[rr][cc] and int(bolt.get("ch", 0)) > 0: w = 5
 			elif NOD[rr][cc] >= 3: w = 3
 			elif G[rr][cc] != null and G[rr][cc].item == "": w = 1
 			if w:
@@ -2334,7 +2381,6 @@ func use_move() -> void:
 	moves -= 1
 	dead_cells = []
 	gas_hit = false
-	_melt_hit = false
 	_anvil_hit = false
 
 ## gas creeps onto a neighbouring stone if nobody touched it this turn; returns the cell or (-1,-1)

@@ -107,6 +107,13 @@ static func blocker(name: String) -> Texture2D:
 	if not _tex.has(path): _tex[path] = load(path)
 	return _tex[path]
 
+## Fire Horizon's forge pieces (GPT, art/forge_kit: gen_kit.sh, cut_kit.py): pot, pot_cracked (the crucible),
+## metal_0/1 (molten metal over a stone, see-through in the middle), tube_l/m/r (a billet's ends and middle), tube_1
+static func forge(name: String) -> Texture2D:
+	var path := "res://assets/board/forge/%s.png" % name
+	if not _tex.has(path): _tex[path] = load(path)
+	return _tex[path]
+
 ## Copper Mountain's malachite (GPT drawings cut up by art/malachite/parts_cut.py and nodule_pack.py): the crust over a
 ## stone, whole and plate by plate, and the nodule's three stages, bubble by bubble. Three looks of each; a cell keeps one
 static func malachite(name: String) -> Texture2D:

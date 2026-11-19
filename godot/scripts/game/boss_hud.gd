@@ -106,8 +106,6 @@ func _ready() -> void:
 		flower = BoardSprites.flower("flower_s3")}
 	if ResourceLoader.exists("res://assets/boss/kraken/arm_xs.png"):
 		_icons.arm = load("res://assets/boss/kraken/arm_xs.png")
-	if ResourceLoader.exists("res://assets/boss/brontes/billet_4.png"):
-		_icons.bellows = load("res://assets/boss/brontes/billet_4.png")
 	if ResourceLoader.exists("res://assets/boss/brontes/hammer_icon.png"):
 		_icons.hammer = load("res://assets/boss/brontes/hammer_icon.png")
 	if ResourceLoader.exists("res://assets/board/pieces/gas.png"):
@@ -188,7 +186,7 @@ const ACT_NAMES := {coils = ["Coils", "locks stones"], rockfall = ["Rockfall", "
 	breath = ["Breath", "spreads gas"], hoard = ["Hoard", "heals on gold"], lizards = ["Lizards", "steal greens"],
 	crust = ["Crust", "locks stones"], flower = ["Flower", "blooms: heals"],
 	tentacle = ["Tentacle", "grips stones"], ink = ["Ink", "hides stones"], tide = ["Tide", "floods the bottom"],
-	hammer = ["Hammer", "scales stones"], bellows = ["Bellows", "heats billets"], pour = ["Sulphur", "pours, spreads"],
+	hammer = ["Hammer", "metal on stones"], crucible = ["Crucibles", "full of metal"], forge = ["Billet", "laid down"],
 	sigh = ["Sigh", "gas comes out"], drift = ["Drift", "gas to the bird"], cough = ["Cough", "gas bursts"],
 	knock = ["Knock", "rocks fall"]}
 
@@ -255,9 +253,15 @@ func _draw_bubble() -> void:
 
 ## the action's sign: the board's own pieces where it has them
 func _draw_act(act: String, c: Vector2) -> void:
+	if act == "crucible" or act == "forge":
+		ForgeView.icon(bubble, "pot" if act == "crucible" else "tube", Rect2(c - Vector2(16, 16), Vector2(32, 32)))
+		return
 	var t: Texture2D = _icons.get(act)
 	if t:
-		bubble.draw_texture_rect(t, Rect2(c - Vector2(15, 15), Vector2(30, 30)), false)
+		# kept to its own shape (a billet is a bar)
+		var sz := Vector2(t.get_size())
+		sz *= 30.0 / maxf(sz.x, sz.y)
+		bubble.draw_texture_rect(t, Rect2(c - sz * 0.5, sz), false)
 		return
 	# the Kraken's: drawn here, in his sea's colours
 	if act == "tentacle":
@@ -279,16 +283,6 @@ func _draw_act(act: String, c: Vector2) -> void:
 		head.append(head[0])
 		bubble.draw_polyline(head, Color8(150, 140, 130), 1.5, true)
 		bubble.draw_circle(c + Vector2(12, 9), 2.5, Color8(255, 190, 80))
-		return
-	if act == "pour":
-		var blob := PackedVector2Array()
-		for i in 16:
-			var a := i * TAU / 16.0
-			blob.append(c + Vector2(cos(a) * 12.0, sin(a) * 8.0 + 4.0) * (1.0 + 0.12 * sin(a * 3.0)))
-		bubble.draw_colored_polygon(blob, Color8(214, 110, 20))
-		bubble.draw_line(c + Vector2(0, -13), c + Vector2(0, -2), Color8(240, 150, 30), 5.0, true)
-		bubble.draw_circle(c + Vector2(-4, 5), 3.0, Color8(255, 220, 90))
-		bubble.draw_circle(c + Vector2(6, 2), 2.0, Color8(110, 150, 255))
 		return
 	if act == "tide":
 		for k in 3:

@@ -332,6 +332,12 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 		"lock":
 			BoardSprites.draw(ci, BoardSprites.gem(2), Vector2(S / 2, S / 2), S * 0.9)
 			BoardSprites.draw(ci, BoardSprites.tex("lock"), Vector2(S / 2, S / 2), S * 0.9)
+		"metal":
+			BoardSprites.draw(ci, BoardSprites.gem(3), Vector2(S / 2, S / 2), S * 0.8)
+			var mt := BoardSprites.forge("metal_0")
+			ci.draw_texture_rect(mt, Rect2(Vector2(S * 0.06, S * 0.06), Vector2(S * 0.88, S * 0.92)), false)
+		"pot", "tube":
+			ForgeView.icon(ci, k, Rect2(Vector2(S, S) * 0.04, Vector2(S, S) * 0.92))
 		"ink":
 			BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(S / 2, S / 2), S * 0.8)
 			for q: Vector3 in [Vector3(0.5, 0.52, 0.34), Vector3(0.32, 0.4, 0.2), Vector3(0.66, 0.38, 0.2), Vector3(0.42, 0.7, 0.2), Vector3(0.68, 0.66, 0.18)]:

@@ -57,18 +57,19 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite", "ink"], load = 17},
 	{kinds = ["sand", "mud", "granite", "ink"], load = 18},
 ],
-## Fire Horizon (9 depths): pumice and ash, basalt from 100 m, powder kegs (sulphur makes powder) from 150 m, iron
-## staples (timber) from 300 m
+## Fire Horizon (9 depths): training for Brontes (docs/obstacles.md) - pumice and ash, molten metal over stones from
+## 100 m (Royal Match's Honey), basalt from 150 m, the crucibles that spill it from 200 m (Honey Pot, AREA_FEATS),
+## billets from 300 m (Metal Tube, AREA_FEATS), iron staples (timber) from 350 m
 3: [
 	{kinds = ["sand", "mud"], load = 10},
-	{kinds = ["sand", "mud", "granite"], load = 12},
-	{kinds = ["sand", "mud", "granite"], load = 13},
-	{kinds = ["sand", "mud", "granite"], load = 14},
-	{kinds = ["sand", "mud", "granite"], load = 15},
-	{kinds = ["sand", "mud", "granite", "lock"], load = 15},
-	{kinds = ["sand", "mud", "granite", "lock"], load = 16},
-	{kinds = ["sand", "mud", "granite", "lock"], load = 17},
-	{kinds = ["sand", "mud", "granite", "lock"], load = 18},
+	{kinds = ["sand", "mud", "metal"], load = 12},
+	{kinds = ["sand", "mud", "metal", "granite"], load = 13},
+	{kinds = ["sand", "mud", "metal", "granite"], load = 14},
+	{kinds = ["sand", "mud", "metal", "granite"], load = 15},
+	{kinds = ["sand", "mud", "metal", "granite"], load = 15},
+	{kinds = ["sand", "mud", "metal", "granite", "lock"], load = 16},
+	{kinds = ["sand", "mud", "metal", "granite", "lock"], load = 17},
+	{kinds = ["sand", "mud", "metal", "granite", "lock"], load = 18},
 ],
 ## Proval (9 depths) - the exam before the brother: snow and frozen mud, permafrost from 100 m, its own ice from 150 m,
 ## then the depths bring back what the four mines taught, one at a time (docs/mine5-proval.md §6): the Serpent's nuggets
@@ -110,9 +111,9 @@ const AREA_TIERS := {1: [
 	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 16},
 	{kinds = ["sand", "mud", "granite", "gas", "lock"], load = 17},
 ]}
-const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i", ink = "x"}
+const CH := {sand = "r", granite = "R", mud = "m", gas = "g", lock = "l", crust = "c", ice = "i", ink = "x", metal = "h"}
 ## gas spreads and timber pins stones: a little of either goes a long way
-const CAP := {gas = 6, lock = 10, crust = 10, ice = 14, granite = 6, ink = 3}
+const CAP := {gas = 6, lock = 10, crust = 10, ice = 14, granite = 6, ink = 3, metal = 8}
 ## Copper Mountain's malachite nodules (mine -> how many at the first depth, one more every other depth, at most):
 ## the mine's own ore grows in them, so its boards carry less of the other obstacles (NOD_LOAD)
 const NODULES := {1: Vector2i(2, 4), 4: Vector2i(2, 3)}
@@ -125,17 +126,17 @@ const NOD_LOAD := 0.7
 ## level played there): Copper Mountain the belt, the fire the kegs, Proval brings the fire's back. The cove's levels
 ## are to train for the Kraken (docs/obstacles.md: its tentacle and the rest, not made yet) - the bucket, which taught
 ## nothing for him, is out (15.11). The cart (a ghost-cart mine) and the dark (a boss of its own) wait for their mines
-const FEATURES := ["cart", "keg", "dark", "belt", "bucket", "tentacle"]
-const AREA_FEATS := {1: {belt = 3}, 2: {tentacle = 1}, 3: {keg = 2}, 4: {keg = 7}}
+const FEATURES := ["cart", "keg", "dark", "belt", "bucket", "tentacle", "tide", "pot", "tube"]
+const AREA_FEATS := {1: {belt = 3}, 2: {tentacle = 1, tide = 5}, 3: {pot = 3, tube = 5}, 4: {keg = 7}}
 const FEATURE_P := 0.8
 ## a feature takes over part of a level's work: the plain obstacles shrink to this share of their load
-const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 0.6, bucket = 0.8, tentacle = 0.85}
+const FEATURE_LOAD := {cart = 0.75, keg = 0.95, dark = 0.85, belt = 0.6, bucket = 0.8, tentacle = 0.85, tide = 0.9, pot = 0.85, tube = 0.8}
 ## 10.11 refitted WITHOUT the streak's gifts (smart bot, no move limit, 408 levels of mines 1-5): the gifts are a
 ## reward that makes a level easier, not something it is built to need - a lost level resets the streak, and the
 ## retry was near hopeless without them (playtest 10.11). Granite was far underpriced (0.35 a cell, 16 of them took
 ## the bot ~40 moves): a cell costs 0.51, and each layer it lies behind the face of its wall 0.48 more (`*_deep`,
 ## _deep); cart, dark and gas are not in the data (no mine has them) and keep their old prices
-const WORK := {sand = 0.18, granite = 0.51, sand_deep = 0.03, granite_deep = 0.48, mud = 0.07, gas = 0.12, lock = 0.3, crust = 0.04, ice = 0.3, nod = 0.2, nug = 1.57, geo = 3.16, colour = 0.055, cart = 0.39, keg = 0.25, kegs = -0.2, dark = 0.0, belt = 0.9, bucket = 1.46, tentacle = 1.8, ink = 0.42}
+const WORK := {sand = 0.18, granite = 0.51, sand_deep = 0.03, granite_deep = 0.48, mud = 0.07, gas = 0.12, lock = 0.3, crust = 0.04, ice = 0.3, nod = 0.2, nug = 1.57, geo = 3.16, colour = 0.055, cart = 0.39, keg = 0.25, kegs = -0.2, dark = 0.0, belt = 0.9, bucket = 1.46, tentacle = 1.8, ink = 0.42, tide = 2.0, metal = 0.18, pot = 2.1, tube = 1.3}
 const BASE := 6.4
 ## a shape that is slower to work through than its cells say: a lower tier behind a throat
 const SCHEME_WORK := {tiers = 5.4}
@@ -341,9 +342,9 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 			work += int(deep[k]) * float(WORK[k + "_deep"])
 	var goals := []
 	if used.has("sand") or used.has("granite"): goals.append(["rock"])
-	for k in ["mud", "gas", "lock", "crust", "ice", "ink"]:
+	for k in ["mud", "gas", "lock", "crust", "ice", "ink", "metal"]:
 		if used.has(k): goals.append([k])
-	for k in ["cart", "dark", "keg", "belt", "tentacle"]:
+	for k in ["cart", "dark", "keg", "belt", "tentacle", "pot", "tube"]:
 		if fdef.get("goal_" + k, false): goals.push_front([k])
 	if fdef.has("bucket"): goals.append(["nug"])
 	# a nugget to bring down, a geode to crack: now and then, never on a first look at something new, and not as a
@@ -388,7 +389,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	var out := {map = "|".join(rows), goals = goals, moves = moves, hard = beat in ["hard", "super"], beat = beat, gen = true, colors = 5,
 		rich = rich, intro = intro, kinds = used.keys(), count = count, scheme = scheme, feats = feats, feat_intro = feat_intro,
 		find = wins == 0 or rich or beat in ["hard", "super"] or rng.randf() < FIND_P}
-	for k in ["carts", "dark", "belts", "bucket", "tentacles"]:
+	for k in ["carts", "dark", "belts", "bucket", "tentacles", "tide"]:
 		if fdef.has(k): out[k] = fdef[k]
 	return out
 
@@ -521,6 +522,81 @@ static func _place_features(rng: RandomNumberGenerator, grid: Array, groups: Dic
 				fdef.goal_belt = true
 				fdef.n_belt = hits
 				work += hits * float(WORK.belt)
+			"pot":
+				# Fire Horizon's crucibles (Royal Match's Honey Pot): beside the blocks, mirrored, apart; two matches beside
+				# one break it and its metal spills over the stones round it. The goal is the crucibles
+				var spots := []
+				for r in range(1, R - 1):
+					for c in range(0, (C + 1) / 2):
+						var p := Vector2i(r, c)
+						if not _free(grid, groups, p) or not _free(grid, groups, Vector2i(r, C - 1 - c)): continue
+						var room := 0
+						for d: Vector2i in BoardModel.DIRS4:
+							if _free(grid, groups, p + d): room += 1
+						if room < 2: continue
+						spots.append([p, room + rng.randf() * 2.0])
+				spots.sort_custom(func(x, y): return x[1] > y[1])
+				var want := 1 + (1 if dl >= 5 or rng.randf() < 0.35 else 0)
+				var put := 0
+				for sp in spots:
+					if put >= want: break
+					var p: Vector2i = sp[0]
+					var ok := true
+					for dr in range(-2, 3):
+						for dc in range(-2, 3):
+							var q := Vector2i(p.x + dr, p.y + dc)
+							if q.x >= 0 and q.y >= 0 and q.x < R and q.y < C and grid[q.x][q.y] == "P": ok = false
+					if not ok or not _free(grid, groups, p) or not _free(grid, groups, Vector2i(p.x, C - 1 - p.y)): continue
+					grid[p.x][p.y] = "P"
+					grid[p.x][C - 1 - p.y] = "P"
+					put += 1
+				var n := 0
+				for r in R:
+					for c in C:
+						if grid[r][c] == "P": n += 1
+				if n == 0: continue
+				fdef.n_pot = n
+				fdef.goal_pot = true
+				work += n * float(WORK.pot)
+			"tube":
+				# Fire Horizon's billets (Royal Match's Metal Tube): fixed by the base to the board's edge - a pair in from
+				# both sides along a row (mirrored), or one up from the bottom; only specials and boosters melt one, a cell
+				# off its tip a blow, towards the base. The goal is their cells
+				var best := []
+				var letter := "T"
+				for tries in 30:
+					var cells := []
+					if rng.randf() < 0.65:
+						var r := rng.randi_range(2, R - 3)
+						var ln := rng.randi_range(2, 3)
+						var c0 := 0
+						while c0 < C and grid[r][c0] == "#": c0 += 1
+						if c0 + ln >= C / 2: continue
+						for i in ln:
+							cells.append(Vector2i(r, c0 + i))
+							cells.append(Vector2i(r, C - 1 - c0 - i))
+						letter = "T"
+					else:
+						var c := C / 2 if C % 2 == 1 else C / 2 - (1 if rng.randf() < 0.5 else 0)
+						var ln := rng.randi_range(3, 4 + mini(dl / 4, 1))
+						var r0 := R - 1
+						while r0 > 0 and grid[r0][c] == "#": r0 -= 1
+						if r0 - ln < 2: continue
+						for i in ln: cells.append(Vector2i(r0 - i, c))
+						letter = "Y"
+					if cells.all(func(q: Vector2i) -> bool: return _free(grid, groups, q)):
+						best = cells
+						break
+				if best.is_empty(): continue
+				for q: Vector2i in best: grid[q.x][q.y] = letter
+				fdef.n_tube = best.size()
+				fdef.goal_tube = true
+				work += best.size() * float(WORK.tube)
+			"tide":
+				# the Kraken's tide on the cove's own levels: every 5 moves the bottom 2 rows go under for 2 moves
+				# (the move before, the water creeps up); no goal - it only stands in the way
+				fdef.tide = {every = 5, rows = 2, moves = 2}
+				work += float(WORK.tide)
 			"tentacle":
 				# the Kraken's tentacles reach in over the rim (BoardModel lays them on the filled board): 1-3, cut off where
 				# they are hit; the goal is every cell they grip
@@ -786,7 +862,7 @@ static func _has_square(grid: Array, patch: Array) -> bool:
 	return false
 
 ## cells no match can be made in: holes, rock, the geode, the gallery's works
-const SHUT := ["#", "r", "R", "G", "+", "W", "K", "L", "B"]
+const SHUT := ["#", "r", "R", "G", "+", "W", "K", "L", "B", "P", "T", "Y"]
 ## how far rock lies behind the face of its wall: {sand, granite} = the sum over their cells of the layers in front of
 ## each (a cell touching the open board is 0, the one behind it 1...). A match only hits rock beside it, so a wall
 ## three deep needs its face broken before the next layer can be touched
@@ -834,7 +910,7 @@ static func _put(grid: Array, groups: Dictionary, g: String, r: int, c: int) -> 
 static func _falls_out(grid: Array, p: Vector2i) -> bool:
 	var gap := false
 	for r in range(p.x + 1, R):
-		if grid[r][p.y] in ["L", "K", "W", "+", "B"]: return false
+		if grid[r][p.y] in ["L", "K", "W", "+", "B", "P", "T", "Y"]: return false
 		if grid[r][p.y] == "#": gap = true
 		elif gap: return false
 	return true

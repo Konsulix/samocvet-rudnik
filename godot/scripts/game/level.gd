@@ -198,7 +198,11 @@ func _board_theme() -> Array:
 			if model.KEG[r][c]: kegs = true
 	if bucket: return ["The Ore Bucket", "Knock nuggets out of it and bring them down"]
 	if has.call("keg"): return ["Powder Kegs", "Set every keg off"]
+	if has.call("tube"): return ["Billets", "Only specials melt them"]
+	if has.call("pot"): return ["Crucibles", "Two matches beside one break it - mind the metal"]
+	if has.call("metal"): return ["Molten Metal", "Match beside it to crack it off"]
 	if has.call("tentacle"): return ["Tentacles", "Hit one to cut it off"]
+	if not model.tide.is_empty(): return ["The Tide", "Every few moves the sea floods the bottom rows"]
 	if has.call("ink"): return ["Ink", "Only specials wash it off"]
 	if not model.belts.is_empty(): return ["The Conveyor", "Break every basket it carries"]
 	if kegs: return ["Blasting Day", "Kegs blow the rock round them"]
@@ -773,7 +777,7 @@ func _on_tap(r: int, c: int) -> void:
 ## the swap plays first and is checked again before it counts (the cascade went on meanwhile)
 func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	if booster != "" or coach.visible or not Save.told("swap") or model.moves <= 0: return
-	if model.boss_on() or not model.belts.is_empty(): return
+	if model.boss_on() or not model.belts.is_empty() or not model.tide.is_empty(): return
 	if not _still(r1, c1) or not _still(r2, c2): return
 	var a: BoardModel.Gem = model.G[r1][c1]
 	var b: BoardModel.Gem = model.G[r2][c2]
@@ -817,7 +821,7 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 ## a special tapped while the board is still cascading (as in Royal Match): one at rest goes off in the next step
 func _tap_mid(r: int, c: int) -> void:
 	if booster != "" or coach.visible or not _coach_move.is_empty() or not Save.told("swap") or model.moves <= 0: return
-	if model.boss_on() or not model.belts.is_empty(): return
+	if model.boss_on() or not model.belts.is_empty() or not model.tide.is_empty(): return
 	var g: BoardModel.Gem = model.G[r][c] if model.open(r, c) else null
 	if g == null or g.sp == "" or not _still(r, c): return
 	for e: Dictionary in _queued_ev:
@@ -1021,7 +1025,7 @@ func _play_fx(list: Array, merges: Dictionary) -> void:
 		else: get_tree().create_timer(e.t / 1000.0).timeout.connect(cb)
 
 ## the effects that change a cell's look: the cell shows its new state from the moment of its hit (BoardView.hold)
-const CELL_FX := ["rock", "gas", "mud", "lock", "crust", "ice", "scale", "ink", "nodule", "billet", "melt", "tentacle_cut"]
+const CELL_FX := ["rock", "gas", "mud", "lock", "crust", "ice", "metal", "ink", "roof", "nodule", "pot", "tube", "spill", "tentacle_cut"]
 
 func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 	if String(e.type) in CELL_FX:
@@ -1208,27 +1212,35 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 				if n: n.become_nugget()
 				fx.sparkle(e.tr, e.tc, Color("#ffd24a"), 10))
 			Sfx.play("coin")
-		"billet":
-			board.redraw_under()
-			var hc: Color = BoardView.HEAT_COL[int(e.heat)]
-			if int(e.heat) >= 2:
-				fx.flash(e.r, e.c, Color(hc.r * 2.2, hc.g * 2.0, hc.b * 1.6), 1.5)
-				fx.burst(board.cell_center(e.r, e.c), Color(hc.r * 2.0, hc.g * 1.8, hc.b * 1.4), 10 + int(e.heat) * 6, 300.0, 420.0, 3.5, true)
-				LevelBoss.sound(self, "clang", "crack")
+		"pot":
+			# a crucible knocked: it jolts and chips; the second knock breaks it (its metal spills a moment later)
+			board.forge_view.knock(int(e.r), int(e.c), int(e.left))
+			if int(e.left) == 0:
+				fx.flash(e.r, e.c, Color(2.4, 1.4, 0.5), 1.8)
+				fx.burst(board.cell_center(e.r, e.c), Color(2.2, 1.2, 0.35), 18, 320.0, 450.0, 3.5, true)
+				fx.shake = maxf(fx.shake, 6.0)
+				Sfx.play("rockfall")
+				Sfx.buzz(40)
 			else:
-				fx.debris(e.r, e.c, Color("#4a4a52"), 8)
-				Sfx.play("rock")
-			fx.debris(e.r, e.c, Color("#2c2a2a"), 6)
-			Sfx.buzz(20 + int(e.heat) * 10)
-		"melt":
-			board.redraw_under()
-			fx.debris(e.r, e.c, Color("#e3c23a"), 9)
-			fx.sparkle(e.r, e.c, Color(1.6, 1.2, 0.3), 6)
-			Sfx.play("crust")
-		"scale":
-			board.over.queue_redraw()
-			fx.debris(e.r, e.c, Color("#1e1a18"), 8)
-			fx.burst(board.cell_center(e.r, e.c), Color(2.0, 1.1, 0.4), 3, 180.0, 400.0, 2.5, true)
+				fx.burst(board.cell_center(e.r, e.c), Color(2.0, 1.1, 0.35), 5, 200.0, 300.0, 2.5, true)
+				Sfx.play("crack")
+				Sfx.buzz(15)
+		"spill":
+			# the broken crucible's metal arcs onto the stones round it and splats there
+			board.forge_view.spill(int(e.r), int(e.c), e.cells)
+			if not (e.cells as Array).is_empty(): Sfx.play("gas")
+		"tube":
+			# a billet's tip melts back towards its base: a flare of white heat, drops running off
+			board.forge_view.melt_tip(int(e.ti), int(e.r), int(e.c), Vector2i(int(e.get("dr", 0)), int(e.get("dc", 1))))
+			fx.flash(e.r, e.c, Color(2.4, 1.7, 0.8), 1.4)
+			fx.burst(board.cell_center(e.r, e.c), Color(2.2, 1.3, 0.45), 14, 300.0, 420.0, 3.0, true)
+			if model.boss_on(): LevelBoss.sound(self, "clang", "crack")
+			else: Sfx.play("crack")
+			Sfx.buzz(25)
+		"metal":
+			# the metal skin cracks off the stone in curled flakes
+			board.forge_view.crack_off(int(e.r), int(e.c))
+			fx.burst(board.cell_center(e.r, e.c), Color(2.0, 1.1, 0.4), 6, 200.0, 400.0, 2.5, true)
 			Sfx.play("crust")
 		"bolt_hit":
 			board.anvil_at = Time.get_ticks_msec() / 1000.0
@@ -1361,6 +1373,8 @@ func _after_turn() -> void:
 		await LevelBoss.shubin_lost(self)
 		_canary_fell()
 		return
+	if not model.tide.is_empty() and not model.boss_on():
+		await _tide()
 	if not model.belts.is_empty():
 		await _belts()
 		if model.goals_done():
@@ -1403,6 +1417,9 @@ const TIP := {
 	crust = "Malachite crust holds a stone. Match beside it or that stone to crack it off",
 	tentacle = "A tentacle grips these stones. Hit it anywhere: it is cut off from there to its tip",
 	ink = "Ink hides a stone and holds it. Only a special or a booster washes it off",
+	metal = "Molten metal holds a stone: it can't be moved or matched. Match beside it to crack it off",
+	pot = "A crucible! Two matches beside it break it - and its metal spills over the stones round it",
+	tube = "A billet. Only specials and boosters melt it, a piece at a time",
 	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
@@ -1443,7 +1460,7 @@ func _coach_next() -> void:
 		if gi >= 0: rects.append((goal_boxes[gi].root as Control).get_global_rect())
 		_coach_tap("find", rects)
 		return
-	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "tentacle", "ink", "sand", "mud", "granite", "gas", "lock", "ice"]:
+	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "tentacle", "ink", "pot", "tube", "metal", "sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
 		var cells := _obstacle_cells(id)
 		if cells.is_empty(): continue
@@ -1527,6 +1544,9 @@ func _obstacle_cells(id: String) -> Array:
 				"crust": on = model.LOCK[r][c] == 2
 				"tentacle": on = model.LOCK[r][c] == 3
 				"ink": on = model.LOCK[r][c] == 7
+				"metal": on = model.LOCK[r][c] == 6
+				"pot": on = model.POT[r][c] > 0
+				"tube": on = model.TUBE[r][c] >= 0
 			if on: out.append(Vector2i(r, c))
 	return out
 
@@ -1551,6 +1571,26 @@ func _cells_rect(cells: Array) -> Rect2:
 		var r := Rect2(lo, hi - lo)
 		out = r if i == 0 else out.merge(r)
 	return out
+
+## the cove's tide after a move: the water in ebbs, and at its time the sea floods the bottom rows (BoardModel.tide_turn)
+func _tide() -> void:
+	var res := model.tide_turn()
+	if res.is_empty(): return
+	board.sea_over.queue_redraw()
+	if (res.flood as Array).is_empty():
+		if res.ebbed: Sfx.play("kr_tide")
+		return
+	for p: Vector2i in res.flood: fx.sparkle(p.x, p.y, Color("#9fd8ea"), 3)
+	Sfx.play("kr_tide")
+	Sfx.buzz(25)
+	if not Save.told("t_tide"):
+		if not Coach.off: Save.tell("t_tide")
+		_toast("The tide is in: nothing under the water moves till it ebbs")
+	board.refresh()
+	await _wait(0.45)
+	if not model.has_moves():
+		model.shuffle()
+		await board.animate_shuffle()
 
 ## the conveyors run a slot after every move: their baskets ride along (three broken in a move: Conveyor Chef)
 func _belts() -> void:
@@ -1932,10 +1972,10 @@ func _shubin_act() -> void:
 			await LevelBoss.after_turn(self)
 	busy = false
 
-## `-- area=3 level=1 gen depth=9 [boss_stage=N] ui=forge_act act=hammer|bellows|pour|bolt|daze`: Brontes acts right away
+## `-- area=3 level=1 gen depth=9 [boss_stage=N] ui=forge_act act=hammer|crucible|forge|bolt|daze`: Brontes acts right away
 ## (the bolt: charged to one short of full, it strikes after this move; daze: its last charge knocked off)
 func _forge_act() -> void:
-	if not model.boss_on() or not model.boss.B.act.has("bellows"): return
+	if not model.boss_on() or not model.boss.B.act.has("crucible"): return
 	var act := "hammer"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("act="): act = arg.get_slice("=", 1)
@@ -1961,6 +2001,32 @@ func _forge_act() -> void:
 	await _wait(1.0)
 	busy = true
 	await LevelBoss.after_turn(self)
+	busy = false
+
+## `-- area=3 level=1 gen depth=5 feat=pot,tube ui=forge_lab`: the forge's pieces struck one after another, to watch
+## them move (a crucible knocked twice and spilling, a billet's tip melting back twice, the spilt metal cracked off)
+func _forge_lab() -> void:
+	busy = true
+	await _wait(1.2)
+	var blow := func(p: Vector2i) -> void:
+		await _resolve([{t = 0.0, r = p.x, c = p.y, kind = "fx"}], [])
+		await _wait(0.6)
+	var pot := Vector2i(-1, -1)
+	for r in model.R:
+		for c in model.C:
+			if model.POT[r][c] and pot.x < 0: pot = Vector2i(r, c)
+	if pot.x >= 0:
+		await blow.call(pot)
+		await blow.call(pot)
+	for tb: Dictionary in model.tubes:
+		for i in 2:
+			if (tb.cells as Array).is_empty(): break
+			await blow.call(tb.cells[(tb.cells as Array).size() - 1])
+	for r in model.R:
+		for c in model.C:
+			if model.LOCK[r][c] == 6 and pot.x >= 0 and absi(r - pot.x) <= 1 and absi(c - pot.y) <= 1:
+				await blow.call(Vector2i(r, c))
+				break
 	busy = false
 
 ## `-- area=1 level=1 gen depth=6 ui=boss_raid`: the Mistress' lizards come for the greens right away

@@ -66,6 +66,9 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			continue
 		m.gas_spread()
 		m.nodule_grow()
+		if not m.boss_on() and not m.tide.is_empty():
+			m.tide_turn()
+			if not m.has_moves(): m.shuffle()
 		if not m.belts.is_empty() and not m.belt_turn().turned.is_empty():
 			_resolve(m, [], [], broken)
 			if m.goals_done():
@@ -100,15 +103,12 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 				if m.boss_stage_clear():
 					m.next_stage()
 					continue
-			# the forge's own move (Brontes): billets cool, sulphur runs, the thunderbolt charges or strikes
+			# the forge's own move (Brontes): the thunderbolt charges or strikes
 			var ft := m.forge_turn()
-			if not ft.ran.is_empty() or not ft.bolt.is_empty(): _resolve(m, [], [], broken)
+			if not ft.bolt.is_empty(): _resolve(m, [], [], broken)
 			var bt := m.boss_turn()
 			if not bt.get("blast", []).is_empty():
 				_resolve(m, bt.blast.map(func(q: Vector2i) -> Dictionary: return {t = 0.0, r = q.x, c = q.y, kind = "fx"}), [], broken)
-			if bt.get("act", "") in ["bellows", "pour"] or not bt.get("taken", []).is_empty():
-				m.collapse()
-				_resolve(m, [], [], broken)
 			if m.boss_stage_clear():
 				m.next_stage()
 				continue
@@ -206,6 +206,7 @@ static func _worth(m: BoardModel) -> float:
 			"geo", "find": w = 6.0
 			"boss": w = 3.0 if m.scale_on() else 0.08
 			"gas": w = 1.5
+			"pot": w = 10.0     # its metal spills onto the metal goal: break it all the same
 			"maiden": w = 10.0
 		v -= float(g.left) * w
 	# the big blocks: every hit counts, not only the last one
@@ -230,7 +231,7 @@ static func _worth(m: BoardModel) -> float:
 			if m.GAS[r][c]: v -= 0.3
 			if m.LOCK[r][c] == 3: v -= 0.6
 			if m.LOCK[r][c] == 4: v -= 0.5      # thick ice: each layer is a hit (the goal counts only the last)
-			if m.LOCK[r][c] == 6: v -= 0.25     # forge scale
+			if m.LOCK[r][c] == 6: v -= 0.25     # molten metal
 			if kegs_goal and m.KEG[r][c]: v -= float(m.KEG[r][c]) * 0.4
 	# the Fire Maiden: gold broken is the prize, and stones that could line up next to her are worth a little
 	if not m.maiden.is_empty():
@@ -239,14 +240,11 @@ static func _worth(m: BoardModel) -> float:
 	if m.scale_on():
 		for p: Vector2i in m.cage_ring():
 			if m.GAS[p.x][p.y]: v -= 4.0
-	# Brontes: a cold billet heals him when he acts, molten sulphur spreads, a charged thunderbolt is near
-	if m.boss_on():
-		for r in m.R:
-			for c in m.C:
-				if m.BIL[r][c] == 1: v -= 1.5
-				elif m.BIL[r][c]: v -= 0.3
-				if m.MELT[r][c]: v -= 0.4
-		if not m.bolt.is_empty(): v -= float(m.bolt.ch) * 0.8
+	# Fire Horizon: a crucible's first knock counts (it takes two); Brontes: a charged thunderbolt is near
+	for r in m.R:
+		for c in m.C:
+			if m.POT[r][c] == 2: v -= 0.6
+	if m.boss_on() and not m.bolt.is_empty(): v -= float(m.bolt.ch) * 0.8
 	return v
 
 ## the board as it is between moves, to try a move on: every field, the stones copied, its own dice
@@ -366,9 +364,11 @@ static func boss_report(area: int, n: int) -> String:
 	var lines := PackedStringArray(["%s: hp %d, moves %d (+%d a board) | lost before | win%% | board reached 1/2/3 | hp left when lost | moves used when won" % [B.n, int(B.hp), int(B.moves), int(B.stage_moves)]])
 	# (sim_first: the first try only — what the health is tuned on; sim_hp=N: another health to try)
 	var first := OS.get_cmdline_user_args().has("sim_first")
+	var seed0 := 900   # (sim_seed=N: other fights, to run several processes side by side)
 	var base_hp := int(B.hp)
 	for x in OS.get_cmdline_user_args():
 		if String(x).begins_with("sim_hp="): base_hp = int(String(x).get_slice("=", 1))
+		if String(x).begins_with("sim_seed="): seed0 = int(String(x).get_slice("=", 1))
 	for tries in ([0] if first else [0, 2, 4, 6]):
 		var hp := roundi(base_hp * maxf(0.7, 1.0 - 0.05 * tries) / 3.0) * 3
 		var wins := 0
@@ -376,7 +376,7 @@ static func boss_report(area: int, n: int) -> String:
 		var hp_left := 0
 		var used := 0
 		for i in n:
-			var r := play(1, Data.depths(area).size(), 900 + i * 13 + tries, BoardModel.boss_level(B, 0, hp), area)
+			var r := play(1, Data.depths(area).size(), seed0 + i * 13 + tries, BoardModel.boss_level(B, 0, hp), area)
 			reach[int(r.stage)] += 1
 			if r.won:
 				wins += 1
