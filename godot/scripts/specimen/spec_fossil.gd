@@ -557,6 +557,14 @@ static func _druse(b: RefCounted, f: Dictionary, parent: Node3D, c: int, gl: Sha
 		var to_root := U.rel_xform(parent, b.root)
 		b._mark("druse_ch", to_root * mid, (to_root.basis * Vector3.BACK).normalized())
 
+## (19.11) a sea find's slab is seen close and large: its scan alone, stretched over it, read as soap. Fine pits and
+## bumps over it (micro_k, as the hoard's boulder), fading where they would be finer than a pixel (aa_k)
+static func _sea_rock(rk: MeshInstance3D) -> void:
+	var m := rk.material_override as ShaderMaterial
+	if not m: return
+	m.set_shader_parameter("micro_k", 0.45)
+	m.set_shader_parameter("aa_k", 1.0)
+
 ## builds the ammonite into the builder's root; use_rock(shape) lays the host rock and returns its mesh
 static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> MeshInstance3D:
 	var f: Dictionary = (gene.fossil as Dictionary).duplicate()
@@ -624,6 +632,7 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 			root.set_meta("sea", true)
 			rk.set_meta("sea_light", true)
 			shell.set_meta("sea_light", true)
+			_sea_rock(rk)
 			# (tipped up on its edge, the shell takes less of the slab than its size)
 			occ.append([Vector2(at.x, at.z), s * (0.8 if not f.get("crushed", false) else 1.0)])
 			var lrng := Rng32.new(int(f.plates) * 5 + 23)

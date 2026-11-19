@@ -1335,7 +1335,10 @@ class Heights:
 		needs.sort()
 		# (the foot's points stand on the rock: the rock under the highest of them sets it — taken at nine in ten, a
 		# lone point on a grain does not; and sunk a hair, no gap of light under it)
-		var y := needs[int((needs.size() - 1) * 0.9)] - sz * 0.02
+		# (19.11) a standing thing — a coral, an anemone, the weed — on a sloping slab: set by the highest rock under
+		# its foot it stood on the uphill rim and hung in the air over the rest ("a coral in the air"); it sinks in to
+		# the middle of its foot's rock instead, its uphill side in the stone, a little deeper
+		var y := needs[int((needs.size() - 1) * (0.9 if lying else 0.5))] - sz * (0.02 if lying else 0.05)
 		return Transform3D(b * Basis.from_scale(Vector3.ONE * sz), Vector3(spot.x, y, spot.z))
 
 ## the lowest points of a mesh (its own space): what it stands or lies on

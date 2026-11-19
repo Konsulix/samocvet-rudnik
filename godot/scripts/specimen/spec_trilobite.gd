@@ -1051,6 +1051,8 @@ static func lean(b: RefCounted, gene: Dictionary) -> void:
 	var root: Node3D = b.root
 	root.set_meta("face", true)
 	root.set_meta("sea", true)
+	# (the slab seen close: fine pits and bumps over its scan — SpecFossil._sea_rock)
+	if b.st_ref.get("rock") is MeshInstance3D and f.show in ["matrix", "mass"]: SpecFossil._sea_rock(b.st_ref.rock)
 	var pv := Node3D.new()
 	var kids := root.get_children()
 	root.add_child(pv)
