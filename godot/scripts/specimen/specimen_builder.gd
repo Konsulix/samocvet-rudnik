@@ -326,6 +326,10 @@ func _specimen(o: Dictionary) -> Node3D:
 	var sp: Dictionary = Data.SP.get(sid, Data.SP.quartz)
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var tr: Array = o.get("traits", [])
+	# (a trait the species never takes now — fluorite's rainbow film, 20.11 — is not drawn on a stone that rolled it before)
+	if "irid" in tr and "irid" in SpecLooks.never(sid):
+		tr = tr.duplicate()
+		tr.erase("irid")
 	var gi: int = int(o.get("gi", 1))
 	trs = tr
 	var legend: bool = o.get("legend", false)
@@ -389,8 +393,13 @@ func _specimen(o: Dictionary) -> Node3D:
 		zmode = int(zl[0])
 		zone = float(zl[1])
 		zhue = float(zl[2])
+	# (SpecLooks zone_pal — fluorite: no zoning by chance; zoned, it bands in its own two colours, root the core's)
+	if look.get("zone_pal", false):
+		zone = 0.9 if "zoned" in tr else 0.0
+		zmode = 3
 	var cA := col
-	if zone > 0.0:
+	if zmode == 3 and zone > 0.0: cA = SpecMat.lin(core_hex)
+	elif zone > 0.0:
 		cA = Color(1, 1, 1).lerp(col, 0.25) if zmode == 0 else col * 0.45 if zmode == 1 else SpecMat.offset_hsl(col, zhue, 0, 0)
 	var cB := col
 	# with the species' proportions (SpecLooks: hk, wk, blunt), which every crystal and column takes
@@ -1352,14 +1361,20 @@ func _specimen(o: Dictionary) -> Node3D:
 	# fluorite's phantom cubes (SpecLooks core): a cube of another colour inside every crystal, seen through the glass
 	if look.has("core") and main and layout != "geode":
 		var cc: Array = look.core
-		var core_m := SpecMat.make({col = SpecMat.lin(core_hex), rough = 0.35, flat = true, emis = SpecMat.lin(core_hex) * 0.04})
+		# (phantom_core: the phantom gene is this cube made bright — glossy, lit from within, a touch bigger)
+		var lit: bool = look.get("phantom_core", false) and "phantom" in tr
+		var core_m := SpecMat.make({col = SpecMat.lin(core_hex) * (1.6 if lit else 1.0), rough = 0.2 if lit else 0.35, flat = true, emis = SpecMat.lin(core_hex) * (1.6 if lit else 0.04)})
+		var first_core: Node3D = null
 		for n in root.find_children("*", "MeshInstance3D", true, false):
 			var cm := (n as MeshInstance3D).material_override
 			if not n.has_meta("geo") or n.has_meta("lying") or not (cm == mat or cm in dt_mats): continue
 			var g: Geo = n.get_meta("geo")
 			var bb := g.aabb()
-			var inner := Geo.box(bb.size.x * float(cc[1]), bb.size.y * float(cc[1]), bb.size.z * float(cc[1]))
-			U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
+			var ck := float(cc[1]) * (1.25 if lit else 1.0)
+			var inner := Geo.box(bb.size.x * ck, bb.size.y * ck, bb.size.z * ck)
+			var cmi := U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
+			if first_core == null or n == main: first_core = cmi
+		if lit and first_core: _mark("phantom", _mid(first_core))
 	# genes that shape or colour the crystals themselves: there only if crystals grew
 	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid", "sawn", "balls", "fans", "staircase", "grapes"])
 	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))
@@ -3200,7 +3215,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		for i in cg.v.size(): cg.v[i] = c0 + (cg.v[i] - c0) * Vector3(0.55, 0.62, 0.55)
 		var ch := U.mesh(cg, cm, main)
 		_mark("chlorite", _mid(ch))
-	if ok and "phantom" in tr:
+	if ok and "phantom" in tr and not SpecLooks.of(_sid).get("phantom_core", false):
 		var pc := SpecMat.offset_hsl(col, 0.05, 0.2, -0.15)
 		var ph := U.mesh(RockKit.crystal(habit, rng, {h = h * 0.7}), SpecMat.make({col = pc * 0.8, rough = 0.6, flat = true}), main)
 		ph.transform = Transform3D(Basis.from_scale(Vector3.ONE * 0.62), Vector3(0, 0.05, 0))

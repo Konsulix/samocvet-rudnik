@@ -334,8 +334,9 @@ static func of(o: Dictionary) -> Dictionary:
 	if "twin" in tr and form != "single": lost.append("twin")
 	if "scepter" in tr and not (form in ["single", "floater"] and hb in ["prism", "blade"]): lost.append("scepter")
 	if "floater" in tr and form != "floater": lost.append("floater")
+	if "irid" in tr and "irid" in SpecLooks.never(sid): lost.append("irid")
 	for t in ["irid", "aurora"]:
-		if t in tr and (lustre in ["metal", "dark", "fossil"] or habit == "obsidian") and form != "botryoid": lost.append(t)
+		if t in tr and not t in lost and (lustre in ["metal", "dark", "fossil"] or habit == "obsidian") and form != "botryoid": lost.append(t)
 	if "bubbles" in tr and (form in ["radial", "floater", "obsidian", "simetite"] or (habit == "fossil" and not on_rock)): lost.append("bubbles")
 	if "moss" in tr and (form in NO_BASE or sea_floor): lost.append("moss")   # (no moss on the sea floor)
 	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
