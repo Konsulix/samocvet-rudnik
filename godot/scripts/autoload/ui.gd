@@ -237,8 +237,15 @@ func icon(size_px: float, fn: Callable) -> Control:
 	c.draw.connect(func(): fn.call(c))
 	return c
 
+## (20.11) from five digits on, short: 10.5k, 123k, 1.2M (rounded down: never more than there is)
 func fmt(n: int) -> String:
-	var s := str(absi(n))
+	var a := absi(n)
+	var sg := "-" if n < 0 else ""
+	if a >= 1000000:
+		return sg + (("%.1f" % (floorf(a / 100000.0) / 10.0)).trim_suffix(".0") if a < 10000000 else str(a / 1000000)) + "M"
+	if a >= 10000:
+		return sg + (("%.1f" % (floorf(a / 100.0) / 10.0)).trim_suffix(".0") if a < 100000 else str(a / 1000)) + "k"
+	var s := str(a)
 	var out := ""
 	while s.length() > 3:
 		out = "," + s.substr(s.length() - 3) + out

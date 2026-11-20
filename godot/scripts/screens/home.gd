@@ -553,7 +553,7 @@ func _on_play() -> void:
 	Save.tick_lives()
 	if Save.d.lives <= 0:
 		Ov.panel("No lives", "Next life in %d min." % Save.minutes_to_life(), [
-			["Refill · %d coins" % Data.priced(300), "gold", func():
+			["Refill · %s" % UI.coins(Data.priced(300)), "gold", func():
 				if Save.d.coins < Data.priced(300): return
 				Save.d.coins -= Data.priced(300)
 				Save.d.lives = Save.MAX_LIVES
@@ -704,7 +704,7 @@ func _pre_row(sel: Array, free: Array, again: Callable) -> HBoxContainer:
 		var nl := Kit.label(p.n, 13, UI.body_bold)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(nl)
-		var sl := Kit.label("free" if fr else ("have %d" % have) if have else "%d coins" % Data.priced(int(p.price)), 11, UI.body, UI.GOOD if fr else UI.MUTED)
+		var sl := Kit.label("free" if fr else ("have %d" % have) if have else UI.coins(Data.priced(int(p.price))), 11, UI.body, UI.GOOD if fr else UI.MUTED)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(sl)
 		b.add_child(bv)
@@ -755,7 +755,7 @@ func _goal_chip(k: String, colour: int, text: String) -> VBoxContainer:
 # ---------------------------------------------------------------- tasks
 
 static func chest_text(c: Dictionary) -> String:
-	if c.get("coins", 0): return "%d coins" % int(c.coins)
+	if c.get("coins", 0): return UI.coins(int(c.coins))
 	if c.get("pick", 0): return "pickaxe"
 	if c.get("bore_h", 0): return "rock drill"
 	return "a charge before the level"
@@ -848,12 +848,12 @@ func _open_next() -> void:
 		# the first build: its button shown (over the window)
 		if bt and can and Save.told("c_next") and not Save.told("c_build"):
 			_coach_build(bt)
-		var need := "%d %s for %d steps · you have %d" % [int(paid[1]), on, pn, Save.d.ore] if pn > 1 else "%d %s · you have %d" % [cost, on, Save.d.ore]
+		var need := "%s %s for %d steps · you have %s" % [UI.fmt(int(paid[1])), on, pn, UI.fmt(Save.d.ore)] if pn > 1 else "%s %s · you have %s" % [UI.fmt(cost), on, UI.fmt(Save.d.ore)]
 		v.add_child(_need_row("ore", String(st.job[1]) + stp, "Done" if st.job_done else need, st.job_done, bt))
 	if not st.last:
 		var fe: int = st.fe
 		var cn: int = st.coins
-		v.add_child(_need_row("iron", "%s: iron" % st.tool, "%d iron · you have %d" % [fe, Save.d.fe], Save.d.fe >= fe, null))
+		v.add_child(_need_row("iron", "%s: iron" % st.tool, "%s iron · you have %s" % [UI.fmt(fe), UI.fmt(Save.d.fe)], Save.d.fe >= fe, null))
 		v.add_child(_need_row("coin", "%s: coins" % st.tool, "%s · you have %s" % [UI.coins(cn), UI.fmt(Save.d.coins)], Save.d.coins >= cn, null))
 		var ok: bool = st.job_done and Save.d.fe >= fe and Save.d.coins >= cn
 		var dig := Ov.btn("Dig down · %s" % st.tool, "green" if ok else "glass", func(): _dig(), ok)

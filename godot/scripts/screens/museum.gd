@@ -620,7 +620,7 @@ func _cut_panel(s: Dictionary) -> void:
 		top.add_child(nl)
 		top.add_child(Kit.label("%d%%" % roundi(chance.call(c) * 100), 15, UI.display, UI.GOOD))
 		bv.add_child(top)
-		var sm := UI.label("success: %s · failure: %s · labour %d coins" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), Data.priced(int(c.cost), int(s.get("area", 0)))], 11, UI.body, Kit.DIM)
+		var sm := UI.label("success: %s · failure: %s · labour %s" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), UI.coins(Data.priced(int(c.cost), int(s.get("area", 0))))], 11, UI.body, Kit.DIM)
 		bv.add_child(sm)
 		b.add_child(bv)
 		if b.disabled: b.modulate.a = 0.5
