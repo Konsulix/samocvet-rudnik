@@ -32,8 +32,28 @@ static func build(o: Dictionary) -> Node3D:
 	if o.has("jewel"):
 		return SpecJewels.build(int(o.get("seed", 1)), o.jewel)
 	var r := b._specimen(o)
+	if r: b._alex(r)
 	if r: r.set_meta("mass", b.body_mass if not b.body_mass.is_empty() else mass_of(r))
 	return r
+
+## alexandrite (SpecLooks alex): its crystals' glass knows its lamplight colour; the card turns them to it on a tap
+## (SpecView._lamp, alex_k). Each its own copy of the material — the rock and what grows keep theirs
+func _alex(r: Node3D) -> void:
+	var lc: Variant = SpecLooks.of(_sid).get("alex", null)
+	if lc == null: return
+	var c := SpecMat.lin(int(lc))
+	var done := {}
+	for n in r.find_children("*", "MeshInstance3D", true, false):
+		if not n.has_meta("crystal"): continue
+		var m := (n as MeshInstance3D).material_override as ShaderMaterial
+		if not m or m.get_shader_parameter("tint_k") == null: continue
+		if not done.has(m):
+			var cm := SpecUtil.mat_copy(m)
+			cm.set_shader_parameter("alex_col", Vector3(c.r, c.g, c.b))
+			cm.set_meta("alex", true)
+			done[m] = cm
+		(n as MeshInstance3D).material_override = done[m]
+	r.set_meta("alex", not done.is_empty())
 
 ## the bulk of what was built (Stones.settle): the boxes of its meshes, half full, in the find's own space — the rock's
 ## (meta base, or a rock material) and the mineral's apart. Not what grows on it (moss, flowers: multimeshes mostly)

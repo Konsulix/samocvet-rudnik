@@ -59,6 +59,7 @@ const FACTS := {
 	beryl = "Be₃Al₂Si₆O₁₈ · hardness 7.5–8 · the stone that becomes emerald, aquamarine or heliodor",
 	cuprite = "Cu₂O · hardness 3.5–4 · deep red copper oxide; turns dull in light",
 	aquamarine = "beryl with iron · hardness 7.5–8 · 'sea water': sailors carried it against storms",
+	alexandrite = "BeAl₂O₄ with chromium · hardness 8.5 · green by day, red by candlelight; found in the Ural emerald mines in 1834",
 	emerald = "beryl with chromium · hardness 7.5–8 · the Ural emerald mines were found in 1830 under a tree root",
 	ammonite = "a shell of the Mesozoic seas · they vanished with the dinosaurs, 66 million years ago",
 	gypsum = "CaSO₄·2H₂O · hardness 2 · selenite: moon-stone, you can scratch it with a fingernail",

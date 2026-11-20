@@ -50,6 +50,8 @@ uniform float tint_k = 0.0;
 uniform float deep_k = 0.0;      // with tint: a deeply coloured body (dioptase, vanadinite) — what comes through it is pressed under a ceiling, so it stays see-through yet never bright enough to wash out
 uniform float parts_k = 0.0;     // clarity by parts (needs DIRT: the crystal's own tag in UV2.y): one crystal cloudy beside a gem-clear one, the root milky, the tip clear
 uniform float tint_glow = 0.06; // with tint: the body's own light in its colour (sulphur's lemon glow)     // the body glows in its own colour rather than showing the room through it (garnet)     // a dark glass body (smoky quartz): darker where the light goes through more of it     // a night sky inside: twinkling stars, drifting nebula
+uniform float alex_k = 0.0;      // alexandrite under a lamp: 0 its daylight colour (as built), 1 turned to alex_col (SpecView tap)
+uniform vec3 alex_col = vec3(0.42, 0.012, 0.09);
 uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
 uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
@@ -145,6 +147,8 @@ void fragment() {
 	if (dot(n, VIEW) < 0.0) n = -n;
 #endif
 	vec3 base = albedo * COLOR.rgb;
+	// alexandrite: lamplight turns its green to raspberry (its brightness kept: by the strongest channel)
+	if (alex_k > 0.0) base = mix(base, alex_col * (max(base.r, max(base.g, base.b)) / max(max(alex_col.r, max(alex_col.g, alex_col.b)), 0.001)), alex_k);
 	vec3 tint0 = base;
 	float a = opacity * COLOR.a;
 	float r = rough;

@@ -146,6 +146,22 @@ func set_uv(k: float) -> void:
 	if _haze:
 		_haze.set_shader_parameter("haze", _haze_c * (1.0 - k * 0.85))
 
+## lamp (0..1): daylight gives way to a warm lamp — the key and the fill go amber, the cold rim and the room's light
+## sink, the haze behind warms (alexandrite's tap: SpecView._lamp)
+const LAMP := [Color("#ffb066"), Color("#5a3a6a"), Color("#ff9a50"), Color("#ffb070")]
+var _lamp := 0.0
+func set_lamp(k: float) -> void:
+	_lamp = k
+	for i in _lights.size():
+		var l := _lights[i]
+		if not l.has_meta("c"): l.set_meta("c", l.light_color)
+		l.light_color = (l.get_meta("c") as Color).lerp(LAMP[mini(i, LAMP.size() - 1)], k)
+		l.light_energy = float(l.get_meta("e")) * (1.0 - k * (0.65 if i == 1 else 0.12))
+	env.ambient_light_energy = 0.45 * (1.0 - k * 0.55)
+	env.background_energy_multiplier = 1.0 - k * 0.6
+	if _haze:
+		_haze.set_shader_parameter("haze", _haze_c.lerp(Vector3(0.09, 0.045, 0.015), k))
+
 ## centre the specimen in the void, inside a pivot that we turn
 static func seat(g: Node3D) -> Node3D:
 	var base_xf := g.transform
@@ -160,7 +176,7 @@ static func seat(g: Node3D) -> Node3D:
 	pivot.set_meta("glow", g.get_meta("glow", Color(0.2, 0.27, 0.33)))
 	if g.has_meta("anim"):
 		pivot.set_meta("anim", g.get_meta("anim"))
-	for k in ["fluor", "heart_light", "grown", "dim", "dark", "face", "sway", "mass"]:
+	for k in ["fluor", "heart_light", "grown", "dim", "dark", "face", "sway", "mass", "alex"]:
 		if g.has_meta(k):
 			pivot.set_meta(k, g.get_meta(k))
 	return pivot

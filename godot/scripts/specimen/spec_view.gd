@@ -88,6 +88,13 @@ func show_spec(o: Dictionary) -> void:
 		if n.has_signal("glass_hit"): n.connect("glass_hit", _glass)
 		if n.has_signal("sea_call"): n.connect("sea_call", _sea_call)
 	built.emit(p)
+	# (20.11) alexandrite: a tap turns the light to a lamp (_lamp): said once
+	if p.get_meta("alex", false):
+		_lamp_on = false
+		studio.set_lamp(0.0)
+		if not Coach.off and not Save.told("t_alex"):
+			Save.tell("t_alex")
+			Ov.toast("Tap the alexandrite: lamplight turns it red")
 	# (19.11) an opal egg can be wetted by a tap (_wet): said once, the first time one is open
 	if not Coach.off and not Save.told("t_wet") and not _eggs().is_empty():
 		Save.tell("t_wet")
@@ -364,6 +371,7 @@ func _tap(e: InputEvent) -> void:
 			_tap_ms = now
 			tapped.emit()
 			_wet()
+			_lamp()
 		_press_ms = -1
 
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
@@ -405,6 +413,30 @@ func _wet() -> void:
 	_wet_tw.tween_method(set_w, w0, 1.0, 0.7).set_trans(Tween.TRANS_SINE)
 	_wet_tw.tween_interval(1.6)
 	_wet_tw.tween_method(set_w, 1.0, 0.0, 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+## (20.11) a tap on an alexandrite card swaps daylight for a warm lamp and back: the lights go amber over a second,
+## and the stone, a beat behind, turns from green to raspberry (spec.gdshaderinc alex_k) — as the real one does by
+## candlelight. It stays so until the next tap
+var _lamp_on := false
+var _lamp_tw: Tween
+func _lamp() -> void:
+	if not (is_instance_valid(live) and live.get_meta("alex", false)): return
+	var ms: Array = []
+	for n in live.find_children("*", "MeshInstance3D", true, false):
+		var m := (n as MeshInstance3D).material_override as ShaderMaterial
+		if m and m.has_meta("alex") and not m in ms: ms.append(m)
+	if ms.is_empty(): return
+	_lamp_on = not _lamp_on
+	var to := 1.0 if _lamp_on else 0.0
+	var light := func(x: float) -> void: studio.set_lamp(x)
+	var stone := func(x: float) -> void:
+		for m: ShaderMaterial in ms: m.set_shader_parameter("alex_k", x)
+	var a0v: Variant = (ms[0] as ShaderMaterial).get_shader_parameter("alex_k")
+	if _lamp_tw: _lamp_tw.kill()
+	Sfx.play("click")
+	_lamp_tw = create_tween().set_parallel()
+	_lamp_tw.tween_method(light, studio._lamp, to, 0.9).set_trans(Tween.TRANS_SINE)
+	_lamp_tw.tween_method(stone, float(a0v) if a0v != null else 0.0, to, 1.1).set_trans(Tween.TRANS_SINE).set_delay(0.25)
 
 ## pinch, wheel and double tap; true when the event was a zoom (it then does not turn the stone)
 func _zoom_gesture(e: InputEvent) -> bool:

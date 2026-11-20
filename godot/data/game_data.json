@@ -461,6 +461,12 @@
    "c": "#e0508a",
    "v": 380,
    "r": 3
+  },
+  "alexandrite": {
+   "n": "Alexandrite",
+   "c": "#17785a",
+   "v": 420,
+   "r": 3
   }
  },
  "GR": [
@@ -1093,7 +1099,7 @@
     "azurite": 16,
     "chrysocolla": 14,
     "nativecu": 12,
-    "beryl": 8,
+    "alexandrite": 5,
     "cuprite": 7,
     "aquamarine": 4,
     "emerald": 1.2
@@ -2738,7 +2744,7 @@
    "need": [
     "emerald",
     "aquamarine",
-    "beryl",
+    "alexandrite",
     "gold"
    ],
    "reward": {
@@ -3152,7 +3158,8 @@
   "erythrite": "blade",
   "smithsonite": "grape",
   "bismuth": "hopper",
-  "tourmaline": "prism"
+  "tourmaline": "prism",
+  "alexandrite": "hexbarrel"
  },
  "TRAITS": [
   {
