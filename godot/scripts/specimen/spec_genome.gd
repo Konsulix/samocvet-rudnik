@@ -318,7 +318,7 @@ static func of(o: Dictionary) -> Dictionary:
 		var skg := SpecSkull.genes(seed_v, sk_o)
 		acc.append_array(SpecSkull.accents(skg))
 		fly_kinds = skg.fly_kinds
-	var anomaly := "anomaly" in tr
+	var anomaly := "anomaly" in tr and not "anomaly" in SpecLooks.never(sid)   # (not on native metal: 20.11)
 	# a skull's own genes pinned from outside (tests, the admin): SpecSkull.genes reads them
 	var skull_o := {}
 	for k in SpecSkull.KEYS:

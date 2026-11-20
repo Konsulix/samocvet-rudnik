@@ -335,6 +335,9 @@ static func never(sid: String) -> Array:
 			if not t.id in FOSSIL_KEEPS: out.append(t.id)
 	elif habit in ["botryoid", "nugget"]:
 		out.append_array(ON_CRYSTALS)
+		# (20.11) native metal keeps its metal's colour (SpecimenBuilder): an «anomalous» colour showed only in the
+		# card's glow — a copper tree named anomalous, priced for it, plain copper
+		if habit == "nugget": out.append("anomaly")
 	elif sid in ["pyrite", "hematite", "galena"] or look.has("metal_col"):
 		out.append_array(IN_GLASS)
 		out.append("zoned")   # (a metal is not colour-zoned: SpecimenBuilder)
