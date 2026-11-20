@@ -752,8 +752,7 @@ static func bone_mat(sk: Dictionary, seed_v: int) -> ShaderMaterial:
 	m.set_shader_parameter("skin_k", 0.25 + float(sk.skin_k) * 0.6)
 	if sk.skin in ["rhodo"]: m.set_shader_parameter("skin_k", float(sk.skin_k))
 	m.set_shader_parameter("fire", [0.0, 0.33, 0.6, 0.75][int(float(sk.skin_k) * 997.0) % 4])
-	var gd: Array = sk.gilt_dir
-	m.set_shader_parameter("gilt_dir", Vector3(float(gd[0]), float(gd[1]), float(gd[2])))
+	m.set_shader_parameter("gilt_dir", gilt_dir(sk))
 	if sk.tone == "grave":
 		m.set_shader_parameter("bone_col", Color(0.42, 0.38, 0.33))
 		m.set_shader_parameter("stain_col", Color(0.24, 0.19, 0.14))
@@ -1017,8 +1016,7 @@ static func _marks(b: RefCounted, st: Dictionary, sk: Dictionary, cr: Geo, nr: P
 	# the skin: on the side the leaf covers, or the brow
 	var i_skin: int = best.call(func(p: Vector3, n: Vector3) -> float: return n.z + p.y * 0.8)
 	if sk.skin == "gilt":
-		var gd: Array = sk.gilt_dir
-		var dir := Vector3(float(gd[0]), float(gd[1]), float(gd[2])).normalized()
+		var dir := gilt_dir(sk)
 		i_skin = best.call(func(p: Vector3, n: Vector3) -> float: return n.dot(dir) + n.z * 0.4)
 	var i_cheek: int = best.call(func(p: Vector3, n: Vector3) -> float: return n.z - absf(absf(p.x) - 0.3) * 2.0 - absf(p.y + 0.15) * 2.0)
 	for id: String in accents(sk):
@@ -1442,8 +1440,7 @@ static func _forest(b: RefCounted, sk: Dictionary, cr: Geo, nr: PackedVector3Arr
 		if p.z > 0.3 and p.y < ytop - bb.size.y * 0.3: return Vector2(-1, 0)   # (not over the face)
 		# (not over the gold leaf: moss keeps to the bare side of a gilt skull)
 		if sk.skin == "gilt":
-			var gd: Array = sk.gilt_dir
-			if (p + Vector3(0, -0.1, 0)).normalized().dot(Vector3(float(gd[0]), float(gd[1]), float(gd[2])).normalized()) > 0.85 - float(sk.skin_k) * 0.7 - 0.3: return Vector2(-1, 0)
+			if (p + Vector3(0, -0.1, 0)).normalized().dot(gilt_dir(sk)) > 0.85 - float(sk.skin_k) * 0.7 - 0.3: return Vector2(-1, 0)
 		return Vector2(p.y - line, 0)
 	var pool := _sample(cr, nr, near, where, 1600, r)
 	if pool.is_empty():
@@ -2000,11 +1997,25 @@ static func _near(bones: Array, nrs: Array, w: Vector3) -> Array:
 
 ## which way is down for the skull once it is posed (on its rock, held up to the viewer): drips and water run that way
 static func down_of(sk: Dictionary) -> Vector3:
+	return (pose_of(sk).inverse() * Vector3.DOWN).normalized()
+
+## how the skull is turned on the card (held up to the viewer, or lying on its rock)
+static func pose_of(sk: Dictionary) -> Basis:
 	var bas := lean_basis(sk)
 	if sk.show == "rock":
 		var a: Array = sk.lie_a
 		bas = bas * Basis(Vector3.UP, float(a[0])) * Basis(Vector3.BACK, float(a[1])) * Basis(Vector3.RIGHT, float(a[2]))
-	return (bas.inverse() * Vector3.DOWN).normalized()
+	return bas
+
+## the side the gold leaf covers, in the skull's own space: the gene's side is taken as seen on the card (x right,
+## y up, z at the viewer), so the leaf is on the shown side whatever the pose. It was in the skull's own axes — a
+## beast turned in profile, a skull lying tipped on its rock, had the leaf on the far side or under the jaw
+static func gilt_dir(sk: Dictionary) -> Vector3:
+	var gd: Array = sk.gilt_dir
+	var z := SpecimenBuilder.VIEW_DIR
+	var x := Vector3.UP.cross(z).normalized()
+	var w := x * float(gd[0]) + Vector3.UP * float(gd[1]) + z * (float(gd[2]) + 0.35)
+	return (pose_of(sk).inverse() * w).normalized()
 
 ## molten metal poured over the head and set: a few broad tongues from high on it (the crown's sides, the brow) run down
 ## over the bone (SpecSurf: on its real surface), thickening as they go, some merging, each ending in a heavy lobe — or,
