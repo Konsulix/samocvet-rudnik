@@ -274,8 +274,11 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 	# its thickness and left it a spiky star)
 	var fl: bool = dm.get("flat", false)
 	if fl: g.erode(0.06 + k * 0.18, int(dr.next() * 100000), 0.15 + k * 0.3)
-	# (a light touch — Fine, k < 0.2 — pits only a little of it, not the 15% floor at once)
-	else: g.erode((0.15 + k * 0.85 + bad * 1.6) * minf(1.0, k / 0.2), int(dr.next() * 100000), 0.25 + k * 0.75 + bad * 0.6)
+	# (a light touch — Fine, k < 0.2 — a few small shallow nicks, mostly on the edges: the share of the surface
+	# pitted falls with it too — only the depth fell at first, and a Fine cube still wore dark holes on every face)
+	else:
+		var lt := minf(1.0, k / 0.2)
+		g.erode((0.15 + k * 0.85 + bad * 1.6) * lt, int(dr.next() * 100000), (0.25 + k * 0.75 + bad * 0.6) * lt * lt)
 	var first: bool = int(dm.get("n", 0)) == 0
 	dm.n = int(dm.get("n", 0)) + 1
 	var bb := g.aabb()
