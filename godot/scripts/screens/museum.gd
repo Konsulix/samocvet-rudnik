@@ -605,7 +605,7 @@ func _cut_panel(s: Dictionary) -> void:
 	for c in Data.CUTS:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 66)
-		b.disabled = Save.d.coins < int(c.cost)
+		b.disabled = Save.d.coins < Data.priced(int(c.cost), int(s.get("area", 0)))
 		# a dark slate plate of the kit (it was a purple glass one)
 		for k in ["normal", "hover", "focus", "disabled"]: b.add_theme_stylebox_override(k, Kit.box("btn_dark", 6.0))
 		b.add_theme_stylebox_override("pressed", Kit.box("btn_dark", 6.0, Color(0.78, 0.74, 0.68)))
@@ -620,7 +620,7 @@ func _cut_panel(s: Dictionary) -> void:
 		top.add_child(nl)
 		top.add_child(Kit.label("%d%%" % roundi(chance.call(c) * 100), 15, UI.display, UI.GOOD))
 		bv.add_child(top)
-		var sm := UI.label("success: %s · failure: %s · labour %d coins" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), int(c.cost)], 11, UI.body, Kit.DIM)
+		var sm := UI.label("success: %s · failure: %s · labour %d coins" % [UI.fmt(roundi(float(s.value) * float(c.m))), UI.fmt(roundi(float(s.value) * float(c.fail))), Data.priced(int(c.cost), int(s.get("area", 0)))], 11, UI.body, Kit.DIM)
 		bv.add_child(sm)
 		b.add_child(bv)
 		if b.disabled: b.modulate.a = 0.5
@@ -629,8 +629,9 @@ func _cut_panel(s: Dictionary) -> void:
 	v.add_child(Ov.btn("Don't risk it", "glass", func(): Ov.close()))
 
 func _do_cut(s: Dictionary, c: Dictionary, chance: float) -> void:
-	if Save.d.coins < int(c.cost): return
-	Save.d.coins -= int(c.cost)
+	var cost := Data.priced(int(c.cost), int(s.get("area", 0)))   # (the labour in the stone's own mine's coin)
+	if Save.d.coins < cost: return
+	Save.d.coins -= cost
 	Save.persist()
 	var win := randf() < chance
 	var v := Ov.card(350)

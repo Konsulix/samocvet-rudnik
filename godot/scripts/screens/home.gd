@@ -259,7 +259,7 @@ func next_step() -> Dictionary:
 		var D: Dictionary = Data.depth(a, k + 1)
 		out.tool = String(D.tool)
 		out.fe = int(D.drill[0])
-		out.coins = int(D.drill[1])
+		out.coins = Data.priced(int(D.drill[1]), a)
 	return out
 
 func _tasks_button() -> Button:
@@ -553,14 +553,14 @@ func _on_play() -> void:
 	Save.tick_lives()
 	if Save.d.lives <= 0:
 		Ov.panel("No lives", "Next life in %d min." % Save.minutes_to_life(), [
-			["Refill · 300 coins", "gold", func():
-				if Save.d.coins < 300: return
-				Save.d.coins -= 300
+			["Refill · %d coins" % Data.priced(300), "gold", func():
+				if Save.d.coins < Data.priced(300): return
+				Save.d.coins -= Data.priced(300)
 				Save.d.lives = Save.MAX_LIVES
 				Save.d.life_at = 0
 				Save.persist()
 				Ov.close()
-				render(), Save.d.coins >= 300],
+				render(), Save.d.coins >= Data.priced(300)],
 			["Wait", "glass", func(): Ov.close()]])
 		return
 	_level_panel(dl_sel(), Data.streak_free(Save.d.streak))
@@ -704,7 +704,7 @@ func _pre_row(sel: Array, free: Array, again: Callable) -> HBoxContainer:
 		var nl := Kit.label(p.n, 13, UI.body_bold)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(nl)
-		var sl := Kit.label("free" if fr else ("have %d" % have) if have else "%d coins" % int(p.price), 11, UI.body, UI.GOOD if fr else UI.MUTED)
+		var sl := Kit.label("free" if fr else ("have %d" % have) if have else "%d coins" % Data.priced(int(p.price)), 11, UI.body, UI.GOOD if fr else UI.MUTED)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bv.add_child(sl)
 		b.add_child(bv)
@@ -712,8 +712,8 @@ func _pre_row(sel: Array, free: Array, again: Callable) -> HBoxContainer:
 			if fr: return
 			if on: sel.erase(id)
 			elif have > 0: sel.append(id)
-			elif Save.d.coins >= int(p.price):
-				Save.d.coins -= int(p.price)
+			elif Save.d.coins >= Data.priced(int(p.price)):
+				Save.d.coins -= Data.priced(int(p.price))
 				Save.d.pre[id] += 1
 				Save.persist()
 				Sfx.play("coin")
@@ -1068,7 +1068,7 @@ func _build(tid: String, i: int) -> void:
 	Save.d.jstep.erase("%d:%s" % [a, tid])
 	Save.d.built[a].append(tid)
 	var ch: Dictionary = Data.CHEST[i] if i < Data.CHEST.size() else {coins = 100}
-	if ch.get("coins", 0): Save.d.coins += int(ch.coins)
+	if ch.get("coins", 0): Save.d.coins += Data.priced(int(ch.coins), a)
 	if ch.get("pick", 0): Save.d.boost.pick += int(ch.pick)
 	if ch.get("bore_h", 0): Save.d.boost.bore_h += int(ch.bore_h)
 	if ch.has("pre"): Save.d.pre[ch.pre] += 1

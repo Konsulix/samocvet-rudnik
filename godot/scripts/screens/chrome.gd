@@ -413,7 +413,6 @@ static func mines_card(on_pick: Callable = Callable()) -> void:
 			st = "%d of %d jobs built" % [built, jobs.size()] if jobs.size() else ""
 			if not (A.get("boss", {}) as Dictionary).is_empty() and bool(Save.d.boss_won[a]): st += " · %s beaten" % String(A.boss.n)
 			if a == cur: st = "working here · " + st
-			if a < far: st += " · worked out: ¼ pay"
 		t.add_child(Kit.label(st, 12, UI.body, Kit.DIM))
 		h.add_child(t)
 		if a <= far and a != cur:

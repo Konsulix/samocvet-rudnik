@@ -869,10 +869,6 @@ func _go_mine(a: int) -> void:
 	Save.persist()
 	show_home()
 	Ov.toast("Back in %s" % Data.AREAS[a].n + (" · leftover ore sold for %s" % UI.coins(sold) if sold else ""))
-	# (once: why an old mine pays little — Save.revisit)
-	if Save.revisit() and not Save.told("t_revisit"):
-		Save.tell("t_revisit")
-		Ov.panel("A worked-out mine", "The best of %s is long gone: a win here pays a quarter of the coins, its finds fetch a quarter of their worth. The money is ahead, in %s." % [String(Data.AREAS[a].n), String(Data.AREAS[Save.reached()].n)], [["Got it", "gold", func(): Ov.close()]])
 
 func go(id: String) -> void:
 	match id:

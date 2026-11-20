@@ -1689,7 +1689,7 @@ func _booster_done() -> void:
 	busy = false
 
 func _buy_booster(bo: Dictionary) -> void:
-	var price: int = bo.price
+	var price: int = Data.priced(int(bo.price))
 	_panel("%s" % bo.n, "%s. Buy 3?" % bo.d, [
 		["Buy · %s" % UI.coins(price), "gold", func():
 			if Save.d.coins < price: return
@@ -1752,7 +1752,7 @@ func _win() -> void:
 	Sfx.play("win")
 	Sfx.buzz(80)
 	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul()
-		* float(HARD_PAY.get(model.beat, 1.0)) * (Save.REVISIT_K if Save.revisit() else 1.0))
+		* float(HARD_PAY.get(model.beat, 1.0)) * Data.mine_k(Save.area()))
 	Save.d.coins += coins
 	# the ore counts only now, and comes out of the depth's veins (none is mined at the boss)
 	if model.boss_on():

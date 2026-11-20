@@ -260,10 +260,6 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		if beast != "": out.beast = beast
 		out.tier = maxi(int(out.tier), int(SKULL_TIER[skull]))
 	out.value = price(out, area, dl)
-	# (a find of a worked-out mine, played again: a quarter of its worth — Save.revisit; marked, the price follows it)
-	if area == Save.area() and Save.revisit():
-		out.rv = true
-		out.value = maxi(1, roundi(float(out.value) * Save.REVISIT_K))
 	return out
 
 ## a find's price (Worth: its beauty): the body by species, squeezed — a skull's by what it is cast in — and every gene's
@@ -284,7 +280,8 @@ static func price(st: Dictionary, area: int, _dl := 0) -> int:
 		value += Worth.fx_value(String(gene.fx))
 	# a bigger stone is dearer (the square root of its weight against its kind's middle size): deeper ones grow bigger
 	value *= 1.3 * size_k(st) * Worth.PRICE
-	return roundi(capped(value, area))
+	# (the mine's coin, Data.mine_k: a find of a further mine is worth more, as everything there costs more)
+	return roundi(capped(value, area) * Data.mine_k(area))
 
 ## (20.11, playtest: «no tie between a find's weight and its look») the deeper, the bigger and more crowded a find:
 ## near the top mostly lone crystals and small heaps, below druses on slabs and geodes. `deep` 0..1 — how far down

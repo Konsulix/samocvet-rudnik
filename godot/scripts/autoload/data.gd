@@ -85,9 +85,21 @@ func minable() -> Array:
 ## from the second on it brings a stick of dynamite too, as in Royal Match. To be tuned by playing (playtest 31.10)
 const CONTINUE_BASE := 400        # coins, the first time, in the first mine
 const CONTINUE_STEP := 2.5        # each next time in the same level costs this much more
-const CONTINUE_AREA := 0.5        # each next mine: the base × (1 + this × mine)
+const CONTINUE_AREA := 0.5        # (unused since 20.11: each next mine — mine_k)
 func continue_price(k: int, area: int) -> int:
-	return roundi(CONTINUE_BASE * (1.0 + CONTINUE_AREA * area) * pow(CONTINUE_STEP, k) / 50.0) * 50
+	return roundi(CONTINUE_BASE * mine_k(area) * pow(CONTINUE_STEP, k) / 50.0) * 50
+
+## (20.11) the mine's coin: every mine pays and costs MINE_K times the one before — wins, finds, ore, drills, the shop.
+## Going back to an old mine pays what it paid then (one back: 2/3, two back: 4/9) against prices of the mine ahead:
+## no farming the easy old levels, with no rule to say so. Award coins stay as they are
+const MINE_K := 1.5
+func mine_k(area: int) -> float:
+	return pow(MINE_K, maxi(0, area))
+## a shop price in the mine being worked (a round figure)
+func priced(base: int, area := -1) -> int:
+	var a := Save.area() if area < 0 else area
+	var v := float(base) * mine_k(a)
+	return int(v) if v < 100.0 else roundi(v / 10.0) * 10
 
 ## pre-boosters a win streak gives for free, as Royal Match's Butler's Gift: from the third win in a row, a step more
 ## later, kept till a level is lost. The levels are tuned WITHOUT them (LevelGen.WORK, 10.11): with all three (dynamite,
