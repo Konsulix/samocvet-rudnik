@@ -1942,7 +1942,7 @@
    ],
    "ore": {
     "n": "Coal",
-    "iron": 0,
+    "iron": 1,
     "local": 0,
     "c": "#4a3a36",
     "hot": "#ff7a42",

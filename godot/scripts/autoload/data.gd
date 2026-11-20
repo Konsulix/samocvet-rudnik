@@ -117,7 +117,7 @@ func depth_bend(area: int, dl: int) -> float:
 ## ended a mine with 15–190k coins unspent — the jobs' ore holds him, the coins pile up — while a keeper of his finds
 ## waited on every drill. A drill now takes about what selling brings, so a keeper sells some (Old Adit, the first
 ## mine, stays generous)
-const DRILL_K := [1.0, 1.45, 1.6, 2.2, 2.7, 2.7, 2.7, 2.7]
+const DRILL_K := [1.0, 1.45, 1.6, 2.2, 1.6, 1.6, 1.6, 1.6]
 func drill_coins(area: int, base: int) -> int:
 	return priced(roundi(base * float(DRILL_K[clampi(area, 0, DRILL_K.size() - 1)])), area)
 
