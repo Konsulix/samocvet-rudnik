@@ -1792,7 +1792,7 @@ func _awards_won(stone: Dictionary) -> void:
 	if model.hard and not aw_boost and not model.boss_on(): Awards.once("bare_hands")
 	if not stone.is_empty():
 		var ci := Stones.CONDITION.find(Stones.condition(int(model.find.integ)))
-		if ci == 0: Awards.once("clean_find")
+		if int(model.find.integ) >= 100: Awards.once("clean_find")   # (not a single chip — Pristine forgives one)
 		if ci == Stones.CONDITION.size() - 1: Awards.once("broken_find")
 		if ci == Stones.CONDITION.size() - 1 and bool(stone.get("legend", false)): Awards.once("unlucky")
 	if model.boss_on():
