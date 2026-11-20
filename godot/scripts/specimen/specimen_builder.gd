@@ -49,7 +49,7 @@ func _place(node: Node3D, at: Vector3, dir: Vector3, s: float, spin: float) -> v
 ## cruel for one slip»: Fine (80+) is now a few small pits, no more; Chipped and below hurt as before)
 static func damage_of(integ: int) -> float:
 	if integ >= 88: return 0.0   # (Pristine: one slip forgiven, the stone shows nothing)
-	if integ >= 80: return 0.05 * (88.0 - integ) / 8.0
+	if integ >= 70: return 0.05 * (88.0 - integ) / 18.0   # (Fine: a few light nicks)
 	return clampf((100.0 - integ) / 90.0, 0.0, 1.0)
 
 ## the mushrooms' size asked for: once they found room at full size (the rock's sides, the open rock) they stood a

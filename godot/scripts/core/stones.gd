@@ -9,7 +9,7 @@ const VALUE_K := 1.9     # the grade's old average worth, folded into every pric
 ## how well it came out of the rock (BoardModel.find.integ, 0..100): the only quality there is now - the old random
 ## grade is gone (it was a letter nobody could read). [least integrity, name, worth]
 ## (20.11, playtest: one touch of a special — 88..91 — cost the Pristine of a whole stone: one slip is forgiven now)
-const CONDITION := [[88, "Pristine", 1.15], [80, "Fine", 1.0], [50, "Chipped", 0.7], [0, "Damaged", 0.45]]
+const CONDITION := [[88, "Pristine", 1.15], [70, "Fine", 1.0], [50, "Chipped", 0.7], [0, "Damaged", 0.45]]
 static func condition(integ: int) -> Array:
 	for c: Array in CONDITION:
 		if integ >= int(c[0]): return c
