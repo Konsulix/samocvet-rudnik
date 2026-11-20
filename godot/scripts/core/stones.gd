@@ -260,6 +260,10 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 		if beast != "": out.beast = beast
 		out.tier = maxi(int(out.tier), int(SKULL_TIER[skull]))
 	out.value = price(out, area, dl)
+	# (a find of a worked-out mine, played again: a quarter of its worth — Save.revisit; marked, the price follows it)
+	if area == Save.area() and Save.revisit():
+		out.rv = true
+		out.value = maxi(1, roundi(float(out.value) * Save.REVISIT_K))
 	return out
 
 ## a find's price (Worth: its beauty): the body by species, squeezed — a skull's by what it is cast in — and every gene's

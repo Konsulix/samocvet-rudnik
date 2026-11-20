@@ -1752,7 +1752,7 @@ func _win() -> void:
 	Sfx.play("win")
 	Sfx.buzz(80)
 	var coins := roundi((20 + model.coins_won) * Data.depth_pay(model.depth) * (1.0 + Save.d.eq.crush * 0.25) * Save.coin_mul()
-		* float(HARD_PAY.get(model.beat, 1.0)))
+		* float(HARD_PAY.get(model.beat, 1.0)) * (Save.REVISIT_K if Save.revisit() else 1.0))
 	Save.d.coins += coins
 	# the ore counts only now, and comes out of the depth's veins (none is mined at the boss)
 	if model.boss_on():

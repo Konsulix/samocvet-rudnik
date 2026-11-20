@@ -318,7 +318,8 @@ func open_mine(a: int) -> int:
 	d.reached = reached()   # (the mine being left counts as reached: set straight by a test key, it may not be yet)
 	var sold := 0
 	var jobs: Array = Data.AREAS[was].get("tasks", [])
-	if jobs.size() and jobs.all(func(t: Array) -> bool: return (d.built[was] as Array).has(t[0])):
+	# (a worked-out mine's ore stays in it: sold on leaving, an old mine was a mint)
+	if was >= int(d.reached) and jobs.size() and jobs.all(func(t: Array) -> bool: return (d.built[was] as Array).has(t[0])):
 		sold = int(d.ore) * ORE_PRICE
 		d.coins += sold
 		d.ore = 0
@@ -345,6 +346,13 @@ func open_mine(a: int) -> int:
 ## the mines the player can go to (the Mines tab): every one up to the furthest reached
 func reached() -> int:
 	return maxi(int(d.get("reached", 0)), area())
+
+## (20.11) back in a mine behind the furthest one reached: a worked-out mine — a quarter of the coins for a win and of a
+## find's worth, and its ore is not sold on leaving. The upkeep of the mine ahead grows many times over and is meant to
+## be paid by selling its own finds: going back to farm the easy old levels must not pay (a boss replay is the same)
+const REVISIT_K := 0.25
+func revisit() -> bool:
+	return area() < reached()
 
 func fresh_wins(a: int) -> Array:
 	var out := []
