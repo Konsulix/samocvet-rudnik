@@ -58,8 +58,12 @@ func _pinned(ci: RID, rect: Rect2) -> void:
 	var full := rect.size * s
 	var top := floorf(full.y / 2.0)
 	rs.canvas_item_add_set_transform(ci, Transform2D(0.0, Vector2.ONE / s, 0.0, rect.position))
-	_nine(ci, Rect2(0, 0, full.x, top), Rect2(0, 0, w, mid), Vector2(margin.x, margin.y), Vector2(margin.z, pin), tile_x or tile, false)
-	_nine(ci, Rect2(0, top, full.x, full.y - top), Rect2(0, mid, w, h - mid), Vector2(margin.x, pin), Vector2(margin.z, margin.w), tile_x or tile, false)
+	# (the server's nine-patch here, as before 19.11: its own way with margins over the half's height is what draws the
+	# rivet's halves; _nine drew the title plate in two strips with a gap)
+	rs.canvas_item_add_nine_patch(ci, Rect2(0, 0, full.x, top), Rect2(0, 0, w, mid), tex.get_rid(),
+		Vector2(margin.x, margin.y), Vector2(margin.z, pin), _mode(tile_x), RenderingServer.NINE_PATCH_STRETCH, true, modulate)
+	rs.canvas_item_add_nine_patch(ci, Rect2(0, top, full.x, full.y - top), Rect2(0, mid, w, h - mid), tex.get_rid(),
+		Vector2(margin.x, pin), Vector2(margin.z, margin.w), _mode(tile_x), RenderingServer.NINE_PATCH_STRETCH, true, modulate)
 	rs.canvas_item_add_set_transform(ci, Transform2D.IDENTITY)
 
 ## (19.11) the nine-patch drawn piece by piece, each piece's picture clamped to its own region (clip_uv): the
@@ -67,6 +71,14 @@ func _pinned(ci: RID, rect: Rect2) -> void:
 ## every tile's edge, dark stripes down the green button and along a card's right and bottom on the phone
 func _nine(ci: RID, dst: Rect2, src: Rect2, tl: Vector2, br: Vector2, tx: bool, ty: bool) -> void:
 	var rs := RenderingServer
+	# (margins wider than the picture or the box shrink to fit, as the server's nine-patch does: a half-plate's rim and
+	# rivet margins together overran its height, its middle row came out negative and was dropped — a gap)
+	for ax in 2:
+		var sum := tl[ax] + br[ax]
+		var room := minf(src.size[ax], dst.size[ax])
+		if sum > room and sum > 0.0:
+			tl[ax] *= room / sum
+			br[ax] *= room / sum
 	var sx := [src.position.x, src.position.x + tl.x, src.end.x - br.x, src.end.x]
 	var sy := [src.position.y, src.position.y + tl.y, src.end.y - br.y, src.end.y]
 	var dx := [dst.position.x, dst.position.x + tl.x, dst.end.x - br.x, dst.end.x]
