@@ -691,21 +691,8 @@ static func _neon(b: RefCounted, cm: ShaderMaterial) -> ShaderMaterial:
 	l.shadow_enabled = false
 	l.position = Vector3(0, 0.5, 0.25)
 	(b.root as Node3D).add_child(l)
-	# (20.11 "still dull": a soft neon halo round it — the mycena's — breathing slowly, and the card's haze cyan)
-	var hm := ShaderMaterial.new()
-	hm.shader = preload("res://shaders/fungi_halo.gdshader")
-	hm.render_priority = 100
-	hm.set_shader_parameter("col", Vector3(0.0, 0.55, 0.7))
-	hm.set_shader_parameter("power", 0.45)
-	var hq := MeshInstance3D.new()
-	var qm := QuadMesh.new()
-	qm.size = Vector2(1.6, 2.4)
-	hq.mesh = qm
-	hq.material_override = hm
-	hq.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	hq.position = Vector3(0, 0.75, 0)
-	hq.set_meta("halo", true)
-	(b.root as Node3D).add_child(hq)
+	# (20.11 "still dull": the card's haze cyan behind it. A halo quad was tried — on the inventory's see-through
+	# thumbnail it drew as a black box)
 	(b.root as Node3D).set_meta("glow", Color(0.1, 0.75, 0.85))
 	return m
 
