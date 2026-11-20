@@ -1065,8 +1065,8 @@ static func accents(sk: Dictionary) -> Array:
 		if sk.fangs != "none": out.append("sk_fangs")
 		if sk.get("maw", false): out.append("sk_maw")
 		if sk.milk != "clear": out.append("sk_" + String(sk.milk))
-		if sk.dmg == "broken": out.append("sk_broken")
-		elif sk.dmg == "worn": out.append("sk_chipped")
+		# (a broken skull is how it lies, not a gene: no chip, no callout)
+		if sk.dmg == "worn": out.append("sk_chipped")
 	if sk.tone in ["grave", "ash"] and sk.skin == "bone": out.append("sk_" + String(sk.tone))
 	if sk.moss != "none": out.append("sk_moss")
 	if int(sk.trees) > 0: out.append("sk_trees")
@@ -1092,7 +1092,7 @@ static func gene_name(id: String, sk: Dictionary) -> String:
 			return "%s feathers" % bird if fk >= 0.99 else "%s feathers %d%%" % [bird, roundi(fk * 100.0)]
 		"sk_bloom": return ["crimson and gold", "white and lilac", "pink and cream", "blue and silver", "orange and yellow"][int(sk.bloom_pal) % 5] + " bouquet"
 		"sk_eyes": return "crystal eyes" if sk.eyes == "both" else "crystal eye"
-		"sk_stream": return "wine from the eye" if sk.get("wine", false) else "spring from the eye"
+		"sk_stream": return "wine spring" if sk.get("wine", false) else "spring from the eye"
 		"sk_fangs": return "crystal teeth" if sk.fangs == "all" else "crystal fangs"
 	return ""
 
