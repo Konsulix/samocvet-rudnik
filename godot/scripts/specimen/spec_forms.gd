@@ -671,7 +671,7 @@ static func _neon(b: RefCounted, cm: ShaderMaterial) -> ShaderMaterial:
 	var m := U.mat_copy(cm)
 	# (the electric blue-green itself, deep: a glow of white light washed it to pale mint)
 	var nc := Color(0.0, 0.62, 0.72)
-	m.set_shader_parameter("emis", Vector3(0.0, 0.32, 0.42) * 0.3)
+	m.set_shader_parameter("emis", Vector3(0.0, 0.32, 0.42) * 0.5)
 	# (the room seen through the glass darkened: through a bright clear body the neon came out pastel)
 	m.set_shader_parameter("dark_k", 0.15)
 	# the body in its own colour, glowing from within (tint: the stone's colour carries it, not the room behind)
@@ -691,6 +691,22 @@ static func _neon(b: RefCounted, cm: ShaderMaterial) -> ShaderMaterial:
 	l.shadow_enabled = false
 	l.position = Vector3(0, 0.5, 0.25)
 	(b.root as Node3D).add_child(l)
+	# (20.11 "still dull": a soft neon halo round it — the mycena's — breathing slowly, and the card's haze cyan)
+	var hm := ShaderMaterial.new()
+	hm.shader = preload("res://shaders/fungi_halo.gdshader")
+	hm.render_priority = 100
+	hm.set_shader_parameter("col", Vector3(0.0, 0.55, 0.7))
+	hm.set_shader_parameter("power", 0.45)
+	var hq := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(1.6, 2.4)
+	hq.mesh = qm
+	hq.material_override = hm
+	hq.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hq.position = Vector3(0, 0.75, 0)
+	hq.set_meta("halo", true)
+	(b.root as Node3D).add_child(hq)
+	(b.root as Node3D).set_meta("glow", Color(0.1, 0.75, 0.85))
 	return m
 
 static func tourm_of(seed_v: int) -> Array:
