@@ -441,6 +441,26 @@ func _ready() -> void:
 			made += 1
 		print("hugs: ", made, " finds")
 		Save.persist()
+	if args.has("tourmalines"):
+		# test data: a tourmaline of every colour (SpecForms.TOURM), and a polished slice of each: `-- save=tm screen=stones tourmalines`
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("tourmalines", false))
+		var sd := 330000
+		for form: String in ["pencils", "slice"]:
+			for e: Array in SpecForms.TOURM:
+				while String(SpecForms.tourm_of(sd)[0]) != String(e[0]): sd += 1
+				var st := Stones.roll(sd, 0, 1.2, 2)
+				st.sid = "tourmaline"
+				st.kind = "crystal"
+				st.form = form
+				st.traits = []
+				st.area = 0
+				st.dl = 2
+				st.integ = 100
+				st.tourmalines = true
+				st.test = true
+				st.value = Stones.price(st, 0, 2)
+				Save.d.coll.append(st)
+				sd += 1
 	if args.has("enhydros"):
 		# test data: clear crystals with a water pocket (the "enhydro" trait), whole: `-- save=enh screen=stones enhydros`
 		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("enhydros", false))
