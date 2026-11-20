@@ -115,6 +115,7 @@ static func of(o: Dictionary) -> Dictionary:
 	elif habit == "fossil" and fossil.has("rock"): rock = fossil.rock
 	elif habit == "fossil": rock = "slate" if fossil.get("crushed", false) else Stones.pick_w([["limestone", 4.0], ["slate", 3.0], ["ironstone", 1.5]], rng)
 	else: rock = Stones.pick_w(look.get("rock", [["basalt", 3.0], ["slate", 2.5], ["ironstone", 1.5], ["limestone", 1.5], ["quartzite", 1.0]]), rng)
+	if o.has("rock_t"): rock = String(o.rock_t)   # (tests: the rock pinned — spec_gallery rock=)
 	# lustre: most crystals are glassy; some grow dark and oily, like hematite-coated quartz or tourmaline
 	var lustre := "metal" if metal else "fossil" if habit == "fossil" else "glass"
 	if not metal and not (form in ["geode", "nugget", "botryoid", "sawn"]) and rng.next() < float(look.get("dark", 0.05)) and habit != "fossil":

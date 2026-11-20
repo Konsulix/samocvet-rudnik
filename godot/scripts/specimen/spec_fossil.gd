@@ -588,7 +588,9 @@ static func ammonite(b: RefCounted, gene: Dictionary, use_rock: Callable) -> Mes
 			const WIDE := Vector3(1.25, 1.0, 1.25)
 			var rg: Geo = rk.get_meta("geo")
 			for i in rg.v.size(): rg.v[i] *= WIDE
-			rk.mesh = rg.to_mesh()
+			# (no mesh set here: a rock's mesh is made in _finish with its rock coordinates — set now, it had none, the
+			# scan sat on one texel and the slab went smooth as soap)
+			if rk.mesh: rk.mesh = rg.to_mesh()
 			var st: Dictionary = b.st_ref
 			if st.has("pick"):
 				var p0: Callable = st.pick

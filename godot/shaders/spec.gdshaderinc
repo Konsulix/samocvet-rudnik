@@ -189,6 +189,18 @@ void fragment() {
 		ty = vec3(ty.xy + no.xz, abs(ty.z) * no.y);
 		tz = vec3(tz.xy + no.xy, abs(tz.z) * no.z);
 		vec3 ns = normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
+		// (20.11, "soapy rock" again and again) a detail layer: the same scan four times finer, turned, over the
+		// first — close up (a card fills with a big rock) one scan texel spread over several pixels and the stone
+		// went smooth as soap; the fine copy keeps grain and pits under the eye. Mipmapped: far off it averages away
+		vec3 dp = v_rp * scan_scale * 4.3 + vec3(0.37, 0.71, 0.13);
+		vec3 dd = texture(scan_diff, dp.zy).rgb * w.x + texture(scan_diff, dp.xz).rgb * w.y + texture(scan_diff, dp.xy).rgb * w.z;
+		vec3 dx2 = texture(scan_nrm, dp.zy).xyz * 2.0 - 1.0;
+		vec3 dy2 = texture(scan_nrm, dp.xz).xyz * 2.0 - 1.0;
+		vec3 dz2 = texture(scan_nrm, dp.xy).xyz * 2.0 - 1.0;
+		vec3 dn2 = vec3(dx2.xy, 0.0).zyx * w.x + vec3(dy2.x, 0.0, dy2.y) * w.y + vec3(dy2.xy * 0.0 + dz2.xy, 0.0) * w.z;
+		ns = normalize(ns + dn2 * 0.55);
+		float dl = dot(dd, vec3(0.3, 0.5, 0.2));
+		sd *= 0.62 + 0.76 * dl / max(0.05, dot(sd, vec3(0.3, 0.5, 0.2)) * 0.5 + 0.25);
 		s_nv = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(ns, 0.0)).xyz);
 		if (dot(s_nv, VIEW) < 0.0) s_nv = -s_nv;
 		// the scan gives the grain, the rock's own palette sets how dark and what colour it is

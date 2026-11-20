@@ -1481,6 +1481,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	# (a find the plesiosaur swallowed: only the plesiosaur is left on its card)
 	if o.get("gulp", false): SpecReef.swallowed(root)
 	st_ref = {}   # (its closures hold the builder: let it go)
+	if soap_audit: _soap_check(o)
 	return root
 
 ## (16.11) a lump that is no crystal (a vein's quartz with its metal, a nugget, malachite) hurt by a careless dig is not
@@ -1628,7 +1629,7 @@ func _shatter() -> void:
 		if (mcols[mk] as Color).r >= 0.0:
 			cg.col.resize(cg.v.size())
 			cg.col.fill(mcols[mk])
-			cmi.mesh = cg.to_mesh()
+			if cmi.mesh: cmi.mesh = cg.to_mesh()
 			cmi.set_meta("col", true)
 
 ## the points of a node, in the find's space (a mesh's own; a multimesh's copies; anything else its place)
@@ -1849,6 +1850,26 @@ func dr_snap(r: Rng32, k: float, depth: int) -> bool:
 	return r.next() < k * (0.55 + 0.2 * depth)
 
 var _sid := ""   # (the species being built, for the builders that are not handed it: _geode)
+## (20.11) tests: report every rock mesh with no rock coordinates — its scan on one texel, smooth as soap
+static var soap_audit := false
+func _soap_check(o: Dictionary) -> void:
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		var m := mi.material_override as ShaderMaterial
+		if not m or not m.get_meta("dirt", false) or not mi.mesh: continue
+		var arr := mi.mesh.surface_get_arrays(0)
+		var uv: Variant = arr[Mesh.ARRAY_TEX_UV]
+		var flat := uv == null
+		if not flat:
+			var u: PackedVector2Array = uv
+			var lo := Vector2(INF, INF)
+			var hi := -lo
+			for i in range(0, u.size(), maxi(1, u.size() / 200)):
+				lo = lo.min(u[i])
+				hi = hi.max(u[i])
+			flat = (hi - lo).length() < 1e-4
+		if flat: print("SOAP ", o.get("sid", "?"), " ", o.get("form", ""), " seed ", o.get("seed", 0), " mesh ", mi.name)
+
 var _cap_rim_col := false   # (_half: the cap's points coloured as the rim's — a mesh coloured by its points)
 var _glassy := false        # (_shatter: obsidian — black glass coloured by its points, breaking to the same glass)
 static var fallbacks := 0   # (tests/shatter_check: how often a cap's outline would not triangulate as a polygon)
@@ -2859,7 +2880,7 @@ func _opal_seam(_col: Color, use_rock: Callable, st: Dictionary, gs: float, seed
 				var dd := g2.v[i].dot(bn) - bd
 				if dd > 0.0: g2.v[i] -= bn * (dd * 0.92 - fl.get_noise_3dv(g2.v[i]) * sz * 0.01)
 		for i in vg.v.size(): vg.v[i] += bn * sz * 0.003 if vg.v[i].dot(bn) > bd - sz * 0.02 else Vector3.ZERO
-		rk.mesh = rg.to_mesh()
+		if rk.mesh: rk.mesh = rg.to_mesh()   # (a rock's mesh is made in _finish, with its rock coordinates: see SpecFossil)
 		keep_out.append([rk.transform * (c + bn * (bd - bn.dot(c))), sz * 0.6])
 	gm.set_shader_parameter("band_on", 1.0)
 	gm.set_shader_parameter("band_face", 1.0 if face else 0.0)

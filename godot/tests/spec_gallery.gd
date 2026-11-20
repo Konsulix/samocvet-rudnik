@@ -290,6 +290,7 @@ const SETS := [
 ]
 
 func _ready() -> void:
+	SpecimenBuilder.soap_audit = OS.get_cmdline_user_args().has("soap")
 	var args := {}
 	for a in OS.get_cmdline_user_args():
 		var kv := a.split("=", true, 1)
@@ -335,6 +336,10 @@ func _ready() -> void:
 				if args.has("lustre"): e.lustre = String(args.lustre)
 				# how well it came out of the rock (0..100: the damage of a careless dig, SpecimenBuilder)
 				if args.has("integ"): e.integ = int(args.integ)
+				# rock=<type>|all: the rock pinned (all: each rock type in turn — a review of how each looks close up)
+				if args.has("rock"):
+					var rts := ["limestone", "ironstone", "basalt", "slate", "quartzite", "gypsum", "lava"]
+					e.rock_t = rts[k % rts.size()] if String(args.rock) == "all" else String(args.rock)
 				# a skull's genes pinned: eyes=none|one|both breach=side|crest crown=0|1
 				for sk in ["eyes", "breach", "milk", "tone", "rock_kind", "lie", "dmg", "fangs", "moss", "skin", "tree_kind"]:
 					pass
