@@ -662,8 +662,33 @@ const TOURM := [
 	["rubellite", 2.0, [[0.0, 0xb81a50], [1.0, 0xe83a78]]],
 	["indicolite", 1.5, [[0.0, 0x1a4a9a], [0.6, 0x1e7ab8], [1.0, 0x28a8c8]]],
 	["verdelite", 1.5, [[0.0, 0x0e5a34], [0.7, 0x2a9a4a], [1.0, 0x8ad060]]],
-	["paraiba", 0.8, [[0.0, 0x0aa0c0], [0.5, 0x10d0d0], [1.0, 0x40f0c8]]],
+	["paraiba", 0.8, [[0.0, 0x0068a8], [0.5, 0x0098b0], [1.0, 0x00b0a0]]],
 ]
+
+## (19.11) Paraiba's neon: the glass lit from within in its own electric blue-green — it glows, its colour carries
+## the stone — and a soft light of that colour on what is round it
+static func _neon(b: RefCounted, cm: ShaderMaterial) -> ShaderMaterial:
+	var m := U.mat_copy(cm)
+	# (the electric blue-green itself, deep: a glow of white light washed it to pale mint)
+	var nc := Color(0.0, 0.62, 0.72)
+	m.set_shader_parameter("emis", Vector3(0.0, 0.32, 0.42) * 0.55)
+	# (the room seen through the glass darkened: through a bright clear body the neon came out pastel)
+	m.set_shader_parameter("dark_k", 0.3)
+	# the body in its own colour, glowing from within (tint: the stone's colour carries it, not the room behind)
+	m.set_shader_parameter("tint_k", 1.0)
+	m.set_shader_parameter("tint_glow", 0.14)
+	m.set_shader_parameter("deep_k", 1.3)
+	m.set_shader_parameter("parts_k", 0.0)
+	m.set_shader_parameter("frost_k", 0.0)
+	m.set_shader_parameter("ir_k", 0.0)
+	var l := OmniLight3D.new()
+	l.light_color = Color(0.25, 0.95, 1.0)
+	l.light_energy = 1.2
+	l.omni_range = 2.2
+	l.shadow_enabled = false
+	l.position = Vector3(0, 0.5, 0.25)
+	(b.root as Node3D).add_child(l)
+	return m
 
 static func tourm_of(seed_v: int) -> Array:
 	var r := Rng32.new((seed_v * 2246822519 + 611) % 4294967296)
@@ -744,6 +769,8 @@ static func pencils(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var cm: ShaderMaterial = c.any_cmat.call()
 	var scheme: Array = tourm_of(int(c.seed))
 	var stops: Array = scheme[2]
+	var neon := String(scheme[0]) == "paraiba"
+	if neon: cm = _neon(b, cm)
 	var druse: bool = c.kind == "druse"
 	var n := 3 + int(rng.next() * 4) if druse else 1 + int(rng.next() * 2)
 	var main: MeshInstance3D = null
@@ -799,19 +826,30 @@ static func slice(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	var th := R * (0.15 + rng.next() * 0.05)
 	var ph := rng.next() * TAU
 	var ring_ph := rng.next() * 10.0
-	var hearts := [0xe83a78, 0xf05a90, 0xd02868]
-	var rinds := [0x2a9a4a, 0x1e8a5a, 0x5ab040]
-	var heart := SpecMat.lin(int(hearts[int(rng.next() * 3)]))
-	var pale := SpecMat.lin(0xf4e6d8)
-	var rind := SpecMat.lin(int(rinds[int(rng.next() * 3)]))
-	var skin := SpecMat.lin(0x0e4a2a)
+	# (19.11) in its own colours (SpecForms.TOURM): a crystal's colour runs along it, its slice's from the heart out —
+	# its top colour in the heart, its foot's at the rind (a watermelon pink in green; a Paraiba all neon; a blue cap
+	# blue in pink); a pale ring between where the colour turns. (All were watermelon)
+	var scheme: Array = tourm_of(int(c.seed))
+	var stops: Array = scheme[2]
+	var neon := String(scheme[0]) == "paraiba"
+	var heart := SpecMat.lin(int((stops[stops.size() - 1] as Array)[1]))
+	var rind := SpecMat.lin(int((stops[0] as Array)[1]))
+	# (a pale ring only where the colour turns to another: on a one-colour slice a white band read as a target)
+	var two := absf(heart.h - rind.h) > 0.2 and absf(heart.h - rind.h) < 0.8
+	var pale := SpecMat.lin(0xf4e6d8) if two else heart.lerp(Color(1, 1, 1), 0.35)
+	var skin := rind * 0.35
 	var w_heart := 0.45 + rng.next() * 0.15
 	var col_at := func(f: float) -> Color:
-		var cc := heart.lerp(pale, smoothstep(w_heart - 0.05, w_heart + 0.03, f))
-		cc = cc.lerp(rind, smoothstep(w_heart + 0.06, w_heart + 0.14, f))
+		# (three colours and more: through the middle stops in turn)
+		var cc := _stops(stops, 1.0 - f) if stops.size() > 2 else heart.lerp(rind, smoothstep(w_heart + 0.06, w_heart + 0.14, f))
+		if two: cc = cc.lerp(pale, (smoothstep(w_heart - 0.05, w_heart + 0.03, f) - smoothstep(w_heart + 0.06, w_heart + 0.14, f)) * 0.8)
 		cc = cc.lerp(skin, smoothstep(0.93, 1.0, f))
-		# growth rings: the colour a little deeper and paler by turns
-		cc = cc.lerp(cc * 0.55, 0.5 + 0.5 * sin(f * 38.0 + ring_ph))
+		# growth rings: fine and crisp, each a thin darker line, a few stronger (a soft wave of light and dark read
+		# as soap)
+		var rv := fposmod(f * 26.0 + ring_ph, 1.0)
+		var line := 1.0 - smoothstep(0.0, 0.18, minf(rv, 1.0 - rv))
+		var strong := 0.5 + 0.5 * sin(floor(f * 26.0 + ring_ph) * 2.7)
+		cc = cc.lerp(cc * 0.5, line * (0.25 + 0.45 * strong))
 		cc.a = 1.0
 		return cc
 	var out := func(a: float, f: float) -> Vector2:
@@ -820,7 +858,7 @@ static func slice(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 		return Vector2(cos(a) * rr, sin(a) * rr)
 	var g := Geo.new()
 	var rings := []
-	for i in 25: rings.append(float(i) / 24.0)
+	for i in 97: rings.append(float(i) / 96.0)
 	for side: float in [1.0, -1.0]:
 		for i in rings.size() - 1:
 			var f0: float = rings[i]
@@ -847,8 +885,13 @@ static func slice(b: RefCounted, c: Dictionary) -> MeshInstance3D:
 	g.orient_out()
 	g.mark_edges(30.0)
 	var sd: Dictionary = c.cmat_spec.call()
-	sd.merge({st = 0.0, deep_body = 0.75, tint_glow = 0.14, dark_body = 0.3, thick = 1.8, holo = 0.0}, true)
-	var cm: ShaderMaterial = c.make_cmat.call(sd)
+	# (polished: hard gloss, no frost — matt and softly lit it read as soap)
+	sd.merge({st = 0.0, deep_body = 0.75, tint_glow = 0.14, dark_body = 0.3, thick = 1.8, holo = 0.0, rough = 0.03, coat = 1.0, coat_r = 0.02, env = 0.7, ir = 0.0, frost = 0.0}, true)
+	var cm: ShaderMaterial = U.mat_copy(c.make_cmat.call(sd))
+	# (no milky clouds in it: their white blotches over a polished face read as soap)
+	cm.set_shader_parameter("frost_k", 0.0)
+	cm.set_shader_parameter("parts_k", 0.0)
+	if neon: cm = _neon(b, cm)
 	var mi: MeshInstance3D = U.mesh(g, cm, b.root)
 	# its face to the viewer, tipped back a little
 	var zb := (VIEW + UP * 0.18 + Vector3(rng.next() - 0.5, 0, rng.next() - 0.5) * 0.25).normalized()

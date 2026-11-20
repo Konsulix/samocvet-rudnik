@@ -325,6 +325,7 @@ func _ready() -> void:
 				var sd := int(args.get("base", "500")) + list.size() * 7 + 1
 				# tm=all|<scheme>: a tourmaline's colour scheme (SpecForms.TOURM) — tm=all, one of each in turn
 				if args.has("tm") and sid == "tourmaline":
+					if args.has("form"): pass
 					var want := String(args.tm) if String(args.tm) != "all" else String((SpecForms.TOURM[k % SpecForms.TOURM.size()] as Array)[0])
 					while String(SpecForms.tourm_of(sd)[0]) != want: sd += 1
 				var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977))
