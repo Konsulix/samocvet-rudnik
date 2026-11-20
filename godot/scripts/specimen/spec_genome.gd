@@ -138,6 +138,12 @@ static func of(o: Dictionary) -> Dictionary:
 	# (a sawn and polished lump grows nothing: flowers and lichen on its back read wrong on a stone that polished)
 	if form in ["sawn", "slice"] or String(o.get("form", "")) in ["sawn", "slice"]:
 		apool = []
+	# (20.11) a black or a jelly opal is a loose piece of opal (SpecimenBuilder._opal_seam, the same draw): no rock for
+	# flowers, lichen or moss — "wild rose" on a bare opal; an opal egg's shell neither
+	if sid == "opal":
+		var show_o: String = Stones.pick_w([["boulder", 6.0], ["black", 2.5], ["jelly", 2.0]], Rng32.new((seed_v * 3266489917 + 59) % 4294967296))
+		if show_o != "boulder" or String(o.get("kind", "")) == "geode" or form == "geode":
+			apool = []
 	# (a geode's shell takes puffs and straw; a bare botryoidal lump has nothing for them to stand on)
 	if form == "geode" and not sid in ["flintstone", "jadeite", "hyalite", "opal"]:
 		apool = [["pompom", 0.6], ["straw", 0.5]]
