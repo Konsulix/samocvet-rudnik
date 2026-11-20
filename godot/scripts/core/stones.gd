@@ -265,7 +265,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 ## a find's price (Worth: its beauty): the body by species, squeezed — a skull's by what it is cast in — and every gene's
 ## points on top, the same on any body, a living effect by its spectacle; then the depth. One place for every find:
 ## rolled, the admin's, a story's gift — a stone changed after its roll (made a skull, made legendary) is priced again here
-static func price(st: Dictionary, area: int, _dl := 0) -> int:
+static func price(st: Dictionary, area: int, dl := 0) -> int:
 	var sid := String(st.sid)
 	var kind := String(st.get("kind", "crystal"))
 	var traits: Array = st.get("traits", [])
@@ -281,7 +281,7 @@ static func price(st: Dictionary, area: int, _dl := 0) -> int:
 	# a bigger stone is dearer (the square root of its weight against its kind's middle size): deeper ones grow bigger
 	value *= 1.3 * size_k(st) * Worth.PRICE
 	# (the mine's coin, Data.mine_k: a find of a further mine is worth more, as everything there costs more)
-	return roundi(capped(value, area) * Data.mine_k(area))
+	return roundi(capped(value, area) * Data.mine_k(area) * Data.depth_bend(area, dl))
 
 ## (20.11, playtest: «no tie between a find's weight and its look») the deeper, the bigger and more crowded a find:
 ## near the top mostly lone crystals and small heaps, below druses on slabs and geodes. `deep` 0..1 — how far down

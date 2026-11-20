@@ -650,7 +650,7 @@ func _level_panel(dl: int, sel: Array) -> void:
 	var dt := UI.label("Depth %d m" % Data.depth_m(ai(), dl), 16, UI.display, UI.GOLD)
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid.add_child(dt)
-	var mods := "coins ×%s, stones worth more" % str(Data.depth_pay(dl)) if dl else "ordinary rewards"
+	var mods := "coins ×%s, stones worth more" % ("%.1f" % Data.depth_pay(dl)) if dl else "ordinary rewards"
 	var ds := Ov.text(mods, 12)
 	mid.add_child(ds)
 	drow.add_child(mid)

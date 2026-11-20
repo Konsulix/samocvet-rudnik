@@ -68,8 +68,12 @@ func boost_open(bo: Dictionary) -> bool:
 func ore(area: int) -> Dictionary:
 	return AREAS[mini(area, AREAS.size() - 1)].ore
 
-func depth_pay(dl: int) -> float:
-	return 1.0 + dl * 0.2
+func depth_pay(dl: int, area := -1) -> float:
+	# (20.11: DEPTH_SPAN from top to bottom of the mine, its mean as the old 1 + 0.2 a depth)
+	var n := maxi(2, depths(Save.area() if area < 0 else area).size())
+	var mean := 0.0
+	for i in n: mean += pow(DEPTH_SPAN, i / float(n - 1))
+	return (1.0 + 0.1 * (n - 1)) * pow(DEPTH_SPAN, clampi(dl, 0, n - 1) / float(n - 1)) / (mean / n)
 
 ## species that can actually turn up in some mine
 func minable() -> Array:
@@ -92,9 +96,23 @@ func continue_price(k: int, area: int) -> int:
 ## (20.11) the mine's coin: every mine pays and costs MINE_K times the one before — wins, finds, ore, drills, the shop.
 ## Going back to an old mine pays what it paid then (one back: 2/3, two back: 4/9) against prices of the mine ahead:
 ## no farming the easy old levels, with no rule to say so. Award coins stay as they are
-const MINE_K := 1.5
+const MINE_K := 2.0
 func mine_k(area: int) -> float:
 	return pow(MINE_K, maxi(0, area))
+
+## (20.11) …and within a mine the bottom pays DEPTH_SPAN times the top, no more: the next mine's top (×MINE_K) then
+## pays what the last one's bottom did — going back to farm the old mine's deep levels does not pay (with ×1.5 a mine
+## and finds growing ×3–6 down a mine, Old Adit's bottom paid 2–3 times Copper Mountain's first depths).
+## The finds' own growth down each mine (bigger, more genes, rarer species — tests/depth_value) is bent to it:
+## RAW_SPAN its bottom over its top as it was, the mean over the mine's depths kept
+const DEPTH_SPAN := 2.0
+const RAW_SPAN := [2.8, 6.3, 3.0, 4.2, 3.35, 4.3, 3.3, 3.8]
+func depth_bend(area: int, dl: int) -> float:
+	var n := maxi(2, depths(area).size())
+	var q := DEPTH_SPAN / float(RAW_SPAN[clampi(area, 0, RAW_SPAN.size() - 1)])
+	var mean := 0.0
+	for i in n: mean += pow(q, i / float(n - 1))
+	return pow(q, clampi(dl, 0, n - 1) / float(n - 1)) / (mean / n)
 ## a shop price in the mine being worked (a round figure)
 func priced(base: int, area := -1) -> int:
 	var a := Save.area() if area < 0 else area
