@@ -45,6 +45,14 @@ func _alex(r: Node3D) -> void:
 	var done := {}
 	for n in r.find_children("*", "MeshInstance3D", true, false):
 		if not n.has_meta("crystal"): continue
+		# (only the alexandrite's own: a partner on the same rock — the emerald beside it — keeps its colour)
+		if String(n.get_meta("gene", "body")) != "body" or not _alex_of(n): continue
+		var up := n
+		var mine := true
+		while up and up != r:
+			if up.has_meta("partner"): mine = false
+			up = up.get_parent()
+		if not mine: continue
 		var m := (n as MeshInstance3D).material_override as ShaderMaterial
 		if not m or m.get_shader_parameter("tint_k") == null: continue
 		if not done.has(m):
@@ -55,6 +63,14 @@ func _alex(r: Node3D) -> void:
 			done[m] = cm
 		(n as MeshInstance3D).material_override = done[m]
 	r.set_meta("alex", not done.is_empty())
+
+## a crystal of the find's own body (not a gene's): the node or one above it tagged "body"
+func _alex_of(n: Node) -> bool:
+	var p := n
+	while p and p != root:
+		if p.has_meta("gene"): return String(p.get_meta("gene")) == "body"
+		p = p.get_parent()
+	return true
 
 ## the bulk of what was built (Stones.settle): the boxes of its meshes, half full, in the find's own space — the rock's
 ## (meta base, or a rock material) and the mineral's apart. Not what grows on it (moss, flowers: multimeshes mostly)
@@ -1494,7 +1510,11 @@ func _specimen(o: Dictionary) -> Node3D:
 		if perch:
 			SpecForms.perch(self, mate, main, gs, seed_v)
 		elif st.rocky:
+			var was := root.get_children()
 			SpecForms.partner(self, mate, st, gs, seed_v)
+			# (the partner's own: an alexandrite's lamp turns only the alexandrite, _alex)
+			for c in root.get_children():
+				if not c in was: c.set_meta("partner", true)
 			boxes = _crystal_boxes(main, mat)
 	st.pick_any = st.pick
 	st.hollows_all = st.hollows
