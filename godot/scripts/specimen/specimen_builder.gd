@@ -45,7 +45,11 @@ func _place(node: Node3D, at: Vector3, dir: Vector3, s: float, spin: float) -> v
 	node.transform = Transform3D(Basis(U.quat_to(UP, dir.normalized())) * Basis(UP, spin) * Basis.from_scale(Vector3(s, s, s)), at)
 
 ## how hurt a find came out of the rock: 0 untouched (integrity 100) .. 1 (the least there is, 10)
+## (20.11, playtest: one touch of a special — Fine, 88 — left the crystal pitted all over with its tip gone, «too
+## cruel for one slip»: Fine (80+) is now a few small pits, no more; Chipped and below hurt as before)
 static func damage_of(integ: int) -> float:
+	if integ >= 100: return 0.0
+	if integ >= 80: return 0.05 * (100.0 - integ) / 20.0
 	return clampf((100.0 - integ) / 90.0, 0.0, 1.0)
 
 ## the mushrooms' size asked for: once they found room at full size (the rock's sides, the open rock) they stood a

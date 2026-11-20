@@ -274,7 +274,8 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 	# its thickness and left it a spiky star)
 	var fl: bool = dm.get("flat", false)
 	if fl: g.erode(0.06 + k * 0.18, int(dr.next() * 100000), 0.15 + k * 0.3)
-	else: g.erode(0.15 + k * 0.85 + bad * 1.6, int(dr.next() * 100000), 0.25 + k * 0.75 + bad * 0.6)
+	# (a light touch — Fine, k < 0.2 — pits only a little of it, not the 15% floor at once)
+	else: g.erode((0.15 + k * 0.85 + bad * 1.6) * minf(1.0, k / 0.2), int(dr.next() * 100000), 0.25 + k * 0.75 + bad * 0.6)
 	var first: bool = int(dm.get("n", 0)) == 0
 	dm.n = int(dm.get("n", 0)) + 1
 	var bb := g.aabb()
@@ -288,7 +289,7 @@ static func damage(g: Geo, dm: Dictionary) -> void:
 	if flat: pass
 	elif roll < maxf(0.0, k - 0.4) * 0.9 and bool(dm.get("stumps", true)) and not first:
 		g.snap(Vector3(0, bb.position.y + ln * (0.2 + lift * 0.25), 0), (Vector3.UP + side * (0.3 + tilt * 0.5)).normalized(), ln * 0.025, Vector3.UP)
-	elif roll < minf(1.0, k * 1.6):
+	elif k >= 0.15 and roll < minf(1.0, k * 1.6):   # (Fine keeps its tip)
 		g.snap(Vector3(0, bb.end.y - ln * (0.1 + lift * (0.25 + bad * 0.8)), 0), (Vector3.UP + side * (0.2 + tilt * 0.7)).normalized(), ln * 0.018, Vector3.UP)
 	# a chunk knocked off its side: a slab of it gone down part of its length (a lone crystal too)
 	# (its draws only when badly hurt: what breaks on a lightly hurt stone does not move)
