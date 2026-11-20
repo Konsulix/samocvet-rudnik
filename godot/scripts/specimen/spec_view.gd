@@ -165,6 +165,27 @@ func _stand_in(t: Texture2D) -> void:
 ## trembles, the phone buzzes. (A jolt: the push past gravity over SHAKE_G m/s², at most once a second)
 const SHAKE_G := 13.0
 var _shake_cd := 0.0
+## points on the rock's sides (meta base, or a rock material), relative to `at`, in the scene's space
+func _rock_top(at: Vector3) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for n in live.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		var cm := mi.material_override
+		if not mi.visible or mi.mesh == null or not (mi.has_meta("base") or (cm and cm.has_meta("rock"))): continue
+		var xf := mi.global_transform
+		for si in mi.mesh.get_surface_count():
+			var arr := mi.mesh.surface_get_arrays(si)
+			var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL] if arr[Mesh.ARRAY_NORMAL] != null else PackedVector3Array()
+			var step := maxi(1, vs.size() / 400)
+			for i in range(0, vs.size(), step):
+				# (its sides, upper half: the dust sifts off the rock's edges and falls clear of it — off its top it fell
+				# through the stone and sat on it as white crumbs)
+				var ny := (xf.basis * ns[i]).normalized().y if ns.size() == vs.size() else 0.0
+				if ny < -0.25 or ny > 0.55: continue
+				out.append(xf * vs[i] + (xf.basis * ns[i]).normalized() * 0.01 - at if ns.size() == vs.size() else xf * vs[i] - at)
+	return out
+
 func shake_find(k := 1.0) -> void:
 	if not is_instance_valid(live) or not is_visible_in_tree(): return
 	_shake = maxf(_shake, 0.6 * k)
@@ -236,6 +257,12 @@ func shake_find(k := 1.0) -> void:
 	dust.color_ramp = ramp
 	live.get_parent().add_child(dust)
 	dust.global_position = Vector3(bb.get_center().x, bb.end.y - bb.size.y * 0.35, bb.get_center().z)
+	# (20.11, playtest: it sifted off the whole find — off a copper tree's twigs too): off the rock itself, from points
+	# of its surface that face up; a find with no rock keeps the box over its upper part
+	var pts := _rock_top(dust.global_position)
+	if pts.size():
+		dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
+		dust.emission_points = pts
 	dust.emitting = true
 	get_tree().create_timer(2.5).timeout.connect(dust.queue_free)
 
