@@ -259,7 +259,7 @@ func next_step() -> Dictionary:
 		var D: Dictionary = Data.depth(a, k + 1)
 		out.tool = String(D.tool)
 		out.fe = int(D.drill[0])
-		out.coins = Data.priced(int(D.drill[1]), a)
+		out.coins = Data.drill_coins(a, int(D.drill[1]))
 	return out
 
 func _tasks_button() -> Button:

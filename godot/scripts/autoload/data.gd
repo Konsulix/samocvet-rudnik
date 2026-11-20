@@ -113,6 +113,14 @@ func depth_bend(area: int, dl: int) -> float:
 	var mean := 0.0
 	for i in n: mean += pow(q, i / float(n - 1))
 	return pow(q, clampi(dl, 0, n - 1) / float(n - 1)) / (mean / n)
+## (20.11) the drills cost more than the mine's coin alone: selling every find (tests/mine_chain smart sell) the player
+## ended a mine with 15–190k coins unspent — the jobs' ore holds him, the coins pile up — while a keeper of his finds
+## waited on every drill. A drill now takes about what selling brings, so a keeper sells some (Old Adit, the first
+## mine, stays generous)
+const DRILL_K := [1.0, 1.45, 1.6, 2.2, 2.7, 2.7, 2.7, 2.7]
+func drill_coins(area: int, base: int) -> int:
+	return priced(roundi(base * float(DRILL_K[clampi(area, 0, DRILL_K.size() - 1)])), area)
+
 ## a shop price in the mine being worked (a round figure)
 func priced(base: int, area := -1) -> int:
 	var a := Save.area() if area < 0 else area

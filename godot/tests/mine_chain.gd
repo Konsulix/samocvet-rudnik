@@ -24,6 +24,9 @@ func _ready() -> void:
 	var ore := 0
 	var fe := 0
 	var coins := int(args.get("coins", "0"))   # coins brought from the mine before
+	# (20.11) the mine's coin (Data.mine_k, depth_bend, depth_pay): `flat` — as it was before it (×1 a mine, 1 + 0.2 a depth)
+	var flat := args.has("flat")
+	var mk := 1.0 if flat else Data.mine_k(area)
 	var wins := 0
 	var played := 0
 	var dwins := []
@@ -32,7 +35,7 @@ func _ready() -> void:
 	for d in depths.size():
 		dwins.append(0)
 		vein.append([0, 0])
-	print("CHAIN %s: tasks %s | drills %s" % [A.n, str(tasks.map(func(t: Array) -> int: return int(t[2]))), str(depths.map(func(d: Dictionary) -> Array: return d.drill))])
+	print("CHAIN %s%s: tasks %s | drills %s" % [A.n, " (flat, as before the mine's coin)" if flat else "", str(tasks.map(func(t: Array) -> int: return int(t[2]))), str(depths.map(func(d: Dictionary) -> Array: return d.drill))])
 	while played < 400:
 		# act while he can: build, then dig
 		var acted := true
@@ -42,14 +45,15 @@ func _ready() -> void:
 				ore -= int(tasks[built][2])
 				print("CHAIN build %-10s after win %2d (levels %2d) | left: ore %d, iron %d, coins %d" % [String(tasks[built][0]), wins, played, ore, fe, coins])
 				var ch: Dictionary = Data.CHEST[built] if built < Data.CHEST.size() else {coins = 100}
-				coins += int(ch.get("coins", 0))
+				coins += int(ch.get("coins", 0)) if flat else Data.priced(int(ch.get("coins", 0)), area)
 				built += 1
 				acted = true
 			elif built > dl and dl < last:
 				var D: Dictionary = depths[dl + 1]
-				if fe >= int(D.drill[0]) and coins >= int(D.drill[1]):
+				var dc := int(D.drill[1]) if flat else Data.drill_coins(area, int(D.drill[1]))
+				if fe >= int(D.drill[0]) and coins >= dc:
 					fe -= int(D.drill[0])
-					coins -= int(D.drill[1])
+					coins -= dc
 					dl += 1
 					print("CHAIN dig to %3d m    after win %2d (levels %2d) | left: ore %d, iron %d, coins %d" % [int(D.m), wins, played, ore, fe, coins])
 					acted = true
@@ -71,9 +75,9 @@ func _ready() -> void:
 			var full := mini(mined[k], room)
 			vein[dl][k] = int(vein[dl][k]) + full
 			got[k] = full + (mined[k] - full) / 3
-		var pay := roundi((20 + int(r.coins_won)) * Data.depth_pay(dl) * float(Level.HARD_PAY.get(beat, 1.0)))
+		var pay := roundi((20 + int(r.coins_won)) * ((1.0 + dl * 0.2) if flat else Data.depth_pay(dl, area) * mk) * float(Level.HARD_PAY.get(beat, 1.0)))
 		# sell: every find and geode of the level sold too (a player who keeps them gets the level's pay alone)
-		if args.has("sell"): pay += int(r.sold)
+		if args.has("sell"): pay += roundi(int(r.sold) / (Data.mine_k(area) * Data.depth_bend(area, dl)) if flat else int(r.sold))
 		fe += got[0]
 		ore += got[1]
 		coins += pay
