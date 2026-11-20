@@ -326,10 +326,11 @@ func _specimen(o: Dictionary) -> Node3D:
 	var sp: Dictionary = Data.SP.get(sid, Data.SP.quartz)
 	var habit: String = Data.HABIT.get(sid, "prism")
 	var tr: Array = o.get("traits", [])
-	# (a trait the species never takes now — fluorite's rainbow film, 20.11 — is not drawn on a stone that rolled it before)
-	if "irid" in tr and "irid" in SpecLooks.never(sid):
-		tr = tr.duplicate()
-		tr.erase("irid")
+	# (a trait the species never takes now is not drawn on a stone that rolled it before: fluorite's rainbow film,
+	# an opal's phantom — a low-poly ball in the opal, 20.11)
+	var nv := SpecLooks.never(sid)
+	if tr.any(func(t: String) -> bool: return t in nv):
+		tr = tr.filter(func(t: String) -> bool: return not t in nv)
 	var gi: int = int(o.get("gi", 1))
 	trs = tr
 	var legend: bool = o.get("legend", false)
