@@ -73,9 +73,11 @@ const LOOK := {
 		rock = [["quartzite", 3.0], ["slate", 1.0]], blunt = true, hk = 1.3, wk = 0.9, dark = 0.0, zmodes = [0, 1], ir = 0.5, glass = {tint = 0.8, deep = 0.5}},
 	# alexandrite (chrysoberyl): short six-sided trillings in Ural mica schist; green by day, raspberry under a lamp —
 	# a tap on its card turns the light (SpecView._lamp), alex: the lamplight colour
-	alexandrite = {mica = true, stria = [1.2, 1.0], forms = [["single", 4.0], ["pile", 3.0], ["cluster", 1.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
-		rock = [["slate", 4.0], ["quartzite", 1.0]], blunt = true, hk = 0.55, wk = 1.25, dark = 0.0, zmodes = [1], ir = 0.15,
-		glass = {tint = 0.9, deep = 0.6}, alex = 0x8c0c40},
+	# (20.11, second pass) trillings (RockKit.trilling) half sunk in the schist, gem-clear and deep (keep_col: a poorer
+	# one is not greyed, its glass not frosted), pleo: the faces green, orange and violet as it turns
+	alexandrite = {mica = true, keep_col = true, stria = [1.3, 2.0], forms = [["pile", 4.0], ["cluster", 2.0], ["single", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]],
+		rock = [["slate", 4.0], ["quartzite", 1.0]], hk = 0.3, wk = 1.0, dark = 0.0, zmodes = [1], ir = 0.1,
+		glass = {tint = 1.0, deep = 0.85, frost = 0.04, parts = 0.0}, alex = 0x6a0c2e, pleo = 0.8, cats_eye = 0.12},
 	emerald = {trapiche = 0.2, stria = [0.8, 1.0], forms = [["single", 5.0], ["columnar", 2.0]], kinds = [["crystal", 6.0], ["druse", 1.0]], rock = [["gypsum", 3.0], ["slate", 2.0]], blunt = true, dark = 0.0, wk = 1.25, glass = {tint = 0.85, dark = 0.25, frost = 0.15, glow = 0.3}},
 	# Whalebone Cove
 	gypsum = {forms = [["slabs", 3.0], ["rosette", 4.0], ["radial", 1.0], ["single", 1.0]], kinds = [["crystal", 6.0], ["druse", 2.0]],
@@ -428,7 +430,7 @@ const PSEUDO := {
 }
 ## what a species' look says of its body, not of its crystals: none of it passes to its pseudomorph
 const BODY_KEYS := ["opaque", "glass", "metal_col", "mrough", "menv", "tarnish", "peacock", "palette", "ir", "growths", "no_acc", "agate", "core", "zone", "sig",
-	"more", "with", "wire", "mica", "trapiche", "rose", "rose_metal", "sawn", "dark", "kinds", "rock"]
+	"more", "with", "wire", "mica", "trapiche", "cats_eye", "alex", "pleo", "keep_col", "rose", "rose_metal", "sawn", "dark", "kinds", "rock"]
 
 ## the species this find took the place of ("" for none): its own stream, so no other gene moves
 static func pseudo_of(seed_v: int, sid: String, kind: String) -> String:

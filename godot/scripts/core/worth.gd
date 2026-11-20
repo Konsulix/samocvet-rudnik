@@ -25,7 +25,7 @@ const TRAIT := {irid = 0.8, aurora = 4.0, zoned = 1.6, phantom = 0.8, chlorite =
 
 ## what grows on it or with it (SpecGenome accents)
 const ACC := {halves = 1.8, inner_light = 2.2, pocket = 1.6, pompom = 0.6, straw = 0.7, lichen = 0.4, needles = 0.4, crust = 0.5, dust = 0.2, inkspots = 0.4, clouds = 0.8,
-	fronds = 0.9, flowers = 1.0, mushrooms = 1.3, trapiche = 4.0, celestine = 0.8, sulphur = 0.6, orpiment = 0.6, rockcrystal = 0.6,
+	fronds = 0.9, flowers = 1.0, mushrooms = 1.3, trapiche = 4.0, cats_eye = 3.5, celestine = 0.8, sulphur = 0.6, orpiment = 0.6, rockcrystal = 0.6,
 	barite = 0.6, pararealgar = 0.3, mimetite = 0.6,
 	# a tourmaline's colours (SpecForms.TOURM): the plain ones little, a neon or a blue cap much; a polished slice
 	tm_verdelite = 0.4, tm_rubellite = 0.8, tm_indicolite = 1.0, tm_bicolour = 1.0, tm_watermelon = 1.3, tm_tricolour = 1.7, tm_blue_cap = 1.8,

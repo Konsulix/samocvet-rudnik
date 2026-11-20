@@ -86,6 +86,43 @@ static func tablet(w: float, th: float, o := {}) -> Geo:
 			g.v.append_array([c, p1, q1, p1, p0, q0, p1, q0, q1])
 	return g.orient_out()
 
+## alexandrite's cyclic twin (crystal "trilling"): a six-sided plate, `w` across the corners, `h` high, a V notch in the
+## middle of every other side (the twin seams) and a shallower one in the rest, a low six-faced roof
+static func trilling(w: float, h: float, rng: Rng32) -> Geo:
+	var ring: Array = []
+	for k in 6:
+		var a := float(k) / 6.0 * TAU + PI / 6.0
+		var b := float(k + 1) / 6.0 * TAU + PI / 6.0
+		var p := Vector2(sin(a), cos(a)) * w
+		var q := Vector2(sin(b), cos(b)) * w
+		ring.append(p)
+		var notch := (0.2 + rng.next() * 0.06) if k % 2 == 0 else (0.07 + rng.next() * 0.04)
+		ring.append(p.lerp(q, 0.5) * (1.0 - notch))
+	var n := ring.size()
+	var y0 := -w * 0.25
+	var ya := h + w * (0.1 + rng.next() * 0.06)
+	var g := Geo.new()
+	var top := Vector3(0, ya, 0)
+	var bot := Vector3(0, y0, 0)
+	for k in n:
+		var p: Vector2 = ring[k]
+		var q: Vector2 = ring[(k + 1) % n]
+		# (the rim at the notches stands a touch lower: the twins' tops do not quite meet)
+		var hp := h - (w * 0.05 if k % 2 == 1 else 0.0)
+		var hq := h - (w * 0.05 if (k + 1) % 2 == 1 else 0.0)
+		var p0 := Vector3(p.x, y0, p.y)
+		var q0 := Vector3(q.x, y0, q.y)
+		var p1 := Vector3(p.x, hp, p.y)
+		var q1 := Vector3(q.x, hq, q.y)
+		g.v.append_array([p0, q0, q1, p0, q1, p1, top, p1, q1, bot, q0, p0])
+	g.orient_out(Vector3(0, h * 0.4, 0))
+	# (stood up on an edge, its face tipped forward: seen from the side a twinned plate is a box, its star is on top —
+	# so the face looks out, toward +z and up, and its lowest point is the foot)
+	g.xform(Transform3D(Basis(Vector3.RIGHT, 0.95), Vector3.ZERO))
+	var lo := 1e9
+	for p in g.v: lo = minf(lo, p.y)
+	return g.translate(0, -lo - w * 0.2, 0)
+
 ## cfg: {h, tip, scepter, dt (both ends), cA, cB, zk (colour zoning)}
 static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	var r := 0.32 * float(cfg.get("wk", 1.0))
@@ -200,6 +237,11 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 		g = tetra(0.34, 0.16 + rng.next() * 0.14)
 		g.xform(Transform3D(Basis.from_euler(Vector3(rng.next(), rng.next(), rng.next()) * TAU), Vector3.ZERO))
 		g.translate(0, 0.22, 0)
+	elif habit == "trilling":
+		# alexandrite (chrysoberyl): three tabular crystals grown through each other at 120° — a thick six-sided
+		# plate whose sides meet in re-entrant notches where one crystal gives way to the next, its top a low roof of
+		# six faces from the middle (each face striated its own way: the feathered "chevron" seen down the axis)
+		g = trilling(r * 1.35, h, rng)
 	else:
 		g = Geo.sphere(0.2, 20, 14).translate(0, 0.15, 0)
 	if habit == "blade":

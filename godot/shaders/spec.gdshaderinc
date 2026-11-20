@@ -52,6 +52,9 @@ uniform float parts_k = 0.0;     // clarity by parts (needs DIRT: the crystal's 
 uniform float tint_glow = 0.06; // with tint: the body's own light in its colour (sulphur's lemon glow)     // the body glows in its own colour rather than showing the room through it (garnet)     // a dark glass body (smoky quartz): darker where the light goes through more of it     // a night sky inside: twinkling stars, drifting nebula
 uniform float alex_k = 0.0;      // alexandrite under a lamp: 0 its daylight colour (as built), 1 turned to alex_col (SpecView tap)
 uniform vec3 alex_col = vec3(0.42, 0.012, 0.09);
+uniform float alex_eye = 0.0;    // chrysoberyl's cat's eye: a thin line of light across the crystal's top, sliding over it as it turns
+uniform vec2 alex_ew = vec2(0.03, 0.5);   // its half-width, how far it slides (model units)
+uniform float alex_p = 0.0;      // alexandrite's pleochroism: its faces by their way to the crystal's axis — the top warm orange, the sides green to violet by turns, violet at a glance
 uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
 uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
@@ -148,7 +151,28 @@ void fragment() {
 #endif
 	vec3 base = albedo * COLOR.rgb;
 	// alexandrite: lamplight turns its green to raspberry (its brightness kept: by the strongest channel)
-	if (alex_k > 0.0) base = mix(base, alex_col * (max(base.r, max(base.g, base.b)) / max(max(alex_col.r, max(alex_col.g, alex_col.b)), 0.001)), alex_k);
+	// (the change spreads across the stone from the lamp's side, the right of the card)
+	float a_mx = max(base.r, max(base.g, base.b));
+	if (alex_k > 0.0) {
+		float ak = smoothstep(0.0, 1.0, alex_k * 1.8 - (1.0 - SCREEN_UV.x) * 0.8);
+		base = mix(base, alex_col * (a_mx / max(max(alex_col.r, max(alex_col.g, alex_col.b)), 0.001)), ak);
+	}
+	vec3 a_eye = vec3(0.0);
+	if (alex_eye > 0.0) {
+		vec3 vm = normalize((inverse(MODEL_MATRIX) * vec4((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz, 0.0)).xyz);
+		float up = smoothstep(0.25, 0.6, normalize(v_no).y);
+		float d = (v_op.x + vm.x * alex_ew.y) / alex_ew.x;
+		float band = exp(-d * d) * up;
+		a_eye = mix(vec3(0.9, 0.85, 0.62), vec3(1.0, 0.62, 0.42), alex_k) * band * alex_eye * 1.8;
+	}
+	if (alex_p > 0.0) {
+		vec3 nl = normalize(v_no);
+		float ax = smoothstep(0.55, 0.95, abs(nl.y));
+		float az = 0.5 + 0.5 * cos(atan(nl.z, nl.x) * 3.0);
+		float gr = 1.0 - abs(dot(n, VIEW));
+		base = mix(base, vec3(1.0, 0.5, 0.06) * a_mx, ax * 0.5 * alex_p);
+		base = mix(base, vec3(0.62, 0.1, 0.75) * a_mx, (az * 0.12 + gr * 0.28) * (1.0 - ax) * alex_p);
+	}
 	vec3 tint0 = base;
 	float a = opacity * COLOR.a;
 	float r = rough;
@@ -661,7 +685,7 @@ void fragment() {
 	SPECULAR *= 1.0 - 0.6 * enh_dk;
 	SPECULAR *= 1.0 - 0.5 * trap;
 	SPECULAR *= 1.0 - 0.7 * star_k * (1.0 - dirt);
-	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.8 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e;
+	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.8 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e + a_eye;
 	NORMAL = n;
 	ALPHA = 1.0;
 #elif defined(UNSHADED)
@@ -725,7 +749,7 @@ void fragment() {
 	CLEARCOAT = cc;
 	CLEARCOAT_ROUGHNESS = coat_rough;
 	// ultraviolet on an opaque mineral: a glow skin, brighter at the rim, none on the rock part (dirt)
-	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + fluor_col * uvk * (1.0 - dirt) * 0.45 * (0.7 + 0.8 * o_fr * o_fr);
+	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + a_eye + fluor_col * uvk * (1.0 - dirt) * 0.45 * (0.7 + 0.8 * o_fr * o_fr);
 	ALBEDO *= 1.0 - uvk * 0.9 * (1.0 - dirt);
 	NORMAL = n;
 #endif

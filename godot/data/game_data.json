@@ -464,8 +464,8 @@
   },
   "alexandrite": {
    "n": "Alexandrite",
-   "c": "#17785a",
-   "v": 420,
+   "c": "#147046",
+   "v": 650,
    "r": 3
   }
  },
@@ -1099,7 +1099,7 @@
     "azurite": 16,
     "chrysocolla": 14,
     "nativecu": 12,
-    "alexandrite": 5,
+    "alexandrite": 1.5,
     "cuprite": 7,
     "aquamarine": 4,
     "emerald": 1.2
@@ -3159,7 +3159,7 @@
   "smithsonite": "grape",
   "bismuth": "hopper",
   "tourmaline": "prism",
-  "alexandrite": "hexbarrel"
+  "alexandrite": "trilling"
  },
  "TRAITS": [
   {

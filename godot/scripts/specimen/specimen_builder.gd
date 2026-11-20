@@ -50,6 +50,7 @@ func _alex(r: Node3D) -> void:
 		if not done.has(m):
 			var cm := SpecUtil.mat_copy(m)
 			cm.set_shader_parameter("alex_col", Vector3(c.r, c.g, c.b))
+			cm.set_shader_parameter("alex_p", float(SpecLooks.of(_sid).get("pleo", 0.0)))
 			cm.set_meta("alex", true)
 			done[m] = cm
 		(n as MeshInstance3D).material_override = done[m]
@@ -418,7 +419,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	root = Node3D.new()
 	var col := SpecMat.lin_s(sp.c)
 	col = SpecMat.offset_hsl(col, (rng.next() - 0.5) * 0.03, (rng.next() - 0.5) * 0.15, (rng.next() - 0.5) * 0.06)
-	if gi < 2:
+	if gi < 2 and not SpecLooks.of(sid).get("keep_col", false):
 		col = col.lerp(SpecMat.lin(0xb8b4ac), 0.25 - gi * 0.1)
 	var gene := SpecGenome.of(o)
 	gene_m = gene
@@ -3286,6 +3287,14 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		tm.set_shader_parameter("trap_r", minf(bb.size.x, bb.size.z) * 0.5)
 		var cx := Vector3(bb.get_center().x, bb.end.y, bb.get_center().z)
 		_mark("trapiche", cx)
+	if ok and "cats_eye" in (gene_m.accents as Array):
+		# alexandrite's cat's eye: a line of light across the main crystal's top, sliding as it turns (spec.gdshaderinc
+		# alex_eye) — its own copy of the glass, a little milky (the silk of fine needles that makes the eye)
+		var em: ShaderMaterial = SpecUtil.mat_copy(main.material_override as ShaderMaterial if main.material_override is ShaderMaterial else mat)
+		main.material_override = em
+		em.set_shader_parameter("alex_eye", 1.0)
+		em.set_shader_parameter("alex_ew", Vector2(maxf(bb.size.x, bb.size.z) * 0.022, maxf(bb.size.x, bb.size.z) * 0.2))
+		_mark("cats_eye", Vector3(bb.get_center().x, bb.end.y, bb.get_center().z))
 	if ok and "chlorite" in tr:
 		# a ghost of green chlorite dust: an earlier crystal's faces, dusted over, inside the clear one (G2)
 		var cm := SpecMat.make({col = SpecMat.lin(0x3a6a2a), rough = 0.8, grain = 0.6, flat = true})

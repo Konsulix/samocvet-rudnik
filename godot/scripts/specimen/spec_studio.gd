@@ -150,8 +150,20 @@ func set_uv(k: float) -> void:
 ## sink, the haze behind warms (alexandrite's tap: SpecView._lamp)
 const LAMP := [Color("#ffb066"), Color("#5a3a6a"), Color("#ff9a50"), Color("#ffb070")]
 var _lamp := 0.0
+var _lamp_l: OmniLight3D
 func set_lamp(k: float) -> void:
 	_lamp = k
+	# the lamp itself: a warm point light off to the right of the stone, flickering (lamp_flicker)
+	if not _lamp_l and k > 0.0:
+		_lamp_l = OmniLight3D.new()
+		_lamp_l.light_color = Color("#ff9440")
+		_lamp_l.omni_range = 9.0
+		_lamp_l.position = Vector3(2.4, 0.4, 1.8)
+		vp.add_child(_lamp_l)
+	if _lamp_l:
+		_lamp_l.set_meta("k", k)
+		_lamp_l.light_energy = 2.2 * k
+		_lamp_l.visible = k > 0.001
 	for i in _lights.size():
 		var l := _lights[i]
 		if not l.has_meta("c"): l.set_meta("c", l.light_color)
@@ -161,6 +173,13 @@ func set_lamp(k: float) -> void:
 	env.background_energy_multiplier = 1.0 - k * 0.6
 	if _haze:
 		_haze.set_shader_parameter("haze", _haze_c.lerp(Vector3(0.09, 0.045, 0.015), k))
+
+## the lamp's flame breathes: its light and the key's waver a little (a candle's, not a bulb's)
+func lamp_flicker(t: float) -> float:
+	if not _lamp_l: return 1.0
+	var f := 0.86 + 0.09 * sin(t * 7.3) + 0.05 * sin(t * 17.1 + 1.3) + 0.04 * sin(t * 31.0)
+	_lamp_l.light_energy = 2.2 * float(_lamp_l.get_meta("k", 0.0)) * f
+	return f
 
 ## centre the specimen in the void, inside a pivot that we turn
 static func seat(g: Node3D) -> Node3D:

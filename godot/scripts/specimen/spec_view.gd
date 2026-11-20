@@ -275,6 +275,12 @@ func shake_find(k := 1.0) -> void:
 
 func _process(dt: float) -> void:
 	_since += dt
+	# (alexandrite's lamp: the flame breathes, its glow at the card's edge with it)
+	if _lamp_glow and studio._lamp > 0.001:
+		var f := studio.lamp_flicker(_since)
+		_lamp_glow.modulate.a = studio._lamp * f
+	elif _lamp_glow:
+		_lamp_glow.modulate.a = 0.0
 	_shake_cd = maxf(0.0, _shake_cd - dt)
 	if _shake_cd <= 0.0 and is_instance_valid(live):
 		var jerk := (Input.get_accelerometer() - Input.get_gravity()).length()
@@ -419,6 +425,7 @@ func _wet() -> void:
 ## candlelight. It stays so until the next tap
 var _lamp_on := false
 var _lamp_tw: Tween
+var _lamp_glow: TextureRect
 func _lamp() -> void:
 	if not (is_instance_valid(live) and live.get_meta("alex", false)): return
 	var ms: Array = []
@@ -433,10 +440,25 @@ func _lamp() -> void:
 		for m: ShaderMaterial in ms: m.set_shader_parameter("alex_k", x)
 	var a0v: Variant = (ms[0] as ShaderMaterial).get_shader_parameter("alex_k")
 	if _lamp_tw: _lamp_tw.kill()
-	Sfx.play("click")
+	Sfx.play("sh_flame" if _lamp_on else "click")
+	if _lamp_on: Awards.once("tsar_stone")
+	# the lamp's warm glow in from the card's right edge (additive: the shared add shader, not a CanvasItemMaterial)
+	if not _lamp_glow:
+		_lamp_glow = TextureRect.new()
+		_lamp_glow.texture = FxLayer.puff()
+		_lamp_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_lamp_glow.stretch_mode = TextureRect.STRETCH_SCALE
+		_lamp_glow.material = FxLayer.add_material()
+		_lamp_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_lamp_glow.self_modulate = Color(1.0, 0.55, 0.2, 0.55)
+		_lamp_glow.modulate.a = 0.0
+		add_child(_lamp_glow)
+	var gs := size.x * 1.1
+	_lamp_glow.size = Vector2(gs, gs)
+	_lamp_glow.position = Vector2(size.x - gs * 0.38, size.y * 0.42 - gs * 0.5)
 	_lamp_tw = create_tween().set_parallel()
 	_lamp_tw.tween_method(light, studio._lamp, to, 0.9).set_trans(Tween.TRANS_SINE)
-	_lamp_tw.tween_method(stone, float(a0v) if a0v != null else 0.0, to, 1.1).set_trans(Tween.TRANS_SINE).set_delay(0.25)
+	_lamp_tw.tween_method(stone, float(a0v) if a0v != null else 0.0, to, 1.7).set_trans(Tween.TRANS_SINE).set_delay(0.25)
 
 ## pinch, wheel and double tap; true when the event was a zoom (it then does not turn the stone)
 func _zoom_gesture(e: InputEvent) -> bool:

@@ -29,7 +29,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	tm_indicolite = "indicolite", tm_verdelite = "verdelite", tm_paraiba = "Paraiba neon", tm_slice = "polished slice",
 	fly_bluetiger = "blue tiger", fly_hawkmoth = "elephant hawk-moth", fly_chestnut = "chestnut tiger", fly_bluebottle = "common bluebottle", fly_silkmoth = "oak silkmoth", fly_spangle = "long-tailed spangle", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
-	flower = "flower", trapiche = "trapiche star", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
+	flower = "flower", trapiche = "trapiche star", cats_eye = "cat's eye", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## the layouts without a rock floor (SpecimenBuilder: has_base)
 const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray", "slice"]
@@ -203,6 +203,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# emerald's trapiche: a rare one with a dark six-spoked wheel through it (its own stream)
 	if look.has("trapiche") and form in ["single", "columnar"] and Rng32.new((seed_v * 3266489917 + 151) % 4294967296).next() < float(look.trapiche):
 		acc.append("trapiche")
+	# alexandrite's cat's eye (chrysoberyl's chatoyancy): a rare one, a line of light across it (its own stream)
+	if look.has("cats_eye") and Rng32.new((seed_v * 2246822519 + 167) % 4294967296).next() < float(look.cats_eye):
+		acc.append("cats_eye")
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
 	# own stream, so no other gene moves
 	var withs: Array = look.get("with", [])

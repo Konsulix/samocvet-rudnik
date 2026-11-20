@@ -43,6 +43,8 @@ static var LIST := [
 	{tab = "tales", icon = "footsteps", n = "Brother's Footsteps", t = "He was here before you. Every time.", r = "the brother's trail",
 		items = ["i:scroll", "i:scroll", "i:scroll", "i:scroll"], evs = ["tut:s_notebook", "tut:s_poloz_after", "tut:s_proval_arrive", "tut:s_proval_gate"]},
 	{tab = "tales", icon = "atlas_book", n = "The Scholar's Atlas", t = "She can't write as fast as you dig.", r = "Fifty species in the atlas", one = true, ev = "atlas50", give = {coins = 1500, geode = 1}, items = ["i:book"]},
+	{tab = "tales", icon = "tsar", n = "Tsar's Stone", t = "Green by day, red by candlelight: the colours of the Tsar's army.", r = "Light a lamp over an alexandrite",
+		one = true, ev = "tsar_stone", give = {coins = 350, geode = 1}, items = ["sp:alexandrite"]},
 	{tab = "tales", icon = "oyster_moon", n = "Moonlit Sea", t = "It waited four hundred million years for the moon.", r = "pearl gems", items = ["i:oyster_moon"], one = true, ev = "gene:fx:moon"},
 
 	{tab = "coll", icon = "butterfly", n = "Pinned by Nature", t = "They landed on the stone and never left.", r = "butterfly board frame",
