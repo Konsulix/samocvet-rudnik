@@ -240,6 +240,33 @@ func _mark_on(id: String, m: Node3D) -> void:
 	else:
 		_mark(id, pts[0][0], pts[0][1])
 
+## a spot high on a crystal's face that looks at the viewer — above the rock's crust at its foot (atypical habit:
+## the point went anywhere above a third of the height and often sat in the crust or behind the crystal). Draws the
+## same random numbers as _mark_on, so the other callouts stay where they were
+func _mark_face(id: String, m: Node3D) -> void:
+	_mark_on(id, m)
+	if not (m and m.has_meta("geo")):
+		return
+	var g: Geo = m.get_meta("geo")
+	var bb := g.aabb()
+	var xf := U.rel_xform(m, root)
+	var best := -INF
+	var bp := Vector3.ZERO
+	var bn := Vector3.ZERO
+	for i in g.tri_count():
+		var t := g.tri(i)
+		var c: Vector3 = (t[0] + t[1] + t[2]) / 3.0
+		var f := (c.y - bb.position.y) / maxf(bb.size.y, 0.001)
+		if f < 0.55 or f > 0.92: continue
+		var nw: Vector3 = (xf.basis * (t[1] - t[0]).cross(t[2] - t[0])).normalized()
+		var k := nw.dot(VIEW_DIR) + f * 0.6
+		if k > best:
+			best = k
+			bp = xf * c
+			bn = nw
+	if best > -INF:
+		grown[id] = [[bp, bn]]
+
 ## another mineral on the same rock (SpecLooks with): "blades" — pale glassy tablets standing on it (celestine on
 ## sulphur); "crust" — a matte crust of small grains spread in patches over it (sulphur on aragonite, orpiment)
 func _companion(what: String, c: Color, id: String, st: Dictionary) -> void:
@@ -1413,7 +1440,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	var crystals := main != null and not (layout in ["nugget", "vein", "botryoid", "sawn", "balls", "fans", "staircase", "grapes"])
 	if "scepter" in tr and main and layout in ["single", "floater"] and habit in ["prism", "blade"]: _mark("scepter", _mid(main, 0.9))
 	if "floater" in tr and layout == "floater": _mark("floater", _mid(main, 0.15))
-	if "atypical" in tr and main: _mark_on("atypical", main)
+	if "atypical" in tr and main: _mark_face("atypical", main)
 	if "zoned" in tr and crystals: _mark_on("zoned", main)
 	for ti in ["irid", "aurora"]:
 		if ti in tr and ((mat and gene.lustre != "dark") or layout == "botryoid"): _mark_on(ti, main)
