@@ -17,6 +17,7 @@ var under: Node2D            # mud and rocks: redrawn only when the board change
 var gas_layer: Node2D        # the gas, one shader over all its cells (shaders/gas.gdshader)
 var live: Node2D             # gas, geodes, the find: they breathe, pulse and shake, so redrawn every frame while present
 var gems: Node2D
+var gem_clip: Control   # the stones' clip: from the top of the first row down (_fit_clip)
 var over: Node2D             # timber locks sit on top of their stones
 var marks: Array = []        # cells the boss is about to hit (LevelBoss)
 var board3d: Board3D         # the stones themselves, faceted 3D gems seen from straight above
@@ -111,9 +112,17 @@ func _ready() -> void:
 	mech_layer = _layer(func(ci: Node2D): if model: BoardMech.draw_mech(self, ci, Time.get_ticks_msec() / 1000.0))
 	forge_layer = _layer(_draw_forge)
 	forge_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# (20.11) the stones come in from under the frame: they are clipped at the top of the first row, not at the frame's
+	# outer edge (they slid in over its top bar). Left, right and bottom as wide as the board
+	gem_clip = Control.new()
+	gem_clip.clip_contents = true
+	gem_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(gem_clip)
 	gems = Node2D.new()
 	gems.light_mask = 0
-	add_child(gems)
+	gem_clip.add_child(gems)
+	_fit_clip()
+	resized.connect(_fit_clip)
 	belt_view = BeltView.new()
 	belt_view.light_mask = 0
 	add_child(belt_view)
@@ -161,6 +170,13 @@ func layout(avail: Vector2, rows: int, cols: int) -> void:
 	PAD = ceilf(TS * rim)
 	custom_minimum_size = Vector2(C * TS + PAD * 2, R * TS + PAD * 2)
 	size = custom_minimum_size
+	_fit_clip()
+
+func _fit_clip() -> void:
+	if gem_clip == null: return
+	gem_clip.position = Vector2(0, PAD)
+	gem_clip.size = Vector2(size.x, maxf(0.0, size.y - PAD))
+	gems.position = Vector2(0, -PAD)
 
 func cell_center(r: float, c: float) -> Vector2:
 	return Vector2(PAD + (c + 0.5) * TS, PAD + (r + 0.5) * TS)
