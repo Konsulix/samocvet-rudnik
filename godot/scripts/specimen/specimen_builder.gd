@@ -448,7 +448,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	# (the lumps that are no crystals — a vein's quartz, a nugget, malachite — take it too: RockKit.chip)
 	hurt = zcfg.get("dmg", {})
 	dt = {h = -99.0, a = 0.4, col = Color(0.1, 0.1, 0.1), fr = 0.7 if rng.next() < 0.5 else 0.0, local = false}
-	var limonite := "limonite" in tr
+	var limonite := "limonite" in tr and not "limonite" in (gene.lost as Array)   # (not on ironstone: unseen — SpecGenome)
 	var kind: String = o.get("kind", "crystal")
 	var elongated := habit in ["prism", "blade", "barrel", "scaleno"]
 	var needs_rock := "moss" in tr or "coral" in tr

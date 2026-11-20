@@ -341,6 +341,8 @@ static func of(o: Dictionary) -> Dictionary:
 	if "bubbles" in tr and (form in ["radial", "floater", "obsidian", "simetite"] or (habit == "fossil" and not on_rock)): lost.append("bubbles")
 	if "moss" in tr and (form in NO_BASE or sea_floor): lost.append("moss")   # (no moss on the sea floor)
 	if "silver" in tr and form in ["botryoid", "geode"]: lost.append("silver")
+	# (20.11, playtest: «where is the limonite?») rusty stains on a rock that is itself rust-brown ironstone: not seen
+	if "limonite" in tr and rock == "ironstone": lost.append("limonite")
 	# (19.11) no water pocket in a dark crystal (nothing inside it shows) nor in one with a phantom (one thing inside)
 	if "enhydro" in tr and (lustre == "dark" or "phantom" in tr) and not "enhydro" in lost: lost.append("enhydro")
 	# a desert rose (gypsum full of sand) or an iron rose is opaque petals: nothing inside it shows — no water bubble,
