@@ -103,7 +103,7 @@ static func of(o: Dictionary) -> Dictionary:
 					else: opts = [["hopper", 3.0], ["cluster", 3.0 if druse else 0.8], ["single", 1.5], ["pile", 2.0]]
 				_:
 					opts = [["single", 3.0], ["cluster", 4.0 if druse else 1.0], ["pile", 3.0]]
-		form = Stones.pick_w(opts, rng)
+		form = Stones.pick_w(Stones.depth_forms(opts, int(o.get("dl", -1))), rng)
 	# a twin and a sceptre are built on a crystal standing alone (SpecimenBuilder "single"): a crowded layout gives way
 	# to one, or the gene would be rolled, priced and never grown (tests/grow_audit)
 	if form in ["cluster", "columnar", "pile", "slabs", "hexplates", "hopper"] and ("twin" in tr or ("scepter" in tr and habit in ["prism", "blade"])):

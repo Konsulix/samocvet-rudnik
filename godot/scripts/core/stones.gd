@@ -189,7 +189,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	for e: Array in pool_at(area, dl):
 		entries.append([e[0], float(e[1]) * pow(1.0 + luck * 0.8, Data.SP[e[0]].r)])
 	var sid: String = pick_w(entries, rng)
-	var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else pick_w(SpecLooks.kinds(sid), rng)
+	var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else pick_w(depth_kinds(SpecLooks.kinds(sid), dl), rng)
 	var ge := []
 	for k in Data.GR.size():
 		ge.append([k, Data.GR[k].w * pow(1.0 + luck * 0.5, k * 0.6)])
@@ -243,7 +243,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 			g = roundi(700.0 * (1.0 + br.next() * 1.4) * (1.0 + dl * DEPTH_G * 0.5))
 	# the price is its beauty (Worth): the body by species, squeezed, and every gene's points on top — the same on any
 	# body, so a common stone rich in genes outprices a plain rare one. The genes are read as the builder will grow them.
-	var go := {seed = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend}
+	var go := {seed = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, dl = dl}
 	if skull != "":
 		go.form = "skull"
 		go.skin = skull
@@ -253,7 +253,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	# traits (they make its own genes: rainbow film is its ammolite) — they are only not priced twice
 	if kind != "fossil" and (gene.lost as Array).size():
 		traits = traits.filter(func(t: String) -> bool: return not t in gene.lost)
-	var out := {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, tier = tier_of(sid, gi, legend)}
+	var out := {id = seed_id, sid = sid, kind = kind, gi = gi, traits = traits, legend = legend, g = g, tier = tier_of(sid, gi, legend), dl = dl}
 	if skull != "":
 		out.form = "skull"
 		out.skin = skull
@@ -282,6 +282,71 @@ static func price(st: Dictionary, area: int, _dl := 0) -> int:
 	value *= 1.3 * size_k(st) * Worth.PRICE
 	return roundi(capped(value, area))
 
+## (20.11, playtest: «no tie between a find's weight and its look») the deeper, the bigger and more crowded a find:
+## near the top mostly lone crystals and small heaps, below druses on slabs and geodes. `deep` 0..1 — how far down
+## the mine (DEEP_DL depths and below: all the way). The draw stays one draw: only the odds move
+const DEEP_DL := 6.0
+static func deep_of(dl: int) -> float:
+	return clampf(dl / DEEP_DL, 0.0, 1.0)
+
+static func depth_kinds(kinds: Array, dl: int) -> Array:
+	var f := deep_of(dl)
+	return kinds.map(func(e: Array) -> Array:
+		var k := 1.8 - 1.4 * f if e[0] == "crystal" else 0.5 + 1.3 * f if e[0] == "druse" else 0.4 + 1.2 * f if e[0] == "geode" else 1.0
+		return [e[0], float(e[1]) * k])
+
+## the layouts by depth, the same way: lone ones above, crowded ones below (SpecGenome; -1 — not known: as they were)
+const LONE := ["single", "pile", "floater"]
+const CROWDED := ["cluster", "columnar", "hopper", "radial", "slabs", "spray", "platestack"]
+static func depth_forms(opts: Array, dl: int) -> Array:
+	if dl < 0: return opts
+	var f := deep_of(dl)
+	return opts.map(func(e: Array) -> Array:
+		var k := 1.8 - 1.4 * f if e[0] in LONE else 0.4 + 1.6 * f if e[0] in CROWDED else 1.0
+		return [e[0], float(e[1]) * k])
+
+## a find's weight from its model (20.11): what was built of it — rock at 2.7 g/cm³, the mineral at its own density —
+## so a crystal on a big rock is heavy, a lone one on a pebble light, gold heavy, amber light. Set when the stone is
+## first built (its card), the price moved with it by the same ratio (condition and the rest stay in it): `gm` marks it.
+## Fossils and skulls keep the rolled weight (their models carry seas, swimmers, crowns)
+const DENSITY := {gold = 19.3, nativecu = 8.9, acanthite = 7.2, galena = 7.5, cinnabar = 8.1, cuprite = 6.1, proustite = 5.6,
+	pyrite = 5.0, marcasite = 4.9, hematite = 5.3, chalcopyrite = 4.2, millerite = 5.4, bismuth = 9.8, stibnite = 4.6, wulfenite = 6.8,
+	vanadinite = 6.9, crocoite = 6.0, barite = 4.5, celestine = 4.0, sphalerite = 4.0, malachite = 4.0, azurite = 3.8, siderite = 3.9,
+	smithsonite = 4.4, garnet = 4.1, pyrope = 3.7, ruby = 4.0, sapphire = 4.0, diamond = 3.5, fluorite = 3.2, apatite = 3.2,
+	tourmaline = 3.1, olivine = 3.3, dioptase = 3.3, jadeite = 3.3, erythrite = 3.1, rhodochrosite = 3.7, vivianite = 2.7,
+	amber = 1.1, simetite = 1.1, opal = 2.1, hyalite = 2.1, sulphur = 2.07, gypsum = 2.3, chrysocolla = 2.2, obsidian = 2.4,
+	cavansite = 2.3, natrolite = 2.2, whewellite = 2.2, realgar = 3.5}
+const ROCK_D := 2.7
+## grams a unit of the model's mass (tests/mass_calib: the mean price of the finds at each depth stays as it was)
+const MASS_K := 570.0
+## a model-weighed find's price goes by its weight against the mean of its kind (as the rolled weight did against
+## base_g × 2.79): tests/mass_calib, the model's grams without the depth's growth
+const MODEL_REF := {crystal = 485.0, druse = 500.0, geode = 1400.0, nugget = 650.0}
+
+static func settle(s: Dictionary, root: Node3D) -> bool:
+	if s.get("gm", false) or String(s.get("kind", "")) == "fossil" or String(s.get("form", "")) == "skull" or s.get("gulp", false): return false
+	var m: Dictionary = root.get_meta("mass", {})
+	if m.is_empty() or float(m.rock) + float(m.min) <= 0.0: return false
+	var dl := int(s.get("dl", 0))
+	var area := int(s.get("area", Save.area()))
+	var sid := String(s.sid)
+	var d := float(DENSITY.get(sid, 2.7))
+	# (a nugget's model is mostly the quartz it sits in, the metal threads through it: not all of it gold)
+	if String(s.get("kind", "")) == "nugget": d = 2.65 + 0.15 * (d - 2.65)
+	# (by how much of its frame it fills: SpecimenBuilder.mass_of span — a card shows every find the same size)
+	var mass := (float(m.rock) * ROCK_D + float(m.min) * d) / pow(float(m.get("span", 1.0)), 3.0)
+	# a little of its own on top (two stones of one look are not to the gram), and deeper finds bigger, as they were
+	var vary := pow(1.5, Rng32.new((int(s.id) * 2654435761 + 77) % 4294967296).next() - 0.5)
+	var was := price(s, area, dl)
+	var g0 := int(s.get("g", 0))
+	var v0 := int(s.get("value", 0))
+	s.g = maxi(1, roundi(MASS_K * mass * vary * (3.0 if bool(s.get("legend", false)) else 1.0) * (1.0 + dl * DEPTH_G)))
+	s.gm = true
+	var now := price(s, area, dl)
+	if was > 0: s.value = maxi(1, roundi(float(s.get("value", was)) * float(now) / float(was)))
+	Diag.note("weighed by its model: %s %d g -> %d g, %d -> %d coins" % [sid, g0, int(s.g), v0, int(s.value)])
+	return true
+
 ## a find's usual weight before its size and depth (grams)
 static func base_g(kind: String, sid: String) -> float:
 	if sid == "pearl": return 30.0   # its oyster, mostly
@@ -290,6 +355,7 @@ static func base_g(kind: String, sid: String) -> float:
 ## how much its size adds: √(weight / the middle weight of its kind), the middle of the top depth's sizes ×1
 static func size_k(st: Dictionary) -> float:
 	var ref := base_g(String(st.get("kind", "crystal")), String(st.sid)) * 2.79
+	if st.get("gm", false): ref = float(MODEL_REF.get(String(st.get("kind", "crystal")), ref))
 	if String(st.get("form", "")) == "skull": ref = 900.0 * 1.4 if not st.has("beast") else 700.0 * 1.7
 	return clampf(sqrt(float(st.get("g", ref)) / ref), 0.5, 3.5)
 

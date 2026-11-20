@@ -31,7 +31,40 @@ static func build(o: Dictionary) -> Node3D:
 		return SpecMachines.build(o.machine)
 	if o.has("jewel"):
 		return SpecJewels.build(int(o.get("seed", 1)), o.jewel)
-	return b._specimen(o)
+	var r := b._specimen(o)
+	if r: r.set_meta("mass", b.body_mass if not b.body_mass.is_empty() else mass_of(r))
+	return r
+
+## the bulk of what was built (Stones.settle): the boxes of its meshes, half full, in the find's own space — the rock's
+## (meta base, or a rock material) and the mineral's apart. Not what grows on it (moss, flowers: multimeshes mostly)
+## nor what swims about it (top_level)
+var body_mass := {}   # (taken as the body is done: _specimen, before anything grows on it)
+
+static func mass_of(r: Node3D, body := false) -> Dictionary:
+	var rock := 0.0
+	var mineral := 0.0
+	var all := AABB()
+	var first := true
+	for n in r.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.top_level or not mi.visible: continue
+		var top: Node = mi
+		while top.get_parent() and top.get_parent() != r: top = top.get_parent()
+		if not body and String(top.get_meta("gene", "body")) != "body": continue
+		var bb := AABB()
+		if mi.mesh: bb = mi.mesh.get_aabb()
+		elif mi.has_meta("geo"): bb = (mi.get_meta("geo") as Geo).aabb()
+		else: continue
+		var w := U.rel_xform(mi, r) * bb
+		all = w if first else all.merge(w)
+		first = false
+		var v := w.size.x * w.size.y * w.size.z * 0.5
+		var cm := mi.material_override
+		if mi.has_meta("base") or (cm and cm.has_meta("rock")): rock += v
+		else: mineral += v
+	# (`span`: the find's size as its card frames it — the card fits every find to the same frame, so what reads as
+	# heavy is how much of that frame is stone: a chunk filling it, not a spindly sceptre)
+	return {rock = rock, min = mineral, span = maxf(0.01, maxf(all.size.x, all.size.y))}
 
 # ---------------------------------------------------------------- specimen
 
@@ -1399,6 +1432,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	# from here on whatever settles on the rock (plants, puffs, sprays, crusts, flakes, bubbles) keeps out of
 	# the crystals: a spot under one is picked again, a few times, and the pits under them are dropped.
 	# Moss and coral are the exception (`pick_any`, `hollows_all`): grown thick, the crystals look pushed up through them
+	body_mass = mass_of(root, true)   # (the rock and the crystals, nothing grown yet: Stones.settle)
 	boxes = _crystal_boxes(main, mat)
 	# an association: the second species grows on the free rock beside the first (and nothing grows through it after)
 	# the hero crystal is the gem of the group: cloud only at its root (clarity by parts; SpecForms._hero set its own)

@@ -131,6 +131,7 @@ static func key_of(o: Dictionary) -> String:
 		tail = "|skull" + ("|" + String(o.beast) if o.has("beast") else "")
 	if int(o.get("integ", 100)) < 100: tail += "|i%d" % int(o.integ)
 	if o.get("gulp", false): tail += "|gulp"
+	if o.has("dl"): tail += "|d%d" % int(o.dl)
 	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
 		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("fx", "")] + tail
 
@@ -138,6 +139,8 @@ static func key_of(o: Dictionary) -> String:
 static func of_stone(s: Dictionary) -> Dictionary:
 	var o := {seed = s.id, sid = s.sid, kind = s.get("kind", "crystal"), gi = s.gi, traits = s.get("traits", []), legend = s.get("legend", false), cut = s.get("cut", "")}
 	if s.has("fx"): o.fx = s.fx
+	# (the depth it came from: deeper finds grow more crowded — SpecGenome, Stones.depth_forms)
+	if s.has("dl"): o.dl = int(s.dl)
 	if s.has("shroom"): o.shroom = s.shroom
 	# how well it came out of the rock: a careless dig shows on the stone (SpecimenBuilder.damage_of)
 	if int(s.get("integ", 100)) < 100: o.integ = int(s.integ)

@@ -517,7 +517,7 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 			return
 		Save.gone(s)
 		Save.d.coll.erase(s)
-		Save.d.coins += price
+		Save.d.coins += roundi(float(s.value) * Save.coin_mul())
 		Save.persist()
 		Sfx.play("coin")
 		Ov.close()
@@ -531,6 +531,9 @@ func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 					Ov.close()
 					plain.call()],
 				["Keep it", "glass", func(): _open_stone(s, group)]])
+	# (weighed by its model when first built — Stones.settle in the card: the button follows)
+	view.built.connect(func(_p: Node3D) -> void:
+		if is_instance_valid(sell_b) and sell_b.text.begins_with("Sell ·"): sell_b.text = "Sell · " + UI.coins(roundi(float(s.value) * Save.coin_mul())))
 	if cut_done:
 		sell_b.custom_minimum_size = Vector2(0, 48)
 		sell_b.pressed.connect(sell)

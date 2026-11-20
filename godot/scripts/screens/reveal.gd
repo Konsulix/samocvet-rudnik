@@ -37,9 +37,8 @@ func show_stone(s: Dictionary, others := []) -> void:
 		var names := []
 		for o in others: names.append(Stones.name_of(o))
 		v.add_child(Ov.text("The others were: " + ", ".join(names), 13))
-	var price := roundi(float(s.value) * Save.coin_mul())
 	var sell := func():
-		Save.d.coins += price
+		Save.d.coins += roundi(float(s.value) * Save.coin_mul())
 		Save.paid(s.get("id", -1))
 		Save.persist()
 		Sfx.play("coin")
@@ -60,7 +59,13 @@ func show_stone(s: Dictionary, others := []) -> void:
 		await Awards.say_after_find(says_before)
 		finished.emit()
 	# (a new record says so by its ribbon - a tap on it tells the rule the first time - not by a line on every find)
-	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(price), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)
+	_row_make = func() -> Control: return action_row(Kit.button("Sell · " + UI.coins(roundi(float(s.value) * Save.coin_mul())), "btn_gold", 16, 4.0), sell, Kit.button("Keep", "btn_green", 17, 4.0), keep)
+	# (the card weighed it by its model — Stones.settle on `shown`: the find takes the weight and price, the Sell button too)
+	view.built.connect(func(_p: Node3D) -> void:
+		if not shown.get("gm", false) or s.get("gm", false): return
+		for k in ["g", "value", "gm"]: s[k] = shown[k]
+		if is_instance_valid(_btn_row):
+			sell_text(_btn_row, roundi(float(s.value) * Save.coin_mul())))
 	if reply != "":
 		var b := Kit.button(reply, "btn_gold", 17, 4.0)
 		b.custom_minimum_size = Vector2(0, 48)
@@ -83,6 +88,11 @@ func show_stone(s: Dictionary, others := []) -> void:
 				Ov.close()
 				await Awards.say_after_find(says_before)
 				finished.emit(), hunt_button(), hunt))
+
+## a card's Sell button told its new price (once the stone was weighed by its model)
+static func sell_text(row: Node, price: int) -> void:
+	for b in row.find_children("*", "Button", true, false):
+		if (b as Button).text.begins_with("Sell ·"): (b as Button).text = "Sell · " + UI.coins(price)
 
 ## what goes into the inventory for a kept find: `entry` (what Keep sets: where it was found, the traits and tier as the
 ## card shows them) and everything else the find carries as it is — its integrity above all (18.11: Keep built its
@@ -354,14 +364,22 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		return view
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 8)
-	_stat(stats, "Weight", Stones.fmt_weight(int(s.g)))
+	var wl := _stat(stats, "Weight", Stones.fmt_weight(int(s.g)))
 	# the condition: how carefully it was dug out (the old grade letter is gone). A stone from a geode or a reward
 	# was never blasted: pristine
 	var cond := Stones.condition(int(s.get("integ", 100)))
 	var ci := int(cond[0])
-	_stat(stats, "Condition", String(cond[1]), UI.GOOD if ci >= 100 else Kit.CREAM if ci >= 80 else Color("#f0b040") if ci >= 50 else Color("#ff6a5a"))
-	_stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
+	# (by its place in the list, not the old thresholds: Pristine is 88 and up now, Fine 70 — 20.11)
+	var cix := Stones.CONDITION.find(cond)
+	_stat(stats, "Condition", String(cond[1]), [UI.GOOD, Kit.CREAM, Color("#f0b040"), Color("#ff6a5a")][clampi(cix, 0, 3)])
+	var vl := _stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
 	v.add_child(stats)
+	# its weight from what was built (Stones.settle, 20.11): the first time the stone is built, the card's figures move to it
+	view.built.connect(func(p: Node3D) -> void:
+		if Stones.settle(s, p):
+			if is_instance_valid(wl): wl.text = Stones.fmt_weight(int(s.g))
+			if is_instance_valid(vl): vl.text = UI.fmt(int(s.value))
+			if s in Save.d.coll: Save.persist())
 	var gene := SpecGenome.of(so)
 	var flow := HFlowContainer.new()
 	flow.alignment = FlowContainer.ALIGNMENT_CENTER
@@ -611,14 +629,17 @@ static func _row(box: VBoxContainer, k: String, val: String, col := UI.INK) -> v
 	box.add_child(h)
 
 ## one figure under the specimen: a small muted caption over a bold value
-static func _stat(box: HBoxContainer, k: String, val: String, col := UI.INK) -> void:
+static func _stat(box: HBoxContainer, k: String, val: String, col := UI.INK) -> Label:
 	var c := VBoxContainer.new()
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	c.add_theme_constant_override("separation", 0)
+	var out: Label = null
 	for l in [UI.label(k, 12, UI.body, UI.MUTED), UI.label(val, 17, UI.body_bold, col)]:
 		(l as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		c.add_child(l)
+		out = l
 	box.add_child(c)
+	return out
 
 ## a gene's tag: just the word over a thin brass bar whose ends flare into notched tails, no box (chosen from GPT's
 ## sheet art/ui_kit/chips/ideas_a.png, no. 2; the bar is a texture, art/ui_kit/chips/underline.py: its ends stay as
