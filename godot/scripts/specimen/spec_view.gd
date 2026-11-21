@@ -504,7 +504,7 @@ func _sprout() -> void:
 		gm.set_shader_parameter("grow_w", (y1 - y0) * 0.045)
 		gm.set_shader_parameter("grow_col", hot)
 		gm.set_shader_parameter("grow_heat", 0.0)
-		gm.set_shader_parameter("grow_r", 0.22)
+		gm.set_shader_parameter("grow_r", 1.0)
 		# (its point of faces while it grows: six, each its own tilt, turned its own way)
 		var fs: Array = []
 		for q in 6: fs.append(0.6 + randf() * 0.9)
@@ -541,8 +541,8 @@ func _sprout() -> void:
 		var dur := 2.0 if is_big else 1.3
 		grown = maxf(grown, at + dur)
 		var w := (y.y - y.x) * 0.045
-		# (in layers: a quick surge, a breath, the next — a line of light left at each; a thin needle first, then it
-		# swells to its full girth)
+		# (in layers: a quick surge, a breath, the next — a line of light left at each; full width from the start — a
+		# needle swelling out read as a mushroom growing, not a crystal)
 		var layers := 6 if is_big else 4
 		var step := (y.y - y.x) / layers
 		gm.set_shader_parameter("grow_step", step)
@@ -553,7 +553,6 @@ func _sprout() -> void:
 			gm.set_shader_parameter("grow_h", y.x + step * (lay + e))
 		tw.tween_method(surge, 0.0, float(layers), dur).set_delay(at)
 		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.y, y.y + w * 7.0, 0.35).set_delay(at + dur)
-		tw.tween_method(func(r: float) -> void: gm.set_shader_parameter("grow_r", r), 0.22, 1.0, dur * 0.9).set_delay(at + dur * 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		# (hot as it comes, cooling as it stands)
 		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.9, 0.12).set_delay(at)
 		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.9, 0.0, dur + 1.8).set_delay(at + 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -578,7 +577,6 @@ func _sprout() -> void:
 		var at := hold + (cs.size() - 1 - i) * 0.05
 		end = maxf(end, at + 0.7)
 		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.7, 0.3).set_delay(at)
-		tw.tween_method(func(r: float) -> void: gm.set_shader_parameter("grow_r", r), 1.0, 0.3, 0.7).set_delay(at).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.y + w * 7.0, y.x, 0.7).set_delay(at).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.tween_method(crack_k, 0.0, 0.8, 0.3).set_delay(hold + 0.2)
 	tw.tween_method(crack_k, 0.8, 0.0, 0.9).set_delay(end - 0.2)
