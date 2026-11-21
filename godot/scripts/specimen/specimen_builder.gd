@@ -451,6 +451,12 @@ func _specimen(o: Dictionary) -> Node3D:
 		col = col.lerp(SpecMat.lin(0xb8b4ac), 0.25 - gi * 0.1)
 	var gene := SpecGenome.of(o)
 	gene_m = gene
+	# (21.11, tests/pair_audit) what the genome drops beside another gene (SpecGenome lost: a twin under a sceptre,
+	# silver with no rock, rutile in a small crystal of an atypical crowd) is not drawn on a stone that rolled it before
+	# either — a chip for something unseen. (A fossil's traits stay: its own genes come of them)
+	if habit != "fossil" and tr.any(func(t: String) -> bool: return t in (gene.lost as Array)):
+		tr = tr.filter(func(t: String) -> bool: return not t in (gene.lost as Array))
+		trs = tr
 	# an atypical find may grow another crystal than its species (SpecLooks.odd: apatite as a barrel)
 	habit = String(gene.get("habit", habit))
 	# the traits the species always has (amethyst and fluorite are zoned): its look, on top of what it rolled

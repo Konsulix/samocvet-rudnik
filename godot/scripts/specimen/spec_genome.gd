@@ -109,7 +109,8 @@ static func of(o: Dictionary) -> Dictionary:
 	# (21.11, playtest: «where is the atypical habit?») not when the layout is the atypical one: it stays, the twin goes
 	if form in ["cluster", "columnar", "pile", "slabs", "hexplates", "hopper"] and not "atypical" in tr and ("twin" in tr or ("scepter" in tr and habit in ["prism", "blade"])):
 		form = "single"
-	if ("moss" in tr or "coral" in tr) and form in ["floater", "radial"]:
+	# (21.11, tests/pair_audit: not over an atypical layout — that stays, the moss or coral goes: lost below)
+	if ("moss" in tr or "coral" in tr) and form in ["floater", "radial"] and not "atypical" in tr:
 		form = "cluster" if druse else "single"
 	var rock: String
 	if form == "nugget": rock = "quartzite" if rng.next() < 0.6 else "basalt"
@@ -338,6 +339,18 @@ static func of(o: Dictionary) -> Dictionary:
 	if "twin" in tr and form != "single": lost.append("twin")
 	# (21.11, tests/pair_audit) an aurora is the rainbow film at its strongest: beside it the plain film shows nothing more
 	if "irid" in tr and "aurora" in tr and not "irid" in lost: lost.append("irid")
+	# (21.11, tests/pair_audit over every mine's finds) what lies on the rock, where there is none: the silver rim of
+	# its ridges, coral and moss under the crystals; limonite's rust at a foot in the rock, by a crystal floating free
+	for t in ["silver", "coral", "moss"]:
+		if t in tr and form in NO_BASE and not t in lost: lost.append(t)
+	if "limonite" in tr and form in ["floater", "radial"] and not "limonite" in lost: lost.append("limonite")
+	# a twin and a sceptre on one lone crystal: the sceptre's head took the twin out of sight — the sceptre stays
+	if "twin" in tr and "scepter" in tr and not "twin" in lost and not "scepter" in lost: lost.append("twin")
+	# an atypical crowd (rays, a heap, plates): the main crystal is one small one among many — what lives inside one
+	# crystal's glass (rutile, a phantom, chlorite, a water bubble) is not seen
+	if "atypical" in tr and form in ["radial", "pile", "slabs", "hexplates", "platestack", "spray", "rosette"]:
+		for t in ["rutile", "phantom", "chlorite", "enhydro"]:
+			if t in tr and not t in lost: lost.append(t)
 	if "scepter" in tr and "atypical" in tr and not form in ["single", "floater"] and not "scepter" in lost: lost.append("scepter")
 	if "scepter" in tr and not (form in ["single", "floater"] and hb in ["prism", "blade"]): lost.append("scepter")
 	if "floater" in tr and form != "floater": lost.append("floater")
