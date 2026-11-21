@@ -1641,7 +1641,7 @@ func _specimen(o: Dictionary) -> Node3D:
 		rng = Rng32.new((seed_v * 2246822519 + 313) % 4294967296)
 		var made := 0
 		var tries := 0
-		var n_want := 10 + int(rng.next() * 7)
+		var n_want := 6 + int(rng.next() * 3)   # (fewer, one after another: 10–16 at once were a muddle)
 		root.set_meta("sprout_col", col)
 		while made < n_want and tries < n_want * 6:
 			tries += 1

@@ -22,7 +22,8 @@ uniform float grow_r = 1.0;      // its girth: a thin needle first, swelling to 
 uniform float grow_s = 0.0;      // >0: the front is no flat cut but a point of faces — six, each its own tilt (grow_fs)
 uniform float grow_fs[6];
 uniform float grow_rot = 0.0;
-uniform float grow_step = 0.0;   // >0: it grew in layers this high — a line of light left at each, fading as it cools
+uniform float grow_step = 0.0;
+uniform float grow_sweep = -1000.0;   // a band of light running up the crystal (object y): the last one's flourish   // >0: it grew in layers this high — a line of light left at each, fading as it cools
 // and the rock it comes from splitting open: glowing cracks drawn in the rock itself, out from each place
 // (xyz in the rock's object space, w how far they have run)
 uniform int gc_n = 0;
@@ -207,6 +208,8 @@ void fragment() {
 		g_front = exp(-gd * gd / (gw * gw)) + exp(-gd / (grow_w * 4.0)) * 0.25;
 		// (face by face: the ones turned to the eye bright, the others dimmer — the point reads as cut faces)
 		if (gd < grow_w * 0.25) g_front *= 0.4 + 0.9 * pow(max(0.0, dot(n, VIEW)), 2.0);
+		float sw = (v_op.y - grow_sweep) / max(grow_w, 1e-4);
+		g_front += exp(-sw * sw) * 1.6;
 		if (grow_step > 0.0) {
 			// the layers it grew in: a thin line at each boundary, the fresh ones bright, all fading with its heat
 			float lf = fract(v_op.y / grow_step + 0.5) - 0.5;

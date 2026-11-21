@@ -446,11 +446,15 @@ func _sprout() -> void:
 	var gc: Color = live.get_meta("glow", Color(0.7, 0.85, 1.0))
 	var sc: Color = live.get_meta("sprout_col", gc)
 	# a colourless stone has no colour to glow in: a magic one of its own (ice blue)
+	var clear := false
 	if maxf(sc.r, maxf(sc.g, sc.b)) - minf(sc.r, minf(sc.g, sc.b)) < 0.12 * maxf(sc.r, maxf(sc.g, sc.b)):
 		sc = Color(0.35, 0.62, 1.0)
+		clear = true
 	# (bright enough to read, its hue kept: the strongest channel to 1)
 	var mx := maxf(sc.r, maxf(sc.g, sc.b))
 	var hot := Vector3(sc.r, sc.g, sc.b) / maxf(mx, 0.001)
+	# (cracks on a colourless stone: a deep blue, softer — light blue came out as white paint)
+	var crack_col := Vector3(0.1, 0.32, 1.0) * 0.55 if clear else hot * 0.9
 	var aabb := AABB()
 	for i in cs.size():
 		var bb := (cs[i] as MeshInstance3D).global_transform * (cs[i] as MeshInstance3D).get_aabb()
@@ -489,7 +493,7 @@ func _sprout() -> void:
 	var crack_k := func(k: float) -> void:
 		for r: Array in rocks: (r[0] as ShaderMaterial).set_shader_parameter("gc_k", k)
 	for r: Array in rocks:
-		(r[0] as ShaderMaterial).set_shader_parameter("gc_col", hot * 0.9)
+		(r[0] as ShaderMaterial).set_shader_parameter("gc_col", crack_col)
 		(r[0] as ShaderMaterial).remove_meta("gc")
 	# each crystal's own glass: hidden until its turn (grow_h below −999), then whole — no front, only its heat
 	var full := {}
@@ -504,6 +508,7 @@ func _sprout() -> void:
 		gm.set_shader_parameter("grow_r", 1.0)
 		gm.set_shader_parameter("grow_s", 0.0)
 		gm.set_shader_parameter("grow_step", 0.0)
+		gm.set_shader_parameter("grow_sweep", -1000.0)
 	var ghost_mat := func(s: float) -> ShaderMaterial:
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://shaders/sprout_ghost.gdshader")
@@ -534,14 +539,18 @@ func _sprout() -> void:
 	# of it. At each size it leaves its outline of light inside the glass — a phantom, a growth zone — fading as it cools
 	var grown := 0.0
 	var ghosts: Array = []
+	var t_next := wake
 	for i in cs.size():
 		var c := cs[i] as MeshInstance3D
 		var gm := c.material_override as ShaderMaterial
 		var fb: Basis = full[c]
 		var is_big := i >= small.size()
-		var at := wake + i * 0.11 + (0.25 if is_big else 0.0)
-		var steps := 5 if is_big else 4
-		var beat := 0.34 if is_big else 0.28
+		var is_last := i == cs.size() - 1
+		# (one after another, so each is seen growing; the big ones slower; the last its own turn)
+		var at := t_next + (0.15 if is_big else 0.0) + (0.4 if is_last else 0.0)
+		var steps := 6 if is_last else 5 if is_big else 4
+		var beat := 0.5 if is_last else 0.34 if is_big else 0.26
+		t_next = at + (0.5 if is_big else 0.3)
 		grown = maxf(grown, at + steps * beat)
 		tw.tween_callback(func() -> void:
 			if not is_instance_valid(c): return
@@ -571,12 +580,27 @@ func _sprout() -> void:
 					gt.tween_method(func(k: float) -> void: gmat.set_shader_parameter("k", k), 1.0, 0.0, 2.2).set_delay(0.3).set_trans(Tween.TRANS_SINE)
 					gt.tween_callback(g.queue_free)).set_delay(at + j * beat + beat * 0.5)
 		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.3, 0.0, 1.6).set_delay(at + steps * beat).set_trans(Tween.TRANS_SINE)
-		if i == 0 or i == small.size() or i == cs.size() - 1:
-			var note := 2 if i == 0 else 3 if i < cs.size() - 1 else 4
+		if is_last:
+			# the flourish: a band of light runs up the last one, a chime, the stone shivers
+			var y0 := c.get_aabb().position.y
+			var y1 := c.get_aabb().end.y
+			var fin := at + steps * beat + 0.1
+			gm.set_shader_parameter("grow_w", (y1 - y0) * 0.07)
+			tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_sweep", h), y0, y1 + (y1 - y0) * 0.25, 0.75).set_delay(fin).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			tw.tween_callback(func() -> void:
+				gm.set_shader_parameter("grow_sweep", -1000.0)).set_delay(fin + 0.8)
+			tw.tween_callback(func() -> void:
+				Sfx.play("reveal_4")
+				Sfx.buzz(70)
+				_shake = maxf(_shake, 0.35)).set_delay(fin)
+			tw.tween_property(lamp, "light_energy", 4.5, 0.3).set_delay(fin)
+			grown = maxf(grown, fin + 0.8)
+		if i == 0 or i == small.size():
+			var note := 2 if i == 0 else 3
 			tw.tween_callback(func() -> void:
 				Sfx.play("reveal_%d" % note)
 				Sfx.buzz(30 if note < 4 else 60)).set_delay(at)
-	tw.tween_property(lamp, "light_energy", 2.6, grown - wake).set_delay(wake).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(lamp, "light_energy", 1.6, 1.5).set_delay(wake).set_trans(Tween.TRANS_SINE)
 	# the cracks close behind them, the light settles
 	tw.tween_method(crack_k, 1.0, 0.0, 1.4).set_delay(grown - 0.4).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(lamp, "light_energy", 0.0, 1.8).set_delay(grown)
