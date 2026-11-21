@@ -497,13 +497,20 @@ func _sprout() -> void:
 		var gm := c.material_override as ShaderMaterial
 		var y0 := c.get_aabb().position.y
 		var y1 := c.get_aabb().end.y
-		span[c] = Vector2(y0, y1)
+		var rad := maxf(c.get_aabb().size.x, c.get_aabb().size.z) * 0.5
+		span[c] = Vector2(y0, y1 + rad * 1.4 * 1.5)
 		gm.set_shader_parameter("grow_on", 1.0)
 		gm.set_shader_parameter("grow_h", -1000.0)
 		gm.set_shader_parameter("grow_w", (y1 - y0) * 0.045)
 		gm.set_shader_parameter("grow_col", hot)
 		gm.set_shader_parameter("grow_heat", 0.0)
 		gm.set_shader_parameter("grow_r", 0.22)
+		# (its point of faces while it grows: six, each its own tilt, turned its own way)
+		var fs: Array = []
+		for q in 6: fs.append(0.6 + randf() * 0.9)
+		gm.set_shader_parameter("grow_s", 1.4)
+		gm.set_shader_parameter("grow_fs", PackedFloat32Array(fs))
+		gm.set_shader_parameter("grow_rot", randf() * TAU)
 		gm.set_shader_parameter("grow_step", 0.0)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(hot.x, hot.y, hot.z).lerp(Color(1, 1, 1), 0.3)

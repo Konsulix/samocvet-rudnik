@@ -19,6 +19,9 @@ uniform float grow_w = 0.05;
 uniform float grow_heat = 0.0;
 uniform vec3 grow_col = vec3(1.0);
 uniform float grow_r = 1.0;      // its girth: a thin needle first, swelling to its full width
+uniform float grow_s = 0.0;      // >0: the front is no flat cut but a point of faces — six, each its own tilt (grow_fs)
+uniform float grow_fs[6];
+uniform float grow_rot = 0.0;
 uniform float grow_step = 0.0;   // >0: it grew in layers this high — a line of light left at each, fading as it cools
 // and the rock it comes from splitting open: glowing cracks drawn in the rock itself, out from each place
 // (xyz in the rock's object space, w how far they have run)
@@ -121,6 +124,7 @@ uniform float holo_k = 0.0;     // broad holographic sheen in patches
 varying vec3 v_bary;
 
 varying vec3 v_op;
+varying float v_gd;   // a growing crystal: how far under its front (0 on the faces of growth)
 varying vec3 v_rp;
 varying vec3 v_no;
 #ifdef DIRT
@@ -154,8 +158,18 @@ void vertex() {
 	if (grow_on > 0.0) {
 		// a living druse's crystal grows: all of it above the front pressed down onto it — a solid stub with a flat face
 		// of growth on top, the point forming as the front passes up through it (gone altogether below -999)
+		float cap = grow_h;
+		if (grow_s > 0.0) {
+			float fm = 0.0;
+			for (int i = 0; i < 6; i++) {
+				float an = grow_rot + float(i) * 1.0472;
+				fm = max(fm, dot(VERTEX.xz, vec2(cos(an), sin(an))) * grow_fs[i]);
+			}
+			cap = grow_h - grow_s * fm;
+		}
 		if (grow_h < -999.0) VERTEX = vec3(0.0);
-		else VERTEX.y = min(VERTEX.y, grow_h);
+		else VERTEX.y = min(VERTEX.y, cap);
+		v_gd = cap - VERTEX.y;
 		VERTEX.xz *= grow_r;
 	}
 	v_op = VERTEX;
@@ -176,11 +190,23 @@ void fragment() {
 	float g_front = 0.0;
 	float g_in = 0.0;
 	if (grow_on > 0.0) {
-		float gd = max(0.0, grow_h - v_op.y);
+		float gd = max(0.0, v_gd);
+		// (the faces of growth: pressed flat, their own normals — each catches the light its own way)
+		if (gd < grow_w * 0.25) {
+			vec3 fc = cross(dFdx(VERTEX), dFdy(VERTEX));
+			// (a squashed sliver has no face: keep its own normal, a NaN draws black)
+			if (dot(fc, fc) > 1e-14) {
+				vec3 fn = normalize(fc);
+				if (dot(fn, VIEW) < 0.0) fn = -fn;
+				n = fn;
+			}
+		}
 		// the face of growth itself (pressed flat on the front) glows whole; just under it the fresh glass, fading down
 		// (a ragged edge: the band's own width wavers)
 		float gw = grow_w * (0.7 + 0.6 * fbm(v_op * 9.0 + 3.7));
 		g_front = exp(-gd * gd / (gw * gw)) + exp(-gd / (grow_w * 4.0)) * 0.25;
+		// (face by face: the ones turned to the eye bright, the others dimmer — the point reads as cut faces)
+		if (gd < grow_w * 0.25) g_front *= 0.4 + 0.9 * pow(max(0.0, dot(n, VIEW)), 2.0);
 		if (grow_step > 0.0) {
 			// the layers it grew in: a thin line at each boundary, the fresh ones bright, all fading with its heat
 			float lf = fract(v_op.y / grow_step + 0.5) - 0.5;
