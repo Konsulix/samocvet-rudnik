@@ -503,6 +503,8 @@ func _sprout() -> void:
 		gm.set_shader_parameter("grow_w", (y1 - y0) * 0.045)
 		gm.set_shader_parameter("grow_col", hot)
 		gm.set_shader_parameter("grow_heat", 0.0)
+		gm.set_shader_parameter("grow_r", 0.22)
+		gm.set_shader_parameter("grow_step", 0.0)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(hot.x, hot.y, hot.z).lerp(Color(1, 1, 1), 0.3)
 	lamp.light_energy = 0.0
@@ -529,13 +531,25 @@ func _sprout() -> void:
 		var y: Vector2 = span[c]
 		var is_big := i >= small.size()
 		var at := wake + i * 0.11 + (0.25 if is_big else 0.0)
-		var dur := 1.7 if is_big else 1.1
+		var dur := 2.0 if is_big else 1.3
 		grown = maxf(grown, at + dur)
 		var w := (y.y - y.x) * 0.045
-		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.x, y.y + w * 7.0, dur).set_delay(at).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		# (in layers: a quick surge, a breath, the next — a line of light left at each; a thin needle first, then it
+		# swells to its full girth)
+		var layers := 6 if is_big else 4
+		var step := (y.y - y.x) / layers
+		gm.set_shader_parameter("grow_step", step)
+		var surge := func(u: float) -> void:
+			var lay := minf(floorf(u), layers - 1.0)
+			var f := clampf(u - lay, 0.0, 1.0)
+			var e := 1.0 - pow(1.0 - smoothstep(0.0, 0.55, f), 2.0)
+			gm.set_shader_parameter("grow_h", y.x + step * (lay + e))
+		tw.tween_method(surge, 0.0, float(layers), dur).set_delay(at)
+		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.y, y.y + w * 7.0, 0.35).set_delay(at + dur)
+		tw.tween_method(func(r: float) -> void: gm.set_shader_parameter("grow_r", r), 0.22, 1.0, dur * 0.9).set_delay(at + dur * 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		# (hot as it comes, cooling as it stands)
 		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.9, 0.12).set_delay(at)
-		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.9, 0.0, dur + 1.4).set_delay(at + 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.9, 0.0, dur + 1.8).set_delay(at + 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		if i == 0 or i == small.size() or i == cs.size() - 1:
 			var note := 2 if i == 0 else 3 if i < cs.size() - 1 else 4
 			tw.tween_callback(func() -> void:
@@ -557,6 +571,7 @@ func _sprout() -> void:
 		var at := hold + (cs.size() - 1 - i) * 0.05
 		end = maxf(end, at + 0.7)
 		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.7, 0.3).set_delay(at)
+		tw.tween_method(func(r: float) -> void: gm.set_shader_parameter("grow_r", r), 1.0, 0.3, 0.7).set_delay(at).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.y + w * 7.0, y.x, 0.7).set_delay(at).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.tween_method(crack_k, 0.0, 0.8, 0.3).set_delay(hold + 0.2)
 	tw.tween_method(crack_k, 0.8, 0.0, 0.9).set_delay(end - 0.2)
@@ -571,6 +586,7 @@ func _sprout() -> void:
 			if is_instance_valid(c):
 				(c.material_override as ShaderMaterial).set_shader_parameter("grow_h", -1000.0)
 				(c.material_override as ShaderMaterial).set_shader_parameter("grow_heat", 0.0)
+				(c.material_override as ShaderMaterial).set_shader_parameter("grow_r", 1.0)
 		_sprouting = false)
 
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over

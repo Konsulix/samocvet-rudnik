@@ -18,6 +18,8 @@ uniform float grow_h = 0.0;
 uniform float grow_w = 0.05;
 uniform float grow_heat = 0.0;
 uniform vec3 grow_col = vec3(1.0);
+uniform float grow_r = 1.0;      // its girth: a thin needle first, swelling to its full width
+uniform float grow_step = 0.0;   // >0: it grew in layers this high — a line of light left at each, fading as it cools
 // and the rock it comes from splitting open: glowing cracks drawn in the rock itself, out from each place
 // (xyz in the rock's object space, w how far they have run)
 uniform int gc_n = 0;
@@ -154,6 +156,7 @@ void vertex() {
 		// of growth on top, the point forming as the front passes up through it (gone altogether below -999)
 		if (grow_h < -999.0) VERTEX = vec3(0.0);
 		else VERTEX.y = min(VERTEX.y, grow_h);
+		VERTEX.xz *= grow_r;
 	}
 	v_op = VERTEX;
 	v_no = NORMAL;
@@ -178,6 +181,12 @@ void fragment() {
 		// (a ragged edge: the band's own width wavers)
 		float gw = grow_w * (0.7 + 0.6 * fbm(v_op * 9.0 + 3.7));
 		g_front = exp(-gd * gd / (gw * gw)) + exp(-gd / (grow_w * 4.0)) * 0.25;
+		if (grow_step > 0.0) {
+			// the layers it grew in: a thin line at each boundary, the fresh ones bright, all fading with its heat
+			float lf = fract(v_op.y / grow_step + 0.5) - 0.5;
+			float lw = 0.035 + 0.025 * fbm(v_op * 6.0);
+			g_front += exp(-lf * lf / (lw * lw)) * (0.25 + 0.75 * exp(-gd / (grow_step * 2.0))) * grow_heat * 1.3;
+		}
 	}
 	float g_web = 0.0;
 	float g_core = 0.0;
