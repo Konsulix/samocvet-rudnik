@@ -106,7 +106,8 @@ static func of(o: Dictionary) -> Dictionary:
 		form = Stones.pick_w(Stones.depth_forms(opts, int(o.get("dl", -1))), rng)
 	# a twin and a sceptre are built on a crystal standing alone (SpecimenBuilder "single"): a crowded layout gives way
 	# to one, or the gene would be rolled, priced and never grown (tests/grow_audit)
-	if form in ["cluster", "columnar", "pile", "slabs", "hexplates", "hopper"] and ("twin" in tr or ("scepter" in tr and habit in ["prism", "blade"])):
+	# (21.11, playtest: «where is the atypical habit?») not when the layout is the atypical one: it stays, the twin goes
+	if form in ["cluster", "columnar", "pile", "slabs", "hexplates", "hopper"] and not "atypical" in tr and ("twin" in tr or ("scepter" in tr and habit in ["prism", "blade"])):
 		form = "single"
 	if ("moss" in tr or "coral" in tr) and form in ["floater", "radial"]:
 		form = "cluster" if druse else "single"
@@ -335,6 +336,7 @@ static func of(o: Dictionary) -> Dictionary:
 	var hb := odd_habit if odd_habit != "" else habit
 	var lost := []
 	if "twin" in tr and form != "single": lost.append("twin")
+	if "scepter" in tr and "atypical" in tr and not form in ["single", "floater"] and not "scepter" in lost: lost.append("scepter")
 	if "scepter" in tr and not (form in ["single", "floater"] and hb in ["prism", "blade"]): lost.append("scepter")
 	if "floater" in tr and form != "floater": lost.append("floater")
 	for t: String in tr:

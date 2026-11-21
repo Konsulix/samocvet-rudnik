@@ -22,6 +22,7 @@ uniform float bd_k = 0.0;
 uniform float d_h = -99.0;
 uniform float d_a = 0.4;
 uniform vec3 d_col = vec3(0.1);
+uniform float d_lim = 0.0;   // limonite: the milky band at the crystals' foot rusted, rusty runs up them
 uniform float d_fr = 0.0;
 uniform float d_is = 0.0;
 uniform float d_fb = 1.0;
@@ -179,6 +180,7 @@ void fragment() {
 	float m = metal;
 	float cc = coat;
 	float dirt = 0.0, frost = 0.0;
+	float lim_s = 0.0;   // limonite rust on the crystal (d_lim), for the glass below
 	vec3 lava_e = vec3(0.0);
 	// ultraviolet flash: a few seconds of ordinary light, then the lamps dim and the crystal glows
 	float uvk = fluor_k * fluor_uv;
@@ -246,7 +248,17 @@ void fragment() {
 		rk = mix(rk * 0.35, vec3(0.04, 0.02, 0.015), 0.5 * lava_k);
 		lava_e = mix(vec3(2.2, 0.35, 0.03), vec3(4.0, 1.9, 0.35), heat * heat) * heat * lava_k * dirt;
 	}
-	base = mix(base, vec3(0.86, 0.88, 0.9), frost * 0.5);
+	vec3 f_col = vec3(0.86, 0.88, 0.9);
+	if (d_lim > 0.0) {
+		// limonite: the frosted foot rust-brown, and stains running up from it in streaks along the crystal
+		f_col = mix(f_col, vec3(0.5, 0.2, 0.05) * (0.7 + 0.6 * fbm(v_rp * 18.0)), d_lim * 0.85);
+		float stain = (1.0 - smoothstep(0.0, 0.55, edge)) * smoothstep(0.38, 0.66, fbm(v_rp * vec3(7.0, 1.3, 7.0) + 4.0)) * (1.0 - dirt);
+		base = mix(base, vec3(0.42, 0.16, 0.04), stain * d_lim * 0.75);
+		a = mix(a, 0.95, stain * d_lim * 0.5);
+		r = mix(r, 0.6, stain * d_lim);
+		lim_s = clamp(max(frost * 0.9, stain), 0.0, 1.0) * d_lim;
+	}
+	base = mix(base, f_col, frost * 0.5);
 	a = mix(a, 0.96, frost * 0.55);
 	base = mix(base, rk, dirt);
 	a = mix(a, 1.0, dirt);
@@ -579,6 +591,14 @@ void fragment() {
 	vec3 tbm = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
 	float dpk = min(deep_k, 1.0) * step(0.001, tint_k);
 	body = mix(body, mix(tint0 * 0.5 + vec3(0.22), tbm * 0.1 * part + tint0 * 0.06, dpk), milk * mix(0.75, 0.9, dpk));
+	// limonite: the glass's milky foot and the runs up it rust-brown (the white milk would hide the stain)
+	vec3 rust = vec3(0.24, 0.09, 0.02) * (0.7 + 0.6 * fbm(v_op * 14.0));
+#ifdef DIRT
+	// (and the cloudy root of the crystal: clarity by parts whitens it — rusted where it is near the foot)
+	if (d_lim > 0.0) lim_s = max(lim_s, d_lim * milk * (1.0 - smoothstep(0.2, 1.1, edge)) * smoothstep(0.2, 0.5, fbm(v_op * 5.0 + 2.0) + 0.2));
+	lim_s = clamp(lim_s * 2.0, 0.0, 1.0);
+#endif
+	body = mix(body, rust, lim_s * 0.95);
 	body = mix(body, body * smoke_col * 2.0, smoke);
 	// silver rims: the edges frost over into a bright, ragged, slightly metallic band
 	float srim = 0.0;
@@ -603,10 +623,10 @@ void fragment() {
 	body = mix(body, pitc, hollow);
 	vec3 silver = vec3(0.85, 0.87, 0.9) * (0.6 + 0.6 * fbm(v_op * 40.0));
 	body = mix(body, silver * 0.55, srim * 0.85);
-	ALBEDO = mix(mix(mix(tint0 * milk * mix(0.35, 0.62 / max(1.0, deep_k * deep_k * deep_k), dpk), silver, srim), pitc, hollow), base, dirt);
+	ALBEDO = mix(mix(mix(mix(tint0, rust, lim_s) * milk * mix(0.35, 0.62 / max(1.0, deep_k * deep_k * deep_k), dpk), silver, srim), pitc, hollow), base, dirt);
 	METALLIC = srim * 0.65;
-	ROUGHNESS = mix(mix(mix(mix(0.02, 0.32, milk), 0.38, srim), 0.8, hollow), r, dirt);
-	SPECULAR = mix(0.6, 0.08, hollow);
+	ROUGHNESS = mix(mix(mix(mix(mix(0.02, 0.32, milk), 0.38, srim), 0.8, hollow), 0.85, lim_s), r, dirt);
+	SPECULAR = mix(mix(0.6, 0.08, hollow), 0.02, lim_s);
 	CLEARCOAT = 0.0;
 	// the rainbow film only blooms in patches, as on real crystals
 	float film = 0.12 + 0.88 * smoothstep(0.5, 0.72, fbm(v_op * 1.6 + g_seed + 5.0));

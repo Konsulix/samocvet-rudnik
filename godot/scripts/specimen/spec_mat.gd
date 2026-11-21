@@ -198,6 +198,7 @@ static func set_dirt(m: ShaderMaterial, d: Dictionary) -> void:
 		p.set_shader_parameter("d_fr", d.get("fr", 0.0))
 		p.set_shader_parameter("d_is", d.get("isl", 0.0))
 		p.set_shader_parameter("d_fb", d.get("fb", 1.0))
+		p.set_shader_parameter("d_lim", d.get("lim", 0.0))
 		if d.has("scan"):
 			p.set_shader_parameter("scan_diff", scan_tex(int(d.scan), "diff"))
 			p.set_shader_parameter("scan_nrm", scan_tex(int(d.scan), "nor_gl"))

@@ -1591,6 +1591,11 @@ func _specimen(o: Dictionary) -> Node3D:
 		dt.col = SpecMat.lin(0x7a3a12)
 		dt.h = maxf(float(dt.h), 0.25) + 0.12
 		dt.a = 0.5
+		# (21.11, playtest: «where is the limonite?») and on the crystals themselves: the milky band at their foot
+		# rusted and rusty runs climbing them (spec.gdshaderinc d_lim) — a lone crystal on a pebble has almost no
+		# crust to stain, the rust went unseen
+		dt.lim = 1.0
+		dt.fb = maxf(float(dt.get("fb", 1.0)), 0.8)
 		if main: _mark_on("limonite", main)
 	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11; 19.11 every
 	# botryoidal lump — chalcedony, jadeite, carnelian, flint, opal, hyalite… — a septarian nodule, obsidian, a lava bomb)
