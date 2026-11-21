@@ -491,27 +491,26 @@ func _sprout() -> void:
 	for r: Array in rocks:
 		(r[0] as ShaderMaterial).set_shader_parameter("gc_col", hot * 0.9)
 		(r[0] as ShaderMaterial).remove_meta("gc")
-	# each crystal's own glass: its height of what has grown
-	var span := {}
+	# each crystal's own glass: hidden until its turn (grow_h below −999), then whole — no front, only its heat
+	var full := {}
 	for c: MeshInstance3D in cs:
 		var gm := c.material_override as ShaderMaterial
-		var y0 := c.get_aabb().position.y
-		var y1 := c.get_aabb().end.y
-		var rad := maxf(c.get_aabb().size.x, c.get_aabb().size.z) * 0.5
-		span[c] = Vector2(y0, y1 + rad * 1.4 * 1.5)
+		full[c] = c.get_meta("sprout") as Basis
 		gm.set_shader_parameter("grow_on", 1.0)
 		gm.set_shader_parameter("grow_h", -1000.0)
-		gm.set_shader_parameter("grow_w", (y1 - y0) * 0.045)
+		gm.set_shader_parameter("grow_w", 0.0001)
 		gm.set_shader_parameter("grow_col", hot)
 		gm.set_shader_parameter("grow_heat", 0.0)
 		gm.set_shader_parameter("grow_r", 1.0)
-		# (its point of faces while it grows: six, each its own tilt, turned its own way)
-		var fs: Array = []
-		for q in 6: fs.append(0.6 + randf() * 0.9)
-		gm.set_shader_parameter("grow_s", 1.4)
-		gm.set_shader_parameter("grow_fs", PackedFloat32Array(fs))
-		gm.set_shader_parameter("grow_rot", randf() * TAU)
+		gm.set_shader_parameter("grow_s", 0.0)
 		gm.set_shader_parameter("grow_step", 0.0)
+	var ghost_mat := func(s: float) -> ShaderMaterial:
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://shaders/sprout_ghost.gdshader")
+		m.render_priority = 30
+		m.set_shader_parameter("col", hot * 0.8)
+		m.set_shader_parameter("k", 1.0)
+		return m
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(hot.x, hot.y, hot.z).lerp(Color(1, 1, 1), 0.3)
 	lamp.light_energy = 0.0
@@ -530,32 +529,48 @@ func _sprout() -> void:
 		var at := float(i) / cs.size() * 0.45
 		tw.tween_method(func(k: float) -> void: crack.call(i, minf(1.0, k * 2.0), k), 0.0, 1.0, 0.8).set_delay(at).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_property(lamp, "light_energy", 0.8, wake)
-	# 2: each crystal fills up out of its crack
+	# 2: each crystal grows as crystals do — whole, its point and faces all there from the first, every layer of growth
+	# clothing all its faces at once: it swells in steps from a speck under the rock (its foot is sunk) and pushes out
+	# of it. At each size it leaves its outline of light inside the glass — a phantom, a growth zone — fading as it cools
 	var grown := 0.0
+	var ghosts: Array = []
 	for i in cs.size():
 		var c := cs[i] as MeshInstance3D
 		var gm := c.material_override as ShaderMaterial
-		var y: Vector2 = span[c]
+		var fb: Basis = full[c]
 		var is_big := i >= small.size()
 		var at := wake + i * 0.11 + (0.25 if is_big else 0.0)
-		var dur := 2.0 if is_big else 1.3
-		grown = maxf(grown, at + dur)
-		var w := (y.y - y.x) * 0.045
-		# (in layers: a quick surge, a breath, the next — a line of light left at each; full width from the start — a
-		# needle swelling out read as a mushroom growing, not a crystal)
-		var layers := 6 if is_big else 4
-		var step := (y.y - y.x) / layers
-		gm.set_shader_parameter("grow_step", step)
-		var surge := func(u: float) -> void:
-			var lay := minf(floorf(u), layers - 1.0)
-			var f := clampf(u - lay, 0.0, 1.0)
-			var e := 1.0 - pow(1.0 - smoothstep(0.0, 0.55, f), 2.0)
-			gm.set_shader_parameter("grow_h", y.x + step * (lay + e))
-		tw.tween_method(surge, 0.0, float(layers), dur).set_delay(at)
-		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.y, y.y + w * 7.0, 0.35).set_delay(at + dur)
-		# (hot as it comes, cooling as it stands)
-		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.9, 0.12).set_delay(at)
-		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.9, 0.0, dur + 1.8).set_delay(at + 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		var steps := 5 if is_big else 4
+		var beat := 0.34 if is_big else 0.28
+		grown = maxf(grown, at + steps * beat)
+		tw.tween_callback(func() -> void:
+			if not is_instance_valid(c): return
+			c.transform.basis = fb.scaled_local(Vector3.ONE * 0.001)
+			gm.set_shader_parameter("grow_h", 10000.0)).set_delay(at)
+		for j in steps:
+			var s0 := pow(float(j) / steps, 0.85)
+			var s1 := pow(float(j + 1) / steps, 0.85)
+			tw.tween_method(func(s: float) -> void:
+				if is_instance_valid(c): c.transform.basis = fb.scaled_local(Vector3.ONE * maxf(s, 0.001)),
+				s0, s1, beat * 0.55).set_delay(at + j * beat).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+			# (a surge of heat with each layer)
+			tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.75, 0.3, beat).set_delay(at + j * beat)
+			if j < steps - 1:
+				# the outline it leaves at this size, inside the glass
+				tw.tween_callback(func() -> void:
+					if not is_instance_valid(c): return
+					var g := MeshInstance3D.new()
+					g.mesh = c.mesh
+					g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					var gmat: ShaderMaterial = ghost_mat.call(s1)
+					g.material_override = gmat
+					c.get_parent().add_child(g)
+					g.transform = Transform3D(fb.scaled_local(Vector3.ONE * s1 * 0.995), c.transform.origin)
+					ghosts.append(g)
+					var gt := g.create_tween()
+					gt.tween_method(func(k: float) -> void: gmat.set_shader_parameter("k", k), 1.0, 0.0, 2.2).set_delay(0.3).set_trans(Tween.TRANS_SINE)
+					gt.tween_callback(g.queue_free)).set_delay(at + j * beat + beat * 0.5)
+		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.3, 0.0, 1.6).set_delay(at + steps * beat).set_trans(Tween.TRANS_SINE)
 		if i == 0 or i == small.size() or i == cs.size() - 1:
 			var note := 2 if i == 0 else 3 if i < cs.size() - 1 else 4
 			tw.tween_callback(func() -> void:
@@ -565,33 +580,36 @@ func _sprout() -> void:
 	# the cracks close behind them, the light settles
 	tw.tween_method(crack_k, 1.0, 0.0, 1.4).set_delay(grown - 0.4).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(lamp, "light_energy", 0.0, 1.8).set_delay(grown)
-	# 3: a while standing, then back into the rock: the glass empties from the tip down, the cracks flash again
+	# 3: a while standing, then back into the rock: each shrinks away into its foot, the cracks flash again
 	var hold := grown + 3.0
 	tw.tween_callback(func() -> void: Sfx.play("reveal_1")).set_delay(hold)
 	var end := hold
 	for i in cs.size():
 		var c := cs[i] as MeshInstance3D
 		var gm := c.material_override as ShaderMaterial
-		var y: Vector2 = span[c]
-		var w := (y.y - y.x) * 0.045
+		var fb: Basis = full[c]
 		var at := hold + (cs.size() - 1 - i) * 0.05
 		end = maxf(end, at + 0.7)
-		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.7, 0.3).set_delay(at)
-		tw.tween_method(func(h: float) -> void: gm.set_shader_parameter("grow_h", h), y.y + w * 7.0, y.x, 0.7).set_delay(at).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tw.tween_method(func(k: float) -> void: gm.set_shader_parameter("grow_heat", k), 0.0, 0.6, 0.3).set_delay(at)
+		tw.tween_method(func(s: float) -> void:
+			if is_instance_valid(c): c.transform.basis = fb.scaled_local(Vector3.ONE * maxf(s, 0.001)),
+			1.0, 0.0, 0.7).set_delay(at).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.tween_method(crack_k, 0.0, 0.8, 0.3).set_delay(hold + 0.2)
 	tw.tween_method(crack_k, 0.8, 0.0, 0.9).set_delay(end - 0.2)
 	tw.tween_property(lamp, "light_energy", 1.4, 0.4).set_delay(hold)
 	tw.tween_property(lamp, "light_energy", 0.0, 0.8).set_delay(end - 0.3)
 	tw.chain().tween_callback(func() -> void:
 		if is_instance_valid(lamp): lamp.queue_free()
+		for g: Variant in ghosts:
+			if is_instance_valid(g): (g as Node).queue_free()
 		for r: Array in rocks:
 			(r[0] as ShaderMaterial).set_shader_parameter("gc_n", 0)
 			(r[0] as ShaderMaterial).set_shader_parameter("gc_k", 0.0)
 		for c: MeshInstance3D in cs:
 			if is_instance_valid(c):
+				c.transform.basis = full[c]
 				(c.material_override as ShaderMaterial).set_shader_parameter("grow_h", -1000.0)
 				(c.material_override as ShaderMaterial).set_shader_parameter("grow_heat", 0.0)
-				(c.material_override as ShaderMaterial).set_shader_parameter("grow_r", 1.0)
 		_sprouting = false)
 
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
