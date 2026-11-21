@@ -348,6 +348,9 @@ static func of(o: Dictionary) -> Dictionary:
 	if "limonite" in tr and rock == "ironstone": lost.append("limonite")
 	# (19.11) no water pocket in a dark crystal (nothing inside it shows) nor in one with a phantom (one thing inside)
 	if "enhydro" in tr and (lustre == "dark" or "phantom" in tr) and not "enhydro" in lost: lost.append("enhydro")
+	# (21.11, playtest: «phantom and chlorite phantom?») a chlorite phantom is a phantom — dusted green — so one ghost
+	# inside: the green one stays, the plain one goes (two shrunk crystals in one, two callouts into the same spot)
+	if "chlorite" in tr and "phantom" in tr and not "phantom" in lost: lost.append("phantom")
 	# a desert rose (gypsum full of sand) or an iron rose is opaque petals: nothing inside it shows — no water bubble,
 	# phantom, rutile, chlorite (it was rolled and named on the card, an "enhydro" on a rose of sand)
 	if form == "rosette" and (look.has("rose") or look.has("rose_metal")):

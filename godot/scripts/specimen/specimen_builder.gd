@@ -3334,12 +3334,13 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		var c0 := Vector3(bb.get_center().x, maxf(0.0, bb.position.y), bb.get_center().z)
 		for i in cg.v.size(): cg.v[i] = c0 + (cg.v[i] - c0) * Vector3(0.55, 0.62, 0.55)
 		var ch := U.mesh(cg, cm, main)
-		_mark("chlorite", _mid(ch))
-	if ok and "phantom" in tr and not SpecLooks.of(_sid).get("phantom_core", false):
+		# (high on it: a crystal grown from the rock's side has its lower half in the rock — the callout went into stone)
+		_mark("chlorite", _mid(ch, 0.8))
+	if ok and "phantom" in tr and not "chlorite" in tr and not SpecLooks.of(_sid).get("phantom_core", false):
 		var pc := SpecMat.offset_hsl(col, 0.05, 0.2, -0.15)
 		var ph := U.mesh(RockKit.crystal(habit, rng, {h = h * 0.7}), SpecMat.make({col = pc * 0.8, rough = 0.6, flat = true}), main)
 		ph.transform = Transform3D(Basis.from_scale(Vector3.ONE * 0.62), Vector3(0, 0.05, 0))
-		_mark("phantom", _mid(ph))
+		_mark("phantom", _mid(ph, 0.8))
 	if ok and "rutile" in tr:
 		var gm := SpecMat.make({col = U.raw(0xd8a23a), metal = 1.0, rough = 0.25, emis = U.raw(0x3a2208)})
 		var w := minf(bb.size.x, bb.size.z)
