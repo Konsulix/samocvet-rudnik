@@ -1092,7 +1092,10 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			board.redraw_under()
 			fx.sparkle(e.r + 0.5, e.c + 0.5, Color("#d8b8ff"), 30)
 			Sfx.play("reveal", 1)
-			_toast("Geode cracked: a stone awaits you at the end of the level")
+			# (the first time only: after every geode it was noise — 22.11)
+			if not Save.told("t_geode"):
+				Save.tell("t_geode")
+				_toast("Geode cracked: a stone awaits you at the end of the level")
 		"find_hit":
 			board.find_hit_at = Time.get_ticks_msec() / 1000.0
 			var F: Dictionary = model.find
