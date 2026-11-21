@@ -95,6 +95,10 @@ func show_spec(o: Dictionary) -> void:
 		if not Coach.off and not Save.told("t_alex"):
 			Save.tell("t_alex")
 			Ov.toast("Tap the alexandrite: lamplight turns it red")
+	# (21.11) a living druse grows by a tap (_sprout): said once
+	if p.get_meta("sprout", false) and not Coach.off and not Save.told("t_sprout"):
+		Save.tell("t_sprout")
+		Ov.toast("Tap the stone: it is still growing")
 	# (19.11) an opal egg can be wetted by a tap (_wet): said once, the first time one is open
 	if not Coach.off and not Save.told("t_wet") and not _eggs().is_empty():
 		Save.tell("t_wet")
@@ -417,7 +421,58 @@ func _tap(e: InputEvent) -> void:
 			tapped.emit()
 			_wet()
 			_lamp()
+			_sprout()
 		_press_ms = -1
+
+## (21.11) a living druse (gene "sprout", SpecimenBuilder): a tap and its folded crystals shoot up over the rock one
+## after another, a light of the stone's own colour swelling with them, stand a moment, and sink back into the rock
+var _sprouting := false
+func _sprout() -> void:
+	if _sprouting or not (is_instance_valid(live) and live.get_meta("sprout", false)): return
+	var cs: Array = live.find_children("*", "MeshInstance3D", true, false).filter(func(n: Node) -> bool: return n.has_meta("sprout"))
+	if cs.is_empty(): return
+	_sprouting = true
+	cs.shuffle()
+	var aabb := AABB()
+	for i in cs.size():
+		var mi := cs[i] as MeshInstance3D
+		var bb := mi.global_transform * mi.get_aabb()
+		aabb = bb if i == 0 else aabb.merge(bb)
+	var gc: Color = live.get_meta("glow", Color(0.7, 0.85, 1.0))
+	var lamp := OmniLight3D.new()
+	lamp.light_color = gc.lerp(Color(1, 1, 1), 0.3)
+	lamp.light_energy = 0.0
+	lamp.omni_range = aabb.size.length() * 1.6
+	live.add_child(lamp)
+	lamp.global_position = aabb.get_center() + Vector3(0, aabb.size.y * 0.4, aabb.size.length() * 0.2)
+	# the new crystals flare in the stone's colour as they rise and cool as they stand (their own glass: emis)
+	var sm := (cs[0] as MeshInstance3D).material_override as ShaderMaterial
+	var sc: Color = live.get_meta("sprout_col", gc)
+	var flare := func(k: float) -> void:
+		if sm: sm.set_shader_parameter("emis", Vector3(sc.r, sc.g, sc.b) * 1.6 * k + Vector3(0.25, 0.25, 0.25) * k)
+	Sfx.play("reveal_2")
+	Sfx.buzz(25)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	var grow := 0.0
+	for i in cs.size():
+		var mi := cs[i] as MeshInstance3D
+		var full: Basis = mi.get_meta("sprout")
+		var at := i * 0.09
+		grow = maxf(grow, at + 0.6)
+		var set_k := func(k: float) -> void:
+			if is_instance_valid(mi): mi.transform.basis = full.scaled_local(Vector3.ONE * maxf(k, 0.001))
+		tw.tween_method(set_k, 0.001, 1.0, 0.6).set_delay(at).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var back := grow + 2.4 + (cs.size() - i) * 0.05
+		tw.tween_method(set_k, 1.0, 0.001, 0.5).set_delay(back).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_property(lamp, "light_energy", 4.0, grow * 0.8).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(flare, 0.0, 1.0, grow * 0.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(flare, 1.0, 0.15, 2.0).set_delay(grow * 0.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(flare, 0.15, 0.0, 0.6).set_delay(grow + 2.2)
+	tw.tween_property(lamp, "light_energy", 0.0, 1.4).set_delay(grow + 2.2)
+	tw.chain().tween_callback(func() -> void:
+		if is_instance_valid(lamp): lamp.queue_free()
+		_sprouting = false)
 
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
 ## a few seconds it dries back (shaders/opal_seam.gdshader, wet)

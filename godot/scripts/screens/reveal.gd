@@ -466,7 +466,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		# (an alexandrite's tap is its lamp, SpecView._lamp: its callouts open from the chips only; one already open closes)
 		view.tapped.connect(func() -> void:
 			if co.open: co.hide_all()
-			elif not (is_instance_valid(view.live) and view.live.get_meta("alex", false)): co.show_all())
+			elif not (is_instance_valid(view.live) and (view.live.get_meta("alex", false) or view.live.get_meta("sprout", false))): co.show_all())
 		for it: Dictionary in list:
 			var id: String = it.id
 			if not chips.has(id): continue

@@ -1633,6 +1633,35 @@ func _specimen(o: Dictionary) -> Node3D:
 		SpecFern.lean(self, gene)
 	elif layout == "skull":
 		SpecSkull.lean(self, gene)
+	# (21.11) a living druse (gene "sprout"): crystals of its own over the rock, built now (so _finish gives them their
+	# crust line) and folded to nothing at the end — a tap on the card grows them (SpecView._sprout). Its own stream:
+	# nothing else on the stone moves
+	if "sprout" in (gene.accents as Array) and st.rock and main:
+		var keep_rng := rng
+		rng = Rng32.new((seed_v * 2246822519 + 313) % 4294967296)
+		var made := 0
+		var tries := 0
+		var n_want := 10 + int(rng.next() * 7)
+		# (their own copy of the glass: they flare with light as they rise, SpecView._sprout)
+		var sm: ShaderMaterial = SpecUtil.mat_copy(mat) if mat else null
+		if sm and mat in dt_mats: dt_mats.append(sm)
+		root.set_meta("sprout_col", col)
+		while made < n_want and tries < n_want * 6:
+			tries += 1
+			var p: Vector3 = st.pick.call()
+			if not _free(p, 0.04 * gs): continue
+			var nn: Vector3 = st.nrm.call(p)
+			if nn.y < 0.2: continue
+			var f := rng.next()
+			var c: MeshInstance3D = crystal.call(0.45 + f * 0.55, 0.22 + f * 0.3, p - nn * 0.01 * gs, (nn + UP * 1.2 + _rv() * 0.5).normalized(), {}, sm)
+			c.set_meta("sprout", c.transform.basis)
+			c.set_meta("sprout_k", float(made))
+			keep_out.append([p, 0.05 * gs])
+			made += 1
+		rng = keep_rng
+		if made > 0:
+			root.set_meta("sprout", true)
+			_mark("sprout", st.pick.call())
 	if limonite:
 		# rusty limonite stains (G3): the crust at the crystals' feet turned rust-brown and climbing higher up them
 		dt.col = SpecMat.lin(0x7a3a12)
@@ -1651,6 +1680,10 @@ func _specimen(o: Dictionary) -> Node3D:
 		_glassy = layout == "obsidian"
 		_shatter()
 	_finish()
+	# (the living druse's crystals folded away until a tap: SpecView._sprout)
+	if root.has_meta("sprout"):
+		for n in root.find_children("*", "MeshInstance3D", true, false):
+			if n.has_meta("sprout"): (n as MeshInstance3D).transform.basis = (n.get_meta("sprout") as Basis).scaled_local(Vector3.ONE * 0.001)
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
 		SpecSea.caustics(root)

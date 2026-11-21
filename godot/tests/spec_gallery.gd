@@ -448,6 +448,8 @@ func _ready() -> void:
 		# rain: an opal egg's shower as a tap brings it (SpecView._wet), played out — for frames
 		if args.has("rain"): v.built.connect(func(_p: Node3D) -> void: v.get_tree().create_timer(float(args.rain)).timeout.connect(v._wet))
 		# lamp=S: an alexandrite's tap S s after it is built (SpecView._lamp): daylight to a lamp — for frames
+		# sprout=S: a living druse's tap S s after it is built (SpecView._sprout) — for frames
+		if args.has("sprout"): v.built.connect(func(_p: Node3D) -> void: v.get_tree().create_timer(float(args.sprout)).timeout.connect(v._sprout))
 		if args.has("lamp"): v.built.connect(func(_p: Node3D) -> void: v.get_tree().create_timer(float(args.lamp)).timeout.connect(v._lamp))
 		# wet: an opal egg wetted as by a tap on the card (SpecView._wet), held wet for the shot
 		if args.has("wet"): v.built.connect(func(_p: Node3D) -> void:

@@ -29,9 +29,10 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	tm_indicolite = "indicolite", tm_verdelite = "verdelite", tm_paraiba = "Paraiba neon", tm_slice = "polished slice",
 	fly_bluetiger = "blue tiger", fly_hawkmoth = "elephant hawk-moth", fly_chestnut = "chestnut tiger", fly_bluebottle = "common bluebottle", fly_silkmoth = "oak silkmoth", fly_spangle = "long-tailed spangle", sk_agate = "agate bone", sk_opal = "opal bone", sk_pyrite = "pyrite bone", sk_geode = "skull geode",
 	sk_maw = "crystal maw", sk_lapis = "lapis mosaic", sk_feathers = "feather cloak", sk_sugar = "sugar druse", sk_rhodo = "rhodochrosite bone", sk_horn = "horns", sk_coins = "obols on the eyes", sk_diadem = "Koschei's diadem", sk_lantern = "fireflies inside", sk_pile = "a pile of skulls",
-	flower = "flower", trapiche = "trapiche star", cats_eye = "cat's eye", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
+	flower = "flower", trapiche = "trapiche star", cats_eye = "cat's eye", sprout = "living druse", pararealgar = "pararealgar powder", stone = "clear quartz", gold_dust = "gold dust", insect = "insect", leaves = "leaves", fern = "fern frond", feather = "feather"}
 
 ## the layouts without a rock floor (SpecimenBuilder: has_base)
+const SPROUT_P := 0.05   # how many crystal finds on a rock are a living druse
 const NO_BASE := ["floater", "radial", "columnar", "geode", "nugget", "botryoid", "vein", "obsidian", "sawn", "septaria", "spray", "slice"]
 ## the showy minerals built as one lit mesh (SpecForms): no glass to hold an effect, no crystal to twin
 const ONE_MESH := ["balls", "fans", "staircase", "grapes"]
@@ -208,6 +209,10 @@ static func of(o: Dictionary) -> Dictionary:
 	# alexandrite's cat's eye (chrysoberyl's chatoyancy): a rare one, a line of light across it (its own stream)
 	if look.has("cats_eye") and Rng32.new((seed_v * 2246822519 + 167) % 4294967296).next() < float(look.cats_eye):
 		acc.append("cats_eye")
+	# (21.11) a living druse: a tap on the card and new crystals shoot up over the rock, glow, and sink back into it
+	# (SpecView._sprout). Crystals standing on a rock only; its own stream
+	if habit in ["prism", "blade", "barrel", "scaleno", "cube", "rhomb", "octa", "dodeca", "dipyr", "tetra", "hexbarrel", "hexbevel"] 			and form in ["single", "cluster", "pile", "slabs", "hopper"] and not o.get("form", "") == "skull" 			and Rng32.new((seed_v * 2654435761 + 311) % 4294967296).next() < SPROUT_P:
+		acc.append("sprout")
 	# the species' companions (celestine blades on sulphur, sulphur on aragonite, orpiment on realgar): each on its
 	# own stream, so no other gene moves
 	var withs: Array = look.get("with", [])
