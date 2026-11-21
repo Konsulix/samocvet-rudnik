@@ -39,10 +39,18 @@ func _ready() -> void:
 	_file = FileAccess.open(RUN_LOG, FileAccess.WRITE)
 	note("start: %s, %s, %d cores" % [OS.get_model_name(), RenderingServer.get_video_adapter_name(), OS.get_processor_count()])
 	# (15.11) which build this journal is from: the commit the iOS build was made of (res://build_stamp.gd), else "dev"
-	var build := "dev"
-	if ResourceLoader.exists("res://build_stamp.gd"):
-		build = str((load("res://build_stamp.gd") as GDScript).get_script_constant_map().get("ID", "?"))
-	note("build %s" % build)
+	note("build %s" % build_label())
+
+## (22.11) which build this is, short: "#57 · 1d37b3d · 22.11 14:05" (the stamp the iOS build writes, res://build_stamp.gd),
+## "dev" on the PC. In the admin's header and the journal's first lines
+static func build_label() -> String:
+	if not ResourceLoader.exists("res://build_stamp.gd"): return "dev"
+	var m := (load("res://build_stamp.gd") as GDScript).get_script_constant_map()
+	var parts: Array[String] = []
+	if str(m.get("NUM", "")) != "": parts.append("#" + str(m.NUM))
+	parts.append(str(m.get("ID", "?")).left(7))
+	if str(m.get("DATE", "")) != "": parts.append(str(m.DATE))
+	return " · ".join(parts)
 
 ## add a line (safe from any thread)
 func note(s: String) -> void:

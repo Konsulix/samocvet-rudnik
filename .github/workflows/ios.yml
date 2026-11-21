@@ -35,7 +35,8 @@ jobs:
         run: |
           mkdir -p build/ios
           # this build's stamp: the phone keeps its specimen pictures on disk per build (Spec.disk_get)
-          printf 'extends RefCounted\nconst ID := "%s"\n' "$GITHUB_SHA" > build_stamp.gd
+          # (22.11: also its run number and time - shown in the admin's header and the journal)
+          printf 'extends RefCounted\nconst ID := "%s"\nconst NUM := "%s"\nconst DATE := "%s"\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$(TZ=Europe/Moscow date '+%d.%m %H:%M')" > build_stamp.gd
           "$GODOT" --headless --import || true
           # the skull bodies, shaded once, as .res (SpecSkull.bake): no json parsing and smoothing on the phone
           "$GODOT" --headless -- bake_skulls

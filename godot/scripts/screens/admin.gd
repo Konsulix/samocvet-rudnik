@@ -48,6 +48,10 @@ static func open() -> void:
 		_refresh())
 	head.add_child(x)
 	card.add_child(head)
+	# which build this is (22.11): to tell at a glance whether the phone has the latest
+	var ver := Kit.label("build " + Diag.build_label(), 12, UI.body_bold, Kit.DIM)
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card.add_child(ver)
 	var sc := UI.scroller()
 	sc.custom_minimum_size = Vector2(0, maxf(300.0, card.get_viewport_rect().size.y - 300.0))
 	card.add_child(sc)
