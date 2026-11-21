@@ -221,57 +221,96 @@ func shake_find(k := 1.0) -> void:
 			bb = ab if first else bb.merge(ab)
 			first = false
 	if first: return
-	# dust sifting off the stone: soft motes shaken loose over its upper part, a few hopping up, most sifting down
-	# and drifting (square bright quads read as confetti)
-	var dust := CPUParticles3D.new()
-	dust.one_shot = true
-	dust.explosiveness = 0.7
-	dust.amount = int(140 * k)
-	dust.lifetime = 2.2
-	dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	dust.emission_box_extents = Vector3(bb.size.x * 0.35, bb.size.y * 0.3, bb.size.z * 0.35)
-	dust.direction = Vector3(0, -1, 0)
-	dust.spread = 75.0
-	dust.initial_velocity_min = 0.0
-	dust.initial_velocity_max = bb.size.y * 0.18
-	dust.gravity = Vector3(0, -bb.size.y * 0.35, 0)
-	dust.damping_min = bb.size.y * 0.05
-	dust.damping_max = bb.size.y * 0.15
-	dust.scale_amount_min = 0.3
-	dust.scale_amount_max = 1.0
+	# dust shaken off the rock (21.11: 140 equal soft dots read as white beads, not dust): a haze of a few big
+	# ragged puffs that billow out, swell and thin away, and a sift of fine dark grains falling under it.
+	# Both earth-coloured, from the rock's sides; a find with no rock keeps a box over its upper part
+	var at := Vector3(bb.get_center().x, bb.end.y - bb.size.y * 0.35, bb.get_center().z)
+	var pts := _rock_top(at)
+	var dia := bb.size.length()
+	var haze := _dust_emitter(pts, bb, at, int(24 * k), 2.6, 0.9, dia * 0.14, _dust_tex(true), Color(0.66, 0.59, 0.5, 0.3))
+	haze.initial_velocity_max = bb.size.y * 0.1
+	haze.gravity = Vector3(0, -bb.size.y * 0.03, 0)
+	haze.damping_min = bb.size.y * 0.08
+	haze.damping_max = bb.size.y * 0.14
+	haze.angle_min = -180.0
+	haze.angle_max = 180.0
+	haze.angular_velocity_min = -25.0
+	haze.angular_velocity_max = 25.0
+	var swell := Curve.new()
+	swell.add_point(Vector2(0, 0.35))
+	swell.add_point(Vector2(0.4, 0.85))
+	swell.add_point(Vector2(1, 1.3))
+	haze.scale_amount_curve = swell
+	var grains := _dust_emitter(pts, bb, at, int(45 * k), 2.0, 0.7, dia * 0.004, _dust_tex(false), Color(0.5, 0.44, 0.36, 0.6))
+	grains.initial_velocity_max = bb.size.y * 0.25
+	grains.gravity = Vector3(0, -bb.size.y * 0.55, 0)
+	grains.damping_min = 0.0
+	grains.damping_max = bb.size.y * 0.1
+	for e: CPUParticles3D in [haze, grains]:
+		e.emitting = true
+		get_tree().create_timer(3.0).timeout.connect(e.queue_free)
+
+## one emitter of the shake's dust: billboarded soft quads of `size`, coloured `col` fading in fast and out slow
+func _dust_emitter(pts: PackedVector3Array, bb: AABB, at: Vector3, n: int, life: float, burst: float, size: float, tex: Texture2D, col: Color) -> CPUParticles3D:
+	var e := CPUParticles3D.new()
+	e.one_shot = true
+	e.explosiveness = burst
+	e.amount = maxi(n, 2)
+	e.lifetime = life
+	e.randomness = 0.4
+	e.direction = Vector3(0, -1, 0)
+	e.spread = 80.0
+	e.initial_velocity_min = 0.0
+	e.scale_amount_min = 0.45
+	e.scale_amount_max = 1.0
 	var qm := QuadMesh.new()
-	qm.size = Vector2.ONE * bb.size.length() * 0.01
+	qm.size = Vector2.ONE * size
 	var dm := StandardMaterial3D.new()
 	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	dm.vertex_color_use_as_albedo = true
-	var dot := GradientTexture2D.new()
-	dot.fill = GradientTexture2D.FILL_RADIAL
-	dot.fill_from = Vector2(0.5, 0.5)
-	dot.fill_to = Vector2(1.0, 0.5)
-	var dg := Gradient.new()
-	dg.set_color(0, Color(1, 1, 1, 1))
-	dg.set_color(1, Color(1, 1, 1, 0))
-	dot.gradient = dg
-	dm.albedo_texture = dot
+	dm.albedo_texture = tex
 	qm.material = dm
-	dust.mesh = qm
+	e.mesh = qm
 	var ramp := Gradient.new()
-	ramp.set_color(0, Color(0.78, 0.72, 0.62, 0.0))
-	ramp.add_point(0.12, Color(0.78, 0.72, 0.62, 0.55))
-	ramp.set_color(ramp.get_point_count() - 1, Color(0.78, 0.72, 0.62, 0.0))
-	dust.color_ramp = ramp
-	live.get_parent().add_child(dust)
-	dust.global_position = Vector3(bb.get_center().x, bb.end.y - bb.size.y * 0.35, bb.get_center().z)
-	# (20.11, playtest: it sifted off the whole find — off a copper tree's twigs too): off the rock itself, from points
-	# of its surface that face up; a find with no rock keeps the box over its upper part
-	var pts := _rock_top(dust.global_position)
+	ramp.set_color(0, Color(col, 0.0))
+	ramp.add_point(0.08, col)
+	ramp.add_point(0.55, Color(col, col.a * 0.6))
+	ramp.set_color(ramp.get_point_count() - 1, Color(col, 0.0))
+	e.color_ramp = ramp
+	live.get_parent().add_child(e)
+	e.global_position = at
 	if pts.size():
-		dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
-		dust.emission_points = pts
-	dust.emitting = true
-	get_tree().create_timer(2.5).timeout.connect(dust.queue_free)
+		e.emission_shape = CPUParticles3D.EMISSION_SHAPE_POINTS
+		e.emission_points = pts
+	else:
+		e.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		e.emission_box_extents = Vector3(bb.size.x * 0.35, bb.size.y * 0.3, bb.size.z * 0.35)
+	return e
+
+## the dust's sprites, made once: a ragged cloud (noise under a soft round mask) or a small soft grain
+static var _dust_tx := {}
+static func _dust_tex(cloud: bool) -> Texture2D:
+	if _dust_tx.has(cloud): return _dust_tx[cloud]
+	var sz := 64 if cloud else 16
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	var nz := FastNoiseLite.new()
+	nz.seed = 7
+	nz.frequency = 0.045
+	nz.fractal_octaves = 3
+	for y in sz:
+		for x in sz:
+			var d := Vector2(x + 0.5 - sz * 0.5, y + 0.5 - sz * 0.5).length() / (sz * 0.5)
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			if cloud:
+				a = smoothstep(0.0, 0.7, a) * clampf(0.35 + nz.get_noise_2d(x, y) * 1.1, 0.0, 1.0)
+			else:
+				a = smoothstep(0.0, 0.6, a)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	var t := ImageTexture.create_from_image(img)
+	_dust_tx[cloud] = t
+	return t
 
 func _process(dt: float) -> void:
 	_since += dt
