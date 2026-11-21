@@ -349,32 +349,39 @@ func _tasks_button() -> Button:
 	var st := next_step()
 	var all_done: bool = st.last and st.job_done
 	var boss := _boss_waits()
-	# the green button's slate twin (the same brass rim and end rivets): the building icon, what is needed beside it
+	# the green button's slate twin (the same brass rim and end rivets). (22.11) The building icon beside the heading, not
+	# down the left: the ticks get the whole width — with the icon on the left a big drill price ("24.6k") ran off the plate
 	var b := Kit.button("", "btn_slate", 14, 0.0)
 	b.custom_minimum_size = Vector2(0, 70)
-	var bi := Kit.icon("build", 26)
-	bi.size = Vector2(26, 26)
-	bi.position = Vector2(19, 22)
-	b.add_child(bi)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 49
-	v.offset_right = -18
+	v.offset_left = 16
+	v.offset_right = -16
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 2)
+	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var head := ("Below %d m" % Data.depth_m(a, int(st.k)) if boss else "Mine fitted out") if all_done else "Last depth" if st.last else "Next: %d m" % Data.depth_m(a, int(st.k) + 1)
-	v.add_child(Kit.label(head, 12, UI.display, Kit.AMBER))
-	# the ticks in one line: job · iron · coins
+	var hr := HBoxContainer.new()
+	hr.alignment = BoxContainer.ALIGNMENT_CENTER
+	hr.add_theme_constant_override("separation", 5)
+	hr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bi := Kit.icon("build", 20)
+	bi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hr.add_child(bi)
+	hr.add_child(Kit.label(head, 13, UI.display, Kit.AMBER))
+	v.add_child(hr)
+	# the ticks in one line, centred: job · iron · coins (each met one a tick, not "52/52")
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 3)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 9)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if all_done:
 		h.add_child(UI.label(("%s ›" % Data.AREAS[a].boss.n) if boss else "Next mine ›" if a < Data.AREAS.size() - 1 else "✓", 14, UI.body_bold, Color("#ff8a70") if boss else UI.GOLD))
 	else:
 		h.add_child(_tick("ore", "✓" if st.job_done else "%d/%d" % [mini(Save.d.ore, int(st.job[2])), int(st.job[2])], st.job_done))
 		if not st.last:
-			h.add_child(_tick("iron", "%d/%d" % [mini(Save.d.fe, int(st.fe)), int(st.fe)], Save.d.fe >= int(st.fe)))
+			var fe_ok: bool = Save.d.fe >= int(st.fe)
+			h.add_child(_tick("iron", "✓" if fe_ok else "%d/%d" % [mini(Save.d.fe, int(st.fe)), int(st.fe)], fe_ok))
 			h.add_child(_tick("coin", "✓" if Save.d.coins >= int(st.coins) else UI.fmt(int(st.coins)), Save.d.coins >= int(st.coins)))
 	v.add_child(h)
 	b.add_child(v)
