@@ -336,6 +336,8 @@ static func of(o: Dictionary) -> Dictionary:
 	var hb := odd_habit if odd_habit != "" else habit
 	var lost := []
 	if "twin" in tr and form != "single": lost.append("twin")
+	# (21.11, tests/pair_audit) an aurora is the rainbow film at its strongest: beside it the plain film shows nothing more
+	if "irid" in tr and "aurora" in tr and not "irid" in lost: lost.append("irid")
 	if "scepter" in tr and "atypical" in tr and not form in ["single", "floater"] and not "scepter" in lost: lost.append("scepter")
 	if "scepter" in tr and not (form in ["single", "floater"] and hb in ["prism", "blade"]): lost.append("scepter")
 	if "floater" in tr and form != "floater": lost.append("floater")
@@ -390,7 +392,7 @@ static func of(o: Dictionary) -> Dictionary:
 		hue = (0.25 + rng.next() * 0.5) * (1.0 if rng.next() < 0.5 else -1.0) if anomaly else 0.0,
 		# the traits the species always has (its look, not named on the card)
 		sig = look.get("sig", []),
-		holo = 1.6 if "aurora" in tr else 0.9 if "irid" in tr else 1.0 if anomaly else 0.15 + rng.next() * 0.25,
+		holo = 1.6 if "aurora" in tr else 0.9 if "irid" in tr else 0.3 if anomaly else 0.15 + rng.next() * 0.25,
 	}
 
 ## the lines for the reveal card: what the find is made of

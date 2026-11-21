@@ -271,11 +271,23 @@ func _mark_on(id: String, m: Node3D) -> void:
 	var bb := (m.get_meta("geo") as Geo).aabb()
 	var y0 := bb.position.y + bb.size.y * 0.35
 	var back := U.rel_xform(m, root).affine_inverse()
-	var pts := RockKit.surf_pts(m, 1, arng, func(p: Vector3, _n: Vector3) -> bool: return (back * p).y > y0, root)
+	# (21.11, tests/pair_audit: several genes on one crystal — anomaly, aurora, zoned, rutile — had their callouts on
+	# one spot): of a few spots, the one farthest from the callouts already placed
+	var pts := RockKit.surf_pts(m, 6, arng, func(p: Vector3, _n: Vector3) -> bool: return (back * p).y > y0, root)
 	if pts.is_empty():
 		_mark(id, _mid(m, 0.6))
-	else:
-		_mark(id, pts[0][0], pts[0][1])
+		return
+	var best: Array = pts[0]
+	var far := -1.0
+	for q: Array in pts:
+		var near := INF
+		for k in grown:
+			for e: Array in grown[k]:
+				near = minf(near, (q[0] as Vector3).distance_to(e[0] as Vector3))
+		if near > far:
+			far = near
+			best = q
+	_mark(id, best[0], best[1])
 
 ## a spot high on a crystal's face that looks at the viewer — above the rock's crust at its foot (atypical habit:
 ## the point went anywhere above a third of the height and often sat in the crust or behind the crystal). Draws the
@@ -464,6 +476,8 @@ func _specimen(o: Dictionary) -> Node3D:
 	if gene.anomaly:
 		# an anomaly: the stone grew in a colour its species never has, and glows faintly from inside
 		col = SpecMat.offset_hsl(col, gene.hue, 0.3, 0.04)
+		# (a colourless stone has no hue to turn: given one outright, or the anomaly is a white glow)
+		if SpecMat.get_hsl(col).y < 0.45: col = SpecMat.hsl(SpecMat.get_hsl(col).x + gene.hue, 0.6, minf(SpecMat.get_hsl(col).z, 0.55))
 	root.set_meta("glow", col)
 	var irk := 1.9 if "aurora" in tr else 1.0 if "irid" in tr else 0.45 if legend else 0.14
 	var metal := habit == "nugget" or sid in ["pyrite", "hematite"] or look.has("metal_col")
@@ -555,12 +569,16 @@ func _specimen(o: Dictionary) -> Node3D:
 		# (SpecLooks ir: how much rainbow film and sheen the species takes — none on realgar's red or aragonite's milk)
 		var irm := float(look.get("ir", 1.0))
 		var d := {col = Color(1, 1, 1), flat = true, glass = true, ir = irk2 * 0.5 * irm, rf = 0.3, st = stria, st_mode = st_mode, dirt = dt, prio = 2,
-			holo = float(gene.holo) * irm, emis = col * 0.35 if gene.anomaly else Color(0, 0, 0),
+			holo = float(gene.holo) * irm, emis = col * 0.1 if gene.anomaly else Color(0, 0, 0),
 			lava = 1.0 if gene.fx == "lava" else 0.0,
 			frost = float((look.get("glass", {}) as Dictionary).get("frost", 0.85 - gi * 0.3 if gi < 2 else 0.1 + rng.next() * 0.25)), thick = 1.0 + op * 0.4, seed = float(seed_v % 97),
 			dark_body = float((look.get("glass", {}) as Dictionary).get("dark", 0.0)), tint_body = float((look.get("glass", {}) as Dictionary).get("tint", 0.0)),
 			tint_glow = float((look.get("glass", {}) as Dictionary).get("glow", 0.06)), deep_body = float((look.get("glass", {}) as Dictionary).get("deep", 0.0))}
 		if float((look.get("glass", {}) as Dictionary).get("opal", 0.0)) > 0.0: d.opal = float(look.glass.opal)
+		# (21.11, tests/pair_audit: an anomaly glowed at 0.35 of its colour — on a pale stone a white wash that hid the
+		# rainbow film, the aurora, a chlorite phantom, an enhydro, rutile inside): its colour now in the body of the
+		# glass, the glow faint
+		if gene.anomaly: d.tint_body = maxf(float(d.tint_body), 0.6)
 		# clarity by parts (docs/showy-minerals.md): every plain clear species has it — a cloudy root, a gem tip, one
 		# crystal milkier than the next; a species says otherwise with glass.parts. Not where the body has a colour or
 		# a darkness of its own (garnet, sulphur, smoky: their cloud would be a white patch), nor under a living effect
@@ -3314,6 +3332,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		# (the main crystal's own copy: the small ones beside it share the material and have no wheel)
 		var tm: ShaderMaterial = SpecUtil.mat_copy(mat)
 		main.material_override = tm
+		if mat in dt_mats: dt_mats.append(tm)
 		tm.set_shader_parameter("frost_k", 0.0)
 		tm.set_shader_parameter("holo_k", 0.0)
 		tm.set_shader_parameter("thick", 0.6)
@@ -3326,6 +3345,7 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		# alex_eye) — its own copy of the glass, a little milky (the silk of fine needles that makes the eye)
 		var em: ShaderMaterial = SpecUtil.mat_copy(main.material_override as ShaderMaterial if main.material_override is ShaderMaterial else mat)
 		main.material_override = em
+		if not em in dt_mats and mat in dt_mats: dt_mats.append(em)
 		em.set_shader_parameter("alex_eye", 1.0)
 		em.set_shader_parameter("alex_ew", Vector2(maxf(bb.size.x, bb.size.z) * 0.022, maxf(bb.size.x, bb.size.z) * 0.2))
 		_mark("cats_eye", Vector3(bb.get_center().x, bb.end.y, bb.get_center().z))
@@ -3364,6 +3384,9 @@ func _inside(main: MeshInstance3D, mat: ShaderMaterial, habit: String, col: Colo
 		var hh := bb.end.y - maxf(0.0, bb.position.y)
 		var em: ShaderMaterial = SpecUtil.mat_copy(mat) if main.material_override == mat else main.material_override
 		main.material_override = em
+		# (21.11, tests/pair_audit: the copy kept no crust line — beside an enhydro the crystal lost its foot in the
+		# rock and limonite's rust: _finish sets the line only on dt_mats)
+		if not em in dt_mats and mat in dt_mats: dt_mats.append(em)
 		em.set_shader_parameter("frost_k", 0.0)
 		em.set_shader_parameter("ir_k", 0.0)   # (the rainbow film over the face hid what is inside)
 		var cav := Enhydro.new()
