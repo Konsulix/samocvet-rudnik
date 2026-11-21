@@ -12,6 +12,8 @@ func _ready() -> void:
 	var f := int(args.get("f", "15"))
 	var runs := int(args.get("runs", "3"))
 	var tot := {}
+	if args.has("pity_n"): Awards.PITY = int(args.pity_n)
+	var skulls := {}
 	for pity in [false, true]:
 		for run in runs:
 			Save.d.genes = []
@@ -35,6 +37,7 @@ func _ready() -> void:
 							fired += 1
 							if Awards.brings(st, Awards.wanted()): hit += 1
 						slow = maxi(slow, Time.get_ticks_msec() - t0)
+					if String(st.get("form", "")) == "skull": skulls[pity] = int(skulls.get(pity, 0)) + 1
 					var gs: Array = Awards.genes_of(st)
 					Awards.note_pity(st, gs)
 					for t in gs:
@@ -53,6 +56,7 @@ func _ready() -> void:
 				tot[k] = int(tot.get(k, 0)) + c.x
 				tot["%s|n" % e.n] = c.y
 			if pity: print("run %d: longest search %d ms, luck due %d, found %d" % [run, slow, fired, hit])
+	print("skulls per run: no luck %.1f, luck %.1f (of %d finds)" % [skulls.get(false, 0) / float(runs), skulls.get(true, 0) / float(runs), f * Data.AREAS.size()])
 	print("%-26s %8s %8s  (of)" % ["collection", "no luck", "luck"])
 	for e: Dictionary in Awards.LIST:
 		if not tot.has("%s|n" % e.n): continue

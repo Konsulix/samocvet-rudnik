@@ -406,7 +406,7 @@ static func find_marks(s: Dictionary, gs: Array) -> Array:
 ## PITY misses the next find on the board is chosen among the mine's own rolls (same mine, same depth, PITY_MS at
 ## most) for one that brings a missing piece (pity_roll) — so the rare pieces come, but only from where they live,
 ## and never a legendary (the living effects stay a jackpot)
-const PITY := 3
+static var PITY := 6   # (a var: tests/award_pity tries others, pity_n=N)
 const PITY_MS := 200
 const PITY_TRIES := 400
 
