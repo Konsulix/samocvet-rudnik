@@ -1461,16 +1461,25 @@ func _specimen(o: Dictionary) -> Node3D:
 		var cc: Array = look.core
 		# (phantom_core: the phantom gene is this cube made bright — glossy, lit from within, a touch bigger)
 		var lit: bool = look.get("phantom_core", false) and "phantom" in tr
-		var core_m := SpecMat.make({col = SpecMat.lin(core_hex) * (1.6 if lit else 1.0), rough = 0.2 if lit else 0.35, flat = true, emis = SpecMat.lin(core_hex) * (1.6 if lit else 0.04)})
+		# the phantom is an earlier stage of the crystal itself: its own shape shrunk toward a point low inside it
+		# (a cube cut to the crystal's box poked out of an octahedron as flat purple triangles — «plastic»),
+		# smooth-shaded and a shade into the host's colour, so the glass shows a ghost, not a block
+		var cc_col := SpecMat.lin(core_hex).lerp(col, 0.25)
+		var core_m := SpecMat.make({col = cc_col * (1.15 if lit else 0.8), rough = 0.12 if lit else 0.3,
+				emis = cc_col * (0.55 if lit else 0.05)})
 		var first_core: Node3D = null
 		for n in root.find_children("*", "MeshInstance3D", true, false):
 			var cm := (n as MeshInstance3D).material_override
 			if not n.has_meta("geo") or n.has_meta("lying") or not (cm == mat or cm in dt_mats): continue
 			var g: Geo = n.get_meta("geo")
 			var bb := g.aabb()
-			var ck := float(cc[1]) * (1.25 if lit else 1.0)
-			var inner := Geo.box(bb.size.x * ck, bb.size.y * ck, bb.size.z * ck)
-			var cmi := U.mesh(inner, core_m, n, bb.get_center() + Vector3(0, bb.size.y * 0.06, 0))
+			var ck := 0.25 + float(cc[1]) * (0.75 if lit else 0.6)
+			var at := bb.get_center() - Vector3(0, bb.size.y * 0.18, 0)
+			var inner := Geo.new()
+			inner.v = g.v.duplicate()
+			inner.idx = g.idx.duplicate()
+			inner.translate(-at.x, -at.y, -at.z).scale(ck, ck, ck)
+			var cmi := U.mesh(inner, core_m, n, at)
 			if first_core == null or n == main: first_core = cmi
 		if lit and first_core: _mark("phantom", _mid(first_core))
 	# genes that shape or colour the crystals themselves: there only if crystals grew
