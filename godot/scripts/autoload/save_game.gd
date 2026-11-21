@@ -159,6 +159,7 @@ func _mend_beasts() -> void:
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
 func note_find(s: Dictionary, a: int, dl: int) -> void:
 	if s.has("first_of"): tell("first_find_%d" % int(s.first_of))
+	if String(s.get("picked", "")) == "first_own": tell("first_own")
 	# Awards: Déjà vu — the same species three times in a row (twice was everyday among Old Adit's quartz and calcite)
 	d.aw_run = int(d.get("aw_run", 0)) + 1 if String(s.sid) == String(d.aw_last) else 1
 	if int(d.aw_run) >= 3 and not d.aw_ev.has("twins"): d.aw_ev.twins = 1

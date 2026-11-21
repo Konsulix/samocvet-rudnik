@@ -1262,7 +1262,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			if first != null: stone = first
 			# the first stone a newcomer digs up himself — it brings the Scholar (StoryScene "sister_meet"): one picked by
 			# eye (Stones.PICKED; its id is its seed, as the barrow's first skull), not pyrite as the old man's gift was
-			if area == 0 and first == null and not Save.told("s_sister_meet") and not Coach.off:
+			if area == 0 and first == null and first_own_due():
 				stone = Stones.picked("first_own", area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			var tries := 0
 			while String(stone.sid) == "pyrite" and not Save.told("s_sister_meet") and tries < 40:
@@ -1871,7 +1871,13 @@ func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 		if geo.hp <= 0:
 			geo.done = true
 			_goal_hit("geo", -1, geo.r + 0.5, geo.c + 0.5, t)
-			bonus.append(Stones.roll(Save.next_uid(), Save.area(), 0.5 + depth * 0.35, depth))
+			var gs := Stones.roll(Save.next_uid(), Save.area(), 0.5 + depth * 0.35, depth)
+			# (22.11) the first stone of one's own may come out of a geode before any find: then it is the picked one
+			# (a board with the picked find has it there already; one geode a board)
+			var own_here := String((find.get("stone", {}) as Dictionary).get("picked", "")) == "first_own" or bonus.any(func(b: Dictionary) -> bool: return String(b.get("picked", "")) == "first_own")
+			if Save.area() == 0 and first_own_due() and not own_here:
+				gs = Stones.picked("first_own", 0, 0.5 + depth * 0.35, depth)
+			bonus.append(gs)
 			_fx(t, "geo_open", {gi = gi, r = geo.r, c = geo.c})
 		return
 	if FIND[r][c]:   # careful work peels the rock, blasts chip the stone itself
@@ -2529,6 +2535,11 @@ const BORE_IN := 340.0     # ms until the tip reaches the first cell (the drill 
 const BORE_STEP := 55.0    # ms a cell
 
 ## the find as it comes out of the rock: its condition by how much was chipped off, and its price with it
+## (22.11) the first stone a newcomer gets himself is still to come: the picked one (Stones.PICKED.first_own) — till it
+## is noted (Save.note_find), and never once the Scholar has come for another (a game from before it)
+static func first_own_due() -> bool:
+	return not Coach.off and not Save.told("first_own") and not Save.told("s_sister_meet")
+
 func extracted_stone(diadem := false) -> Dictionary:
 	var s: Dictionary = find.stone.duplicate(true)
 	s.value = roundi(float(s.value) * float(Stones.condition(int(find.integ))[2]) * (1.1 if diadem else 1.0))

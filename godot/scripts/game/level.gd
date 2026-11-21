@@ -186,6 +186,10 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 
 ## what this board is about, in a few words: its biggest work first ([title, the task])
 func _board_theme() -> Array:
+	return board_theme(model)
+
+## (static: Jump reads it for the boards a simulated career played — their banners count as seen)
+static func board_theme(model: BoardModel) -> Array:
 	var has := func(k: String) -> bool: return model.goal_index(k) >= 0
 	if has.call("maiden"): return ["The Fire Maiden", "Catch her: break the stone she dances on"]
 	if has.call("dark"): return ["The Dark Gallery", "Carry the light down: match next to it"]

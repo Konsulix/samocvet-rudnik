@@ -163,6 +163,7 @@ static func picked(which: String, area: int, luck: float, dl: int) -> Dictionary
 	st.erase("fx")
 	st.value = price(st, area, dl)
 	st.tier = tier_of(String(st.sid), int(st.gi), false)
+	st.picked = which
 	return st
 
 ## a find's name: the species, or for a skull its kind ("Gilded Skull")

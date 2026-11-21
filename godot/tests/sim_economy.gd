@@ -150,6 +150,9 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		caught = int(m.maiden.get("caught", 0)), coins_won = m.coins_won,
 		sold = (int((m.find.get("stone", {}) as Dictionary).get("value", 0)) if not m.find.is_empty() and bool(m.find.get("done", false)) else 0) + m.bonus.reduce(func(acc: int, st: Dictionary) -> int: return acc + int(st.get("value", 0)), 0),
 		goal0 = goal0, left = _goals_left(m),
+		# (22.11, tests/jump_calib) the find and the geodes: was there one, was it dug out, how whole; geodes on the board, opened
+		find_on = not m.find.is_empty(), find_done = not m.find.is_empty() and bool(m.find.get("done", false)),
+		find_integ = int(m.find.get("integ", 100)), geos = m.geos.size(), geos_open = m.bonus.size(),
 		stage = int(m.boss.get("stage", 0)), hp = m.boss_hp() if m.boss_on() else 0,
 		tilt = m.scale_tilt() if m.scale_on() else 0.0, fell = m.scale_lost()}
 

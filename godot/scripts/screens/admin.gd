@@ -210,6 +210,33 @@ static func open() -> void:
 				main().get_tree().reload_current_scene()],
 			["Keep it", "glass", func(): Ov.close()]])))
 	v.add_child(pr)
+	# (22.11) a jump: the save of a player who has come through the mines before honestly — a collector (Jump.career) —
+	# and a point to come back to
+	v.add_child(_head("Start at a mine (as a collector who played the ones before)"))
+	var jr := _row()
+	for ja in range(1, mini(5, Data.AREAS.size())):
+		var jn := String(Data.AREAS[ja].n)
+		jr.add_child(_btn(jn, false, func():
+			Ov.close()
+			Ov.panel("Start at %s?" % jn, "Your save is replaced: a career through every mine before %s is played out — the levels the game would make, kept what is new, sold the rest, jobs built, bosses beaten, awards claimed. Put your save by first (below) to come back to it." % jn, [
+				["Start", "green", func():
+					Ov.close()
+					Ov.toast("Playing the mines before %s…" % jn)
+					await main().get_tree().create_timer(0.2).timeout
+					var lg := Jump.career(ja)
+					Diag.note("jump to %s: %d levels, %d won, %d kept, %d sold, %d awards, %d ms" % [jn, int(lg.levels), int(lg.wins), int(lg.kept), int(lg.sold), (lg.claimed as Array).size(), int(lg.ms)])
+					main().get_tree().reload_current_scene()],
+				["Cancel", "glass", func(): Ov.close()]])))
+	v.add_child(jr)
+	var pt := _row()
+	pt.add_child(_btn("Put this point by", false, func():
+		Jump.save_point()
+		Ov.toast("Saved: you can come back to this point")))
+	if Jump.has_point():
+		pt.add_child(_btn("Back to the point", false, func():
+			Ov.close()
+			if Jump.load_point(): main().get_tree().reload_current_scene()))
+	v.add_child(pt)
 	# the mine screen with everything that moves on it: all jobs built, every depth open and lived in (crews come after
 	# two wins), a stone on every pedestal; and its rare events on demand
 	v.add_child(_head("Mine screen"))

@@ -57,6 +57,21 @@ func _ready() -> void:
 	if args.has("uv"): Spec.force_uv = float(args.uv)
 	# the tutorial: `tut` shows it from the start; test runs (shots, autoplay, sims) go without it
 	# (`tut=swap,goals` starts as if those tips were already shown, to see the next ones; `quiet` - none, for recordings)
+	if args.has("jump_point"):
+		# the admin's point to come back to: `-- save=x jump_point=save|load` (then quits)
+		if args.jump_point == "save": Jump.save_point()
+		else: print("JUMP point loaded: ", Jump.load_point())
+		print("JUMP point: area %d, level %d, inventory %d" % [Save.area(), int(Save.d.level), (Save.d.coll as Array).size()])
+		get_tree().quit()
+		return
+	if args.has("jump"):
+		# (22.11) the admin's "Start at a mine" from the command line: `-- save=j jump=3 [jseed=1] [screen=home]`
+		var lg := Jump.career(int(args.jump), int(args.get("jseed", "1")))
+		print("JUMP ", JSON.stringify({levels = lg.levels, wins = lg.wins, kept = lg.kept, sold = lg.sold, ms = lg.ms, mines = lg.mines, claimed = lg.claimed}))
+		print("JUMP state: area %d, level %d, coins %d, iron %d, ore %d, inventory %d, atlas %d, genes %d, awards %d" % [Save.area(), int(Save.d.level), int(Save.d.coins), int(Save.d.fe), int(Save.d.ore), (Save.d.coll as Array).size(), Save.d.atlas.size(), (Save.d.genes as Array).size(), (Save.d.aw_got as Array).size()])
+		if args.has("jump_quit"):
+			get_tree().quit()
+			return
 	if args.has("tut"): Save.d.tut = [] if args.tut == "1" else Array(String(args.tut).split(","))
 	elif args.has("shot") or args.has("quiet") or args.has("autoplay") or args.keys().any(func(k): return String(k).begins_with("sim")):
 		Coach.off = true

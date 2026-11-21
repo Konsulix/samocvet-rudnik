@@ -366,6 +366,10 @@ func _tile(g: Array, w: float) -> Control:
 
 ## the stones that can go: every one but the best of its species, never a legendary or a cut one
 func _dupes() -> Array:
+	return dupes()
+
+## (static: Jump sells them as a collector would, when the drill waits on coins)
+static func dupes() -> Array:
 	var best := {}
 	for st in Save.d.coll:
 		var gid := Stones.atlas_id(st)
