@@ -1642,9 +1642,6 @@ func _specimen(o: Dictionary) -> Node3D:
 		var made := 0
 		var tries := 0
 		var n_want := 10 + int(rng.next() * 7)
-		# (their own copy of the glass: they flare with light as they rise, SpecView._sprout)
-		var sm: ShaderMaterial = SpecUtil.mat_copy(mat) if mat else null
-		if sm and mat in dt_mats: dt_mats.append(sm)
 		root.set_meta("sprout_col", col)
 		while made < n_want and tries < n_want * 6:
 			tries += 1
@@ -1654,7 +1651,10 @@ func _specimen(o: Dictionary) -> Node3D:
 			if nn.y < 0.2: continue
 			# (the first three are the big ones, the show's last word: SpecView._sprout)
 			var f := 0.75 + rng.next() * 0.25 if made < 3 else rng.next()
-			var c: MeshInstance3D = crystal.call(0.5 + f * 0.6, 0.22 + f * (0.42 if made < 3 else 0.3), p - nn * 0.01 * gs, (nn + UP * 1.2 + _rv() * 0.5).normalized(), {}, sm)
+			# (each its own copy of the glass: it grows inside it, its own height of what has grown — spec.gdshaderinc grow_h;
+			# no crust line: up on the rock the stone's crust height took most of a new crystal for rock — crumpled lumps)
+			var sm: ShaderMaterial = SpecUtil.mat_copy(mat) if mat else null
+			var c: MeshInstance3D = crystal.call(0.5 + f * 0.6, 0.22 + f * (0.42 if made < 3 else 0.3), p - nn * 0.04 * gs, (nn + UP * 1.2 + _rv() * 0.5).normalized(), {}, sm)
 			c.set_meta("sprout", c.transform.basis)
 			c.set_meta("sprout_k", float(made))
 			keep_out.append([p, 0.05 * gs])
@@ -1684,7 +1684,13 @@ func _specimen(o: Dictionary) -> Node3D:
 	# (the living druse's crystals folded away until a tap: SpecView._sprout)
 	if root.has_meta("sprout"):
 		for n in root.find_children("*", "MeshInstance3D", true, false):
-			if n.has_meta("sprout"): (n as MeshInstance3D).transform.basis = (n.get_meta("sprout") as Basis).scaled_local(Vector3.ONE * 0.001)
+			if not n.has_meta("sprout"): continue
+			var gm := (n as MeshInstance3D).material_override as ShaderMaterial
+			if gm:
+				gm.set_shader_parameter("grow_on", 1.0)
+				gm.set_shader_parameter("grow_h", -1000.0)
+			else:
+				(n as MeshInstance3D).visible = false
 	# a sea find: sunlight through the water over it (its rock's mesh exists only now)
 	if root.has_meta("sea"):
 		SpecSea.caustics(root)

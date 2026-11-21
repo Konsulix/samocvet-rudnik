@@ -10,6 +10,20 @@ uniform float opacity = 1.0;
 uniform float rough = 0.5;
 uniform float metal = 0.0;
 uniform vec3 emis = vec3(0.0);
+// (21.11) a living druse (SpecView._sprout): a crystal that exists only below grow_h (its own height, object y) — it
+// fills up from the rock, a front of light at the top of what has grown, the fresh glass hot below it, its open
+// inside glowing like a cut through molten stone
+uniform float grow_on = 0.0;
+uniform float grow_h = 0.0;
+uniform float grow_w = 0.05;
+uniform float grow_heat = 0.0;
+uniform vec3 grow_col = vec3(1.0);
+// and the rock it comes from splitting open: glowing cracks drawn in the rock itself, out from each place
+// (xyz in the rock's object space, w how far they have run)
+uniform int gc_n = 0;
+uniform vec4 gc_p[16];
+uniform vec3 gc_col = vec3(1.0);
+uniform float gc_k = 0.0;
 uniform float coat = 0.0;
 uniform float coat_rough = 0.05;
 uniform float spec = 0.5;
@@ -135,6 +149,12 @@ vec3 behind(vec2 uv, float r) {
 #endif
 
 void vertex() {
+	if (grow_on > 0.0) {
+		// a living druse's crystal grows: all of it above the front pressed down onto it — a solid stub with a flat face
+		// of growth on top, the point forming as the front passes up through it (gone altogether below -999)
+		if (grow_h < -999.0) VERTEX = vec3(0.0);
+		else VERTEX.y = min(VERTEX.y, grow_h);
+	}
 	v_op = VERTEX;
 	v_no = NORMAL;
 	v_bary = CUSTOM0.xyz;
@@ -150,6 +170,34 @@ void fragment() {
 	n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	if (dot(n, VIEW) < 0.0) n = -n;
 #endif
+	float g_front = 0.0;
+	float g_in = 0.0;
+	if (grow_on > 0.0) {
+		float gd = max(0.0, grow_h - v_op.y);
+		// the face of growth itself (pressed flat on the front) glows whole; just under it the fresh glass, fading down
+		// (a ragged edge: the band's own width wavers)
+		float gw = grow_w * (0.7 + 0.6 * fbm(v_op * 9.0 + 3.7));
+		g_front = exp(-gd * gd / (gw * gw)) + exp(-gd / (grow_w * 4.0)) * 0.25;
+	}
+	float g_web = 0.0;
+	float g_core = 0.0;
+	if (gc_n > 0) {
+		// a net of thin wandering lines (the contours of noise), the finer ones weaker
+		float w1 = 1.0 - smoothstep(0.0, 0.016, abs(fbm(v_op * 5.0 + 2.0) - 0.5));
+		float w2 = 1.0 - smoothstep(0.0, 0.012, abs(fbm(v_op * 11.0 + 7.0) - 0.5));
+		float reach = 0.0;
+		float near = 0.0;
+		for (int i = 0; i < 16; i++) {
+			if (i >= gc_n) break;
+			vec4 cp = gc_p[i];
+			if (cp.w <= 0.0) continue;
+			float d = length(v_op - cp.xyz) + (fbm(v_op * 4.0 + float(i)) - 0.5) * cp.w * 0.6;
+			reach = max(reach, 1.0 - smoothstep(cp.w * 0.55, cp.w, d));
+			near = max(near, 1.0 - smoothstep(0.0, cp.w * 0.3, d));
+		}
+		g_web = max(w1, w2 * 0.4 * reach) * reach * gc_k;
+		g_core = near * gc_k;
+	}
 	vec3 base = albedo * COLOR.rgb;
 	// alexandrite: lamplight turns its green to raspberry (its brightness kept: by the strongest channel)
 	// (the change spreads across the stone from the lamp's side, the right of the card)
@@ -708,6 +756,11 @@ void fragment() {
 	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.8 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e + a_eye;
 	NORMAL = n;
 	ALPHA = 1.0;
+	if (grow_on > 0.0) {
+		// the front, the hot fresh glass, and the inside seen through the open top: molten stone of its colour
+		EMISSION += grow_col * (g_front * 1.6 + grow_heat * 0.15);
+		ALBEDO *= 1.0 - min(1.0, g_front * 0.6);
+	}
 #elif defined(UNSHADED)
 	ALBEDO = base + e + e_ir;
 #else
@@ -772,6 +825,15 @@ void fragment() {
 	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + a_eye + fluor_col * uvk * (1.0 - dirt) * 0.45 * (0.7 + 0.8 * o_fr * o_fr);
 	ALBEDO *= 1.0 - uvk * 0.9 * (1.0 - dirt);
 	NORMAL = n;
+	if (grow_on > 0.0) {
+		EMISSION += grow_col * (g_front * 1.6 + grow_heat * 0.15);
+		ALBEDO *= 1.0 - min(1.0, g_front * 0.6);
+	}
+	if (gc_n > 0) {
+		// the rock split open: the cracks dark, then light from deep inside running up them; a glow welling at each place
+		ALBEDO *= 1.0 - min(0.9, g_web * 0.9 + g_core * 0.4);
+		EMISSION += gc_col * (g_web * 1.3 + g_core * g_core * 0.6);
+	}
 #endif
 #if defined(TRANSP) && !defined(GLASS)
 	ALPHA = a;
