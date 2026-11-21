@@ -432,47 +432,146 @@ func _sprout() -> void:
 	var cs: Array = live.find_children("*", "MeshInstance3D", true, false).filter(func(n: Node) -> bool: return n.has_meta("sprout"))
 	if cs.is_empty(): return
 	_sprouting = true
-	cs.shuffle()
+	# (21.11, «more of a show») in three beats: the rock wakes (a rumble, the camera shakes, the rock glows from within),
+	# the crystals burst out of it one by one (each in a spray of sparks, chimes as they come, the big ones last, the
+	# old crystals flaring with them), then after a breath they flash white and sink back in a scatter of light
+	cs.sort_custom(func(x: Node, y: Node) -> bool: return float(x.get_meta("sprout_k")) < float(y.get_meta("sprout_k")))
+	var big: Array = cs.slice(0, mini(3, cs.size()))
+	var small: Array = cs.slice(mini(3, cs.size()))
+	small.shuffle()
+	cs = small + big
 	var aabb := AABB()
 	for i in cs.size():
 		var mi := cs[i] as MeshInstance3D
 		var bb := mi.global_transform * mi.get_aabb()
 		aabb = bb if i == 0 else aabb.merge(bb)
 	var gc: Color = live.get_meta("glow", Color(0.7, 0.85, 1.0))
+	var sc: Color = live.get_meta("sprout_col", gc)
+	var hot := Vector3(sc.r, sc.g, sc.b)
 	var lamp := OmniLight3D.new()
 	lamp.light_color = gc.lerp(Color(1, 1, 1), 0.3)
 	lamp.light_energy = 0.0
-	lamp.omni_range = aabb.size.length() * 1.6
+	lamp.omni_range = aabb.size.length() * 1.8
 	live.add_child(lamp)
 	lamp.global_position = aabb.get_center() + Vector3(0, aabb.size.y * 0.4, aabb.size.length() * 0.2)
-	# the new crystals flare in the stone's colour as they rise and cool as they stand (their own glass: emis)
 	var sm := (cs[0] as MeshInstance3D).material_override as ShaderMaterial
-	var sc: Color = live.get_meta("sprout_col", gc)
+	# the rock and the old crystals glow too: their own glow put back as it was at the end
+	var rock_ms: Array = []
+	var old_ms: Array = []
+	for n in live.find_children("*", "MeshInstance3D", true, false):
+		var m := (n as MeshInstance3D).material_override as ShaderMaterial
+		if not m or m == sm: continue
+		if (n.has_meta("base") or m.has_meta("rock")) and not m in rock_ms: rock_ms.append(m)
+		elif n.has_meta("crystal") and not n.has_meta("sprout") and m.has_meta("dirt") and not m in old_ms: old_ms.append(m)
+	var e0 := {}
+	for m: ShaderMaterial in rock_ms + old_ms:
+		var v: Variant = m.get_shader_parameter("emis")
+		e0[m] = v if v is Vector3 else Vector3.ZERO
+	var glow_to := func(ms: Array, k: float, amt: float) -> void:
+		for m: ShaderMaterial in ms: m.set_shader_parameter("emis", (e0[m] as Vector3) + hot * amt * k)
 	var flare := func(k: float) -> void:
-		if sm: sm.set_shader_parameter("emis", Vector3(sc.r, sc.g, sc.b) * 1.6 * k + Vector3(0.25, 0.25, 0.25) * k)
-	Sfx.play("reveal_2")
-	Sfx.buzz(25)
+		if sm: sm.set_shader_parameter("emis", hot * 1.8 * k + Vector3(0.3, 0.3, 0.3) * k)
+	Sfx.play("rumble")
+	Sfx.buzz(60)
+	_shake = maxf(_shake, 0.9)
+	var wake := 0.55
 	var tw := create_tween()
 	tw.set_parallel(true)
+	# 1: the rock wakes
+	tw.tween_method(func(k: float) -> void: glow_to.call(rock_ms, k, 0.1), 0.0, 1.0, wake).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(lamp, "light_energy", 1.5, wake)
+	# 2: the burst
 	var grow := 0.0
 	for i in cs.size():
 		var mi := cs[i] as MeshInstance3D
 		var full: Basis = mi.get_meta("sprout")
-		var at := i * 0.09
-		grow = maxf(grow, at + 0.6)
+		var is_big := i >= small.size()
+		var at := wake + i * 0.08 + (0.25 if is_big else 0.0)
+		var dur := 0.75 if is_big else 0.45
+		grow = maxf(grow, at + dur)
 		var set_k := func(k: float) -> void:
 			if is_instance_valid(mi): mi.transform.basis = full.scaled_local(Vector3.ONE * maxf(k, 0.001))
-		tw.tween_method(set_k, 0.001, 1.0, 0.6).set_delay(at).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		var back := grow + 2.4 + (cs.size() - i) * 0.05
-		tw.tween_method(set_k, 1.0, 0.001, 0.5).set_delay(back).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tw.tween_property(lamp, "light_energy", 4.0, grow * 0.8).set_trans(Tween.TRANS_SINE)
-	tw.tween_method(flare, 0.0, 1.0, grow * 0.6).set_trans(Tween.TRANS_SINE)
-	tw.tween_method(flare, 1.0, 0.15, 2.0).set_delay(grow * 0.6).set_trans(Tween.TRANS_SINE)
-	tw.tween_method(flare, 0.15, 0.0, 0.6).set_delay(grow + 2.2)
-	tw.tween_property(lamp, "light_energy", 0.0, 1.4).set_delay(grow + 2.2)
+		tw.tween_method(set_k, 0.001, 1.0, dur).set_delay(at).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_callback(func() -> void: _sparks(mi, full, sc, 26 if is_big else 14, 1.0)).set_delay(at)
+		if i == 0 or i == small.size() or i == cs.size() - 1:
+			var note := 2 if i == 0 else 3 if i < cs.size() - 1 else 4
+			tw.tween_callback(func() -> void: Sfx.play("reveal_%d" % note)).set_delay(at)
+	tw.tween_method(flare, 0.0, 1.0, grow - wake).set_delay(wake).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(lamp, "light_energy", 5.0, grow - wake).set_delay(wake).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(k: float) -> void: glow_to.call(old_ms, k, 0.6), 0.0, 1.0, 0.3).set_delay(grow - 0.3)
+	tw.tween_method(func(k: float) -> void: glow_to.call(old_ms, k, 0.6), 1.0, 0.0, 1.2).set_delay(grow)
+	tw.tween_callback(func() -> void:
+		_shake = maxf(_shake, 0.5)
+		Sfx.buzz(40)).set_delay(grow - 0.3)
+	# the glow settles
+	var hold := grow + 2.4
+	tw.tween_method(flare, 1.0, 0.2, 1.6).set_delay(grow).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(k: float) -> void: glow_to.call(rock_ms, k, 0.1), 1.0, 0.25, 1.6).set_delay(grow)
+	tw.tween_property(lamp, "light_energy", 1.5, 1.6).set_delay(grow)
+	# 3: a white flash, and back into the rock in a scatter of light
+	tw.tween_method(flare, 0.2, 1.6, 0.18).set_delay(hold)
+	tw.tween_callback(func() -> void: Sfx.play("reveal_1")).set_delay(hold)
+	var end := hold
+	for i in cs.size():
+		var mi := cs[i] as MeshInstance3D
+		var full: Basis = mi.get_meta("sprout")
+		var at := hold + 0.18 + (cs.size() - 1 - i) * 0.04
+		end = maxf(end, at + 0.3)
+		var set_k := func(k: float) -> void:
+			if is_instance_valid(mi): mi.transform.basis = full.scaled_local(Vector3.ONE * maxf(k, 0.001))
+		tw.tween_method(set_k, 1.0, 0.001, 0.3).set_delay(at).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func() -> void: _sparks(mi, full, sc, 10, 0.6)).set_delay(at + 0.2)
+	tw.tween_method(flare, 1.6, 0.0, 0.5).set_delay(hold + 0.18)
+	tw.tween_method(func(k: float) -> void: glow_to.call(rock_ms, k, 0.1), 0.25, 0.0, 0.8).set_delay(end - 0.2)
+	tw.tween_property(lamp, "light_energy", 0.0, 0.8).set_delay(end - 0.2)
 	tw.chain().tween_callback(func() -> void:
 		if is_instance_valid(lamp): lamp.queue_free()
+		for m: ShaderMaterial in rock_ms + old_ms: m.set_shader_parameter("emis", e0[m])
 		_sprouting = false)
+
+## a spray of sparks from a crystal's foot along its axis (the living druse): soft additive motes in its colour
+static var _spark_mat: StandardMaterial3D
+func _sparks(mi: MeshInstance3D, full: Basis, c: Color, n: int, speed: float) -> void:
+	if not is_instance_valid(mi) or not is_instance_valid(live): return
+	if _spark_mat == null:
+		_spark_mat = StandardMaterial3D.new()
+		_spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_spark_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_spark_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_spark_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_spark_mat.vertex_color_use_as_albedo = true
+		_spark_mat.albedo_texture = FxLayer.puff()
+	var size := (full * mi.get_aabb().size).length()
+	var par := mi.get_parent_node_3d()
+	var up := ((par.global_basis if par else Basis()) * full.y).normalized()
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.85
+	p.amount = n
+	p.lifetime = 0.9
+	p.local_coords = false
+	p.direction = up
+	p.spread = 55.0
+	p.initial_velocity_min = size * 0.8 * speed
+	p.initial_velocity_max = size * 2.2 * speed
+	p.gravity = -up * size * 2.5
+	p.damping_min = size * 1.0
+	p.damping_max = size * 2.0
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.2
+	var qm := QuadMesh.new()
+	qm.size = Vector2.ONE * size * 0.2
+	qm.material = _spark_mat
+	p.mesh = qm
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 1))
+	ramp.add_point(0.25, Color(c.lerp(Color(1, 1, 1), 0.4), 0.9))
+	ramp.set_color(ramp.get_point_count() - 1, Color(c, 0.0))
+	p.color_ramp = ramp
+	live.add_child(p)
+	p.global_position = mi.global_position
+	p.emitting = true
+	get_tree().create_timer(1.4).timeout.connect(p.queue_free)
 
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
 ## a few seconds it dries back (shaders/opal_seam.gdshader, wet)

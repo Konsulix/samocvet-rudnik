@@ -1652,8 +1652,9 @@ func _specimen(o: Dictionary) -> Node3D:
 			if not _free(p, 0.04 * gs): continue
 			var nn: Vector3 = st.nrm.call(p)
 			if nn.y < 0.2: continue
-			var f := rng.next()
-			var c: MeshInstance3D = crystal.call(0.45 + f * 0.55, 0.22 + f * 0.3, p - nn * 0.01 * gs, (nn + UP * 1.2 + _rv() * 0.5).normalized(), {}, sm)
+			# (the first three are the big ones, the show's last word: SpecView._sprout)
+			var f := 0.75 + rng.next() * 0.25 if made < 3 else rng.next()
+			var c: MeshInstance3D = crystal.call(0.5 + f * 0.6, 0.22 + f * (0.42 if made < 3 else 0.3), p - nn * 0.01 * gs, (nn + UP * 1.2 + _rv() * 0.5).normalized(), {}, sm)
 			c.set_meta("sprout", c.transform.basis)
 			c.set_meta("sprout_k", float(made))
 			keep_out.append([p, 0.05 * gs])
