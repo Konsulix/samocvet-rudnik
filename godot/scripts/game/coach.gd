@@ -53,8 +53,8 @@ func hand(from: Vector2, to: Vector2) -> void:
 ## a first-time note, once (Save.told(id)): the screen dims but for `hole` (if any), `text` on a card; a touch on the
 ## hole goes through to it, with no hole any touch closes it. Over everything but the windows (layer 19)
 ## (layer_n: over a window — Ov is layer 20 — a note on its button goes above it)
-static func note(at: Node, id: String, text: String, hole := Rect2(), layer_n := 19) -> void:
-	if off or Save.told(id) or not at.is_inside_tree(): return
+static func note(at: Node, id: String, text: String, hole := Rect2(), layer_n := 19) -> Coach:
+	if off or Save.told(id) or not at.is_inside_tree(): return null
 	Save.tell(id)
 	var layer := CanvasLayer.new()
 	layer.layer = layer_n
@@ -63,7 +63,22 @@ static func note(at: Node, id: String, text: String, hole := Rect2(), layer_n :=
 	layer.add_child(c)
 	c.open([hole] if hole.has_area() else [], text, not hole.has_area())
 	c.close_on_hole = true
+	c.add_to_group("coach_note")
 	c.dismissed.connect(layer.queue_free)
+	return c
+
+## (22.11) a note is on the screen: the guide's bubble waits for it (a quick tap had both up at once, one over the other)
+static func up(at: Node) -> bool:
+	for n in at.get_tree().get_nodes_in_group("coach_note"):
+		if is_instance_valid(n) and (n as Coach).visible: return true
+	return false
+
+## a note taken away by what it pointed at going (its window closed under it — a finger pressed Build just before the
+## note came and let go after: the note missed the press, the button took the release)
+func drop() -> void:
+	if not visible: return
+	close()
+	dismissed.emit()
 
 ## a note's hole touched: the touch goes on to what is under it, the note goes
 var close_on_hole := false

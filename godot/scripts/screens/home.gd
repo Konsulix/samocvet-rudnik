@@ -929,10 +929,16 @@ func _boss_panel(sel: Array) -> void:
 	v.add_child(Ov.btn("Back", "glass", func(): Ov.close()))
 
 ## the first time the window can build: a note on its Build button, once the window has come up
+## (22.11: a quick tap could close the window before the note came, or under it — the note hung on the bare mine,
+## over the guide's bubble: it shows only on the open window, with nothing else talking, and goes with the window)
 func _coach_build(bt: Button) -> void:
 	await get_tree().create_timer(0.55).timeout
-	if is_instance_valid(bt) and bt.is_visible_in_tree():
-		Coach.note(self, "c_build", "Build: the ore goes into the mine, and you see it change.", bt.get_global_rect(), 21)
+	if not (is_instance_valid(bt) and bt.is_visible_in_tree() and Ov.is_open()) or _bubble: return
+	var c := Coach.note(self, "c_build", "Build: the ore goes into the mine, and you see it change.", bt.get_global_rect(), 21)
+	if c == null: return
+	var gone := func() -> void: if is_instance_valid(c): c.drop()
+	Ov.closed.connect(gone, CONNECT_ONE_SHOT)
+	c.dismissed.connect(func() -> void: if Ov.closed.is_connected(gone): Ov.closed.disconnect(gone))
 
 ## one line of the checklist: badge, what, how far along, a tick (or a button doing it)
 func _need_row(kind: String, what: String, sub: String, ok: bool, action: Button) -> PanelContainer:
@@ -1212,6 +1218,10 @@ func _guide_later(delay: float) -> void:
 	_guide_waits = false
 	if not is_inside_tree() or not uses_view() or _bubble or Ov.is_open():
 		return
+	# (a coach's note is up — the Next plate, the Build button: he waits for it to be done with)
+	if Coach.up(self):
+		_guide_later(1.0)
+		return
 	# (what a close left — the hoard, unopened stones — is given out first, Main._settle: he waits for it)
 	if int(Save.d.hoard_due) >= 0 or (Save.d.owed as Array).size():
 		_guide_later(2.0)
@@ -1235,6 +1245,9 @@ func _guide_later(delay: float) -> void:
 	_glide_to(view.guide_head().y * view.scale.y - get_viewport_rect().size.y * 0.42)
 	await get_tree().create_timer(0.7).timeout
 	if not is_inside_tree() or _bubble: return
+	if Ov.is_open() or Coach.up(self):
+		_guide_later(1.0)
+		return
 	_bubble = GuideBubble.new(view, String(line.text))
 	add_child(_bubble)
 	_bubble.closed.connect(func():
@@ -1313,7 +1326,9 @@ func _rise() -> void:
 	wall.mouse_filter = Control.MOUSE_FILTER_STOP
 	wall.size = get_viewport_rect().size
 	hold.add_child(wall)
-	get_tree().root.add_child(hold)
+	# (deferred: _rise runs from the screen's _ready, while the root is still setting up its children — a plain
+	# add_child failed there, and the wall was never up: taps went through the ride, 22.11)
+	get_tree().root.add_child.call_deferred(hold)
 	await get_tree().process_frame
 	_scroll_to(1e9)
 	await get_tree().create_timer(0.6).timeout

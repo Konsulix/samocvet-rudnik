@@ -9,8 +9,11 @@ var args := {}
 func _taps(spec: String, gap: float) -> void:
 	for pt in spec.split(";"):
 		await get_tree().create_timer(gap).timeout
-		var xy: PackedStringArray = pt.split(",")
+		# (`x,y@S`: the finger held S s before it lets go — a press that straddles something coming up)
+		var hold := float(pt.get_slice("@", 1)) if "@" in pt else 0.0
+		var xy: PackedStringArray = pt.get_slice("@", 0).split(",")
 		for down in [true, false]:
+			if not down and hold > 0.0: await get_tree().create_timer(hold).timeout
 			var ev := InputEventMouseButton.new()
 			ev.button_index = MOUSE_BUTTON_LEFT
 			ev.pressed = down
