@@ -432,9 +432,10 @@ func _sprout() -> void:
 	var cs: Array = live.find_children("*", "MeshInstance3D", true, false).filter(func(n: Node) -> bool: return n.has_meta("sprout"))
 	if cs.is_empty(): return
 	_sprouting = true
-	# (21.11, «more of a show») in three beats: the rock wakes (a rumble, the camera shakes, the rock glows from within),
-	# the crystals burst out of it one by one (each in a spray of sparks, chimes as they come, the big ones last, the
-	# old crystals flaring with them), then after a breath they flash white and sink back in a scatter of light
+	# (21.11, «more of a show», second pass) in three beats. The rock wakes: a rumble, the camera shakes, glowing cracks
+	# run out over the rock where the crystals will come. The burst: each crystal pushes up out of its crack along its
+	# own axis — a bright growth front riding its tip — throwing chips of rock and streaks of light, the big three last,
+	# the old crystals flaring with them. Then a breath, a flash, and back into the rock in a scatter of light
 	cs.sort_custom(func(x: Node, y: Node) -> bool: return float(x.get_meta("sprout_k")) < float(y.get_meta("sprout_k")))
 	var big: Array = cs.slice(0, mini(3, cs.size()))
 	var small: Array = cs.slice(mini(3, cs.size()))
@@ -443,73 +444,101 @@ func _sprout() -> void:
 	var aabb := AABB()
 	for i in cs.size():
 		var mi := cs[i] as MeshInstance3D
+		var full0: Basis = mi.get_meta("sprout")
+		var t0 := mi.transform
+		mi.transform.basis = full0
 		var bb := mi.global_transform * mi.get_aabb()
+		mi.transform = t0
 		aabb = bb if i == 0 else aabb.merge(bb)
 	var gc: Color = live.get_meta("glow", Color(0.7, 0.85, 1.0))
 	var sc: Color = live.get_meta("sprout_col", gc)
+	# a colourless stone has no colour to glow in: a magic one of its own (ice blue going violet)
+	if maxf(sc.r, maxf(sc.g, sc.b)) - minf(sc.r, minf(sc.g, sc.b)) < 0.12 * maxf(sc.r, maxf(sc.g, sc.b)):
+		sc = Color(0.35, 0.62, 1.0)
 	var hot := Vector3(sc.r, sc.g, sc.b)
 	var lamp := OmniLight3D.new()
-	lamp.light_color = gc.lerp(Color(1, 1, 1), 0.3)
+	lamp.light_color = sc.lerp(Color(1, 1, 1), 0.35)
 	lamp.light_energy = 0.0
 	lamp.omni_range = aabb.size.length() * 1.8
 	live.add_child(lamp)
 	lamp.global_position = aabb.get_center() + Vector3(0, aabb.size.y * 0.4, aabb.size.length() * 0.2)
 	var sm := (cs[0] as MeshInstance3D).material_override as ShaderMaterial
-	# the rock and the old crystals glow too: their own glow put back as it was at the end
-	var rock_ms: Array = []
+	# the old crystals flare a little with the new ones; their own glow put back as it was at the end
 	var old_ms: Array = []
 	for n in live.find_children("*", "MeshInstance3D", true, false):
 		var m := (n as MeshInstance3D).material_override as ShaderMaterial
 		if not m or m == sm: continue
-		if (n.has_meta("base") or m.has_meta("rock")) and not m in rock_ms: rock_ms.append(m)
-		elif n.has_meta("crystal") and not n.has_meta("sprout") and m.has_meta("dirt") and not m in old_ms: old_ms.append(m)
+		if n.has_meta("crystal") and not n.has_meta("sprout") and m.has_meta("dirt") and not m in old_ms: old_ms.append(m)
 	var e0 := {}
-	for m: ShaderMaterial in rock_ms + old_ms:
+	for m: ShaderMaterial in old_ms:
 		var v: Variant = m.get_shader_parameter("emis")
 		e0[m] = v if v is Vector3 else Vector3.ZERO
 	var glow_to := func(ms: Array, k: float, amt: float) -> void:
 		for m: ShaderMaterial in ms: m.set_shader_parameter("emis", (e0[m] as Vector3) + hot * amt * k)
+	# (the new glass keeps its faces: a soft glow in the colour, the light is the front's and the lamp's)
 	var flare := func(k: float) -> void:
-		if sm: sm.set_shader_parameter("emis", hot * 1.8 * k + Vector3(0.3, 0.3, 0.3) * k)
+		if sm: sm.set_shader_parameter("emis", hot * 0.55 * k)
+	var fx_mat := _fx_mat(sc)
 	Sfx.play("rumble")
 	Sfx.buzz(60)
 	_shake = maxf(_shake, 0.9)
-	var wake := 0.55
+	var wake := 0.7
 	var tw := create_tween()
 	tw.set_parallel(true)
-	# 1: the rock wakes
-	tw.tween_method(func(k: float) -> void: glow_to.call(rock_ms, k, 0.1), 0.0, 1.0, wake).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(lamp, "light_energy", 1.5, wake)
-	# 2: the burst
+	# 1: the rock wakes — cracks of light run out from where each crystal will come
+	var cracks: Array = []
+	for i in cs.size():
+		var mi := cs[i] as MeshInstance3D
+		cracks.append_array(_cracks(mi, mi.get_meta("sprout"), fx_mat, 3 if i >= small.size() else 2))
+	var crack_k := func(k: float) -> void:
+		for c: Node3D in cracks:
+			if is_instance_valid(c): c.scale = Vector3(1, 1, maxf(k, 0.001))
+	tw.tween_method(crack_k, 0.0, 1.0, wake).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(fx_mat, "albedo_color:a", 1.0, wake * 0.6)
+	tw.tween_property(lamp, "light_energy", 1.2, wake)
+	# 2: the burst — each crystal pushes up along its axis, its front of light riding the tip
 	var grow := 0.0
 	for i in cs.size():
 		var mi := cs[i] as MeshInstance3D
 		var full: Basis = mi.get_meta("sprout")
 		var is_big := i >= small.size()
 		var at := wake + i * 0.08 + (0.25 if is_big else 0.0)
-		var dur := 0.75 if is_big else 0.45
+		var dur := 0.9 if is_big else 0.55
 		grow = maxf(grow, at + dur)
+		var front := _front(mi, sc)
 		var set_k := func(k: float) -> void:
-			if is_instance_valid(mi): mi.transform.basis = full.scaled_local(Vector3.ONE * maxf(k, 0.001))
-		tw.tween_method(set_k, 0.001, 1.0, dur).set_delay(at).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		tw.tween_callback(func() -> void: _sparks(mi, full, sc, 26 if is_big else 14, 1.0)).set_delay(at)
+			if not is_instance_valid(mi): return
+			var w := 0.55 + 0.45 * minf(1.0, k)
+			mi.transform.basis = full.scaled_local(Vector3(w, maxf(k, 0.001), w))
+			if is_instance_valid(front):
+				var par := mi.get_parent_node_3d()
+				var axis: Vector3 = (par.global_basis if par else Basis()) * full.y
+				front.global_position = mi.global_position + axis * mi.get_aabb().end.y * minf(k, 1.0)
+		tw.tween_method(set_k, 0.001, 1.0, dur).set_delay(at).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_callback(func() -> void:
+			if is_instance_valid(front): front.visible = true
+			_sparks(mi, full, sc, 22 if is_big else 12, 1.0)
+			_chips(mi, full, 10 if is_big else 5)).set_delay(at)
+		tw.tween_property(front, "transparency", 1.0, 0.5).set_delay(at + dur * 0.8)
+		tw.tween_callback(func() -> void: if is_instance_valid(front): front.queue_free()).set_delay(at + dur + 0.6)
 		if i == 0 or i == small.size() or i == cs.size() - 1:
 			var note := 2 if i == 0 else 3 if i < cs.size() - 1 else 4
 			tw.tween_callback(func() -> void: Sfx.play("reveal_%d" % note)).set_delay(at)
 	tw.tween_method(flare, 0.0, 1.0, grow - wake).set_delay(wake).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(lamp, "light_energy", 5.0, grow - wake).set_delay(wake).set_trans(Tween.TRANS_SINE)
-	tw.tween_method(func(k: float) -> void: glow_to.call(old_ms, k, 0.6), 0.0, 1.0, 0.3).set_delay(grow - 0.3)
-	tw.tween_method(func(k: float) -> void: glow_to.call(old_ms, k, 0.6), 1.0, 0.0, 1.2).set_delay(grow)
+	tw.tween_method(func(k: float) -> void: glow_to.call(old_ms, k, 0.45), 0.0, 1.0, 0.3).set_delay(grow - 0.3)
+	tw.tween_method(func(k: float) -> void: glow_to.call(old_ms, k, 0.45), 1.0, 0.0, 1.2).set_delay(grow)
 	tw.tween_callback(func() -> void:
 		_shake = maxf(_shake, 0.5)
 		Sfx.buzz(40)).set_delay(grow - 0.3)
+	# the cracks close as the crystals stand
+	tw.tween_property(fx_mat, "albedo_color:a", 0.0, 1.0).set_delay(grow)
 	# the glow settles
 	var hold := grow + 2.4
-	tw.tween_method(flare, 1.0, 0.2, 1.6).set_delay(grow).set_trans(Tween.TRANS_SINE)
-	tw.tween_method(func(k: float) -> void: glow_to.call(rock_ms, k, 0.1), 1.0, 0.25, 1.6).set_delay(grow)
+	tw.tween_method(flare, 1.0, 0.3, 1.6).set_delay(grow).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(lamp, "light_energy", 1.5, 1.6).set_delay(grow)
-	# 3: a white flash, and back into the rock in a scatter of light
-	tw.tween_method(flare, 0.2, 1.6, 0.18).set_delay(hold)
+	# 3: a flash, and back into the rock in a scatter of light
+	tw.tween_method(flare, 0.3, 1.6, 0.18).set_delay(hold)
 	tw.tween_callback(func() -> void: Sfx.play("reveal_1")).set_delay(hold)
 	var end := hold
 	for i in cs.size():
@@ -518,60 +547,160 @@ func _sprout() -> void:
 		var at := hold + 0.18 + (cs.size() - 1 - i) * 0.04
 		end = maxf(end, at + 0.3)
 		var set_k := func(k: float) -> void:
-			if is_instance_valid(mi): mi.transform.basis = full.scaled_local(Vector3.ONE * maxf(k, 0.001))
+			if is_instance_valid(mi): mi.transform.basis = full.scaled_local(Vector3(0.55 + 0.45 * k, maxf(k, 0.001), 0.55 + 0.45 * k))
 		tw.tween_method(set_k, 1.0, 0.001, 0.3).set_delay(at).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.tween_callback(func() -> void: _sparks(mi, full, sc, 10, 0.6)).set_delay(at + 0.2)
+		tw.tween_callback(func() -> void: _sparks(mi, full, sc, 9, 0.6)).set_delay(at + 0.2)
 	tw.tween_method(flare, 1.6, 0.0, 0.5).set_delay(hold + 0.18)
-	tw.tween_method(func(k: float) -> void: glow_to.call(rock_ms, k, 0.1), 0.25, 0.0, 0.8).set_delay(end - 0.2)
 	tw.tween_property(lamp, "light_energy", 0.0, 0.8).set_delay(end - 0.2)
 	tw.chain().tween_callback(func() -> void:
 		if is_instance_valid(lamp): lamp.queue_free()
-		for m: ShaderMaterial in rock_ms + old_ms: m.set_shader_parameter("emis", e0[m])
+		for c: Node3D in cracks:
+			if is_instance_valid(c): c.queue_free()
+		for m: ShaderMaterial in old_ms: m.set_shader_parameter("emis", e0[m])
 		_sprouting = false)
 
-## a spray of sparks from a crystal's foot along its axis (the living druse): soft additive motes in its colour
-static var _spark_mat: StandardMaterial3D
-func _sparks(mi: MeshInstance3D, full: Basis, c: Color, n: int, speed: float) -> void:
-	if not is_instance_valid(mi) or not is_instance_valid(live): return
-	if _spark_mat == null:
-		_spark_mat = StandardMaterial3D.new()
-		_spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_spark_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		_spark_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_spark_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		_spark_mat.vertex_color_use_as_albedo = true
-		_spark_mat.albedo_texture = FxLayer.puff()
-	var size := (full * mi.get_aabb().size).length()
+## an unshaded additive material in a colour (cracks of light): its alpha fades the lot
+func _fx_mat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.no_depth_test = false
+	m.albedo_color = Color(c.lerp(Color(1, 1, 1), 0.2) * 1.5, 0.0)
+	return m
+
+## cracks of light running out over the rock from a crystal's foot: thin glowing slivers lying on the surface,
+## grown out (their z scale) as the rock wakes
+func _cracks(mi: MeshInstance3D, full: Basis, m: StandardMaterial3D, n: int) -> Array:
+	var out: Array = []
+	if not is_instance_valid(mi) or not is_instance_valid(live): return out
 	var par := mi.get_parent_node_3d()
-	var up := ((par.global_basis if par else Basis()) * full.y).normalized()
+	var gb := par.global_basis if par else Basis()
+	# (flat over the rock, whatever the crystal's lean: short, so they stay on it)
+	var up := Vector3.UP
+	var size := (gb * full * mi.get_aabb().size).length()
+	var side := up.cross(Vector3(0.31, 0.11, 0.94)).normalized()
+	for k in n:
+		var dir := side.rotated(up, TAU * (float(k) / n + randf() * 0.3)).normalized()
+		var length := size * (0.22 + randf() * 0.25)
+		var bm := BoxMesh.new()
+		bm.size = Vector3(size * 0.018, size * 0.008, length)
+		bm.material = m
+		# a pivot at the foot (it grows outward from there), the sliver half its length out along it
+		var c := Node3D.new()
+		var sl := MeshInstance3D.new()
+		sl.mesh = bm
+		sl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sl.position = Vector3(0, 0, length * 0.5)
+		c.add_child(sl)
+		live.add_child(c)
+		# lying along the rock: its long side out from the foot, a little sunk
+		var z := dir
+		var x := up.cross(z).normalized()
+		c.global_transform = Transform3D(Basis(x, up, z), mi.global_position - up * size * 0.02)
+		c.scale = Vector3(1, 1, 0.001)
+		out.append(c)
+	return out
+
+## the bright front riding a growing crystal's tip
+func _front(mi: MeshInstance3D, c: Color) -> MeshInstance3D:
+	var f := MeshInstance3D.new()
+	var full: Basis = mi.get_meta("sprout")
+	var par := mi.get_parent_node_3d()
+	var size := ((par.global_basis if par else Basis()) * full * mi.get_aabb().size).length()
+	var qm := QuadMesh.new()
+	qm.size = Vector2.ONE * size * 0.26
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.albedo_texture = FxLayer.puff()
+	m.albedo_color = c.lerp(Color(1, 1, 1), 0.35) * 1.4
+	qm.material = m
+	f.mesh = qm
+	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	f.visible = false
+	live.add_child(f)
+	f.global_position = mi.global_position
+	return f
+
+## chips of rock thrown off as a crystal breaks out: small dark shards, falling
+func _chips(mi: MeshInstance3D, full: Basis, n: int) -> void:
+	if not is_instance_valid(mi) or not is_instance_valid(live): return
+	var par := mi.get_parent_node_3d()
+	var gb := par.global_basis if par else Basis()
+	var up := (gb * full.y).normalized()
+	var size := (gb * full * mi.get_aabb().size).length()
 	var p := CPUParticles3D.new()
 	p.one_shot = true
-	p.explosiveness = 0.85
+	p.explosiveness = 0.95
 	p.amount = n
-	p.lifetime = 0.9
+	p.lifetime = 1.0
 	p.local_coords = false
 	p.direction = up
-	p.spread = 55.0
-	p.initial_velocity_min = size * 0.8 * speed
-	p.initial_velocity_max = size * 2.2 * speed
-	p.gravity = -up * size * 2.5
-	p.damping_min = size * 1.0
-	p.damping_max = size * 2.0
+	p.spread = 70.0
+	p.initial_velocity_min = size * 0.9
+	p.initial_velocity_max = size * 2.0
+	p.gravity = Vector3(0, -size * 6.0, 0)
+	p.angular_velocity_min = -400.0
+	p.angular_velocity_max = 400.0
+	p.scale_amount_min = 0.4
+	p.scale_amount_max = 1.0
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.0, 0.6, 0.8) * size * 0.06
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.3, 0.25, 0.2)
+	m.roughness = 0.9
+	bm.material = m
+	p.mesh = bm
+	live.add_child(p)
+	p.global_position = mi.global_position
+	p.emitting = true
+	get_tree().create_timer(1.5).timeout.connect(p.queue_free)
+
+## streaks of light thrown from a crystal's foot: thin bright slivers stretched along their flight (the living druse)
+func _sparks(mi: MeshInstance3D, full: Basis, c: Color, n: int, speed: float) -> void:
+	if not is_instance_valid(mi) or not is_instance_valid(live): return
+	var par := mi.get_parent_node_3d()
+	var gb := par.global_basis if par else Basis()
+	var up := (gb * full.y).normalized()
+	var size := (gb * full * mi.get_aabb().size).length()
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.9
+	p.amount = n
+	p.lifetime = 0.7
+	p.local_coords = false
+	p.particle_flag_align_y = true
+	p.direction = up
+	p.spread = 60.0
+	p.initial_velocity_min = size * 1.2 * speed
+	p.initial_velocity_max = size * 3.0 * speed
+	p.gravity = -up * size * 3.0
+	p.damping_min = size * 1.5
+	p.damping_max = size * 2.5
 	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.2
-	var qm := QuadMesh.new()
-	qm.size = Vector2.ONE * size * 0.2
-	qm.material = _spark_mat
-	p.mesh = qm
+	p.scale_amount_max = 1.1
+	var bm := BoxMesh.new()
+	bm.size = Vector3(size * 0.012, size * 0.13, size * 0.012)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.vertex_color_use_as_albedo = true
+	bm.material = m
+	p.mesh = bm
 	var ramp := Gradient.new()
 	ramp.set_color(0, Color(1, 1, 1, 1))
-	ramp.add_point(0.25, Color(c.lerp(Color(1, 1, 1), 0.4), 0.9))
+	ramp.add_point(0.3, Color(c.lerp(Color(1, 1, 1), 0.3) * 1.5, 1.0))
 	ramp.set_color(ramp.get_point_count() - 1, Color(c, 0.0))
 	p.color_ramp = ramp
 	live.add_child(p)
 	p.global_position = mi.global_position
 	p.emitting = true
-	get_tree().create_timer(1.4).timeout.connect(p.queue_free)
+	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
 
 ## (19.11) a tap on an opal egg wets it, as water does hydrophane opal: its milk clears and its fire flares, then over
 ## a few seconds it dries back (shaders/opal_seam.gdshader, wet)
