@@ -229,8 +229,91 @@ func render() -> void:
 		elif dive > 0.0:
 			_dive()
 		else:
+			_ore_to_bar()
 			# the guide has his say once what changed has played out
 			_guide_later(3.6 if view.focus_y >= 0.0 or not MineView.last_result.is_empty() else 1.0)
+
+## (22.11) after a won level the ore and iron it dug leave its depth for the bar: the kit's own icons rise out of the
+## working face in arcs, one by one, into their capsules, and the numbers there count up as they land (they start at
+## what there was before the level). Was the other way about — plain dots dropping from the top into the depth
+func _ore_to_bar() -> void:
+	var r: Dictionary = view._react if view else {}
+	if r.is_empty() or not bool(r.get("won", false)) or not is_instance_valid(_bar): return
+	var got := {iron = int(r.get("iron", 0)), ore = int(r.get("ore", 0))}
+	if got.iron + got.ore <= 0: return
+	var caps: Dictionary = _bar.get_meta("caps", {})
+	var labels := {}
+	var shown := {}
+	for kind: String in ["iron", "ore"]:
+		var cap := caps.get(kind) as Control
+		if cap == null: return
+		labels[kind] = cap.get_child(1) as Label
+		shown[kind] = (int(Save.d.fe) if kind == "iron" else int(Save.d.ore)) - int(got[kind])
+		(labels[kind] as Label).text = UI.fmt(int(shown[kind]))
+	var bar := _bar
+	# (the mine rides to the depth first, the crew cheers)
+	await get_tree().create_timer(1.3).timeout
+	var lay := CanvasLayer.new()
+	lay.layer = 6
+	add_child(lay)
+	# one icon per few lumps (no more than 9 of a kind), each carrying its share of the count
+	var flights: Array = []
+	for kind: String in ["iron", "ore"]:
+		var n := mini(int(got[kind]), 9)
+		for i in n:
+			var share := int(got[kind]) / n + (1 if i < int(got[kind]) % n else 0)
+			flights.append([kind, share])
+	# iron and ore by turns
+	var mixed: Array = []
+	var irn := flights.filter(func(f: Array) -> bool: return f[0] == "iron")
+	var ore := flights.filter(func(f: Array) -> bool: return f[0] == "ore")
+	for i in maxi(irn.size(), ore.size()):
+		if i < ore.size(): mixed.append(ore[i])
+		if i < irn.size(): mixed.append(irn[i])
+	var at := Vector2.ZERO
+	for i in mixed.size():
+		if not is_inside_tree() or not is_instance_valid(bar): break
+		var kind: String = mixed[i][0]
+		var share: int = mixed[i][1]
+		if view and view._react.has("at"): at = view._react.at
+		var from := view.get_global_transform_with_canvas() * at if at != Vector2.ZERO else get_viewport_rect().size * Vector2(0.5, 0.6)
+		var cap := caps[kind] as Control
+		var to := cap.get_global_transform_with_canvas() * Vector2(15, 18)
+		var ic := TextureRect.new()
+		ic.texture = Kit.tex("icons/" + Kit.res_name(kind))
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.size = Vector2(30, 30)
+		ic.pivot_offset = Vector2(15, 15)
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ic.position = from - Vector2(15, 15) + Vector2(randf_range(-26, 26), randf_range(-8, 8))
+		ic.scale = Vector2(0.3, 0.3)
+		lay.add_child(ic)
+		var p0 := ic.position
+		var p2 := to - Vector2(15, 15)
+		# a curve out of the face: up and to a side, then into the capsule
+		var p1 := Vector2(lerpf(p0.x, p2.x, 0.3) + randf_range(-90, 90), minf(p0.y, p2.y) + (p0.y - p2.y) * 0.35)
+		var dur := clampf((p2 - p0).length() / 900.0, 0.55, 0.95)
+		var tw := ic.create_tween()
+		tw.tween_property(ic, "scale", Vector2(1.15, 1.15), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_method(func(u: float) -> void:
+			ic.position = p0.lerp(p1, u).lerp(p1.lerp(p2, u), u)
+			ic.scale = Vector2.ONE * lerpf(1.15, 0.8, u)
+			ic.rotation = sin(u * PI) * 0.4, 0.0, 1.0, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func() -> void:
+			ic.queue_free()
+			if not is_instance_valid(bar): return
+			shown[kind] = int(shown[kind]) + share
+			var l := labels[kind] as Label
+			if is_instance_valid(l): l.text = UI.fmt(int(shown[kind]))
+			cap.pivot_offset = cap.size / 2
+			var bt := cap.create_tween()
+			bt.tween_property(cap, "scale", Vector2(1.08, 1.08), 0.06)
+			bt.tween_property(cap, "scale", Vector2.ONE, 0.12)
+			Sfx.play("coin"))
+		await get_tree().create_timer(0.11).timeout
+	await get_tree().create_timer(1.2).timeout
+	lay.queue_free()
 
 ## an award's medallion at the edge (AwardsRail): its sheet over the mine screen, as in the awards' list — what it
 ## was for, what it gives, the Claim button (the seal, the coins to the bar, the geode); closed, the rail and the bar

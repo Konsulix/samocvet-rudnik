@@ -21,6 +21,8 @@ static func top_bar() -> HBoxContainer:
 	row.add_child(capsule("ore", UI.fmt(Save.d.ore)))
 	# where the mine's name plate hangs from (Home._hanging): the coins' and the ore's capsules
 	h.set_meta("hooks", [row.get_child(0), row.get_child(2)])
+	# (the capsules by kind: the ore of a won level flies into them, Home._ore_to_bar)
+	h.set_meta("caps", {coin = row.get_child(0), iron = row.get_child(1), ore = row.get_child(2)})
 	var gear := Kit.icon_button("gear", 36)
 	gear.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	# hold it for a second: the diagnostics card (Diag)

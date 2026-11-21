@@ -1585,8 +1585,7 @@ func _sheet_of(who: String, f: int) -> int:
 		return int((J.crew_order[who] as Array)[f])
 	return f
 
-## after a win the ore of the level flies down from the top into the depth it came from: gold and iron nuggets in
-## arcs, each with a little flash where it lands (a tick of coins in the sound)
+## after a win: where the level's ore leaves the depth it came from for the bar (Home._ore_to_bar); ends the reaction
 func _ore_flight(c: CanvasItem) -> void:
 	if _react.is_empty():
 		return
@@ -1602,28 +1601,9 @@ func _ore_flight(c: CanvasItem) -> void:
 	var cr: Dictionary = J.crews.get(str(k + 1), {}) if J.has("crews") else {}
 	var w: Array = cr.get("work", ["pick", 760, ""])
 	var to := Vector2(float(w[1]) if w.size() > 1 else 700.0, band_y(k) + floor_of(k + 1) - 70)
-	var vp := get_viewport_rect().size
-	var from := Vector2(768, -position.y / scale.y + 40)   # the top of the screen, where the header's ore counters are
-	var n_gold := mini(int(_react.ore), 10)
-	var n_iron := mini(int(_react.iron), 10)
-	for i in n_gold + n_iron:
-		var u := (s - 0.4 - i * 0.09) / 0.8
-		if u < 0.0 or u > 1.25:
-			continue
-		var gold := i % 2 == 0 and i / 2 < n_gold or i >= 2 * n_iron
-		var tgt := to + Vector2((i % 5 - 2) * 18, (i % 3) * 6)
-		if u <= 1.0:
-			var e := u * u * (3.0 - 2.0 * u)
-			var p := from.lerp(tgt, e) + Vector2(sin(i * 1.7) * 160 * sin(PI * u), -220 * sin(PI * u))
-			var col := Color(1.0, 0.78, 0.25) if gold else Color(0.72, 0.76, 0.82)
-			c.draw_circle(p, 13, Color(0.12, 0.07, 0.03))
-			c.draw_circle(p, 10, col)
-			c.draw_circle(p + Vector2(-3, -3), 3.5, Color(1, 1, 1, 0.7))
-		else:
-			var f := (u - 1.0) / 0.25
-			_light(c, tgt, 40 + 30 * f, Color(1.0, 0.85, 0.4, 0.6 * (1.0 - f)))
-		if _passed("ore%d" % i, u, 1.0, 1.0):
-			amb.shot("coin", -10.0, 1.2 + (i % 4) * 0.05)
+	# (22.11) the ore no longer drops in from the top: it leaves the depth for the bar's counters, Home._ore_to_bar —
+	# this is where it leaves from
+	_react["at"] = to
 
 ## a sprite cut off at the shaft: what is past the portal is inside the shaft
 func _clip_put(c: CanvasItem, path: String, pos: Vector2, flip: bool, portal: float, al := 1.0) -> void:

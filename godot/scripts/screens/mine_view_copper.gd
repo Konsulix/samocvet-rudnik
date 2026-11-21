@@ -932,30 +932,9 @@ func _ore_flight(c: CanvasItem) -> void:
 	var cr: Dictionary = J.crews.get(str(k + 1), {}) if J.has("crews") else {}
 	var w: Array = cr.get("work", ["pick", 760, ""])
 	var to := Vector2(float(w[1]) if w.size() > 1 else 700.0, band_y(k) + floor_of(k + 1) - 40)
-	var from := Vector2(1240, -position.y / scale.y + 40)  # the header's ore counters, top right
-	var n_ore := mini(int(_react.ore), 10)
-	var n_iron := mini(int(_react.iron), 8)
-	for i in n_ore + n_iron:
-		var u := (s - 0.4 - i * 0.09) / 0.9
-		if u < 0.0 or u > 1.4:
-			continue
-		var kind := 2 if i >= n_ore else i % 2          # 0 copper, 1 malachite, 2 iron
-		var tgt := to + Vector2((i % 5 - 2) * 34 + sin(i * 2.3) * 10, (i % 3) * 8)
-		if u <= 1.0:
-			for tr in 3:                                # the trail: where it was a moment ago
-				var ut := u - (tr + 1) * 0.035
-				if ut > 0.0:
-					c.draw_circle(_ore_at(from, tgt, ut, i), 18.0 - tr * 5.0, Color(_ore_glow(kind), 0.28 - tr * 0.08))
-			_lump(c, _ore_at(from, tgt, u, i), 34.0, kind, i, t * (3.0 + (i % 3)) * (1 if i % 2 == 0 else -1))
-		else:
-			var f := (u - 1.0) / 0.4
-			_light(c, tgt, 60 + 70 * f, Color(_ore_glow(kind), 0.6 * (1.0 - f)))
-			for d in 5:                                 # dust kicked up where it lands
-				var dv := Vector2.from_angle(PI + PI * (d + 0.5) / 5.0) * (16 + 60 * f)
-				c.draw_circle(tgt + dv + Vector2(0, -6 * f), 9.0 * (1.0 - f) + 3.0, Color(0.42, 0.36, 0.3, 0.5 * (1.0 - f)))
-			_lump(c, tgt + Vector2(0, -8), 34.0 * (1.0 - smoothstep(0.5, 1.0, f)), kind, i, 0.0)
-		if _passed("ore%d" % i, u, 1.0, 1.0):
-			amb.shot("coin", -10.0, 1.2 + (i % 4) * 0.05)
+	# (22.11) the ore no longer drops in from the top: it leaves the depth for the bar's counters, Home._ore_to_bar —
+	# this is where it leaves from
+	_react["at"] = to
 
 func _ore_at(from: Vector2, tgt: Vector2, u: float, i: int) -> Vector2:
 	var e := u * u * (3.0 - 2.0 * u)

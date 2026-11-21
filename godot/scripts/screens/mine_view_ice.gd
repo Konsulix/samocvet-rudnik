@@ -987,27 +987,9 @@ func _ore_flight(c: CanvasItem) -> void:
 	var cr: Dictionary = J.crews.get(str(k + 1), {})
 	var w: Array = cr.get("work", ["", 900, ""])
 	var to := Vector2(float(w[1]) if w.size() > 1 else 900.0, band_y(k) + floor_of(k + 1) - 40)
-	var from := Vector2(800, -position.y / scale.y + 40)
-	var n_ore := mini(int(_react.ore), 10)
-	var n_iron := mini(int(_react.iron), 8)
-	for i in n_ore + n_iron:
-		var u := (s - 0.4 - i * 0.09) / 0.9
-		if u < 0.0 or u > 1.4:
-			continue
-		var iron := i >= n_ore
-		var tgt := to + Vector2((i % 5 - 2) * 34 + sin(i * 2.3) * 10, (i % 3) * 8)
-		var glow := Color(0.75, 0.8, 0.9) if iron else Color(1.0, 0.45, 0.18)
-		if u <= 1.0:
-			var e := u * u * (3.0 - 2.0 * u)
-			var p := from.lerp(tgt, e) + Vector2(sin(i * 1.7) * 160 * sin(PI * u), -220 * sin(PI * u))
-			c.draw_circle(p, 22.0, Color(glow, 0.22))
-			_coal(c, p, 30.0, iron, i, t * (3.0 + (i % 3)))
-		else:
-			var f := (u - 1.0) / 0.4
-			_light(c, tgt, 60 + 70 * f, Color(glow, 0.6 * (1.0 - f)))
-			_coal(c, tgt + Vector2(0, -8), 30.0 * (1.0 - smoothstep(0.5, 1.0, f)), iron, i, 0.0)
-		if _passed("ore%d" % i, u, 1.0, 1.0):
-			amb.shot("coin", -10.0, 1.2 + (i % 4) * 0.05)
+	# (22.11) the ore no longer drops in from the top: it leaves the depth for the bar's counters, Home._ore_to_bar —
+	# this is where it leaves from
+	_react["at"] = to
 
 ## a lump of coal (black, glassy facets, a smouldering red seam) or of grey iron ore
 func _coal(c: CanvasItem, at: Vector2, r: float, iron: bool, seed_: int, spin: float) -> void:
