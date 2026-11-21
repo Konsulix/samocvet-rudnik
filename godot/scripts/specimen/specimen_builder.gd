@@ -483,7 +483,11 @@ func _specimen(o: Dictionary) -> Node3D:
 		# an anomaly: the stone grew in a colour its species never has, and glows faintly from inside
 		col = SpecMat.offset_hsl(col, gene.hue, 0.3, 0.04)
 		# (a colourless stone has no hue to turn: given one outright, or the anomaly is a white glow)
-		if SpecMat.get_hsl(col).y < 0.45: col = SpecMat.hsl(SpecMat.get_hsl(col).x + gene.hue, 0.6, minf(SpecMat.get_hsl(col).z, 0.55))
+		# (pale by its channels — the colours are linear here: a pale peach reads "saturated" by HSL and stayed white on
+		# the card; a deep colour in linear light keeps its top channel low and the rest near nothing)
+		var lo := minf(col.r, minf(col.g, col.b))
+		var hi := maxf(col.r, maxf(col.g, col.b))
+		if lo > hi * 0.3: col = SpecMat.hsl(SpecMat.get_hsl(col).x + gene.hue, 0.9, 0.3)
 	root.set_meta("glow", col)
 	var irk := 1.9 if "aurora" in tr else 1.0 if "irid" in tr else 0.45 if legend else 0.14
 	var metal := habit == "nugget" or sid in ["pyrite", "hematite"] or look.has("metal_col")
@@ -588,12 +592,16 @@ func _specimen(o: Dictionary) -> Node3D:
 		# (21.11, tests/pair_audit: an anomaly glowed at 0.35 of its colour — on a pale stone a white wash that hid the
 		# rainbow film, the aurora, a chlorite phantom, an enhydro, rutile inside): its colour now in the body of the
 		# glass, the glow faint
-		if gene.anomaly: d.tint_body = maxf(float(d.tint_body), 0.6)
+		if gene.anomaly:
+			d.tint_body = maxf(float(d.tint_body), 0.85)
+			d.deep_body = maxf(float(d.deep_body), 0.35)
+			d.frost = minf(float(d.frost), 0.1)
 		# clarity by parts (docs/showy-minerals.md): every plain clear species has it — a cloudy root, a gem tip, one
 		# crystal milkier than the next; a species says otherwise with glass.parts. Not where the body has a colour or
 		# a darkness of its own (garnet, sulphur, smoky: their cloud would be a white patch), nor under a living effect
 		var gl: Dictionary = look.get("glass", {})
-		var plain: bool = float(gl.get("tint", 0.0)) <= 0.0 and float(gl.get("dark", 0.0)) <= 0.3 and float(gl.get("opal", 0.0)) <= 0.0 and String(gene.fx) == ""
+		# (21.11: nor on an anomaly — the milky root hid its colour; a clear quartz stayed white)
+		var plain: bool = float(gl.get("tint", 0.0)) <= 0.0 and float(gl.get("dark", 0.0)) <= 0.3 and float(gl.get("opal", 0.0)) <= 0.0 and String(gene.fx) == "" and not gene.anomaly
 		var pk := float(gl.get("parts", PARTS_K if plain else 0.0))
 		if pk > 0.0: d.parts = pk
 		return d

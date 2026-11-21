@@ -132,12 +132,15 @@ static func crystal(habit: String, rng: Rng32, cfg: Dictionary) -> Geo:
 	if cfg.get("blunt", false) and habit == "prism": tip = 0.02
 	var scep: bool = cfg.get("scepter", false)
 	var dt: bool = cfg.get("dt", false)
-	var sc := 1.45 if scep else 1.0
+	# (21.11, playtest: an emerald sceptre read as a hammer — a head twice the stem's width, flat-topped) the head a
+	# third wider than the stem, flaring out over a short slope, and a blunt crystal's flat top bevelled
+	var sc := 1.22 if scep else 1.0
+	if scep and tip < 0.3: tip = 0.3
 	var low := -r * tip if dt else 0.0
 	var g: Geo
 	if habit == "prism" or habit == "blade":
-		g = Geo.lathe([Vector2(0, low), Vector2(r * 0.08 if dt else r, low if dt else 0.0), Vector2(r, 0), Vector2(r * (0.75 if scep else 1.0), h * 0.62),
-			Vector2(r * sc, h * 0.72), Vector2(r * sc, h), Vector2(r * 0.08, h + r * tip), Vector2(0, h + r * tip)], 6)
+		g = Geo.lathe([Vector2(0, low), Vector2(r * 0.08 if dt else r, low if dt else 0.0), Vector2(r, 0), Vector2(r * (0.94 if scep else 1.0), h * 0.7),
+			Vector2(r * sc, h * 0.78), Vector2(r * sc, h), Vector2(r * 0.08, h + r * tip), Vector2(0, h + r * tip)], 6)
 	elif habit == "nailhead":
 		# calcite's nailhead spar: a short six-sided prism under a low flat cap
 		g = Geo.lathe([Vector2(0, 0), Vector2(r, 0), Vector2(r, h * 0.45), Vector2(r * 0.1, h * 0.45 + r * 0.42), Vector2(0, h * 0.45 + r * 0.42)], 6)
