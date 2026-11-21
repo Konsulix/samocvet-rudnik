@@ -495,7 +495,11 @@ func _specimen(o: Dictionary) -> Node3D:
 		return root
 
 	# colour zoning along the crystals
-	var zone := 1.0 if "zoned" in tr else 0.45 if rng.next() < 0.35 else 0.0
+	# (21.11, tests/pair_audit: the number drawn only without the gene — a zoned stone took the rest of the stream one
+	# step on and grew as another stone: its phantom, chlorite, enhydro elsewhere or gone. Drawn always now: the
+	# stones without the gene stay as they were, a zoned one is the same stone zoned)
+	var zr := rng.next()
+	var zone := 1.0 if "zoned" in tr else 0.45 if zr < 0.35 else 0.0
 	var zmode := int(floor(rng.next() * 3))
 	# (not on metal: its colour shifted half round the wheel turned brassy pyrite into a pale blue mirror that read as
 	# glass on the phone, its pale root into silver — the draws stay, so nothing else of the stone moves)

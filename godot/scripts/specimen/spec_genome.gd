@@ -344,12 +344,17 @@ static func of(o: Dictionary) -> Dictionary:
 	for t in ["silver", "coral", "moss"]:
 		if t in tr and form in NO_BASE and not t in lost: lost.append(t)
 	if "limonite" in tr and form in ["floater", "radial"] and not "limonite" in lost: lost.append("limonite")
+	# gold flecks are seen inside clear glass or lying on the rock: in an opaque or deep-coloured body (realgar's red)
+	# with no rock, nowhere
+	var deep_body: bool = look.has("opaque") or float((look.get("glass", {}) as Dictionary).get("tint", 0.0)) >= 0.8
+	if "goldfleck" in tr and deep_body and form in NO_BASE and not "goldfleck" in lost: lost.append("goldfleck")
 	# a twin and a sceptre on one lone crystal: the sceptre's head took the twin out of sight — the sceptre stays
 	if "twin" in tr and "scepter" in tr and not "twin" in lost and not "scepter" in lost: lost.append("twin")
 	# an atypical crowd (rays, a heap, plates): the main crystal is one small one among many — what lives inside one
 	# crystal's glass (rutile, a phantom, chlorite, a water bubble) is not seen
+	# (and the crowd covers its rock: the silver rim, coral and moss under it, limonite's rust at the feet unseen)
 	if "atypical" in tr and form in ["radial", "pile", "slabs", "hexplates", "platestack", "spray", "rosette"]:
-		for t in ["rutile", "phantom", "chlorite", "enhydro"]:
+		for t in ["rutile", "phantom", "chlorite", "enhydro", "silver", "coral", "moss", "limonite"]:
 			if t in tr and not t in lost: lost.append(t)
 	if "scepter" in tr and "atypical" in tr and not form in ["single", "floater"] and not "scepter" in lost: lost.append("scepter")
 	if "scepter" in tr and not (form in ["single", "floater"] and hb in ["prism", "blade"]): lost.append("scepter")
