@@ -528,6 +528,11 @@ func _specimen(o: Dictionary) -> Node3D:
 	elif zone > 0.0:
 		cA = Color(1, 1, 1).lerp(col, 0.25) if zmode == 0 else col * 0.45 if zmode == 1 else SpecMat.offset_hsl(col, zhue, 0, 0)
 	var cB := col
+	# (21.11, playtest: aquamarine's zoning — colourless to its own pale blue — was all but unseen) the gene's zoning
+	# bands down to a deep, full version of the colour, not the stone's own pale one
+	if "zoned" in tr and zone > 0.0 and zmode in [0, 1]:
+		var zh := SpecMat.get_hsl(col)
+		cB = SpecMat.hsl(zh.x, maxf(zh.y, 0.85), minf(zh.z, 0.32))
 	# with the species' proportions (SpecLooks: hk, wk, blunt), which every crystal and column takes
 	var zcfg := {cA = cA if zone > 0.0 else col, cB = cB, zk = zone, hk = float(look.get("hk", 1.0)), wk = float(look.get("wk", 1.0)),
 		blunt = bool(look.get("blunt", false)), saddle = float(look.get("saddle", 0.0)), rh = float(look.get("rh", 0.3)), steps = bool(look.get("steps", false)),
@@ -592,6 +597,12 @@ func _specimen(o: Dictionary) -> Node3D:
 		# (21.11, tests/pair_audit: an anomaly glowed at 0.35 of its colour — on a pale stone a white wash that hid the
 		# rainbow film, the aurora, a chlorite phantom, an enhydro, rutile inside): its colour now in the body of the
 		# glass, the glow faint
+		# (21.11: the zoning's colour lay only in the light bent through the glass — over a dark card all but unseen;
+		# the body takes it, the bands show)
+		if "zoned" in tr:
+			d.tint_body = maxf(float(d.tint_body), 0.85)
+			d.deep_body = maxf(float(d.deep_body), 0.5)
+			d.frost = minf(float(d.frost), 0.08)
 		if gene.anomaly:
 			d.tint_body = maxf(float(d.tint_body), 0.85)
 			d.deep_body = maxf(float(d.deep_body), 0.35)
@@ -3745,16 +3756,18 @@ func _growths(main: MeshInstance3D, mat: ShaderMaterial, col: Color, tr: Array, 
 	if main and "druzy" in tr and layout != "fern":
 		# spread over the faces, not stacked on the mesh's corners (those stood in rings round the prism);
 		# light sparkling grains half sunk into the face rather than dark glass beads
-		var pts := RockKit.surf_pts(main, 420, rng)
+		# (21.11, playtest: on an emerald it read as white dust specks) larger grains, more of them, on the faces
+		# that look up and out — a coat, catching the light
+		var pts := RockKit.surf_pts(main, 560, rng, func(_p: Vector3, n: Vector3) -> bool: return n.y > -0.3)
 		var dc := col.lerp(Color(1, 1, 1), 0.6)
 		var place := func(k: int) -> Array:
 			var p: Vector3 = pts[k][0]
 			var nn: Vector3 = pts[k][1]
-			var s := 0.008 + pow(rng.next(), 2) * 0.02
+			var s := 0.013 + pow(rng.next(), 2) * 0.032
 			var c := dc * (0.85 + rng.next() * 0.4)
 			c.a = 1.0
 			return [_rot_inst(p - nn * s * 0.3, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3.ONE * s), c]
-		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), rough = 0.12, flat = true, holo = 0.4, seed = 3.0}), pts.size(), place, main.get_parent())
+		U.inst(Geo.octa(1), SpecMat.make({col = Color(1, 1, 1), rough = 0.08, flat = true, holo = 0.6, seed = 3.0, env = 1.6}), pts.size(), place, main.get_parent())
 		var to_root := U.rel_xform(main.get_parent(), root) if main.get_parent() != root else Transform3D.IDENTITY
 		for k in mini(8, pts.size()):
 			_mark("druzy", to_root * (pts[k][0] as Vector3), (to_root.basis * (pts[k][1] as Vector3)).normalized())

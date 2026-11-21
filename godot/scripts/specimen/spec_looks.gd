@@ -278,7 +278,8 @@ const AFFINITY := {
 	sulphur = {love = {bubbles = 3.0}, never = ["moss", "mushrooms", "lichen", "fronds", "flowers"]},
 	aragonite = {never = ["rutile", "phantom"]},
 	olivine = {never = ["moss", "mushrooms", "coral", "rutile", "phantom"]},
-	realgar = {never = ["moss", "lichen", "rutile"]},
+	# (21.11: nothing inside the deep red shows — a phantom, chlorite, a water bubble were rolled and priced unseen)
+	realgar = {never = ["moss", "lichen", "rutile", "phantom", "chlorite", "enhydro"]},
 	hematite = {love = {irid = 3.0}, never = ["moss"]},
 	siderite = {love = {irid = 3.0}, never = ["phantom", "rutile", "floater"]},
 	barite = {love = {zoned = 3.0, limonite = 3.0}, never = ["rutile", "scepter"]},
