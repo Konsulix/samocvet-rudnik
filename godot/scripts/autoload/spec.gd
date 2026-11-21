@@ -132,6 +132,8 @@ static func key_of(o: Dictionary) -> String:
 	if int(o.get("integ", 100)) < 100: tail += "|i%d" % int(o.integ)
 	if o.get("gulp", false): tail += "|gulp"
 	if o.has("dl"): tail += "|d%d" % int(o.dl)
+	if o.has("accents"): tail += "|a" + ".".join(o.accents) + "|f%d" % int(o.get("flora", -1))
+	if o.has("flies"): tail += "|b%d%s" % [int(o.flies), String(o.get("fly_kind", ""))]
 	return "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [o.get("seed", 0), o.get("sid", ""), o.get("kind", ""), o.get("gi", ""), ".".join(o.get("traits", [])),
 		o.get("cut", ""), int(o.get("legend", false)), str(j.get("rid", "")) + "".join(j.get("cols", [])), o.get("machine", ""), o.get("fx", "")] + tail
 
@@ -148,6 +150,10 @@ static func of_stone(s: Dictionary) -> Dictionary:
 	if s.get("gulp", false): o.gulp = true
 	# butterflies pinned on a find (test keys, -- reveal=N flies=3 fly_kind=monarch); a rolled find leaves them to its seed
 	for k in ["flies", "fly_kind", "fly_mode"]:
+		if s.has(k): o[k] = s[k]
+	# (22.11) a find picked by eye (the old man's gift, the first stone of one's own — Stones.picked): its shared layer
+	# pinned, as the gallery's acc= / flora=
+	for k in ["accents", "flora"]:
 		if s.has(k): o[k] = s[k]
 	# a skull (SpecSkull): its body, and any of its genes pinned
 	if s.get("form", "") == "skull":

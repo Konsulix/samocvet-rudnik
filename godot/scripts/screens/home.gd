@@ -22,7 +22,6 @@ var view: MineView          # the drawn mine (Old Adit), scrolled with a finger;
 var scroll := -1.0          # how far the drawn mine is scrolled down, screen units (-1: not placed yet)
 static var start_scroll := -1.0   # a test key puts the first view here (-- scroll=N)
 ## the prologue's gift: pyrites picked by eye (`-- find_seeds=pyrite,1500`, then `reveal=<seed>`), each as `reveal` rolls it
-const GIFTS := [164]
 static var rise := false    # just dug out of the prologue's cave-in: the mine is seen from its bottom up to the guide
 static var dive := 0.0      # a test key for the trailer (-- dive=S): no chrome, the camera falls from the sky to the bottom in S s
 var _vel := 0.0             # the drawn mine's fling after the finger lets go, screen units a second
@@ -1425,8 +1424,8 @@ func _rise() -> void:
 	if not is_inside_tree(): return
 	await StoryScene.play(self, "prologue_meet").finished
 	Save.tell("g_hello_0")    # he has just said hello
-	# his gift: "gold" - a handpicked pyrite (GIFTS). The newcomer thanks him on the card's one button, he laughs
-	var gift := Stones.roll(GIFTS[randi() % GIFTS.size()], 0, 0.8, 1)
+	# his gift: "gold" - a handpicked pyrite (Stones.PICKED.gift: violets at its foot, a peacock butterfly). The newcomer thanks him on the card's one button, he laughs
+	var gift := Stones.picked("gift", 0, 0.8, 1)
 	gift.gift = true
 	var rv := Reveal.new()
 	rv.name_as = "Gold?"

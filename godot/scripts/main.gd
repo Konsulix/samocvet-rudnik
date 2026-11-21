@@ -661,6 +661,8 @@ func _ready() -> void:
 		if args.has("gi"): st.gi = int(args.gi)
 		if args.has("shroom"): st.shroom = int(args.shroom)
 		if args.has("traits"): st.traits = Array(args.traits.split(","))
+		if args.has("acc"): st.accents = Array(String(args.acc).split(","))
+		if args.has("flora"): st.flora = int(args.flora)
 		if args.get("form", "") != "skull":
 			if args.has("flies"): st.flies = int(args.flies)
 			if args.has("fly_kind"): st.fly_kind = args.fly_kind

@@ -1260,8 +1260,10 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			# the first find in a mine of skulls: the one picked to show what it holds (Stones.first_find)
 			var first: Variant = Stones.first_find(area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			if first != null: stone = first
-			# the first stone a newcomer digs up himself is never pyrite: the old man's gift was (Home._rise), and this
-			# one brings the Scholar (StoryScene "sister_meet")
+			# the first stone a newcomer digs up himself — it brings the Scholar (StoryScene "sister_meet"): one picked by
+			# eye (Stones.PICKED; its id is its seed, as the barrow's first skull), not pyrite as the old man's gift was
+			if area == 0 and first == null and not Save.told("s_sister_meet") and not Coach.off:
+				stone = Stones.picked("first_own", area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			var tries := 0
 			while String(stone.sid) == "pyrite" and not Save.told("s_sister_meet") and tries < 40:
 				stone = Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)

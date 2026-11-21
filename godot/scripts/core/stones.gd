@@ -147,6 +147,24 @@ static func first_find(area: int, luck: float, dl: int) -> Variant:
 	st.first_of = area
 	return st
 
+## (22.11) two finds of Old Adit picked by eye, so the first minutes show that stones here are alive (the plain rolls at
+## the top of the mine are single crystals): the old man's "gold" — his pyrite with mountain violets at its foot and a
+## peacock butterfly — and the first stone the newcomer digs up himself (it brings the Scholar, "sister_meet"): an
+## amethyst sceptre with moss agate, gold flecks and fly agarics. Their shared layer is pinned (accents, Spec.of_stone)
+const PICKED := {
+	gift = {seed = 164, sid = "pyrite", accents = ["flowers", "fly_peacock"], flora = 0, flies = 1, fly_kind = "peacock"},
+	first_own = {seed = 301, sid = "amethyst", kind = "crystal", accents = ["mushrooms"], shroom = 0}}
+static func picked(which: String, area: int, luck: float, dl: int) -> Dictionary:
+	var f: Dictionary = PICKED[which]
+	var st := roll(int(f.seed), area, luck, dl)
+	for k: String in f:
+		if k != "seed": st[k] = f[k]
+	st.legend = false
+	st.erase("fx")
+	st.value = price(st, area, dl)
+	st.tier = tier_of(String(st.sid), int(st.gi), false)
+	return st
+
 ## a find's name: the species, or for a skull its kind ("Gilded Skull")
 static func name_of(s: Dictionary) -> String:
 	# an animal's: "Wolf Skull", "Gilded Stag Skull" (its crystal shows on the card)

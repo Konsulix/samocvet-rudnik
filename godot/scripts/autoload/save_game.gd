@@ -210,9 +210,9 @@ func gone(s: Dictionary) -> void:
 	for t in Awards.genes_of(s):
 		d.gfirst[t] = Awards.summary(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 
-## the old man's gift (the prologue's pyrite, Home.GIFTS): never a duplicate, sold only from its own card after he asks
+## the old man's gift (the prologue's pyrite, Stones.PICKED.gift): never a duplicate, sold only from its own card after he asks
 static func is_gift(s: Dictionary) -> bool:
-	return bool(s.get("gift", false)) or (int(s.get("id", 0)) in Home.GIFTS and String(s.get("sid", "")) == "pyrite")
+	return bool(s.get("gift", false)) or (int(s.get("id", 0)) == int(Stones.PICKED.gift.seed) and String(s.get("sid", "")) == "pyrite")
 
 ## the tutorial (docs/onboarding.md): has this tip been shown
 func told(id: String) -> bool:
