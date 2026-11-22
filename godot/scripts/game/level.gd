@@ -507,6 +507,18 @@ func _render_hud() -> void:
 	if not model.find.is_empty(): BoardSprites.find_shape = "%dx%d" % [int(model.find.get("w", 2)), int(model.find.get("h", 2))]
 	for i in model.goals.size():
 		var g: Dictionary = model.goals[i]
+		if String(g.k) == "gulp":
+			# the hunt: no count on the plate - a scale from his belly to his mouth, the find's light on it
+			var bar := GulpView.Bar.new()
+			bar.model = model
+			bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			bar.custom_minimum_size = Vector2(0, 46)
+			row.add_child(bar)
+			var dummy := Label.new()
+			dummy.visible = false
+			bar.add_child(dummy)
+			goal_boxes.append({root = bar, icon = bar, label = dummy, shown = 0})
+			continue
 		# a cell of the plate: the icon over its count
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", -2)
@@ -1450,6 +1462,8 @@ const TIP := {
 	metal = "Molten metal holds a stone: it can't be moved or matched. Match beside it to crack it off",
 	pot = "A crucible! Two matches beside it break it - and its metal spills over the stones round it",
 	tube = "A billet. Only specials and boosters melt it, a piece at a time",
+	gulp_zone = "Your find glows in his neck. Match stones in the lit cells: every one knocks it towards his mouth. A special knocks harder",
+	gulp_bite = "He will bite here in two moves and your find slips back. Get a special into the square - it goes off in his mouth",
 	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
@@ -1466,6 +1480,10 @@ func _coach_next() -> void:
 		_coach_tip = "swap"
 		coach.open([_cells_rect(_match_cells(mv))], TIP.swap)
 		coach.hand(_cell_screen(mv[0], mv[1]), _cell_screen(mv[2], mv[3]))
+		return
+	if gulp_view:
+		# the hunt has its own two tips (the second comes with his first bite, _gulp_turn)
+		if not Save.told("gulp_zone"): _coach_tap("gulp_zone", [_cells_rect(model.gulp_zone())])
 		return
 	if not Save.told("goals"):
 		_coach_tap("goals", [goals_line.get_global_rect()])
@@ -2393,16 +2411,13 @@ func _gulp_turn() -> bool:
 	if a.is_empty(): return false
 	var gi := model.goal_index("gulp")
 	if int(a.push) > 0:
-		gulp_view.knock(bool(a.harpoon))
+		gulp_view.knock(bool(a.harpoon), int(a.push))
 		Sfx.play("special" if a.harpoon else "pop", 3)
 		Sfx.buzz(45 if a.harpoon else 15)
 		if a.harpoon:
 			fx.shake = maxf(fx.shake, 8.0)
 			fx.hitstop(0.05)
 		await gulp_view.move_lump(int(a.to))
-	if bool(a.held) and not Save.told("t_gulp_held"):
-		Save.tell("t_gulp_held")
-		_toast("It is in his mouth: only a special's blast gets it out")
 	if bool(a.won):
 		await _gulp_end(true)
 		return true
@@ -2421,23 +2436,15 @@ func _gulp_turn() -> bool:
 		await board.animate_collapse(model.collapse())
 		await _resolve([], [])
 		model.dead_cells = []
-		if bool(B.choke) and not Save.told("t_gulp_choke"):
-			Save.tell("t_gulp_choke")
-			_toast("A special in his bite goes off in his mouth")
 		if bool(a.won):
 			await _gulp_end(true)
 			return true
-	if int(model.gulp.pin) <= 0: gulp_view.unpin()
 	await gulp_view.move_lump(int(a.at), 0.45)
+	gulp_view.set_mark(model.gulp.bite.cells, int(model.gulp.bite.left))
 	if not (a.mark as Array).is_empty():
 		Sfx.play("hiss")
-		if not Save.told("t_gulp_bite"):
-			Save.tell("t_gulp_bite")
-			_toast("He will bite there in two moves - move a special in, or lose ground")
-	gulp_view.set_mark(model.gulp.bite.cells, int(model.gulp.bite.left))
-	if gi >= 0:
-		goal_boxes[gi].shown = int(model.goals[gi].left)
-		_render_goal(gi)
+		# the first bite marked: what it is, and what to do about it
+		if not Coach.off and not Save.told("gulp_bite"): await _coach_tap("gulp_bite", [_cells_rect(a.mark)])
 	if bool(a.lost):
 		await _gulp_end(false)
 		return true

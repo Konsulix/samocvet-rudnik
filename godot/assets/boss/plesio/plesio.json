@@ -1,14 +1,11 @@
 {
  "neck_pt": 26,
- "head_pt": 104,
- "skull": [
-  104,
-  27
- ],
- "jaw": [
-  101,
-  20
- ],
- "jaw_dx": 1.2,
- "gap": 8.8
+ "head_exit_x": 119,
+ "head_exit_y": 57.5,
+ "body_exit_x": 225,
+ "body_exit_y": 24.3,
+ "mouth_x": 0.2,
+ "mouth_y": 0.78,
+ "open_dx": 0.0,
+ "open_dy": 0.0
 }

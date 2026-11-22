@@ -219,7 +219,7 @@ static func _worth(m: BoardModel) -> float:
 		# the hunt: what the move knocks the lump back by; a harpoon at the mouth wins; a special under his bite
 		var kp := m.gulp_push()
 		v += float(kp.push) * 12.0
-		if bool(kp.harpoon) and int(m.gulp.at) - int(kp.push) < 0: v += 500.0
+		if int(m.gulp.at) - int(kp.push) < 0: v += 500.0
 		for p: Vector2i in m.gulp.bite.cells:
 			var bg: BoardModel.Gem = m.G[p.x][p.y]
 			if bg and bg.sp != "": v += 25.0

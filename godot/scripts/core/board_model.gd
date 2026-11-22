@@ -1435,8 +1435,9 @@ func _count_granite() -> int:
 # He swallowed the find: it is a lump of light in his neck, and his neck lies round the board - the mouth over the top's
 # middle, then along the top to the right, down the right side, back along the bottom and up the left to his belly.
 # After every move the lump slips towards the belly; stones cleared in the cells beside it (a match there, a blast)
-# knock it back towards the mouth, a place each (two a move at most). A special's blast that reaches those cells is
-# a HARPOON: two places more, and the lump is pinned for two moves. Out of the mouth it comes only on a harpoon.
+# knock it back towards the mouth, a place each (two a move at most); a special's blast that reaches those cells
+# knocks it two places more. (22.11, second pass: no harpoon, no pin, no "only a special gets it out of his mouth" -
+# three ideas too many: one rule, strike by the light.) Knocked past the mouth, the find is out.
 # Now and then his head marks a 2x2 and, two moves on, bites it out of the board: plain stones - the lump goes down
 # two; a special among them goes off in his mouth - four places up and he chokes (no slip next move). The lump in the
 # belly: lost. No count of moves.
@@ -1449,8 +1450,8 @@ func gulp_start(cfg: Dictionary) -> void:
 	var tr: Array = []
 	for c in range(C / 2, C): tr.append(Vector2i(0, c))
 	for r in range(1, R): tr.append(Vector2i(r, C - 1))
-	for c in range(C - 2, -1, -1): tr.append(Vector2i(R - 1, c))
-	for r in range(R - 2, R / 2 - 1, -1): tr.append(Vector2i(r, 0))
+	# (half of the bottom only, and the left side free: his body lies under the board's bottom left, the neck runs into it)
+	for c in range(C - 2, C / 2 - 1, -1): tr.append(Vector2i(R - 1, c))
 	gulp = {cfg = G0, track = tr, at = int(tr.size() * float(G0.start)), pin = 0, stun = 0, acc = 0.0, lost = false,
 		wait = int(G0.bite_every[1]), bite = {cells = [], left = 0}}
 	_gulp_goal()
@@ -1514,10 +1515,8 @@ func gulp_after() -> Dictionary:
 	out.push = int(kp.push)
 	out.harpoon = bool(kp.harpoon)
 	var at: int = int(gulp.at) - int(kp.push)
-	if out.harpoon: gulp.pin = int(cfg.pin)
 	if at < 0:
-		if out.harpoon: out.won = true
-		else: out.held = true
+		out.won = true
 		at = 0
 	out.to = at
 	gulp.at = at
