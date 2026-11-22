@@ -1040,6 +1040,13 @@ func play_hunt() -> void:
 	for st: Dictionary in Save.d.coll:
 		if st.get("gulp", false): def.glow = Data.rarity_color(int(st.get("tier", 1))).lerp(Color.WHITE, 0.35)
 	if args.has("gulp_stage"): def.gulp_cfg = {stage0 = int(args.gulp_stage)}      # a test key: the board it starts on (0..2)
+	if args.has("gk"):
+		# gk=kelp_every:0/1/1,moves:30: the rules' numbers tried without touching the code (as in sim_gulp)
+		var gcfg: Dictionary = def.get("gulp_cfg", {})
+		for kv in String(args.gk).split(","):
+			var v := kv.get_slice(":", 1)
+			gcfg[kv.get_slice(":", 0)] = Array(v.split("/")).map(func(x: String) -> float: return float(x)) if "/" in v else float(v)
+		def.gulp_cfg = gcfg
 	if args.has("gulp_at"): def.gulp_cfg = (def.get("gulp_cfg", {}) as Dictionary).merged({start = float(args.gulp_at)})    # a test key: where the lump starts (0 mouth .. 1 belly)
 	show_level(Save.d.level, [], 0, def)
 

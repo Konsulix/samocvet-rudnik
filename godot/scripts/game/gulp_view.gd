@@ -49,6 +49,7 @@ var _home := Vector2.ZERO
 var _homed := false
 
 const DIR := "res://assets/boss/plesio/"
+const MAW_K := 0.76             # the ring of teeth just round its 2x2: it does not hide the stones beside it
 var _neck: Texture2D
 var _heads := {}
 var _body: Texture2D
@@ -405,7 +406,7 @@ func _draw() -> void:
 			al = 1.0 - _burst
 		else:
 			al = 1.0 - _burst
-		var ms := _maw.get_size() * (TS / 37.0) * k
+		var ms := _maw.get_size() * (TS / 37.0) * MAW_K * k
 		draw_rect(Rect2(_snap_c - Vector2(TS, TS), Vector2(TS, TS) * 2.0), Color(0.45, 0.02, 0.04, 0.4 * al), true)
 		draw_texture_rect(_maw, Rect2(_snap_c - ms * 0.5, ms), false, Color(1, 1, 1, al))
 		if _burst >= 0.0:
@@ -438,7 +439,7 @@ func _draw() -> void:
 		for p: Vector2i in _mark: mc += board.cell_center(float(p.x), float(p.y))
 		mc /= float(_mark.size())
 		draw_rect(Rect2(mc - Vector2(TS, TS), Vector2(TS, TS) * 2.0), Color(0.45, 0.02, 0.04, 0.16 + 0.22 * hot), true)
-		var ms := _maw.get_size() * (TS / 37.0) * (1.0 + 0.05 * hot)
+		var ms := _maw.get_size() * (TS / 37.0) * MAW_K * (1.0 + 0.05 * hot)
 		var mcol := Color(1.0, 1.0 - 0.14 * hot, 1.0 - 0.14 * hot) if soon else Color(1, 1, 1, 0.9)
 		draw_texture_rect(_maw, Rect2(mc - ms * 0.5, ms), false, mcol)
 	# the find in his neck: its light through the hide

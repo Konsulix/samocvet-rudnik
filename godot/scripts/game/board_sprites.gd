@@ -121,6 +121,13 @@ static func malachite(name: String) -> Texture2D:
 	if not _tex.has(path): _tex[path] = load(path)
 	return _tex[path]
 
+## the kelp that grips a stone in the plesiosaur hunt (art/plesio_kelp: gen.sh, cut.py): four tangles. Kept here:
+## a texture loaded inside a draw call is freed before it is drawn (a white square)
+static func kelp(i: int) -> Texture2D:
+	var path := "res://assets/board/kelp/kelp_%d.png" % i
+	if not _tex.has(path): _tex[path] = load(path)
+	return _tex[path]
+
 ## the Mistress' stone flower and its petals (art/boss/stone_flower.py, pixel art): flower_s1..3, flower_<ring>_<k>
 static func flower(name: String) -> Texture2D:
 	var path := "res://assets/boss/mistress/%s.png" % name

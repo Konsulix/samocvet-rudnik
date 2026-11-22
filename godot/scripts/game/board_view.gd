@@ -677,7 +677,10 @@ func _draw_over(ci: Node2D) -> void:
 	if model == null: return
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and cell("LOCK", r, c) == 2:
+			if model.playable(r, c) and cell("LOCK", r, c) == 2 and not model.gulp.is_empty() and ResourceLoader.exists("res://assets/board/kelp/kelp_0.png"):
+				# the plesiosaur hunt: the same grip drawn as kelp (art/plesio_kelp)
+				BoardSprites.draw(ci, BoardSprites.kelp((r * 5 + c * 3) % 4), cell_center(r, c), TS)
+			elif model.playable(r, c) and cell("LOCK", r, c) == 2:
 				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
 			elif model.playable(r, c) and cell("LOCK", r, c) == 1:
 				BoardSprites.draw(ci, BoardSprites.tex("lock"), cell_center(r, c), TS)

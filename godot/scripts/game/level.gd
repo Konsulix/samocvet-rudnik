@@ -1090,8 +1090,13 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			Sfx.play("rock")
 		"crust":
 			board.over.queue_redraw()
-			fx.plates(e.r, e.c, BoardSprites.malachite_look(e.r, e.c))
-			Sfx.play("crust")
+			if not model.gulp.is_empty():
+				# (the hunt: it is kelp, torn off)
+				fx.debris(e.r, e.c, Color("#5f7d3a"), 9)
+				Sfx.play("pop")
+			else:
+				fx.plates(e.r, e.c, BoardSprites.malachite_look(e.r, e.c))
+				Sfx.play("crust")
 		"ice":
 			board.over.queue_redraw()
 			if BoardSprites.gem_style != "" and int(e.left) == 0: fx.shards(e.r, e.c, "ice", Color("#d8efff"))
@@ -1364,6 +1369,7 @@ func _after_turn() -> void:
 	await _flights_done()
 	if gulp_view:
 		if await _gulp_turn(): return
+		if not model.tide.is_empty(): await _tide()
 		board.sync()
 		busy = false
 		idle = 0.0
@@ -2449,6 +2455,8 @@ func _gulp_turn() -> bool:
 		Sfx.buzz(60)
 		fx.shake = maxf(fx.shake, 10.0)
 		await gulp_view.restage(climbed)
+		board.sea_over.queue_redraw()        # (the tide is the belly board's only)
+		board.refresh()
 		_gulp_rocks(a.rocks)
 		_toast(["His belly", "Up his neck", "His throat: the mouth is near"][clampi(int(a.stage), 0, 2)] if climbed else "It slipped back down")
 	else:
@@ -2461,6 +2469,13 @@ func _gulp_turn() -> bool:
 				Save.tell("t_gulp_idle")
 				_toast("Left alone, he swallows: knock the light every move or two")
 		await gulp_view.move_lump(float(a.at), 0.45)
+	if not (a.kelp as Array).is_empty():
+		board.over.queue_redraw()
+		for p: Vector2i in a.kelp: fx.sparkle(p.x, p.y, Color("#7fa35a"), 8)
+		Sfx.play("hiss")
+		if not Save.told("t_gulp_kelp"):
+			Save.tell("t_gulp_kelp")
+			_toast("Kelp off his neck grips the stones: match beside one to tear it free")
 	gulp_view.warn = int(a.idle) >= int(model.gulp.cfg.idle) - 1 and int(model.gulp.cfg.idle) > 0
 	gulp_view.set_mark(model.gulp.bite.cells, int(model.gulp.bite.left))
 	if not (a.mark as Array).is_empty():

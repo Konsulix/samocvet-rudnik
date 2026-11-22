@@ -1448,10 +1448,13 @@ func _count_granite() -> int:
 # has been knocked past it by then (he snaps at nothing), or a special is in the square: it goes off in his mouth,
 # four places up and he chokes (no slip next move).
 # Left alone he swallows: after cfg.idle moves in a row without a knock the lump goes cfg.idle_down places down more.
+# On the belly board the tide floods the two bottom rows every cfg.tide_every moves (nothing under water moves); on
+# the upper boards kelp off his neck grips stones of the lane every cfg.kelp_every moves.
 # And there is a count of moves (cfg.moves): out of them he dives, the find with him. The pebbles and the rubble of
 # a bite are granite (cfg.rock_hp 2: two blows).
 const GULP := {start = 0.45, slide = [1.0, 1.25, 1.5], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
-	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 3, idle_down = 2, moves = 48}
+	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 3, idle_down = 2, moves = 48,
+	tide_every = [5, 0, 0], kelp_every = [0, 4, 5], kelp_n = 2}
 
 ## a board's stretch of neck: [cells (the top end first), sides (which way is out of the board at each: screen x, y)]
 func gulp_track(stage: int) -> Array:
@@ -1500,6 +1503,12 @@ func _gulp_stage(st: int) -> void:
 	gulp.bite = {cells = [], left = 0}
 	gulp.wait = int(gulp.cfg.bite_every[st])
 	gulp.acc = 0.0
+	# the belly lies half under water: the tide floods the bottom rows there (the cove's own, tide_turn)
+	var te := int(gulp.cfg.tide_every[st])
+	tide = {every = te, rows = 2, moves = 2, wait = te} if te > 0 else {}
+	for r in R:
+		for c in C: TIDE[r][c] = 0
+	gulp.kelp = int(gulp.cfg.kelp_every[st])
 
 ## where the lump stands on the whole neck: [places from the mouth, places in all]
 func gulp_overall() -> Array:
@@ -1581,6 +1590,22 @@ func _gulp_rocks() -> Array:
 		ROCK_MAX[p.x][p.y] = int(gulp.cfg.rock_hp)
 	return out
 
+## kelp grips cfg.kelp_n plain stones of the lump lane, the nearest to the lump first (LOCK 2: the stone cannot be
+## moved till a match beside it, or with it, tears the kelp off). Returns the cells
+func _gulp_kelp() -> Array:
+	var tr: Array = gulp.track
+	var me: Vector2i = tr[clampi(int(gulp.at), 0, tr.size() - 1)]
+	var lane := gulp_zone()
+	lane.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return absi(a.x - me.x) + absi(a.y - me.y) < absi(b.x - me.x) + absi(b.y - me.y))
+	var out: Array = []
+	for p: Vector2i in lane:
+		if out.size() >= int(gulp.cfg.kelp_n): break
+		var g: Gem = G[p.x][p.y]
+		if g == null or g.sp != "" or g.item != "" or LOCK[p.x][p.y] or ROCK[p.x][p.y] or TIDE[p.x][p.y] or p in (gulp.bite.cells as Array): continue
+		LOCK[p.x][p.y] = 2
+		out.append(p)
+	return out
+
 ## the 2x2 he will bite: across the neck just ahead of the lump (towards the mouth) - two of its cells and the two
 ## inside them. Returns [cells, the farther of the two places on the neck], or [] if nothing there can be bitten
 func _gulp_mark() -> Array:
@@ -1607,7 +1632,7 @@ func gulp_after() -> Dictionary:
 	if gulp.is_empty() or over: return {}
 	var cfg: Dictionary = gulp.cfg
 	var out := {from = int(gulp.at), to = int(gulp.at), at = int(gulp.at), push = 0, harpoon = false, bite = {}, slid = 0, mark = [],
-		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false, gulped = false, idle = 0}
+		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false, gulped = false, idle = 0, kelp = []}
 	var kp := gulp_push()
 	dead_cells = []
 	_gulp_fx = {}
@@ -1659,6 +1684,12 @@ func gulp_after() -> Dictionary:
 	# the slip towards the belly
 	var n: int = (gulp.track as Array).size()
 	var before: int = gulp.at
+	# the kelp off his neck grips stones of the lane, the nearest to the lump first
+	if int(cfg.kelp_every[int(gulp.stage)]) > 0:
+		gulp.kelp = int(gulp.get("kelp", 0)) - 1
+		if int(gulp.kelp) <= 0:
+			gulp.kelp = int(cfg.kelp_every[int(gulp.stage)])
+			out.kelp = _gulp_kelp()
 	# (moves in a row without a knock: left alone, he swallows - the lump goes down more)
 	gulp.idle = 0 if int(kp.push) > 0 or not (out.bite as Dictionary).is_empty() and bool(out.bite.choke) else int(gulp.get("idle", 0)) + 1
 	out.idle = int(gulp.idle)
