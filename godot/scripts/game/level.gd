@@ -1459,7 +1459,7 @@ const TIP := {
 	metal = "Molten metal holds a stone: it can't be moved or matched. Match beside it to crack it off",
 	pot = "A crucible! Two matches beside it break it - and its metal spills over the stones round it",
 	tube = "A billet. Only specials and boosters melt it, a piece at a time",
-	gulp_zone = "Your find glows in his neck. Match stones in the lit cells: every one knocks it towards his mouth, a special harder. Get it out before the moves run out: he dives",
+	gulp_zone = "Your find glows in his neck. Match stones in the lit line across the board: that knocks it towards his mouth, a special beside it harder. Get it out before the moves run out: he dives",
 	gulp_bite = "He will bite here in two moves and crush these stones to rubble across your find's way. Knock the find past it first - or get a special into the square: it goes off in his mouth",
 	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }

@@ -17,6 +17,8 @@ var board: BoardView
 var model: BoardModel
 var glow := Color("#9be8ff")     # the find's own colour (its rarity)
 var _anch: Array = []            # [index on the track (the bends and the ends between and past the cells), point, outward normal]
+var _sides: Array = []
+var _fb := 1.0                   # where the neck meets the body's picture (the first board)
 var _track: Array = []           # this board's cells as drawn (the model is a step ahead while a climb plays)
 var _stage := 0
 var _n := 0
@@ -80,6 +82,7 @@ func _build() -> void:
 	_stage = int(model.gulp.stage)
 	_track = (model.gulp.track as Array).duplicate()
 	var sides: Array = model.gulp.sides
+	_sides = sides.duplicate()
 	_n = _track.size()
 	_flip = _stage == 1
 	var TS: float = board.TS
@@ -104,7 +107,12 @@ func _build() -> void:
 	match _stage:
 		0:
 			front = _curve(a0, a0 + Vector2(0, -TS * 2.0), a0 + Vector2(TS * 2.4, -TS * 2.3))
-			back = [an + Vector2(-TS * 1.1, TS * 0.5)]
+			# (to where the body's own neck leaves its picture, and on over that stub into his shoulder)
+			# (down in an S to the level of the body's own neck, to meet it head on, and a little on over it)
+			var be := an + Vector2(-TS * 1.35, TS * 0.62)
+			var bm := (an + be) * 0.5
+			back = _curve(an, an + Vector2(-TS * 0.45, 0), bm) + _curve(bm, be + Vector2(TS * 0.45, 0), be)
+			back.append(be + Vector2(-TS * 0.5, 0))
 		1:
 			front = _curve(a0, a0 + Vector2(0, -TS * 2.0), a0 + Vector2(-TS * 2.4, -TS * 2.3))
 			back = [an + Vector2(TS * 2.6, 0)]
@@ -120,10 +128,13 @@ func _build() -> void:
 	_f0 = f
 	prev = an
 	f = float(_n - 1)
-	for q: Vector2 in back:
+	_fb = f
+	for i in back.size():
+		var q: Vector2 = back[i]
 		f += prev.distance_to(q) / TS
 		_anch.append([f, q, _out_of(q - prev, false)])
 		prev = q
+		if i == back.size() - 2 or back.size() == 1: _fb = f
 	_f1 = f
 
 func _curve(a: Vector2, c: Vector2, b: Vector2) -> Array:
@@ -361,7 +372,7 @@ func _draw_neck(from: float, drop: Vector2, col: Color) -> void:
 			if k % 2 == 1:
 				ua = 1.0 - ua
 				ub = 1.0 - ub
-			Bend.draw(self, _line(a, b, drop), func(q: float) -> float: return _thick(lerpf(a, b, q)) * 0.5 * th / W, _neck, ua, ub, _flip, col)
+			Bend.draw(self, _line(a, b, drop), func(q: float) -> float: return _thick(lerpf(a, b, q)) * 0.5 * th / W, _neck, ua, ub, _flip != (_stage == 0), col)
 		f0 = f1
 		k += 1
 
@@ -375,14 +386,15 @@ func _draw() -> void:
 	# the cells beside the lump: where a match knocks it back
 	if lit:
 		var pulse := 0.5 + 0.5 * sin(_t * 4.0)
-		var mid := int(roundf(_at))
-		for i in range(mid - 1, mid + 2):
-			if i < 0 or i >= _n: continue
-			var p: Vector2i = _track[i]
-			var c := board.cell_center(float(p.x), float(p.y))
-			var rr := Rect2(c - Vector2(TS, TS) * 0.46, Vector2(TS, TS) * 0.92)
-			draw_rect(rr, Color(glow, 0.10 + 0.08 * pulse), true)
-			draw_rect(rr, Color(glow, 0.55 + 0.35 * pulse), false, maxf(2.0, TS * 0.06))
+		var mid := clampi(int(roundf(_at)), 0, _n - 1)
+		# the lane: the whole row (or column) of the board the lump lies beside
+		var lp0: Vector2i = _track[mid]
+		var ls: Vector2i = _sides[mid]
+		var la := board.cell_center(float(lp0.x), 0.0) if ls.x != 0 else board.cell_center(0.0, float(lp0.y))
+		var lb := board.cell_center(float(lp0.x), float(model.C - 1)) if ls.x != 0 else board.cell_center(float(model.R - 1), float(lp0.y))
+		var lr := Rect2(la - Vector2(TS, TS) * 0.48, lb - la + Vector2(TS, TS) * 0.96)
+		draw_rect(lr, Color(glow, 0.09 + 0.06 * pulse), true)
+		draw_rect(lr, Color(glow, 0.5 + 0.3 * pulse), false, maxf(2.0, TS * 0.06))
 	# the snap: the ring shuts on the stones, then fades - or flies apart, if a special went off in it
 	if _maw and (_snap >= 0.0 or _burst >= 0.0):
 		var k := 0.58
@@ -403,7 +415,7 @@ func _draw() -> void:
 	# his body under the first board's corner, the neck running into it
 	if _body and _stage == 0:
 		var ex := Vector2(float(_info.get("body_exit_x", _body.get_width())), float(_info.get("body_exit_y", 24)))
-		var at := ((_on_neck(_f1)[0] as Vector2) + Vector2(10, 0) - ex + drop + Vector2(0, roundf(sin(_t * 1.1) * 1.5))).round()
+		var at := ((_on_neck(_fb)[0] as Vector2) + Vector2(0, 0) - ex + drop + Vector2(0, roundf(sin(_t * 1.1) * 1.5))).round()
 		draw_texture(_body, at + Vector2(-4, 7), Color(0, 0, 0, 0.4 * fade))
 		draw_texture(_body, at, tint)
 	if _neck:

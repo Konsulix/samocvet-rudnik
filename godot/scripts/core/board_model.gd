@@ -1450,8 +1450,8 @@ func _count_granite() -> int:
 # Left alone he swallows: after cfg.idle moves in a row without a knock the lump goes cfg.idle_down places down more.
 # And there is a count of moves (cfg.moves): out of them he dives, the find with him. The pebbles and the rubble of
 # a bite are granite (cfg.rock_hp 2: two blows).
-const GULP := {start = 0.45, slide = [0.5, 0.75, 1.0], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
-	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 3, idle_down = 2, moves = 60}
+const GULP := {start = 0.45, slide = [1.0, 1.25, 1.5], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
+	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 3, idle_down = 2, moves = 48}
 
 ## a board's stretch of neck: [cells (the top end first), sides (which way is out of the board at each: screen x, y)]
 func gulp_track(stage: int) -> Array:
@@ -1511,8 +1511,24 @@ func gulp_overall() -> Array:
 		if st > int(gulp.stage): before += n
 	return [before + int(gulp.at), total]
 
-## the cells beside the lump: its own place on the neck and one either side
+## the lane of the lump: the whole row of the board it lies beside (on a side of the frame) or the whole column
+## (on the top or the bottom). Stones cleared anywhere in it knock the lump
 func gulp_zone() -> Array:
+	var tr: Array = gulp.track
+	var i := clampi(int(gulp.at), 0, tr.size() - 1)
+	var p: Vector2i = tr[i]
+	var s: Vector2i = (gulp.sides as Array)[i]
+	var out: Array = []
+	if s.x != 0:
+		for c in C:
+			if playable(p.x, c): out.append(Vector2i(p.x, c))
+	else:
+		for r in R:
+			if playable(r, p.y): out.append(Vector2i(r, p.y))
+	return out
+
+## the cells right beside the lump: its own place on the neck and one either side (a blast here is a harpoon)
+func gulp_near() -> Array:
 	var tr: Array = gulp.track
 	var out: Array = []
 	for i in range(int(gulp.at) - 1, int(gulp.at) + 2):
@@ -1522,13 +1538,14 @@ func gulp_zone() -> Array:
 ## what the move so far would knock the lump back by: {push, harpoon (a special's blast was in it)}
 func gulp_push() -> Dictionary:
 	var z := gulp_zone()
-	var push := 0
+	var n := 0
 	var harp := false
 	for p: Vector2i in dead_cells:
-		if p in z: push += 1
-	for p: Vector2i in z:
+		if p in z: n += 1
+	for p: Vector2i in gulp_near():
 		if _gulp_fx.has(p.x * C + p.y): harp = true
-	push = mini(push, int(gulp.cfg.push_max))
+	# (a stone of the lane: a place; three and more: two)
+	var push := mini((n + 1) / 2, int(gulp.cfg.push_max))
 	if harp: push += int(gulp.cfg.harpoon)
 	return {push = push, harpoon = harp}
 
