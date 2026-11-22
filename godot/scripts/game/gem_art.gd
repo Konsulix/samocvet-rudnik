@@ -311,7 +311,7 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 				BoardSprites.draw(ci, BoardSprites.blocker(BoardSprites.granite()), Vector2(S * 0.62, S * 0.6), S * 0.78)
 			else:
 				BoardSprites.draw(ci, BoardSprites.blocker(BoardSprites.granite() if colour == 1 else BoardSprites.sand()), Vector2(S / 2, S / 2), S)
-		"crust": BoardSprites.draw(ci, BoardSprites.malachite("crust_0"), Vector2(S / 2, S / 2), S)
+		"crust": BoardSprites.draw(ci, BoardSprites.kelp(1) if BoardSprites.kelp_look else BoardSprites.malachite("crust_0"), Vector2(S / 2, S / 2), S)
 		"mud":
 			if BoardSprites.gem_style != "" and BoardKit.for_area(Save.area()).light():
 				# as on the light tray: a wet clay tile

@@ -64,6 +64,13 @@ var tentacles := []
 ## the cove's own tide (its levels, not the fight): every `every` moves the sea floods the bottom `rows` rows for `moves`
 ## moves - nothing there moves, matches or is hit - then ebbs; `wait` - moves till the next flood (1: it rises now)
 var tide := {}
+## the plesiosaur hunt's levels: kelp grips stones (LOCK 2, the crust's rule: a match beside it tears it off, goal
+## "crust") and spreads - every `every` moves it grips `n` more stones, beside the kelp there first. {every, n, wait}
+var kelp := {}
+
+## kelp, not malachite, is what LOCK 2 is on this board (the hunt and its levels)
+func kelp_on() -> bool:
+	return not gulp.is_empty() or not kelp.is_empty()
 var _tid := 0
 ## the maelstrom's ring round its water, clockwise: its stones go round a cell after every move
 var ring := []
@@ -1081,7 +1088,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	# no ore is mined at the boss: only the stones of its weak colour carry gold, and hurt it more
 	set_ore(area, dl, vein, bool(def.get("rich", false)), not def.has("boss"))
 	# the Fire Maiden's chase: no ore but the gold she makes
-	if def.get("maiden", false) or def.get("gulp", false): ore_p = {}
+	if def.get("maiden", false) or def.get("gulp", false) or def.has("hunt_lv"): ore_p = {}
 	lift = int(eq.get("lift", 0))
 	vent = int(eq.get("vent", 0))
 	moves = start_moves(def, dl, eq)
@@ -1100,6 +1107,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	cage = {}
 	tentacles = []
 	tide = {}
+	kelp = {}
 	ring = []
 	eye = {}
 	bolt = {}
@@ -1306,6 +1314,10 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			if ROCK[r][c]: rocks += 1
 			if GAS[r][c]: gas += 1
 			if LOCK[r][c] == 1: locks += 1
+	var KD: Dictionary = def.get("kelp", {})
+	if not KD.is_empty():
+		kelp = {every = int(KD.get("every", 4)), n = int(KD.get("n", 2)), wait = int(KD.get("every", 4))}
+		_kelp_lay(int(KD.get("start", 5)))
 	if not find.is_empty():
 		goals.append({k = "find", t = -1, left = 1})
 	for gd in def.goals:
@@ -1399,6 +1411,56 @@ func give_special(sp: String) -> Vector2i:
 	g.t = -1
 	g.ore = ""
 	return p
+
+## the kelp a hunt level starts with: in clumps (each next beside one laid, mostly), on cells that take a stone
+func _kelp_lay(k: int) -> void:
+	var free := _free_cells()
+	var laid: Array = []
+	while laid.size() < k and not free.is_empty():
+		var p: Vector2i = free[rng.randi_range(0, free.size() - 1)]
+		if not laid.is_empty() and rng.randf() < 0.65:
+			var near: Array = free.filter(func(q: Vector2i) -> bool:
+				for l: Vector2i in laid:
+					if absi(l.x - q.x) + absi(l.y - q.y) == 1: return true
+				return false)
+			if not near.is_empty(): p = near[rng.randi_range(0, near.size() - 1)]
+		free.erase(p)
+		LOCK[p.x][p.y] = 2
+		laid.append(p)
+
+## after a move on a hunt level: every kelp.every moves the kelp grips kelp.n more plain stones, beside the kelp first.
+## Returns the cells (the goal grows by them)
+func kelp_turn() -> Array:
+	if kelp.is_empty() or over: return []
+	kelp.wait = int(kelp.wait) - 1
+	if int(kelp.wait) > 0: return []
+	kelp.wait = int(kelp.every)
+	var plain := func(r: int, c: int) -> bool:
+		var g: Gem = G[r][c] if playable(r, c) else null
+		return g != null and g.sp == "" and g.item == "" and not LOCK[r][c] and not TIDE[r][c] and not ROCK[r][c]
+	var near: Array = []
+	var any: Array = []
+	for r in R:
+		for c in C:
+			if not plain.call(r, c): continue
+			any.append(Vector2i(r, c))
+			for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var q := Vector2i(r, c) + d
+				if q.x >= 0 and q.x < R and q.y >= 0 and q.y < C and LOCK[q.x][q.y] == 2:
+					near.append(Vector2i(r, c))
+					break
+	var out: Array = []
+	for i in int(kelp.n):
+		var pool: Array = near if not near.is_empty() else any
+		if pool.is_empty(): break
+		var p: Vector2i = pool.pop_at(rng.randi_range(0, pool.size() - 1))
+		near.erase(p)
+		any.erase(p)
+		LOCK[p.x][p.y] = 2
+		out.append(p)
+	var gi := goal_index("crust")
+	if gi >= 0: goals[gi].left = int(goals[gi].left) + out.size()
+	return out
 
 func _free_cells() -> Array:
 	var a := []

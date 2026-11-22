@@ -6,8 +6,8 @@ extends Control
 ## Each level's medallion shows what the level is about (the cove's own works); what is won is gold with a check, the
 ## one to play is polished and breathes a warm light, the rest are dark. Won back, the card is the find's again: the
 ## ribbon has no "beaten" end.
-## Only the look so far: the hunt's levels are not made (Reveal.hunt), the state comes from the save's `hunt`
-## ({won, geode, lost}) or, for pictures, from the key `-- hunt=N[g][x]` (N fights won, g the geode opened, x just lost).
+## The chain is played by Main.hunt_next (levels LevelGen.HUNT); the state is the save's `hunt` ({won, geode, lost})
+## or, for pictures, the key `-- hunt=N[g][x]` (N fights won, g the geode opened, x just lost).
 
 const DIR := "res://assets/ui/hunt/"
 const SIGNS := ["tentacle", "ink", "whirl", "glass", "wheel"]

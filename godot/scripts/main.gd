@@ -608,6 +608,9 @@ func _ready() -> void:
 		Atlas.start_area = int(args.atlas)
 	if args.has("screen"):
 		go(args.screen)
+	elif args.has("hunt_next"):    # the hunt's next step as the card's button plays it: `-- save=x hunt_next [autoplay=N smart]`
+		go("stones")
+		hunt_next()
 	elif args.has("gulp"):     # the plesiosaur's hunt for a swallowed find (Level.GULP): `-- gulp [autoplay=N smart]`
 		play_hunt()
 	elif args.has("maiden"):   # the Fire Maiden's chase (docs/fire-maiden.md): her card first, `go` - straight to the board
@@ -741,6 +744,9 @@ func _ready() -> void:
 		print(SimEconomy.minerals(int(args.sim_min)))
 		get_tree().quit()
 		return
+	if args.has("sim_hunt"):
+		# sim_hunt=N [smart] [sloppy=P] [hunt_only=i] [sim_seed=S]: the hunt's five levels, N boards each
+		print(SimEconomy.hunt_report(int(args.sim_hunt)))
 	if args.has("sim_gulp"):
 		# sim_gulp=N [smart] [sloppy=P]: the plesiosaur's hunt played N times
 		print(SimEconomy.gulp_report(int(args.sim_gulp)))
@@ -938,7 +944,7 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 	lv.finished.connect(_on_level_finished)
 	# (14.11) a level being played: left by closing the game it counts as lost, a life and the streak, as the Leave
 	# button does — not a free retry (the prologue and the Fire Maiden's chase cost no life either way)
-	if level != Level.PROLOGUE and not level.get("maiden", false) and not level.get("gulp", false) and not Coach.off:
+	if level != Level.PROLOGUE and not level.get("maiden", false) and not level.get("gulp", false) and not level.has("hunt_lv") and not Coach.off:
 		Save.d.in_level = true
 		Save.persist()
 	lv.start(n, pre, dl, level)
@@ -1052,9 +1058,96 @@ func play_hunt() -> void:
 	if args.has("gulp_at"): def.gulp_cfg = (def.get("gulp_cfg", {}) as Dictionary).merged({start = float(args.gulp_at)})    # a test key: where the lump starts (0 mouth .. 1 belly)
 	show_level(Save.d.level, [], 0, def)
 
+## The hunt (HuntRibbon: three levels, a geode - a reward and the save point, two levels, the plesiosaur): the card's
+## button plays what comes next. Save.d.hunt = {won: fights won 0..5, geode: opened, lost: the last one lost}
+var _hunt_lv := -1
+func hunt_next() -> void:
+	var hs := HuntRibbon.state()
+	if not Save.d.has("hunt"): Save.d.hunt = {won = 0, geode = false, lost = false}
+	Save.d.hunt.lost = false
+	if HuntRibbon.at_geode(hs):
+		await _hunt_geode()
+		return
+	if int(hs.won) >= HuntRibbon.FIGHTS - 1:
+		play_hunt()
+		return
+	Save.tick_lives()
+	if Save.d.lives <= 0:
+		Ov.toast("No lives: next in %d min" % Save.minutes_to_life())
+		return
+	_hunt_lv = int(hs.won)
+	# the cove's boards whatever mine you are in (switched back after, as for a boss replayed)
+	if int(Save.d.area_back) < 0: Save.d.area_back = Save.d.area
+	Save.d.area = 2
+	Save.persist()
+	var H: Dictionary = LevelGen.HUNT[_hunt_lv]
+	show_level(Save.d.level, [], int(H.dl), LevelGen.hunt_level(_hunt_lv, randi()))
+
+## halfway: a geode washed up (a deep cove's luck) - and the save point
+func _hunt_geode() -> void:
+	var st := Stones.roll(Save.next_uid(), 2, 2.2, Data.depths(2).size() - 1)
+	Save.owe(st)
+	Save.d.hunt.geode = true
+	Save.persist()
+	await GeodeOpen.run([st], {title = "Washed up on the hunt", short = true})
+	Ov.panel("A save point", "Lose from here on and the hunt picks up at this geode, not from the start.", [
+		["Hunt on", "green", func():
+			Ov.close()
+			hunt_next()],
+		["Later", "dark", func():
+			Ov.close()
+			go("stones")]])
+
+## a hunt level over: a step along the ribbon, or back to the start (or to the geode, once it is opened)
+func _hunt_level_done(res: Dictionary) -> void:
+	var i := _hunt_lv
+	_hunt_lv = -1
+	if int(Save.d.area_back) >= 0:
+		Save.d.area = int(Save.d.area_back)
+		Save.d.area_back = -1
+	if not Save.d.has("hunt"): Save.d.hunt = {won = 0, geode = false, lost = false}
+	if res.won:
+		Save.d.hunt.won = maxi(int(Save.d.hunt.won), i + 1)
+		Save.d.hunt.lost = false
+	else:
+		Save.d.hunt.lost = true
+		Save.d.hunt.won = 3 if bool(Save.d.hunt.get("geode", false)) else 0
+	Save.persist()
+	if res.won:
+		if not (res.get("stone", {}) as Dictionary).is_empty(): await GeodeOpen.run([res.stone], {title = "Your find", short = true})
+		await GeodeOpen.run(res.get("bonus", []))
+	var hs := HuntRibbon.state()
+	var later := ["Later", "dark", func():
+		Ov.close()
+		go("stones")]
+	if not res.won:
+		Ov.panel("It slipped away", HuntRibbon.line_text(hs), [["Hunt again", "green", func():
+			Ov.close()
+			hunt_next()], later])
+	elif HuntRibbon.at_geode(hs):
+		Ov.panel("Halfway", "Something washed up in his wake - a geode. And a save point.", [["Open the geode", "gold", func():
+			Ov.close()
+			hunt_next()], later])
+	elif int(hs.won) >= HuntRibbon.FIGHTS - 1:
+		Ov.panel("He is close", "+%s coins. The water stirs: the plesiosaur himself." % UI.fmt(int(res.get("coins", 0))), [["Face the plesiosaur", "ruby", func():
+			Ov.close()
+			hunt_next()], later])
+	else:
+		Ov.panel("On his trail", "+%s coins. %s" % [UI.fmt(int(res.get("coins", 0))), HuntRibbon.line_text(hs)], [["Hunt on", "green", func():
+			Ov.close()
+			hunt_next()], later])
+
+## the plesiosaur beaten: the find back, his mark on it, coins and a geode of the cove's best luck
+const HUNT_COINS := 1200
 ## won: the find is the player's again (its card as any stone's, and his mark on it); lost: it stays his, to be hunted again
 func _hunt_done(res: Dictionary) -> void:
 	var back := {}
+	var coins := 0
+	if not res.won and Save.d.has("hunt"):
+		# back to the save point (the geode opened) or to the start
+		Save.d.hunt.lost = true
+		Save.d.hunt.won = 3 if bool(Save.d.hunt.get("geode", false)) else 0
+		Save.persist()
 	if res.won:
 		for st: Dictionary in Save.d.coll:
 			if st.get("gulp", false):
@@ -1062,9 +1155,15 @@ func _hunt_done(res: Dictionary) -> void:
 				st.gulped = true      # (it has been in his belly: a mark for later - its own trait, an award)
 				back = st
 		Save.d.erase("hunt")
+		coins = HUNT_COINS * Data.mine_k(2)
+		Save.d.coins += coins
+		var st := Stones.roll(Save.next_uid(), 2, 3.0, Data.depths(2).size() - 1)
+		Save.owe(st)
 		Save.persist()
+		Sfx.play("coin")
+		await GeodeOpen.run([st], {title = "From the plesiosaur's belly", short = true})
 	if res.won:
-		Ov.panel("He gave it back!", ("Your %s is yours again - a little wet." % Stones.name_of(back)) if not back.is_empty() else "The plesiosaur coughed it up and went under.", [
+		Ov.panel("He gave it back!", (("Your %s is yours again - a little wet." % Stones.name_of(back)) if not back.is_empty() else "The plesiosaur coughed it up and went under.") + " +%s coins." % UI.fmt(coins), [
 			["To the inventory", "green", func():
 				Ov.close()
 				go("stones")]])
@@ -1072,7 +1171,7 @@ func _hunt_done(res: Dictionary) -> void:
 		Ov.panel("It went down", "The light went out in his belly. He is still out there - and so is your find.", [
 			["Hunt again", "green", func():
 				Ov.close()
-				play_hunt()],
+				hunt_next()],
 			["Later", "dark", func():
 				Ov.close()
 				go("stones")]])
@@ -1100,6 +1199,9 @@ func _on_level_finished(res: Dictionary) -> void:
 	Save.d.in_level = false
 	if res.get("gulp", false):
 		_hunt_done(res)
+		return
+	if _hunt_lv >= 0:
+		await _hunt_level_done(res)
 		return
 	if res.get("maiden", false):
 		await _maiden_done(res)

@@ -173,7 +173,7 @@ static func hunt_button() -> Button:
 static func hunt() -> void:
 	Ov.close()
 	var mn := (Engine.get_main_loop() as SceneTree).current_scene
-	if mn and mn.has_method("play_hunt"): mn.call("play_hunt")
+	if mn and mn.has_method("hunt_next"): mn.call("hunt_next")
 	else: Ov.toast("The hunt is not ready yet")
 
 ## the joke is over: the stone's own name types in over `name_as`, and the usual buttons come

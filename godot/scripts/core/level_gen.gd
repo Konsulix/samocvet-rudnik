@@ -393,6 +393,33 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 		if fdef.has(k): out[k] = fdef[k]
 	return out
 
+static var no_feats := false    # (LevelGen.hunt_level: a level with none of the mine's works)
+## The plesiosaur hunt's levels (Main.hunt_next): Whalebone Cove's own boards, hard, kelp on each (it grips stones and
+## spreads, BoardModel.kelp), each after the medallion of its node on the hunt's ribbon (HuntRibbon.SIGNS):
+## tentacle - his tentacles; ink - the cove's ink deep down; whirl - the tide; glass (an hourglass) - few moves;
+## wheel - all of it. dl: the cove's depth it is made at; kelp: [start, every, n]; more: moves added for the kelp
+const HUNT := [
+	{dl = 4, feats = ["tentacle"], beat = "hard", kelp = [5, 5, 2], more = 1},
+	{dl = 7, feats = [], beat = "hard", kelp = [6, 4, 2], more = 6},
+	{dl = 6, feats = ["tide"], beat = "hard", kelp = [5, 4, 2], more = 5},
+	{dl = 7, feats = ["tentacle"], beat = "super", kelp = [4, 5, 2], more = 5},
+	{dl = 8, feats = ["tentacle", "tide"], beat = "hard", kelp = [6, 4, 2], more = 1}]
+static func hunt_level(i: int, seed_v: int) -> Dictionary:
+	var H: Dictionary = HUNT[clampi(i, 0, HUNT.size() - 1)]
+	var keep := force_feats
+	force_feats = (H.feats as Array).duplicate()
+	no_feats = force_feats.is_empty()       # (none of the works: the ink's level is the tier's own)
+	var def := make(2, int(H.dl), seed_v, false, 3, String(H.beat))
+	force_feats = keep
+	no_feats = false
+	var K: Array = H.kelp
+	def.kelp = {start = int(K[0]), every = int(K[1]), n = int(K[2])}
+	(def.goals as Array).append(["crust"])
+	def.moves = int(def.moves) + int(H.more)
+	def.find = false
+	def.hunt_lv = i
+	return def
+
 ## a mine's works and the depths they come in at (AREA_FEATS)
 static func feats_at(area: int) -> Dictionary:
 	return AREA_FEATS.get(area, {})
@@ -401,6 +428,7 @@ static func feats_at(area: int) -> Dictionary:
 ## second level played there; otherwise one most of the time, deeper now and then two
 static func _features(rng: RandomNumberGenerator, area: int, dl: int, wins: int, intro: bool) -> Array:
 	if not force_feats.is_empty(): return force_feats.duplicate()
+	if no_feats: return []
 	if intro: return []
 	var at := feats_at(area)
 	var open_f := []

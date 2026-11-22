@@ -56,6 +56,7 @@ var eye_hits := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
+var hunt_lv := -1            # a level of the plesiosaur hunt (LevelGen.HUNT): no ore, no depth's progress
 var gulp_view: GulpView    # the plesiosaur's hunt (GULP): his neck round the board, the swallowed find a lump in it
 var maiden: MaidenView     # the Fire Maiden's chase (MAIDEN, docs/fire-maiden.md): she dances on the board
 var _mclear: Array = []      # cells cleared in this move: one beside her catches her
@@ -139,7 +140,9 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	if chase and ResourceLoader.exists(MAIDEN_BG): bg.texture = load(MAIDEN_BG)
 	var hunt := bool(level.get("gulp", false))
 	if hunt and ResourceLoader.exists(GULP_BG): bg.texture = load(GULP_BG)
-	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase and not hunt, level)
+	hunt_lv = int(level.get("hunt_lv", -1))
+	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase and not hunt and hunt_lv < 0, level)
+	BoardSprites.kelp_look = model.kelp_on()
 	rich = bool(level.get("rich", false))
 	# the journal (♪ held): what was played and how it ended
 	Diag.note("-> level %d, %s, %d m%s, %d moves%s" % [n, String(Data.AREAS[Save.area()].n), Data.depth_m(Save.area(), dl) if dl < Data.depths(Save.area()).size() else 0,
@@ -226,6 +229,7 @@ static func board_theme(model: BoardModel) -> Array:
 	if has.call("geo"): return ["The Geode", "Crack it open"]
 	if has.call("gas"): return ["Firedamp", "Gas creeps every move: keep it down"]
 	if has.call("lock"): return ["Timbered Stones", "Knock the timber loose"]
+	if has.call("crust") and model.kelp_on(): return ["Kelp", "It grips the stones and spreads: tear it off with a match beside it"]
 	if has.call("crust"): return ["Malachite", "Crack the crust off"]
 	if has.call("ice"): return ["Frozen Seam", "Break the ice"]
 	if has.call("mud"): return ["Mudflats", "Wash the mud off"]
@@ -497,11 +501,12 @@ func _render_hud() -> void:
 	if prologue: title_label.text = "Cave-in"
 	if not model.maiden.is_empty(): title_label.text = "The Fire Maiden"
 	if not model.gulp.is_empty(): title_label.text = "The Plesiosaur"
+	if hunt_lv >= 0: title_label.text = "The Hunt · %d of %d" % [hunt_lv + 1, HuntRibbon.FIGHTS]
 	if model.boss_on():
 		title_label.text = "%s · %d m" % [model.boss.B.n, int(model.boss.B.m)]
 	# no ore is mined at the boss
 	for nm in ["Ores", "OreRule"]:
-		(hud.find_child(nm, true, false) as Control).visible = not model.boss_on() and model.gulp.is_empty()
+		(hud.find_child(nm, true, false) as Control).visible = not model.boss_on() and model.gulp.is_empty() and hunt_lv < 0
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -1096,7 +1101,7 @@ func _fx_one(e: Dictionary, merges: Dictionary) -> void:
 			Sfx.play("rock")
 		"crust":
 			board.over.queue_redraw()
-			if not model.gulp.is_empty():
+			if model.kelp_on():
 				# (the hunt: it is kelp, torn off)
 				fx.debris(e.r, e.c, Color("#5f7d3a"), 9)
 				Sfx.play("pop")
@@ -1417,6 +1422,7 @@ func _after_turn() -> void:
 				_toast("Gas is spreading — hit it every move")
 			await _wait(0.26)
 		await _grow_nodules()
+		if not model.kelp.is_empty(): _kelp_turn()
 	# Shubin: the gas outweighed the song - he wakes, the canary falls
 	if model.scale_lost():
 		model.over = true
@@ -1518,6 +1524,7 @@ func _coach_next() -> void:
 		return
 	for id in ["cart", "keg", "dark", "belt", "bucket", "nod", "crust", "tentacle", "ink", "pot", "tube", "metal", "sand", "mud", "granite", "gas", "lock", "ice"]:
 		if Save.told(id): continue
+		if id == "crust" and model.kelp_on(): continue      # (the kelp: its banner says it)
 		var cells := _obstacle_cells(id)
 		if cells.is_empty(): continue
 		# a few that lie together: the first and its nearest
@@ -1816,13 +1823,15 @@ func _win() -> void:
 		Save.d.boss_won[Save.area()] = true
 		LevelBoss.line(self, "win")
 		# the reward, the boss's hoard (Hoard), is opened after the fight (Main._on_level_finished)
+	if hunt_lv >= 0: model.mined = {iron = 0, ore = 0}
 	Save.d.fe += int(model.mined.iron)
 	Save.d.ore += int(model.mined.ore)
-	if model.depth < Save.d.vein.size():
+	if model.depth < Save.d.vein.size() and hunt_lv < 0:
 		for i in 2:
 			Save.d.vein[model.depth][i] = vein_after(model.depth, i, int(model.mined[["iron", "ore"][i]]))
-	Save.d.level = maxi(Save.d.level, model.n + 1)
-	Save.d.streak += 1
+	if hunt_lv < 0:
+		Save.d.level = maxi(Save.d.level, model.n + 1)
+		Save.d.streak += 1
 	var stone := {}
 	if not model.find.is_empty() and model.find.done:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
@@ -2492,6 +2501,17 @@ func _gulp_turn() -> bool:
 		model.shuffle()
 		board.animate_shuffle()
 	return false
+
+## a hunt level's kelp spreading after a move: it lashes round its new stones, the goal's count grows
+func _kelp_turn() -> void:
+	var cells := model.kelp_turn()
+	if cells.is_empty(): return
+	board.kelp_grow(cells)
+	Sfx.play("sea_rush")
+	var gi := model.goal_index("crust")
+	if gi >= 0:
+		goal_boxes[gi].shown = int(model.goals[gi].left)
+		_render_goal(gi)
 
 ## pebbles laid on the neck's cells (BoardModel._gulp_rocks): the stones there go, the rock shows
 func _gulp_rocks(rocks: Array) -> void:

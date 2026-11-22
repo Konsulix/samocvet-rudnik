@@ -79,6 +79,7 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 			continue
 		m.gas_spread()
 		m.nodule_grow()
+		if not m.kelp.is_empty(): m.kelp_turn()
 		if not m.boss_on() and not m.tide.is_empty():
 			m.tide_turn()
 			if not m.has_moves(): m.shuffle()
@@ -355,6 +356,30 @@ static func report(per_depth: int) -> String:
 
 ## the Fire Maiden's chase (Level.MAIDEN) played N times: catches (0..5), gold broken, coins, moves left when all caught
 ## the plesiosaur's hunt played N times: won, the moves it took, where the lump stood when lost
+## the plesiosaur hunt's five levels (LevelGen.HUNT), n boards each: how often won, moves left
+static func hunt_report(n: int) -> String:
+	var out := "hunt levels, %d each" % n
+	var base := 7100
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("sim_seed="): base += int(a.substr(9)) * 1000
+	var only := -1
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("hunt_only="): only = int(a.substr(10))
+	for lv in LevelGen.HUNT.size():
+		if only >= 0 and lv != only: continue
+		var won := 0
+		var left := 0
+		var mv := 0
+		for i in n:
+			var def := LevelGen.hunt_level(lv, base + lv * 101 + i * 13)
+			mv += int(def.moves)
+			var r := play(1, int(LevelGen.HUNT[lv].dl), base + i * 7, def, 2)
+			if r.won:
+				won += 1
+				left += int(r.get("left_moves", 0))
+		out += " | L%d %.0f%% (moves %.0f, left %.1f)" % [lv + 1, 100.0 * won / n, float(mv) / n, float(left) / maxf(1.0, won)]
+	return out
+
 static func gulp_report(n: int) -> String:
 	var won := 0
 	var used := 0

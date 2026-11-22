@@ -677,7 +677,7 @@ func _draw_over(ci: Node2D) -> void:
 	if model == null: return
 	for r in R:
 		for c in C:
-			if model.playable(r, c) and cell("LOCK", r, c) == 2 and not model.gulp.is_empty() and ResourceLoader.exists("res://assets/board/kelp/kelp_0.png"):
+			if model.playable(r, c) and cell("LOCK", r, c) == 2 and model.kelp_on() and ResourceLoader.exists("res://assets/board/kelp/kelp_0.png"):
 				# the plesiosaur hunt: the same grip drawn as kelp (art/plesio_kelp)
 				var kk := 1.0
 				if kelp_in.has(r * C + c): kk = clampf((Time.get_ticks_msec() / 1000.0 - float(kelp_in[r * C + c])) / 0.55, 0.0, 1.0)

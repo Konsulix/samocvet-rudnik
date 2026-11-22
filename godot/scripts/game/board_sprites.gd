@@ -121,6 +121,7 @@ static func malachite(name: String) -> Texture2D:
 	if not _tex.has(path): _tex[path] = load(path)
 	return _tex[path]
 
+static var kelp_look := false     # LOCK 2 is kelp on this board (Level.start): its goal icon too
 ## the kelp that grips a stone in the plesiosaur hunt (art/plesio_kelp: gen.sh, cut.py): four tangles. Kept here:
 ## a texture loaded inside a draw call is freed before it is drawn (a white square)
 static func kelp(i: int) -> Texture2D:
