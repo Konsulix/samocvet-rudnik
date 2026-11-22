@@ -21,7 +21,10 @@ uniform vec4 sd = vec4(0.0);
 uniform vec4 ss = vec4(1.0);
 uniform vec4 sa = vec4(0.5);
 
-float h11(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+// (no sin() hash: in n1 the GPU computes h11(i + 1.0) fused, its rounding differs from h11 of the next cell's own i,
+// and sin(x * 127.1) * 43758 turns that rounding into a different value — the noise jumped at every whole cell, the
+// frost's reach with it: straight cuts in the frost. 22.11) A hash of small numbers: rounding stays rounding
+float h11(float x) { x = fract(x * 0.1031); x *= x + 33.33; x *= x + x; return fract(x); }
 float n1(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h11(i), h11(i + 1.0), f); }
 float h21(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float n2(vec2 p) {
@@ -38,7 +41,9 @@ float side(float a, float d, float len, float salt, float i0, float i1, float i2
 	// (no early return before the texture is read: a branch there broke the GPU's choice of the texture's blur)
 	// (the strip repeats along the rim, and so — the texture's own setting — up and down too: its blur near u = 1 drew
 	// in the dense rime of its root row, a straight line at the strip's depth; the tips' end fades out before it)
-	float inside = step(0.0, u) * (1.0 - smoothstep(0.82, 0.97, u));
+	// (the strip's top fifth is bare in the texture itself — a fade on the depth here cut the long fronds of the
+	// sides on a straight line; 22.11)
+	float inside = step(0.0, u) * step(u, 1.0);
 	vec2 tx = texture(strip, vec2(a / (depth * 2.1) + salt * 0.37, 1.0 - clamp(u, 0.0, 1.0))).rg;
 	float st = i0 * sd.x + i1 * sd.y + i2 * sd.z + i3 * sd.w;
 	float sp = i0 * ss.x + i1 * ss.y + i2 * ss.z + i3 * ss.w;

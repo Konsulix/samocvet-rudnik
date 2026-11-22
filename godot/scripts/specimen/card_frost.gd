@@ -11,13 +11,21 @@ extends Node
 ## the frost grows in from an edge: a strip rooted on its bottom edge (art/frost_card/gen_strip.sh, GPT), laid along
 ## every side of a zone roots-outward (22.11: a photo of frost revealed near the rim pointed its fronds anywhere)
 const TEX := preload("res://assets/fx/frost_strip.png")
+## the knobs of the photo frost (the shader's growth map does the rest: along the fronds, tips last)
+const K := {
+	panel_depth = 0.4,     # the info panel's fringe, of DEPTH
+	first_late = 0.0,      # the side that starts first
+	late = [0.0, 0.45],    # the other sides' start, of the growth
+	slow = [0.5, 0.75],    # one side, late or hardly at all
+	pace = [0.75, 1.15],
+}
 const DEPTH := 190.0         # how deep the strip runs in from the stone's frame; the info panel, small, half of it
 const CAP := 1.0             # how far it reaches at its fullest (the shader's growth)
 
 static var test_period := 0.0   # a test key (-- frost_period=S): the cycle S s long, starting now
-## the frost drawn by code (FrostFronds: fronds grown from the rim, every knob in its P) — or, `-- frost_photo`, the
-## photo strip through shaders/card_frost.gdshader as before
-static var photo := false
+## the photo strip (GPT) through shaders/card_frost.gdshader — or, `-- frost_code`, the frost drawn by code
+## (FrostFronds; 22.11: tried, "bad" — a vector drawing beside the photo)
+static var photo := true
 var _fronds: Array[FrostFronds] = []
 
 var card: Control
@@ -105,11 +113,13 @@ func _reroll() -> void:
 		if not is_instance_valid(r): continue
 		var sm := r.material as ShaderMaterial
 		# one side gets going first, the rest after it, one of them late or hardly at all
-		var d := Vector4(_rng.randf() * 0.45, _rng.randf() * 0.45, _rng.randf() * 0.45, _rng.randf() * 0.45)
-		d[_rng.randi() % 4] = 0.0
-		d[_rng.randi() % 4] = _rng.randf_range(0.5, 0.75)
+		var L: Array = K.late
+		var d := Vector4(_rng.randf_range(L[0], L[1]), _rng.randf_range(L[0], L[1]), _rng.randf_range(L[0], L[1]), _rng.randf_range(L[0], L[1]))
+		d[_rng.randi() % 4] = float(K.first_late)
+		d[_rng.randi() % 4] = _rng.randf_range(K.slow[0], K.slow[1])
 		sm.set_shader_parameter("sd", d)
-		sm.set_shader_parameter("ss", Vector4(_rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15)))
+		var pc: Array = K.pace
+		sm.set_shader_parameter("ss", Vector4(_rng.randf_range(pc[0], pc[1]), _rng.randf_range(pc[0], pc[1]), _rng.randf_range(pc[0], pc[1]), _rng.randf_range(pc[0], pc[1])))
 		sm.set_shader_parameter("sa", Vector4(_rng.randf(), _rng.randf(), _rng.randf(), _rng.randf()))
 
 func _process(dt: float) -> void:
@@ -151,4 +161,4 @@ func _process(dt: float) -> void:
 		sm.set_shader_parameter("thaw", thaw)
 		var z := float(r.get_meta("zone", 0.0))
 		sm.set_shader_parameter("zone", z)
-		sm.set_shader_parameter("depth", DEPTH * (0.4 if z > 0.5 else 1.0))
+		sm.set_shader_parameter("depth", DEPTH * (float(K.panel_depth) if z > 0.5 else 1.0))
