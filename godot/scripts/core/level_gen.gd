@@ -396,13 +396,14 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 static var no_feats := false    # (LevelGen.hunt_level: a level with none of the mine's works)
 ## The plesiosaur hunt's levels (Main.hunt_next): Whalebone Cove's own boards, hard, kelp on each (it grips stones and
 ## spreads, BoardModel.kelp), each after the medallion of its node on the hunt's ribbon (HuntRibbon.SIGNS):
-## tentacle - his tentacles; ink - the cove's ink deep down; whirl - the tide; glass (an hourglass) - few moves;
+## tentacle - his tentacles; ink - the cove's ink deep down; whirl - the tide; glass (an hourglass) - against the clock
+## (timed: seconds, no count of moves; `moves` stays for the bot);
 ## wheel - all of it. dl: the cove's depth it is made at; kelp: [start, every, n]; more: moves added for the kelp
 const HUNT := [
 	{dl = 4, feats = ["tentacle"], beat = "hard", kelp = [5, 5, 2], more = 1},
 	{dl = 7, feats = [], beat = "hard", kelp = [6, 4, 2], more = 6},
 	{dl = 6, feats = ["tide"], beat = "hard", kelp = [5, 4, 2], more = 5},
-	{dl = 7, feats = ["tentacle"], beat = "super", kelp = [4, 5, 2], more = 5},
+	{dl = 7, feats = ["tentacle"], beat = "hard", kelp = [4, 5, 2], more = 0, timed = 80},
 	{dl = 8, feats = ["tentacle", "tide"], beat = "hard", kelp = [6, 4, 2], more = 1}]
 static func hunt_level(i: int, seed_v: int) -> Dictionary:
 	var H: Dictionary = HUNT[clampi(i, 0, HUNT.size() - 1)]
@@ -418,6 +419,7 @@ static func hunt_level(i: int, seed_v: int) -> Dictionary:
 	def.moves = int(def.moves) + int(H.more)
 	def.find = false
 	def.hunt_lv = i
+	if H.has("timed"): def.timed = int(H.timed)
 	return def
 
 ## a mine's works and the depths they come in at (AREA_FEATS)

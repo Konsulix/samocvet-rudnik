@@ -56,6 +56,9 @@ var eye_hits := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
+var _moves_cap: Label
+var _timed := false          # a level against the clock (BoardModel.timed): the token counts seconds down
+var _tick_s := -1            # (the last whole second shown: the last ten throb)
 var hunt_lv := -1            # a level of the plesiosaur hunt (LevelGen.HUNT): no ore, no depth's progress
 var gulp_view: GulpView    # the plesiosaur's hunt (GULP): his neck round the board, the swallowed find a lump in it
 var maiden: MaidenView     # the Fire Maiden's chase (MAIDEN, docs/fire-maiden.md): she dances on the board
@@ -143,6 +146,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	hunt_lv = int(level.get("hunt_lv", -1))
 	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase and not hunt and hunt_lv < 0, level)
 	BoardSprites.kelp_look = model.kelp_on()
+	_timed = model.timed > 0.0
 	rich = bool(level.get("rich", false))
 	# the journal (♪ held): what was played and how it ended
 	Diag.note("-> level %d, %s, %d m%s, %d moves%s" % [n, String(Data.AREAS[Save.area()].n), Data.depth_m(Save.area(), dl) if dl < Data.depths(Save.area()).size() else 0,
@@ -455,6 +459,7 @@ func _build_hud() -> void:
 	mv.alignment = BoxContainer.ALIGNMENT_CENTER
 	mv.add_theme_constant_override("separation", -8)
 	var small := Kit.label("MOVES", 9, UI.body_bold, Kit.DIM)
+	_moves_cap = small
 	small.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mv.add_child(small)
 	moves_label = Kit.label("0", 28, UI.display, Kit.AMBER)
@@ -630,6 +635,9 @@ func _goal_burst(box: Control) -> void:
 
 func _render_moves() -> void:
 	moves_label.text = str(model.moves)
+	if _timed:
+		_render_time()
+		return
 	if not model.gulp.is_empty():
 		# no count of moves in the hunt: the rising water is the clock
 		moves_token.modulate.a = 0.0
@@ -643,6 +651,31 @@ func _render_moves() -> void:
 		tw.tween_property(moves_label, "scale", Vector2(1.35, 1.35), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tw.tween_property(moves_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_SINE)
 	if model.boss_on(): LevelBoss.moves(self)
+
+## the clock of a timed level on the moves token: m:ss, red and throbbing for the last ten seconds
+func _render_time() -> void:
+	var s := ceili(maxf(0.0, model.timed))
+	if _moves_cap: _moves_cap.text = "TIME"
+	moves_label.text = "%d:%02d" % [s / 60, s % 60]
+	moves_label.add_theme_font_size_override("font_size", 21)
+	var low := s <= 10 and not model.over
+	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if low else Kit.AMBER)
+	if low and s != _tick_s and s > 0:
+		moves_label.pivot_offset = moves_label.size / 2
+		var tw := create_tween()
+		tw.tween_property(moves_label, "scale", Vector2(1.3, 1.3), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(moves_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_SINE)
+		Sfx.play("click")
+	_tick_s = s
+
+## the clock runs out: as out of moves, the move under way plays out first (_after_turn checks it)
+func _clock(dt: float) -> void:
+	if not _timed or model.over or coach.visible or overlay.get_child_count() > 0: return
+	model.timed = maxf(0.0, model.timed - dt)
+	_render_time()
+	if model.timed <= 0.0 and not busy:
+		model.over = true
+		_out_of_moves()
 
 func _render_boosters() -> void:
 	for ch in booster_bar.get_children(): ch.queue_free()
@@ -737,6 +770,7 @@ var _light_n := 0
 
 static var _rush_on := OS.get_cmdline_user_args().has("rush")
 func _process(dt: float) -> void:
+	_clock(dt)
 	Spec.warm_pause = not model.over   # (no shader warm-up stalls while the board is played: Spec._warm)
 	if _rush_on and model and not model.over: _rush(dt)
 	if find_spec:
@@ -1435,9 +1469,16 @@ func _after_turn() -> void:
 		await _belts()
 		if model.goals_done():
 			model.over = true
+			# (against the clock: a special for every eight seconds left, five at most - not 999 moves' worth)
+			if _timed: model.moves = clampi(int(model.timed / 8.0), 0, 5)
 			await _finale()
 			_win()
 			return
+	if _timed and model.timed <= 0.0:
+		model.over = true
+		await _wait(0.3)
+		_out_of_moves()
+		return
 	if model.moves <= 0:
 		model.over = true
 		await _wait(0.3)
@@ -1915,13 +1956,14 @@ func _out_of_moves() -> void:
 	for g in model.goals:
 		if g.left > 0: left += 1
 	var price := Data.continue_price(model.continues, Save.area())
-	var msg := "Goals left: %d.%s Five more moves?" % [left, " The specimen will stay in the rock." if not model.find.is_empty() and not model.find.done else ""]
-	_panel("Out of moves", msg, [
-		["+5 moves%s · %s coins" % [" + dynamite" if model.continues >= 1 else "", UI.fmt(price)], "gold", func():
+	var msg := "Goals left: %d.%s %s" % [left, " The specimen will stay in the rock." if not model.find.is_empty() and not model.find.done else "", "Fifteen more seconds?" if _timed else "Five more moves?"]
+	_panel("Out of time" if _timed else "Out of moves", msg, [
+		["%s%s · %s coins" % ["+15 seconds" if _timed else "+5 moves", " + dynamite" if model.continues >= 1 else "", UI.fmt(price)], "gold", func():
 			if Save.d.coins < price: return
 			Save.d.coins -= price
 			Save.persist()
-			model.moves += 5
+			if _timed: model.timed += 15.0
+			else: model.moves += 5
 			model.over = false
 			var gift := model.continues >= 1
 			model.continues += 1

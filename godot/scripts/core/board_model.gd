@@ -67,6 +67,8 @@ var tide := {}
 ## the plesiosaur hunt's levels: kelp grips stones (LOCK 2, the crust's rule: a match beside it tears it off, goal
 ## "crust") and spreads - every `every` moves it grips `n` more stones, beside the kelp there first. {every, n, wait}
 var kelp := {}
+## a level against the clock (the hunt's hourglass): seconds left; 0 - a level of moves
+var timed := 0.0
 
 ## kelp, not malachite, is what LOCK 2 is on this board (the hunt and its levels)
 func kelp_on() -> bool:
@@ -1314,6 +1316,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			if ROCK[r][c]: rocks += 1
 			if GAS[r][c]: gas += 1
 			if LOCK[r][c] == 1: locks += 1
+	timed = float(def.get("timed", 0))
+	if timed > 0.0: moves = 999       # (the clock is the count)
 	var KD: Dictionary = def.get("kelp", {})
 	if not KD.is_empty():
 		kelp = {every = int(KD.get("every", 4)), n = int(KD.get("n", 2)), wait = int(KD.get("every", 4))}

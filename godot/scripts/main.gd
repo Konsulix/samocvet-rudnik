@@ -1155,6 +1155,7 @@ func _hunt_done(res: Dictionary) -> void:
 				st.gulped = true      # (it has been in his belly: a mark for later - its own trait, an award)
 				back = st
 		Save.d.erase("hunt")
+		Awards.once("hunt_won")
 		coins = HUNT_COINS * Data.mine_k(2)
 		Save.d.coins += coins
 		var st := Stones.roll(Save.next_uid(), 2, 3.0, Data.depths(2).size() - 1)
