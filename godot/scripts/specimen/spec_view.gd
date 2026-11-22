@@ -176,6 +176,9 @@ func _stand_in(t: Texture2D) -> void:
 ## trembles, the phone buzzes. (A jolt: the push past gravity over SHAKE_G m/s², at most once a second)
 const SHAKE_G := 13.0
 var _shake_cd := 0.0
+## how many times this card's find has had its dust shaken off (the fifteenth is an achievement: Clean Freak)
+const SHAKES_TOO_MANY := 15
+var _shakes := 0
 ## points on the rock's sides (meta base, or a rock material), relative to `at`, in the scene's space
 func _rock_top(at: Vector3) -> PackedVector3Array:
 	var out := PackedVector3Array()
@@ -225,6 +228,8 @@ func shake_find(k := 1.0) -> void:
 			bb = ab if first else bb.merge(ab)
 			first = false
 	if first: return
+	_shakes += 1
+	if _shakes == SHAKES_TOO_MANY: Awards.once("duster")
 	# dust shaken off the rock (21.11: 140 equal soft dots read as white beads, not dust): a haze of a few big
 	# ragged puffs that billow out, swell and thin away, and a sift of fine dark grains falling under it.
 	# Both earth-coloured, from the rock's sides; a find with no rock keeps a box over its upper part
