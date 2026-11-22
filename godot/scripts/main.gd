@@ -118,9 +118,8 @@ func _ready() -> void:
 	if args.has("gulp_test"): Reveal.gulp_test = true
 	# (the lightning's leap out of a find into its card, CardBolt: the first S s after the stone is built, then every 3 s)
 	if args.has("card_bolt"): CardBolt.test_at = float(args.card_bolt)
-	# (the frost bloom's card, CardFrost: frost_fast=N grows it N a second, frost_wipe — a finger wipes the buttons)
-	if args.has("frost_fast"): CardFrost.test_fast = float(args.frost_fast)
-	if args.has("frost_wipe"): CardFrost.test_wipe = true
+	# (the frost bloom's card, CardFrost: frost_period=S — its cycle S s long, starting at once)
+	if args.has("frost_period"): CardFrost.test_period = float(args.frost_period)
 	# (the hunt's ribbon in a state, for pictures: hunt=N fights won, +g the geode opened, +x just lost — hunt=3, hunt=4g, hunt=4gx)
 	if args.has("hunt_step"):
 		HuntRibbon.step = true
