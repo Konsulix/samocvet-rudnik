@@ -8,9 +8,11 @@ extends Node
 ## frame under its name, over the info panel's slate under its words and buttons (shaders/card_frost.gdshader, one
 ## pattern across both). The frost itself is assets/fx/frost_ferns.png (art/frost_card/gen.sh, GPT).
 
-const TEX := preload("res://assets/fx/frost_ferns.png")
-const CAP := 0.3             # how far it reaches at its fullest (the shader's growth)
-const TILE := 300.0          # the ferns' tile, points
+## the frost grows in from an edge: a strip rooted on its bottom edge (art/frost_card/gen_strip.sh, GPT), laid along
+## every side of a zone roots-outward (22.11: a photo of frost revealed near the rim pointed its fronds anywhere)
+const TEX := preload("res://assets/fx/frost_strip.png")
+const DEPTH := 190.0         # how deep the strip runs in from the stone's frame; the info panel, small, half of it
+const CAP := 0.8             # how far it reaches at its fullest (the shader's growth)
 
 static var test_period := 0.0   # a test key (-- frost_period=S): the cycle S s long, starting now
 
@@ -39,8 +41,7 @@ func _piece(host: Control, at: int) -> ColorRect:
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sm := ShaderMaterial.new()
 	sm.shader = preload("res://shaders/card_frost.gdshader")
-	sm.set_shader_parameter("ferns", TEX)
-	sm.set_shader_parameter("tile", TILE)
+	sm.set_shader_parameter("strip", TEX)
 	r.material = sm
 	if host is Container:
 		# (a container lays its children out inside its margins: the frost goes in a holder it lays out, and itself
@@ -82,4 +83,6 @@ func _process(_dt: float) -> void:
 		sm.set_shader_parameter("rsize", r.size)
 		sm.set_shader_parameter("grow", grow)
 		sm.set_shader_parameter("thaw", thaw)
-		sm.set_shader_parameter("zone", float(r.get_meta("zone", 0.0)))
+		var z := float(r.get_meta("zone", 0.0))
+		sm.set_shader_parameter("zone", z)
+		sm.set_shader_parameter("depth", DEPTH * (0.4 if z > 0.5 else 1.0))
