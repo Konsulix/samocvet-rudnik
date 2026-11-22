@@ -474,6 +474,17 @@ class HornArc extends SpecBolt:
 		var big := AABB(bounds.position - bounds.size, bounds.size * 3.0)
 		_bolt(pa, mid, d * 0.12, 6, segs, halo, 1.0, 0.012 + d * 0.012, big.position, big.end, rng.randf())
 		_bolt(mid, pz, d * 0.12, 6, segs, halo, 1.0, 0.012 + d * 0.012, big.position, big.end, rng.randf())
+		# for the card (CardBolt): a strike that must leap out goes on from one horn's tip, away from the other horn —
+		# the card carries it on from there to its frame
+		leap = []
+		if _force_out:
+			var from := pa if rng.randf() < 0.5 else pz
+			var other := pz if from == pa else pa
+			var out := ((from - other).normalized() + Vector3(0, 0.35, 0.2)).normalized()
+			var to := from + out * d * rng.randf_range(0.4, 0.6)
+			var far := AABB(bounds.position - bounds.size * 2.0, bounds.size * 5.0)
+			_bolt(from, to, d * 0.1, 5, segs, halo, 0.9, 0.01 + d * 0.01, far.position, far.end, rng.randf())
+			leap = [from, to]
 		mesh = _build(segs, halo)
 		if sparks: sparks.restart()
 	func _process(dt: float) -> void:
