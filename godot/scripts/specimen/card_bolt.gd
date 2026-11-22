@@ -11,12 +11,13 @@ extends Control
 const RIM_IN := 3.5          # the rim's middle from the card's edge
 const FIRST := 3.2           # the first leap after the stone is built, then every EVERY
 const EVERY := Vector2(8.0, 14.0)
-const T_STRIKE := 0.2        # the bolt from the stone to the rim
+const T_STRIKE := 0.28       # the bolt from the stone to the rim (its brightness is the stone's own flash)
+const T_CHARGE := 0.6        # the build-up before: the stone crackles faster, the rivets smoulder
 const CRAWL_V := 430.0       # the charge along the rim, points a second
 const CORNER := 14.0         # the card's rounded corners
 const UP_LEN := 300.0        # how far the charge runs the other way round the rim before it dies
 const T_LEAP := 0.16         # rim to button, button to price
-const T_FLICK := 0.6         # the price's figures
+const T_FLICK := 0.95        # the price's figures: the last word, when the frame has gone dim
 
 static var test_at := -1.0   # a test key (-- card_bolt=S): the first leap S s after the stone is built, then every 3 s
 
@@ -27,6 +28,10 @@ var price: Label
 var bolt: SpecBolt
 var rng := RandomNumberGenerator.new()
 var _wait := FIRST
+## one with the stone (22.11, "the card's lightning lives apart from the stone's"): the leap starts where the stone's own
+## strike leaves it and runs on in its direction to the rim (SpecBolt.strike_out); before it the stone builds up
+## (SpecBolt.rush), and the light on the brass flickers with the light in the crystal (SpecBolt.flash)
+var _charging := -1.0
 var _t := -1.0               # the leap now playing: seconds into it (< 0: none)
 var _a := Vector2.ZERO       # where it leaves the stone
 var _h := Vector2.ZERO       # where it hits the rim
@@ -123,9 +128,18 @@ func _process(dt: float) -> void:
 		if s.t >= s.life: _sparks.remove_at(i)
 	if _t < 0.0:
 		_wait -= dt
-		if _wait <= 0.0 and view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
-			_start()
-		var busy := _sparks.size() + _arcs.size() + _glints.size() > 0
+		if _charging < 0.0 and _wait <= 0.0 and view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
+			_charging = 0.0
+		if _charging >= 0.0:
+			_charging += dt
+			bolt.rush = clampf(_charging / T_CHARGE, 0.0, 1.0)
+			# sparks spitting off the stone, more and more
+			if rng.randf() < bolt.rush * 0.6: _burst(_stone_pt(), 1, 70.0)
+			if _charging >= T_CHARGE:
+				_charging = -1.0
+				bolt.rush = 0.0
+				_start()
+		var busy := _sparks.size() + _arcs.size() + _glints.size() > 0 or _charging >= 0.0
 		if busy or _was_busy: _redraw()
 		_was_busy = busy
 		return
@@ -167,12 +181,22 @@ func _end() -> float:
 
 ## a point of the lightning's own stone on the card (as the callouts find theirs: the studio's camera, the view's size)
 func _stone_pt() -> Vector2:
-	var cam := view.studio.cam
-	var k := view.size / Vector2(maxi(1, view.studio.vp.size.x), maxi(1, view.studio.vp.size.y))
 	var w := bolt.global_transform * bolt.bounds.get_center()
 	if bolt.surface.size():
 		w = bolt.global_transform * bolt.surface[rng.randi() % bolt.surface.size()]
+	return _proj(w)
+
+## a point of the stone's scene on the card
+func _proj(w: Vector3) -> Vector2:
+	var cam := view.studio.cam
+	var k := view.size / Vector2(maxi(1, view.studio.vp.size.x), maxi(1, view.studio.vp.size.y))
 	return _in(view.get_global_transform() * (cam.unproject_position(w) * k))
+
+## how bright the stone's lightning is now (a kind keeping its own clock: the leap's own strike, flicker, afterglow)
+func _flash() -> float:
+	if bolt.flash >= 0.0: return clampf(bolt.flash, 0.0, 1.0)
+	var u := _t / T_STRIKE
+	return 1.0 if u < 0.25 else 0.3 if u < 0.38 else 0.9 if u < 0.55 else 0.45
 
 ## a bolt of its own, `delay` s from now
 func _arc(a: Vector2, b: Vector2, delay: float, dur := 0.18, w := 6.0, forks := 0.3) -> void:
@@ -189,12 +213,22 @@ func _blink(c: CanvasItem, delay: float, dur := 0.35) -> void:
 	tw.tween_property(c, "modulate", Color(1, 1, 1, c.modulate.a), dur)
 
 func _start() -> void:
-	_a = _stone_pt()
+	# the stone strikes and leaps out of itself; the card's bolt carries that leap on, the way it was going, to the rim
+	var lp: Array = bolt.strike_out()
 	var r := Rect2(_in(card.global_position), card.size)
-	# to the nearer side of the rim, a little above the point it left
-	var right := _a.x > r.get_center().x
+	var dir := Vector2.ZERO
+	if lp.size() == 2:
+		var q0 := _proj(bolt.global_transform * (lp[0] as Vector3))
+		_a = _proj(bolt.global_transform * (lp[1] as Vector3))
+		dir = _a - q0
+	else:
+		_a = _stone_pt()
+		dir = _a - _proj(bolt.global_transform * bolt.bounds.get_center())
+	var right := dir.x > 0.0 if absf(dir.x) > 2.0 else _a.x > r.get_center().x
 	var x := r.end.x - RIM_IN if right else r.position.x + RIM_IN
-	_h = Vector2(x, clampf(_a.y - rng.randf_range(10.0, 50.0), r.position.y + 40.0, r.end.y - 120.0))
+	# (on along its line, a little bent toward level so a steep leap still meets the side, not the top)
+	var slope := clampf(dir.y / dir.x, -0.55, 0.9) if absf(dir.x) > 2.0 else -0.3
+	_h = Vector2(x, clampf(_a.y + slope * (x - _a.x), r.position.y + 40.0, r.end.y - 120.0))
 	# down the rim to the buttons' height (or the price's, on a card with none)
 	_btn = null
 	var best := INF
@@ -262,8 +296,6 @@ func _start() -> void:
 	if is_instance_valid(Reveal._name_l) and card.is_ancestor_of(Reveal._name_l):
 		_blink(Reveal._name_l, 0.0, 0.12)
 		_blink(Reveal._name_l, 0.2, 0.3)
-	# the stone's own bolt strikes with it, so the flash inside and the leap are one
-	bolt._strike()
 	Sfx.play("card_arc")
 	Sfx.buzz(18)
 	_burst(_h, 9, 150.0)
@@ -308,8 +340,14 @@ func _price_tick() -> void:
 				_blink(b2, hop + 0.03)
 				hop += 0.06
 		if s == 4:
-			_burst(_mid(price), 7, 100.0)
-			Sfx.buzz(12)
+			_burst(_mid(price), 12, 130.0)
+			Sfx.buzz(22)
+			Sfx.play("card_arc")
+			# the figures jolt
+			price.pivot_offset = price.size * 0.5
+			var pt := price.create_tween()
+			price.scale = Vector2(1.3, 1.3)
+			pt.tween_property(price, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 			# from the price on to the first gene badge (the lightning's own: the dearest comes first)
 			for fl in box.find_children("*", "HFlowContainer", true, false):
 				for ch in fl.get_children():
@@ -340,6 +378,7 @@ func _settle() -> void:
 
 func _exit_tree() -> void:
 	if _t >= 0.0: _settle()
+	if is_instance_valid(bolt): bolt.rush = 0.0
 
 ## midpoint displacement, as SpecBolt._bolt grows its channels: split the line, push the middle aside, recurse; fork
 ## now and then. segs entries: [p0, p1, half-width, brightness, branch id, core]
@@ -419,7 +458,7 @@ func _draw() -> void:
 	if _t < T_STRIKE:
 		# the bolt out of the stone: bright, a flicker, an afterglow — forking as it goes
 		var u := _t / T_STRIKE
-		var a := 1.0 if u < 0.3 else 0.3 if u < 0.45 else 0.95 * (1.0 - smoothstep(0.55, 1.0, u))
+		var a := _flash() * (1.0 - smoothstep(0.6, 1.0, u))
 		segs = []
 		_grow(_rng_of(1), _a, _h, _a.distance_to(_h) * 0.2, 5, segs, 1.0, 9.0, 0.11)
 		_ribbons(segs, a)
@@ -497,9 +536,24 @@ func _draw_shine() -> void:
 		var gp: Vector2 = g.p
 		_shine.draw_texture_rect(pt0, Rect2(gp - Vector2(gr, gr), Vector2(gr, gr) * 2.0), false, Color(0.45, 0.72, 1.0, 0.8 * gu * gu))
 		_shine.draw_texture_rect(pt0, Rect2(gp - Vector2(gr, gr) * 0.35, Vector2(gr, gr) * 0.7), false, Color(1, 1, 1, gu))
+	# the build-up: the rivets in the corners smoulder and flicker, the crystal's flicker in them
+	if _charging >= 0.0:
+		var cu := clampf(_charging / T_CHARGE, 0.0, 1.0)
+		var cr0 := Rect2(_in(card.global_position), card.size)
+		for c in 4:
+			var cp := Vector2(cr0.position.x + 9.0 if c % 2 == 0 else cr0.end.x - 9.0, cr0.position.y + 9.0 if c < 2 else cr0.end.y - 9.0)
+			var ca := cu * cu * (0.5 + 0.5 * _flash())
+			_shine.draw_texture_rect(pt0, Rect2(cp - Vector2(16, 16), Vector2(32, 32)), false, Color(0.45, 0.72, 1.0, 0.7 * ca))
+			_shine.draw_texture_rect(pt0, Rect2(cp - Vector2(5, 5), Vector2(10, 10)), false, Color(1, 1, 1, ca))
+	# the price, struck last: a cold glow round its figures while they jump
+	if _t >= 0.0 and int(_stage()[0]) == 4 and is_instance_valid(price):
+		var pk := 1.0 - float(_stage()[1])
+		var pm := _mid(price)
+		_shine.draw_texture_rect(pt0, Rect2(pm - Vector2(70, 40), Vector2(140, 80)), false, Color(0.4, 0.65, 1.0, 0.45 * pk))
 	var ch := _charge()
 	if ch.y <= 0.01: return
-	var jit := 0.82 + 0.18 * _rng_of(11).randf()
+	# (the brass flickers with the crystal: when the stone strikes again inside, the frame flares with it)
+	var jit := 0.45 + 0.75 * _flash()
 	for way in 4:
 		var line: PackedVector2Array = [_down, _up, _down2, _up2][way]
 		var run := ch.x if way < 2 else (ch.x / CRAWL_V - _d2) * _v2
@@ -520,6 +574,10 @@ func _draw_shine() -> void:
 			var cols := PackedColorArray()
 			for b in bs: cols.append(Color(lay[1] as Color, float(lay[2]) * b))
 			_shine.draw_polyline_colors(pts, cols, float(lay[0]), true)
+		# the front of the charge lights the card beside it: the slate, the stone's edge
+		if way % 2 == 0:
+			var fp := pts[pts.size() - 1]
+			_shine.draw_texture_rect(pt0, Rect2(fp - Vector2(95, 95), Vector2(190, 190)), false, Color(0.3, 0.5, 1.0, 0.14 * ch.y * jit))
 	# the whole frame catches the flash of the strike: its brass outlined in cold light for a blink
 	var blink := (1.0 - smoothstep(0.0, 0.3, _t)) * ch.y
 	if blink > 0.02:

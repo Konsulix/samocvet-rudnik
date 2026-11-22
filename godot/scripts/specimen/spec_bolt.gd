@@ -65,6 +65,13 @@ var _arc_mat: ShaderMaterial
 var glass: ShaderMaterial
 var sparks: CPUParticles3D
 var fizz: CPUParticles3D
+## for its card (CardBolt): how bright it is now (-1: a kind that keeps its own clock — the card times itself then),
+## how charged before a leap out (0..1: the crackle quickens, its next strike waits for the card's), and the leap out
+## of the stone its last strike made ([from, to] in its own space; empty if none)
+var flash := -1.0
+var rush := 0.0
+var leap := []
+var _force_out := false
 
 func setup(bb: AABB, seed_v: int, glow: Color, surf := PackedVector3Array()) -> SpecBolt:
 	bounds = bb
@@ -138,9 +145,9 @@ func _spark_emitter(n: int, life: float, speed: float, burst: bool) -> CPUPartic
 func _process(dt: float) -> void:
 	_t += dt
 	_arc_t += dt
-	if _t >= _next:
+	if _t >= _next and rush <= 0.0:
 		_strike()
-	if _arc_t >= 0.09 + rng.randf() * 0.15:
+	if _arc_t >= (0.09 + rng.randf() * 0.15) * (1.0 - 0.8 * rush):
 		_crackle()
 	# a strike: bright, a couple of flickers, then an afterglow that dies away
 	var k := _t / maxf(0.001, _next)
@@ -150,6 +157,9 @@ func _process(dt: float) -> void:
 	elif _t < 0.16: f = 0.95
 	else: f = 0.3 + 0.5 * exp(-(_t - 0.16) * 3.0)
 	f *= 1.0 - smoothstep(0.88, 1.0, k) * 0.7
+	# (charged for its card's leap: the crystal brightens and flickers before it)
+	if rush > 0.0: f = maxf(f, rush * (0.35 + 0.35 * rng.randf()))
+	flash = f
 	_mat.set_shader_parameter("flash", f)
 	_arc_mat.set_shader_parameter("flash", 0.35 + f * 0.65)
 	light.light_energy = f * 3.0
@@ -157,9 +167,17 @@ func _process(dt: float) -> void:
 	if glass:
 		glass.set_shader_parameter("emis", Vector3(col.r, col.g, col.b) * (0.015 + f * 0.1))
 
+## a strike that leaps out of the stone for certain: the card carries it on from where it leaves (returns `leap`)
+func strike_out() -> Array:
+	_force_out = true
+	_strike()
+	_force_out = false
+	return leap
+
 ## the main bolt, deep inside, top to bottom or bottom to top
 func _strike() -> void:
 	_t = 0.0
+	leap = []
 	_next = 0.8 + rng.randf() * 1.6
 	var b := bounds
 	var lo := b.position + b.size * Vector3(0.3, 0.1, 0.3)
@@ -176,7 +194,7 @@ func _strike() -> void:
 	var wh := b.end - b.size * Vector3(0.22, 0.12, 0.22)
 	_bolt(a, z, b.size.y * 0.22, 7, segs, halo, 1.0, 0.05 * b.size.y + 0.012, wl, wh, rng.randf())
 	# now and then the discharge leaps out of the crystal into the air around it
-	if surface.size() and rng.randf() < 0.65:
+	if surface.size() and (_force_out or rng.randf() < 0.65):
 		var big := AABB(b.position - b.size * 1.2, b.size * 3.4)
 		for k in 1 + rng.randi() % 2:
 			var p0 := surface[rng.randi() % surface.size()]
@@ -184,6 +202,7 @@ func _strike() -> void:
 			var out := (p0 - Vector3(c.x, b.position.y, c.z)).normalized()
 			out = (out + Vector3(rng.randf() - 0.5, rng.randf() * 0.6, rng.randf() - 0.5) * 0.8).normalized()
 			var p1 := p0 + out * b.size.y * rng.randf_range(0.45, 0.8)
+			if leap.is_empty(): leap = [p0, p1]
 			_bolt(p0, p1, p0.distance_to(p1) * 0.22, 6, segs, halo, 0.85, 0.035 * b.size.y + 0.008, big.position, big.end, rng.randf())
 	mesh = _build(segs, halo)
 	if sparks:
