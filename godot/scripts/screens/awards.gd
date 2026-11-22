@@ -1089,7 +1089,9 @@ func _strip(e: Dictionary, w: float) -> Control:
 	t.add_theme_constant_override("separation", 0)
 	t.alignment = BoxContainer.ALIGNMENT_CENTER
 	t.position = Vector2(tx, 6)
-	t.size = Vector2(x3 - tx - 6, STRIP_H - 12)
+	# (the words run on over the card slots a strip leaves empty: a strip of one card has two free)
+	var free := 3 - mini(3, 0 if hidden else g.size())
+	t.size = Vector2(x3 + free * (CARD + GAP) - tx - 6, STRIP_H - 12)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	s.add_child(t)
 	var nl := UI.label("???" if hidden else String(e.n), 14, UI.display, INK)
