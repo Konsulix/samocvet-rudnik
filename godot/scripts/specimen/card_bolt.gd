@@ -39,8 +39,16 @@ var _rim_len := 0.0
 var _down := PackedVector2Array()
 var _up := PackedVector2Array()
 ## the other side of the frame takes as much (22.11: all of it went to the side the bolt struck, the other got one
-## bolt): a second strike SIDE2 s after the first, its own lit brass, its own arcs, its own leap to the button nearest it
-const SIDE2 := 0.09
+## bolt): a second strike _d2 s after the first, its own lit brass, its own arcs, its own leap to the button nearest it
+## ...but not as a mirror of the first (22.11: "asymmetric, the amount is right"): every leap the second side is struck
+## at a height of its own, a moment of its own after the first, its charge runs at its own speed and reaches its own
+## way up the frame, and each side has its own number of arcs and its own reach into the card
+var _d2 := 0.09              # the second strike, s after the first
+var _v2 := CRAWL_V           # its charge's speed
+var _n1 := 9                 # arcs over each side's lit brass
+var _n2 := 9
+var _reach1 := 1.0           # how far each side's twigs reach into the card
+var _reach2 := 1.0
 var _a2 := Vector2.ZERO
 var _h2 := Vector2.ZERO
 var _rim2 := PackedVector2Array()
@@ -201,7 +209,7 @@ func _start() -> void:
 	_rim = PackedVector2Array([_h, Vector2(x, maxf(_h.y + 10.0, to_y))])
 	_rim_len = _rim[1].y - _rim[0].y
 	_down = _resample(_rim)
-	_up = _way_up(_h, right, r)
+	_up = _way_up(_h, right, r, rng.randf_range(110.0, 360.0))
 	_price_text = price.text
 	_price_col = price.get_theme_color("font_color")
 	_t = 0.0
@@ -210,13 +218,24 @@ func _start() -> void:
 	# channel; the rivets in the corners flash; the stone's name flickers
 	var x2 := r.position.x + RIM_IN if right else r.end.x - RIM_IN
 	_a2 = _stone_pt()
-	_h2 = Vector2(x2, clampf(_a2.y + rng.randf_range(-40.0, 40.0), r.position.y + 40.0, r.end.y - 120.0))
+	_d2 = rng.randf_range(0.07, 0.26)
+	_v2 = CRAWL_V * rng.randf_range(0.6, 1.45)
+	_n1 = 6 + rng.randi() % 7
+	_n2 = 6 + rng.randi() % 7
+	_reach1 = rng.randf_range(0.7, 1.7)
+	_reach2 = rng.randf_range(0.7, 1.7)
+	# (well above or well below where the first one struck)
+	var y2 := _h.y
+	for tr in 8:
+		y2 = rng.randf_range(r.position.y + 50.0, r.end.y - 170.0)
+		if absf(y2 - _h.y) > 90.0: break
+	_h2 = Vector2(x2, y2)
 	_rim2 = PackedVector2Array([_h2, Vector2(x2, maxf(_h2.y + 10.0, to_y))])
 	_down2 = _resample(_rim2)
-	_up2 = _way_up(_h2, not right, r)
-	_arc(_a2, _h2, SIDE2, 0.2, 9.0)
-	_arc(_a2, _h2 + Vector2(0, rng.randf_range(-14.0, 14.0)), SIDE2 + 0.27, 0.12, 5.0)
-	_glint(_h2, SIDE2, 34.0)
+	_up2 = _way_up(_h2, not right, r, rng.randf_range(110.0, 360.0))
+	_arc(_a2, _h2, _d2, 0.2, 9.0)
+	_arc(_a2, _h2 + Vector2(0, rng.randf_range(-14.0, 14.0)), _d2 + 0.27, 0.12, 5.0)
+	_glint(_h2, _d2, 34.0)
 	# its charge leaps to the button nearest it when it gets down there
 	var btn2: Button = null
 	var best2 := INF
@@ -226,7 +245,7 @@ func _start() -> void:
 			best2 = absf(_mid(b).x - x2)
 			btn2 = b
 	if btn2:
-		var at2 := SIDE2 + T_STRIKE * 0.6 + (_rim2[1].y - _rim2[0].y) / CRAWL_V
+		var at2 := _d2 + T_STRIKE * 0.6 + (_rim2[1].y - _rim2[0].y) / _v2
 		var br2 := Rect2(_in(btn2.global_position), btn2.size)
 		_arc(_rim2[1], Vector2(clampf(x2, br2.position.x + 10.0, br2.end.x - 10.0) + (30.0 if not right else -30.0), br2.get_center().y), at2, 0.2, 6.5, 0.4)
 		_blink(btn2, at2 + 0.04)
@@ -405,10 +424,10 @@ func _draw() -> void:
 		_grow(_rng_of(1), _a, _h, _a.distance_to(_h) * 0.2, 5, segs, 1.0, 9.0, 0.11)
 		_ribbons(segs, a)
 	if s == 1:
-		_rim_arcs(_rim, _up, k * _rim_len, 3)
+		_rim_arcs(_rim, _up, k * _rim_len, 3, _n1, _reach1)
 	var f2 := _front2()
 	if f2 > 0.0 and f2 < _rim2[1].y - _rim2[0].y:
-		_rim_arcs(_rim2, _up2, f2, 5)
+		_rim_arcs(_rim2, _up2, f2, 5, _n2, _reach2)
 	if s == 2 and is_instance_valid(_btn):
 		var a2 := 1.0 - smoothstep(0.55, 1.0, k)
 		var br := Rect2(_in(_btn.global_position), _btn.size)
@@ -483,9 +502,9 @@ func _draw_shine() -> void:
 	var jit := 0.82 + 0.18 * _rng_of(11).randf()
 	for way in 4:
 		var line: PackedVector2Array = [_down, _up, _down2, _up2][way]
-		var run := ch.x if way < 2 else ch.x - SIDE2 * CRAWL_V
+		var run := ch.x if way < 2 else (ch.x / CRAWL_V - _d2) * _v2
 		if run <= 0.0 or line.size() < 2: continue
-		var fade_len := INF if way % 2 == 0 else UP_LEN
+		var fade_len := INF if way % 2 == 0 else maxf(30.0, line.size() * 6.0)
 		# (one line with a colour to each point: drawn piece by piece the pieces overlapped into a row of beads)
 		var pts := PackedVector2Array()
 		var bs := PackedFloat32Array()
@@ -520,7 +539,7 @@ func _draw_shine() -> void:
 		var pt := FxLayer.puff()
 		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(34, 34), Vector2(68, 68)), false, Color(0.55, 0.78, 1.0, 0.75 * hot))
 		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(150, 150), Vector2(300, 300)), false, Color(0.3, 0.5, 1.0, 0.16 * hot))
-	var hot2 := (1.0 - smoothstep(0.0, 0.45, _t - SIDE2)) * ch.y if _t >= SIDE2 else 0.0
+	var hot2 := (1.0 - smoothstep(0.0, 0.45, _t - _d2)) * ch.y if _t >= _d2 else 0.0
 	if hot2 > 0.02:
 		var pt2 := FxLayer.puff()
 		_shine.draw_texture_rect(pt2, Rect2(_h2 - Vector2(34, 34), Vector2(68, 68)), false, Color(0.55, 0.78, 1.0, 0.75 * hot2))
@@ -547,10 +566,10 @@ func _input(e: InputEvent) -> void:
 ## how far the other side's charge has run down its rim (0: not struck yet)
 func _front2() -> float:
 	if _t < 0.0 or _rim2.size() < 2: return 0.0
-	return maxf(0.0, (_t - SIDE2 - T_STRIKE * 0.6) * CRAWL_V)
+	return maxf(0.0, (_t - _d2 - T_STRIKE * 0.6) * _v2)
 
 ## the rim from a hit, the other way: up, round the corner and along the top to the frame's middle
-func _way_up(h: Vector2, right: bool, r: Rect2) -> PackedVector2Array:
+func _way_up(h: Vector2, right: bool, r: Rect2, limit: float) -> PackedVector2Array:
 	var top := r.position.y + RIM_IN
 	var in_x := 1.0 if not right else -1.0
 	var up := PackedVector2Array([h, Vector2(h.x, top + CORNER)])
@@ -558,30 +577,30 @@ func _way_up(h: Vector2, right: bool, r: Rect2) -> PackedVector2Array:
 		var a := (i + 1) / 5.0 * PI * 0.5
 		up.append(Vector2(h.x + in_x * CORNER * (1.0 - cos(a)), top + CORNER * (1.0 - sin(a))))
 	up.append(Vector2(r.get_center().x, top))
-	return _resample(up, UP_LEN)
+	return _resample(up, limit)
 
 ## over a side's lit brass: short arcs leaping from point to point of the rim near the front of the charge, bowed off
 ## it into the card (as SpecBolt's crackle over the stone); twigs reaching further in; a little star at the front
-func _rim_arcs(rim: PackedVector2Array, up: PackedVector2Array, front: float, salt: int) -> void:
+func _rim_arcs(rim: PackedVector2Array, up: PackedVector2Array, front: float, salt: int, n_arcs: int, reach: float) -> void:
 	var r := _rng_of(salt)
 	# over the lit brass: short arcs leaping from point to point of the rim near the front of the charge, bowed
 	# off it into the card (as SpecBolt's crackle over the stone); a twig or two reaching further in; and at the
 	# front itself a little star of them
 	var inward := -signf(rim[0].x - size.x * 0.5)
 	var segs := []
-	for i in 9:
+	for i in n_arcs:
 		var s0 := maxf(0.0, front - r.randf_range(0.0, 190.0))
 		var s1 := clampf(s0 + r.randf_range(16.0, 58.0) * (1.0 if r.randf() < 0.6 else -1.0), 0.0, front)
 		if absf(s1 - s0) < 10.0: continue
 		var p0 := Vector2(rim[0].x, rim[0].y + s0)
 		var p1 := Vector2(rim[0].x, rim[0].y + s1)
-		var mid := (p0 + p1) * 0.5 + Vector2(inward * absf(s1 - s0) * r.randf_range(0.25, 0.6), 0.0)
+		var mid := (p0 + p1) * 0.5 + Vector2(inward * absf(s1 - s0) * r.randf_range(0.25, 0.6) * reach, 0.0)
 		var br := r.randf()
 		_grow(r, p0, mid, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
 		_grow(r, mid, p1, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
 	var head := Vector2(rim[0].x, rim[0].y + front)
 	for i in 3:
-		var to := head + Vector2(inward * r.randf_range(10.0, 46.0), r.randf_range(-18.0, 30.0))
+		var to := head + Vector2(inward * r.randf_range(10.0, 46.0) * reach, r.randf_range(-18.0, 30.0))
 		_grow(r, head, to, head.distance_to(to) * 0.28, 3, segs, 0.9 if i == 0 else 0.6, 2.8, r.randf(), 0.45)
 	# the same over the brass the charge ran up along
 	for i in 5:
