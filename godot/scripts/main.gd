@@ -1039,7 +1039,8 @@ func play_hunt() -> void:
 	var def: Dictionary = Level.GULP.duplicate(true)
 	for st: Dictionary in Save.d.coll:
 		if st.get("gulp", false): def.glow = Data.rarity_color(int(st.get("tier", 1))).lerp(Color.WHITE, 0.35)
-	if args.has("gulp_at"): def.gulp_cfg = {start = float(args.gulp_at)}    # a test key: where the lump starts (0 mouth .. 1 belly)
+	if args.has("gulp_stage"): def.gulp_cfg = {stage0 = int(args.gulp_stage)}      # a test key: the board it starts on (0..2)
+	if args.has("gulp_at"): def.gulp_cfg = (def.get("gulp_cfg", {}) as Dictionary).merged({start = float(args.gulp_at)})    # a test key: where the lump starts (0 mouth .. 1 belly)
 	show_level(Save.d.level, [], 0, def)
 
 ## won: the find is the player's again (its card as any stone's, and his mark on it); lost: it stays his, to be hunted again

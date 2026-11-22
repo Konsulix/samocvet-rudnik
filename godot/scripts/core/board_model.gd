@@ -134,8 +134,8 @@ var maiden := {}
 const MAIDEN_CATCH := 5
 static var MAIDEN_REACH := 0   # how near a cleared cell catches her: 0 - only the stone she stands on (beside her was too easy)
 ## the plesiosaur's hunt (CLAUDE.md 22.11): his neck lies round the board, the swallowed find a lump of light in it.
-## {cfg, track (the edge cells along the neck, mouth first), at (the lump's place on it), pin, stun, acc, wait,
-## bite {cells, left}, lost}
+## {cfg, stage (the board: 0 belly .. 2 throat), track (the edge cells along this board's neck, the top end first),
+## sides, at (the lump's place on it), stun, acc, wait, bite {cells, left}, lost}
 var gulp := {}
 var _gulp_fx := {}          # cells a special's blast reached this move (a harpoon, if one is by the lump)
 var dead_cells: Array = []   # the cells cleared since the move began (a match beside the Fire Maiden catches her)
@@ -1432,36 +1432,79 @@ func _count_granite() -> int:
 # ------------------------------------------------------------------ queries
 
 # ------------------------------------------------------------------ the plesiosaur's hunt
-# He swallowed the find: it is a lump of light in his neck, and his neck lies round the board - the mouth over the top's
-# middle, then along the top to the right, down the right side, back along the bottom and up the left to his belly.
+# He swallowed the find: it is a lump of light in his neck, and his neck is the board's frame. The fight climbs his
+# neck from the belly to the mouth over three boards (gulp.stage 0..2), the neck zigzagging up:
+#   0 the belly  - his body under the board's bottom left; the neck runs along the bottom to the right and up the
+#                  right side, and off past the top right
+#   1 the neck   - in at the bottom right, along the bottom to the left, up the left side and off past the top left
+#   2 the throat - in at the bottom left, along the bottom, up the right side and along the top to his head
 # After every move the lump slips towards the belly; stones cleared in the cells beside it (a match there, a blast)
-# knock it back towards the mouth, a place each (two a move at most); a special's blast that reaches those cells
-# knocks it two places more. (22.11, second pass: no harpoon, no pin, no "only a special gets it out of his mouth" -
-# three ideas too many: one rule, strike by the light.) Knocked past the mouth, the find is out.
-# Now and then his head marks a 2x2 and, two moves on, bites it out of the board: plain stones - the lump goes down
-# two; a special among them goes off in his mouth - four places up and he chokes (no slip next move). The lump in the
-# belly: lost. No count of moves.
-const GULP := {start = 0.5, slide = [1.0, 1.0, 0.75], bite_every = [3, 4, 5], bite_warn = 2, push_max = 2, harpoon = 2, pin = 2,
-	bite_down = 2, choke_up = 4}
+# knock it back up, a place each (two a move at most), a special's blast two places more. Knocked past a board's top
+# end it is on the next board up (at its bottom); slipped past a board's bottom end, on the one below (at its top) -
+# off the belly's end the find is lost; past the mouth it is out, won. No count of moves.
+# In the way: pebbles (gastroliths: he swallows stones for ballast) lie in cells along the neck on every board -
+# rock, to be broken before a match there can count. On the upper boards his head bites: it marks a 2x2 and two
+# moves on takes it out of the board - plain stones: the lump goes down two; a special among them goes off in his
+# mouth: four places up and he chokes (no slip next move).
+const GULP := {start = 0.45, slide = [0.75, 1.0, 1.0], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
+	bite_down = 2, choke_up = 4, rocks = [4, 5, 4], stages = 3}
+
+## a board's stretch of neck: [cells (the top end first), sides (which way is out of the board at each: screen x, y)]
+func gulp_track(stage: int) -> Array:
+	var cells: Array = []
+	var sides: Array = []
+	var U := Vector2i(0, -1)
+	var Rt := Vector2i(1, 0)
+	var D := Vector2i(0, 1)
+	var L := Vector2i(-1, 0)
+	match stage:
+		0:
+			for r in range(0, R):
+				cells.append(Vector2i(r, C - 1)); sides.append(Rt)
+			for c in range(C - 2, 2, -1):
+				cells.append(Vector2i(R - 1, c)); sides.append(D)
+		1:
+			for r in range(0, R):
+				cells.append(Vector2i(r, 0)); sides.append(L)
+			for c in range(1, C):
+				cells.append(Vector2i(R - 1, c)); sides.append(D)
+		_:
+			for c in range(C / 2, C):
+				cells.append(Vector2i(0, c)); sides.append(U)
+			for r in range(1, R):
+				cells.append(Vector2i(r, C - 1)); sides.append(Rt)
+			for c in range(C - 2, -1, -1):
+				cells.append(Vector2i(R - 1, c)); sides.append(D)
+	return [cells, sides]
 
 func gulp_start(cfg: Dictionary) -> void:
 	var G0: Dictionary = GULP.duplicate(true)
 	G0.merge(cfg, true)
-	var tr: Array = []
-	for c in range(C / 2, C): tr.append(Vector2i(0, c))
-	for r in range(1, R): tr.append(Vector2i(r, C - 1))
-	# (the left side is free: past the bottom's last cell the neck runs off the screen, his body out of the picture)
-	for c in range(C - 2, -1, -1): tr.append(Vector2i(R - 1, c))
-	gulp = {cfg = G0, track = tr, at = int(tr.size() * float(G0.start)), pin = 0, stun = 0, acc = 0.0, lost = false,
-		wait = int(G0.bite_every[1]), bite = {cells = [], left = 0}}
+	gulp = {cfg = G0, stage = 0, track = [], sides = [], at = 0, stun = 0, acc = 0.0, lost = false, wait = 0, bite = {cells = [], left = 0}}
+	_gulp_stage(int(G0.get("stage0", 0)))
+	gulp.seen = [int(gulp.stage)]
+	gulp.at = clampi(int((gulp.track as Array).size() * float(G0.start)), 0, (gulp.track as Array).size() - 1)
+	_gulp_rocks()
 	_gulp_goal()
 
-## how he is by where the lump lies: 0 in his throat (he fights for it: it slips every move, he bites often), 1 midway,
-## 2 near the belly (calm: he thinks it his - slow, bites seldom; the worse it stands, the more time there is)
-func gulp_phase() -> int:
-	var n: int = (gulp.track as Array).size()
-	var at: int = gulp.at
-	return 0 if at * 3 < n else 1 if at * 3 < n * 2 else 2
+func _gulp_stage(st: int) -> void:
+	var tk := gulp_track(st)
+	gulp.stage = st
+	gulp.track = tk[0]
+	gulp.sides = tk[1]
+	gulp.bite = {cells = [], left = 0}
+	gulp.wait = int(gulp.cfg.bite_every[st])
+	gulp.acc = 0.0
+
+## where the lump stands on the whole neck: [places from the mouth, places in all]
+func gulp_overall() -> Array:
+	var before := 0
+	var total := 0
+	for st in int(gulp.cfg.stages):
+		var n: int = (gulp_track(st)[0] as Array).size()
+		total += n
+		if st > int(gulp.stage): before += n
+	return [before + int(gulp.at), total]
 
 ## the cells beside the lump: its own place on the neck and one either side
 func gulp_zone() -> Array:
@@ -1471,7 +1514,7 @@ func gulp_zone() -> Array:
 		if i >= 0 and i < tr.size(): out.append(tr[i])
 	return out
 
-## what the move so far would knock the lump back by: {push, harpoon} (the autoplayer weighs a move by it)
+## what the move so far would knock the lump back by: {push, harpoon (a special's blast was in it)}
 func gulp_push() -> Dictionary:
 	var z := gulp_zone()
 	var push := 0
@@ -1486,7 +1529,35 @@ func gulp_push() -> Dictionary:
 
 func _gulp_goal() -> void:
 	var gi := goal_index("gulp")
-	if gi >= 0: goals[gi].left = int(gulp.at) + 1
+	if gi >= 0: goals[gi].left = int(gulp_overall()[0]) + 1
+
+## pebbles on the board's stretch of neck, ahead of the lump (towards the mouth) first: a plain stone's cell turns to
+## rock. Returns [[cell, the stone's id], ...]
+func _gulp_rocks() -> Array:
+	var tr: Array = gulp.track
+	var want := int(gulp.cfg.rocks[int(gulp.stage)])
+	var ahead: Array = []
+	var behind: Array = []
+	for i in tr.size():
+		if absi(i - int(gulp.at)) <= 1: continue
+		var p: Vector2i = tr[i]
+		var g: Gem = G[p.x][p.y] if playable(p.x, p.y) else null
+		if g == null or g.sp != "" or g.item != "" or LOCK[p.x][p.y] or ROCK[p.x][p.y]: continue
+		if i < int(gulp.at): ahead.append(p)
+		else: behind.append(p)
+	var out: Array = []
+	var last := Vector2i(-9, -9)
+	while out.size() < want and not (ahead.is_empty() and behind.is_empty()):
+		var pool: Array = ahead if not ahead.is_empty() else behind
+		var p: Vector2i = pool.pop_at(rng.randi_range(0, pool.size() - 1))
+		if absi(p.x - last.x) + absi(p.y - last.y) <= 1: continue      # (not two side by side: a wall)
+		last = p
+		var g: Gem = G[p.x][p.y]
+		out.append([p, g.id])
+		G[p.x][p.y] = null
+		ROCK[p.x][p.y] = 1
+		ROCK_MAX[p.x][p.y] = 1
+	return out
 
 ## the 2x2 he will bite: plain stones away from the edges
 func _gulp_mark() -> Array:
@@ -1502,28 +1573,25 @@ func _gulp_mark() -> Array:
 	var p: Vector2i = cand[rng.randi() % cand.size()]
 	return [p, p + Vector2i(0, 1), p + Vector2i(1, 0), p + Vector2i(1, 1)]
 
-## the move is over. Returns {from, to (the lump's places before and after the knock), push, harpoon, held (at the
-## mouth without a harpoon), bite {cells, ids, choke} or {}, slid (places it slipped after), at, mark (the next bite's
-## cells, if marked now), won, lost}. The bitten stones are gone from the grid here; the level lets the board fall
+## the move is over. Returns {from, to (the lump's places before and after the knock), push, harpoon, bite {cells,
+## ids, choke} or {}, slid, at, mark (the next bite's cells, if marked now), stage (the board it is on now) and
+## moved (+1 up a board, -1 down, 0), rocks (pebbles laid on a new board: [[cell, id]]), won, lost}. Stones bitten
+## or turned to pebbles are gone from the grid here; the level lets the board fall
 func gulp_after() -> Dictionary:
 	if gulp.is_empty() or over: return {}
 	var cfg: Dictionary = gulp.cfg
-	var out := {from = int(gulp.at), to = int(gulp.at), at = int(gulp.at), push = 0, harpoon = false, held = false, bite = {}, slid = 0, mark = [], won = false, lost = false}
+	var out := {from = int(gulp.at), to = int(gulp.at), at = int(gulp.at), push = 0, harpoon = false, bite = {}, slid = 0, mark = [],
+		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false}
 	var kp := gulp_push()
 	dead_cells = []
 	_gulp_fx = {}
 	out.push = int(kp.push)
 	out.harpoon = bool(kp.harpoon)
 	var at: int = int(gulp.at) - int(kp.push)
-	if at < 0:
-		out.won = true
-		at = 0
-	out.to = at
-	gulp.at = at
-	if out.won:
-		goals[goal_index("gulp")].left = 0
-		return out
-	# his bite
+	out.to = maxi(at, 0)
+	gulp.at = maxi(at, 0)
+	if at < 0 and _gulp_up(out): return out
+	# his bite (on the boards where he bites)
 	var B: Dictionary = gulp.bite
 	if not (B.cells as Array).is_empty():
 		B.left = int(B.left) - 1
@@ -1540,19 +1608,16 @@ func gulp_after() -> Dictionary:
 				G[p.x][p.y] = null
 			out.bite = {cells = cells, ids = ids, choke = choke}
 			gulp.bite = {cells = [], left = 0}
+			gulp.wait = int(cfg.bite_every[int(gulp.stage)])
 			if choke:
 				gulp.at = int(gulp.at) - int(cfg.choke_up)
 				gulp.stun = 1
 				if int(gulp.at) < 0:
 					gulp.at = 0
-					out.won = true
-					out.at = 0
-					goals[goal_index("gulp")].left = 0
-					return out
+					if _gulp_up(out): return out
 			else:
 				gulp.at = int(gulp.at) + int(cfg.bite_down)
-			gulp.wait = int(cfg.bite_every[clampi(gulp_phase(), 0, 2)])
-	else:
+	elif int(cfg.bite_every[int(gulp.stage)]) > 0:
 		gulp.wait = int(gulp.wait) - 1
 		if int(gulp.wait) <= 0:
 			var mk := _gulp_mark()
@@ -1563,21 +1628,49 @@ func gulp_after() -> Dictionary:
 	var n: int = (gulp.track as Array).size()
 	var before: int = gulp.at
 	if int(gulp.stun) > 0: gulp.stun = int(gulp.stun) - 1
-	elif int(gulp.pin) > 0: gulp.pin = int(gulp.pin) - 1
 	elif before < n:
-		gulp.acc = float(gulp.acc) + float(cfg.slide[gulp_phase()])
+		gulp.acc = float(gulp.acc) + float(cfg.slide[int(gulp.stage)])
 		while float(gulp.acc) >= 1.0:
 			gulp.acc = float(gulp.acc) - 1.0
 			gulp.at = int(gulp.at) + 1
 	out.slid = int(gulp.at) - before
 	if int(gulp.at) >= n:
-		gulp.at = n - 1
-		gulp.lost = true
-		out.lost = true
-		over = true
+		if int(gulp.stage) <= 0:
+			gulp.at = n - 1
+			gulp.lost = true
+			out.lost = true
+			over = true
+		else:
+			# down a board: it is at that board's top end, with a place in hand
+			_gulp_stage(int(gulp.stage) - 1)
+			gulp.at = 2
+			out.moved = -1
+			out.stage = int(gulp.stage)
 	out.at = int(gulp.at)
 	_gulp_goal()
 	return out
+
+## knocked past the board's top end: out of his mouth on the last board (true: the hunt is won), else on to the
+## bottom of the next board up, its pebbles laid
+func _gulp_up(out: Dictionary) -> bool:
+	if int(gulp.stage) >= int(gulp.cfg.stages) - 1:
+		out.won = true
+		out.at = 0
+		goals[goal_index("gulp")].left = 0
+		return true
+	_gulp_stage(int(gulp.stage) + 1)
+	# (well clear of the board's bottom end, and no slip on the next move: it does not fall straight back)
+	gulp.at = (gulp.track as Array).size() - 4
+	gulp.stun = 1
+	out.moved = 1
+	out.stage = int(gulp.stage)
+	out.at = int(gulp.at)
+	# (its pebbles are laid the first time it comes to the board only)
+	if not (gulp.seen as Array).has(int(gulp.stage)):
+		(gulp.seen as Array).append(int(gulp.stage))
+		out.rocks = _gulp_rocks()
+	_gulp_goal()
+	return true
 
 # ------------------------------------------------------------------ the Fire Maiden
 

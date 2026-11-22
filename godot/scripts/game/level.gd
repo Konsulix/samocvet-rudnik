@@ -168,6 +168,7 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 		gulp_view.glow = level.get("glow", gulp_view.glow)
 		gulp_view.setup(board, model)
 		gulp_view.position = board.position
+		# (the first board's pebbles are in the model already: its stones there were never built)
 	busy = true
 	booster = ""
 	hint_label.text = ""
@@ -2404,12 +2405,13 @@ const GULP := {gulp = true, gen = true, colors = 5, moves = 99, goals = [["gulp"
 	map = ".........|.........|.........|.........|.........|.........|.........|.........|........."}
 const GULP_BG := "res://assets/boss/kraken/bg.png"     # the cove's dark water (the Kraken's grotto): he lives there too
 
-## after a move: the knock (stones cleared beside the lump), his bite if it is due, the lump's slip; true once the
-## hunt is over either way
+## after a move: the knock (stones cleared beside the lump), the climb to the next board if it went past this one's
+## top, his bite if it is due, the lump's slip (and the fall to the board below); true once the hunt is over
 func _gulp_turn() -> bool:
 	var a := model.gulp_after()
 	if a.is_empty(): return false
-	var gi := model.goal_index("gulp")
+	var B: Dictionary = a.bite
+	var climbed := int(a.moved) > 0
 	if int(a.push) > 0:
 		gulp_view.knock(bool(a.harpoon), int(a.push))
 		Sfx.play("special" if a.harpoon else "pop", 3)
@@ -2417,21 +2419,20 @@ func _gulp_turn() -> bool:
 		if a.harpoon:
 			fx.shake = maxf(fx.shake, 8.0)
 			fx.hitstop(0.05)
-		await gulp_view.move_lump(int(a.to))
-	if bool(a.won):
+		# (past the top end: on out of this board's neck - into the next board, or his mouth)
+		var past: bool = bool(a.won) or (climbed and B.is_empty())
+		await gulp_view.move_lump(gulp_view._f0 + 0.5 if past and not bool(a.won) else float(a.to))
+	if bool(a.won) and B.is_empty():
 		await _gulp_end(true)
 		return true
-	var B: Dictionary = a.bite
 	if not B.is_empty():
 		Sfx.play("rumble")
 		await gulp_view.bite(B.cells, bool(B.choke), func() -> void:
 			for id in B.ids: board.remove_node(int(id))
 			Sfx.play("boom" if B.choke else "bad")
 			Sfx.buzz(70 if B.choke else 35)
-			fx.shake = maxf(fx.shake, 14.0 if B.choke else 7.0)
-			for p: Vector2i in B.cells:
-				if B.choke: fx.flash(p.x, p.y, Color(1.0, 0.8, 0.45), 1.6, 0.4)
-				else: fx.sparkle(p.x, p.y, Color(0.7, 0.9, 1.0), 6))
+			fx.shake = maxf(fx.shake, 14.0 if B.choke else 9.0)
+			fx.hitstop(0.06))
 		board.refresh()
 		await board.animate_collapse(model.collapse())
 		await _resolve([], [])
@@ -2439,7 +2440,18 @@ func _gulp_turn() -> bool:
 		if bool(a.won):
 			await _gulp_end(true)
 			return true
-	await gulp_view.move_lump(int(a.at), 0.45)
+		if climbed: await gulp_view.move_lump(gulp_view._f0 + 0.5)
+	if int(a.moved) != 0:
+		# another board of his neck: up (the pebbles there laid) or back down
+		if not climbed: await gulp_view.move_lump(gulp_view._f1 - 0.5, 0.4)
+		Sfx.play("rise" if climbed else "lose")
+		Sfx.buzz(60)
+		fx.shake = maxf(fx.shake, 10.0)
+		await gulp_view.restage(climbed)
+		_gulp_rocks(a.rocks)
+		_toast(["His belly", "Up his neck", "His throat: the mouth is near"][clampi(int(a.stage), 0, 2)] if climbed else "It slipped back down")
+	else:
+		await gulp_view.move_lump(float(a.at), 0.45)
 	gulp_view.set_mark(model.gulp.bite.cells, int(model.gulp.bite.left))
 	if not (a.mark as Array).is_empty():
 		Sfx.play("hiss")
@@ -2452,6 +2464,17 @@ func _gulp_turn() -> bool:
 		model.shuffle()
 		board.animate_shuffle()
 	return false
+
+## pebbles laid on the neck's cells (BoardModel._gulp_rocks): the stones there go, the rock shows
+func _gulp_rocks(rocks: Array) -> void:
+	if rocks.is_empty(): return
+	for e: Array in rocks:
+		board.remove_node(int(e[1]))
+		var p: Vector2i = e[0]
+		fx.debris(p.x, p.y, Color("#9a8a78"), 8)
+	board.refresh()
+	board.redraw_under()
+	Sfx.play("rockfall")
 
 ## the hunt is over: the find flies out of his mouth, or goes down for good (this time)
 func _gulp_end(won: bool) -> void:

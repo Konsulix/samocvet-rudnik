@@ -1,9 +1,32 @@
 {
  "neck_pt": 26,
- "head_exit_x": 178,
+ "head_k": 1.5,
  "head_exit_y": 86.2,
  "mouth_x": 0.2,
  "mouth_y": 0.78,
- "open_dx": 0.0,
- "open_dy": 0.0
+ "moods": {
+  "head": [
+   0.0,
+   0.0
+  ],
+  "head_blink": [
+   0.0,
+   0.0
+  ],
+  "head_hurt": [
+   0.0,
+   0.0
+  ],
+  "head_glare": [
+   0.0,
+   0.0
+  ],
+  "head_open": [
+   0.0,
+   0.0
+  ]
+ },
+ "head_exit_x": 178,
+ "body_exit_x": 225,
+ "body_exit_y": 24.3
 }

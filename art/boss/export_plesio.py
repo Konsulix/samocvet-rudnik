@@ -23,7 +23,7 @@ os.makedirs(DST, exist_ok=True)
 NECK_PT = 26         # the neck's thickness, pt
 HEAD_K = 1.5         # the head half as big again as its neck would have it: the face of the fight
 MAW_PT = 112         # the bite mark's width, pt: two cells of the board and the gums round them
-NECK, HEAD, HEAD_OPEN, MAW = 'neck3_a.png', 'head3_a.png', 'head3_open.png', 'maw_a.png'
+NECK, HEAD, BODY, MAW = 'neck3_a.png', 'head3_a.png', 'body_b.png', 'maw_a.png'
 
 
 def solid(rgba):
@@ -52,34 +52,42 @@ neck = neck.crop((int(neck.width * 0.06), max(0, y0 - pad), int(neck.width * 0.9
 head = keyed(S + HEAD)
 hb = box_of(head)
 hbox = (hb[0], hb[1], head.width, hb[3])        # (to the right edge: the neck leaves through it)
-head = head.crop(hbox)
-hy, ht = exit_right(head)
-parts = [neck, head]
-head_open = None
-if os.path.exists(S + HEAD_OPEN):
-    ho = keyed(S + HEAD_OPEN)
-    ob = box_of(ho)
-    # the shut head's crop, grown to hold the dropped jaw (the game lays both by the shut one's corner)
-    obox = (min(hbox[0], ob[0]), min(hbox[1], ob[1]), ho.width, max(hbox[3], ob[3]))
-    head_open = ho.crop(obox)
-    parts.append(head_open)
+hy, ht = exit_right(head.crop(hbox))
+# his moods: the same head edited (gen_edit.sh), each cut to its own box (a dropped jaw makes it taller) and laid
+# by the plain head's corner: its top left's shift from the plain one's is kept (pt)
+MOODS = {'head': HEAD, 'head_blink': 'head3_blink.png', 'head_hurt': 'head3_hurt.png', 'head_glare': 'head3_glare.png', 'head_open': 'head3_open.png'}
+pics = {}
+for nm, f in MOODS.items():
+    if not os.path.exists(S + f): continue
+    im = keyed(S + f)
+    ob = box_of(im)
+    box = (min(hbox[0], ob[0]), min(hbox[1], ob[1]), im.width, max(hbox[3], ob[3]))
+    pics[nm] = (box, im.crop(box))
+body = keyed(S + BODY)
+bb = box_of(body)
+body = body.crop((bb[0], bb[1], body.width, bb[3]))
+by, bt = exit_right(body)
 
-pal = shared_palette(parts, 56)
+pal = shared_palette([neck, body] + [v[1] for v in pics.values()], 60)
 to_pixels(neck, (y1 - y0) / NECK_PT, pal).save(DST + 'neck.png')
 hc = ht / (NECK_PT * HEAD_K)
-hp = to_pixels(head, hc, pal)
-hp.save(DST + 'head.png')
-info = {'neck_pt': NECK_PT, 'head_exit_x': hp.width, 'head_exit_y': round(hy / hc, 1), 'mouth_x': 0.2, 'mouth_y': 0.78}
-if head_open is not None:
-    to_pixels(head_open, hc, pal).save(DST + 'head_open.png')
-    info['open_dx'] = round((obox[0] - hbox[0]) / hc, 1)
-    info['open_dy'] = round((obox[1] - hbox[1]) / hc, 1)
+info = {'neck_pt': NECK_PT, 'head_k': HEAD_K, 'head_exit_y': round((hy) / hc, 1), 'mouth_x': 0.2, 'mouth_y': 0.78, 'moods': {}}
+for nm, (box, im) in pics.items():
+    px = to_pixels(im, hc, pal)
+    px.save(DST + nm + '.png')
+    info['moods'][nm] = [round((box[0] - hbox[0]) / hc, 1), round((box[1] - hbox[1]) / hc, 1)]
+    if nm == 'head': info['head_exit_x'] = px.width
+bc = bt / NECK_PT
+bp = to_pixels(body, bc, pal)
+bp.save(DST + 'body.png')
+info['body_exit_x'] = bp.width
+info['body_exit_y'] = round(by / bc, 1)
 if os.path.exists(S + MAW):
     maw = keyed(S + MAW)
     maw = maw.crop(box_of(maw))
     to_pixels(maw, maw.width / MAW_PT, shared_palette([maw], 24)).save(DST + 'maw.png')
 json.dump(info, open(DST + 'plesio.json', 'w'), indent=1)
-for f in ('skull.png', 'jaw.png', 'body.png'):
+for f in ('skull.png', 'jaw.png'):
     for g in (f, f + '.import'):
         if os.path.exists(DST + g): os.remove(DST + g)
-print('ok', info, 'head', hp.size)
+print('ok', info, 'body', bp.size)
