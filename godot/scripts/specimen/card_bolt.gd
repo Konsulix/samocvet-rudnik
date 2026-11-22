@@ -8,11 +8,13 @@ extends Control
 ## look (shaders/card_bolt.gdshader) — plain jagged lines read as drawn in a paint program beside it (22.11);
 ## over the whole card; the card's own nodes are only tinted and, the price, scrambled for half a second.
 
-const RIM_IN := 4.0          # the rim's middle from the card's edge
+const RIM_IN := 3.5          # the rim's middle from the card's edge
 const FIRST := 3.2           # the first leap after the stone is built, then every EVERY
 const EVERY := Vector2(8.0, 14.0)
 const T_STRIKE := 0.2        # the bolt from the stone to the rim
-const CRAWL_V := 560.0       # the spark down the rim, points a second
+const CRAWL_V := 430.0       # the charge along the rim, points a second
+const CORNER := 14.0         # the card's rounded corners
+const UP_LEN := 300.0        # how far the charge runs the other way round the rim before it dies
 const T_LEAP := 0.16         # rim to button, button to price
 const T_FLICK := 0.6         # the price's figures
 
@@ -30,6 +32,13 @@ var _a := Vector2.ZERO       # where it leaves the stone
 var _h := Vector2.ZERO       # where it hits the rim
 var _rim := PackedVector2Array()   # down the rim from there
 var _rim_len := 0.0
+## the brass taking the charge (22.11: one stretch of lightning sliding down the rim read as "a crawling blue sausage",
+## and the frame caught no light of it): the rim itself lights up blue from where it was struck, the light running both
+## ways round the frame and dying slowly behind its front; over the lit brass short arcs leap from point to point of the
+## rim, as the crackle over the stone's own surface does. _down/_up: the rim from the hit, a point every few points
+var _down := PackedVector2Array()
+var _up := PackedVector2Array()
+var _shine: Control          # the light on the brass: plain added light under the arcs
 var _btn: Control
 var _price_text := ""
 var _price_col := Color.WHITE
@@ -57,6 +66,12 @@ func _ready() -> void:
 	m.set_shader_parameter("strands", SpecBolt.STRANDS)
 	m.set_shader_parameter("glow_col", Vector3(bolt.col.r, bolt.col.g, bolt.col.b))
 	material = m
+	_shine = Control.new()
+	_shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shine.material = FxLayer.add_material()
+	_shine.show_behind_parent = true
+	_shine.draw.connect(_draw_shine)
+	add_child(_shine)
 	z_index = 5
 	rng.randomize()
 	if test_at >= 0.0: _wait = test_at
@@ -75,7 +90,7 @@ func _process(dt: float) -> void:
 		_wait -= dt
 		if _wait <= 0.0 and view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 			_start()
-		if _sparks.size(): queue_redraw()
+		if _sparks.size(): _redraw()
 		return
 	_t += dt
 	_jag += dt
@@ -83,11 +98,18 @@ func _process(dt: float) -> void:
 		_jag = 0.0
 		_seed = rng.randi()
 	_price_tick()
+	# the front of the charge sheds sparks as it runs
+	if int(_stage()[0]) == 1 and rng.randf() < 0.5:
+		_burst(_rim[0].lerp(_rim[1], float(_stage()[1])), 1, 110.0)
 	if _t > _end():
 		_settle()
 		_t = -1.0
 		_wait = 3.0 if test_at >= 0.0 else rng.randf_range(EVERY.x, EVERY.y)
+	_redraw()
+
+func _redraw() -> void:
 	queue_redraw()
+	_shine.queue_redraw()
 
 ## a point of the card, by a point on the screen, in this node's own space
 func _in(p: Vector2) -> Vector2:
@@ -127,6 +149,16 @@ func _start() -> void:
 	var to_y := _mid(_btn).y if _btn else _mid(price).y
 	_rim = PackedVector2Array([_h, Vector2(x, maxf(_h.y + 10.0, to_y))])
 	_rim_len = _rim[1].y - _rim[0].y
+	# the rim from the hit, both ways: down to there, and up, round the corner and along the top
+	_down = _resample(PackedVector2Array([_rim[0], _rim[1]]))
+	var top := r.position.y + RIM_IN
+	var in_x := 1.0 if not right else -1.0
+	var up := PackedVector2Array([_h, Vector2(x, top + CORNER)])
+	for i in 5:
+		var a := (i + 1) / 5.0 * PI * 0.5
+		up.append(Vector2(x + in_x * CORNER * (1.0 - cos(a)), top + CORNER * (1.0 - sin(a))))
+	up.append(Vector2(x + in_x * (r.size.x - RIM_IN * 2.0 - CORNER), top))
+	_up = _resample(up, UP_LEN)
 	_price_text = price.text
 	_price_col = price.get_theme_color("font_color")
 	_t = 0.0
@@ -266,18 +298,42 @@ func _draw() -> void:
 		_grow(_rng_of(1), _a, _h, _a.distance_to(_h) * 0.2, 5, segs, 1.0, 9.0, 0.11)
 		_ribbons(segs, a)
 	if s == 1:
-		# the discharge racing down the brass: a stretch of it alive at a time, hugging the rim; twigs leap off it
-		# into the card
-		var head := _rim[0].lerp(_rim[1], k)
-		var tail := _rim[0].lerp(_rim[1], maxf(0.0, k - 110.0 / maxf(1.0, _rim_len)))
+		# over the lit brass: short arcs leaping from point to point of the rim near the front of the charge, bowed
+		# off it into the card (as SpecBolt's crackle over the stone); a twig or two reaching further in; and at the
+		# front itself a little star of them
 		var r := _rng_of(3)
-		segs = []
-		_grow(r, tail, head, 5.0, 4, segs, 1.0, 6.5, 0.37, 0.0)
+		var front := k * _rim_len
 		var inward := -signf(_rim[0].x - size.x * 0.5)
+		segs = []
+		for i in 5:
+			var s0 := maxf(0.0, front - r.randf_range(0.0, 150.0))
+			var s1 := clampf(s0 + r.randf_range(16.0, 58.0) * (1.0 if r.randf() < 0.6 else -1.0), 0.0, front)
+			if absf(s1 - s0) < 10.0: continue
+			var p0 := Vector2(_rim[0].x, _rim[0].y + s0)
+			var p1 := Vector2(_rim[0].x, _rim[0].y + s1)
+			var mid := (p0 + p1) * 0.5 + Vector2(inward * absf(s1 - s0) * r.randf_range(0.25, 0.6), 0.0)
+			var br := r.randf()
+			_grow(r, p0, mid, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
+			_grow(r, mid, p1, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
+		var head := Vector2(_rim[0].x, _rim[0].y + front)
 		for i in 3:
-			var q := tail.lerp(head, r.randf_range(0.25, 1.0))
-			var to := q + Vector2(inward * r.randf_range(14.0, 42.0), r.randf_range(-6.0, 26.0))
-			_grow(r, q, to, q.distance_to(to) * 0.25, 3, segs, 0.6, 4.0, r.randf(), 0.5)
+			var to := head + Vector2(inward * r.randf_range(10.0, 46.0), r.randf_range(-18.0, 30.0))
+			_grow(r, head, to, head.distance_to(to) * 0.28, 3, segs, 0.9 if i == 0 else 0.6, 2.8, r.randf(), 0.45)
+		# the same over the brass the charge ran up along
+		for i in 2:
+			if _up.size() < 6: break
+			var n := mini(_up.size() - 1, int(k * _rim_len / 6.0))
+			if n < 4: break
+			var i0 := r.randi() % n
+			var i1 := mini(n, i0 + 3 + r.randi() % 7)
+			var q0 := _up[i0]
+			var q1 := _up[i1]
+			var bow := (q1 - q0).orthogonal().normalized()
+			if bow.dot(size * 0.5 - q0) < 0.0: bow = -bow
+			var qm := (q0 + q1) * 0.5 + bow * q0.distance_to(q1) * r.randf_range(0.25, 0.5)
+			var br2 := r.randf()
+			_grow(r, q0, qm, q0.distance_to(qm) * 0.3, 3, segs, 0.6, 2.4, br2, 0.2)
+			_grow(r, qm, q1, q0.distance_to(qm) * 0.3, 3, segs, 0.6, 2.4, br2, 0.2)
 		_ribbons(segs, 1.0)
 	if s == 2 and is_instance_valid(_btn):
 		var a2 := 1.0 - smoothstep(0.55, 1.0, k)
@@ -312,3 +368,69 @@ func _draw() -> void:
 			var p1 := mid + Vector2(r2.randf_range(-hw, hw), r2.randf_range(-10.0, 10.0))
 			_grow(r2, p0, p1, p0.distance_to(p1) * 0.3, 3, segs, 0.8, 4.0, r2.randf(), 0.3)
 		_ribbons(segs, 1.0 - k * 0.6)
+
+## a line with a point every 6 points along it (and no further than `limit`)
+func _resample(line: PackedVector2Array, limit := INF) -> PackedVector2Array:
+	var out := PackedVector2Array([line[0]])
+	var run := 0.0
+	for i in range(1, line.size()):
+		var a := line[i - 1]
+		var b := line[i]
+		var l := a.distance_to(b)
+		var n := maxi(1, int(ceil(l / 6.0)))
+		for kk in range(1, n + 1):
+			run += l / n
+			if run > limit: return out
+			out.append(a.lerp(b, kk / float(n)))
+	return out
+
+## how far the charge has run along the rim, and how much of its light is left
+func _charge() -> Vector2:
+	if _t < 0.0: return Vector2.ZERO
+	var since := _t - T_STRIKE * 0.3
+	if since < 0.0: return Vector2.ZERO
+	var after := _t - (T_STRIKE * 0.6 + _crawl_t())
+	return Vector2(since * CRAWL_V, 1.0 - smoothstep(0.0, T_LEAP * 2.0 + T_FLICK, after))
+
+## the light on the brass: brightest at the front of the charge, a long dying tail behind it, both ways from the hit
+func _draw_shine() -> void:
+	var ch := _charge()
+	if ch.y <= 0.01: return
+	var jit := 0.82 + 0.18 * _rng_of(11).randf()
+	for way in 2:
+		var line := _down if way == 0 else _up
+		var fade_len := INF if way == 0 else UP_LEN
+		# (one line with a colour to each point: drawn piece by piece the pieces overlapped into a row of beads)
+		var pts := PackedVector2Array()
+		var bs := PackedFloat32Array()
+		for i in line.size():
+			var sd := i * 6.0
+			if sd > ch.x: break
+			var b := (0.3 + 0.7 * exp(-(ch.x - sd) / 60.0)) * ch.y * jit
+			if way == 1: b *= 1.0 - smoothstep(0.35, 1.0, sd / fade_len)
+			pts.append(line[i])
+			bs.append(b)
+		if pts.size() < 2: continue
+		for lay: Array in [[15.0, Color(0.2, 0.45, 1.0), 0.2], [7.0, Color(0.35, 0.62, 1.0), 0.4], [1.6, Color(0.8, 0.92, 1.0), 0.7]]:
+			var cols := PackedColorArray()
+			for b in bs: cols.append(Color(lay[1] as Color, float(lay[2]) * b))
+			_shine.draw_polyline_colors(pts, cols, float(lay[0]), true)
+	# the whole frame catches the flash of the strike: its brass outlined in cold light for a blink
+	var blink := (1.0 - smoothstep(0.0, 0.3, _t)) * ch.y
+	if blink > 0.02:
+		var cr := Rect2(_in(card.global_position) + Vector2(RIM_IN, RIM_IN), card.size - Vector2(RIM_IN, RIM_IN) * 2.0)
+		var ring := PackedVector2Array()
+		for c in 4:
+			var cc: Vector2 = [cr.position + Vector2(CORNER, CORNER), Vector2(cr.end.x - CORNER, cr.position.y + CORNER), cr.end - Vector2(CORNER, CORNER), Vector2(cr.position.x + CORNER, cr.end.y - CORNER)][c]
+			for q in 5:
+				var an := PI + c * PI * 0.5 + q / 4.0 * PI * 0.5
+				ring.append(cc + Vector2(cos(an), sin(an)) * CORNER)
+		ring.append(ring[0])
+		_shine.draw_polyline(ring, Color(0.25, 0.5, 1.0, 0.22 * blink), 12.0, true)
+		_shine.draw_polyline(ring, Color(0.6, 0.8, 1.0, 0.4 * blink), 2.5, true)
+	# where it was struck: the brass white-hot a moment, a cold light over the card from that side
+	var hot := (1.0 - smoothstep(0.0, 0.45, _t)) * ch.y
+	if hot > 0.02:
+		var pt := FxLayer.puff()
+		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(34, 34), Vector2(68, 68)), false, Color(0.55, 0.78, 1.0, 0.75 * hot))
+		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(150, 150), Vector2(300, 300)), false, Color(0.3, 0.5, 1.0, 0.16 * hot))
