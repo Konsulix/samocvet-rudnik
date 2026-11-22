@@ -1409,13 +1409,20 @@ func _specimen(o: Dictionary) -> Node3D:
 			var copper := sid == "nativecu"
 			var rk: MeshInstance3D = use_rock.call("small")
 			rk.scale = Vector3(0.75, 0.75, 0.75)
+			# the rock shrank after its spots were taken: they shrink with it, or mushrooms, flowers and flecks hang in
+			# the air past its edge (as the desert rose's)
+			var raw_pick: Callable = st.pick
+			var raw_nrm: Callable = st.nrm
+			st.pick = func() -> Vector3: return (raw_pick.call() as Vector3) * 0.75
+			st.nrm = func(w: Vector3) -> Vector3: return raw_nrm.call(w / 0.75)
+			st.hollows = (st.hollows as Array).map(func(h: Array) -> Array: return [(h[0] as Vector3) * 0.75, h[1]])
 			var cu := SpecMat.make({col = SpecMat.lin(0xd2703a if copper else 0xf0c050), metal = 1.0, rough = 0.32 if copper else 0.22, coat = 0.2, env = 1.8,
 				grain = 0.35, rough_var = 0.3, dirt = {h = -99.0, a = 0.3, col = SpecMat.lin(0x2f8a62 if copper else 0x7a4a18), fr = 0.0, isl = 0.3 if copper else 0.12, fb = 0.0}})
 			var holder := Node3D.new()
 			root.add_child(holder)
-			var base: Vector3 = (st.pick.call() as Vector3) * 0.75
+			var base: Vector3 = st.pick.call()
 			for k in 4:
-				var q: Vector3 = (st.pick.call() as Vector3) * 0.75
+				var q: Vector3 = st.pick.call()
 				if q.y > base.y: base = q
 			holder.position = base - Vector3(0, 0.02, 0)
 			holder.rotation.y = rng.next() * TAU
