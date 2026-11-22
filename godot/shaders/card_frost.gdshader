@@ -14,6 +14,7 @@ uniform vec2 rsize = vec2(360.0, 700.0);
 uniform float grow = 0.0;    // 0..1: how far out the fronds have reached (1: the whole strip)
 uniform float thaw = 0.0;
 uniform float depth = 150.0; // how deep the strip runs in from the rim, points
+uniform float opacity = 0.72; // how strong the frost is over the card
 uniform float zone = 0.0;    // 0: the stone's frame, 1: the info panel
 // not alike, side to side (22.11: "grow it asymmetrically"): each side (bottom, top, left, right) starts at its own
 // moment of the growth (sd), grows at its own pace (ss), and spreads along the rim from its own point (sa, 0..1 along)
@@ -54,7 +55,7 @@ float side(float a, float d, float len, float salt, float i0, float i1, float i2
 	float spread = clamp(g * 2.2 - abs(a / max(len, 1.0) - at) * 1.6, 0.0, 1.0);
 	// the thaw is the growth backward, along the same fronds: the tips go first, the rime on the rim last
 	// (22.11: thawing in patches of a value noise cut square holes — its cells show)
-	float reach = spread * (0.35 + 0.75 * n) * 1.05 * (1.0 - thaw * (1.05 + 0.25 * n));
+	float reach = spread * (0.2 + 0.85 * n) * 1.05 * (1.0 - thaw * (1.05 + 0.25 * n));
 	float shown = 1.0 - smoothstep(reach - 0.08, reach, tx.g);
 	return tx.r * shown * inside;
 }
@@ -75,5 +76,5 @@ void fragment() {
 	// single needles catching the light, one by one
 	float h = h21(floor(lp / 6.0));
 	float gl = step(0.985, h) * pow(0.5 + 0.5 * sin(TIME * 2.0 + h * 90.0), 16.0) * smoothstep(0.4, 0.8, fr);
-	COLOR = vec4(min(col + vec3(gl), vec3(1.0)), clamp(fr * 0.72 + gl, 0.0, 1.0));
+	COLOR = vec4(min(col + vec3(gl), vec3(1.0)), clamp(fr * opacity + gl * opacity, 0.0, 1.0));
 }

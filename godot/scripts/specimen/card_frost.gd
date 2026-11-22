@@ -13,14 +13,15 @@ extends Node
 const TEX := preload("res://assets/fx/frost_strip.png")
 ## the knobs of the photo frost (the shader's growth map does the rest: along the fronds, tips last)
 const K := {
-	panel_depth = 0.4,     # the info panel's fringe, of DEPTH
+	panel_depth = 0.45,    # the info panel's fringe, of DEPTH
+	opacity = 0.45,        # how strong the frost is (22.11: at 0.72 it took all the attention)
 	first_late = 0.0,      # the side that starts first
 	late = [0.0, 0.45],    # the other sides' start, of the growth
 	slow = [0.5, 0.75],    # one side, late or hardly at all
 	pace = [0.75, 1.15],
 }
-const DEPTH := 190.0         # how deep the strip runs in from the stone's frame; the info panel, small, half of it
-const CAP := 1.0             # how far it reaches at its fullest (the shader's growth)
+const DEPTH := 120.0         # how deep the strip runs in from the stone's frame; the info panel, small, half of it
+const CAP := 0.8             # how far it reaches at its fullest (the shader's growth)
 
 static var test_period := 0.0   # a test key (-- frost_period=S): the cycle S s long, starting now
 ## the photo strip (GPT) through shaders/card_frost.gdshader — or, `-- frost_code`, the frost drawn by code
@@ -161,4 +162,5 @@ func _process(dt: float) -> void:
 		sm.set_shader_parameter("thaw", thaw)
 		var z := float(r.get_meta("zone", 0.0))
 		sm.set_shader_parameter("zone", z)
+		sm.set_shader_parameter("opacity", float(K.opacity))
 		sm.set_shader_parameter("depth", DEPTH * (float(K.panel_depth) if z > 0.5 else 1.0))
