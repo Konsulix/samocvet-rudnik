@@ -77,6 +77,8 @@ static func frost(root: Node3D, rng: Rng32) -> void:
 	var k := 2.6 / maxf(0.2, bb.size.length())
 	var ph := rng.next()
 	var per := 13.0 + rng.next() * 5.0
+	# (its card's frost grows with its blooms: CardFrost)
+	root.set_meta("frost", [ph, per])
 	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
 		var gm := mi.material_override as ShaderMaterial
 		if mi.mesh == null or not gm or not gm.has_meta("dirt") or gm.has_meta("rock"):
