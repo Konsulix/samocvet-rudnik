@@ -192,7 +192,7 @@ static var LIST := [
 
 	{tab = "secrets", icon = "broken_heart", n = "What Have You Done", t = "Someone will buy it. Someone always does.", r = "Sold a legendary stone", one = true, hide = true, ev = "sold_legend", give = {coins = 300}, items = ["kit:coin"]},
 	{tab = "secrets", icon = "cracked", n = "Butterfingers", t = "It was a nice stone. It was.", r = "A find dug out in pieces", one = true, hide = true, ev = "broken_find", give = {coins = 200}, items = ["i:cracked"]},
-	{tab = "secrets", icon = "duster", n = "Clean Freak", t = "That dust was four hundred million years old. It was part of the charm.", r = "Shook the dust off one find fifteen times", one = true, hide = true, ev = "duster", give = {coins = 50}, items = ["i:duster"]},
+	{tab = "secrets", icon = "duster", n = "What Did You Expect?", t = "Fifteen shakes. Still a rock.", r = "Shook the dust off one find fifteen times", one = true, hide = true, ev = "duster", give = {coins = 50}, items = ["i:duster"]},
 	{tab = "secrets", icon = "cage", n = "Don't Poke the Bird", t = "She's working. Let her work.", r = "Ten taps on the canary's cage", one = true, hide = true, ev = "poke_bird", give = {coins = 200}, items = ["i:canary"]},
 	{tab = "secrets", icon = "moon", n = "Night Shift", t = "Miners don't sleep. Apparently, neither do you.", r = "Played between midnight and four", one = true, hide = true, ev = "night", give = {lives = 2}, items = ["i:moon"]},
 	{tab = "secrets", icon = "unlucky", n = "Unlucky Charm", t = "Legendary. Shattered. Legendarily shattered.", r = "A legendary find dug out Damaged", one = true, hide = true, ev = "unlucky", give = {geode = 1}, items = ["i:cracked"]},

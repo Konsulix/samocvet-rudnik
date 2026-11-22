@@ -176,7 +176,7 @@ func _stand_in(t: Texture2D) -> void:
 ## trembles, the phone buzzes. (A jolt: the push past gravity over SHAKE_G m/s², at most once a second)
 const SHAKE_G := 13.0
 var _shake_cd := 0.0
-## how many times this card's find has had its dust shaken off (the fifteenth is an achievement: Clean Freak)
+## how many times this card's find has had its dust shaken off (the fifteenth is an achievement: What Did You Expect?)
 const SHAKES_TOO_MANY := 15
 var _shakes := 0
 ## points on the rock's sides (meta base, or a rock material), relative to `at`, in the scene's space
