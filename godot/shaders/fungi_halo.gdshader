@@ -17,5 +17,8 @@ void fragment() {
 	float d = length(UV - 0.5) * 2.0;
 	float a = pow(max(0.0, 1.0 - d), 2.4);
 	float br = 0.82 + 0.18 * sin(TIME * 1.3 + COLOR.r * 20.0);
-	ALBEDO = col * a * power * br * (1.0 + fluor_uv * 0.8);
+	// (the strength goes in ALPHA, not only in the colour: added with an alpha of 1 everywhere, the square made itself
+	// opaque - a black box round the glow on a see-through picture, the inventory's tiles; the colour comes out the same)
+	ALBEDO = col * power * br * (1.0 + fluor_uv * 0.8);
+	ALPHA = a;
 }

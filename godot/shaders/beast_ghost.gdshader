@@ -33,4 +33,9 @@ void fragment() {
 	c = c * on + mix(col, vec3(1.0), 0.6) * edge * 2.2;
 	c *= smoothstep(0.0, 0.3, u);
 	ALBEDO = c;
+	// (a see-through picture - the inventory's tiles: added with an alpha of 1, every pixel it covers became opaque,
+	// a black shape round the light; the strength goes in ALPHA, the colour comes out the same - fungi_halo too)
+	float lum_a = clamp(max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b), 0.0, 1.0);
+	ALPHA = lum_a;
+	ALBEDO /= max(lum_a, 1e-4);
 }
