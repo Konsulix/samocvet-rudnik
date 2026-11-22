@@ -113,7 +113,7 @@ func _build() -> void:
 			var be := an + Vector2(-TS * 1.35, TS * 0.62)
 			var bm := (an + be) * 0.5
 			back = _curve(an, an + Vector2(-TS * 0.45, 0), bm) + _curve(bm, be + Vector2(TS * 0.45, 0), be)
-			back.append(be + Vector2(-TS * 0.5, 0))
+			back.append(be + Vector2(-TS * 1.1, 0))      # (well over the body's own neck: it fades out there)
 		1:
 			front = _curve(a0, a0 + Vector2(0, -TS * 2.0), a0 + Vector2(-TS * 2.4, -TS * 2.3))
 			back = [an + Vector2(TS * 2.6, 0)]
@@ -356,6 +356,38 @@ func _thick(f: float) -> float:
 	if near < 1.1 and _spit < 0.0 and _spit > -1.5: w *= 1.0 + (0.3 + 0.35 * _gulp) * (1.0 - near / 1.1)
 	return w
 
+## how much of the neck shows at a place: it fades in out of the head's own neck and out into the body's, over a long
+## stretch - the drawings melt into each other, no edge
+func _join(f: float) -> float:
+	if _stage == 0: return 1.0 - smoothstep(_fb - 0.5, _f1 - 0.15, f)
+	if _stage >= 2: return smoothstep(_f0 + 0.15, 0.55, f)
+	return 1.0
+
+## his body, still; only the flipper paddles: the picture laid on a grid, each point below the shoulder turned round it
+## (by how far into the flipper it lies), so the body and its neck never move
+const FLIP_PIVOT := Vector2(66, 74)       # the shoulder, in the body picture's pixels
+func _draw_body(at: Vector2, col: Color) -> void:
+	var sz := _body.get_size()
+	var nx := 20
+	var ny := 12
+	var ang := sin(_t * 1.25) * 0.085 + sin(_t * 0.6) * 0.03
+	var verts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	var cols := PackedColorArray()
+	var idx := PackedInt32Array()
+	for j in ny + 1:
+		for i in nx + 1:
+			var p := Vector2(sz.x * i / nx, sz.y * j / ny)
+			var w := smoothstep(52.0, 100.0, p.x) * smoothstep(50.0, 74.0, p.y) * (1.0 - smoothstep(150.0, 200.0, p.x) * (1.0 - smoothstep(60.0, 80.0, p.y)))
+			var q := FLIP_PIVOT + (p - FLIP_PIVOT).rotated(ang * w)
+			verts.append(at + q)
+			uvs.append(p / sz)
+			cols.append(col)
+			if i < nx and j < ny:
+				var k := j * (nx + 1) + i
+				idx.append_array([k, k + 1, k + nx + 2, k, k + nx + 2, k + nx + 1])
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, verts, cols, uvs, PackedInt32Array(), PackedFloat32Array(), _body.get_rid())
+
 ## the neck's drawing laid end to end along its line from `from` on (every second piece mirrored: no seam)
 func _draw_neck(from: float, drop: Vector2, col: Color) -> void:
 	var th := float(_neck.get_height())
@@ -373,7 +405,8 @@ func _draw_neck(from: float, drop: Vector2, col: Color) -> void:
 			if k % 2 == 1:
 				ua = 1.0 - ua
 				ub = 1.0 - ub
-			Bend.draw(self, _line(a, b, drop), func(q: float) -> float: return _thick(lerpf(a, b, q)) * 0.5 * th / W, _neck, ua, ub, _flip != (_stage == 0), col)
+			Bend.draw(self, _line(a, b, drop), func(q: float) -> float: return _thick(lerpf(a, b, q)) * 0.5 * th / W, _neck, ua, ub, _flip != (_stage == 0),
+				func(q: float) -> Color: return Color(col, col.a * _join(lerpf(a, b, q))))
 		f0 = f1
 		k += 1
 
@@ -416,21 +449,22 @@ func _draw() -> void:
 	# his body under the first board's corner, the neck running into it
 	if _body and _stage == 0:
 		var ex := Vector2(float(_info.get("body_exit_x", _body.get_width())), float(_info.get("body_exit_y", 24)))
-		var at := ((_on_neck(_fb)[0] as Vector2) + Vector2(0, 0) - ex + drop + Vector2(0, roundf(sin(_t * 1.1) * 1.5))).round()
-		draw_texture(_body, at + Vector2(-4, 7), Color(0, 0, 0, 0.4 * fade))
-		draw_texture(_body, at, tint)
+		# (the body lies still - its neck must meet the board's neck - and only the flipper paddles)
+		var at := ((_on_neck(_fb)[0] as Vector2) - ex + drop).round()
+		_draw_body(at + Vector2(-4, 7), Color(0, 0, 0, 0.4 * fade))
+		_draw_body(at, tint)
 	if _neck:
 		# (on the last board the neck begins where the head's own neck ends: nothing of it under the head)
-		var nf := 0.0 if _stage >= 2 else _f0
+		var nf := _f0
 		_draw_neck(nf, drop + Vector2(-4, 7), Color(0, 0, 0, 0.45 * fade))
-		_draw_neck(nf, drop, tint)
+		if _stage < 2: _draw_neck(nf, drop, tint)
 	# his head on the last board, and the neck again over its neck's cut end: the joint lies under the hide
 	if _stage >= 2 and _heads.has("head"):
 		var tx: Texture2D = _heads[_mood()]
 		var at := _head_at() + drop
 		draw_texture(tx, at + Vector2(-5, 8), Color(0, 0, 0, 0.4 * fade))
 		draw_texture(tx, at, tint)
-		if _neck: _draw_neck(0.02, drop, tint)
+		if _neck: _draw_neck(_f0, drop, tint)
 	# the marked bite: the ring of his teeth round the square - still with two moves to go, throbbing with one
 	if not _mark.is_empty() and _maw:
 		var soon := _mark_left <= 1

@@ -1448,13 +1448,15 @@ func _count_granite() -> int:
 # has been knocked past it by then (he snaps at nothing), or a special is in the square: it goes off in his mouth,
 # four places up and he chokes (no slip next move).
 # Left alone he swallows: after cfg.idle moves in a row without a knock the lump goes cfg.idle_down places down more.
-# On the belly board the tide floods the two bottom rows every cfg.tide_every moves (nothing under water moves); on
-# the upper boards kelp off his neck grips stones of the lane every cfg.kelp_every moves.
+# On every board the water climbs a row every cfg.rise moves from the bottom up (nothing under it moves); it drives
+# the find up: under the water the lump slips cfg.drown_down more a move, and the board's water stays where it was
+# when the find left it (fall back and it is still there). The whole board under: he dives. On the upper boards
+# kelp off his neck grips stones of the lane every cfg.kelp_every moves.
 # And there is a count of moves (cfg.moves): out of them he dives, the find with him. The pebbles and the rubble of
 # a bite are granite (cfg.rock_hp 2: two blows).
-const GULP := {start = 0.45, slide = [1.0, 1.25, 1.5], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
-	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 3, idle_down = 2, moves = 48,
-	tide_every = [5, 0, 0], kelp_every = [0, 4, 5], kelp_n = 2}
+const GULP := {start = 0.45, slide = [0.5, 0.5, 0.75], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
+	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 0, idle_down = 2, moves = 48,
+	rise = [4, 4, 3], drown_down = 1, kelp_every = [0, 4, 5], kelp_n = 2}
 
 ## a board's stretch of neck: [cells (the top end first), sides (which way is out of the board at each: screen x, y)]
 func gulp_track(stage: int) -> Array:
@@ -1490,7 +1492,6 @@ func gulp_start(cfg: Dictionary) -> void:
 	gulp = {cfg = G0, stage = 0, track = [], sides = [], at = 0, stun = 0, acc = 0.0, lost = false, wait = 0, bite = {cells = [], left = 0}}
 	_gulp_stage(int(G0.get("stage0", 0)))
 	gulp.seen = [int(gulp.stage)]
-	moves = int(G0.moves)          # (he dives with the find when they are out)
 	gulp.at = clampi(int((gulp.track as Array).size() * float(G0.start)), 0, (gulp.track as Array).size() - 1)
 	_gulp_rocks()
 	_gulp_goal()
@@ -1503,12 +1504,30 @@ func _gulp_stage(st: int) -> void:
 	gulp.bite = {cells = [], left = 0}
 	gulp.wait = int(gulp.cfg.bite_every[st])
 	gulp.acc = 0.0
-	# the belly lies half under water: the tide floods the bottom rows there (the cove's own, tide_turn)
-	var te := int(gulp.cfg.tide_every[st])
-	tide = {every = te, rows = 2, moves = 2, wait = te} if te > 0 else {}
-	for r in R:
-		for c in C: TIDE[r][c] = 0
 	gulp.kelp = int(gulp.cfg.kelp_every[st])
+	# the water on this board: where it stood when the lump was last here (it keeps the boards below flooded)
+	if not gulp.has("water"): gulp.water = [0, 0, 0]
+	gulp.rise_wait = int(gulp.cfg.rise[st]) + 1
+	tide = {}
+	_gulp_flood()
+
+## the board's water: its bottom gulp.water[stage] rows under (TIDE: nothing there moves or matches). Returns the cells
+## that went under now
+func _gulp_flood() -> Array:
+	var lv: int = int((gulp.water as Array)[int(gulp.stage)])
+	var out: Array = []
+	for r in R:
+		for c in C:
+			var wet := r >= R - lv
+			if wet and not TIDE[r][c] and playable(r, c): out.append(Vector2i(r, c))
+			TIDE[r][c] = 999 if wet else 0
+	return out
+
+## is the lump's own place under the water?
+func gulp_drowned() -> bool:
+	var tr: Array = gulp.track
+	var p: Vector2i = tr[clampi(int(gulp.at), 0, tr.size() - 1)]
+	return TIDE[p.x][p.y] > 0
 
 ## where the lump stands on the whole neck: [places from the mouth, places in all]
 func gulp_overall() -> Array:
@@ -1606,6 +1625,11 @@ func _gulp_kelp() -> Array:
 		out.append(p)
 	return out
 
+## no move left above the water: the stones are shuffled; false if that does not help either
+func _gulp_reshuffle() -> bool:
+	shuffle()
+	return has_moves()
+
 ## the 2x2 he will bite: across the neck just ahead of the lump (towards the mouth) - two of its cells and the two
 ## inside them. Returns [cells, the farther of the two places on the neck], or [] if nothing there can be bitten
 func _gulp_mark() -> Array:
@@ -1620,7 +1644,7 @@ func _gulp_mark() -> Array:
 		var ok := true
 		for p: Vector2i in cells:
 			var g: Gem = G[p.x][p.y] if playable(p.x, p.y) else null
-			if g == null or LOCK[p.x][p.y] or ROCK[p.x][p.y] or g.item != "": ok = false
+			if g == null or LOCK[p.x][p.y] or ROCK[p.x][p.y] or TIDE[p.x][p.y] or g.item != "": ok = false
 		if ok: return [cells, i - 1]
 	return []
 
@@ -1632,7 +1656,7 @@ func gulp_after() -> Dictionary:
 	if gulp.is_empty() or over: return {}
 	var cfg: Dictionary = gulp.cfg
 	var out := {from = int(gulp.at), to = int(gulp.at), at = int(gulp.at), push = 0, harpoon = false, bite = {}, slid = 0, mark = [],
-		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false, gulped = false, idle = 0, kelp = []}
+		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false, gulped = false, idle = 0, kelp = [], flood = [], drown = false}
 	var kp := gulp_push()
 	dead_cells = []
 	_gulp_fx = {}
@@ -1690,6 +1714,12 @@ func gulp_after() -> Dictionary:
 		if int(gulp.kelp) <= 0:
 			gulp.kelp = int(cfg.kelp_every[int(gulp.stage)])
 			out.kelp = _gulp_kelp()
+	# the water climbs a row every cfg.rise moves, from the board's bottom up: it drives the find up his neck
+	gulp.rise_wait = int(gulp.get("rise_wait", 3)) - 1
+	if int(gulp.rise_wait) <= 0:
+		gulp.rise_wait = int(cfg.rise[int(gulp.stage)])
+		gulp.water[int(gulp.stage)] = mini(R, int(gulp.water[int(gulp.stage)]) + 1)
+		out.flood = _gulp_flood()
 	# (moves in a row without a knock: left alone, he swallows - the lump goes down more)
 	gulp.idle = 0 if int(kp.push) > 0 or not (out.bite as Dictionary).is_empty() and bool(out.bite.choke) else int(gulp.get("idle", 0)) + 1
 	out.idle = int(gulp.idle)
@@ -1699,6 +1729,10 @@ func gulp_after() -> Dictionary:
 			gulp.idle = 0
 			gulp.at = int(gulp.at) + int(cfg.idle_down)
 			out.gulped = true
+		# under the water it slips the faster: he swallows it down
+		if gulp_drowned():
+			gulp.at = int(gulp.at) + int(cfg.drown_down)
+			out.drown = true
 		gulp.acc = float(gulp.acc) + float(cfg.slide[int(gulp.stage)])
 		while float(gulp.acc) >= 1.0:
 			gulp.acc = float(gulp.acc) - 1.0
@@ -1716,6 +1750,12 @@ func gulp_after() -> Dictionary:
 			gulp.at = 2
 			out.moved = -1
 			out.stage = int(gulp.stage)
+	# the whole board under, or nothing left to move above the water: he dives with it
+	if not out.lost and int(out.moved) == 0 and (int(gulp.water[int(gulp.stage)]) >= R or not has_moves() and not _gulp_reshuffle()):
+		gulp.lost = true
+		out.lost = true
+		out.dived = true
+		over = true
 	if moves <= 0 and not out.lost:
 		# out of moves: he dives, the find with him
 		gulp.lost = true
@@ -2713,7 +2753,7 @@ func swap(r1: int, c1: int, r2: int, c2: int) -> Variant:
 	return {special = false, swap_cells = cells, events = []}
 
 func use_move() -> void:
-	moves -= 1
+	if gulp.is_empty(): moves -= 1     # (the hunt has no count of moves: the rising water is its clock)
 	dead_cells = []
 	_gulp_fx = {}
 	gas_hit = false

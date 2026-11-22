@@ -625,6 +625,10 @@ func _goal_burst(box: Control) -> void:
 
 func _render_moves() -> void:
 	moves_label.text = str(model.moves)
+	if not model.gulp.is_empty():
+		# no count of moves in the hunt: the rising water is the clock
+		moves_token.modulate.a = 0.0
+		return
 	var low := model.moves <= 5 and not model.over
 	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if low else Kit.AMBER)
 	# the last moves: the count throbs as each one goes
@@ -1369,7 +1373,6 @@ func _after_turn() -> void:
 	await _flights_done()
 	if gulp_view:
 		if await _gulp_turn(): return
-		if not model.tide.is_empty(): await _tide()
 		board.sync()
 		busy = false
 		idle = 0.0
@@ -1465,7 +1468,7 @@ const TIP := {
 	metal = "Molten metal holds a stone: it can't be moved or matched. Match beside it to crack it off",
 	pot = "A crucible! Two matches beside it break it - and its metal spills over the stones round it",
 	tube = "A billet. Only specials and boosters melt it, a piece at a time",
-	gulp_zone = "Your find glows in his neck. Match stones in the lit line across the board: that knocks it towards his mouth, a special beside it harder. Get it out before the moves run out: he dives",
+	gulp_zone = "Your find glows in his neck. Match stones in the lit line across the board: that knocks it towards his mouth, a special beside it harder. The water climbs from below: keep it above",
 	gulp_bite = "He will bite here in two moves and crush these stones to rubble across your find's way. Knock the find past it first - or get a special into the square: it goes off in his mouth",
 	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }
@@ -2465,25 +2468,22 @@ func _gulp_turn() -> bool:
 			Sfx.play("sea_gulp")
 			Sfx.buzz(50)
 			gulp_view.gulp_down()
-			if not Save.told("t_gulp_idle"):
-				Save.tell("t_gulp_idle")
-				_toast("Left alone, he swallows: knock the light every move or two")
 		await gulp_view.move_lump(float(a.at), 0.45)
 	if not (a.kelp as Array).is_empty():
-		board.over.queue_redraw()
-		for p: Vector2i in a.kelp: fx.sparkle(p.x, p.y, Color("#7fa35a"), 8)
-		Sfx.play("hiss")
-		if not Save.told("t_gulp_kelp"):
-			Save.tell("t_gulp_kelp")
-			_toast("Kelp off his neck grips the stones: match beside one to tear it free")
+		# kelp lashes out of the water onto the stones (BoardView.kelp_in: each grows round its stone)
+		board.kelp_grow(a.kelp)
+		Sfx.play("sea_rush")
+	if not (a.flood as Array).is_empty():
+		# the water climbs a row
+		board.tide_rise(a.flood)
+		Sfx.play("kr_tide")
+		Sfx.buzz(20)
 	gulp_view.warn = int(a.idle) >= int(model.gulp.cfg.idle) - 1 and int(model.gulp.cfg.idle) > 0
 	gulp_view.set_mark(model.gulp.bite.cells, int(model.gulp.bite.left))
 	if not (a.mark as Array).is_empty():
 		Sfx.play("hiss")
 		# the first bite marked: what it is, and what to do about it
-		if not Coach.off and not Save.told("gulp_bite"): await _coach_tap("gulp_bite", [_cells_rect(a.mark)])
 	if bool(a.lost):
-		if bool(a.get("dived", false)): _toast("Out of moves: he dives")
 		await _gulp_end(false)
 		return true
 	if not model.has_moves():

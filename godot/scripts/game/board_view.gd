@@ -679,7 +679,15 @@ func _draw_over(ci: Node2D) -> void:
 		for c in C:
 			if model.playable(r, c) and cell("LOCK", r, c) == 2 and not model.gulp.is_empty() and ResourceLoader.exists("res://assets/board/kelp/kelp_0.png"):
 				# the plesiosaur hunt: the same grip drawn as kelp (art/plesio_kelp)
-				BoardSprites.draw(ci, BoardSprites.kelp((r * 5 + c * 3) % 4), cell_center(r, c), TS)
+				var kk := 1.0
+				if kelp_in.has(r * C + c): kk = clampf((Time.get_ticks_msec() / 1000.0 - float(kelp_in[r * C + c])) / 0.55, 0.0, 1.0)
+				if kk <= 0.0: continue
+				# lashing round the stone: grows from nothing past its size and back, turning as it ties
+				var sc := 1.0 + 2.70158 * pow(kk - 1.0, 3.0) + 1.70158 * pow(kk - 1.0, 2.0)
+				var w := TS * BoardSprites.SPAN * sc
+				ci.draw_set_transform(cell_center(r, c), (1.0 - kk) * 2.4 * (1.0 if (r + c) % 2 == 0 else -1.0), Vector2.ONE)
+				ci.draw_texture_rect(BoardSprites.kelp((r * 5 + c * 3) % 4), Rect2(-Vector2(w, w) * 0.5, Vector2(w, w)), false, Color(1, 1, 1, minf(1.0, kk * 2.0)))
+				ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 			elif model.playable(r, c) and cell("LOCK", r, c) == 2:
 				BoardSprites.draw(ci, BoardSprites.malachite("crust_%d" % BoardSprites.malachite_look(r, c)), cell_center(r, c), TS)
 			elif model.playable(r, c) and cell("LOCK", r, c) == 1:
@@ -875,7 +883,16 @@ func _process(dt: float) -> void:
 		live.queue_redraw()
 	if model and not model.flower.is_empty():
 		flower_layer.queue_redraw()
-	if model and not model.boss_on() and (not model.tentacles.is_empty() or not model.tide.is_empty()):
+	if model and not kelp_in.is_empty():
+		over.queue_redraw()
+		var now_k := Time.get_ticks_msec() / 1000.0
+		for k: int in kelp_in.keys():
+			if now_k - float(kelp_in[k]) > 0.8: kelp_in.erase(k)
+	if model and not tide_in.is_empty():
+		var now_t := Time.get_ticks_msec() / 1000.0
+		for k: int in tide_in.keys():
+			if now_t - float(tide_in[k]) > 0.9: tide_in.erase(k)
+	if model and not model.boss_on() and (not model.tentacles.is_empty() or not model.tide.is_empty() or not model.gulp.is_empty()):
 		sea_over.queue_redraw()   # the cove's tentacles writhe and its tide laps on its own levels too
 	if model: _ink_gems(dt)
 	if model and model.boss_on():
@@ -1099,6 +1116,23 @@ func _draw_ink(ci: Node2D) -> void:
 	ci.draw_texture_rect(_white, Rect2(Vector2(PAD - TS, PAD - TS), Vector2(C + 2, R + 2) * TS), false)
 
 ## the tide over the bottom rows, the tentacles gripping their stones
+## the plesiosaur hunt: cells the water has just come over (idx -> when): it fills them from the bottom up
+var tide_in := {}
+func tide_rise(cells: Array) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	for p: Vector2i in cells: tide_in[p.x * C + p.y] = now + (C - 1 - p.y) * 0.0 + randf() * 0.08
+	sea_over.queue_redraw()
+
+## the plesiosaur hunt: kelp that has just gripped a stone (idx -> when): it lashes round it, growing and turning
+var kelp_in := {}
+func kelp_grow(cells: Array) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var i := 0
+	for p: Vector2i in cells:
+		kelp_in[p.x * C + p.y] = now + i * 0.12
+		i += 1
+	over.queue_redraw()
+
 func _draw_sea_over(ci: Node2D) -> void:
 	if model == null: return
 	var now := Time.get_ticks_msec() / 1000.0
@@ -1107,8 +1141,13 @@ func _draw_sea_over(ci: Node2D) -> void:
 			if not model.playable(r, c): continue
 			var p := Vector2(PAD + c * TS, PAD + r * TS)
 			if model.TIDE[r][c]:
-				ci.draw_rect(Rect2(p, Vector2(TS, TS)), Color(0.08, 0.3, 0.42, 0.62))
-				if r == 0 or not model.TIDE[r - 1][c]:
+				var fill := 1.0
+				if tide_in.has(r * C + c): fill = clampf((now - float(tide_in[r * C + c])) / 0.7, 0.0, 1.0)
+				fill = 1.0 - pow(1.0 - fill, 2.0)
+				if fill <= 0.0: continue
+				p.y += TS * (1.0 - fill)
+				ci.draw_rect(Rect2(p, Vector2(TS, TS * fill)), Color(0.08, 0.3, 0.42, 0.62))
+				if r == 0 or not model.TIDE[r - 1][c] or fill < 1.0:
 					var wave := PackedVector2Array()
 					for i in 9:
 						var x := i / 8.0
