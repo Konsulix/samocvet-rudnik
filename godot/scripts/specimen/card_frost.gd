@@ -15,12 +15,20 @@ const DEPTH := 190.0         # how deep the strip runs in from the stone's frame
 const CAP := 1.0             # how far it reaches at its fullest (the shader's growth)
 
 static var test_period := 0.0   # a test key (-- frost_period=S): the cycle S s long, starting now
+## the frost drawn by code (FrostFronds: fronds grown from the rim, every knob in its P) — or, `-- frost_photo`, the
+## photo strip through shaders/card_frost.gdshader as before
+static var photo := false
+var _fronds: Array[FrostFronds] = []
 
 var card: Control
 var phase := 0.0
 var period := 16.0
 var _pieces: Array[ColorRect] = []
 var _was_t := 2.0
+var _was_t2 := 2.0
+## its own clock, by the frames (the stone's frost runs on the shader's TIME, which a recording slows with the game;
+## the wall clock it was read from ran ahead of a recording)
+var _now := Time.get_ticks_msec() / 1000.0
 var _rng := RandomNumberGenerator.new()
 
 ## p: the built find; view: its stone's frame; info: the panel under it (its first child is its slate)
@@ -32,10 +40,36 @@ static func attach(card_: Control, view: Control, info: Control, p: Node3D) -> v
 	cf.period = float(m[1])
 	cf.card = card_
 	card_.add_child(cf)
+	var at := (view as SpecView)._img.get_index() + 1 if view is SpecView else 1
+	if not photo:
+		# over the stone's picture, under the name...: from the frame's left, top and right; the stone's oval clear
+		cf._fronds_in(view, at, 14, DEPTH, false)
+		# over the panel's slate, under its words and buttons: from all four of its sides, shallower
+		cf._fronds_in(info, 1, 15, DEPTH * 0.4, true)
+		return
 	# over the stone's picture, under the name, the shade, the ✕ and the callouts
-	cf._piece(view, (view as SpecView)._img.get_index() + 1 if view is SpecView else 1)
+	cf._piece(view, at)
 	# over the panel's slate (its first child), under its words and buttons — a zone of its own: from its own four sides
 	cf._piece(info, 1).set_meta("zone", 1.0)
+
+func _fronds_in(host: Control, at: int, sides: int, depth: float, panel: bool) -> void:
+	var f := FrostFronds.new()
+	f.sides = sides
+	f.depth = depth
+	f.rng.randomize()
+	if panel:
+		var hold := Control.new()
+		hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		host.add_child(hold)
+		host.move_child(hold, mini(at, host.get_child_count() - 1))
+		hold.add_child(f)
+		f.set_meta("whole", host)
+	else:
+		host.add_child(f)
+		host.move_child(f, mini(at, host.get_child_count() - 1))
+		f.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		f.set_meta("oval", true)
+	_fronds.append(f)
 
 func _piece(host: Control, at: int) -> ColorRect:
 	var r := ColorRect.new()
@@ -64,7 +98,7 @@ func _piece(host: Control, at: int) -> ColorRect:
 func _ready() -> void:
 	if test_period > 0.0:
 		period = test_period
-		phase = -Time.get_ticks_msec() / 1000.0 / period
+		phase = -_now / period
 
 func _reroll() -> void:
 	for r in _pieces:
@@ -78,16 +112,31 @@ func _reroll() -> void:
 		sm.set_shader_parameter("ss", Vector4(_rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15)))
 		sm.set_shader_parameter("sa", Vector4(_rng.randf(), _rng.randf(), _rng.randf(), _rng.randf()))
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
+	_now += dt
 	if not is_instance_valid(card): return
 	# the stone's own cycle: grow, hold, thaw (as shaders/frost_bloom.gdshader keeps it)
-	var t := fposmod(Time.get_ticks_msec() / 1000.0 / period + phase, 1.0)
+	var t := fposmod(_now / period + phase, 1.0)
 	# a new cycle: each side of each zone its own start, pace and spot along the rim, this time
 	if t < _was_t: _reroll()
 	_was_t = t
 	var grow := CAP * smoothstep(0.0, 0.5, t)
 	var thaw := smoothstep(0.76, 0.98, t)
 	var inv := card.get_global_transform().affine_inverse()
+	for f in _fronds:
+		if not is_instance_valid(f): continue
+		if f.has_meta("whole"):
+			var whole: Control = f.get_meta("whole")
+			f.global_position = whole.global_position
+			f.size = whole.size
+		if t < _was_t2: f.regrow()
+		if f.has_meta("oval"):
+			# the stone's oval, in the frond layer's own space
+			var o := inv * f.global_position
+			f.avoid = Rect2(card.size * Vector2(0.5 - 0.36, 0.34 - 0.22) - o, card.size * Vector2(0.72, 0.44))
+		# grown out along the fronds as it grows, back along them as it thaws
+		f.g = f.full() * minf(1.0, grow / maxf(CAP, 0.001)) * (1.0 - thaw)
+	_was_t2 = t
 	for r in _pieces:
 		if not is_instance_valid(r): continue
 		if r.has_meta("whole"):
