@@ -42,10 +42,19 @@ func _piece(host: Control, at: int) -> void:
 	sm.set_shader_parameter("ferns", TEX)
 	sm.set_shader_parameter("tile", TILE)
 	r.material = sm
-	host.add_child(r)
-	host.move_child(r, mini(at, host.get_child_count() - 1))
-	# (a container lays its children out: in the panel it fills its content rect, as the slate is laid)
-	if not host is Container: r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if host is Container:
+		# (a container lays its children out inside its margins: the frost goes in a holder it lays out, and itself
+		# covers the whole panel — to its very edge, as the slate is drawn — 22.11: it began in a box inside the panel)
+		var hold := Control.new()
+		hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		host.add_child(hold)
+		host.move_child(hold, mini(at, host.get_child_count() - 1))
+		hold.add_child(r)
+		r.set_meta("whole", host)
+	else:
+		host.add_child(r)
+		host.move_child(r, mini(at, host.get_child_count() - 1))
+		r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pieces.append(r)
 
 func _ready() -> void:
@@ -62,6 +71,10 @@ func _process(_dt: float) -> void:
 	var inv := card.get_global_transform().affine_inverse()
 	for r in _pieces:
 		if not is_instance_valid(r): continue
+		if r.has_meta("whole"):
+			var whole: Control = r.get_meta("whole")
+			r.global_position = whole.global_position
+			r.size = whole.size
 		var sm := r.material as ShaderMaterial
 		sm.set_shader_parameter("card", card.size)
 		sm.set_shader_parameter("origin", inv * r.global_position)
