@@ -220,6 +220,11 @@ static func _worth(m: BoardModel) -> float:
 		var kp := m.gulp_push()
 		v += float(kp.push) * 12.0
 		if int(m.gulp.at) - int(kp.push) < 0: v += 500.0
+		# (rock on the neck ahead of the lump bars its way: break it)
+		var gtr: Array = m.gulp.track
+		for gi in range(maxi(0, int(m.gulp.at) - 4), mini(gtr.size(), int(m.gulp.at) + 2)):
+			var gp: Vector2i = gtr[gi]
+			v -= float(m.ROCK[gp.x][gp.y]) * 7.0
 		for p: Vector2i in m.gulp.bite.cells:
 			var bg: BoardModel.Gem = m.G[p.x][p.y]
 			if bg and bg.sp != "": v += 25.0

@@ -38,6 +38,8 @@ var _spit := -1.0                # 0..1: the find flying out of his mouth; -2: i
 var _sink := 0.0                 # 0..1: he goes under (lost, or off after the find is out)
 var _hurt := 0.0
 var _blink := 0.0
+var warn := false                # a move more without a knock and he swallows: the light beats red
+var _gulp := 0.0                 # he swallows: a throb down the neck
 var _blink_in := 2.0
 var _pops: Array = []            # ["+2", where, age, big]
 var _bits: Array = []            # [pos, vel, life, colour, size]: what flies from a bite
@@ -156,6 +158,7 @@ func _process(dt: float) -> void:
 	_t += dt
 	_flash = maxf(0.0, _flash - dt * 2.5)
 	_hurt = maxf(0.0, _hurt - dt * 1.4)
+	_gulp = maxf(0.0, _gulp - dt * 1.6)
 	_blink = maxf(0.0, _blink - dt)
 	_blink_in -= dt
 	if _blink_in <= 0.0:
@@ -184,6 +187,11 @@ func knock(hard: bool, n: int) -> void:
 	_flash = 1.0
 	_hurt = 0.9 if hard else 0.45
 	_pops.append(["+%d" % n, (_on_neck(_at)[0] as Vector2), 0.0, hard])
+
+## he swallows (left alone too long): the light flares red, the neck throbs
+func gulp_down() -> void:
+	_gulp = 1.0
+	_hurt = 0.0
 
 func set_mark(cells: Array, left: int) -> void:
 	_mark = cells
@@ -333,7 +341,7 @@ func _thick(f: float) -> float:
 	var w := _w()
 	if _stage >= 2: w *= lerpf(float(_info.get("head_k", 1.5)), 1.0, smoothstep(0.2, 3.6, f))
 	var near := absf(f - _at)
-	if near < 1.1 and _spit < 0.0 and _spit > -1.5: w *= 1.0 + 0.3 * (1.0 - near / 1.1)
+	if near < 1.1 and _spit < 0.0 and _spit > -1.5: w *= 1.0 + (0.3 + 0.35 * _gulp) * (1.0 - near / 1.1)
 	return w
 
 ## the neck's drawing laid end to end along its line from `from` on (every second piece mirrored: no seam)
@@ -429,6 +437,10 @@ func _draw() -> void:
 		GemArt.radial_disc(self, lp, r * 5.2, Color(glow, 0.5 * br * fade), Color(glow, 0.2 * fade), Color(glow, 0))
 		GemArt.radial_disc(self, lp, r * 1.7, Color(glow.lerp(Color.WHITE, 0.7), 0.95 * fade), Color(glow, 0.7 * br * fade), Color(glow, 0))
 		draw_circle(lp, r * 0.42, Color(1, 1, 1, 0.9 * fade))
+		if warn or _gulp > 0.0:
+			# about to be swallowed (a red beat round the light), swallowed (a red flare)
+			var rk := maxf(_gulp, 0.35 + 0.35 * sin(_t * 9.0)) if warn else _gulp
+			GemArt.radial_disc(self, lp, r * (3.2 + 3.0 * _gulp), Color(0.95, 0.15, 0.1, 0.0), Color(0.95, 0.15, 0.1, 0.55 * rk * fade), Color(0.95, 0.15, 0.1, 0))
 		if _flash > 0.0:
 			GemArt.radial_disc(self, lp, r * (4.0 + 6.0 * (1.0 - _flash)), Color(1, 1, 1, 0.8 * _flash), Color(glow, 0.4 * _flash), Color(glow, 0))
 	# what flies from a bite: teeth-white, blood, water, the find's light - squares, on the same grid

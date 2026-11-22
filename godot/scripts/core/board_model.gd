@@ -1447,8 +1447,11 @@ func _count_granite() -> int:
 # 2x2 across the neck just ahead of the lump and two moves on crushes its stones to rubble (rock) - unless the lump
 # has been knocked past it by then (he snaps at nothing), or a special is in the square: it goes off in his mouth,
 # four places up and he chokes (no slip next move).
-const GULP := {start = 0.45, slide = [0.75, 1.0, 1.0], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
-	bite_down = 2, choke_up = 4, rocks = [4, 5, 4], stages = 3}
+# Left alone he swallows: after cfg.idle moves in a row without a knock the lump goes cfg.idle_down places down more.
+# And there is a count of moves (cfg.moves): out of them he dives, the find with him. The pebbles and the rubble of
+# a bite are granite (cfg.rock_hp 2: two blows).
+const GULP := {start = 0.45, slide = [0.5, 0.75, 1.0], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
+	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 3, idle_down = 2, moves = 60}
 
 ## a board's stretch of neck: [cells (the top end first), sides (which way is out of the board at each: screen x, y)]
 func gulp_track(stage: int) -> Array:
@@ -1484,6 +1487,7 @@ func gulp_start(cfg: Dictionary) -> void:
 	gulp = {cfg = G0, stage = 0, track = [], sides = [], at = 0, stun = 0, acc = 0.0, lost = false, wait = 0, bite = {cells = [], left = 0}}
 	_gulp_stage(int(G0.get("stage0", 0)))
 	gulp.seen = [int(gulp.stage)]
+	moves = int(G0.moves)          # (he dives with the find when they are out)
 	gulp.at = clampi(int((gulp.track as Array).size() * float(G0.start)), 0, (gulp.track as Array).size() - 1)
 	_gulp_rocks()
 	_gulp_goal()
@@ -1556,8 +1560,8 @@ func _gulp_rocks() -> Array:
 		var g: Gem = G[p.x][p.y]
 		out.append([p, g.id])
 		G[p.x][p.y] = null
-		ROCK[p.x][p.y] = 1
-		ROCK_MAX[p.x][p.y] = 1
+		ROCK[p.x][p.y] = int(gulp.cfg.rock_hp)
+		ROCK_MAX[p.x][p.y] = int(gulp.cfg.rock_hp)
 	return out
 
 ## the 2x2 he will bite: across the neck just ahead of the lump (towards the mouth) - two of its cells and the two
@@ -1586,7 +1590,7 @@ func gulp_after() -> Dictionary:
 	if gulp.is_empty() or over: return {}
 	var cfg: Dictionary = gulp.cfg
 	var out := {from = int(gulp.at), to = int(gulp.at), at = int(gulp.at), push = 0, harpoon = false, bite = {}, slid = 0, mark = [],
-		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false}
+		stage = int(gulp.stage), moved = 0, rocks = [], won = false, lost = false, gulped = false, idle = 0}
 	var kp := gulp_push()
 	dead_cells = []
 	_gulp_fx = {}
@@ -1617,8 +1621,8 @@ func gulp_after() -> Dictionary:
 					G[p.x][p.y] = null
 					if not choke:
 						# crushed to rubble: rock across the find's way
-						ROCK[p.x][p.y] = 1
-						ROCK_MAX[p.x][p.y] = 1
+						ROCK[p.x][p.y] = int(cfg.rock_hp)
+						ROCK_MAX[p.x][p.y] = int(cfg.rock_hp)
 			out.bite = {cells = B.cells, hit = cells, ids = ids, choke = choke, miss = miss and not choke}
 			gulp.bite = {cells = [], left = 0}
 			gulp.wait = int(cfg.bite_every[int(gulp.stage)])
@@ -1638,8 +1642,15 @@ func gulp_after() -> Dictionary:
 	# the slip towards the belly
 	var n: int = (gulp.track as Array).size()
 	var before: int = gulp.at
+	# (moves in a row without a knock: left alone, he swallows - the lump goes down more)
+	gulp.idle = 0 if int(kp.push) > 0 or not (out.bite as Dictionary).is_empty() and bool(out.bite.choke) else int(gulp.get("idle", 0)) + 1
+	out.idle = int(gulp.idle)
 	if int(gulp.stun) > 0: gulp.stun = int(gulp.stun) - 1
 	elif before < n:
+		if int(cfg.idle) > 0 and int(gulp.idle) >= int(cfg.idle):
+			gulp.idle = 0
+			gulp.at = int(gulp.at) + int(cfg.idle_down)
+			out.gulped = true
 		gulp.acc = float(gulp.acc) + float(cfg.slide[int(gulp.stage)])
 		while float(gulp.acc) >= 1.0:
 			gulp.acc = float(gulp.acc) - 1.0
@@ -1657,6 +1668,12 @@ func gulp_after() -> Dictionary:
 			gulp.at = 2
 			out.moved = -1
 			out.stage = int(gulp.stage)
+	if moves <= 0 and not out.lost:
+		# out of moves: he dives, the find with him
+		gulp.lost = true
+		out.lost = true
+		out.dived = true
+		over = true
 	out.at = int(gulp.at)
 	_gulp_goal()
 	return out
@@ -2648,7 +2665,7 @@ func swap(r1: int, c1: int, r2: int, c2: int) -> Variant:
 	return {special = false, swap_cells = cells, events = []}
 
 func use_move() -> void:
-	if gulp.is_empty(): moves -= 1     # (the hunt has no count of moves: the lump in his neck is the clock)
+	moves -= 1
 	dead_cells = []
 	_gulp_fx = {}
 	gas_hit = false
