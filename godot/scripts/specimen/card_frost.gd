@@ -30,10 +30,10 @@ static func attach(card_: Control, view: Control, info: Control, p: Node3D) -> v
 	card_.add_child(cf)
 	# over the stone's picture, under the name, the shade, the ✕ and the callouts
 	cf._piece(view, (view as SpecView)._img.get_index() + 1 if view is SpecView else 1)
-	# over the panel's slate (its first child), under its words and buttons
-	cf._piece(info, 1)
+	# over the panel's slate (its first child), under its words and buttons — a zone of its own: from its own four sides
+	cf._piece(info, 1).set_meta("zone", 1.0)
 
-func _piece(host: Control, at: int) -> void:
+func _piece(host: Control, at: int) -> ColorRect:
 	var r := ColorRect.new()
 	r.color = Color.WHITE
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -56,6 +56,7 @@ func _piece(host: Control, at: int) -> void:
 		host.move_child(r, mini(at, host.get_child_count() - 1))
 		r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pieces.append(r)
+	return r
 
 func _ready() -> void:
 	if test_period > 0.0:
@@ -81,3 +82,4 @@ func _process(_dt: float) -> void:
 		sm.set_shader_parameter("rsize", r.size)
 		sm.set_shader_parameter("grow", grow)
 		sm.set_shader_parameter("thaw", thaw)
+		sm.set_shader_parameter("zone", float(r.get_meta("zone", 0.0)))

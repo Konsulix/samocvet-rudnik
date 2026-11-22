@@ -13,6 +13,9 @@ uniform vec2 rsize = vec2(360.0, 700.0);
 uniform float grow = 0.0;
 uniform float thaw = 0.0;
 uniform float tile = 300.0;
+// 0: the stone's zone (from the card's rim, its oval kept clear); 1: the info panel, a zone of its own: the frost grows
+// in from all four of its own sides (22.11: laid out by the card it ran on under the panel's top edge, cut off there)
+uniform float zone = 0.0;
 
 float h21(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -21,9 +24,12 @@ void fragment() {
 	vec3 t = texture(ferns, p / tile).rgb;
 	// the rim freezes first (by the depth from it, in points), the stone's oval in the card's upper part not at all;
 	// the front wanders, the dense masses of ferns run ahead of it
-	float e = min(min(min(p.x, p.y), min(card.x - p.x, card.y - p.y)) / 150.0, 1.0);
+	vec2 zp = zone > 0.5 ? UV * rsize : p;
+	vec2 zs = zone > 0.5 ? rsize : card;
+	// (the panel is small: its fringe of frost is narrower, the words keep clear)
+	float e = min(min(min(zp.x, zp.y), min(zs.x - zp.x, zs.y - zp.y)) / (zone > 0.5 ? 75.0 : 150.0), 1.0);
 	vec2 so = (p - card * vec2(0.5, 0.34)) / (card * vec2(0.36, 0.22));
-	float stone = max(0.0, 1.0 - dot(so, so));
+	float stone = zone > 0.5 ? 0.0 : max(0.0, 1.0 - dot(so, so));
 	float front = grow * 1.2 - (e * 0.8 + t.b * 0.35 - t.g * 0.25 + stone * 0.9);
 	float c = smoothstep(0.0, 0.18, front);
 	// the thaw eats it in patches, the inner edge first
