@@ -375,17 +375,6 @@ func _draw() -> void:
 			var rr := Rect2(c - Vector2(TS, TS) * 0.46, Vector2(TS, TS) * 0.92)
 			draw_rect(rr, Color(glow, 0.10 + 0.08 * pulse), true)
 			draw_rect(rr, Color(glow, 0.55 + 0.35 * pulse), false, maxf(2.0, TS * 0.06))
-	# the marked bite: the ring of his teeth round the square - still with two moves to go, throbbing with one
-	if not _mark.is_empty() and _maw:
-		var soon := _mark_left <= 1
-		var hot := (0.5 + 0.5 * sin(_t * 11.0)) if soon else 0.0
-		var mc := Vector2.ZERO
-		for p: Vector2i in _mark: mc += board.cell_center(float(p.x), float(p.y))
-		mc /= float(_mark.size())
-		draw_rect(Rect2(mc - Vector2(TS, TS), Vector2(TS, TS) * 2.0), Color(0.45, 0.02, 0.04, 0.16 + 0.22 * hot), true)
-		var ms := _maw.get_size() * (TS / 37.0) * (1.0 + 0.05 * hot)
-		var mcol := Color(1.0, 1.0 - 0.14 * hot, 1.0 - 0.14 * hot) if soon else Color(1, 1, 1, 0.9)
-		draw_texture_rect(_maw, Rect2(mc - ms * 0.5, ms), false, mcol)
 	# the snap: the ring shuts on the stones, then fades - or flies apart, if a special went off in it
 	if _maw and (_snap >= 0.0 or _burst >= 0.0):
 		var k := 0.58
@@ -410,8 +399,10 @@ func _draw() -> void:
 		draw_texture(_body, at + Vector2(-4, 7), Color(0, 0, 0, 0.4 * fade))
 		draw_texture(_body, at, tint)
 	if _neck:
-		_draw_neck(_f0, drop + Vector2(-4, 7), Color(0, 0, 0, 0.45 * fade))
-		_draw_neck(_f0, drop, tint)
+		# (on the last board the neck begins where the head's own neck ends: nothing of it under the head)
+		var nf := 0.0 if _stage >= 2 else _f0
+		_draw_neck(nf, drop + Vector2(-4, 7), Color(0, 0, 0, 0.45 * fade))
+		_draw_neck(nf, drop, tint)
 	# his head on the last board, and the neck again over its neck's cut end: the joint lies under the hide
 	if _stage >= 2 and _heads.has("head"):
 		var tx: Texture2D = _heads[_mood()]
@@ -419,6 +410,17 @@ func _draw() -> void:
 		draw_texture(tx, at + Vector2(-5, 8), Color(0, 0, 0, 0.4 * fade))
 		draw_texture(tx, at, tint)
 		if _neck: _draw_neck(0.02, drop, tint)
+	# the marked bite: the ring of his teeth round the square - still with two moves to go, throbbing with one
+	if not _mark.is_empty() and _maw:
+		var soon := _mark_left <= 1
+		var hot := (0.5 + 0.5 * sin(_t * 11.0)) if soon else 0.0
+		var mc := Vector2.ZERO
+		for p: Vector2i in _mark: mc += board.cell_center(float(p.x), float(p.y))
+		mc /= float(_mark.size())
+		draw_rect(Rect2(mc - Vector2(TS, TS), Vector2(TS, TS) * 2.0), Color(0.45, 0.02, 0.04, 0.16 + 0.22 * hot), true)
+		var ms := _maw.get_size() * (TS / 37.0) * (1.0 + 0.05 * hot)
+		var mcol := Color(1.0, 1.0 - 0.14 * hot, 1.0 - 0.14 * hot) if soon else Color(1, 1, 1, 0.9)
+		draw_texture_rect(_maw, Rect2(mc - ms * 0.5, ms), false, mcol)
 	# the find in his neck: its light through the hide
 	if _spit < 0.0 and _spit > -1.5:
 		var lp: Vector2 = (_on_neck(_at)[0] as Vector2) + drop
@@ -456,13 +458,18 @@ func _draw() -> void:
 		draw_circle(p, r, Color(glow.lerp(Color.WHITE, 0.4), 1.0))
 		draw_circle(p + Vector2(-r * 0.25, -r * 0.3), r * 0.35, Color(1, 1, 1, 0.9))
 
-## The scale on the level's plate: his belly at the left, his mouth at the right, the find's light between, the three
-## boards of the climb marked off - where it stands, which way is out, how near the belly is
+## The map on the level's plate, in the hunt ribbon's make (brass beads): his neck in three rows, zigzagging up as the
+## boards do - the belly's row at the bottom from the left, the neck's back from the right, the throat's at the top
+## out to his teeth. A bead a place; the find's light on its own; the beads it has still to climb are bright
 class Bar:
 	extends Control
 	var model: BoardModel
 	var glow := Color("#9be8ff")
+	var maw: Texture2D
 	var _shown := -1.0
+
+	func _ready() -> void:
+		if ResourceLoader.exists(GulpView.DIR + "maw.png"): maw = load(GulpView.DIR + "maw.png")
 
 	func _process(dt: float) -> void:
 		if model == null or model.gulp.is_empty(): return
@@ -470,29 +477,46 @@ class Bar:
 		_shown = at if _shown < 0.0 else lerpf(_shown, at, minf(1.0, dt * 8.0))
 		queue_redraw()
 
+	func _bead(p: Vector2, gold: bool) -> void:
+		draw_circle(p + Vector2(0.3, 0.5), 2.5, Color(0, 0, 0, 0.55))
+		draw_circle(p, 2.0, Color("#d9a441") if gold else Color("#6b5633"))
+		draw_circle(p + Vector2(-0.6, -0.6), 0.9, Color("#ffe9a8") if gold else Color("#a08a5c"))
+
 	func _draw() -> void:
 		if model == null or model.gulp.is_empty(): return
-		var total := float(model.gulp_overall()[1])
-		var f := UI.body_bold
-		var x0 := 46.0
-		var x1 := size.x - 50.0
-		var y := size.y * 0.42
-		draw_string(f, Vector2(4, y + 5), "BELLY", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#c9584a"))
-		draw_string(f, Vector2(x1 + 8, y + 5), "MOUTH", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(glow, 0.95))
-		draw_line(Vector2(x0, y), Vector2(x1, y), Color(0, 0, 0, 0.55), 8.0)
-		draw_line(Vector2(x0, y), Vector2(x1, y), Color("#3d5560"), 4.0)
-		draw_line(Vector2(x0, y), Vector2(lerpf(x0, x1, 0.12), y), Color("#7a2a22"), 4.0)
-		# the boards of the climb: a notch where one ends
-		var acc := 0.0
 		var stages := int(model.gulp.cfg.stages)
+		var x0 := 26.0
+		var x1 := size.x - 34.0
+		var rows: Array = []          # the places from the mouth on: [point, ...]
+		for st in range(stages - 1, -1, -1):
+			var n: int = (model.gulp_track(st)[0] as Array).size()
+			var y := lerpf(size.y - 9.0, 9.0, float(st) / float(maxi(stages - 1, 1)))
+			var to_right := st % 2 == 0          # (this row runs left to right, going up his neck)
+			for i in n:
+				var k := 1.0 - (i + 0.5) / float(n)      # (0 at the row's lower end .. 1 at its upper)
+				rows.append(Vector2(lerpf(x0, x1, k if to_right else 1.0 - k), y))
+		# the turns between the rows, and the two ends: his teeth, his belly
+		var acc := 0
 		for st in range(stages - 1, 0, -1):
-			acc += float((model.gulp_track(st)[0] as Array).size())
-			var x := lerpf(x1, x0, acc / total)
-			draw_rect(Rect2(x - 1.5, y - 7, 3, 14), Color("#d8c48a"))
-		var px := lerpf(x1, x0, clampf(_shown / (total - 1.0), 0.0, 1.0))
+			acc += (model.gulp_track(st)[0] as Array).size()
+			var a: Vector2 = rows[acc - 1]
+			var b: Vector2 = rows[acc]
+			var out := 9.0 if a.x > size.x * 0.5 else -9.0
+			for j in range(1, 4):
+				var q := j / 4.0
+				_bead(Vector2(a.x + out * sin(q * PI), lerpf(a.y, b.y, q)), _shown > acc - 0.5)
+		var at := clampf(_shown, 0.0, float(rows.size() - 1))
+		for i in rows.size():
+			if absf(float(i) - at) < 0.6: continue
+			_bead(rows[i], float(i) < at)
+		var top: Vector2 = rows[0]
+		if maw: draw_texture_rect(maw, Rect2(top + Vector2(5, -11), Vector2(22, 22)), false)
+		var end: Vector2 = rows[rows.size() - 1]
+		draw_circle(end + Vector2(-9, 0), 5.0, Color(0, 0, 0, 0.6))
+		draw_circle(end + Vector2(-9, 0), 4.0, Color("#8e1f1a"))
+		draw_circle(end + Vector2(-10.2, -1.2), 1.5, Color("#e2675a"))
+		var i0 := int(floorf(at))
+		var lp: Vector2 = (rows[i0] as Vector2).lerp(rows[mini(i0 + 1, rows.size() - 1)], at - float(i0))
 		var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 1000.0 * 5.0)
-		GemArt.radial_disc(self, Vector2(px, y), 15.0, Color(glow, 0.6 * pulse), Color(glow, 0.2), Color(glow, 0))
-		draw_circle(Vector2(px, y), 5.0, Color(glow.lerp(Color.WHITE, 0.6), 1.0))
-		var hint := "Match in the lit cells: push the light to his mouth"
-		var sz := f.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10)
-		draw_string(f, Vector2((size.x - sz.x) / 2, size.y - 3), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.55))
+		GemArt.radial_disc(self, lp, 13.0, Color(glow, 0.6 * pulse), Color(glow, 0.2), Color(glow, 0))
+		draw_circle(lp, 4.0, Color(glow.lerp(Color.WHITE, 0.6), 1.0))

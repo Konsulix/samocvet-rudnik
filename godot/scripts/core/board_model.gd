@@ -1443,9 +1443,10 @@ func _count_granite() -> int:
 # end it is on the next board up (at its bottom); slipped past a board's bottom end, on the one below (at its top) -
 # off the belly's end the find is lost; past the mouth it is out, won. No count of moves.
 # In the way: pebbles (gastroliths: he swallows stones for ballast) lie in cells along the neck on every board -
-# rock, to be broken before a match there can count. On the upper boards his head bites: it marks a 2x2 and two
-# moves on takes it out of the board - plain stones: the lump goes down two; a special among them goes off in his
-# mouth: four places up and he chokes (no slip next move).
+# rock, to be broken before a match there can count. On the upper boards he bites to bar the find's way: he marks a
+# 2x2 across the neck just ahead of the lump and two moves on crushes its stones to rubble (rock) - unless the lump
+# has been knocked past it by then (he snaps at nothing), or a special is in the square: it goes off in his mouth,
+# four places up and he chokes (no slip next move).
 const GULP := {start = 0.45, slide = [0.75, 1.0, 1.0], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
 	bite_down = 2, choke_up = 4, rocks = [4, 5, 4], stages = 3}
 
@@ -1559,19 +1560,23 @@ func _gulp_rocks() -> Array:
 		ROCK_MAX[p.x][p.y] = 1
 	return out
 
-## the 2x2 he will bite: plain stones away from the edges
+## the 2x2 he will bite: across the neck just ahead of the lump (towards the mouth) - two of its cells and the two
+## inside them. Returns [cells, the farther of the two places on the neck], or [] if nothing there can be bitten
 func _gulp_mark() -> Array:
-	var cand: Array = []
-	for r in range(1, R - 2):
-		for c in range(1, C - 2):
-			var ok := true
-			for d: Vector2i in [Vector2i(0, 0), Vector2i(0, 1), Vector2i(1, 0), Vector2i(1, 1)]:
-				var g: Gem = G[r + d.x][c + d.y] if playable(r + d.x, c + d.y) else null
-				if g == null or LOCK[r + d.x][c + d.y] or g.item != "": ok = false
-			if ok: cand.append(Vector2i(r, c))
-	if cand.is_empty(): return []
-	var p: Vector2i = cand[rng.randi() % cand.size()]
-	return [p, p + Vector2i(0, 1), p + Vector2i(1, 0), p + Vector2i(1, 1)]
+	var tr: Array = gulp.track
+	var sd: Array = gulp.sides
+	var at := int(gulp.at)
+	for i in range(at - 2, maxi(at - 7, 0), -1):
+		if sd[i] != sd[i - 1]: continue        # (not round a corner)
+		var s: Vector2i = sd[i]
+		var d := Vector2i(-s.y, -s.x)          # (into the board: cells are (row, column))
+		var cells: Array = [tr[i], tr[i - 1], (tr[i] as Vector2i) + d, (tr[i - 1] as Vector2i) + d]
+		var ok := true
+		for p: Vector2i in cells:
+			var g: Gem = G[p.x][p.y] if playable(p.x, p.y) else null
+			if g == null or LOCK[p.x][p.y] or ROCK[p.x][p.y] or g.item != "": ok = false
+		if ok: return [cells, i - 1]
+	return []
 
 ## the move is over. Returns {from, to (the lump's places before and after the knock), push, harpoon, bite {cells,
 ## ids, choke} or {}, slid, at, mark (the next bite's cells, if marked now), stage (the board it is on now) and
@@ -1599,14 +1604,22 @@ func gulp_after() -> Dictionary:
 			var ids: Array = []
 			var choke := false
 			var cells: Array = []
+			var miss := int(gulp.at) <= int(B.get("idx", -1))      # (the find is past his teeth already)
 			for p: Vector2i in B.cells:
 				var g: Gem = G[p.x][p.y] if playable(p.x, p.y) else null
-				if g == null or LOCK[p.x][p.y]: continue
-				if g.sp != "": choke = true
-				ids.append(g.id)
-				cells.append(p)
-				G[p.x][p.y] = null
-			out.bite = {cells = cells, ids = ids, choke = choke}
+				if g and g.sp != "" and not LOCK[p.x][p.y]: choke = true
+			if choke or not miss:
+				for p: Vector2i in B.cells:
+					var g: Gem = G[p.x][p.y] if playable(p.x, p.y) else null
+					if g == null or LOCK[p.x][p.y]: continue
+					ids.append(g.id)
+					cells.append(p)
+					G[p.x][p.y] = null
+					if not choke:
+						# crushed to rubble: rock across the find's way
+						ROCK[p.x][p.y] = 1
+						ROCK_MAX[p.x][p.y] = 1
+			out.bite = {cells = B.cells, hit = cells, ids = ids, choke = choke, miss = miss and not choke}
 			gulp.bite = {cells = [], left = 0}
 			gulp.wait = int(cfg.bite_every[int(gulp.stage)])
 			if choke:
@@ -1615,15 +1628,13 @@ func gulp_after() -> Dictionary:
 				if int(gulp.at) < 0:
 					gulp.at = 0
 					if _gulp_up(out): return out
-			else:
-				gulp.at = int(gulp.at) + int(cfg.bite_down)
 	elif int(cfg.bite_every[int(gulp.stage)]) > 0:
 		gulp.wait = int(gulp.wait) - 1
 		if int(gulp.wait) <= 0:
 			var mk := _gulp_mark()
 			if not mk.is_empty():
-				gulp.bite = {cells = mk, left = int(cfg.bite_warn)}
-				out.mark = mk
+				gulp.bite = {cells = mk[0], idx = int(mk[1]), left = int(cfg.bite_warn)}
+				out.mark = mk[0]
 	# the slip towards the belly
 	var n: int = (gulp.track as Array).size()
 	var before: int = gulp.at

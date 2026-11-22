@@ -513,7 +513,7 @@ func _render_hud() -> void:
 			var bar := GulpView.Bar.new()
 			bar.model = model
 			bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			bar.custom_minimum_size = Vector2(0, 46)
+			bar.custom_minimum_size = Vector2(0, 52)
 			row.add_child(bar)
 			var dummy := Label.new()
 			dummy.visible = false
@@ -1464,7 +1464,7 @@ const TIP := {
 	pot = "A crucible! Two matches beside it break it - and its metal spills over the stones round it",
 	tube = "A billet. Only specials and boosters melt it, a piece at a time",
 	gulp_zone = "Your find glows in his neck. Match stones in the lit cells: every one knocks it towards his mouth. A special knocks harder",
-	gulp_bite = "He will bite here in two moves and your find slips back. Get a special into the square - it goes off in his mouth",
+	gulp_bite = "He will bite here in two moves and crush these stones to rubble across your find's way. Knock the find past it first - or get a special into the square: it goes off in his mouth",
 	find = "A find is sealed in this rock. Matches beside it and the pick dig it out clean - blasts chip it, and it sells for less",
 }
 const TIP_SP := {rh = "sp_rocket", rv = "sp_rocket", bomb = "sp_bomb", drill = "sp_drill", orb = "sp_orb"}
@@ -2433,7 +2433,12 @@ func _gulp_turn() -> bool:
 			Sfx.buzz(70 if B.choke else 35)
 			fx.shake = maxf(fx.shake, 14.0 if B.choke else 9.0)
 			fx.hitstop(0.06))
+		if not bool(B.choke) and not bool(B.get("miss", false)):
+			for p: Vector2i in B.hit: fx.debris(p.x, p.y, Color("#9a8a78"), 8)
+			Sfx.play("rockfall")
+		elif bool(B.get("miss", false)): _toast("He snapped at nothing")
 		board.refresh()
+		board.redraw_under()
 		await board.animate_collapse(model.collapse())
 		await _resolve([], [])
 		model.dead_cells = []
