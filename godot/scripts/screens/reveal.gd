@@ -378,7 +378,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	var vl := _stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
 	v.add_child(stats)
 	# lightning in the stone does not keep to its frame (CardBolt): it leaps to the card's rim, a button, the price
-	view.built.connect(func(p: Node3D) -> void: CardBolt.attach(card, view, v, vl, p))
+	view.built.connect(func(p: Node3D) -> void: CardBolt.attach(card, view, v, vl, p, s))
 	# its weight from what was built (Stones.settle, 20.11): the first time the stone is built, the card's figures move to it
 	view.built.connect(func(p: Node3D) -> void:
 		if Stones.settle(s, p):

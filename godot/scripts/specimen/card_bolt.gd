@@ -32,6 +32,12 @@ var _wait := FIRST
 ## strike leaves it and runs on in its direction to the rim (SpecBolt.strike_out); before it the stone builds up
 ## (SpecBolt.rush), and the light on the brass flickers with the light in the crystal (SpecBolt.flash)
 var _charging := -1.0
+## the find itself: the price the lightning settles on is its price from then on (22.11: "not only flicker — keep it"),
+## anywhere within PRICE_SWING of what it was worth before any lightning touched it (value0; a price changed some
+## other way since — a cut, its weight — becomes the new base)
+const PRICE_SWING := 0.2
+var stone := {}
+var _new_v := 0              # the price it will settle on, picked as the price is struck: the jumping figures end on it
 var _t := -1.0               # the leap now playing: seconds into it (< 0: none)
 var _a := Vector2.ZERO       # where it leaves the stone
 var _h := Vector2.ZERO       # where it hits the rim
@@ -78,7 +84,7 @@ var _jag := 0.0
 var _seed := 0
 
 ## the stone has lightning in it: the card gets its leaps
-static func attach(card_: Control, view_: SpecView, box_: Control, price_: Label, p: Node3D) -> void:
+static func attach(card_: Control, view_: SpecView, box_: Control, price_: Label, p: Node3D, stone_ := {}) -> void:
 	var found := p.find_children("*", "", true, false).filter(func(n: Node) -> bool: return n is SpecBolt)
 	if found.is_empty(): return
 	var cb := CardBolt.new()
@@ -87,6 +93,7 @@ static func attach(card_: Control, view_: SpecView, box_: Control, price_: Label
 	cb.box = box_
 	cb.price = price_
 	cb.bolt = found[0]
+	cb.stone = stone_
 	card_.add_child(cb)
 
 func _ready() -> void:
@@ -130,6 +137,7 @@ func _process(dt: float) -> void:
 		_wait -= dt
 		if _charging < 0.0 and _wait <= 0.0 and view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 			_charging = 0.0
+			Sfx.play("bolt_build")
 		if _charging >= 0.0:
 			_charging += dt
 			bolt.rush = clampf(_charging / T_CHARGE, 0.0, 1.0)
@@ -156,6 +164,7 @@ func _process(dt: float) -> void:
 	if f2 > 0.0 and f2 < _rim2[1].y - _rim2[0].y and rng.randf() < 0.5:
 		_burst(_rim2[0] + Vector2(0, f2), 1, 110.0)
 	if _t > _end():
+		_reprice()
 		_settle()
 		_t = -1.0
 		_live_until = _clock + 1.6
@@ -296,8 +305,11 @@ func _start() -> void:
 	if is_instance_valid(Reveal._name_l) and card.is_ancestor_of(Reveal._name_l):
 		_blink(Reveal._name_l, 0.0, 0.12)
 		_blink(Reveal._name_l, 0.2, 0.3)
-	Sfx.play("card_arc")
-	Sfx.buzz(18)
+	Sfx.play("bolt_crack")
+	Sfx.buzz(30)
+	get_tree().create_timer(_d2).timeout.connect(func() -> void:
+		Sfx.play("card_arc")
+		Sfx.buzz(14))
 	_burst(_h, 9, 150.0)
 
 func _burst(p: Vector2, n: int, sp: float) -> void:
@@ -323,6 +335,8 @@ func _price_tick() -> void:
 	var s := int(st[0])
 	if s != _stage_was:
 		_stage_was = s
+		if s == 1:
+			Sfx.play("bolt_rim")
 		if s == 2:
 			_burst(_rim[1], 6, 120.0)
 		if s == 3 and is_instance_valid(_btn):
@@ -342,7 +356,11 @@ func _price_tick() -> void:
 		if s == 4:
 			_burst(_mid(price), 12, 130.0)
 			Sfx.buzz(22)
-			Sfx.play("card_arc")
+			Sfx.play("bolt_price")
+			if not stone.is_empty() and stone.has("value"):
+				var b0 := int(stone.get("value0", stone.value)) if int(stone.get("bolt_v", -1)) == int(stone.value) else int(stone.value)
+				_new_v = maxi(1, roundi(b0 * rng.randf_range(1.0 - PRICE_SWING, 1.0 + PRICE_SWING)))
+				_price_text = UI.fmt(_new_v)
 			# the figures jolt
 			price.pivot_offset = price.size * 0.5
 			var pt := price.create_tween()
@@ -369,6 +387,29 @@ func _price_tick() -> void:
 			price.text = _price_text
 			price.add_theme_color_override("font_color", _price_col)
 
+## the price the lightning leaves: a new one, kept, within PRICE_SWING of the find's own worth
+func _reprice() -> void:
+	if stone.is_empty() or not stone.has("value") or not is_instance_valid(price): return
+	var was := int(stone.value)
+	if not stone.has("value0") or int(stone.get("bolt_v", -1)) != was: stone.value0 = was
+	var v0 := int(stone.value0)
+	var nv := _new_v if _new_v > 0 else maxi(1, roundi(v0 * rng.randf_range(1.0 - PRICE_SWING, 1.0 + PRICE_SWING)))
+	_new_v = 0
+	stone.value = nv
+	stone.bolt_v = nv
+	_price_text = UI.fmt(nv)
+	Reveal.sell_text(card, roundi(float(nv) * Save.coin_mul()))
+	for e in Save.d.coll:
+		if is_same(e, stone):
+			Save.persist()
+			break
+	# up: a green flush and the clink of coins; down: a red one and a dull clack
+	var up := nv >= was
+	price.modulate = Color(0.55, 1.5, 0.6) if up else Color(1.6, 0.5, 0.45)
+	price.create_tween().tween_property(price, "modulate", Color.WHITE, 1.1).set_delay(0.25)
+	Sfx.play("price_up" if up else "price_down")
+	if test_at >= 0.0: print("CARDBOLT price ", was, " -> ", nv, " (base ", v0, ")")
+
 func _settle() -> void:
 	_stage_was = -1
 	if is_instance_valid(price):
@@ -377,6 +418,8 @@ func _settle() -> void:
 		price.add_theme_color_override("font_color", _price_col)
 
 func _exit_tree() -> void:
+	# (closed while the price was struck: it keeps the price the figures were settling on)
+	if _new_v > 0: _reprice()
 	if _t >= 0.0: _settle()
 	if is_instance_valid(bolt): bolt.rush = 0.0
 

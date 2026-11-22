@@ -22,6 +22,14 @@ const SAMPLES := {
 	mdn_hop = {f = ["amb/fire/sparks"], db = -9.0, pitch = 1.5},
 	# lightning leaping out of a find into its card's rim (CardBolt): a short electric crackle
 	card_arc = {f = ["amb/sea/elmo"], db = -10.0, pitch = 1.25},
+	# its whole storm (22.11, "it wants strikes, thunder"): the build-up (a crackle rising), the strike (the cove's own
+	# near thunder: a crack and its roll), the charge running the rim, the price struck, and the price settling up / down
+	bolt_build = {f = ["amb/fire/sparks"], db = -15.0, pitch = 1.9},
+	bolt_crack = {f = ["amb/sea/thunder_near_0", "amb/sea/thunder_near_1"], db = -3.0, pitch = 1.08},
+	bolt_rim = {f = ["amb/fire/sparks"], db = -10.0, pitch = 1.3},
+	bolt_price = {f = ["amb/sea/elmo"], db = -7.0, pitch = 1.7},
+	price_up = {f = ["chips-stack-1", "chips-stack-2"], db = -5.0, pitch = 1.15},
+	price_down = {f = ["chips-collide-1"], db = -7.0, pitch = 0.72},
 	mdn_land = {f = ["magical_1", "magical_5"], db = -14.0, pitch = 1.7},
 	mdn_giggle = {f = ["bowl_ping"], db = -20.0, pitch = 2.9, step = -0.045},
 	# her own laugh: a girl's giggle (BigSoundBank #1660, CC0; prototype/tools/maiden_laugh.py), a little higher
