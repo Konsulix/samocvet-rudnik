@@ -1063,7 +1063,7 @@ func play_hunt() -> void:
 var _hunt_lv := -1
 func hunt_next() -> void:
 	var hs := HuntRibbon.state()
-	if not Save.d.has("hunt"): Save.d.hunt = {won = 0, geode = false, lost = false}
+	if not Save.d.has("hunt"): Save.d.hunt = {won = 0, geode = false, lost = false, clean = true}
 	Save.d.hunt.lost = false
 	if HuntRibbon.at_geode(hs):
 		await _hunt_geode()
@@ -1105,12 +1105,13 @@ func _hunt_level_done(res: Dictionary) -> void:
 	if int(Save.d.area_back) >= 0:
 		Save.d.area = int(Save.d.area_back)
 		Save.d.area_back = -1
-	if not Save.d.has("hunt"): Save.d.hunt = {won = 0, geode = false, lost = false}
+	if not Save.d.has("hunt"): Save.d.hunt = {won = 0, geode = false, lost = false, clean = true}
 	if res.won:
 		Save.d.hunt.won = maxi(int(Save.d.hunt.won), i + 1)
 		Save.d.hunt.lost = false
 	else:
 		Save.d.hunt.lost = true
+		Save.d.hunt.clean = false        # (Never Let Go: the whole hunt without a loss)
 		Save.d.hunt.won = 3 if bool(Save.d.hunt.get("geode", false)) else 0
 	Save.persist()
 	if res.won:
@@ -1146,6 +1147,7 @@ func _hunt_done(res: Dictionary) -> void:
 	if not res.won and Save.d.has("hunt"):
 		# back to the save point (the geode opened) or to the start
 		Save.d.hunt.lost = true
+		Save.d.hunt.clean = false
 		Save.d.hunt.won = 3 if bool(Save.d.hunt.get("geode", false)) else 0
 		Save.persist()
 	if res.won:
@@ -1154,8 +1156,9 @@ func _hunt_done(res: Dictionary) -> void:
 				st.erase("gulp")
 				st.gulped = true      # (it has been in his belly: a mark for later - its own trait, an award)
 				back = st
+		# the hunt's one award: all six fights in a row, not one lost
+		if bool((Save.d.get("hunt", {}) as Dictionary).get("clean", true)): Awards.once("hunt_clean")
 		Save.d.erase("hunt")
-		Awards.once("hunt_won")
 		coins = HUNT_COINS * Data.mine_k(2)
 		Save.d.coins += coins
 		var st := Stones.roll(Save.next_uid(), 2, 3.0, Data.depths(2).size() - 1)
