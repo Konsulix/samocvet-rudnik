@@ -796,7 +796,7 @@ func _on_tap(r: int, c: int) -> void:
 		return
 	if not _coach_move.is_empty() or (_coach_cell.x >= 0 and Vector2i(r, c) != _coach_cell): return
 	var g: BoardModel.Gem = model.gem_at(r, c)
-	if g and g.sp != "" and not model.LOCK[r][c]:
+	if g and g.sp != "" and not model.LOCK[r][c] and not model.TIDE[r][c]:
 		_coach_done()
 		busy = true
 		_aw_move(r, r)

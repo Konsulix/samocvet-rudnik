@@ -370,7 +370,10 @@ static func gulp_report(n: int) -> String:
 				var v := kv.get_slice(":", 1)
 				cfg[k] = Array(v.split("/")).map(func(x: String) -> float: return float(x)) if "/" in v else float(v)
 			def.gulp_cfg = cfg
-		var r := play(1, 0, 5200 + i * 13, def, 2)
+		var base := 5200
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("sim_seed="): base += int(a.substr(9)) * 1000      # (another batch of boards)
+		var r := play(1, 0, base + i * 13, def, 2)
 		all_used += int(r.used)
 		if r.won:
 			won += 1

@@ -1454,9 +1454,9 @@ func _count_granite() -> int:
 # kelp off his neck grips stones of the lane every cfg.kelp_every moves.
 # And there is a count of moves (cfg.moves): out of them he dives, the find with him. The pebbles and the rubble of
 # a bite are granite (cfg.rock_hp 2: two blows).
-const GULP := {start = 0.45, slide = [0.5, 0.5, 0.75], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
+const GULP := {start = 0.45, slide = [0.25, 0.5, 0.5], bite_every = [0, 5, 3], bite_warn = 2, push_max = 2, harpoon = 2,
 	bite_down = 2, choke_up = 4, rocks = [3, 4, 3], stages = 3, rock_hp = 2, idle = 0, idle_down = 2, moves = 48,
-	rise = [4, 4, 3], drown_down = 1, kelp_every = [0, 4, 5], kelp_n = 2}
+	rise = [4, 3, 3], drown_down = 1, kelp_every = [0, 4, 5], kelp_n = 2}
 
 ## a board's stretch of neck: [cells (the top end first), sides (which way is out of the board at each: screen x, y)]
 func gulp_track(stage: int) -> Array:

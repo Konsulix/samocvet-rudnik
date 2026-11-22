@@ -935,7 +935,8 @@ func _gui_input(e: InputEvent) -> void:
 		_down = {}
 	elif e is InputEventMouseMotion and not _down.is_empty() and not _down.moved:
 		var d: Vector2 = e.position - _down.pos
-		if d.length() >= TS * 0.35:
+		# (half a cell: a finger's tap on a touch screen jitters more than a third of one, and it made swaps)
+		if d.length() >= TS * 0.5:
 			_down.moved = true
 			var step := Vector2i(0, signi(int(d.x))) if absf(d.x) > absf(d.y) else Vector2i(signi(int(d.y)), 0)
 			swiped.emit(_down.cell.x, _down.cell.y, _down.cell.x + step.x, _down.cell.y + step.y)
