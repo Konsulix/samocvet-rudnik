@@ -38,6 +38,14 @@ var _rim_len := 0.0
 ## rim, as the crackle over the stone's own surface does. _down/_up: the rim from the hit, a point every few points
 var _down := PackedVector2Array()
 var _up := PackedVector2Array()
+## the other side of the frame takes as much (22.11: all of it went to the side the bolt struck, the other got one
+## bolt): a second strike SIDE2 s after the first, its own lit brass, its own arcs, its own leap to the button nearest it
+const SIDE2 := 0.09
+var _a2 := Vector2.ZERO
+var _h2 := Vector2.ZERO
+var _rim2 := PackedVector2Array()
+var _down2 := PackedVector2Array()
+var _up2 := PackedVector2Array()
 var _shine: Control          # the light on the brass: plain added light under the arcs
 ## more of it (22.11, "more lightning, and something fun"): bolts and hot points with clocks of their own, beside the
 ## main leap — second strikes from the stone to the other side of the frame and to its top, restrikes down the first
@@ -122,6 +130,9 @@ func _process(dt: float) -> void:
 	# the front of the charge sheds sparks as it runs
 	if int(_stage()[0]) == 1 and rng.randf() < 0.5:
 		_burst(_rim[0].lerp(_rim[1], float(_stage()[1])), 1, 110.0)
+	var f2 := _front2()
+	if f2 > 0.0 and f2 < _rim2[1].y - _rim2[0].y and rng.randf() < 0.5:
+		_burst(_rim2[0] + Vector2(0, f2), 1, 110.0)
 	if _t > _end():
 		_settle()
 		_t = -1.0
@@ -186,18 +197,11 @@ func _start() -> void:
 			best = d
 			_btn = b
 	var to_y := _mid(_btn).y if _btn else _mid(price).y
+	var top := r.position.y + RIM_IN
 	_rim = PackedVector2Array([_h, Vector2(x, maxf(_h.y + 10.0, to_y))])
 	_rim_len = _rim[1].y - _rim[0].y
-	# the rim from the hit, both ways: down to there, and up, round the corner and along the top
-	_down = _resample(PackedVector2Array([_rim[0], _rim[1]]))
-	var top := r.position.y + RIM_IN
-	var in_x := 1.0 if not right else -1.0
-	var up := PackedVector2Array([_h, Vector2(x, top + CORNER)])
-	for i in 5:
-		var a := (i + 1) / 5.0 * PI * 0.5
-		up.append(Vector2(x + in_x * CORNER * (1.0 - cos(a)), top + CORNER * (1.0 - sin(a))))
-	up.append(Vector2(x + in_x * (r.size.x - RIM_IN * 2.0 - CORNER), top))
-	_up = _resample(up, UP_LEN)
+	_down = _resample(_rim)
+	_up = _way_up(_h, right, r)
 	_price_text = price.text
 	_price_col = price.get_theme_color("font_color")
 	_t = 0.0
@@ -205,10 +209,27 @@ func _start() -> void:
 	# more of it: a second strike to the other side of the frame, often a third to its top, restrikes down the first
 	# channel; the rivets in the corners flash; the stone's name flickers
 	var x2 := r.position.x + RIM_IN if right else r.end.x - RIM_IN
-	var a2 := _stone_pt()
-	var h2 := Vector2(x2, clampf(a2.y + rng.randf_range(-40.0, 60.0), r.position.y + 40.0, r.end.y - 120.0))
-	_arc(a2, h2, 0.09, 0.2, 8.0)
-	_glint(h2, 0.09, 30.0)
+	_a2 = _stone_pt()
+	_h2 = Vector2(x2, clampf(_a2.y + rng.randf_range(-40.0, 40.0), r.position.y + 40.0, r.end.y - 120.0))
+	_rim2 = PackedVector2Array([_h2, Vector2(x2, maxf(_h2.y + 10.0, to_y))])
+	_down2 = _resample(_rim2)
+	_up2 = _way_up(_h2, not right, r)
+	_arc(_a2, _h2, SIDE2, 0.2, 9.0)
+	_arc(_a2, _h2 + Vector2(0, rng.randf_range(-14.0, 14.0)), SIDE2 + 0.27, 0.12, 5.0)
+	_glint(_h2, SIDE2, 34.0)
+	# its charge leaps to the button nearest it when it gets down there
+	var btn2: Button = null
+	var best2 := INF
+	for b: Button in box.find_children("*", "Button", true, false):
+		if not b.is_visible_in_tree() or b.disabled: continue
+		if absf(_mid(b).x - x2) < best2:
+			best2 = absf(_mid(b).x - x2)
+			btn2 = b
+	if btn2:
+		var at2 := SIDE2 + T_STRIKE * 0.6 + (_rim2[1].y - _rim2[0].y) / CRAWL_V
+		var br2 := Rect2(_in(btn2.global_position), btn2.size)
+		_arc(_rim2[1], Vector2(clampf(x2, br2.position.x + 10.0, br2.end.x - 10.0) + (30.0 if not right else -30.0), br2.get_center().y), at2, 0.2, 6.5, 0.4)
+		_blink(btn2, at2 + 0.04)
 	if rng.randf() < 0.6:
 		var a3 := _stone_pt()
 		var h3 := Vector2(clampf(a3.x + rng.randf_range(-70.0, 70.0), r.position.x + 30.0, r.end.x - 30.0), top)
@@ -384,43 +405,10 @@ func _draw() -> void:
 		_grow(_rng_of(1), _a, _h, _a.distance_to(_h) * 0.2, 5, segs, 1.0, 9.0, 0.11)
 		_ribbons(segs, a)
 	if s == 1:
-		# over the lit brass: short arcs leaping from point to point of the rim near the front of the charge, bowed
-		# off it into the card (as SpecBolt's crackle over the stone); a twig or two reaching further in; and at the
-		# front itself a little star of them
-		var r := _rng_of(3)
-		var front := k * _rim_len
-		var inward := -signf(_rim[0].x - size.x * 0.5)
-		segs = []
-		for i in 9:
-			var s0 := maxf(0.0, front - r.randf_range(0.0, 190.0))
-			var s1 := clampf(s0 + r.randf_range(16.0, 58.0) * (1.0 if r.randf() < 0.6 else -1.0), 0.0, front)
-			if absf(s1 - s0) < 10.0: continue
-			var p0 := Vector2(_rim[0].x, _rim[0].y + s0)
-			var p1 := Vector2(_rim[0].x, _rim[0].y + s1)
-			var mid := (p0 + p1) * 0.5 + Vector2(inward * absf(s1 - s0) * r.randf_range(0.25, 0.6), 0.0)
-			var br := r.randf()
-			_grow(r, p0, mid, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
-			_grow(r, mid, p1, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
-		var head := Vector2(_rim[0].x, _rim[0].y + front)
-		for i in 3:
-			var to := head + Vector2(inward * r.randf_range(10.0, 46.0), r.randf_range(-18.0, 30.0))
-			_grow(r, head, to, head.distance_to(to) * 0.28, 3, segs, 0.9 if i == 0 else 0.6, 2.8, r.randf(), 0.45)
-		# the same over the brass the charge ran up along
-		for i in 5:
-			if _up.size() < 6: break
-			var n := mini(_up.size() - 1, int(k * _rim_len / 6.0))
-			if n < 4: break
-			var i0 := r.randi() % n
-			var i1 := mini(n, i0 + 3 + r.randi() % 7)
-			var q0 := _up[i0]
-			var q1 := _up[i1]
-			var bow := (q1 - q0).orthogonal().normalized()
-			if bow.dot(size * 0.5 - q0) < 0.0: bow = -bow
-			var qm := (q0 + q1) * 0.5 + bow * q0.distance_to(q1) * r.randf_range(0.25, 0.5)
-			var br2 := r.randf()
-			_grow(r, q0, qm, q0.distance_to(qm) * 0.3, 3, segs, 0.6, 2.4, br2, 0.2)
-			_grow(r, qm, q1, q0.distance_to(qm) * 0.3, 3, segs, 0.6, 2.4, br2, 0.2)
-		_ribbons(segs, 1.0)
+		_rim_arcs(_rim, _up, k * _rim_len, 3)
+	var f2 := _front2()
+	if f2 > 0.0 and f2 < _rim2[1].y - _rim2[0].y:
+		_rim_arcs(_rim2, _up2, f2, 5)
 	if s == 2 and is_instance_valid(_btn):
 		var a2 := 1.0 - smoothstep(0.55, 1.0, k)
 		var br := Rect2(_in(_btn.global_position), _btn.size)
@@ -493,17 +481,19 @@ func _draw_shine() -> void:
 	var ch := _charge()
 	if ch.y <= 0.01: return
 	var jit := 0.82 + 0.18 * _rng_of(11).randf()
-	for way in 2:
-		var line := _down if way == 0 else _up
-		var fade_len := INF if way == 0 else UP_LEN
+	for way in 4:
+		var line: PackedVector2Array = [_down, _up, _down2, _up2][way]
+		var run := ch.x if way < 2 else ch.x - SIDE2 * CRAWL_V
+		if run <= 0.0 or line.size() < 2: continue
+		var fade_len := INF if way % 2 == 0 else UP_LEN
 		# (one line with a colour to each point: drawn piece by piece the pieces overlapped into a row of beads)
 		var pts := PackedVector2Array()
 		var bs := PackedFloat32Array()
 		for i in line.size():
 			var sd := i * 6.0
-			if sd > ch.x: break
-			var b := (0.3 + 0.7 * exp(-(ch.x - sd) / 60.0)) * ch.y * jit
-			if way == 1: b *= 1.0 - smoothstep(0.35, 1.0, sd / fade_len)
+			if sd > run: break
+			var b := (0.3 + 0.7 * exp(-(run - sd) / 60.0)) * ch.y * jit
+			if way % 2 == 1: b *= 1.0 - smoothstep(0.35, 1.0, sd / fade_len)
 			pts.append(line[i])
 			bs.append(b)
 		if pts.size() < 2: continue
@@ -530,6 +520,11 @@ func _draw_shine() -> void:
 		var pt := FxLayer.puff()
 		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(34, 34), Vector2(68, 68)), false, Color(0.55, 0.78, 1.0, 0.75 * hot))
 		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(150, 150), Vector2(300, 300)), false, Color(0.3, 0.5, 1.0, 0.16 * hot))
+	var hot2 := (1.0 - smoothstep(0.0, 0.45, _t - SIDE2)) * ch.y if _t >= SIDE2 else 0.0
+	if hot2 > 0.02:
+		var pt2 := FxLayer.puff()
+		_shine.draw_texture_rect(pt2, Rect2(_h2 - Vector2(34, 34), Vector2(68, 68)), false, Color(0.55, 0.78, 1.0, 0.75 * hot2))
+		_shine.draw_texture_rect(pt2, Rect2(_h2 - Vector2(150, 150), Vector2(300, 300)), false, Color(0.3, 0.5, 1.0, 0.16 * hot2))
 
 ## the card is charged while the lightning is out on it and a little after: a finger put on it gets a spark from the
 ## nearer side of the rim (the touch itself goes on to whatever it was for)
@@ -548,3 +543,59 @@ func _input(e: InputEvent) -> void:
 	_glint(from, 0.0, 20.0, 0.3)
 	Sfx.play("card_arc")
 	Sfx.buzz(28)
+
+## how far the other side's charge has run down its rim (0: not struck yet)
+func _front2() -> float:
+	if _t < 0.0 or _rim2.size() < 2: return 0.0
+	return maxf(0.0, (_t - SIDE2 - T_STRIKE * 0.6) * CRAWL_V)
+
+## the rim from a hit, the other way: up, round the corner and along the top to the frame's middle
+func _way_up(h: Vector2, right: bool, r: Rect2) -> PackedVector2Array:
+	var top := r.position.y + RIM_IN
+	var in_x := 1.0 if not right else -1.0
+	var up := PackedVector2Array([h, Vector2(h.x, top + CORNER)])
+	for i in 5:
+		var a := (i + 1) / 5.0 * PI * 0.5
+		up.append(Vector2(h.x + in_x * CORNER * (1.0 - cos(a)), top + CORNER * (1.0 - sin(a))))
+	up.append(Vector2(r.get_center().x, top))
+	return _resample(up, UP_LEN)
+
+## over a side's lit brass: short arcs leaping from point to point of the rim near the front of the charge, bowed off
+## it into the card (as SpecBolt's crackle over the stone); twigs reaching further in; a little star at the front
+func _rim_arcs(rim: PackedVector2Array, up: PackedVector2Array, front: float, salt: int) -> void:
+	var r := _rng_of(salt)
+	# over the lit brass: short arcs leaping from point to point of the rim near the front of the charge, bowed
+	# off it into the card (as SpecBolt's crackle over the stone); a twig or two reaching further in; and at the
+	# front itself a little star of them
+	var inward := -signf(rim[0].x - size.x * 0.5)
+	var segs := []
+	for i in 9:
+		var s0 := maxf(0.0, front - r.randf_range(0.0, 190.0))
+		var s1 := clampf(s0 + r.randf_range(16.0, 58.0) * (1.0 if r.randf() < 0.6 else -1.0), 0.0, front)
+		if absf(s1 - s0) < 10.0: continue
+		var p0 := Vector2(rim[0].x, rim[0].y + s0)
+		var p1 := Vector2(rim[0].x, rim[0].y + s1)
+		var mid := (p0 + p1) * 0.5 + Vector2(inward * absf(s1 - s0) * r.randf_range(0.25, 0.6), 0.0)
+		var br := r.randf()
+		_grow(r, p0, mid, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
+		_grow(r, mid, p1, p0.distance_to(mid) * 0.3, 3, segs, 0.85, 2.6, br, 0.25)
+	var head := Vector2(rim[0].x, rim[0].y + front)
+	for i in 3:
+		var to := head + Vector2(inward * r.randf_range(10.0, 46.0), r.randf_range(-18.0, 30.0))
+		_grow(r, head, to, head.distance_to(to) * 0.28, 3, segs, 0.9 if i == 0 else 0.6, 2.8, r.randf(), 0.45)
+	# the same over the brass the charge ran up along
+	for i in 5:
+		if up.size() < 6: break
+		var n := mini(up.size() - 1, int(front / 6.0))
+		if n < 4: break
+		var i0 := r.randi() % n
+		var i1 := mini(n, i0 + 3 + r.randi() % 7)
+		var q0 := up[i0]
+		var q1 := up[i1]
+		var bow := (q1 - q0).orthogonal().normalized()
+		if bow.dot(size * 0.5 - q0) < 0.0: bow = -bow
+		var qm := (q0 + q1) * 0.5 + bow * q0.distance_to(q1) * r.randf_range(0.25, 0.5)
+		var br2 := r.randf()
+		_grow(r, q0, qm, q0.distance_to(qm) * 0.3, 3, segs, 0.6, 2.4, br2, 0.2)
+		_grow(r, qm, q1, q0.distance_to(qm) * 0.3, 3, segs, 0.6, 2.4, br2, 0.2)
+	_ribbons(segs, 1.0)
