@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dnk83hinuj08m"
-path="res://.godot/imported/body.png-37637559ee6ba8a10c26d23f5209b326.ctex"
+uid="uid://jdr5m0yhfk1m"
+path="res://.godot/imported/maw.png-6a9efd0899f58507623e8dd03e469d3d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/boss/plesio/body.png"
-dest_files=["res://.godot/imported/body.png-37637559ee6ba8a10c26d23f5209b326.ctex"]
+source_file="res://assets/boss/plesio/maw.png"
+dest_files=["res://.godot/imported/maw.png-6a9efd0899f58507623e8dd03e469d3d.ctex"]
 
 [params]
 

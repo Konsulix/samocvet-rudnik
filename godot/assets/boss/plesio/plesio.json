@@ -1,9 +1,7 @@
 {
  "neck_pt": 26,
- "head_exit_x": 119,
- "head_exit_y": 57.5,
- "body_exit_x": 225,
- "body_exit_y": 24.3,
+ "head_exit_x": 178,
+ "head_exit_y": 86.2,
  "mouth_x": 0.2,
  "mouth_y": 0.78,
  "open_dx": 0.0,

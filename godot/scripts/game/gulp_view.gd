@@ -1,9 +1,10 @@
 class_name GulpView
 extends Node2D
-## The plesiosaur's hunt on the board (BoardModel.gulp, CLAUDE.md 22.11): one beast lying round the board. His head, in
-## three-quarter view, hangs over the board's top left and looks down at it; his neck leaves the head and runs along
-## the top to the right, down the right side and back along the bottom into his body, which lies under the board's
-## bottom left with a flipper out. The swallowed find is a lump of light in the neck.
+## The plesiosaur's hunt on the board (BoardModel.gulp, CLAUDE.md 22.11): his neck is the board's frame. His head, big,
+## in three-quarter view, hangs over the board's top left and looks down at it; the neck comes out from behind it and
+## runs along the top to the right, down the right side, back along the bottom and off the screen at the left (his
+## body is out of the picture). The swallowed find is a lump of light in the neck. Everything is drawn pixel for
+## pixel on the bosses' 1-pt grid (fourth pass: stretched 1.24 times the pixels swam, and it all looked crooked).
 ## Pixel art in the bosses' style (art/boss/src/plesio/gen2.sh, art/boss/export_plesio.py -> assets/boss/plesio/):
 ## the head (shut and gaping), the body, one straight piece of neck repeated end to end and bent round the board (Bend).
 ## Drawn here: the neck with the lump riding in it, the cells beside the lump lit (where to strike), "+N" as it is
@@ -32,7 +33,7 @@ const DIR := "res://assets/boss/plesio/"
 var _neck: Texture2D
 var _head: Texture2D
 var _head_open: Texture2D
-var _body: Texture2D
+var _maw: Texture2D          # the mark of his bite: a ring of teeth round the 2x2
 var _info := {}
 
 func setup(b: BoardView, m: BoardModel) -> void:
@@ -46,23 +47,21 @@ func setup(b: BoardView, m: BoardModel) -> void:
 		_info = JSON.parse_string(FileAccess.get_file_as_string(DIR + "plesio.json"))
 	if ResourceLoader.exists(DIR + "head.png"): _head = load(DIR + "head.png")
 	if ResourceLoader.exists(DIR + "head_open.png"): _head_open = load(DIR + "head_open.png")
-	if ResourceLoader.exists(DIR + "body.png"): _body = load(DIR + "body.png")
+	if ResourceLoader.exists(DIR + "maw.png"): _maw = load(DIR + "maw.png")
 	_build()
 	_at = float(m.gulp.at)
 
-## the neck's thickness on the screen (its drawing is NECK_PT thick)
+## the neck's thickness on the screen: its drawing's own, pixel for pixel
 func _w() -> float:
-	return board.TS * 0.7
-
-## the parts' scale: the head and the body are drawn with necks as thick as the neck's piece
-func _k() -> float:
-	return _w() / float(_info.get("neck_pt", 26))
+	return float(_info.get("neck_pt", 26))
 
 func _build() -> void:
 	_anch = []
 	var tr: Array = model.gulp.track
 	_n = tr.size()
-	var d := board.TS * 0.5 + _w() * 0.3
+	var TS: float = board.TS
+	var d := TS * 0.5 + _w() * 0.36          # the neck lies on the board's own rim, a little over the cells' edge
+	var rad := TS * 0.62
 	var R: int = model.R
 	var C: int = model.C
 	var n1 := C - C / 2                    # along the top, then down the right side, then back along the bottom
@@ -73,16 +72,18 @@ func _build() -> void:
 			var last: Array = _anch[_anch.size() - 1]
 			var lo: Vector2 = last[2]
 			if lo != out:
-				# a corner of the board: the neck goes round it
-				var cp: Vector2 = board.cell_center(float(tr[i - 1].x), float(tr[i - 1].y)) + (lo + out) * d * 0.86
-				_anch.append([i - 0.5, cp, (lo + out).normalized()])
+				# a corner of the board: the neck goes round it in an arc
+				var cc: Vector2 = board.cell_center(float(tr[i - 1].x), float(tr[i - 1].y)) + (lo + out) * (d - rad)
+				for j in range(1, 6):
+					var a := PI * 0.5 * j / 6.0
+					var nrm := (lo * cos(a) + out * sin(a)).normalized()
+					_anch.append([i - 1.0 + j / 6.0, cc + nrm * rad, nrm])
 		_anch.append([float(i), board.cell_center(float(p.x), float(p.y)) + out * d, out])
-	# past the mouth: on into the head; past the last place: on into the body
+	# past the mouth: on behind the head; past the last place: off the screen at the left
 	var a0: Array = _anch[0]
-	_anch.push_front([-1.0, (a0[1] as Vector2) + Vector2(-board.TS, 0), Vector2.UP])
+	_anch.push_front([-1.0, (a0[1] as Vector2) + Vector2(-TS * 2.0, 0), Vector2.UP])
 	var an: Array = _anch[_anch.size() - 1]
-	# (the neck dips away from the board's edge as it goes: his body lies clear of the bottom row)
-	_anch.append([float(_n), (an[1] as Vector2) + Vector2(-board.TS * 1.1, board.TS * 0.5), Vector2.DOWN])
+	_anch.append([float(_n), (an[1] as Vector2) + Vector2(-TS * 2.4, 0), Vector2.DOWN])
 
 ## a place on the neck: [point, outward normal]
 func _on_neck(f: float) -> Array:
@@ -96,12 +97,9 @@ func _on_neck(f: float) -> Array:
 	var z: Array = _anch[_anch.size() - 1]
 	return [z[1], z[2]]
 
-## where the neck meets the head (the head's neck end sits here), and the body
+## where the neck comes out from behind the head: the head's neck end sits here
 func head_joint() -> Vector2:
-	return _on_neck(-1.0)[0]
-
-func body_joint() -> Vector2:
-	return _on_neck(float(_n))[0]
+	return _on_neck(0.25)[0]
 
 func _process(dt: float) -> void:
 	_t += dt
@@ -195,14 +193,13 @@ func swallow() -> void:
 
 # ---------------------------------------------------------------- drawing
 
-## the head's picture laid with its neck end on the joint: its place on the screen
+## the head's picture laid with its neck end on the joint: its place on the screen (pixel for pixel; bigger in a lunge)
 func _head_rect() -> Rect2:
 	if _head == null: return Rect2(head_joint(), Vector2.ZERO)
-	var k := _k() * float(_info.get("head_k", 1.0)) * _head_k
-	var sz := _head.get_size() * k
-	var ex := Vector2(float(_info.get("head_exit_x", _head.get_width())), float(_info.get("head_exit_y", _head.get_height() * 0.8))) * k
-	var bob := Vector2(0, sin(_t * 1.3) * board.TS * 0.05)
-	return Rect2(head_joint() + Vector2(board.TS * 0.25, 0) - ex + _head_off + bob, sz)
+	var sz := _head.get_size() * _head_k
+	var ex := Vector2(float(_info.get("head_exit_x", _head.get_width())), float(_info.get("head_exit_y", _head.get_height() * 0.8))) * _head_k
+	var bob := Vector2(0, roundf(sin(_t * 1.3) * 2.0))
+	return Rect2((head_joint() + Vector2(0, -_w() * 0.22) - ex + _head_off + bob).round(), sz)
 
 ## his mouth on the screen as he hangs (what comes down on the bitten stones, where the find flies out of)
 func _mouth() -> Vector2:
@@ -221,11 +218,12 @@ func _line(f0: float, f1: float, drop: Vector2) -> PackedVector2Array:
 		f = minf(f1, f + 0.2)
 	return out
 
-## how thick the neck is at a place: it breathes a little, and swells where the lump lies
+## how thick the neck is at a place: its own thickness, swollen where the lump lies
 func _thick(f: float) -> float:
-	var w := _w() * (1.0 + 0.04 * sin(_t * 1.7 - f * 0.9))
+	# (out of the head it comes as thick as the head's own neck, and thins to the frame's along the first places)
+	var w := _w() * lerpf(float(_info.get("head_k", 1.5)), 1.0, smoothstep(0.2, 3.6, f))
 	var near := absf(f - _at)
-	if near < 1.1 and _spit < 0.0 and _spit > -1.5: w *= 1.0 + 0.32 * (1.0 - near / 1.1)
+	if near < 1.1 and _spit < 0.0 and _spit > -1.5: w *= 1.0 + 0.3 * (1.0 - near / 1.1)
 	return w
 
 func _draw() -> void:
@@ -243,44 +241,23 @@ func _draw() -> void:
 			var rr := Rect2(c - Vector2(TS, TS) * 0.46, Vector2(TS, TS) * 0.92)
 			draw_rect(rr, Color(glow, 0.10 + 0.08 * pulse), true)
 			draw_rect(rr, Color(glow, 0.55 + 0.35 * pulse), false, maxf(2.0, TS * 0.06))
-	# the marked bite: his teeth closing round it, the moves left to it
+	# the marked bite: his maw round the square - wide with two moves to go, shut tight round it with one
 	if not _mark.is_empty():
-		var hot := 0.5 + 0.5 * sin(_t * (9.0 if _mark_left <= 1 else 5.0))
+		var hot := 0.5 + 0.5 * sin(_t * (10.0 if _mark_left <= 1 else 4.0))
 		var mc := Vector2.ZERO
 		for p: Vector2i in _mark: mc += board.cell_center(float(p.x), float(p.y))
 		mc /= float(_mark.size())
-		draw_rect(Rect2(mc - Vector2(TS, TS) * 0.98, Vector2(TS, TS) * 1.96), Color(0.5, 0.02, 0.04, 0.22 + 0.16 * hot), true)
-		var px := maxf(2.0, roundf(TS / 12.0))     # (the teeth on the bosses' own grid: squares, not smooth lines)
-		for side in 4:
-			var dir: Vector2 = [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT][side]
-			var along := dir.orthogonal()
-			for k in 5:
-				var base := mc + dir * TS * 1.02 + along * (k - 2.0) * TS * 0.4
-				var ln := 4 + (1 if k % 2 == 0 else 0) - int(hot * 1.5)
-				for j in ln:
-					var wd := maxf(1.0, 3.0 - j * 0.6)
-					var q := base - dir * px * j
-					draw_rect(Rect2(q - Vector2(px, px) * wd * 0.5, Vector2(px, px) * wd).abs(), Color("#1a0a0c") if j == 0 else Color("#e9dfc4").darkened(0.08 * j))
-		var f := UI.display
-		var txt := str(_mark_left)
-		var fs := int(TS * 0.8)
-		var sz := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-		draw_string_outline(f, mc + Vector2(-sz.x / 2, sz.y * 0.3), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 8, Color(0.12, 0.02, 0.02, 0.95))
-		draw_string(f, mc + Vector2(-sz.x / 2, sz.y * 0.3), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#f2e3c0"))
+		draw_rect(Rect2(mc - Vector2(TS, TS), Vector2(TS, TS) * 2.0), Color(0.45, 0.02, 0.04, (0.3 if _mark_left <= 1 else 0.16) + 0.14 * hot), true)
+		if _maw:
+			var ms := _maw.get_size() * (TS / 37.0)
+			var k := (1.0 + 0.03 * hot) if _mark_left <= 1 else (1.32 + 0.04 * hot)
+			draw_texture_rect(_maw, Rect2(mc - ms * k * 0.5, ms * k), false, Color(1, 1, 1, 1.0 if _mark_left <= 1 else 0.82))
 	var tint := Color(1, 1, 1, fade).lerp(Color(1.0, 0.72, 0.66, fade), 0.5 * minf(1.0, _hurt))
-	# his body under the board's corner, the neck running into it
-	if _body:
-		var k := _k() * float(_info.get("body_k", 1.0))
-		var ex := Vector2(float(_info.get("body_exit_x", _body.get_width())), float(_info.get("body_exit_y", _body.get_height() * 0.2))) * k
-		var sway := Vector2(sin(_t * 0.8) * 2.0, sin(_t * 1.1) * 1.5)
-		var at := body_joint() + Vector2(TS * 0.25, 0) - ex + drop + sway
-		draw_texture_rect(_body, Rect2(at + Vector2(4, 6), _body.get_size() * k), false, Color(0, 0, 0, 0.35 * fade))
-		draw_texture_rect(_body, Rect2(at, _body.get_size() * k), false, tint)
 	if _neck:
 		# the neck: the one drawing laid end to end along its line (every second piece mirrored: no seam), its back
 		# outwards, its pale underside to the board; its shadow on the board under it
 		var th := float(_neck.get_height())
-		var piece := float(_neck.get_width()) / th * W * 1.24 / TS      # a piece's length, in places of the track
+		var piece := float(_neck.get_width()) / TS                      # a piece's length, in places of the track
 		for pass_n in 2:
 			var f0 := -1.0
 			var k := 0
@@ -290,7 +267,7 @@ func _draw() -> void:
 				var b := f1
 				var pts := _line(f0, f1, drop + (Vector2(-4, 7) if pass_n == 0 else Vector2.ZERO))
 				var u1 := (f1 - f0) / piece
-				Bend.draw(self, pts, func(q: float) -> float: return _thick(lerpf(a, b, q)) * 0.5 * 1.24,
+				Bend.draw(self, pts, func(q: float) -> float: return _thick(lerpf(a, b, q)) * 0.5 * th / W,
 					_neck, 1.0 if k % 2 == 1 else 0.0, (1.0 - u1) if k % 2 == 1 else u1, false,
 					Color(0, 0, 0, 0.45 * fade) if pass_n == 0 else tint)
 				f0 = f1
@@ -314,8 +291,7 @@ func _draw() -> void:
 		if _gape > 0.5 and _head_open:
 			# (the gaping head is a bigger picture: laid so that its skull stays where the shut one's is)
 			tx = _head_open
-			var hk := hr.size.x / float(_head.get_width())
-			hr = Rect2(hr.position + Vector2(float(_info.get("open_dx", 0.0)), float(_info.get("open_dy", 0.0))) * hk, _head_open.get_size() * hk)
+			hr = Rect2(hr.position + Vector2(float(_info.get("open_dx", 0.0)), float(_info.get("open_dy", 0.0))) * _head_k, _head_open.get_size() * _head_k)
 		draw_texture_rect(tx, Rect2(hr.position + Vector2(-5, 8), hr.size), false, Color(0, 0, 0, 0.4 * fade))
 		draw_texture_rect(tx, hr, false, tint)
 	# "+2": what a knock was worth

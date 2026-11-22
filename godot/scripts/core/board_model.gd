@@ -1450,8 +1450,8 @@ func gulp_start(cfg: Dictionary) -> void:
 	var tr: Array = []
 	for c in range(C / 2, C): tr.append(Vector2i(0, c))
 	for r in range(1, R): tr.append(Vector2i(r, C - 1))
-	# (half of the bottom only, and the left side free: his body lies under the board's bottom left, the neck runs into it)
-	for c in range(C - 2, C / 2 - 1, -1): tr.append(Vector2i(R - 1, c))
+	# (the left side is free: past the bottom's last cell the neck runs off the screen, his body out of the picture)
+	for c in range(C - 2, -1, -1): tr.append(Vector2i(R - 1, c))
 	gulp = {cfg = G0, track = tr, at = int(tr.size() * float(G0.start)), pin = 0, stun = 0, acc = 0.0, lost = false,
 		wait = int(G0.bite_every[1]), bite = {cells = [], left = 0}}
 	_gulp_goal()
