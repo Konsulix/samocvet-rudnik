@@ -356,11 +356,11 @@ func _thick(f: float) -> float:
 	if near < 1.1 and _spit < 0.0 and _spit > -1.5: w *= 1.0 + (0.3 + 0.35 * _gulp) * (1.0 - near / 1.1)
 	return w
 
-## how much of the neck shows at a place: it fades in out of the head's own neck and out into the body's, over a long
-## stretch - the drawings melt into each other, no edge
+## how much of the neck shows at a place: right at the joints it fades into the head's own neck and the body's - over
+## a short stretch there only (a long one showed the head's neck through the board's as a ghost)
 func _join(f: float) -> float:
-	if _stage == 0: return 1.0 - smoothstep(_fb - 0.5, _f1 - 0.15, f)
-	if _stage >= 2: return smoothstep(_f0 + 0.15, 0.55, f)
+	if _stage == 0: return 1.0 - smoothstep(_fb + 0.05, _fb + 0.6, f)
+	if _stage >= 2: return smoothstep(-0.45, 0.15, f)
 	return 1.0
 
 ## his body, still; only the flipper paddles: the picture laid on a grid, each point below the shoulder turned round it

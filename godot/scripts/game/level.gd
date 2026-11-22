@@ -810,7 +810,8 @@ func _on_tap(r: int, c: int) -> void:
 ## the swap plays first and is checked again before it counts (the cascade went on meanwhile)
 func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	if booster != "" or coach.visible or not Save.told("swap") or model.moves <= 0: return
-	if model.boss_on() or not model.belts.is_empty() or not model.tide.is_empty(): return
+	# (nor in the plesiosaur hunt: its knock counts the move's cleared cells, and a second move began a new count)
+	if model.boss_on() or not model.belts.is_empty() or not model.tide.is_empty() or not model.gulp.is_empty(): return
 	if not _still(r1, c1) or not _still(r2, c2): return
 	var a: BoardModel.Gem = model.G[r1][c1]
 	var b: BoardModel.Gem = model.G[r2][c2]
@@ -854,7 +855,8 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 ## a special tapped while the board is still cascading (as in Royal Match): one at rest goes off in the next step
 func _tap_mid(r: int, c: int) -> void:
 	if booster != "" or coach.visible or not _coach_move.is_empty() or not Save.told("swap") or model.moves <= 0: return
-	if model.boss_on() or not model.belts.is_empty() or not model.tide.is_empty(): return
+	# (nor in the plesiosaur hunt: its knock counts the move's cleared cells, and a second move began a new count)
+	if model.boss_on() or not model.belts.is_empty() or not model.tide.is_empty() or not model.gulp.is_empty(): return
 	var g: BoardModel.Gem = model.G[r][c] if model.open(r, c) else null
 	if g == null or g.sp == "" or not _still(r, c): return
 	for e: Dictionary in _queued_ev:
