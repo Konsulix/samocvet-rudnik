@@ -12,7 +12,7 @@ extends Node
 ## every side of a zone roots-outward (22.11: a photo of frost revealed near the rim pointed its fronds anywhere)
 const TEX := preload("res://assets/fx/frost_strip.png")
 const DEPTH := 190.0         # how deep the strip runs in from the stone's frame; the info panel, small, half of it
-const CAP := 0.8             # how far it reaches at its fullest (the shader's growth)
+const CAP := 1.0             # how far it reaches at its fullest (the shader's growth)
 
 static var test_period := 0.0   # a test key (-- frost_period=S): the cycle S s long, starting now
 
@@ -20,6 +20,8 @@ var card: Control
 var phase := 0.0
 var period := 16.0
 var _pieces: Array[ColorRect] = []
+var _was_t := 2.0
+var _rng := RandomNumberGenerator.new()
 
 ## p: the built find; view: its stone's frame; info: the panel under it (its first child is its slate)
 static func attach(card_: Control, view: Control, info: Control, p: Node3D) -> void:
@@ -64,10 +66,25 @@ func _ready() -> void:
 		period = test_period
 		phase = -Time.get_ticks_msec() / 1000.0 / period
 
+func _reroll() -> void:
+	for r in _pieces:
+		if not is_instance_valid(r): continue
+		var sm := r.material as ShaderMaterial
+		# one side gets going first, the rest after it, one of them late or hardly at all
+		var d := Vector4(_rng.randf() * 0.45, _rng.randf() * 0.45, _rng.randf() * 0.45, _rng.randf() * 0.45)
+		d[_rng.randi() % 4] = 0.0
+		d[_rng.randi() % 4] = _rng.randf_range(0.5, 0.75)
+		sm.set_shader_parameter("sd", d)
+		sm.set_shader_parameter("ss", Vector4(_rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15), _rng.randf_range(0.75, 1.15)))
+		sm.set_shader_parameter("sa", Vector4(_rng.randf(), _rng.randf(), _rng.randf(), _rng.randf()))
+
 func _process(_dt: float) -> void:
 	if not is_instance_valid(card): return
 	# the stone's own cycle: grow, hold, thaw (as shaders/frost_bloom.gdshader keeps it)
 	var t := fposmod(Time.get_ticks_msec() / 1000.0 / period + phase, 1.0)
+	# a new cycle: each side of each zone its own start, pace and spot along the rim, this time
+	if t < _was_t: _reroll()
+	_was_t = t
 	var grow := CAP * smoothstep(0.0, 0.5, t)
 	var thaw := smoothstep(0.76, 0.98, t)
 	var inv := card.get_global_transform().affine_inverse()
