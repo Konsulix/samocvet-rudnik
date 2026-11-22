@@ -614,8 +614,7 @@ func _render_moves() -> void:
 	moves_label.text = str(model.moves)
 	if not model.gulp.is_empty():
 		# no count of moves in the hunt: the lump in his neck is the clock
-		moves_label.text = "-"
-		moves_label.add_theme_color_override("font_color", Kit.AMBER)
+		moves_token.modulate.a = 0.0
 		return
 	var low := model.moves <= 5 and not model.over
 	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if low else Kit.AMBER)
@@ -2385,7 +2384,7 @@ func _maiden_end(all: bool) -> void:
 ## back up his neck and out of his mouth
 const GULP := {gulp = true, gen = true, colors = 5, moves = 99, goals = [["gulp"]],
 	map = ".........|.........|.........|.........|.........|.........|.........|.........|........."}
-const GULP_BG := "res://assets/ui/level_bg/2_3.png"
+const GULP_BG := "res://assets/boss/kraken/bg.png"     # the cove's dark water (the Kraken's grotto): he lives there too
 
 ## after a move: the knock (stones cleared beside the lump), his bite if it is due, the lump's slip; true once the
 ## hunt is over either way
