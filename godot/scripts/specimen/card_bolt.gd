@@ -39,6 +39,16 @@ var _rim_len := 0.0
 var _down := PackedVector2Array()
 var _up := PackedVector2Array()
 var _shine: Control          # the light on the brass: plain added light under the arcs
+## more of it (22.11, "more lightning, and something fun"): bolts and hot points with clocks of their own, beside the
+## main leap — second strikes from the stone to the other side of the frame and to its top, restrikes down the first
+## channel, the charge hopping from the button it reached to the card's other buttons and from the price to the first
+## gene badge, the rivets in the frame's corners flashing, the stone's name flickering. And the card stays charged a
+## little after: a finger put on it then gets a spark from the nearest rim (a static shock: a crackle, a buzz)
+var _arcs := []              # {a, b, t0, dur, w, salt, forks, fired}
+var _glints := []            # {p, t0, dur, r}
+var _clock := 0.0
+var _live_until := 0.0       # the card is charged till then
+var _was_busy := false
 var _btn: Control
 var _price_text := ""
 var _price_col := Color.WHITE
@@ -80,6 +90,15 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(view) or not is_instance_valid(bolt):
 		queue_free()
 		return
+	_clock += dt
+	for i in range(_arcs.size() - 1, -1, -1):
+		var ar: Dictionary = _arcs[i]
+		if not ar.fired and _clock >= float(ar.t0):
+			ar.fired = true
+			_burst(ar.b, 5, 120.0)
+		if _clock > float(ar.t0) + float(ar.dur): _arcs.remove_at(i)
+	for i in range(_glints.size() - 1, -1, -1):
+		if _clock > float(_glints[i].t0) + float(_glints[i].dur): _glints.remove_at(i)
 	for i in range(_sparks.size() - 1, -1, -1):
 		var s: Dictionary = _sparks[i]
 		s.t += dt
@@ -90,7 +109,9 @@ func _process(dt: float) -> void:
 		_wait -= dt
 		if _wait <= 0.0 and view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 			_start()
-		if _sparks.size(): _redraw()
+		var busy := _sparks.size() + _arcs.size() + _glints.size() > 0
+		if busy or _was_busy: _redraw()
+		_was_busy = busy
 		return
 	_t += dt
 	_jag += dt
@@ -104,6 +125,7 @@ func _process(dt: float) -> void:
 	if _t > _end():
 		_settle()
 		_t = -1.0
+		_live_until = _clock + 1.6
 		_wait = 3.0 if test_at >= 0.0 else rng.randf_range(EVERY.x, EVERY.y)
 	_redraw()
 
@@ -124,14 +146,31 @@ func _crawl_t() -> float:
 func _end() -> float:
 	return T_STRIKE * 0.6 + _crawl_t() + T_LEAP * 2.0 + T_FLICK
 
-func _start() -> void:
-	# from a point of the lightning's own stone (as the callouts find theirs: the studio's camera, the view's size)
+## a point of the lightning's own stone on the card (as the callouts find theirs: the studio's camera, the view's size)
+func _stone_pt() -> Vector2:
 	var cam := view.studio.cam
 	var k := view.size / Vector2(maxi(1, view.studio.vp.size.x), maxi(1, view.studio.vp.size.y))
 	var w := bolt.global_transform * bolt.bounds.get_center()
 	if bolt.surface.size():
 		w = bolt.global_transform * bolt.surface[rng.randi() % bolt.surface.size()]
-	_a = _in(view.get_global_transform() * (cam.unproject_position(w) * k))
+	return _in(view.get_global_transform() * (cam.unproject_position(w) * k))
+
+## a bolt of its own, `delay` s from now
+func _arc(a: Vector2, b: Vector2, delay: float, dur := 0.18, w := 6.0, forks := 0.3) -> void:
+	_arcs.append({a = a, b = b, t0 = _clock + delay, dur = dur, w = w, salt = 20 + rng.randi() % 900, forks = forks, fired = false})
+
+func _glint(p: Vector2, delay: float, r := 16.0, dur := 0.4) -> void:
+	_glints.append({p = p, t0 = _clock + delay, dur = dur, r = r})
+
+## a node's cold blink, `delay` s from now (its own colour back after it)
+func _blink(c: CanvasItem, delay: float, dur := 0.35) -> void:
+	var tw := c.create_tween()
+	tw.tween_interval(maxf(0.001, delay))
+	tw.tween_callback(func() -> void: c.modulate = Color(0.75, 0.95, 1.5, c.modulate.a))
+	tw.tween_property(c, "modulate", Color(1, 1, 1, c.modulate.a), dur)
+
+func _start() -> void:
+	_a = _stone_pt()
 	var r := Rect2(_in(card.global_position), card.size)
 	# to the nearer side of the rim, a little above the point it left
 	var right := _a.x > r.get_center().x
@@ -163,6 +202,26 @@ func _start() -> void:
 	_price_col = price.get_theme_color("font_color")
 	_t = 0.0
 	if test_at >= 0.0: print("CARDBOLT leap from ", _a, " to rim ", _h, " button ", _btn)
+	# more of it: a second strike to the other side of the frame, often a third to its top, restrikes down the first
+	# channel; the rivets in the corners flash; the stone's name flickers
+	var x2 := r.position.x + RIM_IN if right else r.end.x - RIM_IN
+	var a2 := _stone_pt()
+	var h2 := Vector2(x2, clampf(a2.y + rng.randf_range(-40.0, 60.0), r.position.y + 40.0, r.end.y - 120.0))
+	_arc(a2, h2, 0.09, 0.2, 8.0)
+	_glint(h2, 0.09, 30.0)
+	if rng.randf() < 0.6:
+		var a3 := _stone_pt()
+		var h3 := Vector2(clampf(a3.x + rng.randf_range(-70.0, 70.0), r.position.x + 30.0, r.end.x - 30.0), top)
+		_arc(a3, h3, 0.18, 0.2, 7.0)
+		_glint(h3, 0.18, 28.0)
+	_arc(_a, _h + Vector2(0, rng.randf_range(-14.0, 14.0)), 0.27, 0.12, 5.0)
+	_arc(_a, _h + Vector2(0, rng.randf_range(-14.0, 14.0)), 0.44, 0.1, 4.0)
+	for c in 4:
+		var cp := Vector2(r.position.x + 9.0 if c % 2 == 0 else r.end.x - 9.0, r.position.y + 9.0 if c < 2 else r.end.y - 9.0)
+		_glint(cp, 0.02 + c * 0.03, 15.0, 0.45)
+	if is_instance_valid(Reveal._name_l) and card.is_ancestor_of(Reveal._name_l):
+		_blink(Reveal._name_l, 0.0, 0.12)
+		_blink(Reveal._name_l, 0.2, 0.3)
 	# the stone's own bolt strikes with it, so the flash inside and the leap are one
 	bolt._strike()
 	Sfx.play("card_arc")
@@ -201,9 +260,24 @@ func _price_tick() -> void:
 			tw.tween_property(_btn, "modulate", Color.WHITE, 0.35)
 			_burst(_mid(_btn), 5, 90.0)
 			Sfx.buzz(12)
+			# and on to the card's other buttons
+			var hop := 0.07
+			for b2: Button in box.find_children("*", "Button", true, false):
+				if b2 == _btn or not b2.is_visible_in_tree(): continue
+				_arc(_mid(_btn), _mid(b2), hop, 0.2, 5.5, 0.4)
+				_blink(b2, hop + 0.03)
+				hop += 0.06
 		if s == 4:
 			_burst(_mid(price), 7, 100.0)
 			Sfx.buzz(12)
+			# from the price on to the first gene badge (the lightning's own: the dearest comes first)
+			for fl in box.find_children("*", "HFlowContainer", true, false):
+				for ch in fl.get_children():
+					if ch is Label and (ch as Label).is_visible_in_tree():
+						_arc(_mid(price), _mid(ch), 0.1, 0.2, 5.0, 0.4)
+						_blink(ch as Label, 0.13)
+						break
+				break
 	if s == 4 and is_instance_valid(price):
 		# the figures jump (the commas, dots and letters stay), cold and bright, slower as it dies down
 		var k := float(st[1])
@@ -286,6 +360,18 @@ func _draw() -> void:
 		var su := 1.0 - float(sp.t) / float(sp.life)
 		segs.append([sp.p, (sp.p as Vector2) - (sp.v as Vector2) * 0.03, 1.6, su * 0.8, 0.3, 1.0])
 	_ribbons(segs, 1.0)
+	for ar: Dictionary in _arcs:
+		var age := _clock - float(ar.t0)
+		if age < 0.0: continue
+		var au := age / float(ar.dur)
+		var aa := 1.0 if au < 0.3 else 0.3 if au < 0.45 else 0.95 * (1.0 - smoothstep(0.55, 1.0, au))
+		var pa: Vector2 = ar.a
+		var pb: Vector2 = ar.b
+		var dist := pa.distance_to(pb)
+		var rr := _rng_of(int(ar.salt))
+		segs = []
+		_grow(rr, pa, pb, dist * 0.2, 5 if dist > 120.0 else 4 if dist > 50.0 else 3, segs, 1.0, float(ar.w), rr.randf(), float(ar.forks))
+		_ribbons(segs, aa)
 	if _t < 0.0: return
 	var st := _stage()
 	var s := int(st[0])
@@ -305,8 +391,8 @@ func _draw() -> void:
 		var front := k * _rim_len
 		var inward := -signf(_rim[0].x - size.x * 0.5)
 		segs = []
-		for i in 5:
-			var s0 := maxf(0.0, front - r.randf_range(0.0, 150.0))
+		for i in 9:
+			var s0 := maxf(0.0, front - r.randf_range(0.0, 190.0))
 			var s1 := clampf(s0 + r.randf_range(16.0, 58.0) * (1.0 if r.randf() < 0.6 else -1.0), 0.0, front)
 			if absf(s1 - s0) < 10.0: continue
 			var p0 := Vector2(_rim[0].x, _rim[0].y + s0)
@@ -320,7 +406,7 @@ func _draw() -> void:
 			var to := head + Vector2(inward * r.randf_range(10.0, 46.0), r.randf_range(-18.0, 30.0))
 			_grow(r, head, to, head.distance_to(to) * 0.28, 3, segs, 0.9 if i == 0 else 0.6, 2.8, r.randf(), 0.45)
 		# the same over the brass the charge ran up along
-		for i in 2:
+		for i in 5:
 			if _up.size() < 6: break
 			var n := mini(_up.size() - 1, int(k * _rim_len / 6.0))
 			if n < 4: break
@@ -394,6 +480,16 @@ func _charge() -> Vector2:
 
 ## the light on the brass: brightest at the front of the charge, a long dying tail behind it, both ways from the hit
 func _draw_shine() -> void:
+	# hot points on the brass: where a bolt struck, the rivets in the corners
+	var pt0 := FxLayer.puff()
+	for g: Dictionary in _glints:
+		var ga := _clock - float(g.t0)
+		if ga < 0.0: continue
+		var gu := 1.0 - ga / float(g.dur)
+		var gr: float = g.r
+		var gp: Vector2 = g.p
+		_shine.draw_texture_rect(pt0, Rect2(gp - Vector2(gr, gr), Vector2(gr, gr) * 2.0), false, Color(0.45, 0.72, 1.0, 0.8 * gu * gu))
+		_shine.draw_texture_rect(pt0, Rect2(gp - Vector2(gr, gr) * 0.35, Vector2(gr, gr) * 0.7), false, Color(1, 1, 1, gu))
 	var ch := _charge()
 	if ch.y <= 0.01: return
 	var jit := 0.82 + 0.18 * _rng_of(11).randf()
@@ -434,3 +530,21 @@ func _draw_shine() -> void:
 		var pt := FxLayer.puff()
 		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(34, 34), Vector2(68, 68)), false, Color(0.55, 0.78, 1.0, 0.75 * hot))
 		_shine.draw_texture_rect(pt, Rect2(_h - Vector2(150, 150), Vector2(300, 300)), false, Color(0.3, 0.5, 1.0, 0.16 * hot))
+
+## the card is charged while the lightning is out on it and a little after: a finger put on it gets a spark from the
+## nearer side of the rim (the touch itself goes on to whatever it was for)
+func _input(e: InputEvent) -> void:
+	if not (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT): return
+	if _t < 0.0 and _clock > _live_until: return
+	if not is_instance_valid(card) or not is_visible_in_tree(): return
+	var r := Rect2(_in(card.global_position), card.size)
+	var p := _in((e as InputEventMouseButton).global_position)
+	if not r.has_point(p): return
+	var x := r.position.x + RIM_IN if p.x < r.get_center().x else r.end.x - RIM_IN
+	var from := Vector2(x, clampf(p.y + rng.randf_range(-50.0, 50.0), r.position.y + 20.0, r.end.y - 20.0))
+	_arc(from, p, 0.0, 0.2, 7.0, 0.45)
+	_arc(from + Vector2(0, rng.randf_range(-30.0, 30.0)), p, 0.07, 0.14, 4.5, 0.3)
+	_glint(p, 0.0, 26.0, 0.35)
+	_glint(from, 0.0, 20.0, 0.3)
+	Sfx.play("card_arc")
+	Sfx.buzz(28)
