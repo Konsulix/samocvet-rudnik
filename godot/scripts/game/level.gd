@@ -56,6 +56,7 @@ var eye_hits := 0
 var ore_chips := {}     # kind -> {root, count, vein}: what this level has mined so far, and the depth's vein
 var ore_shown := {iron = 0, ore = 0}
 var rich := false        # a rich vein this time: twice the ore stones
+var gulp_view: GulpView    # the plesiosaur's hunt (GULP): his neck round the board, the swallowed find a lump in it
 var maiden: MaidenView     # the Fire Maiden's chase (MAIDEN, docs/fire-maiden.md): she dances on the board
 var _mclear: Array = []      # cells cleared in this move: one beside her catches her
 var prologue := false    # the very first board: the newcomer digs out of a cave-in towards a lantern (PROLOGUE)
@@ -136,7 +137,9 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	if prologue and ResourceLoader.exists(PROLOGUE_BG): bg.texture = load(PROLOGUE_BG)
 	var chase := bool(level.get("maiden", false))
 	if chase and ResourceLoader.exists(MAIDEN_BG): bg.texture = load(MAIDEN_BG)
-	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase, level)
+	var hunt := bool(level.get("gulp", false))
+	if hunt and ResourceLoader.exists(GULP_BG): bg.texture = load(GULP_BG)
+	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase and not hunt, level)
 	rich = bool(level.get("rich", false))
 	# the journal (♪ held): what was played and how it ended
 	Diag.note("-> level %d, %s, %d m%s, %d moves%s" % [n, String(Data.AREAS[Save.area()].n), Data.depth_m(Save.area(), dl) if dl < Data.depths(Save.area()).size() else 0,
@@ -158,6 +161,13 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 		board.add_child(maiden)
 		maiden.setup(board, Vector2i(int(model.maiden.r), int(model.maiden.c)))
 		maiden.marks = model.maiden.marks
+	if not model.gulp.is_empty():
+		gulp_view = GulpView.new()
+		# (beside the board, over it: the board cuts off what is drawn past its frame)
+		board.get_parent().add_child(gulp_view)
+		gulp_view.glow = level.get("glow", gulp_view.glow)
+		gulp_view.setup(board, model)
+		gulp_view.position = board.position
 	busy = true
 	booster = ""
 	hint_label.text = ""
@@ -191,6 +201,7 @@ func _board_theme() -> Array:
 ## (static: Jump reads it for the boards a simulated career played — their banners count as seen)
 static func board_theme(model: BoardModel) -> Array:
 	var has := func(k: String) -> bool: return model.goal_index(k) >= 0
+	if has.call("gulp"): return ["The Plesiosaur", "Knock your find back up his neck: match beside its light"]
 	if has.call("maiden"): return ["The Fire Maiden", "Catch her: break the stone she dances on"]
 	if has.call("dark"): return ["The Dark Gallery", "Carry the light down: match next to it"]
 	if has.call("cart"): return ["Ore Carts" if model.carts.size() > 1 else "The Ore Cart", "Match stones of its colour right beside it"]
@@ -484,11 +495,12 @@ func _render_hud() -> void:
 	title_label.text = "Level %d · %d m%s" % [model.n, Data.depth_m(Save.area(), model.depth), " · rich vein" if rich else " · super hard" if model.beat == "super" else " · hard" if model.hard else ""]
 	if prologue: title_label.text = "Cave-in"
 	if not model.maiden.is_empty(): title_label.text = "The Fire Maiden"
+	if not model.gulp.is_empty(): title_label.text = "The Plesiosaur"
 	if model.boss_on():
 		title_label.text = "%s · %d m" % [model.boss.B.n, int(model.boss.B.m)]
 	# no ore is mined at the boss
 	for nm in ["Ores", "OreRule"]:
-		(hud.find_child(nm, true, false) as Control).visible = not model.boss_on()
+		(hud.find_child(nm, true, false) as Control).visible = not model.boss_on() and model.gulp.is_empty()
 	var row: HBoxContainer = hud.find_child("Goals", true, false)
 	for ch in row.get_children(): ch.queue_free()
 	goal_boxes.clear()
@@ -600,6 +612,11 @@ func _goal_burst(box: Control) -> void:
 
 func _render_moves() -> void:
 	moves_label.text = str(model.moves)
+	if not model.gulp.is_empty():
+		# no count of moves in the hunt: the lump in his neck is the clock
+		moves_label.text = "-"
+		moves_label.add_theme_color_override("font_color", Kit.AMBER)
+		return
 	var low := model.moves <= 5 and not model.over
 	moves_label.add_theme_color_override("font_color", Color("#ff5a4a") if low else Kit.AMBER)
 	# the last moves: the count throbs as each one goes
@@ -1337,6 +1354,13 @@ func _flights_done() -> void:
 
 func _after_turn() -> void:
 	await _flights_done()
+	if gulp_view:
+		if await _gulp_turn(): return
+		board.sync()
+		busy = false
+		idle = 0.0
+		_hinted = false
+		return
 	if maiden: await _maiden_turn()
 	if model.goals_done():
 		model.over = true
@@ -2355,6 +2379,88 @@ func _maiden_end(all: bool) -> void:
 	if all: stone = Stones.maiden_gold(Save.next_uid())
 	finished.emit({won = true, maiden = true, n = model.n, caught = BoardModel.MAIDEN_CATCH - int(model.goals[model.goal_index("maiden")].left),
 		gold = gold, coins = coins, stone = stone, bonus = [], mined = model.mined.duplicate(), boss = false, prologue = false})
+
+# ---------------------------------------------------------------- the plesiosaur's hunt
+## the fight for the find he swallowed (BoardModel.gulp): no count of moves, no goals but one - knock the find's light
+## back up his neck and out of his mouth
+const GULP := {gulp = true, gen = true, colors = 5, moves = 99, goals = [["gulp"]],
+	map = ".........|.........|.........|.........|.........|.........|.........|.........|........."}
+const GULP_BG := "res://assets/ui/level_bg/2_3.png"
+
+## after a move: the knock (stones cleared beside the lump), his bite if it is due, the lump's slip; true once the
+## hunt is over either way
+func _gulp_turn() -> bool:
+	var a := model.gulp_after()
+	if a.is_empty(): return false
+	var gi := model.goal_index("gulp")
+	if int(a.push) > 0:
+		gulp_view.knock(bool(a.harpoon))
+		Sfx.play("special" if a.harpoon else "pop", 3)
+		Sfx.buzz(45 if a.harpoon else 15)
+		if a.harpoon:
+			fx.shake = maxf(fx.shake, 8.0)
+			fx.hitstop(0.05)
+		await gulp_view.move_lump(int(a.to))
+	if bool(a.held) and not Save.told("t_gulp_held"):
+		Save.tell("t_gulp_held")
+		_toast("It is in his mouth: only a special's blast gets it out")
+	if bool(a.won):
+		await _gulp_end(true)
+		return true
+	var B: Dictionary = a.bite
+	if not B.is_empty():
+		Sfx.play("rumble")
+		await gulp_view.bite(B.cells, bool(B.choke), func() -> void:
+			for id in B.ids: board.remove_node(int(id))
+			Sfx.play("boom" if B.choke else "bad")
+			Sfx.buzz(70 if B.choke else 35)
+			fx.shake = maxf(fx.shake, 14.0 if B.choke else 7.0)
+			for p: Vector2i in B.cells:
+				if B.choke: fx.flash(p.x, p.y, Color(1.0, 0.8, 0.45), 1.6, 0.4)
+				else: fx.sparkle(p.x, p.y, Color(0.7, 0.9, 1.0), 6))
+		board.refresh()
+		await board.animate_collapse(model.collapse())
+		await _resolve([], [])
+		model.dead_cells = []
+		if bool(B.choke) and not Save.told("t_gulp_choke"):
+			Save.tell("t_gulp_choke")
+			_toast("A special in his bite goes off in his mouth")
+		if bool(a.won):
+			await _gulp_end(true)
+			return true
+	if int(model.gulp.pin) <= 0: gulp_view.unpin()
+	await gulp_view.move_lump(int(a.at), 0.45)
+	if not (a.mark as Array).is_empty():
+		Sfx.play("hiss")
+		if not Save.told("t_gulp_bite"):
+			Save.tell("t_gulp_bite")
+			_toast("He will bite there in two moves - move a special in, or lose ground")
+	gulp_view.set_mark(model.gulp.bite.cells, int(model.gulp.bite.left))
+	if gi >= 0:
+		goal_boxes[gi].shown = int(model.goals[gi].left)
+		_render_goal(gi)
+	if bool(a.lost):
+		await _gulp_end(false)
+		return true
+	if not model.has_moves():
+		model.shuffle()
+		board.animate_shuffle()
+	return false
+
+## the hunt is over: the find flies out of his mouth, or goes down for good (this time)
+func _gulp_end(won: bool) -> void:
+	model.over = true
+	busy = true
+	Save.d.in_level = false
+	if won:
+		Sfx.play("win")
+		Sfx.buzz(90)
+		fx.shake = maxf(fx.shake, 16.0)
+		await gulp_view.spit()
+	else:
+		Sfx.play("lose")
+		await gulp_view.swallow()
+	finished.emit({won = won, gulp = true, n = model.n, coins = 0, stone = {}, bonus = [], mined = {iron = 0, ore = 0}, boss = false, prologue = false})
 
 const PROLOGUE_BG := "res://assets/ui/level_bg/prologue.png"
 

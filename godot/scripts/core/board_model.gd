@@ -133,6 +133,11 @@ var boss := {}
 var maiden := {}
 const MAIDEN_CATCH := 5
 static var MAIDEN_REACH := 0   # how near a cleared cell catches her: 0 - only the stone she stands on (beside her was too easy)
+## the plesiosaur's hunt (CLAUDE.md 22.11): his neck lies round the board, the swallowed find a lump of light in it.
+## {cfg, track (the edge cells along the neck, mouth first), at (the lump's place on it), pin, stun, acc, wait,
+## bite {cells, left}, lost}
+var gulp := {}
+var _gulp_fx := {}          # cells a special's blast reached this move (a harpoon, if one is by the lump)
 var dead_cells: Array = []   # the cells cleared since the move began (a match beside the Fire Maiden catches her)
 ## a colour new stones are not made of (-1: any): the Mistress' lizards carry off the greens and none come back
 var skip_colour := -1
@@ -1065,6 +1070,8 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	area_i = area
 	boss = {}
 	maiden = {}
+	gulp = {}
+	_gulp_fx = {}
 	if def.has("boss"):
 		boss = {B = def.boss, stage = int(def.get("stage", 0)), hp_max = int(def.hp), k = 0, timer = 0, intent = {}, clear = false}
 		roll_find = false
@@ -1074,7 +1081,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 	# no ore is mined at the boss: only the stones of its weak colour carry gold, and hurt it more
 	set_ore(area, dl, vein, bool(def.get("rich", false)), not def.has("boss"))
 	# the Fire Maiden's chase: no ore but the gold she makes
-	if def.get("maiden", false): ore_p = {}
+	if def.get("maiden", false) or def.get("gulp", false): ore_p = {}
 	lift = int(eq.get("lift", 0))
 	vent = int(eq.get("vent", 0))
 	moves = start_moves(def, dl, eq)
@@ -1323,6 +1330,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			"dark": goals.append({k = "dark", t = -1, left = _count(DARK)})
 			"boss": goals.append({k = "boss", t = int(boss.B.weak), left = int(def.hp)})
 			"maiden": goals.append({k = "maiden", t = -1, left = MAIDEN_CATCH})
+			"gulp": goals.append({k = "gulp", t = -1, left = 1})
 	# fill without ready-made matches, and make sure a move exists
 	for tries in 40:
 		for r in R:
@@ -1353,6 +1361,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		for tn: Dictionary in tentacles: goals[tg].left += (tn.cells as Array).size()
 	# the Fire Maiden comes out of the fire once the board is filled
 	if goal_index("maiden") >= 0: maiden_start()
+	if goal_index("gulp") >= 0: gulp_start(def.get("gulp_cfg", {}))
 	# boosters chosen before the level land on the board as ready specials
 	var cand := []
 	for r in range(1, R - 1):
@@ -1421,6 +1430,155 @@ func _count_granite() -> int:
 	return k
 
 # ------------------------------------------------------------------ queries
+
+# ------------------------------------------------------------------ the plesiosaur's hunt
+# He swallowed the find: it is a lump of light in his neck, and his neck lies round the board - the mouth over the top's
+# middle, then along the top to the right, down the right side, back along the bottom and up the left to his belly.
+# After every move the lump slips towards the belly; stones cleared in the cells beside it (a match there, a blast)
+# knock it back towards the mouth, a place each (two a move at most). A special's blast that reaches those cells is
+# a HARPOON: two places more, and the lump is pinned for two moves. Out of the mouth it comes only on a harpoon.
+# Now and then his head marks a 2x2 and, two moves on, bites it out of the board: plain stones - the lump goes down
+# two; a special among them goes off in his mouth - four places up and he chokes (no slip next move). The lump in the
+# belly: lost. No count of moves.
+const GULP := {start = 0.5, slide = [1.0, 1.0, 0.75], bite_every = [3, 4, 5], bite_warn = 2, push_max = 2, harpoon = 2, pin = 2,
+	bite_down = 2, choke_up = 4}
+
+func gulp_start(cfg: Dictionary) -> void:
+	var G0: Dictionary = GULP.duplicate(true)
+	G0.merge(cfg, true)
+	var tr: Array = []
+	for c in range(C / 2, C): tr.append(Vector2i(0, c))
+	for r in range(1, R): tr.append(Vector2i(r, C - 1))
+	for c in range(C - 2, -1, -1): tr.append(Vector2i(R - 1, c))
+	for r in range(R - 2, R / 2 - 1, -1): tr.append(Vector2i(r, 0))
+	gulp = {cfg = G0, track = tr, at = int(tr.size() * float(G0.start)), pin = 0, stun = 0, acc = 0.0, lost = false,
+		wait = int(G0.bite_every[1]), bite = {cells = [], left = 0}}
+	_gulp_goal()
+
+## how he is by where the lump lies: 0 in his throat (he fights for it: it slips every move, he bites often), 1 midway,
+## 2 near the belly (calm: he thinks it his - slow, bites seldom; the worse it stands, the more time there is)
+func gulp_phase() -> int:
+	var n: int = (gulp.track as Array).size()
+	var at: int = gulp.at
+	return 0 if at * 3 < n else 1 if at * 3 < n * 2 else 2
+
+## the cells beside the lump: its own place on the neck and one either side
+func gulp_zone() -> Array:
+	var tr: Array = gulp.track
+	var out: Array = []
+	for i in range(int(gulp.at) - 1, int(gulp.at) + 2):
+		if i >= 0 and i < tr.size(): out.append(tr[i])
+	return out
+
+## what the move so far would knock the lump back by: {push, harpoon} (the autoplayer weighs a move by it)
+func gulp_push() -> Dictionary:
+	var z := gulp_zone()
+	var push := 0
+	var harp := false
+	for p: Vector2i in dead_cells:
+		if p in z: push += 1
+	for p: Vector2i in z:
+		if _gulp_fx.has(p.x * C + p.y): harp = true
+	push = mini(push, int(gulp.cfg.push_max))
+	if harp: push += int(gulp.cfg.harpoon)
+	return {push = push, harpoon = harp}
+
+func _gulp_goal() -> void:
+	var gi := goal_index("gulp")
+	if gi >= 0: goals[gi].left = int(gulp.at) + 1
+
+## the 2x2 he will bite: plain stones away from the edges
+func _gulp_mark() -> Array:
+	var cand: Array = []
+	for r in range(1, R - 2):
+		for c in range(1, C - 2):
+			var ok := true
+			for d: Vector2i in [Vector2i(0, 0), Vector2i(0, 1), Vector2i(1, 0), Vector2i(1, 1)]:
+				var g: Gem = G[r + d.x][c + d.y] if playable(r + d.x, c + d.y) else null
+				if g == null or LOCK[r + d.x][c + d.y] or g.item != "": ok = false
+			if ok: cand.append(Vector2i(r, c))
+	if cand.is_empty(): return []
+	var p: Vector2i = cand[rng.randi() % cand.size()]
+	return [p, p + Vector2i(0, 1), p + Vector2i(1, 0), p + Vector2i(1, 1)]
+
+## the move is over. Returns {from, to (the lump's places before and after the knock), push, harpoon, held (at the
+## mouth without a harpoon), bite {cells, ids, choke} or {}, slid (places it slipped after), at, mark (the next bite's
+## cells, if marked now), won, lost}. The bitten stones are gone from the grid here; the level lets the board fall
+func gulp_after() -> Dictionary:
+	if gulp.is_empty() or over: return {}
+	var cfg: Dictionary = gulp.cfg
+	var out := {from = int(gulp.at), to = int(gulp.at), at = int(gulp.at), push = 0, harpoon = false, held = false, bite = {}, slid = 0, mark = [], won = false, lost = false}
+	var kp := gulp_push()
+	dead_cells = []
+	_gulp_fx = {}
+	out.push = int(kp.push)
+	out.harpoon = bool(kp.harpoon)
+	var at: int = int(gulp.at) - int(kp.push)
+	if out.harpoon: gulp.pin = int(cfg.pin)
+	if at < 0:
+		if out.harpoon: out.won = true
+		else: out.held = true
+		at = 0
+	out.to = at
+	gulp.at = at
+	if out.won:
+		goals[goal_index("gulp")].left = 0
+		return out
+	# his bite
+	var B: Dictionary = gulp.bite
+	if not (B.cells as Array).is_empty():
+		B.left = int(B.left) - 1
+		if int(B.left) <= 0:
+			var ids: Array = []
+			var choke := false
+			var cells: Array = []
+			for p: Vector2i in B.cells:
+				var g: Gem = G[p.x][p.y] if playable(p.x, p.y) else null
+				if g == null or LOCK[p.x][p.y]: continue
+				if g.sp != "": choke = true
+				ids.append(g.id)
+				cells.append(p)
+				G[p.x][p.y] = null
+			out.bite = {cells = cells, ids = ids, choke = choke}
+			gulp.bite = {cells = [], left = 0}
+			if choke:
+				gulp.at = int(gulp.at) - int(cfg.choke_up)
+				gulp.stun = 1
+				if int(gulp.at) < 0:
+					gulp.at = 0
+					out.won = true
+					out.at = 0
+					goals[goal_index("gulp")].left = 0
+					return out
+			else:
+				gulp.at = int(gulp.at) + int(cfg.bite_down)
+			gulp.wait = int(cfg.bite_every[clampi(gulp_phase(), 0, 2)])
+	else:
+		gulp.wait = int(gulp.wait) - 1
+		if int(gulp.wait) <= 0:
+			var mk := _gulp_mark()
+			if not mk.is_empty():
+				gulp.bite = {cells = mk, left = int(cfg.bite_warn)}
+				out.mark = mk
+	# the slip towards the belly
+	var n: int = (gulp.track as Array).size()
+	var before: int = gulp.at
+	if int(gulp.stun) > 0: gulp.stun = int(gulp.stun) - 1
+	elif int(gulp.pin) > 0: gulp.pin = int(gulp.pin) - 1
+	elif before < n:
+		gulp.acc = float(gulp.acc) + float(cfg.slide[gulp_phase()])
+		while float(gulp.acc) >= 1.0:
+			gulp.acc = float(gulp.acc) - 1.0
+			gulp.at = int(gulp.at) + 1
+	out.slid = int(gulp.at) - before
+	if int(gulp.at) >= n:
+		gulp.at = n - 1
+		gulp.lost = true
+		out.lost = true
+		over = true
+	out.at = int(gulp.at)
+	_gulp_goal()
+	return out
 
 # ------------------------------------------------------------------ the Fire Maiden
 
@@ -1754,6 +1912,7 @@ func _goal_hit(k: String, colour: int, r: float, c: float, at: float) -> void:
 ## it reaches is lit
 func hit(r: int, c: int, t: float, kind: String, lit := false) -> void:
 	if not playable(r, c): return
+	if kind == "fx" and not gulp.is_empty(): _gulp_fx[r * C + c] = true
 	_max_t = maxf(_max_t, t)
 	var k := r * C + c
 	if TIDE[r][c]: return   # under water: out of reach
@@ -2386,8 +2545,9 @@ func swap(r1: int, c1: int, r2: int, c2: int) -> Variant:
 	return {special = false, swap_cells = cells, events = []}
 
 func use_move() -> void:
-	moves -= 1
+	if gulp.is_empty(): moves -= 1     # (the hunt has no count of moves: the lump in his neck is the clock)
 	dead_cells = []
+	_gulp_fx = {}
 	gas_hit = false
 	_anvil_hit = false
 

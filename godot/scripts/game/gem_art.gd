@@ -294,6 +294,10 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 			else:
 				find_icon(ci, S, glow)
 		"c", "boss": BoardSprites.draw(ci, BoardSprites.gem(colour), Vector2(S / 2, S / 2), S * 0.9)
+		"gulp":
+			# the find in his neck: its light, and how many places it still is from his mouth
+			radial_disc(ci, Vector2(S / 2, S / 2), S * 0.62, Color(0.6, 0.92, 1.0, 0.55), Color(0.6, 0.92, 1.0, 0.2), Color(0.6, 0.92, 1.0, 0))
+			ci.draw_circle(Vector2(S / 2, S / 2), S * 0.24, Color(0.85, 0.97, 1.0))
 		"maiden":
 			# the Fire Maiden herself: how many times she is still to be caught
 			if _maiden_icon == null and ResourceLoader.exists(MaidenView.DIR + "dance_0.png"): _maiden_icon = load(MaidenView.DIR + "dance_0.png")

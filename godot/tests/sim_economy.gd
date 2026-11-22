@@ -58,6 +58,19 @@ static func play(n: int, dl: int, seed_v: int, level: Dictionary = {}, area := 0
 		var steps := _resolve(m, first, sw, broken)
 		if steps > int(cascade_max): cascade_max = steps
 		m.maiden_after()
+		if not m.gulp.is_empty():
+			# the plesiosaur's hunt: the knock, his bite (the board falls in), the slip; lost with the lump in his belly
+			var ga := m.gulp_after()
+			if not (ga.get("bite", {}) as Dictionary).is_empty():
+				m.collapse()
+				_resolve(m, [], [], broken)
+				m.dead_cells = []
+			if bool(ga.get("won", false)):
+				won = true
+				break
+			if bool(ga.get("lost", false)): break
+			if not m.has_moves(): m.shuffle()
+			continue
 		if m.goals_done():
 			won = true
 			break
@@ -202,6 +215,14 @@ static func _choose_smart(m: BoardModel, rng: RandomNumberGenerator) -> Array:
 static func _worth(m: BoardModel) -> float:
 	if m.goals_done(): return 1e6
 	var v := 0.0
+	if not m.gulp.is_empty():
+		# the hunt: what the move knocks the lump back by; a harpoon at the mouth wins; a special under his bite
+		var kp := m.gulp_push()
+		v += float(kp.push) * 12.0
+		if bool(kp.harpoon) and int(m.gulp.at) - int(kp.push) < 0: v += 500.0
+		for p: Vector2i in m.gulp.bite.cells:
+			var bg: BoardModel.Gem = m.G[p.x][p.y]
+			if bg and bg.sp != "": v += 25.0
 	for g in m.goals:
 		var w := 1.0
 		match String(g.k):
@@ -328,6 +349,29 @@ static func report(per_depth: int) -> String:
 	return "\n".join(lines)
 
 ## the Fire Maiden's chase (Level.MAIDEN) played N times: catches (0..5), gold broken, coins, moves left when all caught
+## the plesiosaur's hunt played N times: won, the moves it took, where the lump stood when lost
+static func gulp_report(n: int) -> String:
+	var won := 0
+	var used := 0
+	var all_used := 0
+	for i in n:
+		var def: Dictionary = Level.GULP.duplicate(true)
+		# `gk=push_max:2,harpoon:1,slide:1/1/0.75`: the rules' numbers tried without touching the code
+		for a in OS.get_cmdline_user_args():
+			if not a.begins_with("gk="): continue
+			var cfg := {}
+			for kv in a.substr(3).split(","):
+				var k := kv.get_slice(":", 0)
+				var v := kv.get_slice(":", 1)
+				cfg[k] = Array(v.split("/")).map(func(x: String) -> float: return float(x)) if "/" in v else float(v)
+			def.gulp_cfg = cfg
+		var r := play(1, 0, 5200 + i * 13, def, 2)
+		all_used += int(r.used)
+		if r.won:
+			won += 1
+			used += int(r.used)
+	return "hunt %s, %d runs | won %.0f%% | moves when won %.1f | moves a run %.1f" % [JSON.stringify(BoardModel.GULP), n, 100.0 * won / n, float(used) / maxf(1.0, won), float(all_used) / n]
+
 static func maiden_report(n: int, moves := -1) -> String:
 	var def: Dictionary = Level.MAIDEN.duplicate()
 	if moves > 0: def.moves = moves

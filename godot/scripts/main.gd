@@ -606,6 +606,8 @@ func _ready() -> void:
 		Atlas.start_area = int(args.atlas)
 	if args.has("screen"):
 		go(args.screen)
+	elif args.has("gulp"):     # the plesiosaur's hunt for a swallowed find (Level.GULP): `-- gulp [autoplay=N smart]`
+		play_hunt()
 	elif args.has("maiden"):   # the Fire Maiden's chase (docs/fire-maiden.md): her card first, `go` - straight to the board
 		_play_maiden(not args.has("go"))
 	elif args.has("level"):
@@ -735,6 +737,11 @@ func _ready() -> void:
 		show_level(Save.d.level, [], 0, LevelGen.current(0))
 	if args.has("sim_min"):
 		print(SimEconomy.minerals(int(args.sim_min)))
+		get_tree().quit()
+		return
+	if args.has("sim_gulp"):
+		# sim_gulp=N [smart] [sloppy=P]: the plesiosaur's hunt played N times
+		print(SimEconomy.gulp_report(int(args.sim_gulp)))
 		get_tree().quit()
 		return
 	if args.has("sim_maiden"):
@@ -917,6 +924,7 @@ func go(id: String) -> void:
 			_swap(m)
 			m.go.connect(go)
 		"maiden": _play_maiden()
+		"hunt": play_hunt()
 		"awards":
 			var aw := Awards.new()
 			_swap(aw)
@@ -928,7 +936,7 @@ func show_level(n: int, pre: Array, dl: int, level: Dictionary = {}) -> void:
 	lv.finished.connect(_on_level_finished)
 	# (14.11) a level being played: left by closing the game it counts as lost, a life and the streak, as the Leave
 	# button does — not a free retry (the prologue and the Fire Maiden's chase cost no life either way)
-	if level != Level.PROLOGUE and not level.get("maiden", false) and not Coach.off:
+	if level != Level.PROLOGUE and not level.get("maiden", false) and not level.get("gulp", false) and not Coach.off:
 		Save.d.in_level = true
 		Save.persist()
 	lv.start(n, pre, dl, level)
@@ -1026,6 +1034,39 @@ func _maiden_intro() -> void:
 			Ov.close()], ["Not now", "dark", func(): Ov.close()]])
 	await Ov.closed
 
+## the plesiosaur's hunt (Level.GULP): the fight for the find he swallowed; its light is the find's own colour
+func play_hunt() -> void:
+	var def: Dictionary = Level.GULP.duplicate(true)
+	for st: Dictionary in Save.d.coll:
+		if st.get("gulp", false): def.glow = Data.rarity_color(int(st.get("tier", 1))).lerp(Color.WHITE, 0.35)
+	if args.has("gulp_at"): def.gulp_cfg = {start = float(args.gulp_at)}    # a test key: where the lump starts (0 mouth .. 1 belly)
+	show_level(Save.d.level, [], 0, def)
+
+## won: the find is the player's again (its card as any stone's, and his mark on it); lost: it stays his, to be hunted again
+func _hunt_done(res: Dictionary) -> void:
+	var back := {}
+	if res.won:
+		for st: Dictionary in Save.d.coll:
+			if st.get("gulp", false):
+				st.erase("gulp")
+				st.gulped = true      # (it has been in his belly: a mark for later - its own trait, an award)
+				back = st
+		Save.d.erase("hunt")
+		Save.persist()
+	if res.won:
+		Ov.panel("He gave it back!", ("Your %s is yours again - a little wet." % Stones.name_of(back)) if not back.is_empty() else "The plesiosaur coughed it up and went under.", [
+			["To the inventory", "green", func():
+				Ov.close()
+				go("stones")]])
+	else:
+		Ov.panel("It went down", "The light went out in his belly. He is still out there - and so is your find.", [
+			["Hunt again", "green", func():
+				Ov.close()
+				play_hunt()],
+			["Later", "dark", func():
+				Ov.close()
+				go("stones")]])
+
 func _maiden_done(res: Dictionary) -> void:
 	Save.d.area = int(Save.d.area_back)
 	Save.d.area_back = -1
@@ -1047,6 +1088,9 @@ func _maiden_done(res: Dictionary) -> void:
 
 func _on_level_finished(res: Dictionary) -> void:
 	Save.d.in_level = false
+	if res.get("gulp", false):
+		_hunt_done(res)
+		return
 	if res.get("maiden", false):
 		await _maiden_done(res)
 		return
