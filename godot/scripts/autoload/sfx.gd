@@ -20,6 +20,8 @@ const SAMPLES := {
 	# the Fire Maiden (docs/fire-maiden.md): a leap is a crackle of sparks, the landing a little chime, her laugh a run of
 	# small bells going down (MaidenView.giggle), caught - a puff of flame and a bright ping
 	mdn_hop = {f = ["amb/fire/sparks"], db = -9.0, pitch = 1.5},
+	# lightning leaping out of a find into its card's rim (CardBolt): a short electric crackle
+	card_arc = {f = ["amb/sea/elmo"], db = -10.0, pitch = 1.25},
 	mdn_land = {f = ["magical_1", "magical_5"], db = -14.0, pitch = 1.7},
 	mdn_giggle = {f = ["bowl_ping"], db = -20.0, pitch = 2.9, step = -0.045},
 	# her own laugh: a girl's giggle (BigSoundBank #1660, CC0; prototype/tools/maiden_laugh.py), a little higher

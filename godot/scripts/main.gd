@@ -116,6 +116,8 @@ func _ready() -> void:
 		SpecButterfly.fly_in = Vector3(float(q[0]), float(q[1]), float(q[2]))
 	if args.has("chips"): Reveal.chips_max = int(args.chips)
 	if args.has("gulp_test"): Reveal.gulp_test = true
+	# (the lightning's leap out of a find into its card, CardBolt: the first S s after the stone is built, then every 3 s)
+	if args.has("card_bolt"): CardBolt.test_at = float(args.card_bolt)
 	# (the hunt's ribbon in a state, for pictures: hunt=N fights won, +g the geode opened, +x just lost — hunt=3, hunt=4g, hunt=4gx)
 	if args.has("hunt_step"):
 		HuntRibbon.step = true
