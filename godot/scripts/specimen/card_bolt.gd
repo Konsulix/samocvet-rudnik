@@ -4,10 +4,10 @@ extends Control
 ## living lightning, thunder horns) now and then leaps out of the stone into the card's brass rim, runs down it as a
 ## crawling spark, jumps to a button of the card and from it to the price — whose figures flicker a moment and settle.
 ## Nothing is changed by it: the price is the same when it settles, the button does what it did.
-## Drawn here as light (FxLayer.add_material: one of our own shaders, as every CanvasItem's must be on the iPhone),
+## Drawn here as the stone's own lightning is (SpecBolt), flat: ribbons with its filament texture and its shader's
+## look (shaders/card_bolt.gdshader) — plain jagged lines read as drawn in a paint program beside it (22.11);
 ## over the whole card; the card's own nodes are only tinted and, the price, scrambled for half a second.
 
-const BLUE := Color(0.45, 0.72, 1.0)
 const RIM_IN := 4.0          # the rim's middle from the card's edge
 const FIRST := 3.2           # the first leap after the stone is built, then every EVERY
 const EVERY := Vector2(8.0, 14.0)
@@ -51,7 +51,12 @@ static func attach(card_: Control, view_: SpecView, box_: Control, price_: Label
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	material = FxLayer.add_material()
+	# the same discharge as inside the stone (SpecBolt), flat: shaders/card_bolt.gdshader, in the stone's own colour
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/card_bolt.gdshader")
+	m.set_shader_parameter("strands", SpecBolt.STRANDS)
+	m.set_shader_parameter("glow_col", Vector3(bolt.col.r, bolt.col.g, bolt.col.b))
+	material = m
 	z_index = 5
 	rng.randomize()
 	if test_at >= 0.0: _wait = test_at
@@ -190,83 +195,120 @@ func _settle() -> void:
 func _exit_tree() -> void:
 	if _t >= 0.0: _settle()
 
-## a jagged line from a to b: midpoints pushed aside, the same every frame until the next jolt (_seed)
-func _zig(a: Vector2, b: Vector2, amp: float, salt: int) -> PackedVector2Array:
+## midpoint displacement, as SpecBolt._bolt grows its channels: split the line, push the middle aside, recurse; fork
+## now and then. segs entries: [p0, p1, half-width, brightness, branch id, core]
+func _grow(r: RandomNumberGenerator, p0: Vector2, p1: Vector2, disp: float, depth: int, segs: Array, bright: float, w: float, br: float, forks := 0.35) -> void:
+	if depth == 2:
+		segs.append([p0, p1, w * 2.6, bright * 0.7, br, 0.0])
+	if depth == 0:
+		segs.append([p0, p1, w, bright, br, 1.0])
+		return
+	var d := p1 - p0
+	var perp := d.orthogonal().normalized()
+	var m := (p0 + p1) * 0.5 + perp * r.randf_range(-disp, disp)
+	_grow(r, p0, m, disp * 0.5, depth - 1, segs, bright, w, br, forks)
+	_grow(r, m, p1, disp * 0.5, depth - 1, segs, bright, w, br, forks)
+	if depth >= 2 and r.randf() < forks and bright > 0.2:
+		var bd := (d.normalized() + perp * r.randf_range(0.6, 1.4) * (1.0 if r.randf() < 0.5 else -1.0)).normalized()
+		_grow(r, m, m + bd * d.length() * r.randf_range(0.35, 0.7), disp * 0.5, depth - 1, segs, bright * 0.55, w * 0.6, r.randf(), forks)
+
+## the channels as one mesh of ribbons: a quad to a segment, its UV across and along, as the shader reads them
+func _ribbons(segs: Array, a: float) -> void:
+	if segs.is_empty() or a <= 0.01: return
+	var pts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	var cols := PackedColorArray()
+	var idx := PackedInt32Array()
+	# (halos first: the cores lie over them)
+	for pass_core: float in [0.0, 1.0]:
+		var along := 0.0
+		for sg: Array in segs:
+			if float(sg[5]) != pass_core: continue
+			var p0: Vector2 = sg[0]
+			var p1: Vector2 = sg[1]
+			var w: float = sg[2]
+			var d := p1 - p0
+			var l := d.length()
+			if l < 0.01: continue
+			var side := d.orthogonal() / l * w
+			var e := d / l * w * 0.25      # (a little over each end: no gaps at the joints)
+			var c := Color(float(sg[5]), float(sg[4]), 0.0, float(sg[3]) * a)
+			var i0 := pts.size()
+			pts.append_array(PackedVector2Array([p0 - e - side, p0 - e + side, p1 + e + side, p1 + e - side]))
+			uvs.append_array(PackedVector2Array([Vector2(-1, along), Vector2(1, along), Vector2(1, along + l / 46.0), Vector2(-1, along + l / 46.0)]))
+			cols.append_array(PackedColorArray([c, c, c, c]))
+			idx.append_array(PackedInt32Array([i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3]))
+			along += l / 46.0
+	if idx.size():
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), idx, pts, cols, uvs)
+
+func _rng_of(salt: int) -> RandomNumberGenerator:
 	var r := RandomNumberGenerator.new()
 	r.seed = _seed + salt * 7919
-	var n := maxi(3, int(a.distance_to(b) / 9.0))
-	var side := (b - a).orthogonal().normalized()
-	var out := PackedVector2Array()
-	for i in n + 1:
-		var u := i / float(n)
-		var p := a.lerp(b, u)
-		if i > 0 and i < n: p += side * r.randf_range(-amp, amp) * sin(u * PI) + (b - a).normalized() * r.randf_range(-2.0, 2.0)
-		out.append(p)
-	return out
-
-func _stroke(pts: PackedVector2Array, a: float, w: float) -> void:
-	if pts.size() < 2 or a <= 0.01: return
-	draw_polyline(pts, Color(BLUE, 0.16 * a), w * 5.0, true)
-	draw_polyline(pts, Color(BLUE, 0.5 * a), w * 2.0, true)
-	draw_polyline(pts, Color(1, 1, 1, 0.95 * a), w * 0.7, true)
-
-func _glow(p: Vector2, r: float, a: float) -> void:
-	draw_texture_rect(FxLayer.puff(), Rect2(p - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(BLUE.lerp(Color.WHITE, 0.4), a))
+	return r
 
 func _draw() -> void:
+	var segs := []
+	# sparks: short bright streaks, slivers of the same ribbon
 	for sp: Dictionary in _sparks:
 		var su := 1.0 - float(sp.t) / float(sp.life)
-		draw_line(sp.p, (sp.p as Vector2) - (sp.v as Vector2) * 0.02, Color(0.8, 0.92, 1.0, su), 1.4, true)
+		segs.append([sp.p, (sp.p as Vector2) - (sp.v as Vector2) * 0.03, 1.6, su * 0.8, 0.3, 1.0])
+	_ribbons(segs, 1.0)
 	if _t < 0.0: return
 	var st := _stage()
 	var s := int(st[0])
 	var k := float(st[1])
 	if _t < T_STRIKE:
-		# the bolt out of the stone: bright, a flicker, gone; a fork or two off it
+		# the bolt out of the stone: bright, a flicker, an afterglow — forking as it goes
 		var u := _t / T_STRIKE
-		var a := 1.0 if u < 0.3 else 0.3 if u < 0.45 else 0.9 * (1.0 - smoothstep(0.55, 1.0, u))
-		var main := _zig(_a, _h, 16.0, 1)
-		_stroke(main, a, 2.2)
-		var m := main[main.size() / 2]
-		_stroke(_zig(m, m + (_h - _a).rotated(0.7).limit_length(46.0), 7.0, 2), a * 0.6, 1.2)
-		_glow(_h, 26.0, a * 0.8)
-		_glow(_a, 20.0, a * 0.5)
+		var a := 1.0 if u < 0.3 else 0.3 if u < 0.45 else 0.95 * (1.0 - smoothstep(0.55, 1.0, u))
+		segs = []
+		_grow(_rng_of(1), _a, _h, _a.distance_to(_h) * 0.2, 5, segs, 1.0, 9.0, 0.11)
+		_ribbons(segs, a)
 	if s == 1:
-		# the spark crawling down the rim: a bright head, a short crackling tail hugging the brass, twigs off it
+		# the discharge racing down the brass: a stretch of it alive at a time, hugging the rim; twigs leap off it
+		# into the card
 		var head := _rim[0].lerp(_rim[1], k)
-		var tail := _rim[0].lerp(_rim[1], maxf(0.0, k - 70.0 / maxf(1.0, _rim_len)))
-		_stroke(_zig(tail, head, 3.0, 3), 0.9, 1.5)
-		_glow(head, 16.0, 0.9)
-		var r := RandomNumberGenerator.new()
-		r.seed = _seed
+		var tail := _rim[0].lerp(_rim[1], maxf(0.0, k - 110.0 / maxf(1.0, _rim_len)))
+		var r := _rng_of(3)
+		segs = []
+		_grow(r, tail, head, 5.0, 4, segs, 1.0, 6.5, 0.37, 0.0)
 		var inward := -signf(_rim[0].x - size.x * 0.5)
-		for i in 2:
-			var q := tail.lerp(head, r.randf())
-			_stroke(_zig(q, q + Vector2(inward * r.randf_range(8.0, 22.0), r.randf_range(-10.0, 10.0)), 3.0, 4 + i), 0.6, 1.0)
-		# the brass it has passed still glows a moment
-		draw_line(_rim[0], tail, Color(BLUE, 0.22), 3.0, true)
+		for i in 3:
+			var q := tail.lerp(head, r.randf_range(0.25, 1.0))
+			var to := q + Vector2(inward * r.randf_range(14.0, 42.0), r.randf_range(-6.0, 26.0))
+			_grow(r, q, to, q.distance_to(to) * 0.25, 3, segs, 0.6, 4.0, r.randf(), 0.5)
+		_ribbons(segs, 1.0)
 	if s == 2 and is_instance_valid(_btn):
-		var a2 := 1.0 - smoothstep(0.5, 1.0, k)
+		var a2 := 1.0 - smoothstep(0.55, 1.0, k)
 		var br := Rect2(_in(_btn.global_position), _btn.size)
-		var to := Vector2(clampf(_rim[1].x, br.position.x + 6.0, br.end.x - 6.0), br.get_center().y)
-		_stroke(_zig(_rim[1], to, 6.0, 6), a2, 1.8)
-		_glow(to, 18.0, a2 * 0.8)
+		var to2 := Vector2(clampf(_rim[1].x, br.position.x + 10.0, br.end.x - 10.0), br.get_center().y)
+		if to2.distance_to(_rim[1]) < 24.0: to2.x += -signf(_rim[1].x - size.x * 0.5) * 30.0
+		segs = []
+		_grow(_rng_of(6), _rim[1], to2, 7.0, 4, segs, 1.0, 6.5, 0.53)
+		# the charge spreading over the button's face
+		var r6 := _rng_of(9)
+		for i in 3:
+			var e := Vector2(r6.randf_range(br.position.x + 8.0, br.end.x - 8.0), r6.randf_range(br.position.y + 6.0, br.end.y - 6.0))
+			_grow(r6, to2, e, to2.distance_to(e) * 0.2, 3, segs, 0.55, 4.0, r6.randf(), 0.3)
+		_ribbons(segs, a2)
 	if s == 3:
-		var a3 := 1.0 - smoothstep(0.5, 1.0, k)
+		var a3 := 1.0 - smoothstep(0.55, 1.0, k)
 		var from := _mid(_btn) if is_instance_valid(_btn) else _rim[1]
 		if is_instance_valid(_btn): from.y = _in(_btn.global_position).y + 4.0
-		_stroke(_zig(from, _mid(price), 9.0, 7), a3, 1.6)
-		_glow(_mid(price), 20.0, a3 * 0.8)
+		segs = []
+		_grow(_rng_of(7), from, _mid(price), from.distance_to(_mid(price)) * 0.18, 5, segs, 1.0, 7.0, 0.71)
+		_ribbons(segs, a3)
 	if s == 4 and is_instance_valid(price):
 		# the price crackles: little arcs over its figures, fewer as it dies down
 		var pr := Rect2(_in(price.global_position), price.size)
 		var mid := pr.get_center()
-		var hw := maxf(14.0, price.get_minimum_size().x * 0.5)
-		var r2 := RandomNumberGenerator.new()
-		r2.seed = _seed
-		for i in 3:
+		var hw := maxf(14.0, price.get_minimum_size().x * 0.5 + 4.0)
+		var r2 := _rng_of(8)
+		segs = []
+		for i in 4:
 			if r2.randf() < k: continue
-			var p0 := mid + Vector2(r2.randf_range(-hw, hw), r2.randf_range(-9.0, 9.0))
-			var p1 := mid + Vector2(r2.randf_range(-hw, hw), r2.randf_range(-9.0, 9.0))
-			_stroke(_zig(p0, p1, 4.0, 8 + i), 0.7 * (1.0 - k), 1.0)
-		_glow(mid, hw + 10.0, 0.25 * (1.0 - k))
+			var p0 := mid + Vector2(r2.randf_range(-hw, hw), r2.randf_range(-10.0, 10.0))
+			var p1 := mid + Vector2(r2.randf_range(-hw, hw), r2.randf_range(-10.0, 10.0))
+			_grow(r2, p0, p1, p0.distance_to(p1) * 0.3, 3, segs, 0.8, 4.0, r2.randf(), 0.3)
+		_ribbons(segs, 1.0 - k * 0.6)
