@@ -17,8 +17,10 @@ const OUT_MAX := 3
 static var test_every := 0.0  # a test key (-- flies_every=S): one leaves every S s, cloud up or not
 static var test_spot := -1    # a test key (-- flies_spot=0|1|2): only there - a button, the ribbon, the card's top
 ## the layer reaches this far past the card on every side: one sitting on the card's very top stands out over it (23.11:
-## the layer the card's size cut it off at its edge)
-const MARGIN := 60.0
+## the layer the card's size cut it off at its edge) — and further above it: taking off from the card's top it climbs
+## (23.11: cut off at 60 points up)
+const MARGIN := 50.0
+const MARGIN_TOP := 190.0
 
 var card: Control
 var view: SpecView
@@ -190,12 +192,16 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(view) or not is_instance_valid(flock) or not is_instance_valid(info):
 		queue_free()
 		return
-	# over the card and MARGIN past it all round (its middle the card's: _w is unchanged)
-	_rect.position = -position - Vector2.ONE * MARGIN
-	_rect.size = card.size + Vector2.ONE * MARGIN * 2.0
+	# over the card and MARGIN past it all round, MARGIN_TOP above; the camera looks at the rect's middle (_w is the
+	# card's: its middle at 0)
+	_rect.position = -position - Vector2(MARGIN, MARGIN_TOP)
+	_rect.size = card.size + Vector2(MARGIN * 2.0, MARGIN + MARGIN_TOP)
 	var want := Vector2i((_rect.size * PX).round())
 	if _vp.size != want: _vp.size = want
-	_vp.get_camera_3d().size = _rect.size.y
+	var cam := _vp.get_camera_3d()
+	cam.size = _rect.size.y
+	var cam_up := cam.global_transform.basis.y
+	cam.position = Vector3(0, sin(PITCH), cos(PITCH)) * 400.0 + cam_up * (MARGIN_TOP - MARGIN) * 0.5
 	# one leaves now and then while the cloud is up (Flock's phase 1), never too many out at once
 	if view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 		_next -= dt

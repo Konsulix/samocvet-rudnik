@@ -406,6 +406,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		var t: Dictionary = Data.TR[id]
 		genes[id] = [t.n, float(t.p) < 0.06]
 	for a in gene.accents:
+		# (a butterfly cloud says it all: not "monarch ×7" beside it as well)
+		if String(gene.fx) == "flutter" and String(a).begins_with("fly_"): continue
 		var fn := SpecFossil.gene_name(a, gene.get("fossil", {}))
 		if String(a).begins_with("sk_"): fn = SpecSkull.gene_name(a, SpecSkull.genes(int(so.seed), gene.get("skull", {})))
 		# butterflies by kind, how many of it: "Apollo ×2"
