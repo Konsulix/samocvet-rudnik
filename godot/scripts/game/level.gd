@@ -768,18 +768,10 @@ static func ink_icon(S: float) -> Control:
 		var img := Image.create(3, 3, false, Image.FORMAT_L8)
 		img.set_pixel(1, 1, Color.WHITE)
 		_ink_one = ImageTexture.create_from_image(img)
-	# the board's slate cell under it, as on the board: on the plate's dark slate the blot alone was all but lost
-	var tile := TextureRect.new()
-	tile.texture = load("res://assets/board/kit/slate_f/tile0.png")
-	tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tile.stretch_mode = TextureRect.STRETCH_SCALE
-	tile.size = Vector2(S, S)
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(tile)
 	var r := ColorRect.new()
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.color = Color.WHITE
-	var cell := S * 0.78          # (the blot reaches a little past its cell: the rect is that cell and its margin)
+	var cell := S * 0.95          # (the blot reaches a little past its cell: the rect is that cell and its margin)
 	r.size = Vector2(cell, cell) * 3.0
 	r.position = Vector2(S, S) * 0.5 - r.size * 0.5
 	var m := ShaderMaterial.new()
