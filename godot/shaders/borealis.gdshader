@@ -70,7 +70,7 @@ void fragment() {
 	// where the curtain turns away edge-on (the sides of the ring) it melts into the dark, no straight edge
 	float edge = abs(dot(normalize(NORMAL), VIEW));
 	c *= smoothstep(0.08, 0.6, edge);
-	c *= mix(1.0, 0.35, v_front);
+	c *= mix(1.0, 0.55, v_front);
 	ALBEDO = c;
 	// (a see-through picture - the inventory's tiles: added with an alpha of 1, every pixel it covers became opaque,
 	// a black shape round the light; the strength goes in ALPHA, the colour comes out the same - fungi_halo too)

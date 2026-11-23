@@ -349,6 +349,7 @@ func _process(dt: float) -> void:
 		studio.cam.fov = _fov0 / _zoom
 	if not is_nan(_aim) and _zoom > 1.001: studio.cam.v_offset = _v0 + _aim * (1.0 - 1.0 / _zoom)
 	# a fluorescent find: the studio goes dark in step with its glow; a star heart dims it a little
+	studio.set_aurora(live != null and live.has_meta("aurora"))
 	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.75 if live and live.has_meta("dark") else 0.4 if live and (live.has_meta("heart_light") or live.has_meta("dim")) else 0.0)
 	if live and live.has_meta("heart_light"):
 		var hl: OmniLight3D = live.get_meta("heart_light")

@@ -14,7 +14,8 @@ static func borealis(root: Node3D, rng: Rng32) -> void:
 	var bb := U.box_of(root)
 	var c := bb.get_center()
 	var R := Vector2(bb.size.x, bb.size.z).length() * 0.46
-	var H := maxf(bb.size.y, R * 0.5) * 0.75
+	# (taller and brighter than it was: 23.11, "very weak"; the card's sky behind it too - SpecStudio.set_aurora)
+	var H := maxf(bb.size.y, R * 0.5) * 1.15
 	var y0 := bb.position.y + bb.size.y * 0.5
 	var a0 := rng.next() * TAU
 	var span := TAU * (0.78 + rng.next() * 0.15)
@@ -53,6 +54,7 @@ static func borealis(root: Node3D, rng: Rng32) -> void:
 	mat.set_shader_parameter("center", c)
 	mat.set_shader_parameter("radius", R)
 	mat.set_shader_parameter("seed", rng.next() * 10.0)
+	mat.set_shader_parameter("energy", 1.7)
 	mat.render_priority = 100
 	# (no "geo" meta: the view frames the stone, not the sky over it)
 	var mi := MeshInstance3D.new()
@@ -64,12 +66,13 @@ static func borealis(root: Node3D, rng: Rng32) -> void:
 	for k in 2:
 		var lt := OmniLight3D.new()
 		lt.light_color = Color(0.35, 1.0, 0.55) if k == 0 else Color(0.6, 0.35, 1.0)
-		lt.light_energy = 0.6 if k == 0 else 0.45
+		lt.light_energy = 1.4 if k == 0 else 1.1
 		lt.omni_range = R * 2.6
 		lt.omni_attenuation = 1.2
 		lt.position = c + (Vector3(0, H * 0.45, 0) if k == 0 else Vector3(cos(a0 + span * 0.5) * R, H * 0.6, sin(a0 + span * 0.5) * R))
 		root.add_child(lt)
 	root.set_meta("dark", true)
+	root.set_meta("aurora", true)
 
 ## frost over every crystal: the crystal's mesh again under a frost skin (call after the builder's _finish)
 static func frost(root: Node3D, rng: Rng32) -> void:
