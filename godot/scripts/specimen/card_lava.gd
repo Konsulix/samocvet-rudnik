@@ -87,7 +87,7 @@ func _drop(rim: Array) -> void:
 	_slot = (_slot + 1) % SLOTS
 	_a[i] = Vector4(src.x, src.y, _now, sz)
 	# its own seed, how long its drip hangs, where along the puddle the drip is, how wide the puddle spreads
-	_b[i] = Vector4(rng.randf(), (rng.randf_range(26.0, 40.0) if rng.randf() < 0.3 else rng.randf_range(10.0, 22.0)), rng.randf_range(-0.6, 0.6), rng.randf_range(12.0, 22.0))
+	_b[i] = Vector4(rng.randf(), (rng.randf_range(30.0, 48.0) if rng.randf() < 0.4 else rng.randf_range(14.0, 28.0)), rng.randf_range(-0.6, 0.6), rng.randf_range(12.0, 22.0))
 	_land[i] = _now + 0.45 + sqrt(2.0 * maxf(float(rim[0]) - src.y - sz, 1.0) / 1100.0)
 
 func _process(dt: float) -> void:

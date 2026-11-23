@@ -124,14 +124,21 @@ void fragment() {
 			float dd = smin(taper(p, d0, d1, wd, wd * 0.62), taper(p, d1, d2, wd * 0.62, wd * 0.4), 1.0);
 			float bead = length(p - d2 - vec2(0.0, wd * 0.25)) - wd * (0.55 + 0.25 * exp(-s));
 			d = smin(smin(dp, dd, 2.5), bead, 2.0);
-			if (hash(vec2(B.x * 37.0, 1.3)) > 0.45) {
-				float L2 = B.y * (0.25 + 0.35 * hash(vec2(B.x * 53.0, 2.1))) * (1.0 - exp(-max(s - 0.5, 0.0) * 0.8));
-				float x2 = x - sign(B.z + 0.01) * w * (0.35 + 0.3 * hash(vec2(B.x * 11.0, 5.0)));
-				float w2 = wd * 0.7;
-				vec2 e2 = vec2(x2 - lean * L2 * 0.6, rim_bot + L2);
-				float dd2 = taper(p, vec2(x2, rim_bot - 1.0), e2, w2, w2 * 0.45);
-				float bead2 = length(p - e2 - vec2(0.0, w2 * 0.2)) - w2 * 0.55;
-				d = smin(d, smin(dd2, bead2, 1.5), 2.0);
+			// more drips off the puddle: one or two more, each its own length, lean and thickness, spread along it
+			int more = 1 + int(hash(vec2(B.x * 37.0, 1.3)) > 0.4 ? 1.0 : 0.0);
+			for (int j = 0; j < 2; j++) {
+				if (j >= more) break;
+				float hj = hash(vec2(B.x * 53.0 + float(j) * 7.1, 2.1));
+				float Lj = B.y * (0.3 + 0.85 * hj) * (1.0 - exp(-max(s - 0.3 - float(j) * 0.35, 0.0) * (0.7 + 0.3 * hj)));
+				float side = (j == 0 ? -sign(B.z + 0.01) : sign(B.z + 0.01));
+				float xj = x + side * w * (0.3 + 0.55 * hash(vec2(B.x * 11.0 + float(j), 5.0)));
+				float wj = wd * (0.55 + 0.35 * hash(vec2(B.x * 3.0 + float(j), 9.0)));
+				float lj = (hash(vec2(B.x * 71.0 + float(j), 4.4)) - 0.5) * 0.55;
+				vec2 m1 = vec2(xj + lj * Lj * 0.25, rim_bot + Lj * 0.55);
+				vec2 e2 = vec2(xj + lj * Lj, rim_bot + Lj);
+				float ddj = smin(taper(p, vec2(xj, rim_bot - 1.0), m1, wj, wj * 0.6), taper(p, m1, e2, wj * 0.6, wj * 0.4), 1.0);
+				float bj = length(p - e2 - vec2(0.0, wj * 0.2)) - wj * 0.6;
+				d = smin(d, smin(ddj, bj, 1.5), 2.0);
 			}
 			// it cools from its edges in, the drip's tip last (thinnest first, but the bead holds heat)
 			float edge = clamp(-d / 3.0, 0.0, 1.0);
