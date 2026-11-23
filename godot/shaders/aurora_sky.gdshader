@@ -53,18 +53,36 @@ vec3 ribbon(vec2 uv, float y0, float a1, float f1, float sh, float t, float amp)
 	// distance across the ribbon (its own normal): negative below its lower edge, positive up into it
 	float across = (c - uv.y) / sqrt(1.0 + slope * slope);
 	float wide = 0.06 + 0.09 * fbm(vec2(x * 1.7 + sh * 2.0, t * 0.04));
-	float edge = smoothstep(-0.03, 0.006, across);
-	float up = exp(-max(across, 0.0) / wide);
-	if (edge * up < 0.003) return vec3(0.0);
-	// the rays: streaks up the ribbon (across its line), broad and fine, drifting slowly along it
 	float along = x * sqrt(1.0 + slope * slope);
-	float broad = fbm(vec2(along * 18.0 + sh * 7.0 - t * 0.05, across * 3.0 + t * 0.1));
-	float fine = noise(vec2(along * 110.0 + sh * 3.0, t * 0.5));
-	float rays = 0.45 + 0.55 * smoothstep(0.25, 0.75, broad) * (0.8 + 0.2 * fine);
-	// along it: swelling and thinning, near breaking here and there
+	// the folds of the curtain (23.11: it read flat, "drawn"): a sheet of light folded along its length — where it
+	// folds back on itself we look along it and the light piles up into bright upright sheets; the fold field shifts
+	// slowly, so the bright sheets slide and swell
+	float fw = along * 22.0 + sh * 4.0;
+	float fold = 1.0 + 0.55 * cos(fw + t * 0.25) * 1.0 + 0.35 * cos(fw * 2.3 - t * 0.4 + sh) * 1.0;
+	float dens = clamp(1.0 / max(abs(fold), 0.22), 0.0, 4.0);
+	dens = mix(0.55, 1.0, smoothstep(0.6, 1.6, dens)) + 0.6 * smoothstep(2.0, 4.0, dens);
+	// the lower edge: not one line (23.11: the bright rim read as a line drawn over it) — ragged where each ray hangs
+	// down a little further, the light swelling up off it over a few points, the brightest a little above the edge
+	float hang = (noise(vec2(along * 70.0 + sh, t * 0.35)) - 0.5) * 0.012 + (noise(vec2(along * 19.0 - sh, t * 0.2)) - 0.5) * 0.018;
+	float a2 = across + hang;
+	float edge = smoothstep(-0.018, 0.018, a2);
+	float swell = smoothstep(-0.01, 0.035, a2);
+	float up = exp(-max(a2 - 0.02, 0.0) / wide) * mix(0.55, 1.0, swell);
+	if (edge * up < 0.003) return vec3(0.0);
+	// the rays: fine and sharp low down, broader and blurred higher up, leaning a little with the fold
+	float hgt = clamp(max(a2, 0.0) / (wide * 2.0), 0.0, 1.0);
+	float lean = (fold - 1.0) * 0.004;
+	float fine = noise(vec2((along + lean * a2 * 40.0) * 150.0 + sh * 3.0, t * 0.45 + a2 * 2.0));
+	float mids = noise(vec2(along * 55.0 + sh * 5.0 - t * 0.04, t * 0.2 + a2 * 4.0));
+	float broad = fbm(vec2(along * 16.0 + sh * 7.0 - t * 0.05, a2 * 3.0 + t * 0.1));
+	float rays = mix(0.35 + 0.65 * smoothstep(0.3, 0.85, fine * 0.55 + mids * 0.45),
+		0.45 + 0.55 * smoothstep(0.25, 0.75, broad), hgt);
+	// along it: swelling and thinning, near breaking here and there; bright knots drifting along it
 	float body = 0.25 + 0.75 * smoothstep(0.2, 0.7, fbm(vec2(x * 1.9 + sh * 3.0 - t * 0.025, t * 0.03)));
-	// the bright lower rim of the ribbon, as on the photograph
-	float rim = exp(-pow(across / 0.012, 2.0)) * 0.6;
+	float knot = pow(smoothstep(0.55, 0.95, fbm(vec2(along * 6.0 + sh * 2.0 - t * 0.08, t * 0.05))), 2.0);
+	body *= 0.8 + 0.9 * knot * (1.0 - hgt * 0.6);
+	// (no rim line: the glow low on the ribbon is its brightest, in the fold's light)
+	float rim = 0.0;
 	// its colours (23.11: "more of its play of colour"): the find's own palette (pal) — its lower edge, its body and the
 	// top of its rays; the top drifting along the ribbon between two of its shades, slowly; waves of brightness running
 	// along it
@@ -76,12 +94,13 @@ vec3 ribbon(vec2 uv, float y0, float a1, float f1, float sh, float t, float amp)
 	else { low = vec3(0.7, 1.0, 0.2); mid = vec3(0.2, 1.0, 0.35); top = vec3(1.0, 0.22, 0.15); top2 = vec3(1.0, 0.3, 0.6); }
 	float drift = smoothstep(0.25, 0.75, noise(vec2(along * 2.2 + sh * 5.0 - t * 0.06, t * 0.04)));
 	vec3 hi = mix(top, top2, drift);
-	vec3 col = mix(low, mid, smoothstep(0.0, 0.035, across));
-	col = mix(col, hi, smoothstep(wide * 0.6, wide * 1.6, across) * 0.9);
+	// the edge's pale colour only as a haze low on the ribbon, melting into its body
+	vec3 col = mix(low, mid, smoothstep(-0.01, 0.06, a2));
+	col = mix(col, hi, smoothstep(wide * 0.6, wide * 1.6, a2) * 0.9);
 	float wave = 0.8 + 0.4 * pow(0.5 + 0.5 * sin(along * 7.0 - t * 0.55 + sh), 3.0);
 	// the tops of the rays in the palette's colour, reaching higher than the green
-	float crown = smoothstep(wide * 0.4, wide * 1.4, across) * exp(-max(across, 0.0) / (wide * 3.2)) * (0.4 + 0.6 * rays);
-	return (col * (up * rays + rim) + hi * crown * 0.55) * edge * body * amp * wave;
+	float crown = smoothstep(wide * 0.4, wide * 1.4, a2) * exp(-max(a2, 0.0) / (wide * 3.2)) * (0.4 + 0.6 * rays);
+	return (col * (up * rays + rim) + hi * crown * 0.55) * edge * body * dens * amp * wave;
 }
 
 void fragment() {
