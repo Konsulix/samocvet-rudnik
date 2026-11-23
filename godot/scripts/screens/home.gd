@@ -416,22 +416,38 @@ func _play_button() -> Button:
 	b.add_child(pi)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 44
-	v.offset_right = -16
+	v.offset_left = 52        # (clear of the play mark, 21..49)
+	v.offset_right = -20       # (clear of the plate's brass rim and its rivet)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", -3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var t := Kit.label("Level %d" % n, 23, UI.display, Kit.ON_GREEN)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
+	_fit_text(t, 23, v)
 	var bits := (["rich vein!"] if def.get("rich", false) else []) + (["streak %d" % Save.d.streak] if Save.d.streak >= 2 else [])
 	if bits:
 		var s := Kit.label(" · ".join(bits), 12, UI.body_bold, Color("#d8f0c8"))
 		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(s)
+		_fit_text(s, 12, v)
 	b.add_child(v)
 	b.pressed.connect(_on_play)
 	return b
+
+## a line that must stay inside its plate: it does not widen the plate, and when the plate is too narrow for it at
+## `top` points (a long level number, "rich vein! · streak 43"), its font shrinks until it fits `room`
+static func _fit_text(l: Label, top: int, room: Control) -> void:
+	l.clip_text = true
+	var fit := func() -> void:
+		var w := room.size.x
+		if w <= 0.0 or not is_instance_valid(l): return
+		var f: Font = l.get_theme_font("font")
+		var pt := top
+		while pt > 8 and f.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, pt).x + 6.0 > w: pt -= 1
+		l.add_theme_font_size_override("font_size", pt)
+	room.resized.connect(fit)
+	fit.call_deferred()
 
 # ---------------------------------------------------------------- input on the picture
 
