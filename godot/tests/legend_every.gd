@@ -12,7 +12,9 @@ func _ready() -> void:
 	for a in [0, 2]:
 		Save.d.area = a
 		for i in 6:
-			Save.d.leg_lv = 99 if i % 2 == 0 else 50
+			# (the first legendary: due at the 25th win; after it, at the 150th)
+			Save.d.leg_any = a == 2
+			Save.d.leg_lv = (149 if a == 2 else 24) if i % 2 == 0 else (100 if a == 2 else 10)
 			var def: Dictionary = LevelGen.make(a, 2, 5000 + i * 31, false, i % 6, "normal")
 			var m := BoardModel.new()
 			m.setup(1 + i, [], 2, {}, a, true, def)

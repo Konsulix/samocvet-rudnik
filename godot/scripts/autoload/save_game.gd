@@ -137,6 +137,9 @@ func _ready() -> void:
 	if not d.get("leg_v", false):
 		Stones.reprice_legends(-1, reached())
 		d.leg_v = true
+	# (23.11) has a legendary ever come to hand — one kept, or the atlas's best of a page (sold since)
+	if not d.has("leg_any"):
+		d.leg_any = (d.coll as Array).any(func(s: Dictionary) -> bool: return bool(s.get("legend", false))) 			or (d.atlas as Dictionary).values().any(func(e: Dictionary) -> bool: return bool((e.get("best", {}) as Dictionary).get("legend", false)))
 	# the atlas' records by what the kept stones are worth now (mend_best)
 	for aid: String in (d.atlas as Dictionary).keys(): mend_best(aid)
 
@@ -167,7 +170,9 @@ func _mend_beasts() -> void:
 ## the atlas remembers every species ever found, whatever became of the stone: sid -> {best = the most valuable
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
 func note_find(s: Dictionary, a: int, dl: int) -> void:
-	if bool(s.get("legend", false)): d.leg_lv = 0   # (the count to the next sure legendary starts again: Stones.LEGEND_EVERY)
+	if bool(s.get("legend", false)):
+		d.leg_lv = 0   # (the count to the next sure legendary starts again: Stones.LEGEND_EVERY)
+		d.leg_any = true   # (the first one has come: from now on every LEGEND_EVERY, not LEGEND_FIRST)
 	if s.has("first_of"): tell("first_find_%d" % int(s.first_of))
 	if String(s.get("picked", "")) == "first_own": tell("first_own")
 	# Awards: Déjà vu — the same species three times in a row (twice was everyday among Old Adit's quartz and calcite)
@@ -408,7 +413,7 @@ func open_mine(a: int) -> int:
 ## the next level's find is to be legendary for certain: as many levels won as Stones.LEGEND_EVERY with none (the
 ## hundredth win brings it; a level lost or with no find leaves it due for the next)
 func legend_due() -> bool:
-	return int(d.get("leg_lv", 0)) >= Stones.LEGEND_EVERY - 1
+	return int(d.get("leg_lv", 0)) >= (Stones.LEGEND_EVERY if d.get("leg_any", false) else Stones.LEGEND_FIRST) - 1
 
 ## the mines the player can go to (the Mines tab): every one up to the furthest reached
 func reached() -> int:
