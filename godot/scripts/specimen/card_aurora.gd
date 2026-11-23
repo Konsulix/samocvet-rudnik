@@ -69,8 +69,24 @@ func _process(dt: float) -> void:
 	var m := _foil.material as ShaderMaterial
 	m.set_shader_parameter("card", card.size)
 	m.set_shader_parameter("frame_in", Reveal.CARD_PAD)
-	m.set_shader_parameter("rim_top", ig.position.y - 20.0 / 3.6)
-	m.set_shader_parameter("rim_bot", ig.position.y)
-	m.set_shader_parameter("rim_l", ig.position.x + Reveal.INFO_R)
-	m.set_shader_parameter("rim_r", ig.end.x - Reveal.INFO_R)
+	# the ribbon as Reveal._info_rim lays it: its middle line just outside the panel's top, round its corners (ellipses
+	# from the card's rim to the panel's corner centres), down the card's rim
+	const OUT := 5.0 / 3.6
+	const WIDE := 20.0 / 3.6
+	const UP := 46.0
+	var R := Reveal.INFO_R
+	var mid := R + WIDE / 2.0
+	var top := ig.position.y
+	var xl := OUT + WIDE / 2.0
+	var xr := card.size.x - OUT - WIDE / 2.0
+	var cl := Vector2(ig.position.x + R, top + R)
+	var cr := Vector2(ig.end.x - R, top + R)
+	m.set_shader_parameter("rib_y", top + R - mid)
+	m.set_shader_parameter("rib_cl", cl)
+	m.set_shader_parameter("rib_cr", cr)
+	m.set_shader_parameter("rib_ax", Vector2(cl.x - xl, mid))
+	m.set_shader_parameter("rib_xl", xl)
+	m.set_shader_parameter("rib_xr", xr)
+	m.set_shader_parameter("rib_end", top + R + UP)
+	m.set_shader_parameter("rib_w", WIDE)
 	m.set_shader_parameter("tilt", _tilt)

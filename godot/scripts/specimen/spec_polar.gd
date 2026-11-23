@@ -61,6 +61,8 @@ static func borealis(root: Node3D, rng: Rng32) -> void:
 	mi.mesh = m
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# (the sky does not turn with the stone: SpecView holds the curtain still as the stone turns in it - 23.11)
+	mi.set_meta("aurora_curtain", c)
 	root.add_child(mi)
 	# its light on the stone: green from above, violet from the far side
 	for k in 2:
