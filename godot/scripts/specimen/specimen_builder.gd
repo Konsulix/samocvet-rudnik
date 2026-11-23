@@ -3193,6 +3193,9 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	# taken in the find's space but weighed by the shell's own normals — on part of it the scan ran along the surface,
 	# stretched into streaks (every geode)
 	outer_mesh.set_meta("local", true)
+	# (23.11, a slab's back: the scan laid on by the shell's depth — a slab's is a quarter of a half's, the scan came out
+	# four times finer, a fine repeating pattern; a window's and a cathedral's coarser) — by the depth the half would have
+	outer_mesh.set_meta("rp_unit", maxf(0.05, outer.aabb().end.y / S.y))
 	# the cave's wall: the warped shell itself, a little in (a round bowl inside poked out through the shell where it
 	# was warped in, and lit pale it read as a sheet of glass over the cave); dark, so what grows on it shows
 	var ic := col.lerp(Color(0.12, 0.13, 0.15), 0.8) * 0.25
@@ -4062,7 +4065,7 @@ func _finish() -> void:
 		var rp := PackedVector3Array()
 		rp.resize(gg.v.size())
 		for i in gg.v.size():
-			rp[i] = (gg.v[i] - bb.position) / hgt if local else t * gg.v[i]
+			rp[i] = (gg.v[i] - bb.position) / float(n.get_meta("rp_unit", hgt)) if local else t * gg.v[i]
 		if crusty:
 			var fn := FastNoiseLite.new()
 			fn.seed = int(rng.next() * 100000)
