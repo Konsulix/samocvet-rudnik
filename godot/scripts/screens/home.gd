@@ -1114,7 +1114,8 @@ func _next_mine_btn(a: int) -> Button:
 		Save.persist()
 		Ov.close()
 		render()
-		Ov.toast("Welcome to %s" % nm + (" · leftover ore sold for %s" % UI.coins(sold) if sold else "")))
+		Ov.toast("Welcome to %s" % nm + (" · leftover ore sold for %s" % UI.coins(sold) if sold else ""))
+		Stones.tell_legends(self))
 	b.custom_minimum_size.y = 60
 	return b
 
@@ -1221,7 +1222,8 @@ func _build(tid: String, i: int) -> void:
 				Save.open_mine(a + 1)
 				Save.persist()
 				Ov.close()
-				render(), true])
+				render()
+				Stones.tell_legends(self), true])
 		btns.append(["Later", "glass", func(): Ov.close()])
 		var tail := "The way on is open." if a < Data.AREAS.size() - 1 else "New mines are coming in the next version."
 		# Proval ends the first arc: the gate is open and the apprentice waits beyond it (his fight is still to come)

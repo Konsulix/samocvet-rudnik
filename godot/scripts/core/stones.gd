@@ -284,7 +284,11 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 ## a find's price (Worth: its beauty): the body by species, squeezed — a skull's by what it is cast in — and every gene's
 ## points on top, the same on any body, a living effect by its spectacle; then the depth. One place for every find:
 ## rolled, the admin's, a story's gift — a stone changed after its roll (made a skull, made legendary) is priced again here
-static func price(st: Dictionary, area: int, dl := 0) -> int:
+## (23.11, «a legendary amethyst from the first level is worth pennies two mines on») the living effect's share of the
+## price is in the coin of the furthest mine the player has reached (reach; -1: Save.reached()), not of the mine it was
+## found in: it cannot be farmed (one find in five hundred, the same odds in any mine — an old mine gives it no
+## cheaper), so it keeps its worth as the player goes on. The rest of the price stays in its own mine's coin
+static func price(st: Dictionary, area: int, dl := 0, reach := -1) -> int:
 	var sid := String(st.sid)
 	var kind := String(st.get("kind", "crystal"))
 	var traits: Array = st.get("traits", [])
@@ -295,12 +299,47 @@ static func price(st: Dictionary, area: int, dl := 0) -> int:
 	var gene := SpecGenome.of(Spec.of_stone(st))
 	var pts := Worth.gene_points(traits, gene) + 2.0 * log(maxf(fm, 1.0))
 	var value: float = (Worth.body(sid) * kind_m + Worth.UNIT * pts) * VALUE_K
+	var fx := 0.0
 	if bool(st.get("legend", false)) and String(gene.fx) != "":
-		value += Worth.fx_value(String(gene.fx))
+		fx = Worth.fx_value(String(gene.fx))
+		value += fx
 	# a bigger stone is dearer (the square root of its weight against its kind's middle size): deeper ones grow bigger
 	value *= 1.3 * size_k(st) * Worth.PRICE
 	# (the mine's coin, Data.mine_k: a find of a further mine is worth more, as everything there costs more)
-	return roundi(capped(value, area) * Data.mine_k(area) * Data.depth_bend(area, dl))
+	var share := fx * 1.3 * size_k(st) * Worth.PRICE / maxf(value, 0.001)
+	var far := maxi(area, Save.reached() if reach < 0 else reach)
+	var coin := lerpf(Data.mine_k(area), Data.mine_k(far), share)
+	return roundi(capped(value, area) * coin * Data.depth_bend(area, dl))
+
+## a mine reached for the first time (Save.open_mine): the legendary finds kept grow in worth with it (price: their
+## effect's share in the coin of the furthest mine) — each its price now over its price then, so what else moved it
+## (its weight, a cut, a lightning's swing) stays in it. [how many, the coins they gained]
+## (was -1: each from its own mine — the finds priced before 23.11, once, Save.load)
+static func reprice_legends(was: int, now: int) -> Array:
+	var n := 0
+	var gain := 0
+	if was >= 0 and now <= was: return [0, 0]
+	for st: Dictionary in Save.d.coll:
+		if not bool(st.get("legend", false)) or st.get("gulp", false): continue
+		var a := int(st.get("area", 0))
+		var dl := int(st.get("dl", 0))
+		var p0 := price(st, a, dl, was if was >= 0 else a)
+		var p1 := price(st, a, dl, now)
+		if p0 <= 0 or p1 <= p0: continue
+		var v0 := int(st.get("value", p0))
+		st.value = maxi(1, roundi(float(v0) * float(p1) / float(p0)))
+		gain += int(st.value) - v0
+		n += 1
+	return [n, gain]
+
+## the toast for it, a moment after the mine's own
+static func tell_legends(node: Node) -> void:
+	var lg: Array = Save.legend_gain
+	Save.legend_gain = [0, 0]
+	if int(lg[0]) <= 0 or not node.is_inside_tree(): return
+	node.get_tree().create_timer(2.6).timeout.connect(func() -> void:
+		var t := ("Your legendary find is worth more here: +%s" % UI.coins(int(lg[1]))) if int(lg[0]) == 1 			else ("Your %d legendary finds are worth more here: +%s" % [int(lg[0]), UI.coins(int(lg[1]))])
+		Ov.toast(t))
 
 ## (20.11, playtest: «no tie between a find's weight and its look») the deeper, the bigger and more crowded a find:
 ## near the top mostly lone crystals and small heaps, below druses on slabs and geodes. `deep` 0..1 — how far down

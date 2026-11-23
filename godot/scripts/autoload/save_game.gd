@@ -133,6 +133,10 @@ func _ready() -> void:
 		for s in d.coll:
 			note_find(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	_mend_beasts()
+	# (23.11) the legendary finds priced before their effect's worth went with the furthest mine: once, each from its own
+	if not d.get("leg_v", false):
+		Stones.reprice_legends(-1, reached())
+		d.leg_v = true
 	# the atlas' records by what the kept stones are worth now (mend_best)
 	for aid: String in (d.atlas as Dictionary).keys(): mend_best(aid)
 
@@ -366,10 +370,13 @@ func fresh_veins(a: int) -> Array:
 ## another mine, the next one or one already dug (the Mines tab): the one left keeps its ore, veins and wins for when
 ## the player comes back (d.mines); a mine come to for the first time starts with full veins. Ore left in a mine with
 ## every job built has nothing to buy there any more: it is sold (the coins returned)
+var legend_gain := [0, 0]   # (open_mine: the legendary finds that grew in worth — Stones.tell_legends shows it)
+
 func open_mine(a: int) -> int:
 	var was := area()
 	if a == was: return 0
 	d.reached = reached()   # (the mine being left counts as reached: set straight by a test key, it may not be yet)
+	var far0 := int(d.reached)
 	var sold := 0
 	var jobs: Array = Data.AREAS[was].get("tasks", [])
 	if jobs.size() and jobs.all(func(t: Array) -> bool: return (d.built[was] as Array).has(t[0])):
@@ -381,6 +388,7 @@ func open_mine(a: int) -> int:
 	d.mines.erase(str(a))
 	d.area = a
 	d.reached = maxi(int(d.reached), a)
+	if int(d.reached) > far0: legend_gain = Stones.reprice_legends(far0, int(d.reached))
 	d.ore = int(m.get("ore", 0))
 	var fv := fresh_veins(a)
 	var vs: Array = []

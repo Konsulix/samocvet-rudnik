@@ -915,6 +915,7 @@ func _go_mine(a: int) -> void:
 	Save.persist()
 	show_home()
 	Ov.toast("Back in %s" % Data.AREAS[a].n + (" · leftover ore sold for %s" % UI.coins(sold) if sold else ""))
+	Stones.tell_legends(self)
 
 func go(id: String) -> void:
 	match id:
