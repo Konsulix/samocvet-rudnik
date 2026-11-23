@@ -260,6 +260,14 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 	# (the small things before the find, toward the eye: behind it, they were lost under it)
 	var front := cands.filter(func(p: Vector3) -> bool: return p.z > mid.z + rb.size.z * 0.12)
 	if front.size() < 12: front = cands.filter(func(p: Vector3) -> bool: return p.z > mid.z - rb.size.z * 0.1)
+	# (23.11, a fiddler crab tipped on the slab's ridge, a brittle star on end at its rim — «still knocked over»: the
+	# small lying things kept in from the rim, where the slab rounds down; seat() takes them only where the rock is
+	# near level and all under them)
+	# (not too far in either: the middle is the find's — the rim's slope is kept off by seat() anyway)
+	var flat_c := SpecTrilobite._top_spots(rk, rb, 0.6)
+	var flat_f := flat_c.filter(func(p: Vector3) -> bool: return p.z > mid.z + rb.size.z * 0.05)
+	if flat_f.size() < 12: flat_f = flat_c.filter(func(p: Vector3) -> bool: return p.z > mid.z - rb.size.z * 0.15)
+	if flat_f.size() < 12: flat_f = front
 	var all: Array = (reef.get("tall", []) as Array).map(func(k: String) -> Array: return [k, true])
 	all += (reef.get("near", []) as Array).map(func(k: String) -> Array: return [k, false])
 	var hg := Heights.new(rk, span)
@@ -289,17 +297,34 @@ static func grow(parent: Node3D, rk: MeshInstance3D, rb: AABB, cands: Array, occ
 		var back := Basis(Vector3.RIGHT, -(0.06 + lean_c * 0.08)) if it[1] and g != "weed" else Basis(Vector3.RIGHT, -(0.14 + lean_c * 0.14)) if it[1] else Basis.IDENTITY
 		var pose: Variant = null
 		for shrink: float in [1.0, 0.9, 0.8, 0.7]:
-			for tries in 14:
+			var fits := 0
+			for tries in (24 if lying else 14):
 				# (the weed, a spreading clump, keeps clear of the find altogether, a coral nearly — tucked in under the
 				# find's rim it stood in it; a small lying thing may tuck under its edge)
-				var spot: Variant = _room(cands if it[1] else (front if front.size() else cands), occ, foot * shrink, r, behind if it[1] else INF, 1.0 if g == "weed" else 0.9 if g == "coral" else 0.75)
+				var spot: Variant = _room(cands if it[1] else (flat_f if lying and flat_f.size() else front if front.size() else cands), occ, foot * shrink, r, behind if it[1] else INF, 1.0 if g == "weed" else 0.9 if g == "coral" else 1.0 if lying else 0.75)
 				if spot == null: break
-				pose = hg.seat(m, back * Basis(Vector3.UP, yaw), sz * shrink, spot, lying)
-				if pose != null: break
+				var pz: Variant = hg.seat(m, back * Basis(Vector3.UP, yaw), sz * shrink, spot, lying)
+				if pz == null: continue
+				# (a lying thing: the levellest of the first few spots it fits — the first that fitted lay at the very limit)
+				if pose == null or (lying and (pz as Transform3D).basis.y.angle_to(Vector3.UP) < (pose as Transform3D).basis.y.angle_to(Vector3.UP)): pose = pz
+				if not lying: break
+				fits += 1
+				if fits >= 6: break
 			if pose != null:
 				sz *= shrink
 				foot *= shrink
 				break
+		if pose == null and lying:
+			# (a crowded or a rounded slab: anywhere on its top, smaller, tipped up to ~23° — the gene was drawn and priced,
+			# it grows; 23.11, without this one in eight crabs and stars was lost)
+			for tries in 30:
+				var spot3: Variant = _room(flat_c if flat_c.size() else cands, occ, foot * 0.7, r, INF, 0.85)
+				if spot3 == null: break
+				pose = hg.seat(m, Basis(Vector3.UP, yaw), sz * 0.75, spot3, true, 0.4)
+				if pose != null:
+					sz *= 0.75
+					foot *= 0.75
+					break
 		if pose == null and g == "weed":
 			# (the common weed is the floor's backdrop, the one thing a find should keep: on a crowded slab it may
 			# stand anywhere on the rock, close to the find)
@@ -1283,6 +1308,7 @@ class Burst extends Node3D:
 
 ## the rock's top as heights on a grid (the parent's space): what is under each point of a thing's foot
 class Heights:
+	const MAX_TIP := 0.27   # (how far a lying thing may tip with the rock under it, radians)
 	var cell := 0.05
 	var h := {}
 
@@ -1314,7 +1340,7 @@ class Heights:
 	## a thing of mesh m, turned bs, of size sz, set down at spot: its whole foot on the rock (its lowest points each
 	## over the rock under them, the deepest of the rock's bumps not sinking it), a lying thing tipped to the rock's slope.
 	## null if half its foot hangs off the rock's edge
-	func seat(m: Mesh, bs: Basis, sz: float, spot: Vector3, lying: bool) -> Variant:
+	func seat(m: Mesh, bs: Basis, sz: float, spot: Vector3, lying: bool, tip := MAX_TIP) -> Variant:
 		var foot := SpecReef.foot_of(m)
 		var b := bs
 		if lying:
@@ -1327,8 +1353,12 @@ class Heights:
 			if hx0 > -INF and hx1 > -INF and hz0 > -INF and hz1 > -INF:
 				var nrm := Vector3(-(hx1 - hx0) / (2.0 * rr), 1.0, -(hz1 - hz0) / (2.0 * rr)).normalized()
 				# (no steeper than a slab may tip a thing before it slides)
-				if nrm.angle_to(Vector3.UP) > 0.6: nrm = Vector3.UP.slerp(nrm, 0.6 / nrm.angle_to(Vector3.UP))
+				# (23.11: not where it would tip more than ~15° — on the slab's rounded rim it lay tipped 30° and more,
+				# a crab falling off it: there it is not set at all, another spot is tried)
+				if nrm.angle_to(Vector3.UP) > tip: return null
 				b = Basis(Quaternion(Vector3.UP, nrm)) * bs
+			else:
+				return null   # (the edge of the rock round it: it would hang off it)
 		var needs: Array[float] = []
 		var off := 0
 		for p: Vector3 in foot:
@@ -1338,7 +1368,8 @@ class Heights:
 				off += 1
 				continue
 			needs.append(gy - q.y)
-		if needs.size() < 3 or off > foot.size() * 0.6:
+		# (a lying thing all on the rock — with up to 60% of its foot over the rim it hung off the slab's edge)
+		if needs.size() < 3 or off > foot.size() * (0.08 if lying else 0.6):
 			return null
 		needs.sort()
 		# (the foot's points stand on the rock: the rock under the highest of them sets it — taken at nine in ten, a
