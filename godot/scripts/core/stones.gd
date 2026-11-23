@@ -4,6 +4,9 @@ extends RefCounted
 ## Same formulas and seeds as the prototype.
 
 const LEGEND_P := 0.002  # how often a find is legendary, × (1 + luck): a jackpot, kept, but rare (was 0.02, playtest 31.10)
+## (23.11) …but never more than this many levels won without one: a level's find then is legendary for certain
+## (BoardModel; Save.d.leg_lv counts the wins since the last legendary find came to hand — Save.note_find)
+const LEGEND_EVERY := 100
 const VALUE_K := 1.9     # the grade's old average worth, folded into every price when the grade went (playtest 31.10)
 
 ## how well it came out of the rock (BoardModel.find.integ, 0..100): the only quality there is now - the old random
@@ -202,7 +205,7 @@ static func maiden_gold(seed_id: int) -> Dictionary:
 		return s
 	return roll(seed_id, 0, 3.0, 5)
 
-static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionary:
+static func roll(seed_id: int, area: int, luck: float, dl: int = 0, sure_legend := false) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
 	var entries := []
 	for e: Array in pool_at(area, dl):
@@ -215,7 +218,7 @@ static func roll(seed_id: int, area: int, luck: float, dl: int = 0) -> Dictionar
 	var gi: int = pick_w(ge, rng)
 	# `gi` is now only how clear the stone is (SpecimenBuilder: milkier below 2), rolled as the grade was so the
 	# stones look as they did; it no longer touches the price or the rarity
-	var legend := rng.next() < LEGEND_P * (1.0 + luck)
+	var legend := rng.next() < LEGEND_P * (1.0 + luck) or sure_legend
 	var traits := roll_traits(seed_id, legend, gi, dl)
 	# the traits a species rolls more often (amethyst's sceptres, rock crystal's phantoms): their own stream
 	var more: Dictionary = SpecLooks.of(sid).get("more", {})

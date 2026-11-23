@@ -1273,7 +1273,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 		if spots.size() and roll_find:
 			var s: Array = [find_plan.r, find_plan.c]
 			var hp := block_hp(level_n, dl)
-			var stone := Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
+			# (23.11) a hundred levels won with no legendary: this one's find is (Stones.LEGEND_EVERY — the 100th win)
+			var due := Save.legend_due() and not Coach.off
+			var stone := Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl, due)
 			# the first find in a mine of skulls: the one picked to show what it holds (Stones.first_find)
 			var first: Variant = Stones.first_find(area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			if first != null: stone = first
@@ -1283,7 +1285,7 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 				stone = Stones.picked("first_own", area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			var tries := 0
 			while String(stone.sid) == "pyrite" and not Save.told("s_sister_meet") and tries < 40:
-				stone = Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl)
+				stone = Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl, due)
 				tries += 1
 			# the collector's luck: after a run of finds with nothing new for a collection begun, one that brings a piece
 			if first == null and Save.told("s_sister_meet"):

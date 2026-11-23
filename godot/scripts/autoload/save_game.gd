@@ -167,6 +167,7 @@ func _mend_beasts() -> void:
 ## the atlas remembers every species ever found, whatever became of the stone: sid -> {best = the most valuable
 ## find of it (enough to build it again), n = how many were found, max_g, max_v, legend = a legendary one was found}
 func note_find(s: Dictionary, a: int, dl: int) -> void:
+	if bool(s.get("legend", false)): d.leg_lv = 0   # (the count to the next sure legendary starts again: Stones.LEGEND_EVERY)
 	if s.has("first_of"): tell("first_find_%d" % int(s.first_of))
 	if String(s.get("picked", "")) == "first_own": tell("first_own")
 	# Awards: Déjà vu — the same species three times in a row (twice was everyday among Old Adit's quartz and calcite)
@@ -404,6 +405,11 @@ func open_mine(a: int) -> int:
 	d.lrich = false
 	return sold
 
+## the next level's find is to be legendary for certain: as many levels won as Stones.LEGEND_EVERY with none (the
+## hundredth win brings it; a level lost or with no find leaves it due for the next)
+func legend_due() -> bool:
+	return int(d.get("leg_lv", 0)) >= Stones.LEGEND_EVERY - 1
+
 ## the mines the player can go to (the Mines tab): every one up to the furthest reached
 func reached() -> int:
 	return maxi(int(d.get("reached", 0)), area())
@@ -418,6 +424,7 @@ func fresh_wins(a: int) -> Array:
 func level_played(won: bool, dl: int) -> void:
 	if won and dl < d.dwins.size():
 		d.dwins[dl] += 1
+	if won: d.leg_lv = int(d.get("leg_lv", 0)) + 1
 	d.rich = 0 if d.lrich else d.rich + 1
 	d.lrich = randf() < clampf((d.rich - 3) / 4.0, 0.0, 1.0)
 	d.lseed = 1 + randi() % 999999

@@ -450,6 +450,7 @@ static func note_pity(s: Dictionary, gs: Array) -> void:
 ## one rolled if none brings anything (the count stays, the next find tries again)
 static func pity_roll(stone: Dictionary, area: int, luck: float, dl: int) -> Dictionary:
 	if int((Save.d.aw_ev as Dictionary).get("pity", 0)) < PITY: return stone
+	if bool(stone.get("legend", false)): return stone   # (a legendary — the dice's or the hundredth level's — is kept)
 	var want := wanted()
 	if want.is_empty() or brings(stone, want): return stone
 	var t0 := Time.get_ticks_msec()
