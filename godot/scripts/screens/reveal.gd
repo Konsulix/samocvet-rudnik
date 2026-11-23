@@ -384,7 +384,9 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		# and frost on the stone frosts its card over (CardFrost)
 		CardFrost.attach(card, view, info, p)
 		# and lava drips onto its card's brass (CardLava)
-		CardLava.attach(card, view, info, p))
+		CardLava.attach(card, view, info, p)
+		# and the cloud of butterflies settles on its card too (CardFlies)
+		CardFlies.attach(card, view, info, p))
 	# its weight from what was built (Stones.settle, 20.11): the first time the stone is built, the card's figures move to it
 	view.built.connect(func(p: Node3D) -> void:
 		if Stones.settle(s, p):
@@ -658,6 +660,7 @@ static func _stat(box: HBoxContainer, k: String, val: String, col := UI.INK) -> 
 ## drawn, its middle stretches). rare (a valuable trait): amber, the brass full; growth (what grew on the stone): dim
 static func chip(t: String, rare := false, growth := false) -> Label:
 	var l := Kit.label(t, 13, UI.body_bold, Kit.AMBER if rare else Kit.DIM if growth else Kit.CREAM)
+	l.set_meta("chip", true)    # (a butterfly off the card may sit on its bar: CardFlies)
 	l.add_theme_constant_override("outline_size", 3)
 	var st := StyleBoxEmpty.new()
 	st.content_margin_left = 8
