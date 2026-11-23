@@ -94,7 +94,9 @@ func _ready() -> void:
 	# the butterflies out on the card go home with it closed
 	tree_exiting.connect(func() -> void:
 		for o: Dictionary in _out:
-			if is_instance_valid(o.src): (o.src as Node3D).visible = true)
+			if is_instance_valid(o.src):
+				(o.src as Node3D).visible = true
+				_fade(o.src, 0.0))
 
 ## a card point (x right, y down) into the layer's world: a vertical plane through 0, its height stretched by the
 ## camera's tilt (an orthographic look down shortens it so much) — the card's middle at 0
@@ -143,14 +145,36 @@ func _leave() -> void:
 	if flies.is_empty() and test_every > 0.0:
 		flies = find.find_children("*", "", true, false).filter(func(n: Node) -> bool: return n is SpecButterfly.Fly and (n as Node3D).visible)
 	if flies.is_empty(): return
+	# one round the back of the skull, if any: it comes out from behind it (23.11: the swap in mid-air was abrupt)
+	var cam := view.studio.cam
+	var deep := func(w: Vector3) -> float: return -(cam.global_transform.affine_inverse() * w).z
+	var mid: float = deep.call(find.global_position)
+	var behind := flies.filter(func(n: Node) -> bool: return float(deep.call((n as Node3D).global_position)) > mid)
+	if behind.size(): flies = behind
 	var src: SpecButterfly.Fly = flies[rng.randi() % flies.size()]
 	if not SpecButterfly.KINDS.has(src.kind): return
 	var land := _w(at)
 	var fb := SpecButterfly.put(_hold, Rng32.new(rng.randi() % 99999), src.kind, land, Vector3.UP,
 			SPAN / float(SpecButterfly.KINDS[src.kind].span) / maxf(SpecButterfly.fly_big, 0.01), false, [[land, Vector3.UP]]) as SpecButterfly.Fly
 	fb.visible = false
-	src.visible = false
-	_out.append({fb = fb, src = src, spot = at, from = _proj(src.global_position), stage = 0, t = 0.0})
+	_out.append({fb = fb, src = src, spot = at, from = _proj(src.global_position), stage = 0, t = 0.0, fade = 0.0})
+
+## how wide the stone's butterfly is on the card now, in points (its wingspan through the stone's camera)
+func _twin_span(src: Node3D) -> float:
+	var side := view.studio.cam.global_transform.basis.x
+	var a := _proj(src.global_position)
+	return maxf(4.0, _proj(src.global_position + side * (src as SpecButterfly.Fly).size * 2.0).distance_to(a))
+
+## a butterfly's see-through-ness: 0 solid .. 1 gone (every mesh of it)
+static func _fade(n: Node, a: float) -> void:
+	for g in n.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).transparency = a
+
+## the card butterfly's size: k of its own (its model's holder, under the Fly, which sets the Fly's own transform)
+func _size(fb: Node3D, k: float) -> void:
+	var turn := fb.get_child(0) as Node3D
+	if not turn.has_meta("s0"): turn.set_meta("s0", turn.scale)
+	turn.scale = (turn.get_meta("s0") as Vector3) * k
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(view) or not is_instance_valid(flock) or not is_instance_valid(info):
@@ -187,18 +211,28 @@ func _process(dt: float) -> void:
 				fb.land_key = Vector3.INF
 				fb._m_play("fly", 0.0, 0.0, 0.0)
 				fb.visible = true
+				o.k0 = clampf(_twin_span(o.src) / SPAN, 0.15, 1.0)
+				_size(fb, o.k0)
+				_fade(fb, 1.0)
 				o.stage = 1
+				o.t = 0.0
 			1:
+				# out of its twin: the stone's one melts away as this one comes up in its place, its size, growing to its
+				# own on the way
+				var f := clampf(float(o.t) / 0.4, 0.0, 1.0)
+				_fade(fb, 1.0 - f)
+				if is_instance_valid(o.src):
+					_fade(o.src, f)
+					if f >= 1.0: (o.src as Node3D).visible = false
+				_size(fb, lerpf(float(o.k0), 1.0, smoothstep(0.0, 1.4, float(o.t))))
 				if fb.state == SpecButterfly.Fly.SIT:
 					fb.timer = rng.randf_range(4.0, 9.0)
 					o.stage = 2
 				elif float(o.t) > 9.0:
 					o.stage = 3   # (never got down: home)
 			2:
-				# sitting, it turns itself (a few small steps' worth) to face home: no turn in the air after
-				var home := _w(_proj((o.src as Node3D).global_position) if is_instance_valid(o.src) else o.from)
-				var to := home - fb.pos
-				fb.yaw = lerp_angle(fb.yaw, atan2(to.x, to.z), minf(1.0, dt * 2.5))
+				# sitting: warming its wings, as it landed (23.11: no turning round on the spot - it looked odd)
+				_size(fb, 1.0)
 				if fb.state == SpecButterfly.Fly.OFF or fb.state == SpecButterfly.Fly.FLY:
 					o.stage = 3
 					o.t = 0.0
@@ -213,8 +247,21 @@ func _process(dt: float) -> void:
 					fb.retarget = 99.0
 					fb.dwell = 99.0
 					fb.timer = 99.0
-				if fb.pos.distance_to(home) < fb.size * 1.5 or float(o.t) > 7.0:
-					if is_instance_valid(o.src): (o.src as Node3D).visible = true
+				# shrinking back to its twin's size as it nears it, and melting into it
+				var kt := clampf((_twin_span(o.src) if is_instance_valid(o.src) else SPAN * 0.3) / SPAN, 0.15, 1.0)
+				var dist := fb.pos.distance_to(home)
+				_size(fb, lerpf(kt, 1.0, clampf(dist / (SPAN * 3.0), 0.0, 1.0)))
+				if dist < fb.size * 1.5 or float(o.t) > 7.0:
+					o.stage = 4
+					o.t = 0.0
+					if is_instance_valid(o.src):
+						(o.src as Node3D).visible = true
+						_fade(o.src, 1.0)
+			4:
+				var f := clampf(float(o.t) / 0.4, 0.0, 1.0)
+				_fade(fb, f)
+				if is_instance_valid(o.src): _fade(o.src, 1.0 - f)
+				if f >= 1.0:
 					fb.queue_free()
 					_out.remove_at(k)
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if _out.size() else SubViewport.UPDATE_DISABLED
