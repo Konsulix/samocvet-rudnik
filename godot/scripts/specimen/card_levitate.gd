@@ -39,9 +39,13 @@ var _pulse := 99.0            # seconds since the last tap
 var _tap_at := 0.0
 var _drift := {}              # node id -> its last offset
 var _halo: Array[Node] = []
-var _group: Node2D            # the card turned in depth: squeezed and skewed about its middle (a CanvasGroup with a
-                              # perspective shader turned the masked stone window and panel white - 23.11)
-var _sheen: ColorRect
+## the card turned in depth, in true perspective: it is drawn in a 2D SubViewport of its own (at the screen's density:
+## size_2d_override), whose picture is laid on the screen through shaders/card_tilt.gdshader, a plane turned a few
+## degrees; touches on the picture go on into the SubViewport (where the card lies flat). (A CanvasGroup turned the
+## masked stone window and panel white; a squeeze and skew looked crooked - 23.11)
+const PAD := 34.0             # room round the card in its picture: its rarity glow, and the turn
+var _cvp: SubViewport
+var _show: TextureRect
 var rng := RandomNumberGenerator.new()
 
 ## p: the built find; only a levitating one (SpecLegend.levitate marks it)
@@ -60,27 +64,31 @@ func _ready() -> void:
 	_holder = card.get_parent() as Control
 	for n in _holder.get_children():
 		if n != card: _halo.append(n)
-	# the card into a CanvasGroup of its own, in its place: drawn into a buffer and laid on a turned plane (its
-	# touches still go where the card lies flat: it turns only a few degrees)
-	_group = Node2D.new()
-	var at := card.get_index()
-	_holder.add_child(_group)
-	_holder.move_child(_group, at)
-	card.reparent(_group, false)
-	# the rarity glow round the card turns with it (23.11: left level, it showed as a wide band beside the tilted card);
-	# under the card in the group, where it was under it in the holder
-	for n in _halo:
-		if is_instance_valid(n) and n.get_parent() == _holder:
-			n.reparent(_group, false)
-			_group.move_child(n, 0)
-	# a soft band of light sliding over it as it turns (added)
-	_sheen = ColorRect.new()
-	_sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_sheen.color = Color.WHITE
+	# the card, its glow with it, into its own SubViewport; its picture where the card was
+	_cvp = SubViewport.new()
+	_cvp.transparent_bg = true
+	_cvp.size_2d_override_stretch = true
+	_cvp.msaa_2d = Viewport.MSAA_4X
+	_show = TextureRect.new()
+	_show.texture = _cvp.get_texture()
+	_show.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_show.stretch_mode = TextureRect.STRETCH_SCALE
+	_show.mouse_filter = Control.MOUSE_FILTER_STOP
 	var shm := ShaderMaterial.new()
 	shm.shader = preload("res://shaders/card_tilt.gdshader")
-	_sheen.material = shm
-	_group.add_child(_sheen)
+	_show.material = shm
+	_show.gui_input.connect(_pass_input)
+	# (under the picture, not under this node: this node is the card's, and the card goes into it)
+	_show.add_child(_cvp)
+	var at := card.get_index()
+	_holder.add_child(_show)
+	_holder.move_child(_show, at)
+	for n in _halo:
+		if is_instance_valid(n) and n.get_parent() == _holder: n.reparent(_cvp, false)
+	card.reparent(_cvp, false)
+	card.position = Vector2.ONE * PAD
+	for n in _halo:
+		if is_instance_valid(n) and n is Control: (n as Control).position = Vector2.ONE * PAD
 	# the shadow under the card
 	_shadow = Panel.new()
 	_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -128,7 +136,7 @@ func _ready() -> void:
 	_world.add_child(env)
 	_back = _layer(_vb)
 	_holder.add_child(_back)
-	_holder.move_child(_back, _group.get_index())
+	_holder.move_child(_back, _show.get_index())
 	_front = _layer(_vf)
 	_holder.add_child(_front)
 	# the shards: the stone's own shapes and glass
@@ -155,12 +163,7 @@ func _ready() -> void:
 		for n in [_shadow, _back, _front, _ring]:
 			if is_instance_valid(n): n.queue_free()
 		# (the card back out of its group, where it was: the window closes with it)
-		for n in _halo:
-			if is_instance_valid(n) and is_instance_valid(_holder) and n.get_parent() == _group: n.reparent(_holder, false)
-		if is_instance_valid(_group) and is_instance_valid(card) and card.get_parent() == _group and is_instance_valid(_holder):
-			card.reparent(_holder, false)
-			_holder.move_child(card, _group.get_index())
-			_group.queue_free())
+		if is_instance_valid(_show): _show.queue_free())
 
 func _viewport() -> SubViewport:
 	var v := SubViewport.new()
@@ -197,13 +200,26 @@ static func _jump(d: float) -> float:
 	if d <= 0.0: return 0.0
 	return (d / 0.22) * exp(1.0 - d / 0.22)
 
+## a point of the card's own SubViewport in the holder's space (the card's picture lies flat there, give or take its turn)
+func _out(p: Vector2) -> Vector2:
+	return _show.position + p
+
 ## the stone's middle, in the holder's space
 func _stone() -> Vector2:
-	return _holder.get_global_transform().affine_inverse() * view.get_global_rect().get_center()
+	return _out(view.get_global_rect().get_center())
+
+## a touch on the card's picture goes on into its SubViewport, at the same point of the card
+func _pass_input(ev: InputEvent) -> void:
+	var e := ev.duplicate()
+	if e is InputEventMouse: (e as InputEventMouse).position = (ev as InputEventMouse).position
+	if e is InputEventScreenTouch: (e as InputEventScreenTouch).position = (ev as InputEventScreenTouch).position
+	if e is InputEventScreenDrag: (e as InputEventScreenDrag).position = (ev as InputEventScreenDrag).position
+	_cvp.push_input(e, true)
+	_show.accept_event()
 
 func _draw_ring() -> void:
 	if _pulse > 1.2: return
-	var c := _ring.get_global_transform().affine_inverse() * view.get_global_rect().get_center()
+	var c := _stone() - _ring.position
 	var u := _pulse / 1.2
 	var r := 20.0 + u * 360.0
 	var a := (1.0 - u) * (1.0 - u)
@@ -226,22 +242,19 @@ func _process(dt: float) -> void:
 	var jump := _jump(_pulse) * 16.0
 	var h := (LIFT * (0.55 + 0.45 * sin(_t * 1.15)) + jump) if settled else 0.0
 	var off := Vector2(0, -h)
-	card.rotation = 0.0
-	# turned a few degrees in depth, slowly, as a card hanging in the air; a tap rocks it: narrower as it turns, its
-	# far side skewed back
-	var rock := _jump(_pulse) * 0.05
-	var tilt := Vector2(0.035 * sin(_t * 0.55) + 0.012 * sin(_t * 1.3 + 1.0) + rock * 0.6, 0.025 * sin(_t * 0.7 + 2.0) - rock * 0.35) if settled else Vector2.ZERO
-	_group.position = card.size * 0.5
-	card.position = off - card.size * 0.5
-	# (gently: 23.11, a strong squeeze and skew looked crooked)
-	_group.scale = Vector2(1.0 - absf(tilt.x) * 0.35, 1.0 - absf(tilt.y) * 0.35)
-	_group.skew = tilt.x * 0.18
-	_sheen.position = card.position
-	_sheen.size = card.size
-	var tm := _sheen.material as ShaderMaterial
+	# turned a few degrees in depth, slowly, as a card hanging in the air; a tap rocks it
+	var rock := _jump(_pulse) * 0.06
+	var tilt := Vector2(0.09 * sin(_t * 0.55) + 0.03 * sin(_t * 1.3 + 1.0) + rock, 0.06 * sin(_t * 0.7 + 2.0) - rock * 0.6) if settled else Vector2.ZERO
+	var full := card.size + Vector2.ONE * PAD * 2.0
+	var dens := maxf(1.0, get_viewport().get_final_transform().get_scale().x)
+	var px := Vector2i((full * dens).round())
+	if _cvp.size != px: _cvp.size = px
+	if _cvp.size_2d_override != Vector2i(full.round()): _cvp.size_2d_override = Vector2i(full.round())
+	_show.position = off - Vector2.ONE * PAD
+	_show.size = full
+	var tm := _show.material as ShaderMaterial
 	tm.set_shader_parameter("tilt", tilt)
-	for n in _halo:
-		if is_instance_valid(n) and n is Control: (n as Control).position = card.position
+	tm.set_shader_parameter("pad", Vector2(PAD / full.x, PAD / full.y))
 	# its shadow: under it, further down, wider and paler the higher it is
 	_shadow.size = card.size
 	_shadow.position = Vector2(0, 10.0 + h * 0.6)
@@ -297,7 +310,7 @@ func _process(dt: float) -> void:
 		k += 1
 		var id := c.get_instance_id()
 		var ph := float(k) * 1.7
-		var dist := (_holder.get_global_transform().affine_inverse() * c.get_global_rect().get_center()).distance_to(stone)
+		var dist := _out(c.get_global_rect().get_center()).distance_to(stone)
 		var j := _jump(_pulse - dist / 300.0) * 7.0
 		var o := Vector2(0.9 * sin(_t * 0.6 + ph), 1.6 * sin(_t * 0.9 + ph * 1.3) - j) if settled else Vector2.ZERO
 		var last: Vector2 = _drift.get(id, Vector2.ZERO)
