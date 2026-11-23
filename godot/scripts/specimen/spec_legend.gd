@@ -133,23 +133,31 @@ static func levitate(root: Node3D, _mat: Material, rng: Rng32, habit: String, zc
 	var bb := SpecUtil.box_of(root)
 	var c := bb.get_center()
 	var R := maxf(bb.size.x, bb.size.z) * 0.55 + 0.15
+	# both rings on one tilt, turning together (23.11: two rings turning opposite ways at different tilts ran their
+	# shards through each other); the outer one higher, its shards between the inner one's
+	var tilt := Vector3.ZERO
+	var spin := 0.0
 	for ring in 2:
 		var orbit := Node3D.new()
 		orbit.position = c
-		orbit.rotation = Vector3((rng.next() - 0.5) * 0.6, 0, (rng.next() - 0.5) * 0.6)
+		var rot := Vector3((rng.next() - 0.5) * 0.6, 0, (rng.next() - 0.5) * 0.6)
+		if ring == 0: tilt = rot
+		orbit.rotation = tilt
 		root.add_child(orbit)
 		var n := 3 + int(rng.next() * 3)
 		for k in n:
 			var cfg := {h = 0.3 + rng.next() * 0.3, tip = null, detail = 1}
 			cfg.merge(zcfg)
 			var g := RockKit.crystal(habit, rng, cfg)
-			var a := float(k) / n * TAU + rng.next() * 0.6
-			var rr := R * (0.85 + ring * 0.35 + rng.next() * 0.15)
-			var p := Vector3(cos(a) * rr, (rng.next() - 0.5) * bb.size.y * 0.5, sin(a) * rr)
+			var a := float(k) / n * TAU + rng.next() * 0.4 + ring * PI / n
+			var rr := R * (0.85 + ring * 0.45 + rng.next() * 0.1)
+			var p := Vector3(cos(a) * rr, (rng.next() - 0.5) * bb.size.y * 0.15 + (0.2 if ring == 1 else -0.12) * bb.size.y, sin(a) * rr)
 			var s := 0.35 + rng.next() * 0.3
 			var sm := SpecUtil.mesh(g, mat, orbit, p, SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3.ONE * s))
 			sm.set_meta("lev_shard", true)    # (the card's orbit takes these shapes: CardLevitate)
-		_anim(root, orbit, "y", (0.35 + rng.next() * 0.25) * (1.0 if ring == 0 else -1.0))
+		var sp := 0.35 + rng.next() * 0.25
+		if ring == 0: spin = sp
+		_anim(root, orbit, "y", spin)
 	root.set_meta("levitate", true)
 
 ## lightning trapped inside the crystal: it strikes, flickers and strikes again along a new path

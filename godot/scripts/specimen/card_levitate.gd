@@ -113,7 +113,7 @@ func _ready() -> void:
 		_world.add_child(mi)
 		_shards.append({node = mi, a = float(k) / SHARDS * TAU + rng.randf_range(-0.3, 0.3), speed = rng.randf_range(0.22, 0.32),
 			spin = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * rng.randf_range(0.4, 1.1),
-			s = rng.randf_range(34.0, 50.0) / wide, rr = rng.randf_range(0.92, 1.08), b = Basis(Vector3(rng.randf(), rng.randf(), rng.randf()).normalized(), rng.randf() * TAU)})
+			s = rng.randf_range(32.0, 44.0) / wide, rr = rng.randf_range(0.92, 1.08), b = Basis(Vector3(rng.randf(), rng.randf(), rng.randf()).normalized(), rng.randf() * TAU)})
 	# the ring of force on a tap, over everything
 	_ring = Control.new()
 	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -211,8 +211,9 @@ func _process(dt: float) -> void:
 	_ring.position = Vector2.ZERO
 	_ring.size = _holder.size
 	var flare := 1.0 + 0.35 * _jump(_pulse - 0.05)
-	# (a ring the card's width: wider, it ran off the screen's sides)
-	var rx := (card.size.x * 0.5 + 8.0) * flare
+	# a ring just past the card's sides: where a shard goes from behind the card to in front of it (the ring's ends)
+	# it is clear of the brass (23.11: switching over the rim it popped up over it); the size of the largest shard
+	var rx := (card.size.x * 0.5 + 30.0) * flare
 	var ry := card.size.y * 0.1 * flare
 	var rz := 200.0
 	for sh: Dictionary in _shards:
@@ -220,7 +221,7 @@ func _process(dt: float) -> void:
 		var a: float = sh.a
 		var rr: float = sh.rr
 		# a ring tilted across the card: high on the left at its back, low on the right in front
-		var p := Vector3(cos(a) * rx * rr, sin(a) * ry * rr - cos(a) * card.size.y * 0.28 + sin(a * 2.0) * 10.0, sin(a) * rz)
+		var p := Vector3(cos(a) * rx, sin(a) * ry * rr - cos(a) * card.size.y * 0.28 + sin(a * 2.0) * 10.0, sin(a) * rz)
 		var mi: MeshInstance3D = sh.node
 		var s: float = float(sh.s) * (1.0 + 0.18 * sin(a))   # (nearer, a little bigger)
 		var b: Basis = (sh.b as Basis) * Basis((sh.spin as Vector3), _t * (sh.spin as Vector3).length())
