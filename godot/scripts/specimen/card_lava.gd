@@ -7,8 +7,7 @@ extends Control
 ## while it is hot, and the card's whole frame warms with the lava on it. All drawn by one shader in two passes
 ## (shaders/card_lava.gdshaderinc): the lava itself, and the light it gives, added - each in two pieces: over the card
 ## down to the ribbon, and below it inside the info panel, over its slate and under its words (the drips hang under
-## the lettering). A drop landing hisses and puffs steam; a drip that reaches a word scorches it - it flares hot and
-## darkens, then slowly comes back; the slate round a drip is left sooty.
+## the lettering). A drop landing hisses and puffs steam; the slate round a drip is left sooty.
 
 const SLOTS := 8
 const FIRST := 1.4            # the first drop, this long after the stone is built
@@ -29,7 +28,6 @@ var _slot := 0
 var _a: Array[Vector4] = []
 var _b: Array[Vector4] = []
 var _c: Array[Vector4] = []
-var _burnt: Array[Dictionary] = []   # by slot: the words its drip has scorched already
 var _land: Array[float] = []
 var rng := RandomNumberGenerator.new()
 
@@ -53,7 +51,6 @@ func _ready() -> void:
 		_a.append(Vector4(0, 0, -9.0, 0))
 		_b.append(Vector4.ZERO)
 		_c.append(Vector4(0, 1, 0, 0))
-		_burnt.append({})
 		_land.append(-1.0)
 	_lava = _pass(preload("res://shaders/card_lava.gdshader"), 0, 0, self)
 	_glow = _pass(preload("res://shaders/card_lava_glow.gdshader"), 1, 0, self)
@@ -111,7 +108,6 @@ func _drop(rim: Array) -> void:
 	var L := rng.randf_range(44.0, 62.0) if long < 0.15 else rng.randf_range(26.0, 44.0) if long < 0.5 else rng.randf_range(8.0, 24.0)
 	_b[i] = Vector4(rng.randf(), L, rng.randf_range(-0.7, 0.7), rng.randf_range(9.0, 28.0))
 	_c[i] = Vector4(rng.randf_range(-0.45, 0.45), rng.randf_range(0.55, 1.6) * (1.25 if long < 0.15 else 1.0), rng.randf_range(-1.0, 1.0), 0)
-	_burnt[i] = {}
 	_land[i] = _now + 0.45 + sqrt(2.0 * maxf(float(rim[0]) - src.y - sz, 1.0) / 1100.0)
 
 func _process(dt: float) -> void:
@@ -132,7 +128,6 @@ func _process(dt: float) -> void:
 			_land[i] = -1.0
 			Sfx.play("sh_flame")
 			_steam(Vector2(_a[i].x, float(rim[0])), _a[i].w)
-	_scorch(rim)
 	for r in _pieces:
 		# over the whole card, frame and all (this layer is laid out inside the card's padding: the brass rim is
 		# outside it - 23.11: the veins ran inside the rim; the panel's pieces likewise, wherever they sit)
@@ -150,42 +145,6 @@ func _process(dt: float) -> void:
 		m.set_shader_parameter("da", _a)
 		m.set_shader_parameter("db", _b)
 		m.set_shader_parameter("dc", _c)
-
-## where a drop's main drip has got to (its tip, in the card's space), as the shader draws it; null before it hangs
-func _tip(i: int, rim: Array) -> Variant:
-	var A := _a[i]
-	if A.z < -1.0: return null
-	var a := _now - A.z
-	var land := 0.45 + sqrt(2.0 * maxf(float(rim[0]) - A.y - A.w, 1.0) / 1100.0)
-	var s := a - land
-	if s < 0.2 or s > 15.0: return null
-	var B := _b[i]
-	var w := B.w * (1.0 - exp(-s * 9.0)) + A.w * 0.6
-	var L := B.y * (1.0 - exp(-maxf(s - 0.15, 0.0) * 0.9))
-	var xd := A.x + B.z * w * 0.5
-	return Vector2(xd + _c[i].x * L, float(rim[1]) + L + A.w * 0.55 * _c[i].y * 0.6)
-
-## a drip reaching a word: the word flares hot and darkens (scorched), slowly comes back (23.11: steam off the word
-## was ugly over the lettering - it rises where the drop lands instead)
-func _scorch(rim: Array) -> void:
-	var to_card := card.get_global_transform().affine_inverse()
-	var words: Array = info.find_children("*", "Label", true, false)
-	for i in SLOTS:
-		var tip = _tip(i, rim)
-		if tip == null: continue
-		for l: Label in words:
-			if not l.is_visible_in_tree() or l.text.strip_edges() == "" or _burnt[i].has(l.get_instance_id()): continue
-			var r: Rect2 = to_card * l.get_global_transform() * Rect2(Vector2.ZERO, l.size)
-			# (the glyphs, not the label's whole box: its middle band, where the letters are)
-			r = Rect2(r.position + Vector2(0, r.size.y * 0.2), Vector2(r.size.x, r.size.y * 0.6))
-			if not r.has_point(tip): continue
-			_burnt[i][l.get_instance_id()] = true
-			var was := l.self_modulate
-			var tw := l.create_tween()
-			tw.tween_property(l, "self_modulate", Color(1.6, 0.75, 0.35), 0.18)
-			tw.tween_property(l, "self_modulate", Color(0.62, 0.48, 0.4), 1.2)
-			tw.tween_interval(5.0)
-			tw.tween_property(l, "self_modulate", was, 6.0)
 
 ## a puff of steam where a drop lands on the ribbon, rising up over the stone's frame and spreading as it fades; a bigger
 ## drop, a bigger puff
