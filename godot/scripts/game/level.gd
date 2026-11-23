@@ -146,6 +146,12 @@ func start(n: int, pre: Array = [], dl: int = 0, level: Dictionary = {}) -> void
 	hunt_lv = int(level.get("hunt_lv", -1))
 	model.setup(n, pre, dl, eq, Save.area(), not prologue and not chase and not hunt and hunt_lv < 0, level)
 	BoardSprites.kelp_look = model.kelp_on()
+	# (test key: the cove's ink washed off every other cell, leaving lone inked cells - how the ink looks once specials
+	# have been at it)
+	if OS.get_cmdline_user_args().has("ink_holes"):
+		for r in model.R:
+			for c in model.C:
+				if model.LOCK[r][c] == 7 and (r + c) % 2 == 0: model.LOCK[r][c] = 0
 	_timed = model.timed > 0.0
 	rich = bool(level.get("rich", false))
 	# the journal (♪ held): what was played and how it ended

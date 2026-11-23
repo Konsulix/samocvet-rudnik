@@ -47,6 +47,13 @@ void fragment() {
 	float t = TIME * speed;
 	float s = ink(b, t);
 	float f = field(UV);
+	// each inked cell holds its own blot too: smoothed over a cell, a lone cell had no neighbours to lean on and its
+	// middle stayed under half - the noise ate it down to a few wisps. A rounded square nearly the cell's size.
+	vec2 cell = floor(b);
+	float own = texelFetch(mask, ivec2(cell), 0).r;
+	vec2 q = abs(fract(b) - 0.5);
+	float rd = length(max(q - 0.2, 0.0)) + min(max(q.x, q.y) - 0.2, 0.0);
+	f = max(f, own * 0.82 * (1.0 - smoothstep(0.0, 0.4, rd)));
 	// the blot: the smoothed mask, its rim eaten by noise and by the ink's own folds
 	float v = f + (fbm(b * 2.3 + vec2(t, -t * 1.3)) - 0.5) * 0.45 + (s - 0.5) * 0.3;
 	float body = smoothstep(0.36, 0.5, v);
