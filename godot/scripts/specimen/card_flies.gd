@@ -159,11 +159,21 @@ func _leave() -> void:
 	fb.visible = false
 	_out.append({fb = fb, src = src, spot = at, from = _proj(src.global_position), stage = 0, t = 0.0, fade = 0.0})
 
-## how wide the stone's butterfly is on the card now, in points (its wingspan through the stone's camera)
+## how wide the stone's butterfly is on the card now, in points: its model's own wingspan (MODELS' span, times the
+## model holder's scale in the stone's world) seen through the stone's camera at where it is (23.11: measured by the
+## Fly's size, the card's came out half the size of the stone's)
 func _twin_span(src: Node3D) -> float:
+	var f := src as SpecButterfly.Fly
+	var turn := f.get_child(0) as Node3D
+	var wide := turn.global_transform.basis.get_scale().x * float(SpecButterfly.MODELS[f.kind].span)
 	var side := view.studio.cam.global_transform.basis.x
-	var a := _proj(src.global_position)
-	return maxf(4.0, _proj(src.global_position + side * (src as SpecButterfly.Fly).size * 2.0).distance_to(a))
+	return maxf(4.0, _proj(src.global_position + side * wide).distance_to(_proj(src.global_position)))
+
+## the card butterfly's own wingspan in points at k 1 (the layer's world is in points, its camera orthographic)
+func _own_span(fb: SpecButterfly.Fly) -> float:
+	var turn := fb.get_child(0) as Node3D
+	var s0: Vector3 = turn.get_meta("s0") if turn.has_meta("s0") else turn.scale
+	return s0.x * float(SpecButterfly.MODELS[fb.kind].span)
 
 ## a butterfly's see-through-ness: 0 solid .. 1 gone (every mesh of it)
 static func _fade(n: Node, a: float) -> void:
@@ -211,7 +221,8 @@ func _process(dt: float) -> void:
 				fb.land_key = Vector3.INF
 				fb._m_play("fly", 0.0, 0.0, 0.0)
 				fb.visible = true
-				o.k0 = clampf(_twin_span(o.src) / SPAN, 0.15, 1.0)
+				# the stone's own size: it stays so all the way (23.11: grown to a size of its own it looked small)
+				o.k0 = clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0)
 				_size(fb, o.k0)
 				_fade(fb, 1.0)
 				o.stage = 1
@@ -224,7 +235,7 @@ func _process(dt: float) -> void:
 				if is_instance_valid(o.src):
 					_fade(o.src, f)
 					if f >= 1.0: (o.src as Node3D).visible = false
-				_size(fb, lerpf(float(o.k0), 1.0, smoothstep(0.0, 1.4, float(o.t))))
+				_size(fb, float(o.k0))
 				if fb.state == SpecButterfly.Fly.SIT:
 					fb.timer = rng.randf_range(4.0, 9.0)
 					o.stage = 2
@@ -232,7 +243,7 @@ func _process(dt: float) -> void:
 					o.stage = 3   # (never got down: home)
 			2:
 				# sitting: warming its wings, as it landed (23.11: no turning round on the spot - it looked odd)
-				_size(fb, 1.0)
+				_size(fb, float(o.k0))
 				if fb.state == SpecButterfly.Fly.OFF or fb.state == SpecButterfly.Fly.FLY:
 					o.stage = 3
 					o.t = 0.0
@@ -248,9 +259,9 @@ func _process(dt: float) -> void:
 					fb.dwell = 99.0
 					fb.timer = 99.0
 				# shrinking back to its twin's size as it nears it, and melting into it
-				var kt := clampf((_twin_span(o.src) if is_instance_valid(o.src) else SPAN * 0.3) / SPAN, 0.15, 1.0)
+				var kt := clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0) if is_instance_valid(o.src) else float(o.k0)
 				var dist := fb.pos.distance_to(home)
-				_size(fb, lerpf(kt, 1.0, clampf(dist / (SPAN * 3.0), 0.0, 1.0)))
+				_size(fb, lerpf(kt, float(o.k0), clampf(dist / (SPAN * 3.0), 0.0, 1.0)))
 				if dist < fb.size * 1.5 or float(o.t) > 7.0:
 					o.stage = 4
 					o.t = 0.0
