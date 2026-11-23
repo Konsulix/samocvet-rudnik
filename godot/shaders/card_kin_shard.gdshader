@@ -32,7 +32,10 @@ void fragment() {
 		c = texture(front, UV);
 	} else {
 		vec2 q = pin.xy + UV * pin.zw;
-		c = texture(back, vec2(1.0 - q.x, q.y) + back_shift);
+		// (from the back's inner part: its own edge and corners are see-through — the shards at the card's sides
+		// showed the screen through them, the card not whole)
+		vec2 bq = vec2(1.0 - q.x, q.y) + back_shift;
+		c = texture(back, vec2(0.08 + bq.x * 0.84, clamp(bq.y, 0.06, 0.94)));
 	}
 	c.rgb *= vc.b;
 	COLOR = vec4(c.rgb, c.a * m * vc.a);

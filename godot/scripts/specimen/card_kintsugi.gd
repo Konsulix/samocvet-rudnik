@@ -172,21 +172,21 @@ func _process(dt: float) -> void:
 		n.global_position = at
 		n.size = _block.size
 	# mended: the overlay keeps off the panel (the panel's own layer draws there, under its words)
-	var cut := Vector4(_cut.position.x, _cut.position.y, _cut.size.x, _cut.size.y) if _t < 0.0 else Vector4.ZERO
+	var cut := Vector4(_cut.position.x, _cut.position.y, _cut.size.x, _cut.size.y) if not _flying() else Vector4.ZERO
 	(_pieces.material as ShaderMaterial).set_shader_parameter("cut", cut)
-	(_gold.material as ShaderMaterial).set_shader_parameter("cut", cut)
+	(_gold.material as ShaderMaterial).set_shader_parameter("cut", Vector4(_cut.position.x, _cut.position.y, _cut.size.x, _cut.size.y))
 	if _t < 0.0:
 		_wait -= dt
 		if _wait <= 0.0 and _t > -1.5 and _side == 0 and _flip_t < 0.0 and info.is_visible_in_tree():
 			_break()
 	else:
 		_t += dt
-		var home := BACK_AT + RET + STAG * _cells.size()
-		if _t > home + MOLTEN + 0.3:
+		var home := _home_all()
+		if _t > home + 0.6 + MOLTEN + 0.4:
 			_t = -1.0
 			_wait = test_every if test_every > 0.0 else AGAIN
 			_whole(true)
-		elif _t > home + 0.05 and info.modulate.a < 1.0:
+		elif _t > home and info.modulate.a < 1.0:
 			# (all home: the card whole again under the cooling gold)
 			_whole(true)
 	for n: Control in [_hole, _pieces, _cracks, _gold, _in_pieces, _in_gold]: n.queue_redraw()
@@ -365,7 +365,7 @@ func _shatter_map() -> void:
 			if k > 0: len_at += pts[k - 1].distance_to(pts[k])
 			var end_d := minf(len_at, total - len_at)
 			wd.append(SEAM_W * (0.75 + 0.35 * sin(len_at * 0.11 + ph) + 0.2 * sin(len_at * 0.37 + ph * 2.0)) + 1.6 * exp(-end_d / 5.0))
-		_edges.append({pts = pts, a = e.cells[0], b = e.cells[1], w = wd})
+		_edges.append({pts = pts, a = e.cells[0], b = e.cells[1], w = wd, delay = clampf((pts[0].y + pts[pts.size() - 1].y) * 0.5 / maxf(1.0, h), 0.0, 1.0) * 0.45 + rng.randf() * 0.15})
 		for p: Vector2 in [pts[0], pts[pts.size() - 1]]:
 			var kk := "%d,%d" % [roundi(p.x), roundi(p.y)]
 			ends[kk] = [p, int((ends.get(kk, [p, 0]) as Array)[1]) + 1]
@@ -434,6 +434,14 @@ static func _back_out(k: float) -> float:
 	var x := k - 1.0
 	return 1.0 + (S + 1.0) * x * x * x + S * x * x
 
+## shards in the air (or not yet all home): the shards drawn over the card, the panel hidden
+func _flying() -> bool:
+	return _t >= 0.0 and _t < _home_all()
+
+## every shard home (the panel whole again): the gold starts to run
+func _home_all() -> float:
+	return BACK_AT + RET + STAG * _cells.size() + 0.05
+
 func _landed(i: int) -> float:
 	return float(_cells[i].home) + RET
 
@@ -450,7 +458,8 @@ func _draw_hole(n: Control) -> void:
 
 func _draw_pieces(n: Control) -> void:
 	if _cells.is_empty() or _t < -1.0: return
-	var live := _t >= 0.0
+	# (once every shard is home the panel is live again: only the turned shards are drawn, in the panel under its words)
+	var live := _flying()
 	if live and n == _in_pieces: return
 	for i in _cells.size():
 		var c: Dictionary = _cells[i]
@@ -494,7 +503,6 @@ func _draw_cracks(n: Control) -> void:
 func _draw_gold(n: Control) -> void:
 	if _cells.is_empty() or _t < -1.0: return
 	var live := _t >= 0.0
-	if live and n == _in_gold: return
 	var pts_all := PackedVector2Array()
 	var cols := PackedColorArray()
 	var uvs := PackedVector2Array()
@@ -507,7 +515,8 @@ func _draw_gold(n: Control) -> void:
 	for e: Dictionary in _edges:
 		var lit := 99.0
 		if live:
-			var at := maxf(_landed(int(e.a)), _landed(int(e.b)))
+			# (the gold runs once every shard is home and the panel is live again: under its words from the start)
+			var at := _home_all() + float(e.get("delay", 0.0))
 			if _t < at: continue
 			lit = _t - at
 		var hot := clampf(1.0 - lit / MOLTEN, 0.0, 1.0)
