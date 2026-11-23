@@ -279,7 +279,7 @@ static func genes_of(s: Dictionary) -> Array:
 			if f.has("sprig"): out.append(("quartz:" if sid == "flower_quartz" else "sprig:") + String(f.sprig))
 		"fern": out.append("plant:" + String(f.plant))
 		"petrified_wood":
-			if f.get("fungi", false): out.append("shroom:4")    # honey fungus grows only on the wood
+			if f.get("fungi", false) and String(f.get("show", "")) == "driftwood": out.append("shroom:4")    # honey fungus grows only on the wood
 	if sid == "gold": out.append("gold:" + String(g.form))     # the Fire Maiden's gold: nugget, vein, tree
 	# Matryoshka: fluorite's hopper crystals, stepped cube frames one inside the next
 	if sid == "fluorite" and String(g.form) == "hopper": out.append("hopper:fluorite")

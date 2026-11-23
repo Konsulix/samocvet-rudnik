@@ -71,6 +71,8 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.fungi = rng.next() < (0.85 if g.core == "crystal" else 0.5)
 	for k in ["core", "fungi"]:
 		if o.has(k): g[k] = o[k]
+	# the honey fungus grows on driftwood only (_fungi): a slice, a log or a twig never shows it - nor counts it
+	if g.show != "driftwood": g.fungi = false
 	if g.show == "driftwood" and g.core == "opal": g.opal = maxf(float(g.opal), 0.5)
 	# opal's body: dark blue-black, clear, or honey; how wide its colours range
 	g.body = Stones.pick_w([["dark", 5.0], ["crystal", 3.0], ["honey", 2.0]], rng)
