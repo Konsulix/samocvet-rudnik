@@ -147,8 +147,10 @@ static func levitate(root: Node3D, _mat: Material, rng: Rng32, habit: String, zc
 			var rr := R * (0.85 + ring * 0.35 + rng.next() * 0.15)
 			var p := Vector3(cos(a) * rr, (rng.next() - 0.5) * bb.size.y * 0.5, sin(a) * rr)
 			var s := 0.35 + rng.next() * 0.3
-			SpecUtil.mesh(g, mat, orbit, p, SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3.ONE * s))
+			var sm := SpecUtil.mesh(g, mat, orbit, p, SpecUtil.eul(rng.next() * 6, rng.next() * 6, rng.next() * 6) * Basis.from_scale(Vector3.ONE * s))
+			sm.set_meta("lev_shard", true)    # (the card's orbit takes these shapes: CardLevitate)
 		_anim(root, orbit, "y", (0.35 + rng.next() * 0.25) * (1.0 if ring == 0 else -1.0))
+	root.set_meta("levitate", true)
 
 ## lightning trapped inside the crystal: it strikes, flickers and strikes again along a new path
 static func lightning(main: Node3D, rng: Rng32) -> void:

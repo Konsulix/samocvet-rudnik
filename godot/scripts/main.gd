@@ -123,6 +123,7 @@ func _ready() -> void:
 	if args.has("lava_every"): CardLava.test_every = float(args.lava_every)
 	if args.has("flies_every"): CardFlies.test_every = float(args.flies_every)
 	if args.has("aurora_pal"): SpecPolar.test_pal = int(args.aurora_pal)
+	if args.has("lev_tap"): CardLevitate.test_tap = float(args.lev_tap)
 	if args.has("flies_spot"): CardFlies.test_spot = int(args.flies_spot)
 	if args.has("frost_code"): CardFrost.photo = false
 	# (the hunt's ribbon in a state, for pictures: hunt=N fights won, +g the geode opened, +x just lost — hunt=3, hunt=4g, hunt=4gx)
