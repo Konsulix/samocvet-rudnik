@@ -15,6 +15,10 @@ const EVERY := [3.5, 7.0]     # how often one leaves, while the cloud is up
 const OUT_MAX := 3
 
 static var test_every := 0.0  # a test key (-- flies_every=S): one leaves every S s, cloud up or not
+static var test_spot := -1    # a test key (-- flies_spot=0|1|2): only there - a button, the ribbon, the card's top
+## the layer reaches this far past the card on every side: one sitting on the card's very top stands out over it (23.11:
+## the layer the card's size cut it off at its edge)
+const MARGIN := 60.0
 
 var card: Control
 var view: SpecView
@@ -113,10 +117,11 @@ func _spots() -> Array:
 		var b := n as Button
 		if not b.is_visible_in_tree(): continue
 		var r: Rect2 = to_card * b.get_global_transform() * Rect2(Vector2.ZERO, b.size)
-		out.append([Vector2(r.get_center().x, r.position.y + 6.0), r.size.x * 0.32])
+		out.append([Vector2(r.get_center().x, r.position.y + 3.5), r.size.x * 0.32, 0])
 	var ig: Rect2 = to_card * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
-	out.append([Vector2(card.size.x * 0.5, ig.position.y + 1.0), (ig.size.x - Reveal.INFO_R * 2.0) * 0.42])
-	out.append([Vector2(card.size.x * 0.6, 5.5), card.size.x * 0.3])
+	out.append([Vector2(card.size.x * 0.5, ig.position.y - 1.5), (ig.size.x - Reveal.INFO_R * 2.0) * 0.42, 1])
+	out.append([Vector2(card.size.x * 0.6, 2.0), card.size.x * 0.3, 2])
+	if test_spot >= 0: out = out.filter(func(q: Array) -> bool: return int(q[2]) == test_spot)
 	return out
 
 ## one of the cloud's flying butterflies leaves the stone for a spot on the card
@@ -151,11 +156,12 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(view) or not is_instance_valid(flock) or not is_instance_valid(info):
 		queue_free()
 		return
-	_rect.position = -position
-	_rect.size = card.size
-	var want := Vector2i((card.size * PX).round())
+	# over the card and MARGIN past it all round (its middle the card's: _w is unchanged)
+	_rect.position = -position - Vector2.ONE * MARGIN
+	_rect.size = card.size + Vector2.ONE * MARGIN * 2.0
+	var want := Vector2i((_rect.size * PX).round())
 	if _vp.size != want: _vp.size = want
-	_vp.get_camera_3d().size = card.size.y
+	_vp.get_camera_3d().size = _rect.size.y
 	# one leaves now and then while the cloud is up (Flock's phase 1), never too many out at once
 	if view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 		_next -= dt
