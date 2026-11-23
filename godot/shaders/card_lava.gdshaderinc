@@ -5,6 +5,9 @@
 // light (the brass heating round each drop, the frame's red heat, the drops' halo); 0: the lava itself.
 
 uniform int glow = 0;
+// which piece: 0 over the card, the stone and the ribbon (and the frame's veins); 1 inside the info panel, over its
+// slate and under its words (CardLava: the drips hang under the lettering), everything below the ribbon
+uniform int part = 0;
 uniform vec2 card = vec2(360.0, 640.0);
 uniform float now = 0.0;
 uniform float rim_top = 400.0;        // the ribbon's upper edge (the drops land on it)
@@ -16,6 +19,8 @@ uniform float frame_in = 7.0;         // the card's brass frame: this far in fro
 // a drop: x, where it falls from (y), when it began, its size; and its own seed, drip length, drip offset, puddle width
 uniform vec4 da[8];
 uniform vec4 db[8];
+// and: its main drip's lean, its thickness, how lopsided its puddle is (-1..1)
+uniform vec4 dc[8];
 
 const float FORM = 0.45;     // swelling under the stone
 const float G = 1100.0;      // its fall, points/s²
@@ -71,11 +76,13 @@ void fragment() {
 	vec2 p = UV * card;
 	vec4 lava = vec4(0.0);    // the lava itself (mix)
 	vec3 light = vec3(0.0);   // the light it gives (added)
+	float soot = 0.0;         // scorched slate round the drips (part 1)
 	float hot_sum = 0.0;
 	float near = 0.0;         // the heat of the fresh drops close by (the brass's veins burn brighter there)
 	for (int i = 0; i < 8; i++) {
 		vec4 A = da[i];
 		vec4 B = db[i];
+		vec4 C = dc[i];
 		if (A.z < -1.0) continue;
 		float a = now - A.z;
 		if (a < 0.0) continue;
@@ -105,19 +112,21 @@ void fragment() {
 			fade = 1.0 - smoothstep(KEEP, KEEP + GONE, s);
 			float w = B.w * (1.0 - exp(-s * 9.0)) + sz * 0.6;
 			float h = sz * (0.55 + 0.6 * exp(-s * 2.5));
-			float dx = (p.x - x) / w;
+			// lopsided: it runs further one way along the ribbon than the other
+			float wside = w * (1.0 + C.z * 0.55 * sign(p.x - x));
+			float dx = (p.x - x) / wside;
 			// the puddle: a low dome over the ribbon's top, the lava covering the ribbon's face near its middle
 			float prof = sqrt(max(0.0, 1.0 - dx * dx));
 			float top_y = rim_top - h * pow(prof, 0.7) + noise(vec2(p.x * 0.4, B.x * 9.0)) * 1.2;
 			float cover = rim_top + (rim_bot - rim_top) * (0.3 + 0.9 * smoothstep(1.0, 0.25, abs(dx)));
-			float dp = max(max(top_y - p.y, p.y - cover), (abs(p.x - x) - w));
+			float dp = max(max(top_y - p.y, p.y - cover), (abs(p.x - x) - wside));
 			// the drip: down from under the ribbon, leaning a little as it lengthens, a bead at its tip; now and then
 			// a second, shorter and thinner, off the puddle's other side
 			float grow_d = 1.0 - exp(-max(s - 0.15, 0.0) * 0.9);
 			float L = B.y * grow_d;
 			float xd = x + B.z * w * 0.5;
-			float wd = sz * 0.55;
-			float lean = (hash(vec2(B.x * 91.0, 3.7)) - 0.5) * 0.5;
+			float wd = sz * 0.55 * C.y;
+			float lean = C.x;
 			vec2 d0 = vec2(xd, rim_bot - 1.0);
 			vec2 d1 = vec2(xd + lean * L * 0.25, rim_bot + L * 0.55);
 			vec2 d2 = vec2(xd + lean * L, rim_bot + L);
@@ -150,6 +159,8 @@ void fragment() {
 			light += vec3(1.0, 0.3, 0.04) * ribbon * exp(-pow((p.x - x) / (w + 26.0), 2.0)) * exp(-s / (COOL * 1.6)) * 0.7 * fade;
 			light += vec3(1.0, 0.42, 0.08) * exp(-max(d, 0.0) / 4.0) * exp(-s / COOL) * 0.5;
 		}
+		// the slate round a drip, scorched where the lava hung (below the ribbon)
+		if (a >= land && p.y > rim_bot + 1.0) soot = max(soot, (1.0 - smoothstep(0.0, 7.0, d)) * smoothstep(0.0, 1.5, a - land) * fade);
 		float in_l = 1.0 - smoothstep(-0.7, 0.7, d);
 		if (in_l <= 0.0) continue;
 		// the surface: hot lava rolls and glows; cooling, a crust forms with its cracks still lit
@@ -172,7 +183,17 @@ void fragment() {
 		lava = mix(lava, vec4(col, 1.0), alpha);
 		light += crack_col * cr * crust_k * smoothstep(0.02, 0.25, t) * in_l * 0.35 * fade;
 	}
-	if (glow == 1) {
+	// each piece draws its own side of the ribbon's lower edge
+	float mine = part == 0 ? 1.0 - smoothstep(rim_bot - 0.5, rim_bot + 0.5, p.y) : smoothstep(rim_bot - 1.0, rim_bot, p.y);
+	lava.a *= mine;
+	light *= mine;
+	if (part == 1) {
+		if (glow == 1) { COLOR = vec4(light, 1.0); }
+		else {
+			vec4 sc = vec4(0.12, 0.06, 0.03, soot * 0.55);
+			COLOR = vec4(mix(sc.rgb, lava.rgb, lava.a), lava.a + sc.a * (1.0 - lava.a));
+		}
+	} else if (glow == 1) {
 		// the card's brass frame: hot veins in the metal itself (22.11: a plain red band looked like a red frame) -
 		// thin glowing cracks wandering along the brass, slowly crawling, waves of heat running round the frame,
 		// brightest by the fresh drops; a faint dull red under them
