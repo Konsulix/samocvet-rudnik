@@ -112,7 +112,7 @@ func _ready() -> void:
 		var wide := maxf(0.001, mi.mesh.get_aabb().size.length())
 		_world.add_child(mi)
 		_shards.append({node = mi, a = float(k) / SHARDS * TAU + rng.randf_range(-0.3, 0.3), speed = rng.randf_range(0.22, 0.32),
-			spin = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * rng.randf_range(0.4, 1.1),
+			spin = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * rng.randf_range(1.3, 2.8),
 			s = rng.randf_range(32.0, 44.0) / wide, rr = rng.randf_range(0.92, 1.08), b = Basis(Vector3(rng.randf(), rng.randf(), rng.randf()).normalized(), rng.randf() * TAU)})
 	# the ring of force on a tap, over everything
 	_ring = Control.new()
@@ -224,7 +224,12 @@ func _process(dt: float) -> void:
 		var p := Vector3(cos(a) * rx, sin(a) * ry * rr - cos(a) * card.size.y * 0.28 + sin(a * 2.0) * 10.0, sin(a) * rz)
 		var mi: MeshInstance3D = sh.node
 		var s: float = float(sh.s) * (1.0 + 0.18 * sin(a))   # (nearer, a little bigger)
-		var b: Basis = (sh.b as Basis) * Basis((sh.spin as Vector3), _t * (sh.spin as Vector3).length())
+		# tumbling: a spin about its own axis and a slower roll about another, the faces catching the light in turn
+		# (23.11: at under a turn a second it hardly showed); a tap spins it up with the ring
+		var sv: Vector3 = sh.spin
+		var roll := Vector3(sv.y, sv.z, sv.x).normalized()
+		sh.ang = float(sh.get("ang", 0.0)) + dt * sv.length() * (1.0 + 1.5 * _jump(_pulse))
+		var b: Basis = (sh.b as Basis) * Basis(sv.normalized(), float(sh.ang)) * Basis(roll, float(sh.ang) * 0.45)
 		mi.transform = Transform3D(b.orthonormalized() * Basis.from_scale(Vector3.ONE * s), p)
 		mi.layers = FRONT if p.z > 0.0 else BACK
 	var active := settled and _shards.size() > 0
