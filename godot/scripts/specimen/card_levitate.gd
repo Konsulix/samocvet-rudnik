@@ -39,6 +39,9 @@ var _pulse := 99.0            # seconds since the last tap
 var _tap_at := 0.0
 var _drift := {}              # node id -> its last offset
 var _halo: Array[Node] = []
+var _group: Node2D            # the card turned in depth: squeezed and skewed about its middle (a CanvasGroup with a
+                              # perspective shader turned the masked stone window and panel white - 23.11)
+var _sheen: ColorRect
 var rng := RandomNumberGenerator.new()
 
 ## p: the built find; only a levitating one (SpecLegend.levitate marks it)
@@ -57,6 +60,21 @@ func _ready() -> void:
 	_holder = card.get_parent() as Control
 	for n in _holder.get_children():
 		if n != card: _halo.append(n)
+	# the card into a CanvasGroup of its own, in its place: drawn into a buffer and laid on a turned plane (its
+	# touches still go where the card lies flat: it turns only a few degrees)
+	_group = Node2D.new()
+	var at := card.get_index()
+	_holder.add_child(_group)
+	_holder.move_child(_group, at)
+	card.reparent(_group, false)
+	# a soft band of light sliding over it as it turns (added)
+	_sheen = ColorRect.new()
+	_sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sheen.color = Color.WHITE
+	var shm := ShaderMaterial.new()
+	shm.shader = preload("res://shaders/card_tilt.gdshader")
+	_sheen.material = shm
+	_group.add_child(_sheen)
 	# the shadow under the card
 	_shadow = Panel.new()
 	_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -77,27 +95,34 @@ func _ready() -> void:
 	_vb.add_child(_world)
 	_camera(_vb, BACK)
 	_camera(_vf, FRONT)
-	var key := DirectionalLight3D.new()
-	key.rotation = Vector3(-0.8, 0.6, 0)
-	key.light_energy = 1.3
-	_world.add_child(key)
-	var rim := DirectionalLight3D.new()
-	rim.rotation = Vector3(-0.2, PI + 0.5, 0)
-	rim.light_color = Color(0.7, 0.85, 1.0)
-	rim.light_energy = 0.9
-	_world.add_child(rim)
+	# lit as the stone's studio lights its own shards (23.11: a plain light made them flat plastic): its sky for the
+	# glass to reflect (softboxes, SpecStudio's shared sky), its warm key, cold and warm rims and a fill from below
+	for L: Array in [[Color("#fff0dc"), 1.45, Vector3(2.5, 3.5, 3)], [Color("#8fb8ff"), 1.4, Vector3(-3.5, 1.5, -2.5)],
+			[Color("#ffc890"), 0.9, Vector3(3.5, 0.4, -3)], [Color(1, 1, 1), 0.25, Vector3(0, -2, 4)]]:
+		var l := DirectionalLight3D.new()
+		l.light_color = L[0]
+		l.light_energy = L[1]
+		_world.add_child(l)
+		l.look_at_from_position(L[2] as Vector3, Vector3.ZERO)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_CLEAR_COLOR
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.6, 0.65, 0.75)
-	e.ambient_light_energy = 0.8
+	e.sky = SpecStudio._shared_sky()
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	e.ambient_light_energy = 0.45
+	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_exposure = 1.05
+	e.tonemap_white = 6.0
+	e.glow_enabled = true
+	e.glow_intensity = 0.55
+	e.glow_hdr_threshold = 1.0
+	e.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	env.environment = e
 	_world.add_child(env)
 	_back = _layer(_vb)
 	_holder.add_child(_back)
-	_holder.move_child(_back, _holder.get_children().find(card))
+	_holder.move_child(_back, _group.get_index())
 	_front = _layer(_vf)
 	_holder.add_child(_front)
 	# the shards: the stone's own shapes and glass
@@ -122,7 +147,12 @@ func _ready() -> void:
 	view.tapped.connect(_tap)
 	tree_exiting.connect(func() -> void:
 		for n in [_shadow, _back, _front, _ring]:
-			if is_instance_valid(n): n.queue_free())
+			if is_instance_valid(n): n.queue_free()
+		# (the card back out of its group, where it was: the window closes with it)
+		if is_instance_valid(_group) and is_instance_valid(card) and card.get_parent() == _group and is_instance_valid(_holder):
+			card.reparent(_holder, false)
+			_holder.move_child(card, _group.get_index())
+			_group.queue_free())
 
 func _viewport() -> SubViewport:
 	var v := SubViewport.new()
@@ -188,8 +218,19 @@ func _process(dt: float) -> void:
 	var jump := _jump(_pulse) * 16.0
 	var h := (LIFT * (0.55 + 0.45 * sin(_t * 1.15)) + jump) if settled else 0.0
 	var off := Vector2(0, -h)
-	card.position = off
-	card.rotation = (0.011 * sin(_t * 0.8) + 0.006 * sin(_t * 1.7)) if settled else 0.0
+	card.rotation = 0.0
+	# turned a few degrees in depth, slowly, as a card hanging in the air; a tap rocks it: narrower as it turns, its
+	# far side skewed back
+	var rock := _jump(_pulse) * 0.05
+	var tilt := Vector2(0.075 * sin(_t * 0.55) + 0.03 * sin(_t * 1.3 + 1.0) + rock, 0.05 * sin(_t * 0.7 + 2.0) - rock * 0.6) if settled else Vector2.ZERO
+	_group.position = card.size * 0.5
+	card.position = off - card.size * 0.5
+	_group.scale = Vector2(1.0 - absf(tilt.x) * 0.45, 1.0 - absf(tilt.y) * 0.45)
+	_group.skew = tilt.x * 0.45
+	_sheen.position = card.position
+	_sheen.size = card.size
+	var tm := _sheen.material as ShaderMaterial
+	tm.set_shader_parameter("tilt", tilt)
 	for n in _halo:
 		if is_instance_valid(n) and n is Control: (n as Control).position = off
 	# its shadow: under it, further down, wider and paler the higher it is
