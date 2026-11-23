@@ -67,6 +67,12 @@ func _ready() -> void:
 	_holder.add_child(_group)
 	_holder.move_child(_group, at)
 	card.reparent(_group, false)
+	# the rarity glow round the card turns with it (23.11: left level, it showed as a wide band beside the tilted card);
+	# under the card in the group, where it was under it in the holder
+	for n in _halo:
+		if is_instance_valid(n) and n.get_parent() == _holder:
+			n.reparent(_group, false)
+			_group.move_child(n, 0)
 	# a soft band of light sliding over it as it turns (added)
 	_sheen = ColorRect.new()
 	_sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -149,6 +155,8 @@ func _ready() -> void:
 		for n in [_shadow, _back, _front, _ring]:
 			if is_instance_valid(n): n.queue_free()
 		# (the card back out of its group, where it was: the window closes with it)
+		for n in _halo:
+			if is_instance_valid(n) and is_instance_valid(_holder) and n.get_parent() == _group: n.reparent(_holder, false)
 		if is_instance_valid(_group) and is_instance_valid(card) and card.get_parent() == _group and is_instance_valid(_holder):
 			card.reparent(_holder, false)
 			_holder.move_child(card, _group.get_index())
@@ -222,17 +230,18 @@ func _process(dt: float) -> void:
 	# turned a few degrees in depth, slowly, as a card hanging in the air; a tap rocks it: narrower as it turns, its
 	# far side skewed back
 	var rock := _jump(_pulse) * 0.05
-	var tilt := Vector2(0.075 * sin(_t * 0.55) + 0.03 * sin(_t * 1.3 + 1.0) + rock, 0.05 * sin(_t * 0.7 + 2.0) - rock * 0.6) if settled else Vector2.ZERO
+	var tilt := Vector2(0.035 * sin(_t * 0.55) + 0.012 * sin(_t * 1.3 + 1.0) + rock * 0.6, 0.025 * sin(_t * 0.7 + 2.0) - rock * 0.35) if settled else Vector2.ZERO
 	_group.position = card.size * 0.5
 	card.position = off - card.size * 0.5
-	_group.scale = Vector2(1.0 - absf(tilt.x) * 0.45, 1.0 - absf(tilt.y) * 0.45)
-	_group.skew = tilt.x * 0.45
+	# (gently: 23.11, a strong squeeze and skew looked crooked)
+	_group.scale = Vector2(1.0 - absf(tilt.x) * 0.35, 1.0 - absf(tilt.y) * 0.35)
+	_group.skew = tilt.x * 0.18
 	_sheen.position = card.position
 	_sheen.size = card.size
 	var tm := _sheen.material as ShaderMaterial
 	tm.set_shader_parameter("tilt", tilt)
 	for n in _halo:
-		if is_instance_valid(n) and n is Control: (n as Control).position = off
+		if is_instance_valid(n) and n is Control: (n as Control).position = card.position
 	# its shadow: under it, further down, wider and paler the higher it is
 	_shadow.size = card.size
 	_shadow.position = Vector2(0, 10.0 + h * 0.6)
