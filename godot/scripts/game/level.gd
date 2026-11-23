@@ -545,7 +545,7 @@ func _render_hud() -> void:
 		var k: String = g.k
 		var colour: int = rock_mix() if k == "rock" else g.t
 		var isz := 32 if model.goals.size() <= 3 else 28
-		var gic := gas_icon(isz) if k == "gas" and BoardSprites.gem_style != "" else UI.icon(isz, func(ci):
+		var gic := gas_icon(isz) if k == "gas" and BoardSprites.gem_style != "" else ink_icon(isz) if k == "ink" else UI.icon(isz, func(ci):
 			GemArt.begin(ci, Transform2D.IDENTITY)
 			GemArt.goal_icon(ci, k, colour, isz, glow)
 			GemArt.end(ci))
@@ -757,6 +757,38 @@ static func gas_icon(S: float) -> Control:
 	m.set_shader_parameter("cell_px", S / 0.95)
 	r.material = m
 	return r
+
+## the ink goal: one inked cell drawn by the board's own ink (shaders/ink.gdshader), the same blot as on the board
+static var _ink_one: ImageTexture
+static func ink_icon(S: float) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(S, S)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _ink_one == null:
+		var img := Image.create(3, 3, false, Image.FORMAT_L8)
+		img.set_pixel(1, 1, Color.WHITE)
+		_ink_one = ImageTexture.create_from_image(img)
+	# the board's slate cell under it, as on the board: on the plate's dark slate the blot alone was all but lost
+	var tile := TextureRect.new()
+	tile.texture = load("res://assets/board/kit/slate_f/tile0.png")
+	tile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tile.stretch_mode = TextureRect.STRETCH_SCALE
+	tile.size = Vector2(S, S)
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(tile)
+	var r := ColorRect.new()
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.color = Color.WHITE
+	var cell := S * 0.78          # (the blot reaches a little past its cell: the rect is that cell and its margin)
+	r.size = Vector2(cell, cell) * 3.0
+	r.position = Vector2(S, S) * 0.5 - r.size * 0.5
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/ink.gdshader")
+	m.set_shader_parameter("mask", _ink_one)
+	m.set_shader_parameter("cells", Vector2(3, 3))
+	r.material = m
+	holder.add_child(r)
+	return holder
 
 ## which rock the rock goal shows: 0 sandstone, 1 granite, 2 both
 func rock_mix() -> int:
