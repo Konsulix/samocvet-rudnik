@@ -349,8 +349,8 @@ func _process(dt: float) -> void:
 		studio.cam.fov = _fov0 / _zoom
 	if not is_nan(_aim) and _zoom > 1.001: studio.cam.v_offset = _v0 + _aim * (1.0 - 1.0 / _zoom)
 	# a fluorescent find: the studio goes dark in step with its glow; a star heart dims it a little
-	studio.set_aurora(live != null and live.has_meta("aurora"))
-	if live and live.has_meta("aurora"): _hold_curtain()
+	studio.set_aurora(live != null and live.has_meta("aurora"), float(live.get_meta("aurora", 0.0)) if live else 0.0)
+	if live and live.has_meta("aurora"): _hide_curtain()
 	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.75 if live and live.has_meta("dark") else 0.4 if live and (live.has_meta("heart_light") or live.has_meta("dim")) else 0.0)
 	if live and live.has_meta("heart_light"):
 		var hl: OmniLight3D = live.get_meta("heart_light")
@@ -792,20 +792,9 @@ class Rain extends ColorRect:
 		m.set_shader_parameter("on", on)
 		(get_meta("veil") as ColorRect).color.a = 0.22 * on
 
-## the northern lights' curtain (SpecPolar.borealis) hangs still while the stone turns inside it (23.11: it turned with
-## the stone): each frame it takes its first look back, round the point the curtain hangs round
-var _curtain: MeshInstance3D
-var _curtain_b := Basis()
-func _hold_curtain() -> void:
-	if not is_instance_valid(_curtain):
-		_curtain = null
-		for n in live.find_children("*", "MeshInstance3D", true, false):
-			if n.has_meta("aurora_curtain"):
-				_curtain = n
-				_curtain_b = (n as Node3D).global_transform.basis
-				break
-		if not _curtain: return
-	var c: Vector3 = _curtain.get_meta("aurora_curtain")
-	var par := _curtain.get_parent() as Node3D
-	var w := par.global_transform * c
-	_curtain.global_transform = Transform3D(_curtain_b, w - _curtain_b * c)
+## the northern lights' curtain round the stone (SpecPolar.borealis) is put out on the card: its sky behind the stone
+## holds the aurora (SpecStudio.set_aurora); 23.11 - turning with the stone, its edge stood as a cut-off pillar of
+## light and its top a pale blot over the sky. The pictures with no sky (the inventory's tiles) keep it.
+func _hide_curtain() -> void:
+	for n in live.find_children("*", "MeshInstance3D", true, false):
+		if n.has_meta("aurora_curtain"): (n as Node3D).visible = false

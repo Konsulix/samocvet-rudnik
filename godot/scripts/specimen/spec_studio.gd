@@ -127,7 +127,8 @@ func _light(c: Color, e: float, at: Vector3) -> DirectionalLight3D:
 ## the night sky with the northern lights behind the stone (SpecPolar.borealis: meta "aurora"; shaders/aurora_sky):
 ## a card on the camera in front of the haze, the stone turning before it
 var _aurora: MeshInstance3D
-func set_aurora(on: bool) -> void:
+func set_aurora(on: bool, seed_v := 0.0) -> void:
+	if _aurora and on: (_aurora.material_override as ShaderMaterial).set_shader_parameter("seed", seed_v)
 	if on == (_aurora != null and _aurora.visible): return
 	if on and not _aurora:
 		_aurora = MeshInstance3D.new()
@@ -136,7 +137,7 @@ func set_aurora(on: bool) -> void:
 		_aurora.mesh = q
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://shaders/aurora_sky.gdshader")
-		m.set_shader_parameter("seed", randf() * 50.0)
+		m.set_shader_parameter("seed", seed_v)
 		_aurora.material_override = m
 		_aurora.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_aurora.position = Vector3(0, 0, -39)

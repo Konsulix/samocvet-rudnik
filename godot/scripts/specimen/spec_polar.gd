@@ -10,6 +10,7 @@ const AURORA := preload("res://shaders/borealis.gdshader")
 const FROST := preload("res://shaders/frost_bloom.gdshader")
 
 ## the curtain: a ring of quads round the find, open at one side, its hem a little below the top of the stone
+static var test_pal := -1   # a test key (-- aurora_pal=0..3): the sky's palette, whatever the find
 static func borealis(root: Node3D, rng: Rng32) -> void:
 	var bb := U.box_of(root)
 	var c := bb.get_center()
@@ -74,7 +75,8 @@ static func borealis(root: Node3D, rng: Rng32) -> void:
 		lt.position = c + (Vector3(0, H * 0.45, 0) if k == 0 else Vector3(cos(a0 + span * 0.5) * R, H * 0.6, sin(a0 + span * 0.5) * R))
 		root.add_child(lt)
 	root.set_meta("dark", true)
-	root.set_meta("aurora", true)
+	# (the sky's own seed: its palette and its ribbons, the find's own each time it is opened - SpecStudio.set_aurora)
+	root.set_meta("aurora", float([7, 3, 1, 4][test_pal]) if test_pal >= 0 else rng.next() * 50.0)   # (7, 3, 1, 4: palettes 0..3)
 
 ## frost over every crystal: the crystal's mesh again under a frost skin (call after the builder's _finish)
 static func frost(root: Node3D, rng: Rng32) -> void:
