@@ -25,7 +25,7 @@ func _ready() -> void:
 				s.legend = true
 			var g := SpecGenome.of(Spec.of_stone(s))
 			if legend_run:
-				if String(g.fx) != "": _add(c.fx, String(g.fx))
+				if String(g.fx) != "": _add(c.fx, SpecLegend.one(String(g.fx)))
 				continue
 			c.value.append(int(s.value))
 			_add(c.sp, String(s.sid))
@@ -47,7 +47,7 @@ func _ready() -> void:
 			if s.get("form", "") == "skull":
 				_add(c.skin, String(s.skin))
 				if s.has("beast"): _add(c.beast, String(s.beast))
-			if s.legend and String(g.fx) != "": _add(c.fx, String(g.fx))
+			if s.legend and String(g.fx) != "": _add(c.fx, SpecLegend.one(String(g.fx)))
 		for k: String in seen:
 			for id: String in c[k]: seen[k][id] = true
 		var vals: Array = c.value
@@ -59,7 +59,7 @@ func _ready() -> void:
 		sp = Data.SP.keys(),
 		traits = Data.TRAITS.map(func(t: Dictionary) -> String: return String(t.id)),
 		acc = SpecGenome.ACC_N.keys().filter(func(k: String) -> bool: return not k.begins_with("fly_")),
-		fx = SpecLegend.FX_N.keys(),
+		fx = SpecLegend.kinds(),
 		fly = SpecButterfly.KINDS.keys(),
 		shroom = Array(SpecFungi.NAMES),
 		skin = Stones.SKULL_SKINS + Stones.BEAST_SKIN.map(func(e: Array) -> String: return String(e[0])),

@@ -495,9 +495,12 @@ static func tracked() -> Dictionary:
 	if _tracked.is_empty():
 		for e: Dictionary in LIST:
 			if not (e.has("tags") or e.get("legends", false)): continue
-			var tags: Array = e.tags if e.has("tags") else SpecLegend.FX_N.keys().map(func(k: String) -> String: return "fx:" + k)
-			var names: Array = e.names if e.has("names") else SpecLegend.FX_N.values().map(func(v: String) -> String: return v.capitalize())
+			var tags: Array = e.tags if e.has("tags") else SpecLegend.kinds().map(func(k: String) -> String: return "fx:" + k)
+			var names: Array = e.names if e.has("names") else SpecLegend.kinds().map(func(k: String) -> String: return String(SpecLegend.FX_N[k]).capitalize())
 			for i in tags.size(): _tracked[String(tags[i])] = String(names[i]) if i < names.size() else String(tags[i])
+		# (a fulgurite's living lightning is the same effect: its last example kept as the crystal's is)
+		for k: String in SpecLegend.SAME:
+			if not _tracked.has("fx:" + k): _tracked["fx:" + k] = String(SpecLegend.FX_N[k]).capitalize()
 	return _tracked
 
 ## a stone's genes never change: worked out once per stone (genes_of builds its genome)
@@ -561,10 +564,18 @@ func _shown(item: String) -> Array:
 	if item.begins_with("g:"):
 		var tag := item.trim_prefix("g:")
 		var k: Dictionary = kept_best()
-		if k.has(tag):
-			var s: Dictionary = k[tag]
-			return [summary(s, int(s.get("area", 0)), int(s.get("dl", 0))), true]
-		return [(Save.d.get("gfirst", {}) as Dictionary).get(tag, {}), false]
+		# (living lightning: shown by any of its bodies)
+		var alts := [tag]
+		for kk: String in SpecLegend.SAME:
+			if "fx:" + String(SpecLegend.SAME[kk]) == tag: alts.append("fx:" + kk)
+		for t: String in alts:
+			if k.has(t):
+				var s: Dictionary = k[t]
+				return [summary(s, int(s.get("area", 0)), int(s.get("dl", 0))), true]
+		for t: String in alts:
+			var f: Dictionary = (Save.d.get("gfirst", {}) as Dictionary).get(t, {})
+			if not f.is_empty(): return [f, false]
+		return [{}, false]
 	if item.begins_with("sp:"):
 		var id := item.trim_prefix("sp:")
 		return [(Save.d.atlas.get(id, {}) as Dictionary).get("best", {}), Atlas.best_kept(id)]
@@ -726,12 +737,14 @@ func _label(t: String) -> Control:
 static func _got(e: Dictionary) -> Array:
 	# a collection of genes: seen on any find ever kept (Save.d.genes, filled by Save.note_find)
 	if e.has("tags") or e.get("legends", false):
-		var tags: Array = e.tags if e.has("tags") else SpecLegend.FX_N.keys().map(func(k: String) -> String: return "fx:" + k)
-		var names: Array = e.names if e.has("names") else SpecLegend.FX_N.values().map(func(v: String) -> String: return v.capitalize())
+		var tags: Array = e.tags if e.has("tags") else SpecLegend.kinds().map(func(k: String) -> String: return "fx:" + k)
+		var names: Array = e.names if e.has("names") else SpecLegend.kinds().map(func(k: String) -> String: return String(SpecLegend.FX_N[k]).capitalize())
 		var seen: Array = Save.d.get("genes", [])
 		var out: Array = []
 		for i in tags.size():
-			out.append(["g:" + String(tags[i]), seen.has(tags[i]), String(e.icon), String(names[i])])
+			# (the living stones: living lightning seen in any of its bodies — a crystal, a fulgurite, a beast's horns)
+			var got := seen.has(tags[i]) or (not e.has("tags") and SpecLegend.SAME.keys().any(func(k: String) -> bool: return SpecLegend.SAME[k] == String(tags[i]).trim_prefix("fx:") and seen.has("fx:" + k)))
+			out.append(["g:" + String(tags[i]), got, String(e.icon), String(names[i])])
 		return out
 	var items: Array = e.items
 	if e.get("lords", false):

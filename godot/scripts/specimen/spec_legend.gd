@@ -7,12 +7,23 @@ extends RefCounted
 
 const FX := ["lava", "heart", "fluor", "levitate", "chameleon", "lightning", "starry", "opal", "kintsugi"]
 const FX_N := {lava = "lava", heart = "star heart", fluor = "fluorescence", levitate = "levitation", chameleon = "chameleon",
-	lightning = "frozen lightning", starry = "starry sky", opal = "opal fire", kintsugi = "kintsugi", dragonfire = "dragon fire",
+	lightning = "living lightning", starry = "starry sky", opal = "opal fire", kintsugi = "kintsugi", dragonfire = "dragon fire",
 	jellyfish = "jellyfish", discharge = "living lightning", awaken = "awakened", moon = "moon pearl", hunter = "the hunter", glow = "deep-sea glow", spring = "spring", borealis = "northern lights", frost = "frost bloom",
 	yaga = "Yaga's fire", candle = "burning candle", watching = "watching eyes", deathless = "deathless", flutter = "butterfly cloud",
-	fireflies = "firefly swarm", blossom = "blossoming horns", starhorn = "starlit horns", thunder = "thunder horns",
+	fireflies = "firefly swarm", blossom = "blossoming horns", starhorn = "starlit horns", thunder = "living lightning",
 	foxfire = "kitsune fire", wolfmoon = "wolf's moon", breath = "beast's breath", phoenix = "phoenix feathers",
 	raveneye = "raven's eye", lavaborn = "lava awakening", amberdrop = "amber drop", ghost = "the beast's ghost"}
+## (23.11) one living lightning: frozen in a crystal (lightning), running down a fulgurite (discharge), crackling
+## between a beast's horns (thunder) — one effect to the player, its look the body's own. Counted as one in the
+## living stones' collection (Awards: Once in a Blue Moon); the horns stay a beast's legend among theirs
+const SAME := {discharge = "lightning", thunder = "lightning"}
+## the living effects, each once (the variants of one folded into it)
+static func kinds() -> Array:
+	return FX_N.keys().filter(func(k: String) -> bool: return not SAME.has(k))
+## a living effect as the player counts it
+static func one(fx: String) -> String:
+	return String(SAME.get(fx, fx))
+
 const FLUOR := [Color(0.35, 1.6, 0.25), Color(1.1, 0.3, 1.8), Color(0.3, 0.9, 2.0), Color(1.8, 0.9, 0.15)]
 const CHAM := [Color(0.55, 0.04, 0.12), Color(0.1, 0.5, 0.15), Color(0.6, 0.35, 0.02), Color(0.15, 0.1, 0.6)]
 
