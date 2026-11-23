@@ -133,6 +133,8 @@ func _ready() -> void:
 		for s in d.coll:
 			note_find(s, int(s.get("area", 0)), int(s.get("dl", 0)))
 	_mend_beasts()
+	# the atlas' records by what the kept stones are worth now (mend_best)
+	for aid: String in (d.atlas as Dictionary).keys(): mend_best(aid)
 
 ## (18.11) before the fix a beast's skull lost its genes on the way: the atlas kept it as a man's skull (no `beast`), and
 ## Keep put it into the inventory as a plain crystal (no `form` either) — its page then read "sold". The page's own name
@@ -194,16 +196,43 @@ func note_find(s: Dictionary, a: int, dl: int) -> void:
 	e.max_v = maxi(int(e.max_v), int(s.value))
 	e.legend = bool(e.legend) or bool(s.get("legend", false))
 	if not e.has("best") or int(s.value) > int(e.best.value):
-		# (18.11: the whole find, not a list of its fields — the list left out a skull's genes, and a wolf's skull went
-		# into the atlas as a man's)
-		var b: Dictionary = s.duplicate(true)
-		b.kind = s.get("kind", "crystal")
-		b.traits = s.get("traits", [])
-		b.legend = s.get("legend", false)
-		b.area = a
-		b.dl = dl
-		e.best = b
+		e.best = _best_copy(s, a, dl)
 	d.atlas[aid] = e
+
+## the atlas' record of a species: the whole find (18.11: not a list of its fields — the list left out a skull's genes,
+## and a wolf's skull went into the atlas as a man's)
+static func _best_copy(s: Dictionary, a: int, dl: int) -> Dictionary:
+	var b: Dictionary = s.duplicate(true)
+	b.kind = s.get("kind", "crystal")
+	b.traits = s.get("traits", [])
+	b.legend = s.get("legend", false)
+	b.area = a
+	b.dl = dl
+	return b
+
+## the record goes by what the stones are worth now: a stone's price moves after it is found (weighed by its model at
+## its first card, a lightning's swing, the cutter), and a record set by the price at finding stayed on a stone that
+## a later one of the species had since passed. The kept stones of the species are looked over: the record takes
+## its holder's present price, and a kept stone worth more takes the record. A record sold stays, unless a kept one
+## passes it.
+func mend_best(aid: String) -> void:
+	var e: Dictionary = d.atlas.get(aid, {})
+	if not e.has("best"): return
+	var bid := int(e.best.get("id", 0))
+	var top: Dictionary = {}
+	var tv := int(e.best.value)
+	for st: Dictionary in d.coll:
+		if st.get("gulp", false) or Stones.atlas_id(st) != aid: continue
+		if int(st.get("id", 0)) == bid and bid != 0: tv = int(st.value)
+	e.best.value = tv
+	for st: Dictionary in d.coll:
+		if st.get("gulp", false) or Stones.atlas_id(st) != aid: continue
+		if int(st.get("id", 0)) != bid and int(st.value) > tv:
+			top = st
+			tv = int(st.value)
+	if not top.is_empty():
+		e.best = _best_copy(top, int(top.get("area", e.best.get("area", 0))), int(top.get("dl", 0)))
+	e.max_v = maxi(int(e.get("max_v", 0)), tv)
 
 ## a stone leaves the inventory (sold): for every gene it shows, it becomes the one the awards remember — once no
 ## stone with the gene is kept, its niche shows the last one that went, grey (not an older one popping back)

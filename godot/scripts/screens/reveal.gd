@@ -207,6 +207,7 @@ static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tal
 ## turns grey (Atlas.best_kept)
 static func is_record(s: Dictionary) -> bool:
 	if not s.has("id"): return false
+	Save.mend_best(Stones.atlas_id(s))
 	var e: Dictionary = Save.d.atlas.get(Stones.atlas_id(s), {})
 	return e.has("best") and int(e.best.id) == int(s.id)
 
