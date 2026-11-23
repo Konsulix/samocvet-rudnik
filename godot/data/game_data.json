@@ -950,7 +950,7 @@
     {
      "m": 50,
      "fe": 51,
-     "au": 51,
+     "au": 62,
      "tool": "",
      "machine": "",
      "drill": [
@@ -961,7 +961,7 @@
     {
      "m": 100,
      "fe": 55,
-     "au": 55,
+     "au": 65,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -972,7 +972,7 @@
     {
      "m": 150,
      "fe": 58,
-     "au": 58,
+     "au": 70,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -983,7 +983,7 @@
     {
      "m": 200,
      "fe": 62,
-     "au": 62,
+     "au": 73,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -994,7 +994,7 @@
     {
      "m": 250,
      "fe": 65,
-     "au": 65,
+     "au": 79,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -1005,7 +1005,7 @@
     {
      "m": 300,
      "fe": 69,
-     "au": 69,
+     "au": 82,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -1164,7 +1164,7 @@
     {
      "m": 50,
      "fe": 51,
-     "au": 51,
+     "au": 62,
      "tool": "",
      "machine": "",
      "drill": [
@@ -1175,7 +1175,7 @@
     {
      "m": 100,
      "fe": 54,
-     "au": 54,
+     "au": 65,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -1186,7 +1186,7 @@
     {
      "m": 150,
      "fe": 56,
-     "au": 56,
+     "au": 68,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -1197,7 +1197,7 @@
     {
      "m": 200,
      "fe": 58,
-     "au": 58,
+     "au": 70,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -1208,7 +1208,7 @@
     {
      "m": 250,
      "fe": 60,
-     "au": 60,
+     "au": 72,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -1219,7 +1219,7 @@
     {
      "m": 300,
      "fe": 62,
-     "au": 62,
+     "au": 73,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -1230,7 +1230,7 @@
     {
      "m": 350,
      "fe": 64,
-     "au": 64,
+     "au": 76,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -1241,7 +1241,7 @@
     {
      "m": 400,
      "fe": 66,
-     "au": 66,
+     "au": 80,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -1252,7 +1252,7 @@
     {
      "m": 450,
      "fe": 69,
-     "au": 69,
+     "au": 82,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [
@@ -1421,7 +1421,7 @@
     {
      "m": 50,
      "fe": 61,
-     "au": 61,
+     "au": 84,
      "tool": "",
      "machine": "",
      "drill": [
@@ -1432,7 +1432,7 @@
     {
      "m": 100,
      "fe": 65,
-     "au": 65,
+     "au": 87,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -1443,7 +1443,7 @@
     {
      "m": 150,
      "fe": 67,
-     "au": 67,
+     "au": 89,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -1454,7 +1454,7 @@
     {
      "m": 200,
      "fe": 70,
-     "au": 70,
+     "au": 90,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -1465,7 +1465,7 @@
     {
      "m": 250,
      "fe": 72,
-     "au": 72,
+     "au": 93,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -1476,7 +1476,7 @@
     {
      "m": 300,
      "fe": 74,
-     "au": 74,
+     "au": 96,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -1487,7 +1487,7 @@
     {
      "m": 350,
      "fe": 77,
-     "au": 77,
+     "au": 97,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -1498,7 +1498,7 @@
     {
      "m": 400,
      "fe": 79,
-     "au": 79,
+     "au": 101,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -1509,7 +1509,7 @@
     {
      "m": 450,
      "fe": 83,
-     "au": 83,
+     "au": 105,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [
@@ -1694,7 +1694,7 @@
     {
      "m": 50,
      "fe": 70,
-     "au": 70,
+     "au": 110,
      "tool": "",
      "machine": "",
      "drill": [
@@ -1705,7 +1705,7 @@
     {
      "m": 100,
      "fe": 74,
-     "au": 74,
+     "au": 112,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -1716,7 +1716,7 @@
     {
      "m": 150,
      "fe": 77,
-     "au": 77,
+     "au": 114,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -1727,7 +1727,7 @@
     {
      "m": 200,
      "fe": 80,
-     "au": 80,
+     "au": 115,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -1738,7 +1738,7 @@
     {
      "m": 250,
      "fe": 83,
-     "au": 83,
+     "au": 118,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -1749,7 +1749,7 @@
     {
      "m": 300,
      "fe": 86,
-     "au": 86,
+     "au": 121,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -1760,7 +1760,7 @@
     {
      "m": 350,
      "fe": 89,
-     "au": 89,
+     "au": 122,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -1771,7 +1771,7 @@
     {
      "m": 400,
      "fe": 92,
-     "au": 92,
+     "au": 126,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -1782,7 +1782,7 @@
     {
      "m": 450,
      "fe": 96,
-     "au": 96,
+     "au": 131,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [
@@ -1958,7 +1958,7 @@
     {
      "m": 50,
      "fe": 100,
-     "au": 100,
+     "au": 135,
      "tool": "",
      "machine": "",
      "drill": [
@@ -1969,7 +1969,7 @@
     {
      "m": 100,
      "fe": 104,
-     "au": 104,
+     "au": 138,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -1980,7 +1980,7 @@
     {
      "m": 150,
      "fe": 108,
-     "au": 108,
+     "au": 139,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -1991,7 +1991,7 @@
     {
      "m": 200,
      "fe": 112,
-     "au": 112,
+     "au": 140,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -2002,7 +2002,7 @@
     {
      "m": 250,
      "fe": 116,
-     "au": 116,
+     "au": 143,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -2013,7 +2013,7 @@
     {
      "m": 300,
      "fe": 120,
-     "au": 120,
+     "au": 146,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -2024,7 +2024,7 @@
     {
      "m": 350,
      "fe": 124,
-     "au": 124,
+     "au": 147,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -2035,7 +2035,7 @@
     {
      "m": 400,
      "fe": 128,
-     "au": 128,
+     "au": 152,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -2046,7 +2046,7 @@
     {
      "m": 450,
      "fe": 132,
-     "au": 132,
+     "au": 156,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [
@@ -2129,7 +2129,7 @@
     {
      "m": 50,
      "fe": 100,
-     "au": 100,
+     "au": 135,
      "tool": "",
      "machine": "",
      "drill": [
@@ -2140,7 +2140,7 @@
     {
      "m": 100,
      "fe": 104,
-     "au": 104,
+     "au": 138,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -2151,7 +2151,7 @@
     {
      "m": 150,
      "fe": 108,
-     "au": 108,
+     "au": 139,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -2162,7 +2162,7 @@
     {
      "m": 200,
      "fe": 112,
-     "au": 112,
+     "au": 140,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -2173,7 +2173,7 @@
     {
      "m": 250,
      "fe": 116,
-     "au": 116,
+     "au": 143,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -2184,7 +2184,7 @@
     {
      "m": 300,
      "fe": 120,
-     "au": 120,
+     "au": 146,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -2195,7 +2195,7 @@
     {
      "m": 350,
      "fe": 124,
-     "au": 124,
+     "au": 147,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -2206,7 +2206,7 @@
     {
      "m": 400,
      "fe": 128,
-     "au": 128,
+     "au": 152,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -2217,7 +2217,7 @@
     {
      "m": 450,
      "fe": 132,
-     "au": 132,
+     "au": 156,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [
@@ -2300,7 +2300,7 @@
     {
      "m": 50,
      "fe": 100,
-     "au": 100,
+     "au": 160,
      "tool": "",
      "machine": "",
      "drill": [
@@ -2311,7 +2311,7 @@
     {
      "m": 100,
      "fe": 104,
-     "au": 104,
+     "au": 163,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -2322,7 +2322,7 @@
     {
      "m": 150,
      "fe": 108,
-     "au": 108,
+     "au": 164,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -2333,7 +2333,7 @@
     {
      "m": 200,
      "fe": 112,
-     "au": 112,
+     "au": 166,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -2344,7 +2344,7 @@
     {
      "m": 250,
      "fe": 116,
-     "au": 116,
+     "au": 168,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -2355,7 +2355,7 @@
     {
      "m": 300,
      "fe": 120,
-     "au": 120,
+     "au": 171,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -2366,7 +2366,7 @@
     {
      "m": 350,
      "fe": 124,
-     "au": 124,
+     "au": 173,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -2377,7 +2377,7 @@
     {
      "m": 400,
      "fe": 128,
-     "au": 128,
+     "au": 177,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -2388,7 +2388,7 @@
     {
      "m": 450,
      "fe": 132,
-     "au": 132,
+     "au": 181,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [
@@ -2471,7 +2471,7 @@
     {
      "m": 50,
      "fe": 100,
-     "au": 100,
+     "au": 160,
      "tool": "",
      "machine": "",
      "drill": [
@@ -2482,7 +2482,7 @@
     {
      "m": 100,
      "fe": 104,
-     "au": 104,
+     "au": 163,
      "tool": "Jackhammer",
      "machine": "hammer",
      "drill": [
@@ -2493,7 +2493,7 @@
     {
      "m": 150,
      "fe": 108,
-     "au": 108,
+     "au": 164,
      "tool": "Steam drill",
      "machine": "hammer",
      "drill": [
@@ -2504,7 +2504,7 @@
     {
      "m": 200,
      "fe": 112,
-     "au": 112,
+     "au": 166,
      "tool": "Rock drill",
      "machine": "hammer",
      "drill": [
@@ -2515,7 +2515,7 @@
     {
      "m": 250,
      "fe": 116,
-     "au": 116,
+     "au": 168,
      "tool": "Drilling rig",
      "machine": "rig",
      "drill": [
@@ -2526,7 +2526,7 @@
     {
      "m": 300,
      "fe": 120,
-     "au": 120,
+     "au": 171,
      "tool": "Diamond rig",
      "machine": "rig",
      "drill": [
@@ -2537,7 +2537,7 @@
     {
      "m": 350,
      "fe": 124,
-     "au": 124,
+     "au": 173,
      "tool": "Tunnel borer",
      "machine": "tbm",
      "drill": [
@@ -2548,7 +2548,7 @@
     {
      "m": 400,
      "fe": 128,
-     "au": 128,
+     "au": 177,
      "tool": "Deep drill",
      "machine": "deep",
      "drill": [
@@ -2559,7 +2559,7 @@
     {
      "m": 450,
      "fe": 132,
-     "au": 132,
+     "au": 181,
      "tool": "Shaft sinker",
      "machine": "deep",
      "drill": [

@@ -19,7 +19,7 @@ var d: Dictionary
 func blank() -> Dictionary:
 	var b := {
 		ver = VER, level = 1, coins = 400, lives = 5, life_at = 0, area = 0,
-		fe = 0, ore = 0, vein = [], rich = 0, lseed = 1 + randi() % 999999, lrich = false, dwins = [],
+		fe = 0, ore = 0, vein = [], rich = 0, au_v = 1, lseed = 1 + randi() % 999999, lrich = false, dwins = [],
 		boss_tries = [0, 0, 0], boss_won = [false, false, false],
 		built = [[], [], []], jstep = {}, boost = {pick = 2, bore_h = 2, bore_v = 2, pan = 2}, btold = ["pick"], pre = {rocket = 1, bomb = 1, orb = 0}, streak = 0,
 		eq = {lift = 0, crush = 0, food = 0, vent = 0, lens = 0}, depth = [0, 0, 0], depth_sel = [0, 0, 0],
@@ -86,6 +86,8 @@ func _init() -> void:
 					d[k].merge(parsed[k], true)
 				else:
 					d[k] = parsed[k]
+			# (a save from before the 23.11 veins has no au_v: not the blank's)
+			d.au_v = int(parsed.get("au_v", 0))
 	# JSON brings numbers back as floats; the game counts in whole numbers
 	for k in ["ver", "level", "coins", "lives", "life_at", "area", "fe", "ore", "rich", "lseed", "streak", "uid", "lab"]:
 		d[k] = int(d[k])
@@ -112,6 +114,7 @@ func _init() -> void:
 	for e: Dictionary in d.atlas.values():
 		if e.has("best") and (e.best.get("traits", []) as Array).has("eroded"): (e.best.traits as Array).erase("eroded")
 	_pad_areas(d)
+	_mend_veins_23_11(d)
 	# a mine that has grown deeper since the save was made: its new depths start with full veins
 	var fv := fresh_veins(area())
 	while d.vein.size() < fv.size(): d.vein.append(fv[d.vein.size()])
@@ -302,6 +305,27 @@ func minutes_to_life() -> int:
 
 func area() -> int:
 	return mini(d.area, Data.AREAS.size() - 1)
+
+## 23.11: the mine's own ore in each depth's vein was raised to its job's cost ×1.4 (the jobs had gone up ×1.5 on 19.11
+## and the veins had not - at Whalebone Cove 50 m the vein gave 55 at full rate for a 60 job). A save made before gets
+## the difference poured into what is left, in the mine being dug and in those put by (d.mines)
+const _AU_BEFORE_23_11 := [[51, 55, 58, 62, 65, 69], [51, 54, 56, 58, 60, 62, 64, 66, 69], [61, 65, 67, 70, 72, 74, 77, 79, 83],
+	[70, 74, 77, 80, 83, 86, 89, 92, 96], [100, 104, 108, 112, 116, 120, 124, 128, 132], [100, 104, 108, 112, 116, 120, 124, 128, 132],
+	[100, 104, 108, 112, 116, 120, 124, 128, 132], [100, 104, 108, 112, 116, 120, 124, 128, 132]]
+func _mend_veins_23_11(sv: Dictionary) -> void:
+	if int(sv.get("au_v", 0)) >= 1: return
+	sv.au_v = 1
+	var pour := func(a: int, vs: Array) -> void:
+		if a < 0 or a >= _AU_BEFORE_23_11.size(): return
+		var was: Array = _AU_BEFORE_23_11[a]
+		var now := Data.depths(a)
+		for i in mini(vs.size(), mini(was.size(), now.size())):
+			var add := int(now[i].au) - int(was[i])
+			if add > 0: vs[i][1] = int(vs[i][1]) + add
+	pour.call(int(sv.area), sv.vein)
+	for k: String in (sv.get("mines", {}) as Dictionary).keys():
+		var m: Dictionary = sv.mines[k]
+		if m.has("vein") and int(k) != int(sv.area): pour.call(int(k), m.vein)
 
 ## what is left in each depth's veins, [iron, the mine's own ore], full at the start of a mine
 func fresh_veins(a: int) -> Array:
