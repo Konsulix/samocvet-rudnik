@@ -348,7 +348,7 @@ static func goal_icon(ci: CanvasItem, k: String, colour: int, S: float, glow := 
 				ci.draw_circle(Vector2(q.x, q.y) * S, q.z * S, Color(0.04, 0.035, 0.09, 0.97), true, -1.0, true)
 			ci.draw_arc(Vector2(0.44, 0.42) * S, 0.12 * S, PI * 1.1, PI * 1.6, 8, Color(0.4, 0.75, 0.95, 0.6), maxf(1.0, S * 0.04), true)
 		"tentacle":
-			var at := load("res://assets/boss/kraken/arm_s.png") as Texture2D
+			var at := BoardSprites.held("res://assets/boss/kraken/arm_s.png")
 			if at:
 				var pts := PackedVector2Array()
 				for i in 9:
