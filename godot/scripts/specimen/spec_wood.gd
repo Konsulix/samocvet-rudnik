@@ -71,8 +71,6 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 	g.fungi = rng.next() < (0.85 if g.core == "crystal" else 0.5)
 	for k in ["core", "fungi"]:
 		if o.has(k): g[k] = o[k]
-	# the honey fungus grows on driftwood only (_fungi): a slice, a log or a twig never shows it - nor counts it
-	if g.show != "driftwood": g.fungi = false
 	if g.show == "driftwood" and g.core == "opal": g.opal = maxf(float(g.opal), 0.5)
 	# opal's body: dark blue-black, clear, or honey; how wide its colours range
 	g.body = Stones.pick_w([["dark", 5.0], ["crystal", 3.0], ["honey", 2.0]], rng)
@@ -125,7 +123,7 @@ static func genes(seed_v: int, tr: Array, o: Dictionary = {}) -> Dictionary:
 
 static func accents(g: Dictionary) -> Array:
 	if g.show == "twig":
-		return ["opal", "bark"]
+		return ["opal", "bark"] + (["fungi"] if g.fungi else [])
 	if g.show == "driftwood":
 		var d := ["opal" if g.core == "opal" else "glow_core", "grain"]
 		if g.fungi: d.append("fungi")
@@ -142,6 +140,7 @@ static func accents(g: Dictionary) -> Array:
 	if float(g.bark) > 0.0: out.append("bark")
 	if int(g.checks) > 0: out.append("checks")
 	if String(g.heart) != "": out.append("heart_" + String(g.heart))
+	if g.fungi: out.append("fungi")
 	return out
 
 static func gene_name(id: String, g: Dictionary) -> String:
@@ -412,6 +411,13 @@ static func build(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 		var yaw := (0.0 if rng.next() < 0.5 else -1.2) + (rng.next() - 0.5) * 0.3
 		var bs := Basis(Vector3.RIGHT, 0.25) * Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, rng.next() * TAU) * Basis.from_scale(Vector3.ONE * gs * 0.62)
 		holder.transform = Transform3D(bs, bs * Vector3(0, 0, -len_z * 0.5))
+	# honey fungus on the bark round the side (parts[2]), as on driftwood
+	if f.fungi:
+		var sg: Geo = parts[2]
+		var sn := sg.normals()
+		var pts := []
+		for i in range(0, sg.v.size(), 3): pts.append([sg.v[i], sn[i]])
+		_wood_fungi(b, f, holder, pts, 0.42 if f.show == "slice" else 0.55)
 	# the heart's crystals
 	if String(f.heart) != "":
 		_heart(b, f, holder, main)
@@ -554,6 +560,12 @@ static func _twig(b: RefCounted, gene: Dictionary) -> MeshInstance3D:
 	var gs: float = gene.scale
 	holder.transform = Transform3D(Basis(Vector3.UP, b.rng.next() * TAU) * Basis(Vector3.BACK, (b.rng.next() - 0.5) * 0.3) * Basis.from_scale(Vector3.ONE * gs), Vector3(0, -0.6 * gs, 0))
 	var ms := SpecBranch.build(holder, sk, {m = 18, sub = 3, lump = 0.2, ridge = 0.1, flat = 0.62, seed = int(f.seed)}, m)
+	if f.fungi:
+		var tg: Geo = ms[0].get_meta("geo")
+		var pts := []
+		for i in range(0, tg.v.size(), 2):
+			if tg.col[i].r < 0.5: pts.append([tg.v[i], tg.own_n[i]])
+		_wood_fungi(b, f, holder, pts, 0.2)
 	# callouts: on the very plates branch.gdshader (mode 0) paints opal, and on plain bark plates
 	var sd := float(int(f.seed) % 997) * 0.37
 	var ok := float(f.opal)
@@ -868,6 +880,20 @@ static func _life_at(id: String, k: float, uv: Vector2, c: Color, sd: float) -> 
 			if sw.z < 1.0 - k * 0.45: return 0.0
 			return (1.0 - smoothstep(0.12, 0.25, sw.x)) * outer
 	return 0.0
+
+## honey fungus on a slice, a log or a twig (driftwood grows its own in _drift): its own stream of chance, so the wood
+## itself comes out as before; on the bark that faces the viewer, a callout at the middle tuft
+static func _wood_fungi(b: RefCounted, f: Dictionary, holder: Node3D, pts: Array, r0: float) -> void:
+	if pts.is_empty(): return
+	var frng := Rng32.new(int(f.seed) * 31 + 7)
+	# not on the underside: a tuft hanging cap-down off a slice's lower edge
+	var up_l := (holder.basis.inverse() * Vector3.UP).normalized()
+	var upper := pts.filter(func(sp: Array) -> bool: return (sp[1] as Vector3).normalized().dot(up_l) > -0.1)
+	if upper.size() >= 8: pts = upper
+	var fsp := _front(holder, pts)
+	_fungi(holder, frng, fsp, r0)
+	var fat: Array = fsp[fsp.size() / 2]
+	b._mark("fungi", U.rel_xform(holder, b.root) * (fat[0] as Vector3), (U.rel_xform(holder, b.root).basis * (fat[1] as Vector3)).normalized())
 
 ## mushrooms on the wood: tufts of honey fungus, and now and then a lump of jelly fungus
 static func _fungi(holder: Node3D, rng: Rng32, spots: Array, r0: float, kind := 4) -> void:

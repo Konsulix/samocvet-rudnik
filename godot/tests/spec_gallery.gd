@@ -394,6 +394,7 @@ func _ready() -> void:
 				# amber: content=insect insect=<group> bug=<model> (bug=all: every model in turn) host= tone=
 				for fk in ["plant", "show", "guest", "crystals", "content", "insect", "bug", "sprig", "host", "tone"]:
 					if args.has(fk): e[fk] = args[fk]
+				if args.has("fungi"): e.fungi = args.fungi == "1"     # petrified wood: honey fungus on it
 				if args.get("bug", "") == "all" or "," in String(args.get("bug", "")):
 					var bugs := []
 					for gk: String in SpecFlower.BUGS:
