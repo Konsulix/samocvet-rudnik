@@ -131,6 +131,7 @@ static func key_of(o: Dictionary) -> String:
 		tail = "|skull" + ("|" + String(o.beast) if o.has("beast") else "")
 	if int(o.get("integ", 100)) < 100: tail += "|i%d" % int(o.integ)
 	if o.get("gulp", false): tail += "|gulp"
+	if o.get("mend", false): tail += "|mend"
 	if o.has("dl"): tail += "|d%d" % int(o.dl)
 	if o.has("accents"): tail += "|a" + ".".join(o.accents) + "|f%d" % int(o.get("flora", -1))
 	if o.has("flies"): tail += "|b%d%s" % [int(o.flies), String(o.get("fly_kind", ""))]
@@ -148,6 +149,8 @@ static func of_stone(s: Dictionary) -> Dictionary:
 	if int(s.get("integ", 100)) < 100: o.integ = int(s.integ)
 	# (the plesiosaur swallowed it: its card shows the plesiosaur alone)
 	if s.get("gulp", false): o.gulp = true
+	# (mended with gold by a kintsugi stone: its breaks filled with gold — CardKintsugi)
+	if s.get("mended", false): o.mend = true
 	# butterflies pinned on a find (test keys, -- reveal=N flies=3 fly_kind=monarch); a rolled find leaves them to its seed
 	for k in ["flies", "fly_kind", "fly_mode"]:
 		if s.has(k): o[k] = s[k]

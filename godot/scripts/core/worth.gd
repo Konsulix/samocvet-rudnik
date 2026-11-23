@@ -98,6 +98,7 @@ static func gene_points(traits: Array, gene: Dictionary) -> float:
 static func rank(id: String, gene: Dictionary) -> float:
 	if id == "fx": return 100.0 + float(FX_TIER.get(String(gene.get("fx", "")), 2))
 	if id in SKINS: return 50.0
+	if id == "mended": return 60.0
 	if id == "nacre": return 1.0 + 4.0 * float((gene.get("fossil", {}) as Dictionary).get("nacre", 0.0))
 	if FOSSIL_RANK.has(id): return float(FOSSIL_RANK[id])
 	if FOSSIL_PTS.has(id) and float(FOSSIL_PTS[id]) > 0.0: return float(FOSSIL_PTS[id])

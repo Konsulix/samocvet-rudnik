@@ -1,6 +1,6 @@
 #!/bin/sh
 # Pieces of the achievements screen for the game, drawn by GPT on magenta (cut by cut_parts.py):
-#   sh gen_parts.sh <out png> icons1|icons2|icons3|icons4|icons5|icons6|icons7|icons8|icons9|icons10|icons11|icons12|icons13|parts
+#   sh gen_parts.sh <out png> icons1|icons2|icons3|icons4|icons5|icons6|icons7|icons8|icons9|icons10|icons11|icons12|icons13|icons14|parts
 D="$(cd "$(dirname "$0")" && pwd -W)"
 C=$(ls -t "$LOCALAPPDATA"/OpenAI/Codex/bin/*/codex.exe | head -1)
 ICON="Each icon is an INK DRAWING like the emblems on the left of the strips in the attached mock-ups: dark brown ink
@@ -67,6 +67,7 @@ six-sided crystal, the crystal half green half red";;
 icons12) L="(left) a FEATHER DUSTER crossed over a small rock with a crystal cluster on it, the crystal spotless and
 gleaming, a little cloud of dust drifting off to the side; (right) a small rock with a crystal on it inside a big
 billowing cloud of dust, short motion arcs on both sides as if it were being shaken hard";;
+icons14) L="(left) a single pointed crystal broken in two, the two pieces put back together and joined along the break by one bright seam of GOLD (kintsugi), a drop of gold on it; (right) a round stone shattered into many pieces and mended whole again with a web of bright GOLD seams (kintsugi)";;
 icons13) L="(left) a plesiosaur's long neck rising out of rippling water in an S, its head turned back, jaws wide, a
 round faceted gem flying out of the open jaws with a few drops of water; (right) a round faceted gem held up in a
 miner's gloved hand, behind it a plesiosaur's long neck and head sinking back under the water, rings of ripples";;
@@ -81,7 +82,7 @@ strip, wide (about 4:1), EMPTY; [g] a book icon; [h] a butterfly icon;
 (row 3) [i] a pickaxe icon; [j] a horned mask icon; [k] an hourglass icon; [l] a keyhole icon.
 The icons g-l are for the leather tabs: drawn in LIGHT warm brass/cream lines (not dark ink), NO frame around them.";;
 esac
-case "$2" in parts) G="a 4 columns x 3 rows grid";; icons4|icons9) G="a 3 columns x 2 rows grid of 6 icons, in this order";; icons5) G="a 4 columns x 2 rows grid of 8 icons, in this order";; icons6|icons7|icons8|icons10|icons11|icons12|icons13) G="a 2 columns x 1 row grid of 2 icons, in this order";; *) G="a 6 columns x 4 rows grid of 24 icons, in this order";; esac
+case "$2" in parts) G="a 4 columns x 3 rows grid";; icons4|icons9) G="a 3 columns x 2 rows grid of 6 icons, in this order";; icons5) G="a 4 columns x 2 rows grid of 8 icons, in this order";; icons6|icons7|icons8|icons10|icons11|icons12|icons13|icons14) G="a 2 columns x 1 row grid of 2 icons, in this order";; *) G="a 6 columns x 4 rows grid of 24 icons, in this order";; esac
 case "$2" in parts) S="";; *) S="$ICON";; esac
 P="\$imagegen Create ONE new image and save it as ONE PNG file, 1536x1024. Do not edit any other files, do not run anything else.
 It is a SPRITE SHEET for the achievements screen of a mobile game about mines and minerals (the attached images are
@@ -93,7 +94,7 @@ BACKGROUND: one solid flat pure magenta #FF00FF everywhere around the pieces, no
 no letters anywhere (except the question mark). When done, print the absolute path of the saved image."
 # a new sheet of icons keeps to the first ones: their sheet goes along as the reference of the style
 X=""
-case "$2" in icons3|icons4|icons5|icons6|icons7|icons8|icons9|icons10|icons11|icons12|icons13) X="-i $D/sheet_icons2.png"; P="$P
+case "$2" in icons3|icons4|icons5|icons6|icons7|icons8|icons9|icons10|icons11|icons12|icons13|icons14) X="-i $D/sheet_icons2.png"; P="$P
 The LAST attached image is a sheet of icons already in the game: draw the new ones in EXACTLY that style, line and weight.";; esac
 OUT=$(printf '%s' "$P" | "$C" exec --skip-git-repo-check -s read-only -i "$D/mock_b.png" -i "$D/screen_combo.png" $X - 2>&1); echo "$OUT" > "$1.full.log"; R=$(echo "$OUT" | grep -o 'C:.*\.png' | tail -1)
 if [ -n "$R" ]; then cp "$R" "$1" && echo "OK $1"; else echo "FAIL $1"; fi

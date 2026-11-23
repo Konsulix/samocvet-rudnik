@@ -375,7 +375,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	var ci := int(cond[0])
 	# (by its place in the list, not the old thresholds: Pristine is 88 and up now, Fine 70 — 20.11)
 	var cix := Stones.CONDITION.find(cond)
-	_stat(stats, "Condition", String(cond[1]), [UI.GOOD, Kit.CREAM, Color("#f0b040"), Color("#ff6a5a")][clampi(cix, 0, 3)])
+	if s.get("mended", false): _stat(stats, "Condition", "Mended", UI.GOLD)
+	else: _stat(stats, "Condition", String(cond[1]), [UI.GOOD, Kit.CREAM, Color("#f0b040"), Color("#ff6a5a")][clampi(cix, 0, 3)])
 	var vl := _stat(stats, "Value", UI.fmt(int(s.value)), UI.GOLD)
 	v.add_child(stats)
 	# lightning in the stone does not keep to its frame (CardBolt): it leaps to the card's rim, a button, the price
@@ -398,6 +399,13 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 			if is_instance_valid(vl): vl.text = UI.fmt(int(s.value))
 			if s in Save.d.coll: Save.persist())
 	var gene := SpecGenome.of(so)
+	# kintsugi breaks the card's panel and mends it with gold; its buttons on the card's back (CardKintsugi)
+	var kin_fx := String(gene.fx)
+	view.built.connect(func(p: Node3D) -> void: CardKintsugi.attach(card, view, info, v, p, kin_fx, s))
+	# (just mended by one: the gold runs in)
+	if s.get("mended", false) and int(s.get("id", -2)) == CardKintsugi.pour_id:
+		CardKintsugi.pour_id = -1
+		view.built.connect(func(p: Node3D) -> void: CardKintsugi.pour(view, p), CONNECT_ONE_SHOT)
 	var flow := HFlowContainer.new()
 	flow.alignment = FlowContainer.ALIGNMENT_CENTER
 	flow.add_theme_constant_override("h_separation", 12)
@@ -425,6 +433,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 			var cn := fn if fn != "" else String(SpecGenome.ACC_N.get(a, a))
 			fn = cn.replace("crystal", String(Data.SP[s.sid].n).to_lower())
 		genes[a] = [fn if fn != "" else SpecFungi.NAMES[int(gene.shroom)] if a == "mushrooms" else SpecFlora.NAMES[int(gene.get("flora", 0))] if a == "flowers" else SpecGenome.ACC_N.get(a, a), false]
+	# (mended with gold by a kintsugi stone: CardKintsugi)
+	if s.get("mended", false): genes["mended"] = ["mended with gold", true]
 	# dearest first (Worth: the badges are what the price was paid for): the living effect, a skull's skin, then by points
 	var traits: Array = s.get("traits", [])
 	var order: Array = genes.keys()

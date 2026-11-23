@@ -194,6 +194,8 @@ static var LIST := [
 
 	{tab = "secrets", icon = "broken_heart", n = "What Have You Done", t = "Someone will buy it. Someone always does.", r = "Sold a legendary stone", one = true, hide = true, ev = "sold_legend", give = {coins = 300}, items = ["kit:coin"]},
 	{tab = "secrets", icon = "cracked", n = "Butterfingers", t = "It was a nice stone. It was.", r = "A find dug out in pieces", one = true, hide = true, ev = "broken_find", give = {coins = 200}, items = ["i:cracked"]},
+	{tab = "tales", icon = "mended", n = "Golden Joinery", t = "The break is part of its story now.", r = "Mended a stone with gold", one = true, ev = "mended", give = {coins = 350}, items = ["i:mended"]},
+	{tab = "secrets", icon = "mended_bad", n = "Beautifully Broken", t = "The worse the break, the more gold it takes.", r = "Mended a Damaged stone with gold", one = true, hide = true, ev = "mended_bad", give = {coins = 200}, items = ["i:mended_bad"]},
 	{tab = "secrets", icon = "duster", n = "What Did You Expect?", t = "Fifteen shakes. Still a rock.", r = "Shook the dust off one find fifteen times", one = true, hide = true, ev = "duster", give = {coins = 50}, items = ["i:duster"]},
 	{tab = "secrets", icon = "cage", n = "Don't Poke the Bird", t = "She's working. Let her work.", r = "Ten taps on the canary's cage", one = true, hide = true, ev = "poke_bird", give = {coins = 200}, items = ["i:canary"]},
 	{tab = "secrets", icon = "moon", n = "Night Shift", t = "Miners don't sleep. Apparently, neither do you.", r = "Played between midnight and four", one = true, hide = true, ev = "night", give = {lives = 2}, items = ["i:moon"]},

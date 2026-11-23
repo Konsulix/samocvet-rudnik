@@ -77,6 +77,8 @@ uniform float alex_eye = 0.0;    // chrysoberyl's cat's eye: a thin line of ligh
 uniform vec2 alex_ew = vec2(0.03, 0.5);   // its half-width, how far it slides (model units)
 uniform float alex_p = 0.0;      // alexandrite's pleochroism: its faces by their way to the crystal's axis — the top warm orange, the sides green to violet by turns, violet at a glance
 uniform float kin_k = 0.0;      // kintsugi: veins of gold with a sliding gleam
+uniform float mend_k = 0.0;     // mended with gold (CardKintsugi): its pits and breaks filled — how far the gold has run, 0..1
+uniform float mend_hot = 0.0;   // the gold still molten, glowing as it cools
 uniform sampler2D gold_diff : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_nrm : filter_linear_mipmap, repeat_enable;
 uniform sampler2D gold_rough : filter_linear_mipmap, repeat_enable;
@@ -180,6 +182,26 @@ void vertex() {
 	v_rp = vec3(UV.x, UV.y, UV2.x);
 	v_zone = UV2.y;
 #endif
+}
+
+// the gold of a stone mended with it (mend_k): where its glass was pitted or broken off (vertex alpha low), worked gold
+// fills it; it runs in from place to place as mend_k rises. [share, its colour in .rgb of `col`, its roughness]
+float mend_at(float pit, vec3 op, float sd, out vec3 col, out float mrough, vec3 nv) {
+	col = vec3(0.0);
+	mrough = 0.3;
+	if (mend_k <= 0.0) return 0.0;
+	float mg = smoothstep(0.16, 0.3, pit);
+	float run = clamp((mend_k * 1.3 - fbm(op * 1.6 + sd + 21.0)) * 5.0, 0.0, 1.0);
+	float k = mg * run;
+	if (k <= 0.0) return 0.0;
+	vec3 tp = op * 3.2;
+	vec3 w = pow(abs(normalize(nv)), vec3(4.0));
+	w /= (w.x + w.y + w.z);
+	vec3 gd = texture(gold_diff, tp.zy).rgb * w.x + texture(gold_diff, tp.xz).rgb * w.y + texture(gold_diff, tp.xy).rgb * w.z;
+	float gr = texture(gold_rough, tp.zy).r * w.x + texture(gold_rough, tp.xz).r * w.y + texture(gold_rough, tp.xy).r * w.z;
+	col = vec3(0.87, 0.55, 0.1) * (gd.r * 1.15);
+	mrough = clamp(gr * 0.8, 0.1, 0.5);
+	return k;
 }
 
 void fragment() {
@@ -775,6 +797,21 @@ void fragment() {
 			body += vec3(1.6, 1.1, 0.45) * gleam * k * (1.0 - gr);
 		}
 	}
+	{
+		// mended with gold: the pits and breaks are gold now, not dark hollows
+		vec3 mc;
+		float mr;
+		float mk = mend_at(pit, v_op, g_seed, mc, mr, v_no) * (1.0 - dirt);
+		if (mk > 0.0) {
+			body *= 1.0 - mk;
+			hollow *= 1.0 - mk;
+			ALBEDO = mix(ALBEDO, mc, mk);
+			METALLIC = mix(METALLIC, 1.0, mk);
+			ROUGHNESS = mix(ROUGHNESS, mr, mk);
+			SPECULAR = mix(SPECULAR, 0.5, mk);
+			body += vec3(2.2, 1.1, 0.35) * mend_hot * mk;
+		}
+	}
 	// ultraviolet: the lamps go dark and the crystal lights up from within, a soft core that thickens
 	// towards the silhouette (more glass to glow through there) and drifts slowly; kept below white
 	// so the colour survives the tonemapper, the studio's bloom makes the halo
@@ -852,15 +889,20 @@ void fragment() {
 	if (rough_var > 0.0) {
 		r = clamp(r + (fbm(v_op * 18.0) - 0.5) * rough_var + (1.0 - COLOR.g) * rough_var, 0.04, 1.0);
 	}
+	vec3 o_mc;
+	float o_mr;
+	float o_mk = mend_at(1.0 - COLOR.a, v_op, 0.0, o_mc, o_mr, v_no) * (1.0 - dirt);
+	o_pit *= 1.0 - o_mk;
 	base = mix(base, base * 0.08, o_pit);
+	base = mix(base, o_mc, o_mk);
 	ALBEDO = base;
-	METALLIC = m * (1.0 - o_pit * 0.7);
-	ROUGHNESS = mix(r, 0.85, o_pit);
+	METALLIC = mix(m * (1.0 - o_pit * 0.7), 1.0, o_mk);
+	ROUGHNESS = mix(mix(r, 0.85, o_pit), o_mr, o_mk);
 	SPECULAR = spec;
 	CLEARCOAT = cc;
 	CLEARCOAT_ROUGHNESS = coat_rough;
 	// ultraviolet on an opaque mineral: a glow skin, brighter at the rim, none on the rock part (dirt)
-	EMISSION = (e + e_ir) * (1.0 - o_pit) + lava_e + a_eye + fluor_col * uvk * (1.0 - dirt) * 0.45 * (0.7 + 0.8 * o_fr * o_fr);
+	EMISSION = (e + e_ir) * (1.0 - o_pit) * (1.0 - o_mk) + vec3(2.2, 1.1, 0.35) * mend_hot * o_mk + lava_e + a_eye + fluor_col * uvk * (1.0 - dirt) * 0.45 * (0.7 + 0.8 * o_fr * o_fr);
 	ALBEDO *= 1.0 - uvk * 0.9 * (1.0 - dirt);
 	NORMAL = n;
 	if (grow_on > 0.0) {

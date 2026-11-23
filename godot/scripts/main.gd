@@ -121,6 +121,9 @@ func _ready() -> void:
 	# (the frost bloom's card, CardFrost: frost_period=S — its cycle S s long, starting at once)
 	if args.has("frost_period"): CardFrost.test_period = float(args.frost_period)
 	if args.has("lava_every"): CardLava.test_every = float(args.lava_every)
+	if args.has("kin_every"): CardKintsugi.test_every = float(args.kin_every)
+	if args.has("kin_flip"): CardKintsugi.test_flip = float(args.kin_flip)
+	if args.has("kin_mend"): CardKintsugi.test_mend = true
 	if args.has("flies_every"): CardFlies.test_every = float(args.flies_every)
 	if args.has("aurora_pal"): SpecPolar.test_pal = int(args.aurora_pal)
 	if args.has("lev_tap"): CardLevitate.test_tap = float(args.lev_tap)
@@ -417,6 +420,38 @@ func _ready() -> void:
 				if not st.sid in Save.d.seen: Save.d.seen.append(st.sid)
 				Save.note_find(st, 0, int(st.dl))   # (the atlas and the achievements know them, as finds of a level)
 				made += 1
+		Save.persist()
+	if args.has("kin_inv"):
+		# test data: a kintsugi amethyst and four broken stones for it to mend (CardKintsugi): `-- save=kin screen=stones
+		# kin_inv ui=open_n card=0 ui_after=2`; marked test, the old ones replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("kin_inv", false))
+		var ks := Stones.roll(301, 0, 0.8, 1)
+		ks.sid = "amethyst"
+		ks.kind = "crystal"
+		ks.legend = true
+		ks.fx = "kintsugi"
+		ks.tier = 4
+		ks.integ = 100
+		ks.area = 0
+		ks.dl = 1
+		ks.value = Stones.price(ks, 0, 1)
+		ks.test = true
+		ks.kin_inv = true
+		Save.d.coll.append(ks)
+		var k := 0
+		for sd in [4101, 4202, 4303, 4404]:
+			var st := Stones.roll(sd, 0, 0.8, 1)
+			st.legend = false
+			st.erase("fx")
+			st.integ = [30, 45, 62, 76][k]
+			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.area = 0
+			st.dl = 1
+			st.value = roundi(Stones.price(st, 0, 1) * float(Stones.condition(int(st.integ))[2]))
+			st.test = true
+			st.kin_inv = true
+			Save.d.coll.append(st)
+			k += 1
 		Save.persist()
 	if args.has("lumps"):
 		# test data: the lumps that are no crystals, hurt by a careless dig (RockKit.chip) — copper in vein quartz, a copper

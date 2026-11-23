@@ -486,6 +486,8 @@ func _open_record() -> void:
 ## (the stone itself turns under the finger, so the swipe is taken below it), from: -1 / 1 the side it slides in from
 func _open_stone(s: Dictionary, group := [], from := 0) -> void:
 	var v := Ov.card(350, Data.rarity_color(int(s.tier)))
+	# (a kintsugi stone's back mends another and opens its card: CardKintsugi)
+	v.set_meta("open_stone", func(x: Dictionary) -> void: _open_stone(x))
 	var view := Reveal.stone_card(v, s, 400, func(): Ov.close())
 	if group.size() > 1:
 		_swipe_between(v, s, group, from)
@@ -580,7 +582,7 @@ func _swipe_between(v: VBoxContainer, s: Dictionary, group: Array, from: int) ->
 		elif start[1]:
 			start[1] = false
 			var d: Vector2 = e.position - start[0]
-			if absf(d.x) > 48.0 and absf(d.x) > absf(d.y) * 1.5:
+			if absf(d.x) > 48.0 and absf(d.x) > absf(d.y) * 1.5 and not v.has_meta("flip_swipe"):
 				var step := -1 if d.x > 0.0 else 1
 				var j := clampi(i + step, 0, group.size() - 1)
 				if j != i:

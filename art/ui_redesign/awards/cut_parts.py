@@ -28,10 +28,11 @@ NAMES = {
     "icons11": ["tsar_lamp", "tsar"],
     "icons12": ["duster", "duster_cloud"],
     "icons13": ["hunt_spit", "hunt_hand"],
+    "icons14": ["mended", "mended_bad"],
     "parts": ["niche", "seal", "tab", "tab_on", "plate", "strip_hidden", "t_tales", "t_coll",
               "t_mines", "t_boss", "t_mastery", "t_secrets"],
 }
-GRID = {"icons1": (6, 4), "icons2": (6, 4), "icons3": (6, 4), "icons4": (3, 2), "icons5": (4, 2), "icons6": (2, 1), "icons7": (2, 1), "icons8": (2, 1), "icons9": (3, 2), "icons10": (2, 1), "icons11": (2, 1), "icons12": (2, 1), "icons13": (2, 1), "parts": (4, 3)}
+GRID = {"icons1": (6, 4), "icons2": (6, 4), "icons3": (6, 4), "icons4": (3, 2), "icons5": (4, 2), "icons6": (2, 1), "icons7": (2, 1), "icons8": (2, 1), "icons9": (3, 2), "icons10": (2, 1), "icons11": (2, 1), "icons12": (2, 1), "icons13": (2, 1), "icons14": (2, 1), "parts": (4, 3)}
 
 src, kind, out = sys.argv[1], sys.argv[2], sys.argv[3]
 os.makedirs(out, exist_ok=True)

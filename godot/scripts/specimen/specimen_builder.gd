@@ -31,8 +31,10 @@ static func build(o: Dictionary) -> Node3D:
 		return SpecMachines.build(o.machine)
 	if o.has("jewel"):
 		return SpecJewels.build(int(o.get("seed", 1)), o.jewel)
+	b.mended = bool(o.get("mend", false))
 	var r := b._specimen(o)
 	if r: b._alex(r)
+	if r and b.mended: b._mend(r)
 	if r: r.set_meta("mass", b.body_mass if not b.body_mass.is_empty() else mass_of(r))
 	return r
 
@@ -63,6 +65,96 @@ func _alex(r: Node3D) -> void:
 			done[m] = cm
 		(n as MeshInstance3D).material_override = done[m]
 	r.set_meta("alex", not done.is_empty())
+
+## mended with gold (CardKintsugi): every pit and break of its glass and stone filled with worked gold (spec.gdshaderinc
+## mend_k — each mesh its own copy of its material: the card runs the gold in, mend_mats); a lump's pieces, put back
+## where they broke from (_shatter), each break's face a sheet of gold standing a hair out of the stone all round —
+## a seam of gold along the crack (mend_caps). Its badge, "mended with gold", points at the gold
+func _mend(r: Node3D) -> void:
+	var mats := []
+	var caps := []
+	var done := {}
+	var gold := [load("res://assets/textures/gold/gold_diff.png"), load("res://assets/textures/gold/gold_nrm.png"), load("res://assets/textures/gold/gold_rough.png")]
+	var spot := []
+	var best := -1.0
+	for n in r.find_children("*", "GeometryInstance3D", true, false):
+		var gi := n as GeometryInstance3D
+		if n.has_meta("is_face"):
+			# a break's face: gold, and spread a little past its outline (out of the stone round the crack)
+			var mi := n as MeshInstance3D
+			var gg: Geo = n.get_meta("geo") if n.has_meta("geo") else null
+			if mi and gg and gg.v.size() > 2:
+				var c := Vector3.ZERO
+				for q in gg.v: c += q
+				c /= gg.v.size()
+				var ext := gg.aabb().size.length()
+				for i in gg.v.size():
+					var d := gg.v[i] - c
+					gg.v[i] = gg.v[i] + d.normalized() * ext * 0.02 if d.length() > 0.0 else gg.v[i]
+				if mi.mesh: mi.mesh = gg.to_mesh()
+				var gm := StandardMaterial3D.new()
+				gm.albedo_color = Color(0.87, 0.58, 0.16)
+				gm.metallic = 1.0
+				gm.roughness = 0.28
+				gm.emission_enabled = true
+				gm.emission = Color(1.0, 0.55, 0.15)
+				gm.emission_energy_multiplier = 0.0
+				mi.material_override = gm
+				caps.append(gm)
+				var y := _root_pos(mi, c, r).y
+				if y > best:
+					best = y
+					spot = [_root_pos(mi, c, r), UP]
+			continue
+		var m := gi.material_override as ShaderMaterial
+		# (a stone's own shader — spec.gdshaderinc — has the uniform; get_shader_parameter is null till one is set)
+		if not m or not m.shader or not _has_mend(m.shader): continue
+		if not done.has(m):
+			var cm := SpecUtil.mat_copy(m)
+			var nxt: Material = m.next_pass
+			if nxt is ShaderMaterial:
+				cm.next_pass = SpecUtil.mat_copy(nxt as ShaderMaterial)
+			for mm: ShaderMaterial in ([cm, cm.next_pass] if cm.next_pass is ShaderMaterial else [cm]):
+				mm.set_shader_parameter("mend_k", 1.0)
+				mm.set_shader_parameter("gold_diff", gold[0])
+				mm.set_shader_parameter("gold_nrm", gold[1])
+				mm.set_shader_parameter("gold_rough", gold[2])
+				mats.append(mm)
+			done[m] = cm
+		gi.material_override = done[m]
+		# the badge's point: the highest broken place of the stone (its vertices' alpha low)
+		if spot.is_empty() or best < 0.0:
+			var g2: Geo = n.get_meta("geo") if n.has_meta("geo") else null
+			if g2 and g2.col.size() == g2.v.size():
+				for i in range(0, g2.v.size(), 3):
+					if g2.col[i].a < 0.75:
+						var rp := _root_pos(n as Node3D, g2.v[i], r)
+						if rp.y > best:
+							best = rp.y
+							spot = [rp, VIEW_DIR]
+	r.set_meta("mend_mats", mats)
+	r.set_meta("mend_caps", caps)
+	var gr: Dictionary = r.get_meta("grown", {})
+	gr["mended"] = [spot] if not spot.is_empty() else [[Vector3.ZERO, UP]]
+	r.set_meta("grown", gr)
+
+static var _mend_sh := {}
+static func _has_mend(sh: Shader) -> bool:
+	if not _mend_sh.has(sh):
+		var ok := false
+		for u: Dictionary in sh.get_shader_uniform_list():
+			if String(u.name) == "mend_k": ok = true
+		_mend_sh[sh] = ok
+	return _mend_sh[sh]
+
+## a point of a node's own space in the find's (the root's) space
+static func _root_pos(n: Node3D, p: Vector3, r: Node3D) -> Vector3:
+	var t := Transform3D.IDENTITY
+	var x: Node = n
+	while x and x != r:
+		if x is Node3D: t = (x as Node3D).transform * t
+		x = x.get_parent()
+	return t * p
 
 ## a crystal of the find's own body (not a gene's): the node or one above it tagged "body"
 func _alex_of(n: Node) -> bool:
@@ -1799,6 +1891,11 @@ func _shatter() -> void:
 		if b_side.is_empty() or a_side.is_empty():
 			pieces[gi] = a_side + b_side
 			continue
+		# (mended with gold: the piece back where it broke from, the break a seam of gold — _mend)
+		if mended:
+			pieces[gi] = a_side
+			pieces.append(b_side)
+			continue
 		# the piece beyond the break turned about its middle so its fracture (facing -n) comes round towards the viewer
 		# and up — part of the way: turned hard into the studio's lamps a glossy skin flared white, like glass; a sawn
 		# slab keeps its polished face to the viewer. Fallen pieces (top, slant, front) turn much further: they tumbled
@@ -1829,6 +1926,7 @@ func _shatter() -> void:
 		pieces[gi] = a_side
 		pieces.append(b_side)
 	# crumbs and splinters at the foot, of the stone's own stuff, most on the side the viewer sees
+	if mended: return   # (swept up: it was mended)
 	var all_n: Array = []
 	for g: Array in pieces: all_n.append_array(g)
 	var box := _box_of(all_n)
@@ -2104,6 +2202,7 @@ func _soap_check(o: Dictionary) -> void:
 		if flat: print("SOAP ", o.get("sid", "?"), " ", o.get("form", ""), " seed ", o.get("seed", 0), " mesh ", mi.name)
 
 var _cap_rim_col := false   # (_half: the cap's points coloured as the rim's — a mesh coloured by its points)
+var mended := false         # mended with gold (CardKintsugi): its breaks stay where they were, filled with gold (_mend)
 var _glassy := false        # (_shatter: obsidian — black glass coloured by its points, breaking to the same glass)
 static var fallbacks := 0   # (tests/shatter_check: how often a cap's outline would not triangulate as a polygon)
 var _mattes := {}

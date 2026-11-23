@@ -339,6 +339,7 @@ func _ready() -> void:
 				if args.has("lustre"): e.lustre = String(args.lustre)
 				# how well it came out of the rock (0..100: the damage of a careless dig, SpecimenBuilder)
 				if args.has("integ"): e.integ = int(args.integ)
+				if args.has("mend"): e.mend = true   # (mended with gold: CardKintsugi)
 				# rock=<type>|all: the rock pinned (all: each rock type in turn — a review of how each looks close up)
 				if args.has("rock"):
 					var rts := ["limestone", "ironstone", "basalt", "slate", "quartzite", "gypsum", "lava"]

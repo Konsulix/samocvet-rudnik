@@ -430,6 +430,7 @@ func level_played(won: bool, dl: int) -> void:
 	if won and dl < d.dwins.size():
 		d.dwins[dl] += 1
 	if won: d.leg_lv = int(d.get("leg_lv", 0)) + 1
+	if won: d.won_n = int(d.get("won_n", 0)) + 1   # (all wins ever: a kintsugi stone mends once in 100 wins, CardKintsugi)
 	d.rich = 0 if d.lrich else d.rich + 1
 	d.lrich = randf() < clampf((d.rich - 3) / 4.0, 0.0, 1.0)
 	d.lseed = 1 + randi() % 999999
