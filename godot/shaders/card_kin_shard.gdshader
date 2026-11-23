@@ -10,6 +10,7 @@ uniform sampler2D back : filter_linear_mipmap;
 uniform vec2 psize = vec2(300.0, 200.0);   // the block, points
 uniform vec4 pin = vec4(0.0, 0.5, 1.0, 0.5); // the block in the card: x, y, w, h (fractions of the card)
 uniform float rb = 14.0;                   // the card's bottom corners
+uniform float rt = 29.0;                   // its top corners: round as the panel's brass ribbon
 uniform vec2 back_shift = vec2(0.0);       // the turned shards show the back's emblem: their group's middle on it
 uniform vec4 cut = vec4(0.0);
 
@@ -21,7 +22,7 @@ float sd_round(vec2 p, vec2 h, float r) {
 void fragment() {
 	vec4 vc = COLOR;
 	vec2 p = UV * psize;
-	float r = p.y < psize.y * 0.5 ? 0.0 : rb;
+	float r = p.y < psize.y * 0.5 ? rt : rb;
 	float d = sd_round(p - psize * 0.5, psize * 0.5, r);
 	float m = 1.0 - smoothstep(-0.6, 0.6, d);
 	// (by its home place in the block, not where the shard is drawn: VERTEX is the shard's own, before its turn)

@@ -361,7 +361,9 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		lr.rule = "Sold, %s grey in the awards." % ("they turn" if lastg.size() > 1 else "it turns")
 		info.add_child(lr)
 		v.set_meta("ribbon_last", lr)
-	card.add_child(_info_rim(card, info))
+	var rim := _info_rim(card, info)
+	rim.name = "InfoRim"   # (CardKintsugi hides it while the block it lies on is broken)
+	card.add_child(rim)
 	# (the plesiosaur swallowed it: the card has only the plesiosaur, and says so)
 	if gulp:
 		gulp_info(v)

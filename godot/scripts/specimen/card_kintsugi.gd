@@ -16,9 +16,10 @@ const RET := 0.6               # each one's flight home
 const STAG := 0.07             # one after the other
 const MOLTEN := 1.1            # a seam glows white-hot this long, then cools to gold
 const EMBLEM := Vector2(0.5, 0.27)   # the emblem on the card's back (assets/ui/card_back.png), of its size
-const RIM_UP := 5.0            # the block starts this far above the panel: its brass ribbon breaks with it
+const RIM_UP := 20.0 / 3.6     # the block starts this far above the panel: the top of its brass ribbon (Reveal._info_rim WIDE)
+const TOP_R := 22.0 + 20.0 / 3.6 + 1.4   # the block's top corners: round as the ribbon round the panel's corners
 const CORNER := 14.0           # the card's rounded corners below
-const SEAM_W := 3.8            # a seam's bead, points across
+const SEAM_W := 4.4            # a seam's bead, points across
 
 static var test_every := 0.0   # a test key (-- kin_every=S): a break every S s
 static var test_mend := false  # a test key (-- kin_mend): the back up, Mend is pressed and the first broken stone chosen
@@ -31,7 +32,10 @@ var v: VBoxContainer
 var find: Node3D
 var row: Control               # the buttons (the caller's last child of the panel's box)
 
-var _hole: Control             # over the card while it is broken: the dark where the block was
+var _hole: Control             # (unused: through the broken block the screen behind shows)
+var _still: TextureRect        # behind the card while its block is broken: the card as it was, but for the block
+var _box: StyleBox             # the card's own frame, put back when the block is home
+var _vbox: StyleBox            # the stone's window's mask, put back
 var _pieces: Control           # the shards (mended: the turned ones, outside the panel)
 var _cracks: Control           # the cracks running, the flying shards' edges
 var _gold: Control             # the seams (mended: on the frame, outside the panel)
@@ -88,6 +92,12 @@ static func attach(card_: Control, view_: SpecView, info_: Control, v_: VBoxCont
 	ck.find = p
 	card_.add_child(ck)
 
+## the stone's own gold (its worked-gold textures, spec_mat) for the seams' shader
+static func _gold_maps(m: ShaderMaterial) -> void:
+	m.set_shader_parameter("gold_tex", load("res://assets/textures/gold/gold_diff.png"))
+	m.set_shader_parameter("gold_nrm", load("res://assets/textures/gold/gold_nrm.png"))
+	m.set_shader_parameter("gold_rough", load("res://assets/textures/gold/gold_rough.png"))
+
 func _layer(parent: Node, shader: Shader, draw: Callable) -> Control:
 	var n := Control.new()
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -122,8 +132,7 @@ func _ready() -> void:
 	for n: Control in [_pieces, _in_pieces]:
 		(n.material as ShaderMaterial).set_shader_parameter("back", _back)
 		(n.material as ShaderMaterial).set_shader_parameter("rb", CORNER)
-	for n: Control in [_gold, _in_gold]:
-		(n.material as ShaderMaterial).set_shader_parameter("gold_tex", gtex)
+	for n: Control in [_gold, _in_gold]: _gold_maps(n.material as ShaderMaterial)
 	tree_exiting.connect(func() -> void: if is_instance_valid(_in): _in.queue_free())
 	# the buttons: the box's last child holding any
 	for i in range(v.get_child_count() - 1, -1, -1):
@@ -132,6 +141,18 @@ func _ready() -> void:
 			row = c
 			break
 	_build_back()
+	_still = TextureRect.new()
+	_still.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_still.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_still.stretch_mode = TextureRect.STRETCH_SCALE
+	var sm := ShaderMaterial.new()
+	sm.shader = preload("res://shaders/card_kin_frame.gdshader")
+	_still.material = sm
+	_still.visible = false
+	_holder.add_child(_still)
+	_holder.move_child(_still, card.get_index())
+	tree_exiting.connect(func() -> void: if is_instance_valid(_still): _still.queue_free())
+	for n: Control in [_pieces, _in_pieces]: (n.material as ShaderMaterial).set_shader_parameter("rt", TOP_R)
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(info) or not is_instance_valid(card):
@@ -164,7 +185,10 @@ func _process(dt: float) -> void:
 		if _t > home + MOLTEN + 0.3:
 			_t = -1.0
 			_wait = test_every if test_every > 0.0 else AGAIN
-			info.modulate.a = 1.0
+			_whole(true)
+		elif _t > home + 0.05 and info.modulate.a < 1.0:
+			# (all home: the card whole again under the cooling gold)
+			_whole(true)
 	for n: Control in [_hole, _pieces, _cracks, _gold, _in_pieces, _in_gold]: n.queue_redraw()
 
 # ---------------------------------------------------------------- the break
@@ -179,10 +203,16 @@ func _break() -> void:
 	if not is_instance_valid(info): return
 	var vp := get_viewport()
 	var xf := vp.get_final_transform() * card.get_global_transform_with_canvas()
-	var r := Rect2i(xf * _block)
 	var img := vp.get_texture().get_image()
-	r = r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	var r := Rect2i(xf * _block).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 	_front = ImageTexture.create_from_image(img.get_region(r))
+	var rc := Rect2i(xf * Rect2(Vector2.ZERO, card.size)).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	_still.texture = ImageTexture.create_from_image(img.get_region(rc))
+	var stm := _still.material as ShaderMaterial
+	stm.set_shader_parameter("psize", card.size)
+	stm.set_shader_parameter("block", Vector4(_block.position.x, _block.position.y, _block.size.x, _block.size.y))
+	stm.set_shader_parameter("rt", TOP_R)
+	stm.set_shader_parameter("rb", CORNER)
 	for n: Control in [_pieces, _in_pieces]:
 		var m := n.material as ShaderMaterial
 		m.set_shader_parameter("front", _front)
@@ -199,8 +229,9 @@ func _break() -> void:
 			m.set_shader_parameter("back_shift", Vector2(0.0, EMBLEM.y - q.y))   # (up only: sideways the shards ran off the picture)
 	for n: Control in [_pieces, _gold, _in]: n.visible = true
 	_t = 0.0
-	# the live panel goes: its shards are drawn in its place
-	info.modulate.a = 0.0
+	# the block goes — the panel, its brass, the card's frame round it: its shards are drawn in its place, and through
+	# where it was the screen behind shows
+	_whole(false)
 	# the buttons are turned over with their shards: onto the back (a gap of their height keeps the panel's size)
 	if is_instance_valid(row) and row.get_parent() == v:
 		var gap := Control.new()
@@ -229,6 +260,42 @@ func _break() -> void:
 	# the shards fall away (their plates' clatter), and the gold runs as they come home (the forge's molten pour)
 	get_tree().create_timer(CRACK).timeout.connect(func() -> void: Sfx.play("crust"))
 	get_tree().create_timer(BACK_AT + RET).timeout.connect(func() -> void: if is_instance_valid(self): Sfx.play("br_pour"))
+
+## the card whole (its block home) or broken: broken, its frame is drawn by the still behind it (the card's own frame
+## box empty), the stone's window kept above the block (its mask's foot raised), the panel and its brass hidden
+func _whole(on: bool) -> void:
+	var rim := card.get_node_or_null("InfoRim") as CanvasItem
+	var win := view.get_parent() as Control
+	# the card's rarity glow is a shadow filling the card's whole shape: through the broken block it showed as a
+	# coloured sheet — it fades out while the block is off
+	for h in _holder.get_children():
+		if h == card or h == _still or h == _bshow or not h is CanvasItem: continue
+		var ci := h as CanvasItem
+		ci.create_tween().tween_property(ci, "modulate:a", 1.0 if on else 0.0, 0.5 if on else 0.12)
+	if on:
+		info.modulate.a = 1.0
+		if rim: rim.visible = true
+		if _box: card.add_theme_stylebox_override("panel", _box)
+		if _vbox and is_instance_valid(win): win.add_theme_stylebox_override("panel", _vbox)
+		_box = null
+		_vbox = null
+		_still.visible = false
+		return
+	info.modulate.a = 0.0
+	if rim: rim.visible = false
+	_box = card.get_theme_stylebox("panel")
+	# (empty, but with the frame's own margins: without them the card laid its stone and panel out over its frame)
+	var eb := StyleBoxEmpty.new()
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]: eb.set_content_margin(side, _box.get_content_margin(side))
+	card.add_theme_stylebox_override("panel", eb)
+	if is_instance_valid(win):
+		_vbox = win.get_theme_stylebox("panel")
+		var sb := (_vbox as StyleBoxFlat).duplicate() as StyleBoxFlat if _vbox is StyleBoxFlat else StyleBoxFlat.new()
+		sb.expand_margin_bottom = -(win.global_position.y + win.size.y - (card.global_position.y + _block.position.y))
+		win.add_theme_stylebox_override("panel", sb)
+	_still.visible = true
+	_still.global_position = card.global_position
+	_still.size = card.size
 
 ## the block cut into shards: a Voronoi map, a few big shards over the button row, smaller ones above; its seams
 ## made crooked (each seam bent by its own midpoints — the same for the two shards it parts), each its own width
@@ -372,7 +439,7 @@ func _landed(i: int) -> float:
 
 ## the dark where the block was, while it is broken
 func _draw_hole(n: Control) -> void:
-	if _t < CRACK: return
+	return
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.03, 0.04)
 	sb.corner_radius_bottom_left = int(CORNER)
@@ -474,8 +541,10 @@ static func _strip(pts: PackedVector2Array, wd: PackedFloat32Array, m: int, col:
 		out.append(pts[i] - nn * hw)
 		cols.append(col)
 		cols.append(col)
-		uvs.append(Vector2(0.0, -1.0))
-		uvs.append(Vector2(0.0, 1.0))
+		# (UV.x: which way "across" points on screen, as a turn — the gold's shader bends the bead's normal that way)
+		var turn := fposmod(nn.angle() / TAU, 1.0)
+		uvs.append(Vector2(turn, -1.0))
+		uvs.append(Vector2(turn, 1.0))
 		if i > 0:
 			var o := base + (i - 1) * 2
 			idx.append_array([o, o + 1, o + 2, o + 1, o + 3, o + 2])
@@ -536,7 +605,7 @@ func _build_back() -> void:
 	_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var gm := ShaderMaterial.new()
 	gm.shader = preload("res://shaders/card_kin_gold.gdshader")
-	gm.set_shader_parameter("gold_tex", load("res://assets/textures/gold/gold_diff.png"))
+	_gold_maps(gm)
 	_gauge.material = gm
 	_gauge.draw.connect(_draw_gauge)
 	_bvp.add_child(_gauge)
