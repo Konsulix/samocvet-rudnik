@@ -59,24 +59,23 @@ func _pass(sh: Shader, g: int) -> ColorRect:
 	m.set_shader_parameter("glow", g)
 	r.material = m
 	add_child(r)
-	r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return r
 
 ## a point of the stone's scene on the card (as CardBolt finds its own)
 func _proj(w: Vector3) -> Vector2:
 	var cam := view.studio.cam
 	var k := view.size / Vector2(maxi(1, view.studio.vp.size.x), maxi(1, view.studio.vp.size.y))
-	return get_global_transform().affine_inverse() * (view.get_global_transform() * (cam.unproject_position(w) * k))
+	return card.get_global_transform().affine_inverse() * (view.get_global_transform() * (cam.unproject_position(w) * k))
 
-## the ribbon in this layer's space: [top, bottom, left, right] of its straight stretch (Reveal._info_rim draws it)
+## the ribbon in the card's own space: [top, bottom, left, right] of its straight stretch (Reveal._info_rim draws it)
 func _rim() -> Array:
-	var ig: Rect2 = get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
+	var ig: Rect2 = card.get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
 	const WIDE := 20.0 / 3.6
 	return [ig.position.y - WIDE, ig.position.y, ig.position.x + Reveal.INFO_R + 6.0, ig.end.x - Reveal.INFO_R - 6.0]
 
 func _drop(rim: Array) -> void:
 	# from under the stone, where its own drips fall (SpecLegend.lava's points), straight down onto the ribbon
-	var src := Vector2(size.x * 0.5, float(rim[0]) - 150.0)
+	var src := Vector2(card.size.x * 0.5, float(rim[0]) - 150.0)
 	var pts := drips.emission_points
 	for tries in 6:
 		var q := _proj(drips.global_transform * (pts[rng.randi() % pts.size()] if pts.size() else Vector3.ZERO))
@@ -109,8 +108,13 @@ func _process(dt: float) -> void:
 			_land[i] = -1.0
 			Sfx.play("sh_flame")
 	for r in [_lava, _glow]:
+		# over the whole card, frame and all (this layer is laid out inside the card's padding: the brass rim is
+		# outside it - 23.11: the veins ran inside the rim)
+		(r as ColorRect).position = -position
+		(r as ColorRect).size = card.size
 		var m := (r as ColorRect).material as ShaderMaterial
-		m.set_shader_parameter("card", size)
+		m.set_shader_parameter("card", card.size)
+		m.set_shader_parameter("frame_in", Reveal.CARD_PAD)
 		m.set_shader_parameter("now", _now)
 		m.set_shader_parameter("rim_top", float(rim[0]))
 		m.set_shader_parameter("rim_bot", float(rim[1]))
