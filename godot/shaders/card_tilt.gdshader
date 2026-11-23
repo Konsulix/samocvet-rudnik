@@ -23,7 +23,9 @@ void fragment() {
 	}
 	vec2 uv = s / asp + 0.5;
 	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
-	vec4 c = texture(TEXTURE, uv);
+	// four samples over the screen pixel's footprint: the picture is denser than the screen, read between its pixels
+	vec2 dx = dFdx(uv) * 0.25, dy = dFdy(uv) * 0.25;
+	vec4 c = (texture(TEXTURE, uv + dx + dy) + texture(TEXTURE, uv - dx + dy) + texture(TEXTURE, uv + dx - dy) + texture(TEXTURE, uv - dx - dy)) * 0.25;
 	// light: the near side brighter, the far one a little darker; a band of light sliding as it turns (on the card only)
 	float z = s.x * sn.x + s.y * sn.y;
 	c.rgb *= 1.0 - clamp(z * 1.6, -0.12, 0.12);

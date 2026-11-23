@@ -246,7 +246,10 @@ func _process(dt: float) -> void:
 	var rock := _jump(_pulse) * 0.06
 	var tilt := Vector2(0.09 * sin(_t * 0.55) + 0.03 * sin(_t * 1.3 + 1.0) + rock, 0.06 * sin(_t * 0.7 + 2.0) - rock * 0.6) if settled else Vector2.ZERO
 	var full := card.size + Vector2.ONE * PAD * 2.0
+	# (at the screen's density; on a low-density screen twice it, the shader taking four samples a pixel - turned, the
+	# picture is read between its pixels and at 1:1 the words went soft)
 	var dens := maxf(1.0, get_viewport().get_final_transform().get_scale().x)
+	if dens < 1.8: dens *= 2.0
 	var px := Vector2i((full * dens).round())
 	if _cvp.size != px: _cvp.size = px
 	if _cvp.size_2d_override != Vector2i(full.round()): _cvp.size_2d_override = Vector2i(full.round())
