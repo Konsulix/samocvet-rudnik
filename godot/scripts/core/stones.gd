@@ -6,7 +6,7 @@ extends RefCounted
 const LEGEND_P := 0.002  # how often a find is legendary, × (1 + luck): a jackpot, kept, but rare (was 0.02, playtest 31.10)
 ## (23.11) …but never more than this many levels won without one: a level's find then is legendary for certain
 ## (BoardModel; Save.d.leg_lv counts the wins since the last legendary find came to hand — Save.note_find)
-const LEGEND_EVERY := 100
+const LEGEND_EVERY := 150
 const VALUE_K := 1.9     # the grade's old average worth, folded into every price when the grade went (playtest 31.10)
 
 ## how well it came out of the rock (BoardModel.find.integ, 0..100): the only quality there is now - the old random
