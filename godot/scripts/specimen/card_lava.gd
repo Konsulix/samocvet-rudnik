@@ -7,8 +7,8 @@ extends Control
 ## while it is hot, and the card's whole frame warms with the lava on it. All drawn by one shader in two passes
 ## (shaders/card_lava.gdshaderinc): the lava itself, and the light it gives, added - each in two pieces: over the card
 ## down to the ribbon, and below it inside the info panel, over its slate and under its words (the drips hang under
-## the lettering). A drip that reaches a word scorches it - it flares hot and darkens, then slowly comes back - and
-## steam rises off it; the slate round a drip is left sooty.
+## the lettering). A drop landing hisses and puffs steam; a drip that reaches a word scorches it - it flares hot and
+## darkens, then slowly comes back; the slate round a drip is left sooty.
 
 const SLOTS := 8
 const FIRST := 1.4            # the first drop, this long after the stone is built
@@ -126,11 +126,12 @@ func _process(dt: float) -> void:
 		if _next <= 0.0:
 			_drop(rim)
 			_next = test_every if test_every > 0.0 else rng.randf_range(EVERY[0], EVERY[1])
-	# a hiss as each one lands
+	# a hiss and a puff of steam as each one lands on the brass
 	for i in SLOTS:
 		if _land[i] > 0.0 and _now >= _land[i]:
 			_land[i] = -1.0
 			Sfx.play("sh_flame")
+			_steam(Vector2(_a[i].x, float(rim[0])), _a[i].w)
 	_scorch(rim)
 	for r in _pieces:
 		# over the whole card, frame and all (this layer is laid out inside the card's padding: the brass rim is
@@ -164,7 +165,8 @@ func _tip(i: int, rim: Array) -> Variant:
 	var xd := A.x + B.z * w * 0.5
 	return Vector2(xd + _c[i].x * L, float(rim[1]) + L + A.w * 0.55 * _c[i].y * 0.6)
 
-## a drip reaching a word: the word flares hot and darkens (scorched), slowly comes back; steam rises off it
+## a drip reaching a word: the word flares hot and darkens (scorched), slowly comes back (23.11: steam off the word
+## was ugly over the lettering - it rises where the drop lands instead)
 func _scorch(rim: Array) -> void:
 	var to_card := card.get_global_transform().affine_inverse()
 	var words: Array = info.find_children("*", "Label", true, false)
@@ -184,15 +186,14 @@ func _scorch(rim: Array) -> void:
 			tw.tween_property(l, "self_modulate", Color(0.62, 0.48, 0.4), 1.2)
 			tw.tween_interval(5.0)
 			tw.tween_property(l, "self_modulate", was, 6.0)
-			_steam(tip)
-			Sfx.play("sh_flame")
 
-## a puff of steam off a scorched word, rising and spreading as it fades
-func _steam(at: Vector2) -> void:
+## a puff of steam where a drop lands on the ribbon, rising up over the stone's frame and spreading as it fades; a bigger
+## drop, a bigger puff
+func _steam(at: Vector2, sz: float) -> void:
 	var ps := CPUParticles2D.new()
 	ps.texture = FxLayer.puff()
 	ps.one_shot = true
-	ps.amount = 22
+	ps.amount = int(10 + sz * 1.6)
 	ps.lifetime = 2.0
 	ps.explosiveness = 0.55
 	ps.direction = Vector2.UP
@@ -202,8 +203,10 @@ func _steam(at: Vector2) -> void:
 	ps.gravity = Vector2(0, -22.0)
 	ps.damping_min = 6.0
 	ps.damping_max = 10.0
-	ps.scale_amount_min = 0.3
-	ps.scale_amount_max = 0.55
+	ps.scale_amount_min = 0.18 + sz * 0.02
+	ps.scale_amount_max = 0.3 + sz * 0.035
+	ps.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	ps.emission_rect_extents = Vector2(sz * 1.2, 1.0)
 	var sc := Curve.new()
 	sc.add_point(Vector2(0, 0.4))
 	sc.add_point(Vector2(1, 1.6))
