@@ -204,6 +204,7 @@ static func lava(root: Node3D, rock: MeshInstance3D) -> void:
 	dm.height = 1.6
 	dm.material = glow_mat(Color(3.5, 1.1, 0.15))
 	drips.mesh = dm
+	drips.set_meta("lava_drips", true)    # (the card's lava falls from these same points: CardLava)
 	root.add_child(drips)
 	var embers := CPUParticles3D.new()
 	embers.amount = 30

@@ -120,6 +120,7 @@ func _ready() -> void:
 	if args.has("card_bolt"): CardBolt.test_at = float(args.card_bolt)
 	# (the frost bloom's card, CardFrost: frost_period=S — its cycle S s long, starting at once)
 	if args.has("frost_period"): CardFrost.test_period = float(args.frost_period)
+	if args.has("lava_every"): CardLava.test_every = float(args.lava_every)
 	if args.has("frost_code"): CardFrost.photo = false
 	# (the hunt's ribbon in a state, for pictures: hunt=N fights won, +g the geode opened, +x just lost — hunt=3, hunt=4g, hunt=4gx)
 	if args.has("hunt_step"):

@@ -1,0 +1,121 @@
+class_name CardLava
+extends Control
+## The lava stone's lava (SpecLegend.lava) does not keep to its frame: now and then a drop swells under the stone where
+## its own drips fall, lets go, falls and splashes on the brass ribbon between the stone and the info panel — spreads
+## along it, hangs over its lower edge as a drip with a bead at its tip, cools from white-yellow through orange and red
+## to a dark crust with its cracks still lit, and crumbles away after a while. The brass round each drop glows red
+## while it is hot, and the card's whole frame warms with the lava on it. All drawn by one shader in two passes
+## (shaders/card_lava.gdshaderinc): the lava itself, and the light it gives, added.
+
+const SLOTS := 8
+const FIRST := 1.4            # the first drop, this long after the stone is built
+const EVERY := [2.2, 4.6]     # then one every so often
+
+static var test_every := 0.0  # a test key (-- lava_every=S): a drop every S s
+
+var card: Control
+var view: SpecView
+var info: Control
+var drips: CPUParticles3D
+var _lava: ColorRect
+var _glow: ColorRect
+var _now := 0.0
+var _next := FIRST
+var _slot := 0
+var _a: Array[Vector4] = []
+var _b: Array[Vector4] = []
+var _land: Array[float] = []
+var rng := RandomNumberGenerator.new()
+
+## p: the built find; only a lava stone (its drips marked by SpecLegend.lava)
+static func attach(card_: Control, view_: SpecView, info_: Control, p: Node3D) -> void:
+	var found := p.find_children("*", "CPUParticles3D", true, false).filter(func(n: Node) -> bool: return n.has_meta("lava_drips"))
+	if found.is_empty(): return
+	var cl := CardLava.new()
+	cl.card = card_
+	cl.view = view_
+	cl.info = info_
+	cl.drips = found[0]
+	card_.add_child(cl)
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	z_index = 5
+	rng.randomize()
+	for i in SLOTS:
+		_a.append(Vector4(0, 0, -9.0, 0))
+		_b.append(Vector4.ZERO)
+		_land.append(-1.0)
+	_lava = _pass(preload("res://shaders/card_lava.gdshader"), 0)
+	_glow = _pass(preload("res://shaders/card_lava_glow.gdshader"), 1)
+
+func _pass(sh: Shader, g: int) -> ColorRect:
+	var r := ColorRect.new()
+	r.color = Color.WHITE
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("glow", g)
+	r.material = m
+	add_child(r)
+	r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return r
+
+## a point of the stone's scene on the card (as CardBolt finds its own)
+func _proj(w: Vector3) -> Vector2:
+	var cam := view.studio.cam
+	var k := view.size / Vector2(maxi(1, view.studio.vp.size.x), maxi(1, view.studio.vp.size.y))
+	return get_global_transform().affine_inverse() * (view.get_global_transform() * (cam.unproject_position(w) * k))
+
+## the ribbon in this layer's space: [top, bottom, left, right] of its straight stretch (Reveal._info_rim draws it)
+func _rim() -> Array:
+	var ig: Rect2 = get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
+	const WIDE := 20.0 / 3.6
+	return [ig.position.y - WIDE, ig.position.y, ig.position.x + Reveal.INFO_R + 6.0, ig.end.x - Reveal.INFO_R - 6.0]
+
+func _drop(rim: Array) -> void:
+	# from under the stone, where its own drips fall (SpecLegend.lava's points), straight down onto the ribbon
+	var src := Vector2(size.x * 0.5, float(rim[0]) - 150.0)
+	var pts := drips.emission_points
+	for tries in 6:
+		var q := _proj(drips.global_transform * (pts[rng.randi() % pts.size()] if pts.size() else Vector3.ZERO))
+		if q.x > float(rim[2]) + 10.0 and q.x < float(rim[3]) - 10.0 and q.y < float(rim[0]) - 40.0:
+			src = q
+			break
+	var sz := rng.randf_range(5.0, 7.5)
+	var i := _slot
+	_slot = (_slot + 1) % SLOTS
+	_a[i] = Vector4(src.x, src.y, _now, sz)
+	# its own seed, how long its drip hangs, where along the puddle the drip is, how wide the puddle spreads
+	_b[i] = Vector4(rng.randf(), rng.randf_range(12.0, 26.0), rng.randf_range(-0.6, 0.6), rng.randf_range(12.0, 22.0))
+	_land[i] = _now + 0.45 + sqrt(2.0 * maxf(float(rim[0]) - src.y - sz, 1.0) / 1100.0)
+
+func _process(dt: float) -> void:
+	if not is_instance_valid(view) or not is_instance_valid(drips) or not is_instance_valid(info):
+		queue_free()
+		return
+	_now += dt
+	var rim := _rim()
+	# only while the card is open and settled (it opens with a scale tween)
+	if view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
+		_next -= dt
+		if _next <= 0.0:
+			_drop(rim)
+			_next = test_every if test_every > 0.0 else rng.randf_range(EVERY[0], EVERY[1])
+	# a hiss as each one lands
+	for i in SLOTS:
+		if _land[i] > 0.0 and _now >= _land[i]:
+			_land[i] = -1.0
+			Sfx.play("sh_flame")
+	for r in [_lava, _glow]:
+		var m := (r as ColorRect).material as ShaderMaterial
+		m.set_shader_parameter("card", size)
+		m.set_shader_parameter("now", _now)
+		m.set_shader_parameter("rim_top", float(rim[0]))
+		m.set_shader_parameter("rim_bot", float(rim[1]))
+		m.set_shader_parameter("rim_l", float(rim[2]))
+		m.set_shader_parameter("rim_r", float(rim[3]))
+		m.set_shader_parameter("heat", 0.22)
+		m.set_shader_parameter("da", _a)
+		m.set_shader_parameter("db", _b)

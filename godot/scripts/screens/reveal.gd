@@ -382,7 +382,9 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	view.built.connect(func(p: Node3D) -> void:
 		CardBolt.attach(card, view, v, vl, p, s)
 		# and frost on the stone frosts its card over (CardFrost)
-		CardFrost.attach(card, view, info, p))
+		CardFrost.attach(card, view, info, p)
+		# and lava drips onto its card's brass (CardLava)
+		CardLava.attach(card, view, info, p))
 	# its weight from what was built (Stones.settle, 20.11): the first time the stone is built, the card's figures move to it
 	view.built.connect(func(p: Node3D) -> void:
 		if Stones.settle(s, p):
