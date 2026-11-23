@@ -72,6 +72,7 @@ void fragment() {
 	vec4 lava = vec4(0.0);    // the lava itself (mix)
 	vec3 light = vec3(0.0);   // the light it gives (added)
 	float hot_sum = 0.0;
+	float near = 0.0;         // the heat of the fresh drops close by (the brass's veins burn brighter there)
 	for (int i = 0; i < 8; i++) {
 		vec4 A = da[i];
 		vec4 B = db[i];
@@ -110,17 +111,33 @@ void fragment() {
 			float top_y = rim_top - h * pow(prof, 0.7) + noise(vec2(p.x * 0.4, B.x * 9.0)) * 1.2;
 			float cover = rim_top + (rim_bot - rim_top) * (0.3 + 0.9 * smoothstep(1.0, 0.25, abs(dx)));
 			float dp = max(max(top_y - p.y, p.y - cover), (abs(p.x - x) - w));
-			// the drip: down from under the ribbon, a bead at its tip
-			float L = B.y * (1.0 - exp(-max(s - 0.15, 0.0) * 1.1));
+			// the drip: down from under the ribbon, leaning a little as it lengthens, a bead at its tip; now and then
+			// a second, shorter and thinner, off the puddle's other side
+			float grow_d = 1.0 - exp(-max(s - 0.15, 0.0) * 0.9);
+			float L = B.y * grow_d;
 			float xd = x + B.z * w * 0.5;
 			float wd = sz * 0.55;
-			float dd = taper(p, vec2(xd, rim_bot - 1.0), vec2(xd, rim_bot + L), wd, wd * 0.42);
-			float bead = length(p - vec2(xd, rim_bot + L + wd * 0.25)) - wd * (0.55 + 0.25 * exp(-s));
+			float lean = (hash(vec2(B.x * 91.0, 3.7)) - 0.5) * 0.5;
+			vec2 d0 = vec2(xd, rim_bot - 1.0);
+			vec2 d1 = vec2(xd + lean * L * 0.25, rim_bot + L * 0.55);
+			vec2 d2 = vec2(xd + lean * L, rim_bot + L);
+			float dd = smin(taper(p, d0, d1, wd, wd * 0.62), taper(p, d1, d2, wd * 0.62, wd * 0.4), 1.0);
+			float bead = length(p - d2 - vec2(0.0, wd * 0.25)) - wd * (0.55 + 0.25 * exp(-s));
 			d = smin(smin(dp, dd, 2.5), bead, 2.0);
+			if (hash(vec2(B.x * 37.0, 1.3)) > 0.45) {
+				float L2 = B.y * (0.25 + 0.35 * hash(vec2(B.x * 53.0, 2.1))) * (1.0 - exp(-max(s - 0.5, 0.0) * 0.8));
+				float x2 = x - sign(B.z + 0.01) * w * (0.35 + 0.3 * hash(vec2(B.x * 11.0, 5.0)));
+				float w2 = wd * 0.7;
+				vec2 e2 = vec2(x2 - lean * L2 * 0.6, rim_bot + L2);
+				float dd2 = taper(p, vec2(x2, rim_bot - 1.0), e2, w2, w2 * 0.45);
+				float bead2 = length(p - e2 - vec2(0.0, w2 * 0.2)) - w2 * 0.55;
+				d = smin(d, smin(dd2, bead2, 1.5), 2.0);
+			}
 			// it cools from its edges in, the drip's tip last (thinnest first, but the bead holds heat)
 			float edge = clamp(-d / 3.0, 0.0, 1.0);
 			t = clamp(t * (0.55 + 0.45 * edge) * (p.y > rim_bot ? 0.9 : 1.0), 0.0, 1.0);
 			hot_sum += exp(-s / COOL);
+			near += exp(-length(p - vec2(x, rim_top)) / 110.0) * exp(-s / (COOL * 1.5)) * fade;
 			// the brass heating round it: along the ribbon, fading with the lava's heat
 			float ribbon = 1.0 - smoothstep(0.0, (rim_bot - rim_top) * 0.9 + 2.0, abs(p.y - (rim_top + rim_bot) * 0.5));
 			light += vec3(1.0, 0.3, 0.04) * ribbon * exp(-pow((p.x - x) / (w + 26.0), 2.0)) * exp(-s / (COOL * 1.6)) * 0.7 * fade;
@@ -149,15 +166,29 @@ void fragment() {
 		light += crack_col * cr * crust_k * smoothstep(0.02, 0.25, t) * in_l * 0.35 * fade;
 	}
 	if (glow == 1) {
-		// the card's whole brass frame glowing red with the heat
+		// the card's brass frame: hot veins in the metal itself (22.11: a plain red band looked like a red frame) -
+		// thin glowing cracks wandering along the brass, slowly crawling, waves of heat running round the frame,
+		// brightest by the fresh drops; a faint dull red under them
 		float e = min(min(p.x, card.x - p.x), min(p.y, card.y - p.y));
-		float band = smoothstep(frame_in + 6.0, frame_in - 1.0, e) * smoothstep(-1.0, 2.0, e);
-		float wav = 0.75 + 0.25 * sin(now * 1.3 + (p.x + p.y) * 0.02) + 0.15 * (noise(p * 0.05 + now * 0.3) - 0.5);
-		float k = clamp(heat + hot_sum * 0.25, 0.0, 1.0);
-		light += vec3(0.95, 0.16, 0.02) * band * k * wav * 0.6;
-		// and the ribbon itself warming along its length
-		float ribbon = 1.0 - smoothstep(0.0, (rim_bot - rim_top) + 2.0, abs(p.y - (rim_top + rim_bot) * 0.5));
-		light += vec3(0.95, 0.2, 0.03) * ribbon * step(rim_l - 20.0, p.x) * step(p.x, rim_r + 20.0) * k * 0.3 * wav;
+		float brass = smoothstep(0.5, 2.0, e) * smoothstep(frame_in + 1.0, frame_in - 2.0, e);
+		float ribbon = (1.0 - smoothstep(0.0, (rim_bot - rim_top) * 0.5 + 1.0, abs(p.y - (rim_top + rim_bot) * 0.5)))
+			* step(rim_l - 24.0, p.x) * step(p.x, rim_r + 24.0);
+		float metal = max(brass, ribbon);
+		if (metal > 0.0) {
+			float k = clamp(heat + hot_sum * 0.2, 0.0, 1.0);
+			vec2 q = p * 0.07;
+			float n1 = fbm(q + vec2(now * 0.035, -now * 0.025));
+			float n2 = fbm(q * 2.3 + vec2(-now * 0.05, now * 0.04) + 5.0);
+			float v1 = pow(1.0 - abs(2.0 * n1 - 1.0), 16.0);
+			float v2 = pow(1.0 - abs(2.0 * n2 - 1.0), 22.0) * 0.6;
+			float veins = max(v1, v2);
+			// heat waves running round the frame (along its length: x + y, both ways round)
+			float run = 0.5 + 0.5 * sin((p.x + p.y) * 0.035 - now * 1.4) * sin((p.x - p.y) * 0.021 + now * 0.9);
+			float burn = clamp(k * (0.45 + 0.55 * run) + near * 1.4, 0.0, 1.6);
+			vec3 vcol = mix(vec3(0.85, 0.12, 0.02), vec3(1.0, 0.62, 0.15), clamp(veins * burn - 0.2, 0.0, 1.0));
+			light += vcol * veins * burn * metal * 1.1;
+			light += vec3(0.5, 0.06, 0.01) * metal * (0.1 + 0.25 * near) * k;
+		}
 		COLOR = vec4(light, 1.0);
 	} else {
 		COLOR = lava;
