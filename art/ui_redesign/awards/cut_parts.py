@@ -28,7 +28,7 @@ NAMES = {
     "icons11": ["tsar_lamp", "tsar"],
     "icons12": ["duster", "duster_cloud"],
     "icons13": ["hunt_spit", "hunt_hand"],
-    "icons14": ["mended", "mended_bad"],
+    "icons14": ["mended", "mended_spare"],
     "parts": ["niche", "seal", "tab", "tab_on", "plate", "strip_hidden", "t_tales", "t_coll",
               "t_mines", "t_boss", "t_mastery", "t_secrets"],
 }

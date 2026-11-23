@@ -1,23 +1,27 @@
 class_name CardKintsugi
 extends Control
-## Kintsugi (SpecLegend: gold mending in the stone's glass) breaks its card's info panel and mends it with gold: a
-## moment after the card opens the panel cracks, falls away in shards and the shards fly back and fit, each seam
-## filling with molten gold as both its sides are home; the shards where the buttons were come back turned over —
-## the card's back up (the buttons are on the back: a swipe turns the card over). Again now and then while it lies
-## face up. The panel's picture for the shards is a snapshot of it (the screen read back once per break).
+## Kintsugi (SpecLegend: gold mending in the stone's glass) breaks its card's lower block — the info panel with its
+## brass and the card's frame round it — and mends it with gold: a moment after the card opens the block cracks,
+## falls away in shards, and the shards fly back and fit, each seam filling with molten gold as both its sides are
+## home; the shards where the buttons were come back turned over — the card's back up (the buttons are on the back:
+## a swipe turns the card over). Again now and then while it lies face up. The block's picture for the shards is a
+## snapshot of it (the screen read back once a break). Mended, the seams lie in the panel under its words (a layer in
+## the panel, over its slate — as CardFrost's), and over the frame round it.
 
 const SHARDS_ROW := 3          # the shards the button row breaks into
 const AGAIN := 30.0            # seconds between breaks, face up
 const CRACK := 0.45            # the cracks run
-const FALL := 1.0              # the shards fall
-const BACK_AT := 1.75          # they start back
+const BACK_AT := 1.75          # the shards start back
 const RET := 0.6               # each one's flight home
 const STAG := 0.07             # one after the other
-const MOLTEN := 0.7
-const EMBLEM := Vector2(0.5, 0.27)   # the emblem on the card's back (assets/ui/card_back.png), of its size            # a seam glows white-hot this long, then cools to gold
+const MOLTEN := 1.1            # a seam glows white-hot this long, then cools to gold
+const EMBLEM := Vector2(0.5, 0.27)   # the emblem on the card's back (assets/ui/card_back.png), of its size
+const RIM_UP := 5.0            # the block starts this far above the panel: its brass ribbon breaks with it
+const CORNER := 14.0           # the card's rounded corners below
+const SEAM_W := 3.8            # a seam's bead, points across
 
 static var test_every := 0.0   # a test key (-- kin_every=S): a break every S s
-static var test_mend := false   # a test key (-- kin_mend): the back up, Mend is pressed and the first broken stone chosen
+static var test_mend := false  # a test key (-- kin_mend): the back up, Mend is pressed and the first broken stone chosen
 static var test_flip := 0.0    # a test key (-- kin_flip=S): the card turns over S s after it is built, and back S s later
 
 var card: Control
@@ -27,12 +31,18 @@ var v: VBoxContainer
 var find: Node3D
 var row: Control               # the buttons (the caller's last child of the panel's box)
 
-var _root: Control             # (this node sits in the card's padding: its children are placed by hand)
-var _hole: Control
-var _pieces: Control
-var _seams: Control
-var _cells := []               # {poly: PackedVector2Array (panel space), c: centroid, down: bool, ...}
-var _edges := []               # {pts: PackedVector2Array, a: int, b: int}
+var _hole: Control             # over the card while it is broken: the dark where the block was
+var _pieces: Control           # the shards (mended: the turned ones, outside the panel)
+var _cracks: Control           # the cracks running, the flying shards' edges
+var _gold: Control             # the seams (mended: on the frame, outside the panel)
+var _in: Control               # in the panel, over its slate, under its words: the mended seams and turned shards there
+var _in_pieces: Control
+var _in_gold: Control
+var _block := Rect2()          # what breaks, in the card's own space
+var _cut := Rect2()            # the panel, in the block's space
+var _cells := []               # {poly (block space), loc (about c), c, down}
+var _edges := []               # {pts, a, b, w: PackedFloat32Array (the bead's width along it)}
+var _knots := []               # where seams meet: [point, radius]
 var _front: ImageTexture
 var _back: Texture2D
 var _t := -1.0                 # time into a break; <0: none
@@ -51,12 +61,17 @@ var _bshow: TextureRect
 var _art: TextureRect
 var _mend: Button
 var _gauge: Control
+var _vial: TextureRect
+var _plate: TextureRect
+var _plate_l: Label
+var _tapes: Array[TextureRect] = []
 var _side := 0                 # 0: face up, 1: the back up
 var _flip_t := -1.0
 var _flip_dir := 1.0
 var _snap: ImageTexture        # the card's face, for its half of the turn
 var _press := Vector2.ZERO
 var _pressed := false
+var _flips := 0                 # (the test key's turns: there and back, once)
 
 ## p: the built find; only a kintsugi one (`fx`: the find's living effect, SpecGenome)
 static func attach(card_: Control, view_: SpecView, info_: Control, v_: VBoxContainer, p: Node3D, fx: String, s_: Dictionary) -> void:
@@ -73,28 +88,43 @@ static func attach(card_: Control, view_: SpecView, info_: Control, v_: VBoxCont
 	ck.find = p
 	card_.add_child(ck)
 
+func _layer(parent: Node, shader: Shader, draw: Callable) -> Control:
+	var n := Control.new()
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if shader:
+		var m := ShaderMaterial.new()
+		m.shader = shader
+		n.material = m
+	n.draw.connect(draw.bind(n))
+	parent.add_child(n)
+	return n
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 5
 	rng.seed = hash(str(find.get_instance_id()))
 	if test_every > 0.0: _wait = minf(_wait, test_every)
 	_back = load("res://assets/ui/card_back.png") as Texture2D
-	_hole = Control.new()
-	_hole.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hole.draw.connect(_draw_hole)
-	add_child(_hole)
-	_pieces = Control.new()
-	_pieces.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var m := ShaderMaterial.new()
-	m.shader = preload("res://shaders/card_kin_shard.gdshader")
-	m.set_shader_parameter("back", _back)
-	_pieces.material = m
-	_pieces.draw.connect(_draw_pieces)
-	add_child(_pieces)
-	_seams = Control.new()
-	_seams.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_seams.draw.connect(_draw_seams)
-	add_child(_seams)
+	var shard := preload("res://shaders/card_kin_shard.gdshader")
+	var gold := preload("res://shaders/card_kin_gold.gdshader")
+	var gtex := load("res://assets/textures/gold/gold_diff.png")
+	_hole = _layer(self, null, _draw_hole)
+	_pieces = _layer(self, shard, _draw_pieces)
+	_cracks = _layer(self, null, _draw_cracks)
+	_gold = _layer(self, gold, _draw_gold)
+	# in the panel: over its slate (its first child), under its words
+	_in = Control.new()
+	_in.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(_in)
+	info.move_child(_in, mini(1, info.get_child_count() - 1))
+	_in_pieces = _layer(_in, shard, _draw_pieces)
+	_in_gold = _layer(_in, gold, _draw_gold)
+	for n: Control in [_pieces, _in_pieces]:
+		(n.material as ShaderMaterial).set_shader_parameter("back", _back)
+		(n.material as ShaderMaterial).set_shader_parameter("rb", CORNER)
+	for n: Control in [_gold, _in_gold]:
+		(n.material as ShaderMaterial).set_shader_parameter("gold_tex", gtex)
+	tree_exiting.connect(func() -> void: if is_instance_valid(_in): _in.queue_free())
 	# the buttons: the box's last child holding any
 	for i in range(v.get_child_count() - 1, -1, -1):
 		var c := v.get_child(i) as Control
@@ -109,61 +139,66 @@ func _process(dt: float) -> void:
 		return
 	_clock += dt
 	_turn(dt)
-	if test_flip > 0.0 and _flip_t < 0.0 and _t < 0.0 and _clock > test_flip * (_side + 1): flip()
-	for n: Control in [_hole, _pieces, _seams]:
-		n.global_position = info.global_position
-		n.size = info.size
+	if test_flip > 0.0 and _flips < 2 and _flip_t < 0.0 and _t < 0.0 and _clock > test_flip * (_flips + 1):
+		_flips += 1
+		flip()
+	# the block: from just above the panel (its brass ribbon) to the card's foot, the card's width
+	var top := info.global_position.y - card.global_position.y - RIM_UP
+	_block = Rect2(0.0, top, card.size.x, card.size.y - top)
+	_cut = Rect2(info.global_position - card.global_position - _block.position, info.size)
+	var at := card.global_position + _block.position
+	for n: Control in [_hole, _pieces, _cracks, _gold, _in_pieces, _in_gold]:
+		n.global_position = at
+		n.size = _block.size
+	# mended: the overlay keeps off the panel (the panel's own layer draws there, under its words)
+	var cut := Vector4(_cut.position.x, _cut.position.y, _cut.size.x, _cut.size.y) if _t < 0.0 else Vector4.ZERO
+	(_pieces.material as ShaderMaterial).set_shader_parameter("cut", cut)
+	(_gold.material as ShaderMaterial).set_shader_parameter("cut", cut)
 	if _t < 0.0:
 		_wait -= dt
-		if _wait <= 0.0 and _side == 0 and _flip_t < 0.0 and info.is_visible_in_tree():
+		if _wait <= 0.0 and _t > -1.5 and _side == 0 and _flip_t < 0.0 and info.is_visible_in_tree():
 			_break()
 	else:
 		_t += dt
 		var home := BACK_AT + RET + STAG * _cells.size()
-		if _t > home + MOLTEN + 0.2:
+		if _t > home + MOLTEN + 0.3:
 			_t = -1.0
 			_wait = test_every if test_every > 0.0 else AGAIN
 			info.modulate.a = 1.0
-	_pieces.queue_redraw()
-	_seams.queue_redraw()
-	_hole.queue_redraw()
+	for n: Control in [_hole, _pieces, _cracks, _gold, _in_pieces, _in_gold]: n.queue_redraw()
 
 # ---------------------------------------------------------------- the break
 
 func _break() -> void:
-	_t = 0.0
-	# the shards' map: drawn once, kept (the same seams every time)
+	_t = -2.0   # (held while the snapshot is taken)
 	if _cells.is_empty(): _shatter_map()
-	# the panel as it is now (the seams and the turned shards hidden for it: they are on the snapshot's shards again)
-	var keep := _seams.visible
-	_seams.visible = false
-	_pieces.visible = false
+	# the block as it is now — without the mended seams and turned shards: its shards carry its look, the gold is
+	# drawn again over them
+	for n: Control in [_pieces, _gold, _in]: n.visible = false
 	await RenderingServer.frame_post_draw
 	if not is_instance_valid(info): return
 	var vp := get_viewport()
-	var xf := vp.get_final_transform() * info.get_global_transform_with_canvas()
-	var r := Rect2i(xf * Rect2(Vector2.ZERO, info.size))
+	var xf := vp.get_final_transform() * card.get_global_transform_with_canvas()
+	var r := Rect2i(xf * _block)
 	var img := vp.get_texture().get_image()
 	r = r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 	_front = ImageTexture.create_from_image(img.get_region(r))
-	var m := _pieces.material as ShaderMaterial
-	m.set_shader_parameter("front", _front)
-	m.set_shader_parameter("psize", info.size)
-	var cr := card.get_global_rect()
-	var ir := info.get_global_rect()
-	var gc := Vector2.ZERO
-	var gn := 0
-	for c: Dictionary in _cells:
-		if c.down:
-			gc += c.c
-			gn += 1
-	if gn > 0:
-		var q := (ir.position + gc / gn - cr.position) / cr.size
-		m.set_shader_parameter("back_shift", EMBLEM - Vector2(1.0 - q.x, q.y))
-	m.set_shader_parameter("pin", Vector4((ir.position.x - cr.position.x) / cr.size.x, (ir.position.y - cr.position.y) / cr.size.y,
-		ir.size.x / cr.size.x, ir.size.y / cr.size.y))
-	_seams.visible = keep or true
-	_pieces.visible = true
+	for n: Control in [_pieces, _in_pieces]:
+		var m := n.material as ShaderMaterial
+		m.set_shader_parameter("front", _front)
+		m.set_shader_parameter("psize", _block.size)
+		m.set_shader_parameter("pin", Vector4(_block.position.x / card.size.x, _block.position.y / card.size.y, _block.size.x / card.size.x, _block.size.y / card.size.y))
+		var gc := Vector2.ZERO
+		var gn := 0
+		for c: Dictionary in _cells:
+			if c.down:
+				gc += c.c
+				gn += 1
+		if gn > 0:
+			var q := (_block.position + gc / gn) / card.size
+			m.set_shader_parameter("back_shift", Vector2(0.0, EMBLEM.y - q.y))   # (up only: sideways the shards ran off the picture)
+	for n: Control in [_pieces, _gold, _in]: n.visible = true
+	_t = 0.0
 	# the live panel goes: its shards are drawn in its place
 	info.modulate.a = 0.0
 	# the buttons are turned over with their shards: onto the back (a gap of their height keeps the panel's size)
@@ -180,12 +215,12 @@ func _break() -> void:
 	order.shuffle()
 	for i in _cells.size():
 		var c: Dictionary = _cells[i]
-		c.vx = rng.randf_range(-70.0, 70.0) + (c.c.x - info.size.x * 0.5) * 0.25
+		c.vx = rng.randf_range(-70.0, 70.0) + (c.c.x - _block.size.x * 0.5) * 0.25
 		c.vy = rng.randf_range(-90.0, -20.0)
 		c.spin = rng.randf_range(-2.6, 2.6)
 		c.drop = rng.randf_range(0.0, 0.12)
 		c.home = BACK_AT + STAG * order.find(i)
-		c.from = Vector2(rng.randf_range(-60.0, 60.0), info.size.y + rng.randf_range(140.0, 260.0))
+		c.from = Vector2(rng.randf_range(-60.0, 60.0), _block.size.y + rng.randf_range(140.0, 260.0))
 		c.rot0 = rng.randf_range(-1.4, 1.4)
 		c.turn = (c.down as bool) and not _done_once
 	_done_once = true
@@ -195,14 +230,15 @@ func _break() -> void:
 	get_tree().create_timer(CRACK).timeout.connect(func() -> void: Sfx.play("crust"))
 	get_tree().create_timer(BACK_AT + RET).timeout.connect(func() -> void: if is_instance_valid(self): Sfx.play("br_pour"))
 
-## the panel cut into shards: a Voronoi map, a few big shards over the button row, smaller ones above; its seams
-## made crooked (each seam bent by its own midpoints — the same for the two shards it parts)
+## the block cut into shards: a Voronoi map, a few big shards over the button row, smaller ones above; its seams
+## made crooked (each seam bent by its own midpoints — the same for the two shards it parts), each its own width
+## along it, swelling where seams meet; and a drop of gold at every meeting
 func _shatter_map() -> void:
-	var w := info.size.x
-	var h := info.size.y
-	var rr := Rect2(0, h - 56, w, 48)
+	var w := _block.size.x
+	var h := _block.size.y
+	var rr := Rect2(0, h - 70, w, 48)
 	if is_instance_valid(row):
-		rr = Rect2(row.get_global_rect().position - info.global_position, row.size)
+		rr = Rect2(row.global_position - card.global_position - _block.position, row.size)
 	var seeds: Array[Vector2] = []
 	var down: Array[bool] = []
 	for k in SHARDS_ROW:
@@ -213,8 +249,7 @@ func _shatter_map() -> void:
 	var rows := maxi(2, roundi(top / 62.0))
 	for j in rows:
 		for k in cols:
-			var p := Vector2((k + 0.5 + rng.randf_range(-0.35, 0.35)) * w / cols, (j + 0.5 + rng.randf_range(-0.35, 0.35)) * top / rows)
-			seeds.append(p)
+			seeds.append(Vector2((k + 0.5 + rng.randf_range(-0.35, 0.35)) * w / cols, (j + 0.5 + rng.randf_range(-0.35, 0.35)) * top / rows))
 			down.append(false)
 	var box := PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
 	var polys := []
@@ -222,13 +257,11 @@ func _shatter_map() -> void:
 		var poly := box
 		for j in seeds.size():
 			if i == j: continue
-			var mid := (seeds[i] + seeds[j]) * 0.5
-			var nrm := (seeds[j] - seeds[i]).normalized()
-			poly = _clip(poly, mid, nrm)
+			poly = _clip(poly, (seeds[i] + seeds[j]) * 0.5, (seeds[j] - seeds[i]).normalized())
 			if poly.size() < 3: break
 		polys.append(poly)
-	# the seams: every edge two shards share, bent once and shared
 	var bent := {}
+	var ends := {}
 	for i in polys.size():
 		var poly: PackedVector2Array = polys[i]
 		var out := PackedVector2Array()
@@ -253,7 +286,24 @@ func _shatter_map() -> void:
 		for p in out: loc.append(p - c)
 		_cells.append({poly = out, loc = loc, c = c, down = down[i]})
 	for e: Dictionary in bent.values():
-		if (e.cells as Array).size() == 2: _edges.append({pts = e.pts, a = e.cells[0], b = e.cells[1]})
+		if (e.cells as Array).size() != 2: continue
+		var pts: PackedVector2Array = e.pts
+		# the bead's width along it: uneven, swelling at its ends (where it meets others)
+		var wd := PackedFloat32Array()
+		var len_at := 0.0
+		var total := 0.0
+		for k in pts.size() - 1: total += pts[k].distance_to(pts[k + 1])
+		var ph := rng.randf() * 10.0
+		for k in pts.size():
+			if k > 0: len_at += pts[k - 1].distance_to(pts[k])
+			var end_d := minf(len_at, total - len_at)
+			wd.append(SEAM_W * (0.75 + 0.35 * sin(len_at * 0.11 + ph) + 0.2 * sin(len_at * 0.37 + ph * 2.0)) + 1.6 * exp(-end_d / 5.0))
+		_edges.append({pts = pts, a = e.cells[0], b = e.cells[1], w = wd})
+		for p: Vector2 in [pts[0], pts[pts.size() - 1]]:
+			var kk := "%d,%d" % [roundi(p.x), roundi(p.y)]
+			ends[kk] = [p, int((ends.get(kk, [p, 0]) as Array)[1]) + 1]
+	for e: Array in ends.values():
+		if int(e[1]) >= 2: _knots.append([e[0], SEAM_W * rng.randf_range(0.85, 1.25)])
 
 static func _clip(poly: PackedVector2Array, at: Vector2, n: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
@@ -278,7 +328,7 @@ static func _key(a: Vector2, b: Vector2) -> String:
 	var hi := b if _key_lo(a, b) else a
 	return "%d,%d,%d,%d" % [roundi(lo.x * 10.0), roundi(lo.y * 10.0), roundi(hi.x * 10.0), roundi(hi.y * 10.0)]
 
-## a seam from a to b, crooked as a crack: midpoints pushed aside, twice over (by the place, so both shards agree)
+## a seam from a to b, crooked as a crack: midpoints pushed aside, three times over (by the place, so both shards agree)
 func _crook(a: Vector2, b: Vector2) -> PackedVector2Array:
 	var pts := PackedVector2Array([a, b])
 	for level in 3:
@@ -289,8 +339,7 @@ func _crook(a: Vector2, b: Vector2) -> PackedVector2Array:
 			var d := q - p
 			var n := Vector2(-d.y, d.x).normalized()
 			var hsh := absf(sin(p.x * 12.9898 + q.y * 78.233 + level * 3.1) * 43758.5453)
-			var off := (fmod(hsh, 1.0) - 0.5) * d.length() * 0.28
-			nxt.append((p + q) * 0.5 + n * off)
+			nxt.append((p + q) * 0.5 + n * (fmod(hsh, 1.0) - 0.5) * d.length() * 0.28)
 			nxt.append(q)
 		pts = nxt
 	return pts
@@ -307,15 +356,11 @@ func _state(i: int) -> Array:
 	var tf := _t - CRACK - float(c.drop)
 	if _t < float(c.home):
 		if tf < 0.0: return [Vector2.ZERO, 0.0, w, 1.0]
-		var off := Vector2(float(c.vx) * tf, float(c.vy) * tf + 1500.0 * tf * tf)
-		return [off, float(c.spin) * tf, w, clampf(1.0 - (tf - 0.55) / 0.35, 0.0, 1.0)]
+		return [Vector2(float(c.vx) * tf, float(c.vy) * tf + 1500.0 * tf * tf), float(c.spin) * tf, w, clampf(1.0 - (tf - 0.55) / 0.35, 0.0, 1.0)]
 	var k := clampf((_t - float(c.home)) / RET, 0.0, 1.0)
 	var e := _back_out(k)
-	var off2: Vector2 = (c.from as Vector2).lerp(Vector2.ZERO, e)
-	var turn := lerpf(float(c.rot0), 0.0, e)
-	if bool(c.get("turn", false)):
-		w = cos(PI * smoothstep(0.15, 0.85, k))
-	return [off2, turn, w, clampf(k / 0.18, 0.0, 1.0)]
+	if bool(c.get("turn", false)): w = cos(PI * smoothstep(0.15, 0.85, k))
+	return [(c.from as Vector2).lerp(Vector2.ZERO, e), lerpf(float(c.rot0), 0.0, e), w, clampf(k / 0.18, 0.0, 1.0)]
 
 static func _back_out(k: float) -> float:
 	const S := 1.4
@@ -323,91 +368,132 @@ static func _back_out(k: float) -> float:
 	return 1.0 + (S + 1.0) * x * x * x + S * x * x
 
 func _landed(i: int) -> float:
-	var c: Dictionary = _cells[i]
-	if _t < 0.0: return -99.0
-	return float(c.home) + RET
+	return float(_cells[i].home) + RET
 
-func _draw_hole() -> void:
+## the dark where the block was, while it is broken
+func _draw_hole(n: Control) -> void:
 	if _t < CRACK: return
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.035, 0.035, 0.045)
-	sb.set_corner_radius_all(15)
-	sb.corner_radius_top_left = 22
-	sb.corner_radius_top_right = 22
-	sb.shadow_color = Color(0, 0, 0, 0.0)
-	_hole.draw_style_box(sb, Rect2(Vector2.ZERO, _hole.size))
-	# its inner shade: the panel's socket
-	for i in 6:
-		var a := 0.22 * (1.0 - i / 6.0)
-		_hole.draw_rect(Rect2(0, i, _hole.size.x, 1), Color(0, 0, 0, a))
+	sb.bg_color = Color(0.03, 0.03, 0.04)
+	sb.corner_radius_bottom_left = int(CORNER)
+	sb.corner_radius_bottom_right = int(CORNER)
+	n.draw_style_box(sb, Rect2(Vector2.ZERO, n.size))
+	for i in 8:
+		n.draw_rect(Rect2(0, i, n.size.x, 1), Color(0, 0, 0, 0.3 * (1.0 - i / 8.0)))
 
-func _draw_pieces() -> void:
-	if _cells.is_empty(): return
+func _draw_pieces(n: Control) -> void:
+	if _cells.is_empty() or _t < -1.0: return
 	var live := _t >= 0.0
+	if live and n == _in_pieces: return
 	for i in _cells.size():
 		var c: Dictionary = _cells[i]
 		if not live and not c.down: continue
 		var st := _state(i)
 		var fw: float = st[2]
 		if absf(fw) < 0.02: continue
-		var face_up := fw > 0.0
 		var light := 0.78 + 0.22 * absf(fw) - 0.08 * absf(sin(float(st[1])))
-		var col := Color(1.0 if face_up else 0.0, 0.0, light, float(st[3]))
+		var col := Color(1.0 if fw > 0.0 else 0.0, 0.0, light, float(st[3]))
 		var cols := PackedColorArray()
 		var uvs := PackedVector2Array()
 		for p: Vector2 in c.poly:
 			cols.append(col)
-			uvs.append(p / info.size)
-		_pieces.draw_set_transform(c.c + st[0], float(st[1]), Vector2(fw, 1.0))
-		# (its outline is its home's shape: the face's own place in the panel, mirrored when turned)
-		_pieces.draw_polygon(c.loc, cols, uvs)
-	_pieces.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			uvs.append(p / _block.size)
+		n.draw_set_transform(c.c + st[0], float(st[1]), Vector2(fw, 1.0))
+		n.draw_polygon(c.loc, cols, uvs)
+	n.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func _draw_seams() -> void:
-	if _cells.is_empty(): return
-	# the cracks running before the fall: dark, growing
-	if _t >= 0.0 and _t < CRACK + 0.05:
+## the cracks running before the fall, and a flying shard's own thin dark edge
+func _draw_cracks(n: Control) -> void:
+	if _cells.is_empty() or _t < 0.0: return
+	if _t < CRACK + 0.05:
 		var k := clampf(_t / (CRACK * 0.8), 0.0, 1.0)
 		for e: Dictionary in _edges:
 			var pts: PackedVector2Array = e.pts
-			var n := maxi(2, roundi(pts.size() * k))
-			_seams.draw_polyline(pts.slice(0, n), Color(0.02, 0.02, 0.02, 0.85), 1.4, true)
+			n.draw_polyline(pts.slice(0, maxi(2, roundi(pts.size() * k))), Color(0.02, 0.02, 0.02, 0.85), 1.4, true)
 		return
-	# a falling or flying shard's own edge: a thin dark rim
-	if _t >= 0.0:
-		for i in _cells.size():
-			var st := _state(i)
-			var c: Dictionary = _cells[i]
-			if float(st[3]) <= 0.01 or absf(float(st[2])) < 0.02: continue
-			if (st[0] as Vector2).length() < 0.5 and absf(float(st[1])) < 0.01: continue
-			_seams.draw_set_transform(c.c + st[0], float(st[1]), Vector2(float(st[2]), 1.0))
-			var loop: PackedVector2Array = (c.loc as PackedVector2Array).duplicate()
-			loop.append(loop[0])
-			_seams.draw_polyline(loop, Color(0, 0, 0, 0.55 * float(st[3])), 1.2, true)
-		_seams.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	# the gold: a seam is filled once both its shards are home — white-hot, cooling to gold; a glint runs along it
+	for i in _cells.size():
+		var st := _state(i)
+		var c: Dictionary = _cells[i]
+		if float(st[3]) <= 0.01 or absf(float(st[2])) < 0.02: continue
+		if (st[0] as Vector2).length() < 0.5 and absf(float(st[1])) < 0.01: continue
+		n.draw_set_transform(c.c + st[0], float(st[1]), Vector2(float(st[2]), 1.0))
+		var loop: PackedVector2Array = (c.loc as PackedVector2Array).duplicate()
+		loop.append(loop[0])
+		n.draw_polyline(loop, Color(0, 0, 0, 0.55 * float(st[3])), 1.2, true)
+	n.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## the gold: a seam fills once both its shards are home — molten, running along it, cooling; a drop where seams meet.
+## Beads as triangle strips for shaders/card_kin_gold.gdshader
+func _draw_gold(n: Control) -> void:
+	if _cells.is_empty() or _t < -1.0: return
+	var live := _t >= 0.0
+	if live and n == _in_gold: return
+	var pts_all := PackedVector2Array()
+	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	var glow_pts := PackedVector2Array()
+	var glow_cols := PackedColorArray()
+	var glow_uvs := PackedVector2Array()
+	var glow_idx := PackedInt32Array()
+	var lit_at := {}
 	for e: Dictionary in _edges:
-		var lit := -1.0
-		if _t < 0.0: lit = 99.0
-		else:
+		var lit := 99.0
+		if live:
 			var at := maxf(_landed(int(e.a)), _landed(int(e.b)))
 			if _t < at: continue
 			lit = _t - at
-		var pts: PackedVector2Array = e.pts
 		var hot := clampf(1.0 - lit / MOLTEN, 0.0, 1.0)
-		var fill := clampf(lit / 0.25, 0.0, 1.0)
-		var n := maxi(2, roundi(pts.size() * fill))
-		var part := pts.slice(0, n)
-		_seams.draw_polyline(part, Color(0.12, 0.07, 0.02, 0.6), 3.2, true)
-		var cols := PackedColorArray()
-		for p in part:
-			var g := fposmod((p.x * 0.6 + p.y * 0.35) - _clock * 70.0, 260.0)
-			var glint := exp(-pow((g - 20.0) / 14.0, 2.0)) * 0.6
-			var gold := Color(0.86, 0.63, 0.25).lerp(Color(1.0, 0.92, 0.68), glint)
-			cols.append(gold.lerp(Color(1.0, 0.97, 0.85), hot))
-		_seams.draw_polyline_colors(part, cols, 1.9, true)
-		if hot > 0.0:
-			_seams.draw_polyline(part, Color(1.0, 0.75, 0.3, 0.35 * hot), 6.0, true)
+		var fill := clampf(lit / 0.3, 0.0, 1.0)
+		var pts: PackedVector2Array = e.pts
+		var m := maxi(2, roundi(pts.size() * fill))
+		_strip(pts, e.w, m, Color(hot, 0.0, 0.0, 1.0), 1.0, pts_all, cols, uvs, idx)
+		if hot > 0.0: _strip(pts, e.w, m, Color(hot, 0.0, 1.0, 1.0), 3.2, glow_pts, glow_cols, glow_uvs, glow_idx)
+		for p: Vector2 in [pts[0], pts[pts.size() - 1]]:
+			var kk := "%d,%d" % [roundi(p.x), roundi(p.y)]
+			lit_at[kk] = maxf(float(lit_at.get(kk, -1.0)), hot) if fill >= 1.0 else float(lit_at.get(kk, -1.0))
+	for kn: Array in _knots:
+		var p: Vector2 = kn[0]
+		var kk := "%d,%d" % [roundi(p.x), roundi(p.y)]
+		if not lit_at.has(kk) or float(lit_at[kk]) < 0.0: continue
+		_disc(p, float(kn[1]), Color(float(lit_at[kk]), 1.0, 0.0, 1.0), pts_all, cols, uvs, idx)
+	var ci := n.get_canvas_item()
+	if glow_idx.size(): RenderingServer.canvas_item_add_triangle_array(ci, glow_idx, glow_pts, glow_cols, glow_uvs)
+	if idx.size(): RenderingServer.canvas_item_add_triangle_array(ci, idx, pts_all, cols, uvs)
+
+## a bead along pts[0..m): its width wd (×k), UV.y across it −1..1
+static func _strip(pts: PackedVector2Array, wd: PackedFloat32Array, m: int, col: Color, k: float, out: PackedVector2Array, cols: PackedColorArray, uvs: PackedVector2Array, idx: PackedInt32Array) -> void:
+	var base := out.size()
+	for i in m:
+		var a := pts[maxi(i - 1, 0)]
+		var b := pts[mini(i + 1, pts.size() - 1)]
+		var d := (b - a).normalized()
+		var nn := Vector2(-d.y, d.x)
+		var hw := wd[i] * 0.5 * k
+		out.append(pts[i] + nn * hw)
+		out.append(pts[i] - nn * hw)
+		cols.append(col)
+		cols.append(col)
+		uvs.append(Vector2(0.0, -1.0))
+		uvs.append(Vector2(0.0, 1.0))
+		if i > 0:
+			var o := base + (i - 1) * 2
+			idx.append_array([o, o + 1, o + 2, o + 1, o + 3, o + 2])
+
+## a drop of gold: a disc, UV its own −1..1
+static func _disc(c: Vector2, r: float, col: Color, out: PackedVector2Array, cols: PackedColorArray, uvs: PackedVector2Array, idx: PackedInt32Array) -> void:
+	var base := out.size()
+	out.append(c)
+	cols.append(col)
+	uvs.append(Vector2.ZERO)
+	const N := 14
+	for i in N:
+		var a := TAU * i / N
+		var u := Vector2(cos(a), sin(a))
+		out.append(c + u * r)
+		cols.append(col)
+		uvs.append(u)
+		idx.append_array([base, base + 1 + i, base + 1 + (i + 1) % N])
 
 # ---------------------------------------------------------------- the back
 
@@ -444,60 +530,129 @@ func _build_back() -> void:
 	_art.stretch_mode = TextureRect.STRETCH_SCALE
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bvp.add_child(_art)
-	# the stone's mending: a gold button, and under it how far its next charge has come (wins)
+	# the mending's charge: a glass vial filling with molten gold (drawn by code under the glass), a brass plate under
+	# it telling how far, taped on; the Mend button taped under it
+	_gauge = Control.new()
+	_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gm := ShaderMaterial.new()
+	gm.shader = preload("res://shaders/card_kin_gold.gdshader")
+	gm.set_shader_parameter("gold_tex", load("res://assets/textures/gold/gold_diff.png"))
+	_gauge.material = gm
+	_gauge.draw.connect(_draw_gauge)
+	_bvp.add_child(_gauge)
+	_vial = _sprite("vial")
+	_plate = _sprite("plate")
+	_plate_l = Kit.label("", 14, UI.body_bold, Color(0.16, 0.09, 0.03))
+	_plate_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_plate_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_plate_l.add_theme_constant_override("outline_size", 0)
+	_plate_l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_plate.add_child(_plate_l)
 	_mend = Kit.button("Mend", "btn_dark", 17, 4.0)
 	_mend.add_theme_color_override("font_color", Color(0.95, 0.76, 0.38))
 	_mend.pressed.connect(_mend_pick)
 	_bvp.add_child(_mend)
-	_gauge = Control.new()
-	_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_gauge.draw.connect(_draw_gauge)
-	_bvp.add_child(_gauge)
 	tree_exiting.connect(func() -> void: if is_instance_valid(_bshow): _bshow.queue_free())
 
-## the back's layout at the card's size: the art over all of it; at the foot the buttons, the mending above them
+func _sprite(n: String) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load("res://assets/ui/card_back/%s.png" % n)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bvp.add_child(t)
+	return t
+
+## a strip of tape across a corner of rect r (in the back's space; `at` 0 its top-left corner, 1 its bottom-right one —
+## clear of the words in the middle), on top
+func _tape(r: Rect2, at: float, k: int, lean: float) -> void:
+	var t := _sprite("tape_%d" % (k % 4))
+	t.size = Vector2(40, 18)
+	t.pivot_offset = t.size * 0.5
+	t.position = (r.position + Vector2(5, 5) if at < 0.5 else r.end - Vector2(5, 5)) - t.size * 0.5
+	t.rotation = lean
+	_tapes.append(t)
+
+## the back's layout at the card's size: the art over all of it; at the foot the buttons, each taped at its ends,
+## a little crooked; above them the Mend button, taped, and above that the vial of gold with its plate
 func _layout_back() -> void:
 	var sz := card.size
 	_art.position = Vector2.ZERO
 	_art.size = sz
-	var w := sz.x - 44.0
-	var y := sz.y - 26.0
+	for t in _tapes:
+		if is_instance_valid(t): t.queue_free()
+	_tapes.clear()
+	var w := sz.x - 40.0
+	var y := sz.y - 34.0
+	var tk := 0
 	if is_instance_valid(row) and row.get_parent() == _bvp:
-		row.position = Vector2(22, y - 48.0)
+		row.position = Vector2(20, y - 48.0)
 		row.size = Vector2(w, 48)
-		y -= 48.0 + 26.0
-	var wait := mend_wait(s)
-	# (only a kept stone mends — the inventory's card knows how to open another: a new find's back has its two buttons)
+		# (each button crooked its own way, taped at both ends: the row lays them out, its children are rects)
+		var bs: Array = row.find_children("*", "Button", true, false) if not row is Button else [row]
+		var lean := [-0.05, 0.04, -0.03]
+		for i in bs.size():
+			var b := bs[i] as Button
+			var br := Rect2(row.position + b.position, b.size) if b != row else Rect2(row.position, row.size)
+			b.pivot_offset = b.size * 0.5
+			b.rotation = lean[i % 3]
+			_tape(br, 0.0, tk, -0.75 + lean[i % 3])
+			_tape(br, 1.0, tk + 1, -0.7 + lean[i % 3])
+			tk += 2
+		y -= 48.0 + 30.0
 	var can := v.has_meta("open_stone")
-	_mend.visible = can
-	_gauge.visible = can
-	_gauge.position = Vector2(22, y - 22.0)
-	_gauge.size = Vector2(w, 22)
-	_mend.position = Vector2(22, y - 22.0 - 8.0 - 52.0)
-	_mend.size = Vector2(w, 52)
-	_mend.disabled = wait > 0
-	_mend.text = "Mend" if wait == 0 else "Mend · in %d wins" % wait
+	var wait := mend_wait(s)
+	_mend.position = Vector2(sz.x * 0.5 - 90.0, y - 50.0)
+	_mend.size = Vector2(180, 50)
+	_mend.pivot_offset = _mend.size * 0.5
+	_mend.rotation = 0.03
+	_mend.disabled = wait > 0 or not can
+	_mend.text = "Mend" if wait == 0 and can else ("Keep it to mend" if not can else "Mend")
+	_tape(Rect2(_mend.position, _mend.size), 0.0, tk, -0.75)
+	_tape(Rect2(_mend.position, _mend.size), 1.0, tk + 1, -0.7)
+	tk += 2
+	y -= 50.0 + 26.0
+	# the vial: 0.8 of the card's width, its plate under its middle
+	var vw := sz.x * 0.78
+	var vh := vw * 167.0 / 1051.0
+	_vial.size = Vector2(vw, vh)
+	_vial.position = Vector2((sz.x - vw) * 0.5, y - vh - 18.0)
+	_vial.pivot_offset = _vial.size * 0.5
+	_vial.rotation = -0.02
+	_gauge.position = _vial.position
+	_gauge.size = _vial.size
+	_gauge.pivot_offset = _vial.pivot_offset
+	_gauge.rotation = _vial.rotation
+	_plate.size = Vector2(110, 110.0 * 167.0 / 326.0)
+	_plate.position = Vector2(sz.x * 0.5 - 55.0, _vial.position.y + vh - 4.0)
+	_plate_l.text = "Ready" if wait == 0 else "%d / %d" % [MEND_EVERY - wait, MEND_EVERY]
+	# (the vial's tapes across its brass caps, upright)
+	for e: Array in [[0.07, 1.45], [0.93, 1.7]]:
+		var t := _sprite("tape_%d" % ((tk + int(e[0] > 0.5)) % 4))
+		t.size = Vector2(40, 18)
+		t.pivot_offset = t.size * 0.5
+		t.position = _vial.position + Vector2(_vial.size.x * float(e[0]), _vial.size.y * 0.5) - t.size * 0.5
+		t.rotation = float(e[1])
+		_tapes.append(t)
 	_gauge.queue_redraw()
 
+## the gold in the vial: how full, as the gold of the seams (a bead along the tube, its inside as wide as the bead)
 func _draw_gauge() -> void:
-	var wait := mend_wait(s)
-	var k := 1.0 - float(wait) / MEND_EVERY
-	var r := Rect2(Vector2(0, 4), Vector2(_gauge.size.x, 10))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.04, 0.04, 0.05, 0.85)
-	sb.border_color = Color(0.55, 0.42, 0.22)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(5)
-	_gauge.draw_style_box(sb, r)
-	if k > 0.0:
-		var f := StyleBoxFlat.new()
-		f.bg_color = Color(0.9, 0.68, 0.28) if wait == 0 else Color(0.72, 0.52, 0.2)
-		f.set_corner_radius_all(4)
-		_gauge.draw_style_box(f, Rect2(r.position + Vector2(1, 1), Vector2((r.size.x - 2) * k, r.size.y - 2)))
-	# ticks at every quarter
-	for q in [0.25, 0.5, 0.75]:
-		var x: float = r.size.x * q
-		_gauge.draw_line(Vector2(x, r.position.y + 2), Vector2(x, r.end.y - 2), Color(0, 0, 0, 0.35), 1.0)
+	var k := 1.0 - float(mend_wait(s)) / MEND_EVERY
+	if k <= 0.0: return
+	var sz := _gauge.size
+	# the tube's inside, between its brass caps (of the vial's picture)
+	var x0 := sz.x * 0.135
+	var x1 := sz.x * 0.865
+	var cy := sz.y * 0.5
+	var pts := PackedVector2Array([Vector2(x0, cy), Vector2(lerpf(x0, x1, k), cy)])
+	var wd := PackedFloat32Array([sz.y * 0.36, sz.y * 0.36])
+	var out := PackedVector2Array()
+	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	_strip(pts, wd, 2, Color(0.0, 0.0, 0.0, 1.0), 1.0, out, cols, uvs, idx)
+	RenderingServer.canvas_item_add_triangle_array(_gauge.get_canvas_item(), idx, out, cols, uvs)
 
 func _pass_input(ev: InputEvent) -> void:
 	if _side != 1 or _flip_t >= 0.0: return
@@ -672,7 +827,6 @@ static func mend(st: Dictionary, by: Dictionary) -> void:
 	Save.persist()
 	Diag.note("kintsugi mended " + Stones.name_of(st))
 	Awards.once("mended")
-	if int(st.get("integ", 100)) < 50: Awards.once("mended_bad")
 
 ## the mended stone's card, built: the gold runs into its breaks white-hot and cools (spec.gdshaderinc mend_k, mend_hot)
 static func pour(view: Node, p: Node3D) -> void:

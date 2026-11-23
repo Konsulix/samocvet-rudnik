@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://y8xi2ius43sw"
-path="res://.godot/imported/mended_bad.png-de752de39fd6e6bd8079abb44e4013b8.ctex"
+uid="uid://bqk64akwqk1c0"
+path="res://.godot/imported/tape_4.png-7b78af18ea252b4c3398d00f00d5b5bd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/awards/mended_bad.png"
-dest_files=["res://.godot/imported/mended_bad.png-de752de39fd6e6bd8079abb44e4013b8.ctex"]
+source_file="res://assets/ui/card_back/tape_4.png"
+dest_files=["res://.godot/imported/tape_4.png-7b78af18ea252b4c3398d00f00d5b5bd.ctex"]
 
 [params]
 
