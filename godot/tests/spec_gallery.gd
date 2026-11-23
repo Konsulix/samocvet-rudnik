@@ -332,6 +332,9 @@ func _ready() -> void:
 				var kind: String = "nugget" if sid in Data.NUGGETY else "fossil" if Data.HABIT.get(sid, "") == "fossil" else Stones.pick_w(SpecLooks.kinds(sid), Rng32.new(sd * 977))
 				var e := {seed = sd, sid = sid, kind = kind, gi = 2 + k % 2, traits = []}
 				if args.has("form"): e.form = args.form
+				if args.has("kind"): e.kind = String(args.kind)
+				# a geode's shape: gshape=half|window|cathedral|slab|all (all: each in turn)
+				if args.has("gshape"): e.gshape = String((SpecGenome.GEO_SHAPES[k % 4] as Array)[0]) if args.gshape == "all" else String(args.gshape)
 				if args.has("gi"): e.gi = int(args.gi)
 				if args.has("lustre"): e.lustre = String(args.lustre)
 				# how well it came out of the rock (0..100: the damage of a careless dig, SpecimenBuilder)
@@ -492,6 +495,11 @@ func _ready() -> void:
 	print("total ", Time.get_ticks_msec() - t0, " ms")
 	if args.has("shot"):
 		await get_tree().create_timer(float(args.get("after", "3"))).timeout
+		# yaw=R: (with still) every stone turned R rad round — yaw=3.7 shows a geode's back
+		if args.has("yaw"):
+			for c in get_children():
+				if c is SpecView and (c as SpecView).live: (c as SpecView).live.rotation.y = float(args.yaw)
+			await get_tree().create_timer(0.3).timeout
 		await RenderingServer.frame_post_draw
 		var vp: Viewport = (get_child(0) as SpecView).studio.vp if args.has("alpha") else get_viewport()
 		# frames=N every=S: a run of shots (shot_0.png …) for a GIF of what moves

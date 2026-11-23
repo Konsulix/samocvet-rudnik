@@ -101,7 +101,9 @@ static func mass_of(r: Node3D, body := false) -> Dictionary:
 		else: mineral += v
 	# (`span`: the find's size as its card frames it — the card fits every find to the same frame, so what reads as
 	# heavy is how much of that frame is stone: a chunk filling it, not a spindly sceptre)
-	return {rock = rock, min = mineral, span = maxf(0.01, maxf(all.size.x, all.size.y))}
+	# (a geode's shape: its weight by how it is built, not by its boxes — _geode)
+	var mk := float(r.get_meta("mass_k", 1.0))
+	return {rock = rock * mk, min = mineral * mk, span = maxf(0.01, maxf(all.size.x, all.size.y))}
 
 # ---------------------------------------------------------------- specimen
 
@@ -1736,7 +1738,8 @@ func _shatter() -> void:
 				(x as Node3D).transform = xt
 	# how it broke, the stone's own (16.11): an end knocked off sideways; its top knocked off; a slanting break, the
 	# wedge above slid down; a piece fallen forward to the viewer. (A Damaged find is split through: no top off)
-	var flat: bool = String(gene_m.get("form", "")) in ["sawn", "slice"]
+	# (a geode's slab, 23.11: a thin plate as a sawn one is — it breaks across and its pieces slide, never tumble)
+	var flat: bool = String(gene_m.get("form", "")) in ["sawn", "slice"] or String(gene_m.get("gshape", "")) == "slab"
 	var mode: String = Stones.pick_w([["side", 4.0], ["top", 0.0 if flat else 3.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]] if k < 0.56
 		else [["side", 4.0], ["slant", 3.0], ["front", 0.0 if flat else 2.0]], dr)
 	var cuts: Array = []
@@ -3133,7 +3136,55 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var shell := Node3D.new()
 	root.add_child(shell)
 	var R: Dictionary = RockKit.ROCKS["basalt" if rtype == "quartzite" else rtype]
-	var outer := RockKit.warp(Geo.sphere(1, 64, 32, 0, TAU, 0, PI / 2), rng, 0.3, 1.6)
+	# (23.11, "more kinds of geode, by their weight") its shape, SpecGenome gshape: half — the open bowl, as before;
+	# window — a whole geode with a hole broken in its front, the cave seen through it (heavy); cathedral — a tall
+	# standing half, deep (heavy); slab — a thin slice, a shallow cave (light). The shell's sphere stretched (S), or
+	# closed past its equator (th)
+	var gshape := String(gene_m.get("gshape", "half"))
+	var th := PI * 0.7 if gshape == "window" else PI / 2
+	var S: Vector3 = {cathedral = Vector3(1.0, 1.3, 1.65), slab = Vector3(1.1, 0.22, 1.0)}.get(gshape, Vector3.ONE)
+	var outer := RockKit.warp(Geo.sphere(1, 64, 32, 0, TAU, 0, th), rng, 0.3 if S == Vector3.ONE else 0.17, 1.6)   # (a stretched shell, its dents stretched with it: less warped)
+	# the shell's own radius in any way, read off its grid (the warp moves its points only along their ways): what
+	# grows in the cave is set by it and kept inside it (22.11, a chrysocolla seen from behind: its bubbles were set by
+	# the nearest of a sparse set of the shell's points, and where the shell was warped in they came through it)
+	var rad := PackedFloat32Array()
+	for v in outer.v: rad.append(v.length())
+	var r0 := func(d0: Vector3) -> float:
+		var fy := clampf(acos(clampf(d0.y, -1.0, 1.0)) / th * 32.0, 0.0, 32.0)
+		var fx := fposmod(atan2(d0.z, -d0.x), TAU) / TAU * 64.0
+		var iy := mini(int(fy), 31)
+		var ix := mini(int(fx), 63)
+		var ty := fy - iy
+		var tx := fx - ix
+		return lerpf(lerpf(rad[iy * 65 + ix], rad[iy * 65 + ix + 1], tx), lerpf(rad[(iy + 1) * 65 + ix], rad[(iy + 1) * 65 + ix + 1], tx), ty)
+	for i in outer.v.size(): outer.v[i] *= S
+	# a point of the stretched shell's way at a share of its radius (d0: a way before the stretch)
+	var wall_at := func(d0: Vector3, k: float) -> Vector3: return S * d0 * (r0.call(d0) as float) * k
+	# the shell's radius along a point's way (INF where it is open: the cave's mouth)
+	var shell_r := func(p: Vector3) -> float:
+		var d0 := (p / S).normalized()
+		if acos(clampf(d0.y, -1.0, 1.0)) > th: return INF
+		return (S * d0).length() * (r0.call(d0) as float)
+	# what stands out of the shell's skin: shrunk where it stands, then drawn in (pts: its points, its own space)
+	var unpoke := func(t: Transform3D, pts: Array) -> Transform3D:
+		for it in 6:
+			var worst := 0.0
+			for p: Vector3 in pts:
+				var q := t * p
+				var rr: float = shell_r.call(q)
+				if rr < INF: worst = maxf(worst, q.length() / rr)
+			if worst <= 0.955: break
+			if it < 3: t.basis = t.basis * Basis.from_scale(Vector3.ONE * 0.8)
+			else: t.origin *= 0.95 / worst
+		return t
+	var ball := []
+	for x in [-1, 0, 1]:
+		for y in [-1, 0, 1]:
+			for z in [-1, 0, 1]:
+				if x or y or z: ball.append(Vector3(x, y, z).normalized())
+	# the cave's ways: in a window geode, kept above its mouth
+	var cave_d := func(d: Vector3) -> Vector3: return d if gshape != "window" else Vector3(d.x, lerpf(cos(th) + 0.15, 1.0, d.y), d.z).normalized()
+	var sz_k := 0.6 if gshape == "slab" else 1.0   # (a slab's cave is shallow: smaller things in it)
 	var ocol := SpecMat.hsl(R.h[0], R.s[0] + 0.05, R.l[0] + 0.06).srgb_to_linear()
 	var om := SpecMat.make({col = Color(1, 1, 1), rough = 0.95, flat = true, dirt = {h = 99.0, a = 0.3, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}})
 	om.set_meta("rock", true)
@@ -3144,18 +3195,6 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	outer_mesh.set_meta("local", true)
 	# the cave's wall: the warped shell itself, a little in (a round bowl inside poked out through the shell where it
 	# was warped in, and lit pale it read as a sheet of glass over the cave); dark, so what grows on it shows
-	var wr := []
-	for i in range(0, outer.v.size(), 3):
-		if outer.v[i].length() > 0.05: wr.append([outer.v[i].normalized(), outer.v[i].length()])
-	var wall_r := func(d: Vector3) -> float:
-		var best := -2.0
-		var r := 0.9
-		for e: Array in wr:
-			var dd := d.dot(e[0])
-			if dd > best:
-				best = dd
-				r = float(e[1])
-		return r * 0.9
 	var ic := col.lerp(Color(0.12, 0.13, 0.15), 0.8) * 0.25
 	ic.a = 1.0
 	var inner_g := Geo.new()
@@ -3174,7 +3213,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		# the nearest of a sparse set left some floating in the cave
 		var vi := int(rng.next() * inner_g.v.size()) % inner_g.v.size()
 		var wp: Vector3 = inner_g.v[vi]
-		if wp.length() < 0.05: wp = d * (wall_r.call(d) as float)
+		if wp.length() < 0.05: wp = wall_at.call(cave_d.call(d), 0.9)
 		return [_rot_inst(wp * 0.995, e, Vector3(s, s * 1.7, s)), c]
 	U.inst(Geo.octa(1), SpecMat.make({rough = 0.08, coat = 1.0, flat = true, env = 2.4}), 800, place, shell)
 	# agate rind: fine bands from the dark outer crust through grey and milky layers to a hint of the stone's own colour
@@ -3205,6 +3244,16 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 	var wob := []
 	for k in 4:
 		wob.append([1 + int(floor(rng.next() * 9)), rng.next() * 6.3])
+	# (23.11) hurt by the dig, the lip is chipped: shell-shaped scoops out of its polished band, fresh and pale — one on
+	# a Fine geode (it showed nothing at all), more the worse it came out; before it breaks apart (_shatter)
+	var hk: float = hurt.get("k", 0.0)
+	var nicks := []
+	if hk > 0.0:
+		var sr := Rng32.new(int((hurt.rng as Rng32).next() * 9999991.0) + 1)   # (the stone's own: where it was hit)
+		for k in (1 if hk < 0.2 else 2 if hk < 0.56 else 3):
+			nicks.append([sr.next() * TAU, 0.2 + sr.next() * 0.18, 0.06 + sr.next() * 0.04])
+	var chip_w := PackedFloat32Array()
+	chip_w.resize(rg.v.size())
 	for i in rg.v.size():
 		var p := rg.v[i]
 		var a := atan2(p.y, p.x)
@@ -3212,17 +3261,28 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 		var t := (r - 0.74) / 0.28
 		# the lip meets the warped shell at its actual edge, at every angle (the shell's last row of vertices)
 		var edge: Vector3 = outer.v[32 * 65 + roundi(fposmod(PI - a, TAU) / TAU * 64.0)]
-		var edge_r := Vector2(edge.x, edge.z).length()
 		var n := 0.0
 		for w in wob:
 			n += sin(a * w[0] + w[1]) * 0.25
 		n += sin(a * 37.0 + r * 9.0) * 0.12
-		var rr := edge_r * (0.74 + t * 0.28)
-		rg.v[i] = Vector3(cos(a) * rr, sin(a) * rr, (n * 0.05 + sin(a * 53.0) * 0.012) * (1.0 - absf(t - 0.5)))
+		# (along the edge point's own way — a stretched shell's is not the ring's angle — and at its height: a window
+		# geode's mouth is below its middle)
+		var e2 := Vector2(edge.x, edge.z) * (0.74 + t * 0.28)
+		var cw := 0.0
+		var cz := 0.0
+		for nk: Array in nicks:
+			var da := absf(angle_difference(a, float(nk[0]))) / float(nk[1])
+			# (a crisp edge, a dish inside it: a soft one read as a pale smear, not a chip)
+			var nw := smoothstep(0.0, 0.3, 1.0 - da * da) * sqrt(maxf(0.0, sin(PI * clampf(t, 0.0, 1.0))))
+			cw = maxf(cw, nw)
+			cz += float(nk[2]) * nw
+		chip_w[i] = cw
+		e2 *= 1.0 - 0.06 * cw   # (and the lip's edge bitten a little)
+		rg.v[i] = Vector3(e2.x, e2.y, (n * 0.05 + sin(a * 53.0) * 0.012) * (1.0 - absf(t - 0.5)) * (1.0 - cw) - cz - edge.y)
 	rg.col.resize(rg.v.size())
 	for i in rg.v.size():
 		var t := 1.0 - float(i / 65) / 16.0
-		rg.col[i] = (band.call(clampf(t, 0.0, 1.0)) as Color).srgb_to_linear()
+		rg.col[i] = (band.call(clampf(t, 0.0, 1.0)) as Color).lerp(Color(0.8, 0.79, 0.76), smoothstep(0.15, 0.4, chip_w[i]) * 0.75).srgb_to_linear()
 	# (an opal egg's rind: its ironstone, the rock's own scan over the bands — smooth it read as chocolate)
 	var rim_m := SpecMat.make({col = Color(1, 1, 1), rough = 0.9, flat = true, side = "double", dirt = {h = 99.0, a = 0.45, col = ocol, fr = 0.0, scan = RockKit.SCAN_OF[rtype]}}) if _sid == "opal" else SpecMat.make({col = Color(1, 1, 1), rough = 0.8, flat = true, side = "double"})
 	var rim := U.mesh(rg, rim_m, shell)
@@ -3275,8 +3335,7 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 				var edge: Vector3 = outer.v[32 * 65 + roundi(fposmod(PI - a, TAU) / TAU * 64.0)]
 				# (over the inner part of the rind: a thin rind round it, not a wide white ring)
 				var u := float(ri) / nr
-				var rr := Vector2(edge.x, edge.z).length() * 0.9 * u
-				var p2 := Vector2(cos(a) * rr, sin(a) * rr)
+				var p2 := Vector2(edge.x, edge.z) * 0.9 * u
 				# (sunk a little under the rind at its edge: the opal seen into the stone, not a lid laid on it)
 				var z := -0.012 + (0.09 if not raw else 0.06) * (1.0 - u * u)
 				for sc: Array in scoops:
@@ -3341,7 +3400,10 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 			# (kept off the lip and sunk only into the wall's inner half, so none shows through the outside)
 			var d := Vector3(rng.next() - 0.5, (rng.next() * 0.86 + 0.14) if chry else (rng.next() * 0.8 + 0.2), rng.next() - 0.5).normalized()
 			var s := (0.05 + pow(rng.next(), 2.0) * 0.11) * (0.5 + 0.5 * smoothstep(0.14, 0.35, d.y)) if chry else (0.04 + pow(rng.next(), 2.0) * 0.09)
-			bub.append(Transform3D(Basis(quat_to_l(UP, -d)) * Basis.from_scale(Vector3(s, s * 0.55, s)), d * (wall_r.call(d) as float) * 0.97))
+			s *= sz_k
+			var dc: Vector3 = cave_d.call(d)
+			var nd := (dc / S).normalized()   # (the stretched wall's own way out)
+			bub.append(unpoke.call(Transform3D(Basis(quat_to_l(UP, -nd)) * Basis.from_scale(Vector3(s, s * 0.55, s)), wall_at.call(dc, 0.873)), ball))
 		main = U.mesh(Geo.sphere(1, 20, 14), bm, shell)
 		main.transform = bub[0]
 		main.set_meta("local", true)
@@ -3357,21 +3419,32 @@ func _geode(sp: Dictionary, col: Color, rtype: String, habit: String, elongated:
 					spk.append(_rot_inst(top + jit * 0.5, Vector3(rng.next() * 3, rng.next() * 3, rng.next() * 3), Vector3(ss, ss * 1.8, ss)))
 			U.inst(Geo.octa(1), SpecMat.make({col = Color(0.95, 0.97, 1.0), rough = 0.05, coat = 1.0, flat = true, env = 2.6}), spk.size(), func(i: int) -> Array: return [spk[i], Color(1, 1, 1)], shell)
 	for k in (0 if main else 80 + int(floor(rng.next() * 40))):
-		var d := Vector3(rng.next() - 0.5, rng.next() * 0.95 + 0.05, rng.next() - 0.5).normalized()
-		var f := pow(rng.next(), 1.6)
-		var dir := ((-d).lerp(UP, 0.15) + Vector3((rng.next() - 0.5) * 0.45, (rng.next() - 0.5) * 0.2, (rng.next() - 0.5) * 0.45)).normalized()
+		var d: Vector3 = cave_d.call(Vector3(rng.next() - 0.5, rng.next() * 0.95 + 0.05, rng.next() - 0.5).normalized())
+		var f := pow(rng.next(), 1.6) * sz_k
+		var nd := (d / S).normalized()
+		var dir := ((-nd).lerp(UP, 0.15) + Vector3((rng.next() - 0.5) * 0.45, (rng.next() - 0.5) * 0.2, (rng.next() - 0.5) * 0.45)).normalized()
 		var c: MeshInstance3D
 		if prismy:
 			var w := 0.05 + f * 0.13
 			var h := w * 1.4 if habit == "cube" else minf(0.42, w * (2.4 + rng.next() * 2.2))
 			var g := RockKit.prism(rng, {sides = 4 if habit == "cube" else 6, w = w, d = w * (0.8 + rng.next() * 0.3), h = h, point = habit != "cube", y0 = -w * 0.4}, {cA = c_root, cB = c_tip, zk = 1.0})
 			c = U.mesh(g, gm, shell)
-			_place(c, d * (wall_r.call(d) as float) * 0.96, dir, 1.0, rng.next() * 6.28)
+			_place(c, wall_at.call(d, 0.864), dir, 1.0, rng.next() * 6.28)
 		else:
-			c = crystal.call(0.3 + f * 0.5, 0.4 + f * 0.5, d * (wall_r.call(d) as float) * 0.96, dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
+			c = crystal.call((0.3 + f * 0.5) * sz_k, (0.4 + f * 0.5) * sz_k, wall_at.call(d, 0.864), dir, {cA = c_root, cB = c_tip, zk = 1.0, habit = inner}, gm, shell)
+		# (kept inside the shell: its foot or its tip through the back)
+		var cg: Geo = c.get_meta("geo") if c.has_meta("geo") else null
+		var cpts := []
+		if cg:
+			for vi in range(0, cg.v.size(), maxi(1, cg.v.size() / 60)): cpts.append(cg.v[vi])
+		c.transform = unpoke.call(c.transform, cpts)
 		c.set_meta("local", true)
 		if not main: main = c
-	shell.transform = Transform3D(U.eul(-PI / 2 - 0.55, 0.35, 0), Vector3.ZERO)
+	# (a cathedral stands up, its mouth to the viewer; a slab is shown face on, as it lies on a dealer's stand)
+	shell.transform = Transform3D(U.eul(-PI / 2 - (0.12 if gshape == "cathedral" else 0.3 if gshape == "slab" else 0.55), 0.25 if gshape == "cathedral" else 0.35, 0), Vector3.ZERO)
+	# its weight by its shape (Stones.settle by the model's boxes: a hollow bowl, a slab and a closed geode filled their
+	# boxes alike) — a whole geode or a cathedral heavy, a slab light; the mean of the kind kept (MODEL_REF geode)
+	root.set_meta("mass_k", float({half = 0.89, window = 1.7, cathedral = 3.0, slab = 0.93}.get(gshape, 1.0)))
 	if _sid == "opal":
 		var acc_h: Array = gene_m.get("accents", [])
 		if "halves" in acc_h:

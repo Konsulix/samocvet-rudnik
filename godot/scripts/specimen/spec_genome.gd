@@ -416,7 +416,23 @@ static func of(o: Dictionary) -> Dictionary:
 		# the traits the species always has (its look, not named on the card)
 		sig = look.get("sig", []),
 		holo = 1.6 if "aurora" in tr else 0.9 if "irid" in tr else 0.3 if anomaly else 0.15 + rng.next() * 0.25,
+		# a geode's shape (SpecimenBuilder._geode): its own stream, nothing else moves
+		gshape = String(o.get("gshape", geo_shape(seed_v, sid))) if form == "geode" else "",
 	}
+
+## a geode's shape (23.11): the open half as before, a whole one with a window broken in it, a tall cathedral, a thin
+## slab. An opal egg stays a half (its face of opal is built on the half's lip)
+const GEO_SHAPES := [["half", 4.0], ["window", 2.0], ["cathedral", 1.5], ["slab", 1.5]]
+static func geo_shape(seed_v: int, sid: String) -> String:
+	if sid == "opal": return "half"
+	var opts := []
+	for e: Array in GEO_SHAPES:
+		var w := float(e[1])
+		# (amethyst and celestine stand as cathedrals; an agate is mostly cut in slabs)
+		if e[0] == "cathedral" and sid in ["amethyst", "celestine"]: w *= 2.5
+		if e[0] == "slab" and sid in ["chalcedony"]: w *= 2.5
+		opts.append([e[0], w])
+	return Stones.pick_w(opts, Rng32.new((seed_v * 1597334677 + 419) % 4294967296))
 
 ## the lines for the reveal card: what the find is made of
 static func describe(g: Dictionary) -> Array:
