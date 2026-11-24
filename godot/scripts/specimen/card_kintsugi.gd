@@ -8,7 +8,7 @@ extends Control
 ## back, and the card turns under a drag of the finger, its glow with it. Again now and then while it lies face up.
 ## The panel's picture for the shards is a snapshot of it (the screen read back once a break).
 
-const SHARDS_ROW := 3          # the shards the button row breaks into
+const SHARDS_ROW := 4          # the shards the button row breaks into
 const AGAIN := 30.0            # seconds between breaks, face up
 const CRACK := 0.45            # the cracks run
 const BACK_AT := 1.75          # the shards start back
@@ -86,6 +86,7 @@ var _halo: Array[CanvasItem] = []   # the card's rarity glow (the holder's own c
 var _hvp: SubViewport          # the glow drawn again, turned with the card
 var _hshow: TextureRect
 var _bframe: Panel             # the back's brass: the card's own frame
+var _aclip: Control            # the back's picture is cut to the inside of the frame
 var _snap: ImageTexture        # the card's face, for its half of the turn
 var _press := Vector2.ZERO
 var _pressed := false
@@ -230,7 +231,10 @@ func _break() -> void:
 	stm.set_shader_parameter("psize", card.size)
 	stm.set_shader_parameter("block", Vector4(_block.position.x, _block.position.y, _block.size.x, _block.size.y))
 	stm.set_shader_parameter("rt", TOP_R)
-	stm.set_shader_parameter("rb", CORNER)
+	# (square below: rounded, the card frame's own rounded corners were left over the hole - 24.11)
+	stm.set_shader_parameter("rb", 0.0)
+	stm.set_shader_parameter("side_w", Reveal.CARD_PAD + 1.0)
+	stm.set_shader_parameter("side_down", Reveal.INFO_R + 46.0)
 	for n: Control in [_pieces, _in_pieces]:
 		var m := n.material as ShaderMaterial
 		m.set_shader_parameter("front", _front)
@@ -244,6 +248,8 @@ func _break() -> void:
 				gn += 1
 		m.set_shader_parameter("card_sz", card.size)
 		m.set_shader_parameter("inset", Reveal.CARD_PAD)
+		var ar := art_rect(card.size)
+		m.set_shader_parameter("art", Vector4(ar.position.x, ar.position.y, ar.size.x, ar.size.y))
 	for n: Control in [_pieces, _gold, _in]: n.visible = true
 	if rim: rim.visible = true
 	_t = 0.0
@@ -326,13 +332,14 @@ func _shatter_map() -> void:
 		seeds.append(Vector2(w * (k + 0.5) / SHARDS_ROW + rng.randf_range(-12.0, 12.0), rr.get_center().y + rng.randf_range(-6.0, 6.0)))
 		down.append(true)
 	var top := rr.position.y - rr.size.y * 0.7
-	var cols := 4
-	var rows := maxi(2, roundi(top / 62.0))
+	# (24.11: more of them, the chequer plainer)
+	var cols := 5
+	var rows := maxi(3, roundi(top / 44.0))
 	for j in rows:
 		for k in cols:
 			seeds.append(Vector2((k + 0.5 + rng.randf_range(-0.35, 0.35)) * w / cols, (j + 0.5 + rng.randf_range(-0.35, 0.35)) * top / rows))
 			# (the row over the buttons turned over every other one: a chequer with them - 24.11)
-			down.append(j == rows - 1 and k % 2 == 0)
+			down.append((j == rows - 1 and k % 2 == 0) or (j == rows - 2 and k % 2 == 1))
 	var box := PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
 	var polys := []
 	for i in seeds.size():
@@ -490,7 +497,9 @@ func _draw_pieces(n: Control) -> void:
 		for p: Vector2 in c.poly:
 			cols.append(col)
 			uvs.append(p / _block.size)
-		n.draw_set_transform(c.c + st[0], float(st[1]), Vector2(fw, 1.0))
+		# (its outline never mirrored: a turned shard lies in its own place, only its picture is the back's, mirrored by
+		# the shader; mirrored, it fitted nowhere - bits of the frame lay in the slate, the seams off its edges - 24.11)
+		n.draw_set_transform(c.c + st[0], float(st[1]), Vector2(absf(fw), 1.0))
 		n.draw_polygon(c.loc, cols, uvs)
 	n.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -508,7 +517,7 @@ func _draw_cracks(n: Control) -> void:
 		var c: Dictionary = _cells[i]
 		if float(st[3]) <= 0.01 or absf(float(st[2])) < 0.02: continue
 		if (st[0] as Vector2).length() < 0.5 and absf(float(st[1])) < 0.01: continue
-		n.draw_set_transform(c.c + st[0], float(st[1]), Vector2(float(st[2]), 1.0))
+		n.draw_set_transform(c.c + st[0], float(st[1]), Vector2(absf(float(st[2])), 1.0))
 		var loop: PackedVector2Array = (c.loc as PackedVector2Array).duplicate()
 		loop.append(loop[0])
 		n.draw_polyline(loop, Color(0, 0, 0, 0.55 * float(st[3])), 1.2, true)
@@ -648,12 +657,16 @@ func _build_back() -> void:
 	_bframe.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bframe.add_theme_stylebox_override("panel", card.get_theme_stylebox("panel"))
 	_bvp.add_child(_bframe)
+	_aclip = Control.new()
+	_aclip.clip_contents = true
+	_aclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bvp.add_child(_aclip)
 	_art = TextureRect.new()
 	_art.texture = _back
 	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_art.stretch_mode = TextureRect.STRETCH_SCALE
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bvp.add_child(_art)
+	_aclip.add_child(_art)
 	# the mending's charge: a glass vial filling with molten gold (drawn by code under the glass), a brass plate under
 	# it telling how far, taped on; the Mend button taped under it
 	_gauge = Control.new()
@@ -697,14 +710,27 @@ func _tape(r: Rect2, at: float, k: int, lean: float) -> void:
 	t.rotation = lean
 	_tapes.append(t)
 
+## the back's picture in the card's space: its own proportions, covering the inside of the frame and a little more -
+## its torn paper edges and see-through corners out of sight (24.11: stretched to the frame, it was drawn out and its
+## corners showed empty)
+func art_rect(sz: Vector2) -> Rect2:
+	var inner := sz - Vector2.ONE * Reveal.CARD_PAD * 2.0
+	var ts := Vector2(_back.get_width(), _back.get_height())
+	var k := maxf(inner.x / ts.x, inner.y / ts.y) * 1.1
+	var d := ts * k
+	return Rect2(Vector2.ONE * Reveal.CARD_PAD + (inner - d) * 0.5, d)
+
 ## the back's layout at the card's size: the art over all of it; at the foot the buttons, each taped at its ends,
 ## a little crooked; above them the Mend button, taped, and above that the vial of gold with its plate
 func _layout_back() -> void:
 	var sz := card.size
 	_bframe.position = Vector2.ZERO
 	_bframe.size = sz
-	_art.position = Vector2.ONE * Reveal.CARD_PAD
-	_art.size = sz - Vector2.ONE * Reveal.CARD_PAD * 2.0
+	var ar := art_rect(sz)
+	_aclip.position = Vector2.ONE * Reveal.CARD_PAD
+	_aclip.size = sz - Vector2.ONE * Reveal.CARD_PAD * 2.0
+	_art.position = ar.position - _aclip.position
+	_art.size = ar.size
 	for t in _tapes:
 		if is_instance_valid(t): t.queue_free()
 	_tapes.clear()
