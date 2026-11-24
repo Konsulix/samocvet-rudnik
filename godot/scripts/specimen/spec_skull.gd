@@ -341,7 +341,7 @@ static func _beast_genes(g: Dictionary, o: Dictionary) -> void:
 	if horned:
 		if g.fx == "deathless": g.fx = "flutter"
 		if g.fx == "flutter":
-			g.flies = 7
+			g.flies = 12
 			g.fly_mode = 0
 
 
@@ -605,7 +605,7 @@ static func genes(seed_v: int, o: Dictionary) -> Dictionary:
 	# what fills the eyes: a fire, watching eyes or fireflies need them open; obols lie over them
 	# a cloud of butterflies: many, all resting to begin with (SpecSkullFx.Flock sends them up together)
 	if g.fx == "flutter":
-		g.flies = 7
+		g.flies = 12   # (24.11: 7 - "it should be a real cloud")
 		g.fly_mode = 0
 	if g.fx in ["yaga", "watching"] or g.lantern or g.coins:
 		g.eyes = "none"

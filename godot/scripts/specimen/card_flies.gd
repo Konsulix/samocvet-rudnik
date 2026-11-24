@@ -11,9 +11,9 @@ extends Control
 const PX := 2.5               # the layer's pixels a point
 const PITCH := 0.35           # the camera's look down (as the trailer's)
 const SPAN := 40.0            # its wingspan on the card, in points
-const EVERY := [1.4, 3.2]     # how often one leaves, while the cloud is up
-const OUT_MIN := 2            # (24.11: always one at a time out was too few - 2..4 out, they leave more often)
-const OUT_MAX := 4
+const EVERY := [0.7, 1.8]     # how often one leaves, while the cloud is up
+const OUT_MIN := 3            # (24.11: a cloud - 3..6 out, two or three on one button)
+const OUT_MAX := 6
 ## how likely each kind of spot: a button, the ribbon, the card's top (24.11: the top was one of five spots, never seen)
 const SPOT_W := [1.0, 1.0, 1.6]
 
@@ -170,7 +170,7 @@ func _spots() -> Array:
 		var b := n as Button
 		if not b.is_visible_in_tree(): continue
 		var r: Rect2 = to_card * b.get_global_transform() * Rect2(Vector2.ZERO, b.size)
-		out.append([Vector2(r.get_center().x, r.position.y + 3.5), r.size.x * 0.32, 0])
+		out.append([Vector2(r.get_center().x, r.position.y + 3.5), r.size.x * 0.4, 0])
 	var ig: Rect2 = to_card * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
 	out.append([Vector2(card.size.x * 0.5, ig.position.y - 1.5), (ig.size.x - Reveal.INFO_R * 2.0) * 0.42, 1])
 	out.append([Vector2(card.size.x * 0.6, 2.0), card.size.x * 0.3, 2])
@@ -190,19 +190,28 @@ func _leave() -> void:
 		pick -= float(SPOT_W[kind])
 		kind += 1
 	spots.sort_custom(func(a: Array, b: Array) -> bool: return int(int(a[2]) == kind) > int(int(b[2]) == kind))
+	# (most often to where one or two already sit: two or three together on a button - 24.11, "a cloud")
+	if rng.randf() < 0.7:
+		var company := spots.filter(func(q: Array) -> bool:
+			var n := 0
+			for o: Dictionary in _out:
+				if (o.spot as Vector2).distance_to(q[0]) <= float(q[1]) + SPAN: n += 1
+			return n >= 1 and n <= 2)
+		if company.size(): spots = company + spots
 	var at := Vector2.INF
 	for s: Array in spots:
 		var q: Vector2 = s[0] + Vector2(rng.randf_range(-1.0, 1.0) * float(s[1]), 0.0)
 		var ok := true
 		for o: Dictionary in _out:
-			if (o.spot as Vector2).distance_to(q) < SPAN * 1.5: ok = false
+			if (o.spot as Vector2).distance_to(q) < SPAN * 0.7: ok = false
 		if ok:
 			at = q
 			break
 	if at == Vector2.INF: return
 	var flies := find.find_children("*", "", true, false).filter(func(n: Node) -> bool:
 		return n is SpecButterfly.Fly and (n as Node3D).visible and (n as SpecButterfly.Fly).looked and (n as SpecButterfly.Fly).state == SpecButterfly.Fly.FLY)
-	if flies.is_empty() and test_every > 0.0:
+	# (the cloud down on the skull: one of those resting takes off from it - 24.11, they left only while the cloud was up)
+	if flies.is_empty():
 		flies = find.find_children("*", "", true, false).filter(func(n: Node) -> bool: return n is SpecButterfly.Fly and (n as Node3D).visible)
 	if flies.is_empty(): return
 	# one round the back of the skull, if any: it comes out from behind it (23.11: the swap in mid-air was abrupt)
@@ -350,7 +359,7 @@ func _process(dt: float) -> void:
 	# one leaves now and then while the cloud is up (Flock's phase 1), never too many out at once
 	if view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 		_next -= dt
-		var up := int(flock.get("phase")) == 1 or test_every > 0.0
+		var up := true
 		if _next <= 0.0 and up and _out.size() < OUT_MAX:
 			_leave()
 			_next = test_every if test_every > 0.0 else (rng.randf_range(0.4, 0.9) if _out.size() < OUT_MIN else rng.randf_range(EVERY[0], EVERY[1]))
@@ -392,7 +401,7 @@ func _process(dt: float) -> void:
 					_behind(fb, false)
 				_size(fb, float(o.k0))
 				if fb.state == SpecButterfly.Fly.SIT:
-					fb.timer = rng.randf_range(4.0, 9.0)
+					fb.timer = rng.randf_range(6.0, 12.0)
 					o.stage = 2
 				elif float(o.t) > 9.0:
 					o.stage = 3   # (never got down: home)
