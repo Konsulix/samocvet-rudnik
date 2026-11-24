@@ -33,6 +33,13 @@ var find: Node3D
 var _vp: SubViewport
 var _hold: Node3D
 var _rect: TextureRect
+## (24.11: "from under the skull, and back there") one still behind the skull is drawn in a layer of its own (_vpb,
+## the same world seen by a camera of the hidden ones' visual layer), cut by the skull's silhouette: the find drawn
+## again unshaded on a clear background by the stone's own camera (_mvp) - only while one is behind it
+var _vpb: SubViewport
+var _rectb: TextureRect
+var _mvp: SubViewport
+var _mcam: Camera3D
 var _out := []                # {fb, src, spot (card point), from, stage, t}
 var _next := 2.0
 var rng := RandomNumberGenerator.new()
@@ -96,6 +103,45 @@ func _ready() -> void:
 	_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_rect.stretch_mode = TextureRect.STRETCH_SCALE
 	add_child(_rect)
+	cam.cull_mask = 1
+	_vpb = SubViewport.new()
+	_vpb.transparent_bg = true
+	_vpb.msaa_3d = Viewport.MSAA_4X
+	_vpb.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_vpb)
+	_vpb.world_3d = _vp.find_world_3d()
+	var camb := Camera3D.new()
+	camb.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camb.near = 1.0
+	camb.far = 1000.0
+	camb.cull_mask = 2
+	_vpb.add_child(camb)
+	camb.current = true
+	_rectb = TextureRect.new()
+	_rectb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rectb.texture = _vpb.get_texture()
+	_rectb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rectb.stretch_mode = TextureRect.STRETCH_SCALE
+	var bm := ShaderMaterial.new()
+	bm.shader = preload("res://shaders/fly_behind.gdshader")
+	_rectb.material = bm
+	_rectb.visible = false
+	add_child(_rectb)
+	_mvp = SubViewport.new()
+	_mvp.transparent_bg = true
+	_mvp.debug_draw = Viewport.DEBUG_DRAW_UNSHADED
+	_mvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_mvp)
+	_mvp.world_3d = view.studio.vp.find_world_3d()
+	_mcam = Camera3D.new()
+	# (its own clear background: with the studio's sky the mask was solid)
+	var me := Environment.new()
+	me.background_mode = Environment.BG_CLEAR_COLOR
+	_mcam.environment = me
+	_mcam.cull_mask = 0xFFFFF & ~SpecStudio.BACKDROP   # (not the studio's haze behind the find)
+	_mvp.add_child(_mcam)
+	_mcam.current = true
+	bm.set_shader_parameter("mask", _mvp.get_texture())
 	# the butterflies out on the card go home with it closed
 	tree_exiting.connect(func() -> void:
 		for o: Dictionary in _out:
@@ -201,8 +247,8 @@ func _door(fb: SpecButterfly.Fly) -> Vector3:
 			c = find.global_transform * bx.get_center()
 			rad = (bx.size * find.global_transform.basis.get_scale()).length() * 0.32
 			break
-	var side := 1.0 if fb.pos.x >= 0.0 else -1.0
-	return c - b.z * rad * 0.7 + b.x * side * rad * 1.05 + b.y * rad * 0.25
+	# (straight behind its middle: the card one flies in under the skull's silhouette, and there, hidden, hands over)
+	return c - b.z * rad * 0.9 + b.y * rad * 0.1
 
 ## its twin at the door, still and hidden (go: and now on, in behind the skull's middle, which hides it)
 func _pin(n: Node3D, at: Vector3, go: bool) -> void:
@@ -223,6 +269,28 @@ func _pin(n: Node3D, at: Vector3, go: bool) -> void:
 	f.retarget = 2.5
 	f.dwell = 2.5
 	f.beats_left = 6
+
+## a card butterfly behind the skull (drawn in the cut layer) or out over the card
+static func _behind(fb: Node, on: bool) -> void:
+	for g in fb.find_children("*", "VisualInstance3D", true, false):
+		(g as VisualInstance3D).layers = 2 if on else 1
+
+## a card butterfly's place on the card (the layer's world back to the card's points)
+func _cp(w: Vector3) -> Vector2:
+	return Vector2(w.x + card.size.x * 0.5, card.size.y * 0.5 - w.y * cos(PITCH))
+
+## the skull on the card: its find's box seen through the stone's camera
+func _skull_rect() -> Rect2:
+	var bx := AABB()
+	for n in find.find_children("*", "", true, false):
+		if n is SpecButterfly.Fly and (n as SpecButterfly.Fly).box.size.length() > 0.0:
+			bx = (n as SpecButterfly.Fly).box
+			break
+	if bx.size.length() == 0.0: return Rect2()
+	var r := Rect2(_proj(find.global_transform * bx.position), Vector2.ZERO)
+	for i in 8:
+		r = r.expand(_proj(find.global_transform * bx.get_endpoint(i)))
+	return r
 
 ## a butterfly's see-through-ness: 0 solid .. 1 gone (every mesh of it)
 static func _fade(n: Node, a: float) -> void:
@@ -249,6 +317,36 @@ func _process(dt: float) -> void:
 	cam.size = _rect.size.y
 	var cam_up := cam.global_transform.basis.y
 	cam.position = Vector3(0, sin(PITCH), cos(PITCH)) * 400.0 + cam_up * (MARGIN_TOP - MARGIN) * 0.5
+	var any_b := false
+	for o: Dictionary in _out:
+		if bool(o.get("behind", false)): any_b = true
+	_rectb.visible = any_b
+	_vpb.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
+	_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
+	if any_b:
+		_rectb.position = _rect.position
+		_rectb.size = _rect.size
+		if _vpb.size != _vp.size: _vpb.size = _vp.size
+		var camb := _vpb.get_camera_3d()
+		camb.size = cam.size
+		camb.global_transform = cam.global_transform
+		var sc := view.studio.cam
+		_mcam.global_transform = sc.global_transform
+		_mcam.projection = sc.projection
+		_mcam.fov = sc.fov
+		_mcam.size = sc.size
+		_mcam.keep_aspect = sc.keep_aspect
+		_mcam.near = sc.near
+		_mcam.far = sc.far
+		_mcam.h_offset = sc.h_offset
+		_mcam.v_offset = sc.v_offset
+		var ms := Vector2i(maxi(2, view.studio.vp.size.x / 2), maxi(2, view.studio.vp.size.y / 2))
+		if _mvp.size != ms: _mvp.size = ms
+		var bm := _rectb.material as ShaderMaterial
+		var vr := Rect2(view.global_position - _rectb.global_position, view.size)
+		bm.set_shader_parameter("view_rect", Vector4(vr.position.x, vr.position.y, vr.size.x, vr.size.y))
+		bm.set_shader_parameter("lsize", _rectb.size)
+	var skull := _skull_rect()
 	# one leaves now and then while the cloud is up (Flock's phase 1), never too many out at once
 	if view.is_visible_in_tree() and card.scale.is_equal_approx(Vector2.ONE):
 		_next -= dt
@@ -277,17 +375,21 @@ func _process(dt: float) -> void:
 				# the stone's own size: it stays so all the way (23.11: grown to a size of its own it looked small)
 				o.k0 = clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0)
 				_size(fb, o.k0)
-				_fade(fb, 1.0)
+				# it takes its twin's place at once, behind the skull as its twin was, and comes out from under it
+				_fade(fb, 0.0)
+				# (behind the skull only if its twin was: one in front of it comes out in front)
+				var ct := view.studio.cam.global_transform.affine_inverse()
+				var back := is_instance_valid(o.src) and -(ct * (o.src as Node3D).global_position).z > -(ct * find.global_position).z
+				_behind(fb, back)
+				o.behind = back
+				if is_instance_valid(o.src): (o.src as Node3D).visible = false
 				o.stage = 1
 				o.t = 0.0
 			1:
-				# out of its twin: the stone's one melts away as this one comes up in its place, its size, growing to its
-				# own on the way
-				var f := clampf(float(o.t) / 0.4, 0.0, 1.0)
-				_fade(fb, 1.0 - f)
-				if is_instance_valid(o.src):
-					_fade(o.src, f)
-					if f >= 1.0: (o.src as Node3D).visible = false
+				# out from under the skull: over the card once clear of its silhouette
+				if bool(o.behind) and not skull.grow(SPAN * 0.3).has_point(_cp(fb.pos)):
+					o.behind = false
+					_behind(fb, false)
 				_size(fb, float(o.k0))
 				if fb.state == SpecButterfly.Fly.SIT:
 					fb.timer = rng.randf_range(4.0, 9.0)
@@ -306,7 +408,14 @@ func _process(dt: float) -> void:
 				# to it, and the twin flies on behind the skull, which hides it
 				if not o.has("door"): o.door = _door(fb)
 				if is_instance_valid(o.src): _pin(o.src, o.door, false)
-				var home := _w(_proj(o.door))
+				# first to a point just past the skull's side (there it goes behind: nothing of the skull covers it yet),
+				# then in behind its middle - the skull's silhouette closing over it (24.11: gone behind while over the
+				# skull's front, it vanished at once)
+				var sk_c := skull.get_center()
+				if not o.has("edge"):
+					var sd := 1.0 if _cp(fb.pos).x >= sk_c.x else -1.0
+					o.edge = Vector2(sk_c.x + sd * (skull.size.x * 0.5 + SPAN * 0.35), sk_c.y - skull.size.y * 0.15)
+				var home := _w(_proj(o.door)) if bool(o.get("behind", false)) else _w(o.edge)
 				if fb.state == SpecButterfly.Fly.FLY:
 					fb.beats_left = 9
 					fb.want_glide = false
@@ -319,15 +428,21 @@ func _process(dt: float) -> void:
 				var kt := clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0) if is_instance_valid(o.src) else float(o.k0)
 				var dist := fb.pos.distance_to(home)
 				_size(fb, lerpf(kt, float(o.k0), clampf(dist / (SPAN * 3.0), 0.0, 1.0)))
-				if dist < fb.size * 1.2 or float(o.t) > 7.0:
+				if not bool(o.get("behind", false)):
+					if dist < SPAN * 0.4 or float(o.t) > 5.0:
+						o.behind = true
+						_behind(fb, true)
+				elif dist < fb.size * 1.2 or float(o.t) > 8.0:
+					# hidden behind the skull: its twin takes over there, at once, and flies on behind it
 					o.stage = 4
 					o.t = 0.0
 					if is_instance_valid(o.src):
 						_pin(o.src, o.door, true)
 						(o.src as Node3D).visible = true
-						_fade(o.src, 1.0)
+						_fade(o.src, 0.0)
+					_fade(fb, 1.0)
 			4:
-				var f := clampf(float(o.t) / 0.12, 0.0, 1.0)
+				var f := 1.0
 				_fade(fb, f)
 				if is_instance_valid(o.src): _fade(o.src, 1.0 - f)
 				if f >= 1.0:

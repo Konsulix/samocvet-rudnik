@@ -56,6 +56,8 @@ func lite() -> SpecStudio:
 	env.glow_enabled = false
 	return self
 
+const BACKDROP := 1 << 19     # the visual layer of the studio's backdrops (its haze, the aurora's sky)
+
 func _build(size: int, msaa: Viewport.MSAA, transparent: bool) -> void:
 	vp = SubViewport.new()
 	vp.size = Vector2i(size, size)
@@ -98,6 +100,7 @@ func _build(size: int, msaa: Viewport.MSAA, transparent: bool) -> void:
 		card.material_override = _haze
 		card.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		card.position = Vector3(0, 0, -40)
+		card.layers = BACKDROP   # (a camera that sees only the find leaves it out: CardFlies' skull mask)
 		cam.add_child(card)
 	var key := _light(Color("#fff0dc"), 1.45, Vector3(2.5, 3.5, 3))
 	key.shadow_enabled = true
@@ -141,6 +144,7 @@ func set_aurora(on: bool, seed_v := 0.0) -> void:
 		_aurora.material_override = m
 		_aurora.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_aurora.position = Vector3(0, 0, -39)
+		_aurora.layers = BACKDROP
 		cam.add_child(_aurora)
 	if _aurora: _aurora.visible = on
 
