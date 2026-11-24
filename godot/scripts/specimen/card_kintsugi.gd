@@ -16,10 +16,10 @@ const RET := 0.6               # each one's flight home
 const STAG := 0.07             # one after the other
 const MOLTEN := 1.1            # a seam glows white-hot this long, then cools to gold
 const EMBLEM := Vector2(0.5, 0.27)   # the emblem on the card's back (assets/ui/card_back.png), of its size
-## what breaks is the info panel's slate alone (24.11: the brass - the ribbon over the panel, the card's frame - stays
-## whole, the cracks run up to it and stop; no gold on the brass)
-const TOP_R := Reveal.INFO_R   # the panel's top corners
-const CORNER := 15.0           # its bottom ones (Reveal: the panel's box)
+## what breaks: the card's lower block - the info panel and the card's frame round it, from the panel's top down (the
+## screen behind shows through) - but the brass ribbon over the panel stays, live (24.11); no gold on the brass
+const TOP_R := 0.0             # the block's top corners: square (it starts on the card's straight sides)
+const CORNER := 14.0           # the card's rounded corners below
 const SEAM_W := 3.3            # a seam, points across (24.11: thinner, as the stone's own seams)
 const HP := 40.0               # room round the card for its rarity glow, turned with it
 
@@ -178,9 +178,10 @@ func _process(dt: float) -> void:
 	if test_flip > 0.0 and _flips < 2 and not _turning and _t < 0.0 and _clock > test_flip * (_flips + 1):
 		_flips += 1
 		flip()
-	# the block: the panel
-	_block = Rect2(info.global_position - card.global_position, info.size)
-	_cut = Rect2(Vector2.ZERO, info.size)
+	# the block: from the panel's top (under its brass ribbon) to the card's foot, the card's width
+	var top := info.global_position.y - card.global_position.y
+	_block = Rect2(0.0, top, card.size.x, card.size.y - top)
+	_cut = Rect2(info.global_position - card.global_position - _block.position, info.size)
 	var at := card.global_position + _block.position
 	for n: Control in [_hole, _pieces, _cracks, _gold, _in_pieces, _in_gold]:
 		n.global_position = at
@@ -212,6 +213,9 @@ func _break() -> void:
 	if _cells.is_empty(): _shatter_map()
 	# the block as it is now — without the mended seams and turned shards: its shards carry its look, the gold is
 	# drawn again over them
+	# (and without the ribbon: it stays, live, over the hole - not in the shards, not in the still behind)
+	var rim := card.get_node_or_null("InfoRim") as CanvasItem
+	if rim: rim.visible = false
 	for n: Control in [_pieces, _gold, _in]: n.visible = false
 	await RenderingServer.frame_post_draw
 	if not is_instance_valid(info): return
@@ -241,6 +245,7 @@ func _break() -> void:
 		m.set_shader_parameter("card_sz", card.size)
 		m.set_shader_parameter("inset", Reveal.CARD_PAD)
 	for n: Control in [_pieces, _gold, _in]: n.visible = true
+	if rim: rim.visible = true
 	_t = 0.0
 	# the block goes — the panel, its brass, the card's frame round it: its shards are drawn in its place, and through
 	# where it was the screen behind shows

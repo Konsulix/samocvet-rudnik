@@ -37,6 +37,11 @@ void fragment() {
 		// lays it out inside its brass frame (24.11: a turned shard is a piece of the very back the card turns to)
 		vec2 bp = vec2(1.0 - q.x, q.y) * card_sz;
 		c = texture(back, clamp((bp - inset) / (card_sz - inset * 2.0), vec2(0.004), vec2(0.996)));
+		// on the brass frame a turned shard is brass all the same: the back's frame is the face's (its picture's edge,
+		// stretched over the frame, ran in streaks)
+		vec2 fp = q * card_sz;
+		float inner = step(inset, fp.x) * step(fp.x, card_sz.x - inset) * step(fp.y, card_sz.y - inset);
+		c = mix(texture(front, UV), c, inner);
 	}
 	c.rgb *= vc.b;
 	COLOR = vec4(c.rgb, c.a * m * vc.a);
