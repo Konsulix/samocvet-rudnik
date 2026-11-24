@@ -65,6 +65,8 @@ var _holder: Control
 var _bvp: SubViewport
 var _bshow: TextureRect
 var _art: TextureRect
+var _logo: TextureRect         # the game's plate (the trailer's GEMCORE), in the back's upper part, a shadow under it
+var _logo_sh: TextureRect
 var _mend: Button
 var _gauge: Control
 var _vial: TextureRect
@@ -133,7 +135,9 @@ func _ready() -> void:
 	z_index = 5
 	rng.seed = hash(str(find.get_instance_id()))
 	if test_every > 0.0: _wait = minf(_wait, test_every)
-	_back = load("res://assets/ui/card_back.png") as Texture2D
+	# the back: a polished Ural stone, edge to edge - malachite or lapis, the stone's own (24.11: the user's pictures)
+	var which := "malachite" if int(s.get("seed", hash(str(s.get("id", ""))))) % 2 == 0 else "lapis"
+	_back = load("res://assets/ui/card_back/back_%s.png" % which) as Texture2D
 	var shard := preload("res://shaders/card_kin_shard.gdshader")
 	var gold := preload("res://shaders/card_kin_gold.gdshader")
 	var gtex := load("res://assets/textures/gold/gold_diff.png")
@@ -671,6 +675,15 @@ func _build_back() -> void:
 	_art.stretch_mode = TextureRect.STRETCH_SCALE
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_aclip.add_child(_art)
+	_logo_sh = TextureRect.new()
+	_logo = TextureRect.new()
+	for t: TextureRect in [_logo_sh, _logo]:
+		t.texture = load("res://assets/ui/card_back/logo.png")
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_aclip.add_child(t)
+	_logo_sh.modulate = Color(0, 0, 0, 0.55)
 	_bslate = Control.new()
 	_bslate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bslate.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
@@ -770,7 +783,7 @@ func _draw_back_gold() -> void:
 func art_rect(sz: Vector2) -> Rect2:
 	var inner := sz - Vector2.ONE * Reveal.CARD_PAD * 2.0
 	var ts := Vector2(_back.get_width(), _back.get_height())
-	var k := maxf(inner.x / ts.x, inner.y / ts.y) * 1.1
+	var k := maxf(inner.x / ts.x, inner.y / ts.y) * 1.02
 	var d := ts * k
 	return Rect2(Vector2.ONE * Reveal.CARD_PAD + (inner - d) * 0.5, d)
 
@@ -836,6 +849,14 @@ func _layout_back() -> void:
 	_plate.size = Vector2(110, 110.0 * 167.0 / 326.0)
 	_plate.position = Vector2(sz.x * 0.5 - 55.0, _vial.position.y + vh - 4.0)
 	_plate_l.text = "Ready" if wait == 0 else "%d / %d" % [MEND_EVERY - wait, MEND_EVERY]
+	# the plate: in the middle of what is free above the vial
+	var lw := (sz.x - Reveal.CARD_PAD * 2.0) * 0.82
+	var lh := lw * float(_logo.texture.get_height()) / float(_logo.texture.get_width())
+	var ly := (Reveal.CARD_PAD + _vial.position.y) * 0.5 - lh * 0.5
+	_logo.size = Vector2(lw, lh)
+	_logo.position = Vector2((sz.x - lw) * 0.5, ly) - _aclip.position
+	_logo_sh.size = _logo.size
+	_logo_sh.position = _logo.position + Vector2(2, 5)
 	# (the vial's tapes across its brass caps, upright)
 	for e: Array in [[0.07, 1.45], [0.93, 1.7]]:
 		var t := _sprite("tape_%d" % ((tk + int(e[0] > 0.5)) % 4))
