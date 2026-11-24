@@ -25,6 +25,7 @@ const HP := 40.0               # room round the card for its rarity glow, turned
 
 static var test_every := 0.0   # a test key (-- kin_every=S): a break every S s
 static var test_mend := false  # a test key (-- kin_mend): the back up, Mend is pressed and the first broken stone chosen
+static var test_back := ""     # a test key (-- kin_back=malachite|lapis|agate): this back
 static var test_flip := 0.0    # a test key (-- kin_flip=S): the card turns over S s after it is built, and back S s later
 
 var card: Control
@@ -135,8 +136,9 @@ func _ready() -> void:
 	z_index = 5
 	rng.seed = hash(str(find.get_instance_id()))
 	if test_every > 0.0: _wait = minf(_wait, test_every)
-	# the back: a polished Ural stone, edge to edge - malachite or lapis, the stone's own (24.11: the user's pictures)
-	var which := "malachite" if int(s.get("seed", hash(str(s.get("id", ""))))) % 2 == 0 else "lapis"
+	# the back: a polished stone, edge to edge - malachite, lapis or agate, the stone's own (24.11: the user's pictures)
+	var which: String = ["malachite", "lapis", "agate"][absi(int(s.get("seed", hash(str(s.get("id", "")))))) % 3]
+	if test_back != "": which = test_back
 	_back = load("res://assets/ui/card_back/back_%s.png" % which) as Texture2D
 	var shard := preload("res://shaders/card_kin_shard.gdshader")
 	var gold := preload("res://shaders/card_kin_gold.gdshader")

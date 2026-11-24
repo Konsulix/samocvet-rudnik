@@ -123,6 +123,7 @@ func _ready() -> void:
 	if args.has("lava_every"): CardLava.test_every = float(args.lava_every)
 	if args.has("kin_every"): CardKintsugi.test_every = float(args.kin_every)
 	if args.has("kin_flip"): CardKintsugi.test_flip = float(args.kin_flip)
+	if args.has("kin_back"): CardKintsugi.test_back = String(args.kin_back)
 	if args.has("kin_mend"): CardKintsugi.test_mend = true
 	if args.has("flies_every"): CardFlies.test_every = float(args.flies_every)
 	if args.has("aurora_pal"): SpecPolar.test_pal = int(args.aurora_pal)
