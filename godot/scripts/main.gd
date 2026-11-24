@@ -421,6 +421,44 @@ func _ready() -> void:
 				Save.note_find(st, 0, int(st.dl))   # (the atlas and the achievements know them, as finds of a level)
 				made += 1
 		Save.persist()
+	if args.has("legend_inv"):
+		# test data: a stone for every legendary effect that leaves its card (lightning, frost, lava, butterflies, the
+		# northern lights, levitation, kintsugi), and broken stones for the kintsugi one to mend: `-- save=legends
+		# screen=stones legend_inv`; marked test, the old ones replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("legend_inv", false))
+		var want := [["amethyst", "lightning", 0, ""], ["barite", "frost", 4, ""], ["amethyst", "lava", 0, ""], ["amethyst", "flutter", 0, "skull"],
+			["barite", "borealis", 4, ""], ["amethyst", "levitate", 0, ""], ["amethyst", "kintsugi", 0, ""]]
+		for w: Array in want:
+			var st := Stones.roll(301, int(w[2]), 0.8, 1)
+			st.sid = w[0]
+			st.kind = "crystal"
+			if String(w[3]) == "skull": st.form = "skull"
+			st.legend = true
+			st.fx = w[1]
+			st.tier = 4
+			st.integ = 100
+			st.area = int(w[2])
+			st.dl = 1
+			st.id = Save.next_uid()
+			st.value = Stones.price(st, int(w[2]), 1)
+			st.test = true
+			st.legend_inv = true
+			Save.d.coll.append(st)
+		var k := 0
+		for sd in [4101, 4202, 4303]:
+			var st := Stones.roll(sd, 0, 0.8, 1)
+			st.legend = false
+			st.erase("fx")
+			st.integ = [30, 45, 62][k]
+			st.tier = Stones.tier_of(st.sid, int(st.gi), false)
+			st.area = 0
+			st.dl = 1
+			st.value = roundi(Stones.price(st, 0, 1) * float(Stones.condition(int(st.integ))[2]))
+			st.test = true
+			st.legend_inv = true
+			Save.d.coll.append(st)
+			k += 1
+		Save.persist()
 	if args.has("kin_inv"):
 		# test data: a kintsugi amethyst and four broken stones for it to mend (CardKintsugi): `-- save=kin screen=stones
 		# kin_inv ui=open_n card=0 ui_after=2`; marked test, the old ones replaced
