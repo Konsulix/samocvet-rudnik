@@ -1,12 +1,12 @@
 class_name CardKintsugi
 extends Control
-## Kintsugi (SpecLegend: gold mending in the stone's glass) breaks its card's lower block — the info panel with its
-## brass and the card's frame round it — and mends it with gold: a moment after the card opens the block cracks,
-## falls away in shards, and the shards fly back and fit, each seam filling with molten gold as both its sides are
-## home; the shards where the buttons were come back turned over — the card's back up (the buttons are on the back:
-## a swipe turns the card over). Again now and then while it lies face up. The block's picture for the shards is a
-## snapshot of it (the screen read back once a break). Mended, the seams lie in the panel under its words (a layer in
-## the panel, over its slate — as CardFrost's), and over the frame round it.
+## Kintsugi (SpecLegend: gold mending in the stone's glass) breaks its card's info panel — its slate; the brass round
+## it, the ribbon and the card's frame, stays whole — and mends it with gold: a moment after the card opens the slate
+## cracks, falls away in shards (through the hole the screen behind shows), and the shards fly back and fit; when all
+## are home, gold runs along the seams, under the panel's words — the stone's own gold. The shards where the buttons
+## were (and every other one over them: a chequer) come back turned over — the card's back up: the buttons are on the
+## back, and the card turns under a drag of the finger, its glow with it. Again now and then while it lies face up.
+## The panel's picture for the shards is a snapshot of it (the screen read back once a break).
 
 const SHARDS_ROW := 3          # the shards the button row breaks into
 const AGAIN := 30.0            # seconds between breaks, face up
@@ -16,10 +16,12 @@ const RET := 0.6               # each one's flight home
 const STAG := 0.07             # one after the other
 const MOLTEN := 1.1            # a seam glows white-hot this long, then cools to gold
 const EMBLEM := Vector2(0.5, 0.27)   # the emblem on the card's back (assets/ui/card_back.png), of its size
-const RIM_UP := 20.0 / 3.6     # the block starts this far above the panel: the top of its brass ribbon (Reveal._info_rim WIDE)
-const TOP_R := 22.0 + 20.0 / 3.6 + 1.4   # the block's top corners: round as the ribbon round the panel's corners
-const CORNER := 14.0           # the card's rounded corners below
-const SEAM_W := 4.4            # a seam's bead, points across
+## what breaks is the info panel's slate alone (24.11: the brass - the ribbon over the panel, the card's frame - stays
+## whole, the cracks run up to it and stop; no gold on the brass)
+const TOP_R := Reveal.INFO_R   # the panel's top corners
+const CORNER := 15.0           # its bottom ones (Reveal: the panel's box)
+const SEAM_W := 3.3            # a seam, points across (24.11: thinner, as the stone's own seams)
+const HP := 40.0               # room round the card for its rarity glow, turned with it
 
 static var test_every := 0.0   # a test key (-- kin_every=S): a break every S s
 static var test_mend := false  # a test key (-- kin_mend): the back up, Mend is pressed and the first broken stone chosen
@@ -70,8 +72,20 @@ var _plate: TextureRect
 var _plate_l: Label
 var _tapes: Array[TextureRect] = []
 var _side := 0                 # 0: face up, 1: the back up
-var _flip_t := -1.0
-var _flip_dir := 1.0
+## the turn over is the finger's (24.11: "I want to turn it myself, not have a swipe do it"): the card follows a drag
+## across it, and let go it falls to the nearer side (a flick carries it over)
+var _ang := 0.0                # the turn now, from the side that is up (+-PI: the other side up)
+var _av := 0.0
+var _ang_to := 0.0
+var _turning := false          # shown turned: dragged, or settling
+var _drag := false
+var _grab := 0.0               # the turn when the finger took it
+var _vel := 0.0
+var _crossed := false
+var _halo: Array[CanvasItem] = []   # the card's rarity glow (the holder's own children)
+var _hvp: SubViewport          # the glow drawn again, turned with the card
+var _hshow: TextureRect
+var _bframe: Panel             # the back's brass: the card's own frame
 var _snap: ImageTexture        # the card's face, for its half of the turn
 var _press := Vector2.ZERO
 var _pressed := false
@@ -153,6 +167,7 @@ func _ready() -> void:
 	_holder.move_child(_still, card.get_index())
 	tree_exiting.connect(func() -> void: if is_instance_valid(_still): _still.queue_free())
 	for n: Control in [_pieces, _in_pieces]: (n.material as ShaderMaterial).set_shader_parameter("rt", TOP_R)
+	_gold.visible = false
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(info) or not is_instance_valid(card):
@@ -160,13 +175,12 @@ func _process(dt: float) -> void:
 		return
 	_clock += dt
 	_turn(dt)
-	if test_flip > 0.0 and _flips < 2 and _flip_t < 0.0 and _t < 0.0 and _clock > test_flip * (_flips + 1):
+	if test_flip > 0.0 and _flips < 2 and not _turning and _t < 0.0 and _clock > test_flip * (_flips + 1):
 		_flips += 1
 		flip()
-	# the block: from just above the panel (its brass ribbon) to the card's foot, the card's width
-	var top := info.global_position.y - card.global_position.y - RIM_UP
-	_block = Rect2(0.0, top, card.size.x, card.size.y - top)
-	_cut = Rect2(info.global_position - card.global_position - _block.position, info.size)
+	# the block: the panel
+	_block = Rect2(info.global_position - card.global_position, info.size)
+	_cut = Rect2(Vector2.ZERO, info.size)
 	var at := card.global_position + _block.position
 	for n: Control in [_hole, _pieces, _cracks, _gold, _in_pieces, _in_gold]:
 		n.global_position = at
@@ -177,7 +191,7 @@ func _process(dt: float) -> void:
 	(_gold.material as ShaderMaterial).set_shader_parameter("cut", Vector4(_cut.position.x, _cut.position.y, _cut.size.x, _cut.size.y))
 	if _t < 0.0:
 		_wait -= dt
-		if _wait <= 0.0 and _t > -1.5 and _side == 0 and _flip_t < 0.0 and info.is_visible_in_tree():
+		if _wait <= 0.0 and _t > -1.5 and _side == 0 and not _turning and not _drag and info.is_visible_in_tree():
 			_break()
 	else:
 		_t += dt
@@ -224,9 +238,8 @@ func _break() -> void:
 			if c.down:
 				gc += c.c
 				gn += 1
-		if gn > 0:
-			var q := (_block.position + gc / gn) / card.size
-			m.set_shader_parameter("back_shift", Vector2(0.0, EMBLEM.y - q.y))   # (up only: sideways the shards ran off the picture)
+		m.set_shader_parameter("card_sz", card.size)
+		m.set_shader_parameter("inset", Reveal.CARD_PAD)
 	for n: Control in [_pieces, _gold, _in]: n.visible = true
 	_t = 0.0
 	# the block goes — the panel, its brass, the card's frame round it: its shards are drawn in its place, and through
@@ -264,17 +277,14 @@ func _break() -> void:
 ## the card whole (its block home) or broken: broken, its frame is drawn by the still behind it (the card's own frame
 ## box empty), the stone's window kept above the block (its mask's foot raised), the panel and its brass hidden
 func _whole(on: bool) -> void:
-	var rim := card.get_node_or_null("InfoRim") as CanvasItem
 	var win := view.get_parent() as Control
 	# the card's rarity glow is a shadow filling the card's whole shape: through the broken block it showed as a
 	# coloured sheet — it fades out while the block is off
-	for h in _holder.get_children():
-		if h == card or h == _still or h == _bshow or not h is CanvasItem: continue
-		var ci := h as CanvasItem
+	for ci in _halo:
+		if not is_instance_valid(ci): continue
 		ci.create_tween().tween_property(ci, "modulate:a", 1.0 if on else 0.0, 0.5 if on else 0.12)
 	if on:
 		info.modulate.a = 1.0
-		if rim: rim.visible = true
 		if _box: card.add_theme_stylebox_override("panel", _box)
 		if _vbox and is_instance_valid(win): win.add_theme_stylebox_override("panel", _vbox)
 		_box = null
@@ -282,7 +292,6 @@ func _whole(on: bool) -> void:
 		_still.visible = false
 		return
 	info.modulate.a = 0.0
-	if rim: rim.visible = false
 	_box = card.get_theme_stylebox("panel")
 	# (empty, but with the frame's own margins: without them the card laid its stone and panel out over its frame)
 	var eb := StyleBoxEmpty.new()
@@ -317,7 +326,8 @@ func _shatter_map() -> void:
 	for j in rows:
 		for k in cols:
 			seeds.append(Vector2((k + 0.5 + rng.randf_range(-0.35, 0.35)) * w / cols, (j + 0.5 + rng.randf_range(-0.35, 0.35)) * top / rows))
-			down.append(false)
+			# (the row over the buttons turned over every other one: a chequer with them - 24.11)
+			down.append(j == rows - 1 and k % 2 == 0)
 	var box := PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
 	var polys := []
 	for i in seeds.size():
@@ -364,13 +374,14 @@ func _shatter_map() -> void:
 		for k in pts.size():
 			if k > 0: len_at += pts[k - 1].distance_to(pts[k])
 			var end_d := minf(len_at, total - len_at)
-			wd.append(SEAM_W * (0.75 + 0.35 * sin(len_at * 0.11 + ph) + 0.2 * sin(len_at * 0.37 + ph * 2.0)) + 1.6 * exp(-end_d / 5.0))
+			wd.append(SEAM_W * (0.75 + 0.35 * sin(len_at * 0.11 + ph) + 0.2 * sin(len_at * 0.37 + ph * 2.0)) + 0.5 * exp(-end_d / 4.0))
 		_edges.append({pts = pts, a = e.cells[0], b = e.cells[1], w = wd, delay = clampf((pts[0].y + pts[pts.size() - 1].y) * 0.5 / maxf(1.0, h), 0.0, 1.0) * 0.45 + rng.randf() * 0.15})
 		for p: Vector2 in [pts[0], pts[pts.size() - 1]]:
 			var kk := "%d,%d" % [roundi(p.x), roundi(p.y)]
 			ends[kk] = [p, int((ends.get(kk, [p, 0]) as Array)[1]) + 1]
 	for e: Array in ends.values():
-		if int(e[1]) >= 2: _knots.append([e[0], SEAM_W * rng.randf_range(0.85, 1.25)])
+		# (where seams meet, just the joint filled: no drop - 24.11: "the little circles" read as the mines' ore)
+		if int(e[1]) >= 2: _knots.append([e[0], SEAM_W * 0.55])
 
 static func _clip(poly: PackedVector2Array, at: Vector2, n: Vector2) -> PackedVector2Array:
 	var out := PackedVector2Array()
@@ -501,7 +512,7 @@ func _draw_cracks(n: Control) -> void:
 ## the gold: a seam fills once both its shards are home — molten, running along it, cooling; a drop where seams meet.
 ## Beads as triangle strips for shaders/card_kin_gold.gdshader
 func _draw_gold(n: Control) -> void:
-	if _cells.is_empty() or _t < -1.0: return
+	if _cells.is_empty() or _t < -1.0 or n == _gold: return
 	var live := _t >= 0.0
 	var pts_all := PackedVector2Array()
 	var cols := PackedColorArray()
@@ -584,6 +595,31 @@ static func mend_wait(st: Dictionary) -> int:
 
 func _build_back() -> void:
 	_holder = card.get_parent() as Control
+	for h in _holder.get_children():
+		if h != card and h is CanvasItem: _halo.append(h as CanvasItem)
+	# the glow, again, in a picture of its own: turned with the card as it turns over (24.11: it stood still)
+	_hvp = SubViewport.new()
+	_hvp.transparent_bg = true
+	_hvp.size_2d_override_stretch = true
+	_hvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	for h in _halo:
+		var d := h.duplicate() as CanvasItem
+		d.visible = true
+		d.modulate.a = 1.0
+		_hvp.add_child(d)
+	_hshow = TextureRect.new()
+	_hshow.texture = _hvp.get_texture()
+	_hshow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_hshow.stretch_mode = TextureRect.STRETCH_SCALE
+	_hshow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hshow.visible = false
+	var hm := ShaderMaterial.new()
+	hm.shader = preload("res://shaders/card_tilt.gdshader")
+	_hshow.material = hm
+	_hshow.add_child(_hvp)
+	_holder.add_child(_hshow)
+	_holder.move_child(_hshow, 0)
+	tree_exiting.connect(func() -> void: if is_instance_valid(_hshow): _hshow.queue_free())
 	_bvp = SubViewport.new()
 	_bvp.transparent_bg = true
 	_bvp.size_2d_override_stretch = true
@@ -602,6 +638,11 @@ func _build_back() -> void:
 	_bshow.gui_input.connect(_pass_input)
 	_bshow.add_child(_bvp)
 	_holder.add_child(_bshow)
+	# the back in the same brass as the face (24.11): the card's own frame, the back's picture inside it
+	_bframe = Panel.new()
+	_bframe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bframe.add_theme_stylebox_override("panel", card.get_theme_stylebox("panel"))
+	_bvp.add_child(_bframe)
 	_art = TextureRect.new()
 	_art.texture = _back
 	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -655,8 +696,10 @@ func _tape(r: Rect2, at: float, k: int, lean: float) -> void:
 ## a little crooked; above them the Mend button, taped, and above that the vial of gold with its plate
 func _layout_back() -> void:
 	var sz := card.size
-	_art.position = Vector2.ZERO
-	_art.size = sz
+	_bframe.position = Vector2.ZERO
+	_bframe.size = sz
+	_art.position = Vector2.ONE * Reveal.CARD_PAD
+	_art.size = sz - Vector2.ONE * Reveal.CARD_PAD * 2.0
 	for t in _tapes:
 		if is_instance_valid(t): t.queue_free()
 	_tapes.clear()
@@ -733,36 +776,68 @@ func _draw_gauge() -> void:
 	RenderingServer.canvas_item_add_triangle_array(_gauge.get_canvas_item(), idx, out, cols, uvs)
 
 func _pass_input(ev: InputEvent) -> void:
-	if _side != 1 or _flip_t >= 0.0: return
+	if _side != 1 or _turning: return
 	_bvp.push_input(ev.duplicate(), true)
 	_bshow.accept_event()
 
-## a swipe across the panel (face up) or across the back turns the card over
+## a drag across the panel (face up) or across the back turns the card, under the finger
 func _input(e: InputEvent) -> void:
-	if _flip_t >= 0.0 or _t >= 0.0: return
+	if _t >= 0.0: return
 	var press: bool = (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or e is InputEventScreenTouch
-	if not press: return
-	var pos: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
-	# (the event in the canvas of the card's layer)
-	var cpos := (card.get_global_transform_with_canvas() * card.get_global_transform().affine_inverse()).affine_inverse() * pos
-	var area := info.get_global_rect() if _side == 0 else card.get_global_rect()
-	if e.is_pressed():
-		_pressed = area.has_point(cpos)
-		_press = pos
-	elif _pressed:
-		_pressed = false
-		var d := pos - _press
-		if absf(d.x) > 48.0 and absf(d.x) > absf(d.y) * 1.5:
-			flip(signf(d.x))
+	if press:
+		var pos: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
+		# (the event in the canvas of the card's layer)
+		var cpos := (card.get_global_transform_with_canvas() * card.get_global_transform().affine_inverse()).affine_inverse() * pos
+		var area := info.get_global_rect() if _side == 0 else card.get_global_rect()
+		if e.is_pressed():
+			_pressed = area.has_point(cpos)
+			_press = pos
+			_drag = false
+			_vel = 0.0
+		elif _pressed:
+			_pressed = false
+			if _drag: _let_go()
+		return
+	if not _pressed or not (e is InputEventMouseMotion or e is InputEventScreenDrag): return
+	var mp: Vector2 = (e as InputEventMouseMotion).position if e is InputEventMouseMotion else (e as InputEventScreenDrag).position
+	var mv: Vector2 = (e as InputEventMouseMotion).velocity if e is InputEventMouseMotion else (e as InputEventScreenDrag).velocity
+	var d := mp - _press
+	if not _drag:
+		if absf(d.x) < 14.0 or absf(d.x) < absf(d.y) * 1.3: return
+		_drag = true
+		_grab = _ang
+		_press = mp
+		_begin()
+		d = Vector2.ZERO
+	# (the event's points are the screen's logical ones, as the card's)
+	_ang_to = clampf(_grab + d.x / (card.size.x * 0.85) * PI, -PI * 1.05, PI * 1.05)
+	_vel = mv.x
+	get_viewport().set_input_as_handled()
 
-## the card turns over: its face (a snapshot) turns away in depth, then the back turns in (or back again)
+## let go: to the nearer side, a flick carrying it on
+func _let_go() -> void:
+	_drag = false
+	var a := _ang_to + clampf(_vel / (card.size.x * 0.85) * PI * 0.18, -1.2, 1.2)
+	_ang_to = signf(a) * PI if absf(a) > PI * 0.5 else 0.0
+
+## the card turns over (a test key, and the code's own): as a drag all the way
 func flip(dir := -1.0) -> void:
-	if _flip_t >= 0.0 or _t >= 0.0: return
-	_flip_dir = dir
+	if _turning or _t >= 0.0: return
+	await _begin()
+	_ang_to = signf(dir) * PI
+
+## the turn begins: the face snapshotted (it turns as a picture), the back drawn, the card and its glow hidden behind
+## their turning pictures
+func _begin() -> void:
+	if _turning: return
+	_turning = true
+	_crossed = false
+	_av = 0.0
 	_layout_back()
 	_size_back()
-	# (drawn from now on — till the face is up again: then nothing draws it)
+	# (drawn from now on - till the face is up again: then nothing draws them)
 	_bvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_hvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	if _side == 0:
 		await RenderingServer.frame_post_draw
 		if not is_instance_valid(card): return
@@ -772,14 +847,13 @@ func flip(dir := -1.0) -> void:
 		var img := vp.get_texture().get_image()
 		r = r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 		_snap = ImageTexture.create_from_image(img.get_region(r))
-	else:
-		await RenderingServer.frame_post_draw
-	_flip_t = 0.0
 	_bshow.visible = true
+	_hshow.visible = true
 	_bshow.texture = _snap if _side == 0 else _bvp.get_texture()
 	card.modulate.a = 0.0
-	Sfx.play("open")
-	Sfx.buzz(20)
+	for h in _halo:
+		if is_instance_valid(h): h.visible = false
+	Sfx.buzz(15)
 
 func _size_back() -> void:
 	var sz := card.size
@@ -788,37 +862,76 @@ func _size_back() -> void:
 	var px := Vector2i((sz * dens).round())
 	if _bvp.size != px: _bvp.size = px
 	if _bvp.size_2d_override != Vector2i(sz.round()): _bvp.size_2d_override = Vector2i(sz.round())
+	var hs := sz + Vector2.ONE * HP * 2.0
+	var hpx := Vector2i((hs * minf(dens, 2.0)).round())
+	if _hvp.size != hpx: _hvp.size = hpx
+	if _hvp.size_2d_override != Vector2i(hs.round()): _hvp.size_2d_override = Vector2i(hs.round())
+	# the glow's copies where the glow is, about the card
+	var ds := _hvp.get_children()
+	for i in mini(ds.size(), _halo.size()):
+		if ds[i] is Control and is_instance_valid(_halo[i]) and _halo[i] is Control:
+			(ds[i] as Control).position = (_halo[i] as Control).position - card.position + Vector2.ONE * HP
+			(ds[i] as Control).size = (_halo[i] as Control).size
 
 func _turn(dt: float) -> void:
 	if not is_instance_valid(_bshow): return
 	_bshow.global_position = card.global_position
 	_bshow.size = card.size
-	if _flip_t < 0.0: return
-	_flip_t += dt
-	var k := clampf(_flip_t / FLIP, 0.0, 1.0)
-	var e := k * k * (3.0 - 2.0 * k)
-	var m := _bshow.material as ShaderMaterial
-	var a: float
-	# first half: the side that is up turns away; then the other turns in from the far edge
-	if e < 0.5:
-		a = e * 2.0 * 1.55
-		_bshow.texture = _snap if _side == 0 else _bvp.get_texture()
+	_hshow.global_position = card.global_position - Vector2.ONE * HP
+	_hshow.size = card.size + Vector2.ONE * HP * 2.0
+	if not _turning: return
+	if _drag:
+		_ang = lerpf(_ang, _ang_to, minf(1.0, dt * 22.0))
+		_av = 0.0
 	else:
-		a = -(1.0 - e) * 2.0 * 1.55
-		_bshow.texture = _bvp.get_texture() if _side == 0 else _snap
-	m.set_shader_parameter("tilt", Vector2(a * -_flip_dir, 0.0))
-	if k >= 1.0:
-		_flip_t = -1.0
-		_side = 1 - _side
-		m.set_shader_parameter("tilt", Vector2.ZERO)
-		if _side == 0:
-			_bshow.visible = false
-			card.modulate.a = 1.0
-			_bvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		else:
-			_bshow.texture = _bvp.get_texture()
-			if test_mend and _mend.visible and not _mend.disabled:
-				get_tree().create_timer(1.0).timeout.connect(func() -> void: if is_instance_valid(_mend): _mend.pressed.emit())
+		# settling: a spring, just past and back (in small steps: a long frame made it swing wildly)
+		var left := dt
+		while left > 0.0:
+			var h := minf(left, 1.0 / 240.0)
+			_av += ((_ang_to - _ang) * 110.0 - _av * 17.0) * h
+			_ang += _av * h
+			left -= h
+		if absf(_ang_to - _ang) < 0.004 and absf(_av) < 0.06:
+			_end_turn()
+			return
+	var other := absf(_ang) > PI * 0.5
+	if other != _crossed:
+		_crossed = other
+		Sfx.play("open")
+	var a := _ang - signf(_ang) * PI if other else _ang
+	var up_t: Texture2D = _snap if _side == 0 else _bvp.get_texture()
+	var down_t: Texture2D = _bvp.get_texture() if _side == 0 else _snap
+	_bshow.texture = down_t if other else up_t
+	(_bshow.material as ShaderMaterial).set_shader_parameter("tilt", Vector2(-a, 0.0))
+	var hm := _hshow.material as ShaderMaterial
+	hm.set_shader_parameter("tilt", Vector2(-a, 0.0))
+	hm.set_shader_parameter("persp", 0.7 * (card.size.x + HP * 2.0) / maxf(1.0, card.size.x))
+	# (the glow is a shadow under the whole card's shape: the card's own place is cut out of its picture)
+	var hsz := card.size + Vector2.ONE * HP * 2.0
+	hm.set_shader_parameter("hole", Vector2(HP / hsz.x, HP / hsz.y))
+	hm.set_shader_parameter("hole_r", 20.0 / hsz.x)
+
+func _end_turn() -> void:
+	_turning = false
+	if absf(_ang_to) > 1.0: _side = 1 - _side
+	_ang = 0.0
+	_ang_to = 0.0
+	_av = 0.0
+	(_bshow.material as ShaderMaterial).set_shader_parameter("tilt", Vector2.ZERO)
+	(_hshow.material as ShaderMaterial).set_shader_parameter("tilt", Vector2.ZERO)
+	if _side == 0:
+		_bshow.visible = false
+		_hshow.visible = false
+		card.modulate.a = 1.0
+		for h in _halo:
+			if is_instance_valid(h): h.visible = true
+		_bvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		_hvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	else:
+		_bshow.texture = _bvp.get_texture()
+		Sfx.buzz(20)
+		if test_mend and _mend.visible and not _mend.disabled:
+			get_tree().create_timer(1.0).timeout.connect(func() -> void: if is_instance_valid(_mend): _mend.pressed.emit())
 
 ## the stones the mending can take: kept, broken (Chipped or Damaged), not mended yet, not swallowed, not this one
 func _broken() -> Array:

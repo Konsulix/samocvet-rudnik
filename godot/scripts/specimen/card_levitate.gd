@@ -46,6 +46,12 @@ var _halo: Array[Node] = []
 const PAD := 34.0             # room round the card in its picture: its rarity glow, and the turn
 var _cvp: SubViewport
 var _show: TextureRect
+## the phone's tilt (24.11: "no gyroscope - the turn should follow the phone, not play by itself"): the card keeps level
+## in the air as the phone turns under it — it turns against the phone's turn from how it is held (a slow average),
+## springy, a little behind; on a computer (no sensor) it drifts by itself
+var _g0 := Vector3.ZERO
+var _tl := Vector2.ZERO
+var _tv := Vector2.ZERO
 var rng := RandomNumberGenerator.new()
 
 ## p: the built find; only a levitating one (SpecLegend.levitate marks it)
@@ -80,6 +86,7 @@ func _ready() -> void:
 	_show.gui_input.connect(_pass_input)
 	# (under the picture, not under this node: this node is the card's, and the card goes into it)
 	_show.add_child(_cvp)
+	_size_vp()
 	var at := card.get_index()
 	_holder.add_child(_show)
 	_holder.move_child(_show, at)
@@ -165,6 +172,20 @@ func _ready() -> void:
 		# (the card back out of its group, where it was: the window closes with it)
 		if is_instance_valid(_show): _show.queue_free())
 
+## the card's own picture: at the screen's density and a quarter over (24.11: soft on the phone — turned, the picture
+## is read between its pixels); on a low-density screen twice it. Its stone renders at the picture's density: it sizes
+## itself to it (on entering the viewport it was sized 1:1, before the viewport had its size - the stone was soft)
+func _size_vp() -> void:
+	var full := card.size + Vector2.ONE * PAD * 2.0
+	# (the screen's: this node is the card's, inside the picture's own viewport - read there, its density fed on itself)
+	var dens := maxf(1.0, _holder.get_viewport().get_final_transform().get_scale().x)
+	dens *= 2.0 if dens < 1.8 else 1.25
+	var px := Vector2i((full * dens).round())
+	var changed := _cvp.size != px or _cvp.size_2d_override != Vector2i(full.round())
+	if _cvp.size != px: _cvp.size = px
+	if _cvp.size_2d_override != Vector2i(full.round()): _cvp.size_2d_override = Vector2i(full.round())
+	if changed and is_instance_valid(view): view._fit.call_deferred()
+
 func _viewport() -> SubViewport:
 	var v := SubViewport.new()
 	v.transparent_bg = true
@@ -244,15 +265,25 @@ func _process(dt: float) -> void:
 	var off := Vector2(0, -h)
 	# turned a few degrees in depth, slowly, as a card hanging in the air; a tap rocks it
 	var rock := _jump(_pulse) * 0.06
-	var tilt := Vector2(0.09 * sin(_t * 0.55) + 0.03 * sin(_t * 1.3 + 1.0) + rock, 0.06 * sin(_t * 0.7 + 2.0) - rock * 0.6) if settled else Vector2.ZERO
+	var aim := Vector2(0.09 * sin(_t * 0.55) + 0.03 * sin(_t * 1.3 + 1.0), 0.06 * sin(_t * 0.7 + 2.0))
+	var g := Input.get_gravity()
+	if g.length() > 0.5:
+		var n := g.normalized()
+		_g0 = n if _g0 == Vector3.ZERO else _g0.lerp(n, minf(1.0, dt * 0.35)).normalized()
+		var d := n - _g0
+		aim = Vector2(-d.x, d.z) * 1.1 + Vector2(0.015 * sin(_t * 0.55), 0.012 * sin(_t * 0.7 + 2.0))
+		aim = aim.clamp(Vector2(-0.26, -0.2), Vector2(0.26, 0.2))
+	# a spring: it lags and overshoots a little, as a thing hanging in the air
+	_tv += ((aim - _tl) * 38.0 - _tv * 7.0) * dt
+	_tl += _tv * dt
+	var tilt := (_tl + Vector2(rock, -rock * 0.6)) if settled else Vector2.ZERO
 	var full := card.size + Vector2.ONE * PAD * 2.0
-	# (at the screen's density; on a low-density screen twice it, the shader taking four samples a pixel - turned, the
-	# picture is read between its pixels and at 1:1 the words went soft)
-	var dens := maxf(1.0, get_viewport().get_final_transform().get_scale().x)
-	if dens < 1.8: dens *= 2.0
-	var px := Vector2i((full * dens).round())
-	if _cvp.size != px: _cvp.size = px
-	if _cvp.size_2d_override != Vector2i(full.round()): _cvp.size_2d_override = Vector2i(full.round())
+	_size_vp()
+	# (the inventory's swipe to the next stone slides the holder's children in from the side - the card too, which is in
+	# the picture's viewport now: it ended off its place, out of sight - 24.11)
+	card.position = Vector2.ONE * PAD
+	for n in _halo:
+		if is_instance_valid(n) and n is Control and n.get_parent() == _cvp: (n as Control).position = Vector2.ONE * PAD
 	_show.position = off - Vector2.ONE * PAD
 	_show.size = full
 	var tm := _show.material as ShaderMaterial

@@ -11,8 +11,11 @@ extends Control
 const PX := 2.5               # the layer's pixels a point
 const PITCH := 0.35           # the camera's look down (as the trailer's)
 const SPAN := 40.0            # its wingspan on the card, in points
-const EVERY := [3.5, 7.0]     # how often one leaves, while the cloud is up
-const OUT_MAX := 3
+const EVERY := [1.4, 3.2]     # how often one leaves, while the cloud is up
+const OUT_MIN := 2            # (24.11: always one at a time out was too few - 2..4 out, they leave more often)
+const OUT_MAX := 4
+## how likely each kind of spot: a button, the ribbon, the card's top (24.11: the top was one of five spots, never seen)
+const SPOT_W := [1.0, 1.0, 1.6]
 
 static var test_every := 0.0  # a test key (-- flies_every=S): one leaves every S s, cloud up or not
 static var test_spot := -1    # a test key (-- flies_spot=0|1|2): only there - a button, the ribbon, the card's top
@@ -132,6 +135,15 @@ func _spots() -> Array:
 func _leave() -> void:
 	var spots := _spots()
 	spots.shuffle()
+	# a kind of spot first, by its weight, then its spots first
+	var wsum := 0.0
+	for w: float in SPOT_W: wsum += w
+	var pick := rng.randf() * wsum
+	var kind := 0
+	while kind < 2 and pick > float(SPOT_W[kind]):
+		pick -= float(SPOT_W[kind])
+		kind += 1
+	spots.sort_custom(func(a: Array, b: Array) -> bool: return int(int(a[2]) == kind) > int(int(b[2]) == kind))
 	var at := Vector2.INF
 	for s: Array in spots:
 		var q: Vector2 = s[0] + Vector2(rng.randf_range(-1.0, 1.0) * float(s[1]), 0.0)
@@ -177,6 +189,41 @@ func _own_span(fb: SpecButterfly.Fly) -> float:
 	var s0: Vector3 = turn.get_meta("s0") if turn.has_meta("s0") else turn.scale
 	return s0.x * float(SpecButterfly.MODELS[fb.kind].span)
 
+## where one going home hands over to its twin: past the skull's edge on the side it comes from, a little behind the
+## skull's middle and a little up — in the stone's world
+func _door(fb: SpecButterfly.Fly) -> Vector3:
+	var b := view.studio.cam.global_transform.basis
+	var c := find.global_position
+	var rad := 0.3
+	for n in find.find_children("*", "", true, false):
+		if n is SpecButterfly.Fly and (n as SpecButterfly.Fly).box.size.length() > 0.0:
+			var bx: AABB = (n as SpecButterfly.Fly).box
+			c = find.global_transform * bx.get_center()
+			rad = (bx.size * find.global_transform.basis.get_scale()).length() * 0.32
+			break
+	var side := 1.0 if fb.pos.x >= 0.0 else -1.0
+	return c - b.z * rad * 0.7 + b.x * side * rad * 1.05 + b.y * rad * 0.25
+
+## its twin at the door, still and hidden (go: and now on, in behind the skull's middle, which hides it)
+func _pin(n: Node3D, at: Vector3, go: bool) -> void:
+	var f := n as SpecButterfly.Fly
+	var par := f.get_parent() as Node3D
+	f.pos = par.to_local(at)
+	f.global_position = at
+	f.state = SpecButterfly.Fly.FLY
+	if not go:
+		f.vel = Vector3.ZERO
+		return
+	var b := view.studio.cam.global_transform.basis
+	var off := (at - find.global_position).dot(b.x)
+	var behind := par.to_local(at - b.x * off * 1.3 - b.z * 0.2)
+	f.vel = (behind - f.pos).normalized() * f.size * 3.0
+	f.way = behind
+	f.far = false
+	f.retarget = 2.5
+	f.dwell = 2.5
+	f.beats_left = 6
+
 ## a butterfly's see-through-ness: 0 solid .. 1 gone (every mesh of it)
 static func _fade(n: Node, a: float) -> void:
 	for g in n.find_children("*", "GeometryInstance3D", true, false):
@@ -208,7 +255,7 @@ func _process(dt: float) -> void:
 		var up := int(flock.get("phase")) == 1 or test_every > 0.0
 		if _next <= 0.0 and up and _out.size() < OUT_MAX:
 			_leave()
-			_next = test_every if test_every > 0.0 else rng.randf_range(EVERY[0], EVERY[1])
+			_next = test_every if test_every > 0.0 else (rng.randf_range(0.4, 0.9) if _out.size() < OUT_MIN else rng.randf_range(EVERY[0], EVERY[1]))
 	for k in range(_out.size() - 1, -1, -1):
 		var o: Dictionary = _out[k]
 		var fb: SpecButterfly.Fly = o.fb
@@ -254,8 +301,12 @@ func _process(dt: float) -> void:
 					o.stage = 3
 					o.t = 0.0
 			3:
-				# home: straight for its stone twin, flapping all the way, never down again
-				var home := _w(_proj((o.src as Node3D).global_position) if is_instance_valid(o.src) else o.from)
+				# home: in behind the skull (24.11: melting into its twin in mid-air it simply vanished) — its twin waits,
+				# hidden, at a door just past the skull's edge and a little behind it; the card one flies there, hands over
+				# to it, and the twin flies on behind the skull, which hides it
+				if not o.has("door"): o.door = _door(fb)
+				if is_instance_valid(o.src): _pin(o.src, o.door, false)
+				var home := _w(_proj(o.door))
 				if fb.state == SpecButterfly.Fly.FLY:
 					fb.beats_left = 9
 					fb.want_glide = false
@@ -268,14 +319,15 @@ func _process(dt: float) -> void:
 				var kt := clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0) if is_instance_valid(o.src) else float(o.k0)
 				var dist := fb.pos.distance_to(home)
 				_size(fb, lerpf(kt, float(o.k0), clampf(dist / (SPAN * 3.0), 0.0, 1.0)))
-				if dist < fb.size * 1.5 or float(o.t) > 7.0:
+				if dist < fb.size * 1.2 or float(o.t) > 7.0:
 					o.stage = 4
 					o.t = 0.0
 					if is_instance_valid(o.src):
+						_pin(o.src, o.door, true)
 						(o.src as Node3D).visible = true
 						_fade(o.src, 1.0)
 			4:
-				var f := clampf(float(o.t) / 0.4, 0.0, 1.0)
+				var f := clampf(float(o.t) / 0.12, 0.0, 1.0)
 				_fade(fb, f)
 				if is_instance_valid(o.src): _fade(o.src, 1.0 - f)
 				if f >= 1.0:

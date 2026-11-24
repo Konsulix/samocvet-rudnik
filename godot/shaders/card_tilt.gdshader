@@ -7,6 +7,13 @@ shader_type canvas_item;
 uniform vec2 tilt = vec2(0.0);
 uniform vec2 pad = vec2(0.08);         // the room round the card, of the picture
 uniform float persp = 0.7;             // how strong the perspective, of the picture's width
+uniform vec2 hole = vec2(0.0);         // > 0: a rounded hole this far in from the edges (of the picture), cut out
+uniform float hole_r = 0.05;           // its corners (of the picture's width)
+
+float sd_round(vec2 p, vec2 h, float r) {
+	vec2 q = abs(p) - h + r;
+	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
 
 void fragment() {
 	vec2 asp = vec2(1.0, TEXTURE_PIXEL_SIZE.x / TEXTURE_PIXEL_SIZE.y);
@@ -32,5 +39,9 @@ void fragment() {
 	vec2 cu = (uv - pad) / (1.0 - pad * 2.0);
 	float band = exp(-pow((cu.x * 0.7 + cu.y * 0.5) - (0.6 + tilt.x * 5.0 - tilt.y * 4.0), 2.0) / 0.03);
 	c.rgb += vec3(1.0, 0.96, 0.88) * band * 0.06 * c.a;
+	if (hole.x > 0.0) {
+		vec2 hp = (uv - 0.5) * asp;
+		c.a *= smoothstep(-0.003, 0.003, sd_round(hp, (0.5 - hole) * asp, hole_r));
+	}
 	COLOR = c;
 }

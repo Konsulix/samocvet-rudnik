@@ -42,45 +42,39 @@ void fragment() {
 		c = vec3(1.0, 0.55, 0.15);
 		alpha = g * vc.r * 0.65;
 	} else {
-		// the bead's normal (screen: x right, y down, z to the viewer)
+		// the gold of the stone's own seams (spec.gdshaderinc kin_k), 24.11 ("piping with knobs, as the mines' ore"):
+		// native gold under the worked-gold texture, a metal lit by the studio's key from up left; a low crest across
+		// the seam (its normal tips across it towards its edges), the hammered relief on it; crisp edges, no dark rim
 		vec3 n;
 		if (drop) {
-			n = vec3(q, sqrt(max(0.0, 1.0 - dot(q, q))));
+			n = vec3(q * 0.5, 1.0);
 		} else {
 			float ang = q.x * 6.2832;
 			vec2 across = vec2(cos(ang), sin(ang));
 			float t = clamp(q.y, -1.0, 1.0);
-			n = vec3(across * t, sqrt(max(0.0, 1.0 - t * t)));
+			n = vec3(across * t * 0.8, 1.0);
 		}
-		vec2 tq = lp * 0.035;
+		vec2 tq = lp * 0.05;
 		vec3 tn = texture(gold_nrm, tq).xyz * 2.0 - 1.0;
 		float gr = texture(gold_rough, tq).r;
 		vec3 gd = texture(gold_tex, tq).rgb;
-		n = normalize(n + vec3(tn.x, -tn.y, 0.0) * 0.45);
+		n = normalize(normalize(n) + vec3(tn.x, -tn.y, 0.0) * 0.5);
+		vec3 L = normalize(vec3(-0.55, -0.7, 0.55));
 		vec3 r = reflect(vec3(0.0, 0.0, -1.0), n);
-		float sharp = mix(60.0, 8.0, clamp(gr * 1.2, 0.0, 1.0));
-		// the studio in the gold
-		// (its sky: light all round the front, as the studio's shared sky — the gold reads gold, not a dark mirror)
-		float env = 0.42 + 0.35 * max(r.z, 0.0) - 0.25 * smoothstep(0.2, 0.9, r.y);
-		env += 1.4 * lobe(r, vec3(-0.55, -0.75, 0.55), sharp * 0.35);  // the warm softbox up left
-		env += 0.9 * lobe(r, vec3(0.9, -0.15, 0.4), sharp * 0.6);       // the cold strip light right
-		env += 0.4 * lobe(r, vec3(0.0, -1.0, 0.2), 4.0);                // from above
-		// a glint sliding along the seams now and then (as the stone's own: kin_k's gleam)
+		float dif = max(dot(n, L), 0.0);
+		float rough = clamp(gr * 0.9, 0.08, 0.6);
+		float spec = pow(max(dot(r, L), 0.0), mix(60.0, 6.0, rough)) * (1.2 - rough);
+		float fill = pow(max(dot(r, normalize(vec3(0.8, -0.2, 0.55))), 0.0), 8.0) * 0.35;
+		// native gold (the stone's 0.87, 0.53, 0.08 in linear light), worn by the worked texture
+		vec3 gold = vec3(0.94, 0.75, 0.30) * (gd.r * 1.15);
+		c = gold * (0.42 + 0.72 * dif) + gold * (spec * 1.3 + fill) + vec3(1.0, 0.95, 0.8) * spec * 0.35;
+		// a glint sliding along the seams now and then (the stone's gleam)
 		float gx = fract((lp.x * 0.6 + lp.y * 0.4) / 320.0 - TIME * 0.16) * 320.0;
-		env += 2.2 * exp(-pow(gx - 24.0, 2.0) / 140.0) * lobe(r, vec3(-0.2, -0.4, 0.9), 6.0);
-		// sparks: a facet of the hammered gold catching a lamp, here and there
-		float cell = floor((lp.x + lp.y * 1.7) / 9.0);
-		float tw = h1(cell);
-		env += 3.0 * pow(max(0.0, sin(TIME * 1.5 + tw * 40.0)), 50.0) * step(0.78, tw) * n.z;
-		// metal: the reflection tinted by the gold itself (native gold, as the stone's, under the worked texture)
-		vec3 gold = vec3(0.95, 0.66, 0.2) * (0.7 + 0.5 * gd.r);
-		c = gold * env;
-		c += vec3(1.0, 0.93, 0.75) * max(env - 1.3, 0.0) * 0.45;   // the brightest of a lamp goes whiter
-		// where the gold meets the stone it dips under: a dark rim
-		c *= mix(1.0, 0.35, smoothstep(0.8, 1.0, a));
+		c += vec3(1.0, 0.85, 0.5) * exp(-pow(gx - 24.0, 2.0) / 160.0) * 0.5 * (1.0 - gr);
 		// molten: white-hot, cooling
 		c = mix(c, vec3(1.0, 0.86, 0.55) * 1.3, vc.r);
-		alpha = 1.0 - smoothstep(0.88, 1.0, a);
+		float aa = max(fwidth(a), 0.02);
+		alpha = 1.0 - smoothstep(1.0 - aa * 1.5, 1.0, a);
 	}
 	COLOR = vec4(c, alpha * vc.a * (1.0 - inside));
 }

@@ -73,8 +73,23 @@ void fragment() {
 		fr *= smoothstep(0.4, 1.4, dot(so, so));
 	}
 	vec3 col = mix(vec3(0.62, 0.76, 0.92), vec3(0.97, 0.99, 1.0), smoothstep(0.3, 0.9, fr));
-	// single needles catching the light, one by one
-	float h = h21(floor(lp / 6.0));
-	float gl = step(0.985, h) * pow(0.5 + 0.5 * sin(TIME * 2.0 + h * 90.0), 16.0) * smoothstep(0.4, 0.8, fr);
-	COLOR = vec4(min(col + vec3(gl), vec3(1.0)), clamp(fr * opacity + gl * opacity, 0.0, 1.0));
+	// glitter, as snow in the sun (24.11: "a bit dull without it"): fine grains winking one by one, brighter in a band of
+	// light that slowly sweeps over the card; here and there a bigger grain flares with a four-pointed star
+	float fm = smoothstep(0.25, 0.7, fr);
+	float sweep = 0.45 + 0.55 * pow(0.5 + 0.5 * sin((zp.x * 0.6 + zp.y) / 90.0 - TIME * 0.9), 3.0);
+	float gl = 0.0;
+	vec2 c1 = floor(lp / 3.2);
+	float h = h21(c1);
+	vec2 o1 = (fract(lp / 3.2) - (0.3 + 0.4 * vec2(h, fract(h * 37.0)))) * 3.2;
+	float w1 = pow(max(0.0, sin(TIME * (1.6 + 2.2 * fract(h * 7.0)) + h * 60.0)), 24.0);
+	gl += step(0.82, h) * w1 * exp(-dot(o1, o1) * 1.6) * 1.6;
+	vec2 c2 = floor(lp / 14.0);
+	float h2 = h21(c2 + 17.0);
+	vec2 o2 = (fract(lp / 14.0) - (0.25 + 0.5 * vec2(h2, fract(h2 * 53.0)))) * 14.0;
+	float w2 = pow(max(0.0, sin(TIME * (0.9 + 1.3 * fract(h2 * 11.0)) + h2 * 40.0)), 40.0);
+	float star = exp(-dot(o2, o2) * 0.5) + (exp(-abs(o2.y) * 2.2) + exp(-abs(o2.x) * 2.2)) * exp(-length(o2) * 0.32) * 0.5;
+	gl += step(0.86, h2) * w2 * star * 1.4;
+	gl *= fm * sweep;
+	vec3 gcol = vec3(1.0, 0.98, 0.92) * gl + vec3(0.55, 0.75, 1.0) * gl * gl * 0.3;
+	COLOR = vec4(min(col + gcol, vec3(1.4)), clamp(fr * opacity + gl * 0.9, 0.0, 1.0));
 }

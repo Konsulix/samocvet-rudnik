@@ -96,15 +96,20 @@ void fragment() {
 		float fade = 1.0;
 		if (a < FORM) {
 			// swelling: a bead hanging under the stone, pulling longer before it lets go
+			// (half its size under the stone: a big glowing bead there pulled the eye off the stone - 24.11)
 			float k = smoothstep(0.0, FORM, a);
-			d = taper(p, vec2(x, y0 - sz * 0.6), vec2(x, y0 + sz * (0.3 + 0.9 * k)), sz * 0.25, sz * (0.35 + 0.65 * k));
+			float sm = sz * 0.5;
+			d = taper(p, vec2(x, y0 - sm * 0.6), vec2(x, y0 + sm * (0.3 + 0.9 * k)), sm * 0.25, sm * (0.35 + 0.65 * k));
 		} else if (a < land) {
 			// falling: a teardrop, its tail streaming up behind it
+			// it grows as it falls, from half its size under the stone to the whole of it on the brass
 			float u = a - FORM;
-			float y = y0 + sz * 1.2 + 0.5 * G * u * u;
-			float tail = min(sz * 1.5 + G * u * 0.03, sz * 6.0);
-			d = taper(p, vec2(x, y), vec2(x, y - tail), sz * 0.95, sz * 0.12);
-			light += vec3(1.0, 0.5, 0.1) * exp(-max(d, 0.0) / 5.0) * 0.55;
+			float g = mix(0.5, 1.0, smoothstep(0.0, 1.0, u / max(fall, 0.01)));
+			float sf = sz * g;
+			float y = y0 + sz * 0.6 + 0.5 * G * u * u;
+			float tail = min(sf * 1.5 + G * u * 0.03, sf * 6.0);
+			d = taper(p, vec2(x, y), vec2(x, y - tail), sf * 0.95, sf * 0.12);
+			light += vec3(1.0, 0.5, 0.1) * exp(-max(d, 0.0) / 5.0) * 0.55 * g;
 		} else {
 			// on the brass: a puddle spreading along the ribbon, a drip hanging off its lower edge
 			float s = a - land;

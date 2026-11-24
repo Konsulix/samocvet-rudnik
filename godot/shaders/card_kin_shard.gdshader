@@ -11,7 +11,8 @@ uniform vec2 psize = vec2(300.0, 200.0);   // the block, points
 uniform vec4 pin = vec4(0.0, 0.5, 1.0, 0.5); // the block in the card: x, y, w, h (fractions of the card)
 uniform float rb = 14.0;                   // the card's bottom corners
 uniform float rt = 29.0;                   // its top corners: round as the panel's brass ribbon
-uniform vec2 back_shift = vec2(0.0);       // the turned shards show the back's emblem: their group's middle on it
+uniform vec2 card_sz = vec2(360.0, 640.0);  // the card, points
+uniform float inset = 7.0;                  // the back's picture inside its brass frame (CardKintsugi: as on the back)
 uniform vec4 cut = vec4(0.0);
 
 float sd_round(vec2 p, vec2 h, float r) {
@@ -32,10 +33,10 @@ void fragment() {
 		c = texture(front, UV);
 	} else {
 		vec2 q = pin.xy + UV * pin.zw;
-		// (from the back's inner part: its own edge and corners are see-through — the shards at the card's sides
-		// showed the screen through them, the card not whole)
-		vec2 bq = vec2(1.0 - q.x, q.y) + back_shift;
-		c = texture(back, vec2(0.08 + bq.x * 0.84, clamp(bq.y, 0.06, 0.94)));
+		// the back's picture where this bit of the card is on the back (mirrored, as a card's back is), as the back
+		// lays it out inside its brass frame (24.11: a turned shard is a piece of the very back the card turns to)
+		vec2 bp = vec2(1.0 - q.x, q.y) * card_sz;
+		c = texture(back, clamp((bp - inset) / (card_sz - inset * 2.0), vec2(0.004), vec2(0.996)));
 	}
 	c.rgb *= vc.b;
 	COLOR = vec4(c.rgb, c.a * m * vc.a);
