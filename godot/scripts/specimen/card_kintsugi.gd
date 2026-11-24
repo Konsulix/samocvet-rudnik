@@ -87,6 +87,10 @@ var _hvp: SubViewport          # the glow drawn again, turned with the card
 var _hshow: TextureRect
 var _bframe: Panel             # the back's brass: the card's own frame
 var _aclip: Control            # the back's picture is cut to the inside of the frame
+## the mended block seen from behind (24.11: "the card one whole"): where a shard lies turned on the face, its slate
+## is up on the back; the gold of every seam runs through to the back too - both mirrored, as the back is
+var _bslate: Control
+var _bgold: Control
 var _snap: ImageTexture        # the card's face, for its half of the turn
 var _press := Vector2.ZERO
 var _pressed := false
@@ -667,6 +671,19 @@ func _build_back() -> void:
 	_art.stretch_mode = TextureRect.STRETCH_SCALE
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_aclip.add_child(_art)
+	_bslate = Control.new()
+	_bslate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bslate.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	_bslate.draw.connect(_draw_back_slate)
+	_aclip.add_child(_bslate)
+	_bgold = Control.new()
+	_bgold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bgm := ShaderMaterial.new()
+	bgm.shader = preload("res://shaders/card_kin_gold.gdshader")
+	_gold_maps(bgm)
+	_bgold.material = bgm
+	_bgold.draw.connect(_draw_back_gold)
+	_aclip.add_child(_bgold)
 	# the mending's charge: a glass vial filling with molten gold (drawn by code under the glass), a brass plate under
 	# it telling how far, taped on; the Mend button taped under it
 	_gauge = Control.new()
@@ -710,6 +727,43 @@ func _tape(r: Rect2, at: float, k: int, lean: float) -> void:
 	t.rotation = lean
 	_tapes.append(t)
 
+## a point of the block (its space) on the back, in the back's picture clip: mirrored across the card
+func _on_back(p: Vector2) -> Vector2:
+	var cp := _block.position + p
+	return Vector2(card.size.x - cp.x, cp.y) - Vector2.ONE * Reveal.CARD_PAD
+
+func _draw_back_slate() -> void:
+	if _cells.is_empty() or not _done_once: return
+	var tex := Kit.tex("slate")
+	var k := 3.0   # (the slate's pixels a point, as the kit lays it)
+	for c: Dictionary in _cells:
+		if not c.down: continue
+		var pts := PackedVector2Array()
+		var uvs := PackedVector2Array()
+		for p: Vector2 in c.poly:
+			var q := _on_back(p)
+			pts.append(q)
+			uvs.append(q * k / Vector2(tex.get_width(), tex.get_height()))
+		_bslate.draw_colored_polygon(pts, Color.WHITE, uvs, tex)
+		# its broken edge a shade darker, as the face's shards
+		var loop := pts.duplicate()
+		loop.append(pts[0])
+		_bslate.draw_polyline(loop, Color(0, 0, 0, 0.45), 1.2, true)
+
+func _draw_back_gold() -> void:
+	if _cells.is_empty() or not _done_once: return
+	var out := PackedVector2Array()
+	var cols := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	for e: Dictionary in _edges:
+		var pts := PackedVector2Array()
+		for p: Vector2 in e.pts: pts.append(_on_back(p))
+		_strip(pts, e.w, pts.size(), Color(0, 0, 0, 1), 1.0, out, cols, uvs, idx)
+	for kn: Array in _knots:
+		_disc(_on_back(kn[0]), float(kn[1]), Color(0, 1, 0, 1), out, cols, uvs, idx)
+	if idx.size(): RenderingServer.canvas_item_add_triangle_array(_bgold.get_canvas_item(), idx, out, cols, uvs)
+
 ## the back's picture in the card's space: its own proportions, covering the inside of the frame and a little more -
 ## its torn paper edges and see-through corners out of sight (24.11: stretched to the frame, it was drawn out and its
 ## corners showed empty)
@@ -731,6 +785,10 @@ func _layout_back() -> void:
 	_aclip.size = sz - Vector2.ONE * Reveal.CARD_PAD * 2.0
 	_art.position = ar.position - _aclip.position
 	_art.size = ar.size
+	for n: Control in [_bslate, _bgold]:
+		n.position = Vector2.ZERO
+		n.size = _aclip.size
+		n.queue_redraw()
 	for t in _tapes:
 		if is_instance_valid(t): t.queue_free()
 	_tapes.clear()
