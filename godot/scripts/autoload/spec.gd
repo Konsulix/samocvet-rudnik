@@ -174,8 +174,10 @@ func cached(o: Dictionary) -> Texture2D:
 # ---------------------------------------------------------------- pictures kept on disk
 ## a picture made once is saved (user://thumbs) and read back next launch: a full inventory of skulls is ~1 s
 ## per stone to build on a phone, a png ~ms. Each build of the game starts afresh (the generator changes between
-## builds): its stamp (res://build_stamp.gd, written by the iOS build) is kept beside the pictures. Without a stamp
-## (the editor, test runs) the disk is not used, unless `thumbs_disk` asks (stamp "dev")
+## builds): its stamp (res://build_stamp.gd, written by the iOS build) is kept beside the pictures. On the PC (25.11:
+## every launch rebuilt the whole inventory — ~30 builds, a barite 3.3 s — and it ran hot) the stamp is the newest
+## change to the generator's own files (DEV_SRC): any edit to it drops the old pictures by itself. `no_thumbs_disk`
+## turns the disk off there
 const DISK := "user://thumbs/"
 const DISK_V := 1    # bump when the pictures' framing changes
 static var _stamp := ""
@@ -183,8 +185,8 @@ static var _stamp := ""
 static func _disk_init() -> void:
 	if ResourceLoader.exists("res://build_stamp.gd"):
 		_stamp = str((load("res://build_stamp.gd") as GDScript).get_script_constant_map().get("ID", ""))
-	elif OS.get_cmdline_user_args().has("thumbs_disk"):
-		_stamp = "dev"
+	elif OS.has_feature("editor") and not OS.get_cmdline_user_args().has("no_thumbs_disk"):
+		_stamp = "dev:%d" % _dev_mtime()
 	if _stamp == "": return
 	_stamp += "|%d" % DISK_V
 	DirAccess.make_dir_recursive_absolute(DISK)
@@ -199,6 +201,23 @@ static func _disk_init() -> void:
 		var w := FileAccess.open(sf, FileAccess.WRITE)
 		if w: w.store_string(_stamp)
 		Diag.note("thumbs on disk: new build, %d old pictures dropped" % n)
+
+## what a find's picture is made of on the PC: the generator, its shaders, its models and scans
+const DEV_SRC := ["res://scripts/specimen", "res://scripts/autoload/spec.gd", "res://scripts/core/stones.gd", "res://scripts/core/worth.gd",
+	"res://shaders", "res://assets/specimen", "res://assets/textures"]
+
+## the newest change among them (seconds), sub-folders too
+static func _dev_mtime() -> int:
+	var t := 0
+	var todo: Array = DEV_SRC.duplicate()
+	while todo.size():
+		var p: String = todo.pop_back()
+		if DirAccess.dir_exists_absolute(p):
+			for d in DirAccess.get_directories_at(p): todo.append(p + "/" + d)
+			for f in DirAccess.get_files_at(p): t = maxi(t, FileAccess.get_modified_time(p + "/" + f))
+		elif FileAccess.file_exists(p):
+			t = maxi(t, FileAccess.get_modified_time(p))
+	return t
 
 static func _disk_path(kind: String, key: String) -> String:
 	return DISK + kind + "_" + key.md5_text() + ".png"
