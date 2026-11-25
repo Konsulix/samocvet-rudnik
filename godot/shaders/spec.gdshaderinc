@@ -540,7 +540,7 @@ void fragment() {
 	if (cham_k > 0.0) {
 		// alexandrite-like: one colour face-on, another at a glance, the balance breathing over time
 		float cm = clamp(edge_k * 1.6 + 0.25 * sin(TIME * 0.6 + v_op.y * 2.0), 0.0, 1.0);
-		tint0 = mix(tint0, cham_col, cm * cham_k * 0.6);
+		tint0 = mix(tint0, cham_col, clamp(cm + 0.5, 0.0, 1.0) * cham_k);
 	}
 	vec3 absorb = mix(vec3(1.0), tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b))), clamp(0.35 + edge_k * 0.75, 0.0, 1.0));
 	vec3 body = refr * absorb * mix(1.0, 0.75, edge_k);
@@ -561,8 +561,15 @@ void fragment() {
 		vec3 tn = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
 		// (25.11: the stone stays itself — its glass, its depth, its own colour under it — only its hue drifts toward
 		// the colour of the moment; taken over wholly it read as a pale pastel glass)
-		float bl = dot(body, vec3(0.3, 0.5, 0.2));
-		body = mix(body, bl * tn * 1.3, 0.55 * cham_k);
+		// (25.11, "the stone must change strongly", but not a pale pastel: the stone's own light and dark and depth kept,
+		// its hue turned wholly to the colour of the moment and its colour deepened — glass stained through)
+		float mx = max(body.r, max(body.g, body.b));
+		float mn = min(body.r, min(body.g, body.b));
+		// (its brightest kept under where the tone curve turns a pure colour pastel: the colour deep, the light and dark
+		// still the stone's)
+		float val = mx * 0.7 / (0.4 + mx);
+		vec3 hued = val * mix(vec3(0.08), tn, 0.96);
+		body = mix(body, hued, cham_k);
 	}
 	float enh_dk = 0.0;   // how much of the face's own glare to take off over the pocket (it hid it)
 	if (enh_k > 0.0) {
@@ -727,7 +734,7 @@ void fragment() {
 		float hh = dot(v_op, vec3(0.7, 1.1, 0.4)) * 0.9 + fr2 * 0.9 + vn(v_op * 0.9 + g_seed) * 1.4;
 		vec3 holo = 0.5 + 0.5 * cos(6.2832 * (hh + vec3(0.0, 0.33, 0.67)));
 		float hm = smoothstep(0.35, 0.7, vn(v_op * 1.2 + g_seed + 5.0) * 0.7 + vn(v_op * 2.3 + g_seed) * 0.3);
-		body += holo * holo_k * hm * (0.35 + 0.65 * fr2) * (1.0 - milk * 0.5) * (1.0 - dirt) * (1.0 - 0.75 * star_k) * (1.0 - 0.35 * cham_k);
+		body += holo * holo_k * hm * (0.35 + 0.65 * fr2) * (1.0 - milk * 0.5) * (1.0 - dirt) * (1.0 - 0.75 * star_k) * (1.0 - 0.92 * cham_k);
 	}
 	vec3 pitc = tint0 * 0.035 + vec3(0.004, 0.003, 0.006);
 	float hollow = smoothstep(0.3, 0.7, pit) * (1.0 - dirt);
@@ -831,7 +838,7 @@ void fragment() {
 	SPECULAR *= 1.0 - 0.6 * enh_dk;
 	SPECULAR *= 1.0 - 0.5 * trap;
 	SPECULAR *= 1.0 - 0.7 * star_k * (1.0 - dirt);
-	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.35 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e + a_eye;
+	EMISSION = body * (1.0 - dirt) + ((e + e_ir * film * 0.25) * (1.0 - 0.85 * star_k) * (1.0 - 0.92 * cham_k)) * (1.0 - dirt * 0.8) * (1.0 - hollow * 0.92) + lava_e + a_eye;
 	NORMAL = n;
 	ALPHA = 1.0;
 	if (grow_on > 0.0) {
