@@ -58,17 +58,31 @@ var _twig_ax := Vector3.UP
 const EYE1 := Vector3(-0.0842, 0.3739, 0.0485)
 const EYE2 := Vector3(-0.1235, 0.3746, -0.024)
 const EYE_IN := 0.016
-const MOUTH := Vector3(-0.178, 0.4, 0.0)
+const MOUTH := Vector3(-0.16, 0.385, 0.035)
+# (25.11) its neck, where its head turns; its front leg, shoulder to hand (marked on a side render with a grid)
+const NECK := Vector3(-0.05, 0.3, -0.017)
+const SNOUT := Vector3(-0.163, 0.399, 0.035)
+const ARM_A := Vector3(-0.063, 0.162, 0.045)
+const ARM_B := Vector3(-0.228, 0.236, 0.089)
+var _head := Vector2.ZERO
+var _head_to := Vector2.ZERO
+var _head_next := 2.0
+var _leg := 0.0
+var _leg_t := 0.0
+var _leg_next := 5.0
+var _head_dir := Vector3.LEFT
+var _head_up := Vector3.UP
+var _prey: Node3D
 var _eye := [Vector2.ZERO, Vector2.ZERO]
 var _eye_to := [Vector2.ZERO, Vector2.ZERO]
 var _eye_next := [0.5, 1.2]
 # the hunt: a bee comes buzzing by its snout; it fixes both eyes on it, and its tongue shoots out and takes it
-var _bug: MeshInstance3D
+var _bug: MeshInstance3D  # (unused: the bee of the first hunt)
 var _tongue: MeshInstance3D
 var _tip: MeshInstance3D
 var _hunt := 0            # 0 none, 1 coming, 2 hovering, 3 the tongue out, 4 back with it
 var _ht := 0.0
-var _hwait := 4.0
+var _hwait := 5.0
 var _bug_at := Vector3.ZERO
 var _bug_from := Vector3.ZERO
 
@@ -202,7 +216,16 @@ func _ready() -> void:
 		_skin.set_shader_parameter("eye1", EYE1 + Vector3(0, 0, -EYE_IN))
 		_skin.set_shader_parameter("eye2", EYE2 + Vector3(0, 0, EYE_IN))
 		_skin.set_shader_parameter("eye_r", 0.026)
-		# (25.11: no hunt — its mouth does not open, a tongue out of a shut mouth looked wrong)
+		_head_dir = (SNOUT - NECK).normalized()
+		var hl := (Vector3(0, 0, 1) - _head_dir * _head_dir.z).normalized()
+		_head_up = hl.cross(_head_dir).normalized()
+		if _head_up.y < 0.0: _head_up = -_head_up
+		_skin.set_shader_parameter("neck", NECK)
+		_skin.set_shader_parameter("head_dir", _head_dir)
+		_skin.set_shader_parameter("head_up", _head_up)
+		_skin.set_shader_parameter("arm_a", ARM_A)
+		_skin.set_shader_parameter("arm_b", ARM_B)
+		_build_hunt()
 	_pal = randi() % PALS.size()
 	# (tests: cham_pal=N — that colour, held)
 	for ar in OS.get_cmdline_user_args():
@@ -236,6 +259,8 @@ func _process(dt: float) -> void:
 	_colour(dt)
 	if not skel:
 		_eyes(dt)
+		_moves(dt)
+		_hunting(dt)
 	var studio: SpecStudio = view.studio
 	var cam := studio.cam
 	var vs := Vector2(studio.vp.size)
@@ -382,47 +407,11 @@ func _colour(dt: float) -> void:
 	fm.set_shader_parameter("rib_end", top + R + UP)
 	fm.set_shader_parameter("rib_w", WIDE)
 
-func _build_hunt() -> void:
-	_bug = MeshInstance3D.new()
-	_bug.mesh = load("res://assets/specimen/insects/wasp_carpenter.obj")
-	var bm := ShaderMaterial.new()
-	bm.shader = SpecFungi.SHADER
-	bm.set_shader_parameter("tex_d", load("res://assets/specimen/insects/wasp_carpenter_d.png"))
-	bm.set_shader_parameter("tex_n", load("res://assets/specimen/insects/wasp_carpenter_n.png"))
-	bm.set_shader_parameter("gain", 1.2)
-	_bug.material_override = bm
-	_bug.visible = false
-	_hold.add_child(_bug)
-	var tm := StandardMaterial3D.new()
-	tm.albedo_color = Color(0.85, 0.42, 0.48)
-	tm.roughness = 0.25
-	_tongue = MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.006
-	cm.bottom_radius = 0.009
-	cm.height = 1.0
-	cm.radial_segments = 8
-	cm.rings = 1
-	_tongue.mesh = cm
-	_tongue.material_override = tm
-	_tongue.visible = false
-	_hold.add_child(_tongue)
-	_tip = MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.016
-	sm.height = 0.032
-	sm.radial_segments = 10
-	sm.rings = 6
-	_tip.mesh = sm
-	_tip.material_override = tm
-	_tip.visible = false
-	_hold.add_child(_tip)
-
 ## each eye rolls on its own, now here, now there; when it hunts, both turn to the bee
 func _eyes(dt: float) -> void:
 	for k in 2:
 		_eye_next[k] = float(_eye_next[k]) - dt
-		if _hunt in [2, 3]:
+		if _hunt in [2, 3, 4]:
 			# (each eye's own outward look is +z or -z: turned toward the snout and the bee in front of it)
 			_eye_to[k] = Vector2(0.75 if k == 0 else -0.75, -0.25)
 		elif float(_eye_next[k]) <= 0.0:
@@ -433,8 +422,86 @@ func _eyes(dt: float) -> void:
 	_skin.set_shader_parameter("rot1", _eye[0])
 	_skin.set_shader_parameter("rot2", _eye[1])
 
-func _tongue_to(at: Vector3, carry := false) -> void:
-	var d := at - MOUTH
+## its head turns, in a quick move and a long stillness; now and then a front leg comes off the twig, hangs, and goes
+## back; its tail swings
+func _moves(dt: float) -> void:
+	_head_next -= dt
+	if _hunt >= 2:
+		# the hunt: its head away from the viewer, toward the butterfly behind it (its mouth out of sight)
+		_head_to = Vector2(AWAY, 0.12)
+	elif _head_next <= 0.0:
+		_head_next = randf_range(2.0, 5.0)
+		_head_to = Vector2(randf_range(-0.3, 0.35), randf_range(-0.14, 0.2))
+	_head = _head.lerp(_head_to, minf(1.0, dt * (9.0 if _hunt >= 2 else 4.5)))
+	_skin.set_shader_parameter("head_rot", _head)
+	_leg_next -= dt
+	if _leg_next <= 0.0 and _leg_t <= 0.0 and _hunt == 0:
+		_leg_t = randf_range(2.2, 3.6)
+		_leg_next = randf_range(8.0, 15.0)
+	if _leg_t > 0.0: _leg_t -= dt
+	var up := 1.0 if _leg_t > 0.5 else 0.0
+	_leg = lerpf(_leg, up, minf(1.0, dt * 4.0))
+	# (lifted: off the twig, up and out — and a small tremble while it hangs)
+	_skin.set_shader_parameter("arm_lift", -(0.32 * _leg + 0.03 * _leg * sin(_sway * 9.0)))
+	_skin.set_shader_parameter("tail_curl", sin(_sway * 0.45) * 0.7 + sin(_sway * 1.1 + 1.0) * 0.3)
+
+## how far its head turns from the viewer for the hunt
+const AWAY := 0.9
+
+## a point of its head, turned as the head is now (the shader's own turn, for the tongue's root)
+func _on_head(p: Vector3) -> Vector3:
+	var hl := _head_dir.cross(_head_up).normalized()
+	var q := (p - NECK).rotated(_head_up, _head.x)
+	q = q.rotated(hl, _head.y)
+	return NECK + q
+
+func _build_hunt() -> void:
+	# the prey: a butterfly of the game's own, its wings beating (its flight clip, looped)
+	var md: Dictionary = SpecButterfly.MODELS.peacock
+	_prey = Node3D.new()
+	var model := (load(SpecButterfly.DIR + String(md.file)) as PackedScene).instantiate() as Node3D
+	var turn := Node3D.new()
+	turn.rotation = Vector3(0, float(md.yaw), 0)
+	turn.scale = Vector3.ONE * PREY_SPAN / float(md.span)
+	turn.add_child(model)
+	_prey.add_child(turn)
+	var ap := model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if ap:
+		var clip := String((md.clips as Dictionary).fly)
+		var an := ap.get_animation(clip)
+		if an: an.loop_mode = Animation.LOOP_LINEAR
+		ap.play(clip, -1, 1.6)
+	_prey.visible = false
+	_hold.add_child(_prey)
+	var tm := StandardMaterial3D.new()
+	tm.albedo_color = Color(0.85, 0.42, 0.48)
+	tm.roughness = 0.25
+	_tongue = MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.009
+	cm.bottom_radius = 0.013
+	cm.height = 1.0
+	cm.radial_segments = 8
+	cm.rings = 1
+	_tongue.mesh = cm
+	_tongue.material_override = tm
+	_tongue.visible = false
+	_hold.add_child(_tongue)
+	_tip = MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.022
+	sm.height = 0.044
+	sm.radial_segments = 10
+	sm.rings = 6
+	_tip.mesh = sm
+	_tip.material_override = tm
+	_tip.visible = false
+	_hold.add_child(_tip)
+
+const PREY_SPAN := 0.2
+
+func _tongue_to(from: Vector3, at: Vector3) -> void:
+	var d := at - from
 	var L := d.length()
 	_tongue.visible = L > 0.01
 	_tip.visible = L > 0.01
@@ -442,59 +509,75 @@ func _tongue_to(at: Vector3, carry := false) -> void:
 	var y := d / L
 	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
 	var z := x.cross(y)
-	_tongue.transform = Transform3D(Basis(x, y * L, z), MOUTH + d * 0.5)
+	_tongue.transform = Transform3D(Basis(x, y * L, z), from + d * 0.5)
 	_tip.position = at
-	if carry: _bug.position = at
 
+## the hunt: a butterfly comes fluttering by behind its head; the head snaps round to it, away from the viewer — its
+## mouth out of sight — and the tongue shoots out from behind the head and takes it
 func _hunting(dt: float) -> void:
 	_ht += dt
-	# (its snout points into the frame: the bee hovers above its head, toward the stone — up and a little left on the
-	# screen, turned back into the model's own space)
-	var cam := view.studio.cam
-	var inv := _hold.global_basis.orthonormalized().inverse()
-	var ahead := (inv * (-cam.global_basis.x * 0.45 + cam.global_basis.y)).normalized()
-	var spot := MOUTH + ahead * 0.3
+	# where it flutters: past the head, on its far side (from the neck along the head as it will be turned, and up)
+	var hl := _head_dir.cross(_head_up).normalized()
+	var aim := _head_dir.rotated(_head_up, AWAY)
+	var spot := NECK + aim * 0.36 + _head_up * 0.05
+	var mouth := _on_head(MOUTH)
 	match _hunt:
 		0:
 			if _ht > _hwait:
 				_hunt = 1
 				_ht = 0.0
-				var side := (inv * -cam.global_basis.x).normalized()
-				_bug_from = MOUTH + ahead * 0.8 + side * randf_range(0.2, 0.5)
-				_bug.visible = true
-				_bug.scale = Vector3.ONE * 0.17
+				_bug_from = spot + _head_up * 0.5 + hl * randf_range(-0.25, 0.25) - _head_dir * 0.3
+				_prey.visible = true
 		1:
-			var k := smoothstep(0.0, 1.6, _ht)
-			_bug_at = _bug_from.lerp(spot, k)
-			if _ht > 1.6:
+			# in, on a wavering way
+			var k := smoothstep(0.0, 2.6, _ht)
+			_bug_at = _bug_from.lerp(spot, k) + _head_up * sin(_ht * 5.0) * 0.03 * (1.0 - k)
+			if _ht > 2.6:
 				_hunt = 2
 				_ht = 0.0
 		2:
+			# it has seen it: the head round, both eyes on it, a held breath
 			_bug_at = spot
-			if _ht > randf_range(1.6, 2.2):
+			if _ht > 1.1:
 				_hunt = 3
 				_ht = 0.0
 				Sfx.play("click")
 		3:
-			# out: the tongue as long as it takes, in a blink
-			var k := clampf(_ht / 0.08, 0.0, 1.0)
-			_tongue_to(MOUTH.lerp(_bug_at, k))
-			if _ht > 0.12:
+			var k := clampf(_ht / 0.09, 0.0, 1.0)
+			_tongue_to(mouth, mouth.lerp(_bug_at, k))
+			if _ht > 0.2:
 				_hunt = 4
 				_ht = 0.0
+				Sfx.buzz(20)
 		4:
-			var k := 1.0 - clampf(_ht / 0.22, 0.0, 1.0)
-			_tongue_to(MOUTH.lerp(_bug_at, k), true)
+			var k := 1.0 - clampf(_ht / 0.28, 0.0, 1.0)
+			var tip := mouth.lerp(_bug_at, k)
+			_tongue_to(mouth, tip)
+			_prey.position = tip
+			_prey.scale = Vector3.ONE * (0.4 + 0.6 * k)
 			if k <= 0.0:
 				_tongue.visible = false
 				_tip.visible = false
-				_bug.visible = false
+				_prey.visible = false
+				_prey.scale = Vector3.ONE
+				_hunt = 5
+				_ht = 0.0
+		5:
+			# it chews, its head still turned; then back
+			if _ht > 0.9:
 				_hunt = 0
 				_ht = 0.0
-				_hwait = randf_range(9.0, 16.0)
-				Sfx.buzz(20)
-	if _hunt in [1, 2]:
-		# a bee's buzz: quick small jitter, its body facing a little this way and that
-		var t := _sway * 23.0
-		_bug.position = _bug_at + Vector3(sin(t) * 0.01, sin(t * 1.3 + 1.0) * 0.012, cos(t * 0.9) * 0.008)
-		_bug.rotation = Vector3(0.3 * sin(_sway * 3.0), 2.4 + 0.5 * sin(_sway * 1.7), 0.2)
+				_hwait = randf_range(10.0, 18.0)
+				_head_next = 0.0
+	if _hunt in [1, 2, 3]:
+		# fluttering: it bobs with its wingbeat, drifts a little, its nose along its way
+		var t := _sway
+		var at := _bug_at + _head_up * sin(t * 11.0) * 0.012 + hl * sin(t * 2.3) * 0.02
+		var way := at - _prey.position
+		_prey.position = at
+		# its back to the viewer (its wings seen open, not edge on), its nose along its way — up, when it hangs
+		var camz: Vector3 = _hold.global_basis.orthonormalized().inverse() * view.studio.cam.global_basis.z
+		var nose := way.normalized() if way.length() > 0.0008 and _hunt == 1 else _head_up
+		var yv := (camz * 0.85 + _head_up * 0.3).normalized()
+		var xv := (nose - yv * nose.dot(yv)).normalized()
+		_prey.basis = Basis(xv, yv, xv.cross(yv)).orthonormalized()

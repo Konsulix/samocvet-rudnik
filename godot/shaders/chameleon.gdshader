@@ -34,6 +34,20 @@ uniform vec3 lat = vec3(0.0, 0.0, 1.0);
 uniform vec3 back = vec3(1.0, 0.0, 0.0);
 uniform float girth = 0.08;
 
+// (25.11) the head turns about its neck: `head_dir` neck to snout, `head_up` to its casque; `head_rot` x — the turn
+// about head_up (its snout toward or away from the viewer), y — the nod. What lies ahead of the neck turns whole, the
+// skin of the neck stretching between
+uniform vec3 neck = vec3(0.0, -9.0, 0.0);
+uniform vec3 head_dir = vec3(-1.0, 0.0, 0.0);
+uniform vec3 head_up = vec3(0.0, 1.0, 0.0);
+uniform vec2 head_rot = vec2(0.0);
+// a front leg lifted off the twig: from its shoulder `arm_a` to its hand `arm_b`, what lies along it turns about the
+// shoulder (about `lat`) by `arm_lift`, more toward the hand
+uniform vec3 arm_a = vec3(0.0, -9.0, 0.0);
+uniform vec3 arm_b = vec3(0.0, -9.1, 0.0);
+uniform float arm_lift = 0.0;
+uniform float tail_curl = 0.0;   // the tail's curl opening (+) and closing (-)
+
 varying float v_s;
 varying float v_dv;
 varying vec3 v_p;
@@ -44,6 +58,10 @@ float vn(vec3 x) {
 	f = f * f * (3.0 - 2.0 * f);
 	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
 		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+
+vec3 about(vec3 v, vec3 k, float a) {
+	return v * cos(a) + cross(k, v) * sin(a) + k * dot(k, v) * (1.0 - cos(a));
 }
 
 mat3 turn(vec2 a) {
@@ -66,6 +84,31 @@ void vertex() {
 			NORMAL = m * NORMAL;
 		}
 	}
+	// the leg's own reach first (the head's turn leaves it be)
+	vec3 ab = arm_b - arm_a;
+	float al = length(ab);
+	vec3 ad = ab / max(al, 0.001);
+	vec3 da = VERTEX - arm_a;
+	float at = dot(da, ad);
+	float off = length(da - ad * clamp(at, 0.0, al * 1.25));
+	float in_arm = (1.0 - smoothstep(0.034, 0.05, off)) * step(at, al * 1.3) * step(-0.02, at);
+	// the head (its lower jaw too: the first cut left the jaw's rim behind as crumbs in the air)
+	vec3 dh = VERTEX - neck;
+	float hh = dot(dh, head_dir);
+	float hu = dot(dh, head_up);
+	float hw = smoothstep(-0.02, 0.035, hh) * smoothstep(-0.17, -0.14, hu) * (1.0 - smoothstep(0.22, 0.28, length(dh))) * (1.0 - in_arm);
+	if (hw > 0.0) {
+		vec3 hl = normalize(cross(head_dir, head_up));
+		vec3 q = about(dh, head_up, head_rot.x * hw);
+		q = about(q, hl, head_rot.y * hw);
+		VERTEX = neck + q;
+		NORMAL = about(about(NORMAL, head_up, head_rot.x * hw), hl, head_rot.y * hw);
+	}
+	float aw = smoothstep(0.02, 0.07, at) * in_arm;
+	if (aw > 0.0 && arm_lift != 0.0) {
+		VERTEX = arm_a + about(da, lat, arm_lift * aw);
+		NORMAL = about(NORMAL, lat, arm_lift * aw);
+	}
 	vec3 d = VERTEX - c0;
 	float along = dot(d, ax);
 	float s = clamp((along - s_lo) / max(0.001, s_hi - s_lo), 0.0, 1.0);
@@ -79,6 +122,8 @@ void vertex() {
 	// the tail: its curl tightens and eases, more toward its tip
 	float tl = smoothstep(0.7, 1.0, s);
 	VERTEX += side * tl * tl * (s_hi - s_lo) * 0.05 * sin(TIME * 0.8 + seed * 2.0);
+	// and it swings out and back, slowly, as a tail feeling for a hold
+	VERTEX += (back * 0.6 - ax * 0.4) * tl * tl * (s_hi - s_lo) * 0.09 * tail_curl;
 }
 
 void fragment() {
