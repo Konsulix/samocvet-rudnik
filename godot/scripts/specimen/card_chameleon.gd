@@ -18,13 +18,14 @@ const SKEL_LEN := 0.78
 const DEPTH := 4.6
 
 ## the colours it turns, [body, its bands] (the stone, the panel and the brass take the body's)
+## (25.11: softer, the colours of real chameleons, not neon) [body, its line and head]
 const PALS := [
-	[Color(0.07, 0.42, 0.1), Color(0.85, 0.72, 0.08)],     # leaf green, yellow bands
-	[Color(0.03, 0.4, 0.42), Color(0.8, 0.95, 0.85)],      # turquoise, pale bands
-	[Color(0.62, 0.08, 0.03), Color(0.98, 0.6, 0.08)],     # red, orange bands
-	[Color(0.05, 0.14, 0.62), Color(0.25, 0.82, 0.92)],    # blue, cyan bands
-	[Color(0.38, 0.05, 0.5), Color(0.95, 0.45, 0.7)],      # violet, pink bands
-	[Color(0.62, 0.34, 0.02), Color(0.2, 0.09, 0.03)],     # amber, dark bands
+	[Color(0.12, 0.36, 0.1), Color(0.72, 0.68, 0.22)],     # leaf green, a yellow line
+	[Color(0.08, 0.33, 0.3), Color(0.62, 0.78, 0.62)],     # teal, pale green
+	[Color(0.5, 0.14, 0.06), Color(0.85, 0.55, 0.2)],      # rust red, orange
+	[Color(0.1, 0.2, 0.42), Color(0.45, 0.7, 0.72)],       # slate blue, pale cyan
+	[Color(0.32, 0.12, 0.3), Color(0.8, 0.5, 0.55)],       # plum, dusty rose
+	[Color(0.45, 0.3, 0.08), Color(0.82, 0.72, 0.42)],     # ochre, cream
 ]
 ## how long a colour holds; how a change runs: the chameleon first, head to tail, then the stone, the panel, the brass
 const HOLD := [6.0, 10.0]
@@ -174,6 +175,23 @@ func _ready() -> void:
 		_skin.set_shader_parameter("c0", bc)
 		_skin.set_shader_parameter("ax", hx)
 		_skin.set_shader_parameter("side", hx.cross(Vector3.UP).normalized())
+		# its across: the flanks along z (where its eyes are), its back away from the twig it holds
+		var latv := Vector3(0, 0, 1)
+		var bk := bc - c
+		bk -= hx * bk.dot(hx)
+		bk -= latv * bk.dot(latv)
+		bk = bk.normalized() if bk.length() > 0.001 else hx.cross(latv).normalized()
+		var rs := 0.0
+		var rn := 0
+		for p in bp:
+			var t := (p - bc).dot(hx)
+			if t < lo + (hi - lo) * 0.3 or t > lo + (hi - lo) * 0.6: continue
+			var q := p - bc - hx * t
+			rs += absf(q.dot(bk))
+			rn += 1
+		_skin.set_shader_parameter("lat", latv)
+		_skin.set_shader_parameter("back", bk)
+		_skin.set_shader_parameter("girth", maxf(0.01, rs / maxf(1, rn) * 1.6))
 		_skin.set_shader_parameter("s_lo", lo)
 		_skin.set_shader_parameter("s_hi", hi)
 	if _skin and not skel:
@@ -182,6 +200,11 @@ func _ready() -> void:
 		_skin.set_shader_parameter("eye_r", 0.032)
 		_build_hunt()
 	_pal = randi() % PALS.size()
+	# (tests: cham_pal=N — that colour, held)
+	for ar in OS.get_cmdline_user_args():
+		if ar.begins_with("cham_pal="):
+			_pal = int(ar.get_slice("=", 1)) % PALS.size()
+			_hold_for = 1e9
 	_from = _pal
 	_set_skin(1.0)
 	_build_ui()

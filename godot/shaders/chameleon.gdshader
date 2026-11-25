@@ -28,7 +28,14 @@ uniform float eye_r = 0.03;
 uniform vec2 rot1 = vec2(0.0);
 uniform vec2 rot2 = vec2(0.0);
 
+// the body's across: `lat` toward its flanks, `back` from its belly (the twig's side) up to its crest; `rad` its
+// girth's radius about its line
+uniform vec3 lat = vec3(0.0, 0.0, 1.0);
+uniform vec3 back = vec3(1.0, 0.0, 0.0);
+uniform float girth = 0.08;
+
 varying float v_s;
+varying float v_dv;
 varying vec3 v_p;
 
 float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -64,6 +71,7 @@ void vertex() {
 	float s = clamp((along - s_lo) / max(0.001, s_hi - s_lo), 0.0, 1.0);
 	v_s = s;
 	v_p = VERTEX;
+	v_dv = dot(d - ax * along, back) / girth;
 	// breathing: the middle of the body swells out from its line and eases back
 	vec3 rad = d - ax * along;
 	float mid = smoothstep(0.15, 0.35, s) * (1.0 - smoothstep(0.55, 0.72, s));
@@ -81,14 +89,24 @@ void fragment() {
 	float flush = exp(-pow((v_s - wave) / 0.05, 2.0)) * step(0.0, wave) * step(wave, 1.08);
 	vec3 base = mix(main_a, main_b, nw);
 	vec3 pat = mix(pat_a, pat_b, nw);
-	// bands across the body, wavering, and spots
+	// a real chameleon's pattern (25.11: "a wash with spots"): broad bars across the flanks, darker and lighter by
+	// turns; a pale line along each flank, low down; the belly pale; the head and its casque a colour of their own;
+	// fine speckles
 	float n = vn(v_p * 14.0 + seed);
-	float band = smoothstep(0.35, 0.75, sin(v_s * 34.0 + n * 2.5) * 0.5 + 0.5) * smoothstep(0.02, 0.12, v_s) * (1.0 - smoothstep(0.78, 0.9, v_s));
-	float spot = smoothstep(0.72, 0.85, vn(v_p * 40.0 + seed * 3.0));
-	vec3 col = mix(base, pat, clamp(band * 0.55 + spot * 0.4, 0.0, 1.0));
-	// the belly paler (facing down)
-	vec3 nw_w = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	col = mix(col, mix(col, pat, 0.5) + 0.03, smoothstep(-0.2, -0.7, nw_w.y) * 0.45);
+	float body = smoothstep(0.04, 0.14, v_s) * (1.0 - smoothstep(0.8, 0.92, v_s));
+	float bar = sin(v_s * 26.0 + n * 1.6 + v_dv * 0.6) * 0.5 + 0.5;
+	vec3 col = mix(base * 0.4, base * 1.3, smoothstep(0.3, 0.7, bar) * body + (1.0 - body) * 0.6);
+	// the pale line low along the flank, a little wavy, broken now and then
+	float line = exp(-pow((v_dv + 0.15 + (n - 0.5) * 0.2) / 0.2, 2.0)) * body * smoothstep(0.3, 0.6, vn(vec3(v_s * 30.0, seed, 1.0)) + 0.4);
+	col = mix(col, pat * 1.15 + 0.04, clamp(line, 0.0, 1.0) * 0.85);
+	// the belly
+	col = mix(col, mix(pat, vec3(0.8, 0.78, 0.65), 0.4), smoothstep(-0.55, -0.95, v_dv) * 0.7);
+	// the head: the pattern's colour, its casque edged darker
+	float head = 1.0 - smoothstep(0.08, 0.16, v_s);
+	col = mix(col, mix(pat, base, 0.35), head * 0.8);
+	// speckles, of the bands' colour
+	float spot = smoothstep(0.8, 0.9, vn(v_p * 48.0 + seed * 3.0)) * body;
+	col = mix(col, pat, spot * 0.5);
 	// the scan's light and dark carry the skin: its scales and folds
 	col *= 0.12 + 1.05 * L * L * 1.6;
 	col += pat * flush * 0.6;
@@ -100,7 +118,7 @@ void fragment() {
 		// bone, lit from within in the colour of the moment: brighter down its bands, a slow pulse running head to tail
 		float pulse = 0.55 + 0.45 * sin(v_s * 9.0 - TIME * 2.2);
 		ALBEDO = mix(vec3(0.78, 0.74, 0.66), base * 1.4, 0.55) * (0.6 + 0.4 * L);
-		EMISSION = mix(base, pat, band * 0.5) * (0.4 + 0.6 * pulse) * 2.6 + pat * flush * 2.5;
+		EMISSION = mix(base, pat, smoothstep(0.25, 0.75, bar) * 0.5) * (0.4 + 0.6 * pulse) * 2.6 + pat * flush * 2.5;
 		ROUGHNESS = 0.6;
 	}
 }
