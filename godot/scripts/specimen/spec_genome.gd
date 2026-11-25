@@ -320,6 +320,13 @@ static func of(o: Dictionary) -> Dictionary:
 		acc.append("mushrooms")
 	else:
 		shroom = -1
+	# (25.11, playtest: a legendary starry-sky fluorite — a heap of moss, grass and toadstools, its crystal rusty and
+	# buried) a legend that lives in the crystal's glass is the find: the rock keeps only small things, nothing tall
+	# or thick grows over it, and what would cover the glass (rust stains, moss over the crystals) is not rolled
+	var legend_glass := fx in in_glass or fx == "fluor"
+	if legend_glass and form != "skull" and not o.has("accents"):
+		acc = acc.filter(func(a: String) -> bool: return not a in ["fronds", "flowers", "straw", "pompom", "mushrooms", "needles", "crust"])
+		shroom = -1
 	# butterflies resting on the find or flying round it — any find, the kinds of its species' mine (SpecButterfly), on
 	# their own stream; a skull decides its own below
 	var fly_kinds: Array = []
@@ -388,6 +395,9 @@ static func of(o: Dictionary) -> Dictionary:
 	# (21.11, playtest: «phantom and chlorite phantom?») a chlorite phantom is a phantom — dusted green — so one ghost
 	# inside: the green one stays, the plain one goes (two shrunk crystals in one, two callouts into the same spot)
 	if "chlorite" in tr and "phantom" in tr and not "phantom" in lost: lost.append("phantom")
+	if fx in ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi", "fluor"] and form != "skull":
+		for t: String in ["limonite", "moss", "coral"]:
+			if t in tr and not t in lost: lost.append(t)
 	# a desert rose (gypsum full of sand) or an iron rose is opaque petals: nothing inside it shows — no water bubble,
 	# phantom, rutile, chlorite (it was rolled and named on the card, an "enhydro" on a rose of sand)
 	if form == "rosette" and (look.has("rose") or look.has("rose_metal")):

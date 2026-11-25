@@ -1005,8 +1005,11 @@ func _specimen(o: Dictionary) -> Node3D:
 			_widen_rock(srk, main, st)
 			# now and then the rock climbs one side of it: the crystal half sunk in it, as it grew (its own stream)
 			var hug_r := Rng32.new((seed_v * 1812433253 + 97) % 4294967296)
-			if hug_r.next() < HUG_P: _hug_rock(srk, main, st, rtype, hug_r)
+			# (25.11) a legend living in the glass shows its crystal whole: no rock climbing it, its crust only at the foot
+			var leg_glass := String(gene.fx) in ["heart", "chameleon", "lightning", "starry", "opal", "kintsugi", "fluor"]
+			if hug_r.next() < HUG_P and not leg_glass: _hug_rock(srk, main, st, rtype, hug_r)
 			dt.h = at.y + 0.1 + rng.next() * 0.25
+			if leg_glass: dt.h = at.y - 0.02
 			dt.a = 0.35
 			for k in int(floor(rng.next() * 3)):
 				# (14.11) a small one beside it grows out of the rock, its foot sunk in: on a spot that looks up (on a steep
