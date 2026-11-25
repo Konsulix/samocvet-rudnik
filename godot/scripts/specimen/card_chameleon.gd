@@ -54,10 +54,10 @@ var _bbc: BackBufferCopy
 var _sway := 0.0
 var _body: MeshInstance3D
 var _twig_ax := Vector3.UP
-# the eyes (the scan's turrets, model space: found by eye on a render — the model is one) and their roll
-const EYE1 := Vector3(-0.0917, 0.3596, 0.0516)
-const EYE2 := Vector3(-0.0736, 0.3416, -0.0523)
-const EYE_IN := 0.022
+# the eyes (the scan's turrets, model space: their rings marked on renders of the head from both sides, 25.11) and their roll
+const EYE1 := Vector3(-0.0842, 0.3739, 0.0485)
+const EYE2 := Vector3(-0.1235, 0.3746, -0.024)
+const EYE_IN := 0.016
 const MOUTH := Vector3(-0.178, 0.4, 0.0)
 var _eye := [Vector2.ZERO, Vector2.ZERO]
 var _eye_to := [Vector2.ZERO, Vector2.ZERO]
@@ -201,7 +201,7 @@ func _ready() -> void:
 	if _skin and not skel:
 		_skin.set_shader_parameter("eye1", EYE1 + Vector3(0, 0, -EYE_IN))
 		_skin.set_shader_parameter("eye2", EYE2 + Vector3(0, 0, EYE_IN))
-		_skin.set_shader_parameter("eye_r", 0.032)
+		_skin.set_shader_parameter("eye_r", 0.026)
 		# (25.11: no hunt — its mouth does not open, a tongue out of a shut mouth looked wrong)
 	_pal = randi() % PALS.size()
 	# (tests: cham_pal=N — that colour, held)
