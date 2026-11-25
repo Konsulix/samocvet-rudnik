@@ -7,8 +7,11 @@ extends Node
 ## turning find: every frame it is put back in the window's corner, the same size on the screen.
 
 const DIR := "res://assets/specimen/chameleon/"
-## how long the twig is on the screen, of the window's width
-const LEN_K := 0.78
+## (25.11, the user's sketch) the twig laid across the window's lower right corner: one end on the info panel's top,
+## CHORD.x of the window's width in from the right, the other on the right frame, CHORD.y up from the panel; its ends
+## run on a little behind them (LEN_K of the chord)
+const CHORD := Vector2(0.24, 0.34)
+const LEN_K := 1.18
 ## how far in front of the camera (the stone stands at ~6.6)
 const DEPTH := 4.6
 
@@ -80,7 +83,7 @@ func _ready() -> void:
 	_len = maxf(0.01, a.distance_to(b))
 	# the animal's middle (on the twig) is what sits by the corner — a little in from it, up the twig
 	var ax0 := (b - a).normalized()
-	_base = a + ax0 * (bc0 - a).dot(ax0)
+	_base = (a + b) * 0.5
 	var bc := Vector3.ZERO
 	var bp := (body.mesh as Mesh).get_faces()
 	for p in bp: bc += p
@@ -88,7 +91,7 @@ func _ready() -> void:
 	# turned: the twig up and in from the corner (up-left on the screen, a little toward the camera), then about it, so
 	# the animal (its middle off the twig) is on the side facing the camera
 	var cam := studio.cam
-	var want := (-cam.global_basis.x * 0.72 + cam.global_basis.y * 0.62 + cam.global_basis.z * 0.3).normalized()
+	var want := (cam.global_basis.x * CHORD.x + cam.global_basis.y * CHORD.y + cam.global_basis.z * 0.08).normalized()
 	var axis := (b - a).normalized()
 	var r0 := Basis(SpecUtil.quat_to(axis, want))
 	var off := bc - a
@@ -114,10 +117,9 @@ func _process(_dt: float) -> void:
 	var ir := info.get_global_rect()
 	var vr := view.get_global_rect()
 	var corner := Vector2(vr.size.x, ir.position.y - vr.position.y) * k
-	var p0 := cam.project_position(corner, DEPTH)
-	var p1 := cam.project_position(corner - Vector2(vr.size.x * LEN_K * k, 0.0), DEPTH)
-	var sc := p0.distance_to(p1) / _len
-	# the animal's middle in from the corner, up the twig (the twig runs on out behind the frame)
-	var into := (-cam.global_basis.x * 0.72 + cam.global_basis.y * 0.62).normalized() * p0.distance_to(p1) * 0.3
+	var w := vr.size.x * k
+	var e1 := cam.project_position(corner + Vector2(-w * CHORD.x, 0.0), DEPTH)
+	var e2 := cam.project_position(corner + Vector2(0.0, -w * CHORD.y), DEPTH)
+	var sc := e1.distance_to(e2) * LEN_K / _len
 	var bs := _rot.scaled(Vector3.ONE * sc)
-	_hold.global_transform = Transform3D(bs, p0 + into - bs * _base)
+	_hold.global_transform = Transform3D(bs, (e1 + e2) * 0.5 - bs * _base)
