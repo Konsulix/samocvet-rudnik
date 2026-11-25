@@ -448,7 +448,8 @@ static func geo_shape(seed_v: int, sid: String) -> String:
 ## the lines for the reveal card: what the find is made of
 static func describe(g: Dictionary) -> Array:
 	var lus := {glass = "vitreous", dark = "dark, oily", metal = "metallic"}
-	var fname: String = SpecCopper.NAMES.get(String((g.get("cu", {}) as Dictionary).get("kind", "")), FORM_N.get(g.form, g.form))
+	var cug: Dictionary = g.get("cu", {})
+	var fname: String = SpecCopper.NAMES.get("bookends" if cug.get("pair", false) else String(cug.get("kind", "")), FORM_N.get(g.form, g.form))
 	var out := [["Form", fname], ["Lustre", lus.get(g.lustre, "")], ["Rock", ROCK_N.get(g.rock, g.rock) + (", crumbly" if float(g.loose) > 0.0 else "")], ["Size", SIZE_N[int(g.size)]]]
 	if g.fx != "":
 		out.push_front(["Legendary effect", SpecLegend.FX_N.get(g.fx, g.fx)])

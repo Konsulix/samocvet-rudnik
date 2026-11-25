@@ -31,11 +31,9 @@ static func genes(seed_v: int, kind: String, o: Dictionary = {}) -> Dictionary:
 	if o.has("cu_bare"): g.bare = float(o.cu_bare)
 	return g
 
-static func accents(g: Dictionary) -> Array:
-	if g.is_empty(): return []
-	var out := ["cu_" + String(g.kind)]
-	if g.get("pair", false): out.append("cu_bookends")
-	return out
+## (25.11, the user: «these are just formations, not genes») no chips of their own: the form is named in "Form"
+static func accents(_g: Dictionary) -> Array:
+	return []
 
 static func gene_name(id: String) -> String:
 	return NAMES.get(id.trim_prefix("cu_"), "")
@@ -93,20 +91,6 @@ static func _float(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 		_windows(rng, sg, S[1], float(g.bare), Vector3.ZERO, 0.01)
 		var dir := Vector3(rng.next() - 0.5, rng.next() * 0.4 - 0.1, rng.next() - 0.5).normalized()
 		U.mesh(sg, m, b.root, dir * Vector3(0.5, 0.3, 0.4), U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
-	# the callout: on the window that faces the viewer best
-	var best := -INF
-	var at := Vector3.ZERO
-	var nn := Vector3.UP
-	var xf := main.transform
-	for i in range(0, gm.v.size(), 7):
-		if gm.col[i].r < 0.9: continue
-		var w := xf * gm.v[i]
-		var s := w.normalized().dot(VIEW_DIR) + w.y * 0.3
-		if s > best:
-			best = s
-			at = w
-			nn = w.normalized()
-	b._mark("cu_float", at, nn)
 	return main
 
 ## press every vertex past a plane onto it; returns which were pressed
@@ -181,10 +165,9 @@ static func _slab(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	if not g.get("pair", false):
 		var n := (VIEW_DIR + Vector3.UP * 0.35).normalized()
 		var on := _press(gm, n * 0.04, n)
-		var mid := _face(gm, on, n)
+		_face(gm, on, n)
 		m.set_shader_parameter("scratch_dir", n.cross(Vector3.UP).normalized().rotated(n, rng.next() * 0.6 - 0.3))
 		main = U.mesh(gm, m, b.root)
-		b._mark("cu_slab", mid, n)
 		return main
 	# the pair: cut through the middle across x, one half each way, each turned to the viewer, side by side
 	var right := (-VIEW_DIR).cross(Vector3.UP).normalized()
@@ -207,8 +190,6 @@ static func _slab(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	at_b.y = 0.0
 	main = U.mesh(ga, m, b.root, at_a, ba)
 	U.mesh(gb, m, b.root, at_b, bb)
-	b._mark("cu_slab", at_a + ba * mid_a, da)
-	b._mark("cu_bookends", (at_a + ba * mid_a + at_b + bb * mid_b) * 0.5 + Vector3.UP * 0.25, VIEW_DIR)
 	return main
 
 ## a sheet of copper through a block of basalt: the rock under it, the sheet, the rock over it broken away at the front
@@ -269,15 +250,5 @@ static func _sheet(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	U.mesh(lo, rock, b.root)
 	U.mesh(hi, rock, b.root)
 	var main := U.mesh(sh, m, b.root)
-	# the callout: on the sheet's face, toward the viewer
-	var best := -INF
-	var at := Vector3.ZERO
-	for i in range(0, sh.v.size(), 5):
-		if top[i] != 1: continue
-		var s := (sh.v[i] - c0).dot(VIEW_DIR) + sh.v[i].y * 0.2
-		if s > best:
-			best = s
-			at = sh.v[i]
-	b._mark("cu_sheet", at, mdir)
 	b.root.set_meta("glow", Color(0.2, 0.22, 0.2))
 	return main
