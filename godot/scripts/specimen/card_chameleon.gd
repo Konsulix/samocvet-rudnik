@@ -52,6 +52,8 @@ var _pan: ColorRect
 var _frame: ColorRect
 var _bbc: BackBufferCopy
 var _sway := 0.0
+var _body: MeshInstance3D
+var _twig_ax := Vector3.UP
 # the eyes (the scan's turrets, model space: found by eye on a render — the model is one) and their roll
 const EYE1 := Vector3(-0.0917, 0.3596, 0.0516)
 const EYE2 := Vector3(-0.0736, 0.3416, -0.0523)
@@ -118,6 +120,7 @@ func _ready() -> void:
 		body.material_override = _skin
 	_hold.add_child(twig)
 	_hold.add_child(body)
+	_body = body
 	# the twig's run: its two ends farthest apart; the lower one (the scan's own up is +y) goes into the corner
 	var pts := (twig.mesh as Mesh).get_faces()
 	var c := Vector3.ZERO
@@ -137,6 +140,7 @@ func _ready() -> void:
 		a = b
 		b = t
 	_len = maxf(0.01, a.distance_to(b))
+	_twig_ax = (b - a).normalized()
 	# the animal's middle (on the twig) is what sits by the corner — a little in from it, up the twig
 	var ax0 := (b - a).normalized()
 	_base = (a + b) * 0.5
@@ -198,7 +202,7 @@ func _ready() -> void:
 		_skin.set_shader_parameter("eye1", EYE1 + Vector3(0, 0, -EYE_IN))
 		_skin.set_shader_parameter("eye2", EYE2 + Vector3(0, 0, EYE_IN))
 		_skin.set_shader_parameter("eye_r", 0.032)
-		_build_hunt()
+		# (25.11: no hunt — its mouth does not open, a tongue out of a shut mouth looked wrong)
 	_pal = randi() % PALS.size()
 	# (tests: cham_pal=N — that colour, held)
 	for ar in OS.get_cmdline_user_args():
@@ -232,7 +236,6 @@ func _process(dt: float) -> void:
 	_colour(dt)
 	if not skel:
 		_eyes(dt)
-		_hunting(dt)
 	var studio: SpecStudio = view.studio
 	var cam := studio.cam
 	var vs := Vector2(studio.vp.size)
@@ -256,8 +259,9 @@ func _process(dt: float) -> void:
 	var bs := _rot.scaled(Vector3.ONE * sc)
 	# it sways a little up and down its twig, as chameleons do: a leaf in the wind
 	_sway += dt
-	var along := (e2 - e1).normalized() * e1.distance_to(e2) * 0.018 * (sin(_sway * 1.3) + 0.4 * sin(_sway * 3.1))
-	_hold.global_transform = Transform3D(bs, (e1 + e2) * 0.5 - bs * _base + along)
+	_hold.global_transform = Transform3D(bs, (e1 + e2) * 0.5 - bs * _base)
+	# (25.11: the twig stays still) only the animal rocks a little back and forth along it
+	if is_instance_valid(_body): _body.position = _twig_ax * _len * 0.012 * (sin(_sway * 1.3) + 0.4 * sin(_sway * 3.1))
 
 static func _c3(c: Color) -> Vector3:
 	return Vector3(c.r, c.g, c.b)
