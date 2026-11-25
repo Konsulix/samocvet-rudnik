@@ -21,12 +21,25 @@ uniform vec3 scratch_dir = vec3(1.0, 0.3, 0.0);
 uniform float rind_w = 0.12;    // the cuprite rind's width on a sawn face
 uniform float face_dull = 0.0;  // a softer polish (a pair of bookends: each half turned its own way to the lamps)
 
+// (25.11, "soapy" close up: noise alone was smooth blotches) the skin's grain, pores and bumps from a photo scan
+// (rock_pitted_mossy), by its brightness, laid three ways round the stone, at two scales
+uniform sampler2D crust_tex : filter_linear_mipmap, repeat_enable;
+
 varying vec3 v_p;
+varying vec3 v_n;
 varying vec4 v_c;
 
 void vertex() {
 	v_p = VERTEX;
+	v_n = NORMAL;
 	v_c = COLOR;
+}
+
+float scan(vec3 q) {
+	vec3 w = pow(abs(normalize(v_n)), vec3(4.0));
+	w /= (w.x + w.y + w.z);
+	vec3 L = vec3(0.3, 0.59, 0.11);
+	return dot(texture(crust_tex, q.zy).rgb, L) * w.x + dot(texture(crust_tex, q.xz).rgb, L) * w.y + dot(texture(crust_tex, q.xy).rgb, L) * w.z;
 }
 
 void fragment() {
@@ -36,13 +49,20 @@ void fragment() {
 	float fw = length(fwidth(p));
 	float aa = smoothstep(0.2, 0.45, fw * 5.5);
 	float face = step(0.5, v_c.g);
-	// the skin's edge round a window: ragged, the green eaten back unevenly
+	// the scan: coarse and fine (the fine one for close up), ~0.5 its middle
+	float sc = clamp((scan(v_p * 1.6 + seed) * 0.6 + scan(v_p * 5.3 + 0.37 + seed) * 0.4 - 0.3) / 0.32, 0.0, 1.4);
+	// the skin's edge round a window: ragged, the green eaten back unevenly — and crumbling along the scan's grain:
+	// grains of patina left on the copper, grains of copper showing through the skin (25.11: one crisp line before)
 	float edge_n = fbm(p * 2.3) - 0.5;
 	// (its edge a pixel or so soft: a hard one stair-stepped and crawled as the stone turned)
-	float bv = v_c.r + edge_n * 0.22;
+	float bv = v_c.r + edge_n * 0.16 + (sc - 0.55) * 0.42;
 	float bw = max(0.03, fwidth(bv) * 0.9);
 	float bare = smoothstep(0.5 - bw, 0.5 + bw, bv);
 	bare = max(bare, face);
+	// how far into the copper (0 at the skin's edge .. 1 well inside): the copper browns and reddens to its edge
+	float inner = smoothstep(0.5, 0.95, bv);
+	// how near the skin's edge, outside it: a band of cuprite, red-brown, before the green
+	float band = smoothstep(0.12, 0.5, bv) * (1.0 - bare) * (1.0 - face);
 	// ---- the skin: velvet, near black-green, the bright malachite only in grains and specks; brown and brick-red
 	// patches of oxide and cuprite; a little dirty calcite
 	float big = fbm(p * 0.9);
@@ -50,12 +70,11 @@ void fragment() {
 	float g1 = 1.0 - smoothstep(0.2, 0.45, fw * 38.0);
 	float g2 = 1.0 - smoothstep(0.2, 0.45, fw * 90.0);
 	float grain = 0.5 + (vn(p * 38.0) - 0.5) * 0.6 * g1 + (vn(p * 90.0) - 0.5) * 0.4 * g2;
-	float green = smoothstep(0.55 - green_k * 0.35, 0.75 - green_k * 0.35, big + (mid - 0.5) * 0.45);
+	float green = smoothstep(0.55 - green_k * 0.35, 0.75 - green_k * 0.35, big + (mid - 0.5) * 0.45 + (sc - 0.55) * 0.35);
 	vec3 deep = mix(lin(vec3(0.02, 0.06, 0.04)), lin(vec3(0.05, 0.16, 0.1)), smoothstep(0.3, 0.8, mid));
 	deep = mix(deep, lin(vec3(0.04, 0.13, 0.13)), blue_k * smoothstep(0.55, 0.8, vn(p * 1.7 + 3.0)));
 	// bright malachite: grains and little clusters of them
-	float spk = smoothstep(0.58, 0.78, vn(p * 5.5 + 2.0) * 0.65 + grain * 0.5);
-	spk = mix(spk, 0.25, aa);
+	float spk = smoothstep(0.74, 0.95, sc * 0.55 + vn(p * 5.5 + 2.0) * 0.4 + grain * 0.15);
 	vec3 bright = mix(lin(vec3(0.1, 0.42, 0.24)), lin(vec3(0.14, 0.48, 0.44)), blue_k * vn(p * 2.2 + 8.0));
 	vec3 mal = mix(deep, bright, spk * 0.85);
 	vec3 oxide = mix(lin(vec3(0.04, 0.03, 0.025)), lin(vec3(0.13, 0.07, 0.04)), mid);
@@ -63,13 +82,15 @@ void fragment() {
 	vec3 skin = mix(oxide, mal, green);
 	float wht = smoothstep(0.9 - calcite * 0.05, 0.93 - calcite * 0.05, vn(p * 6.5 + 19.0)) * (0.4 + grain * 0.5);
 	skin = mix(skin, lin(vec3(0.42, 0.4, 0.35)) * (0.6 + mid * 0.4), wht);
-	skin *= 0.6 + grain * 0.6;
-	// crumbly: dark pits in it
-	float pit = smoothstep(0.74, 0.88, vn(p * 24.0)) * (1.0 - smoothstep(0.2, 0.45, fw * 24.0));
-	skin *= 1.0 - pit * 0.7;
+	skin *= (0.6 + grain * 0.3) * (0.35 + sc * 0.6);
+	// crumbly: dark pores of the scan, and finer ones
+	float pit = max(smoothstep(0.3, 0.1, sc), smoothstep(0.74, 0.88, vn(p * 24.0)) * (1.0 - smoothstep(0.2, 0.45, fw * 24.0)));
+	skin *= 1.0 - pit * 0.6;
+	// the cuprite band by the copper: red-brown, the scan's grain in it
+	skin = mix(skin, lin(vec3(0.3, 0.09, 0.05)) * (0.4 + sc * 0.55), band * 0.8);
 	// a dark rim of oxide where the skin meets the copper
 	float rim = (1.0 - abs(bare * 2.0 - 1.0)) * (1.0 - face);
-	skin = mix(skin, lin(vec3(0.03, 0.02, 0.015)), rim * 0.7);
+	skin = mix(skin, lin(vec3(0.05, 0.025, 0.015)), rim * 0.4);
 	// ---- the copper
 	vec3 cu_fresh = lin(vec3(0.93, 0.52, 0.32));
 	vec3 cu_brown = lin(vec3(0.55, 0.27, 0.15));
@@ -122,12 +143,12 @@ void fragment() {
 		NORMAL = bump(NORMAL, VERTEX, h, 1.0);
 	} else {
 		// worn windows: ground flat and smooth; next to the skin's step the copper is in its shade, dull and dark
-		float lip = smoothstep(0.5, 0.72, v_c.r + edge_n * 0.1);
-		vec3 cw = cu * mix(0.45, 1.0, lip);
-		float hs = (grain * 0.009 + spk * 0.004 + mid * 0.006 - pit * 0.006) * (1.0 - bare);
+		// the copper toward the skin: browned, then red-dark cuprite under a thin film, duller — one stone, not a hole
+		vec3 cw = mix(lin(vec3(0.3, 0.1, 0.05)), mix(cu_brown * 0.8, cu, smoothstep(0.25, 1.0, inner)), smoothstep(0.0, 0.35, inner));
+		float hs = (sc * 0.016 + grain * 0.004 + spk * 0.004 - pit * 0.008) * (1.0 - bare) + sc * 0.0004 * bare;
 		ALBEDO = mix(skin, cw, bare);
-		METALLIC = bare;
-		ROUGHNESS = mix(0.9, mix(0.45, cu_r + tn * 0.1, lip), bare);
+		METALLIC = bare * mix(0.45, 1.0, smoothstep(0.0, 0.4, inner));
+		ROUGHNESS = mix(0.9, mix(0.55, cu_r + tn * 0.1, smoothstep(0.0, 0.5, inner)), bare);
 		NORMAL = bump(NORMAL, VERTEX, hs, 1.0);
 	}
 }

@@ -759,7 +759,7 @@ func _ready() -> void:
 		return
 	if args.has("reveal"):
 		var rsd := int(args.reveal)
-		# cu=float|slab|slab+pair|sheet: the first seed from reveal= on whose native copper grows that way (SpecCopper)
+		# cu=float|slab|slab+pair: the first seed from reveal= on whose native copper grows that way (SpecCopper)
 		if args.has("cu"):
 			for t in 20000:
 				var cg: Dictionary = SpecGenome.of({seed = rsd, sid = "nativecu", kind = "nugget", gi = 2, traits = []}).get("cu", {})

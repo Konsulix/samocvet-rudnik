@@ -30,8 +30,8 @@ const ACC := {halves = 1.8, inner_light = 2.2, pocket = 1.6, pompom = 0.6, straw
 	# a tourmaline's colours (SpecForms.TOURM): the plain ones little, a neon or a blue cap much; a polished slice
 	tm_verdelite = 0.4, tm_rubellite = 0.8, tm_indicolite = 1.0, tm_bicolour = 1.0, tm_watermelon = 1.3, tm_tricolour = 1.7, tm_blue_cap = 1.8,
 	tm_paraiba = 3.2, tm_slice = 2.0, ob_black = 0.0, ob_snowflake = 0.9, ob_mahogany = 0.6, ob_rainbow = 2.2, ob_tears = 1.0,
-	# native copper (SpecCopper): worn windows, a polished face, a sheet in basalt, both halves of a slab
-	cu_float = 1.6, cu_slab = 2.0, cu_sheet = 1.3, cu_bookends = 1.8,
+	# native copper (SpecCopper): worn windows, a polished face, both halves of a slab
+	cu_float = 1.6, cu_slab = 2.0, cu_bookends = 1.8,
 	# a skull's own (its skin is its body: SKULL_V)
 	sk_crown = 1.4, sk_eyes = 1.2, sk_fangs = 0.9, sk_stream = 1.8, sk_moss = 1.1, sk_trees = 1.6, sk_roots = 0.6, sk_coins = 1.6,
 	sk_diadem = 2.6, sk_maw = 1.6, sk_horn = 1.2, sk_bloom = 1.2, sk_frost = 0.4, sk_wax = 0.4, sk_lantern = 1.2, sk_pile = 1.0,

@@ -19,7 +19,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
 	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", barite = "barite blades", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
 	ob_mahogany = "mahogany obsidian", ob_rainbow = "rainbow sheen", ob_tears = "Apache tears",
-	cu_float = "float copper", cu_slab = "polished slab", cu_sheet = "copper sheet", cu_bookends = "bookend pair",
+	cu_float = "float copper", cu_slab = "polished slab", cu_bookends = "bookend pair",
 	heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
 	sk_gilt = "gold leaf", sk_gold = "molten gold", sk_silver = "molten silver", sk_copper = "molten copper", sk_kintsugi = "kintsugi",
@@ -133,7 +133,7 @@ static func of(o: Dictionary) -> Dictionary:
 	if sid in ["nativecu", "gold"] and form in ["nugget", "vein"] and Rng32.new((seed_v * 2654435761 + 57) % 4294967296).next() < (0.45 if sid == "nativecu" else 0.3):
 		form = "dendrite"
 	# (25.11) native copper the Keweenaw way (SpecCopper): a float lump worn through to copper windows, a sawn and
-	# polished slab, a sheet through basalt — its own stream; cu=<kind> pins it (tests)
+	# polished slab — its own stream; cu=<kind> pins it (tests)
 	var cu := {}
 	if sid == "nativecu" and (form in ["nugget", "vein"] or o.has("cu")):
 		var ck := String(o.get("cu", SpecCopper.kind_of(seed_v)))
