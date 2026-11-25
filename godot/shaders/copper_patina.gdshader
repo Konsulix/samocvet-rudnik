@@ -75,12 +75,13 @@ void fragment() {
 	float g2 = 1.0 - smoothstep(0.2, 0.45, fw * 90.0);
 	float grain = 0.5 + (vn(p * 38.0) - 0.5) * 0.6 * g1 + (vn(p * 90.0) - 0.5) * 0.4 * g2;
 	float green = smoothstep(0.55 - green_k * 0.35, 0.75 - green_k * 0.35, big + (mid - 0.5) * 0.45 + (sc - 0.55) * 0.35);
-	vec3 deep = mix(lin(vec3(0.012, 0.035, 0.025)), lin(vec3(0.035, 0.1, 0.065)), smoothstep(0.3, 0.8, mid));
+	// (25.11: "the green brighter again" - the deep base back up, the bright grains outside the patches too)
+	vec3 deep = mix(lin(vec3(0.03, 0.1, 0.06)), lin(vec3(0.08, 0.26, 0.16)), smoothstep(0.3, 0.8, mid));
 	deep = mix(deep, lin(vec3(0.04, 0.13, 0.13)), blue_k * smoothstep(0.55, 0.8, vn(p * 1.7 + 3.0)));
 	// bright malachite: grains, only in patches of it here and there (25.11: grains all over read as one mint skin;
 	// on the photos the skin is mostly near black-green, the bright green in patches)
 	float patch = smoothstep(0.5, 0.68, fbm(p * 0.75 + 41.0));
-	float spk = smoothstep(0.7, 0.92, sc * 0.55 + vn(p * 5.5 + 2.0) * 0.4 + grain * 0.15) * mix(0.15, 1.0, patch);
+	float spk = smoothstep(0.7, 0.92, sc * 0.55 + vn(p * 5.5 + 2.0) * 0.4 + grain * 0.15) * mix(0.45, 1.0, patch);
 	spk = max(spk, patch * smoothstep(0.45, 0.8, sc) * 0.55);
 	vec3 bright = mix(lin(vec3(0.1, 0.42, 0.24)), lin(vec3(0.14, 0.48, 0.44)), blue_k * vn(p * 2.2 + 8.0));
 	vec3 mal = mix(deep, bright, spk * 0.85);
@@ -89,7 +90,7 @@ void fragment() {
 	vec3 skin = mix(oxide, mal, green);
 	// brown and rust zones over it: where the skin is oxide, iron-stained, not green
 	float rust = smoothstep(0.58, 0.74, fbm(p * 0.6 + 77.0));
-	skin = mix(skin, mix(lin(vec3(0.07, 0.035, 0.02)), lin(vec3(0.2, 0.09, 0.04)), sc * 0.7), rust * 0.75);
+	skin = mix(skin, mix(lin(vec3(0.07, 0.035, 0.02)), lin(vec3(0.2, 0.09, 0.04)), sc * 0.7), rust * 0.6);
 	float wht = smoothstep(0.9 - calcite * 0.05, 0.93 - calcite * 0.05, vn(p * 6.5 + 19.0)) * (0.4 + grain * 0.5);
 	skin = mix(skin, lin(vec3(0.42, 0.4, 0.35)) * (0.6 + mid * 0.4), wht);
 	skin *= (0.6 + grain * 0.3) * (0.35 + sc * 0.6);
