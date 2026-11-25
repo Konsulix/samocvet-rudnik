@@ -78,23 +78,31 @@ static func _windows(rng: Rng32, gm: Geo, cav: PackedFloat32Array, bare: float, 
 	var NB := _nbrs(gm)
 	var rep_of: PackedInt32Array = NB[0]
 	var nb: Array = NB[1]
-	for it in 3:
+	rr = _smooth(rr, rep_of, nb, 3)
+	# (25.11, "a smoother way from copper to skin") the same, smoothed far wider: the copper browning over a wide way
+	# to the skin, the skin thinning to a film near the copper, the skin's rise a slope, not a step (COLOR.b)
+	var ww := _smooth(rr, rep_of, nb, 14)
+	for i in gm.v.size():
+		gm.col[i] = Color(rr[i], 0.0, ww[i], 1.0)
+	# ground flat: the windows smoothed toward their neighbours (the bumps' tops worn down into flat lobes)
+	if grind: _grind(gm)
+	# the skin stands above the copper: rising over the wide way
+	for i in gm.v.size():
+		gm.v[i] += (gm.v[i] - c).normalized() * raise * (1.0 - smoothstep(0.15, 0.6, ww[i]))
+
+static func _smooth(src: PackedFloat32Array, rep_of: PackedInt32Array, nb: Array, n: int) -> PackedFloat32Array:
+	var rr := src.duplicate()
+	for it in n:
 		var nr := rr.duplicate()
-		for i in gm.v.size():
+		for i in rr.size():
 			if rep_of[i] != i: continue
 			var ns: PackedInt32Array = nb[i]
 			if ns.is_empty(): continue
 			var sum := rr[i]
 			for j in ns: sum += rr[j]
 			nr[i] = sum / (ns.size() + 1)
-		for i in gm.v.size(): rr[i] = nr[rep_of[i]]
-	for i in gm.v.size():
-		gm.col[i] = Color(rr[i], 0.0, 0.0, 1.0)
-	# ground flat: the windows smoothed toward their neighbours (the bumps' tops worn down into flat lobes)
-	if grind: _grind(gm)
-	# the skin stands above the copper: a step round every window
-	for i in gm.v.size():
-		gm.v[i] += (gm.v[i] - c).normalized() * raise * (1.0 - gm.col[i].r)
+		for i in rr.size(): rr[i] = nr[rep_of[i]]
+	return rr
 
 ## each vertex's neighbours, the sphere's seam welded by position
 static func _nbrs(gm: Geo) -> Array:
