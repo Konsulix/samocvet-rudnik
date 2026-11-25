@@ -10,7 +10,7 @@ const DIR := "res://assets/specimen/chameleon/"
 ## (25.11, the user's sketch) the twig laid across the window's lower right corner: one end on the info panel's top,
 ## CHORD.x of the window's width in from the right, the other on the right frame, CHORD.y up from the panel; its ends
 ## run on a little behind them (LEN_K of the chord)
-const CHORD := Vector2(0.24, 0.34)
+const CHORD := Vector2(0.29, 0.41)
 const LEN_K := 1.18
 ## the skeleton's twig: out of the corner, up and in, this long (of the window's width)
 const SKEL_LEN := 0.78
