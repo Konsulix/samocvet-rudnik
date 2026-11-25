@@ -55,13 +55,17 @@ void fragment() {
 		}
 	}
 	if (m <= 0.0) discard;
-	vec3 under = texture(screen, SCREEN_UV).rgb;
 	float d = length(p - src);
 	float inside = 1.0 - smoothstep(rad - 14.0, rad, d);
 	float edge = exp(-pow((d - rad) / 9.0, 2.0)) * step(rad, 2000.0);
 	vec3 col = mix(col_a, col_b, inside);
-	float lum = dot(under, vec3(0.3, 0.59, 0.11));
-	vec3 tinted = mode == 1 ? lum * col * 2.3 : under * 0.55 + col * (0.12 + lum * 0.9);
-	tinted += col * edge * (mode == 1 ? 0.9 : 0.35);
-	COLOR = vec4(tinted, m * k);
+	if (mode == 0) {
+		// (the panel: a wash of the colour over its slate, not reading the screen — the screen this layer saw had no slate
+		// yet at the panel's top, and showed what was under it: a dark strip, the twig's tip — 25.11)
+		COLOR = vec4(col * 0.7 + col * edge * 0.8, m * k * (0.3 + edge * 0.3));
+	} else {
+		vec3 under = texture(screen, SCREEN_UV).rgb;
+		float lum = dot(under, vec3(0.3, 0.59, 0.11));
+		COLOR = vec4(lum * col * 2.3 + col * edge * 0.9, m * k);
+	}
 }

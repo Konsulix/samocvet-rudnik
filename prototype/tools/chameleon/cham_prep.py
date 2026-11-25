@@ -115,6 +115,22 @@ for o, drop in [(hi, twig), (br, ~twig)]:
     for p in o.data.polygons: p.select = bool(drop[p.index])
     bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.delete(type="FACE"); bpy.ops.object.mode_set(mode="OBJECT")
 hi.name = "cham_body"
+# (crumbs of the scan floating by its head: loose pieces, a sliver of the whole, dropped)
+for o in (hi, br):
+    only(o)
+    bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT"); bpy.ops.mesh.separate(type="LOOSE"); bpy.ops.object.mode_set(mode="OBJECT")
+    parts = [x for x in bpy.context.selected_objects]
+    big = max(parts, key=lambda x: len(x.data.polygons))
+    keep = [x for x in parts if len(x.data.polygons) >= len(big.data.polygons) * 0.02]
+    for x in parts:
+        if x not in keep: bpy.data.objects.remove(x, do_unlink=True)
+    bpy.ops.object.select_all(action="DESELECT")
+    for x in keep: x.select_set(True)
+    bpy.context.view_layer.objects.active = big
+    if len(keep) > 1: bpy.ops.object.join()
+    if o is hi: hi = big
+    else: br = big
+hi.name = "cham_body"; br.name = "cham_branch"
 norm([hi, br])
 decimate(hi, 16000); decimate(br, 2500)
 small = img.copy(); small.scale(1024, 1024); small.filepath_raw = os.path.join(OUT, "cham_d.png"); small.file_format = "PNG"; small.save()

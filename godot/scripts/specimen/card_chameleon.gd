@@ -49,7 +49,25 @@ var _stone: Array[ShaderMaterial] = []
 var _pan_hold: Control
 var _pan: ColorRect
 var _frame: ColorRect
+var _bbc: BackBufferCopy
 var _sway := 0.0
+# the eyes (the scan's turrets, model space: found by eye on a render — the model is one) and their roll
+const EYE1 := Vector3(-0.0917, 0.3596, 0.0516)
+const EYE2 := Vector3(-0.0736, 0.3416, -0.0523)
+const EYE_IN := 0.022
+const MOUTH := Vector3(-0.178, 0.4, 0.0)
+var _eye := [Vector2.ZERO, Vector2.ZERO]
+var _eye_to := [Vector2.ZERO, Vector2.ZERO]
+var _eye_next := [0.5, 1.2]
+# the hunt: a bee comes buzzing by its snout; it fixes both eyes on it, and its tongue shoots out and takes it
+var _bug: MeshInstance3D
+var _tongue: MeshInstance3D
+var _tip: MeshInstance3D
+var _hunt := 0            # 0 none, 1 coming, 2 hovering, 3 the tongue out, 4 back with it
+var _ht := 0.0
+var _hwait := 4.0
+var _bug_at := Vector3.ZERO
+var _bug_from := Vector3.ZERO
 
 static func attach(card_: Control, view_: SpecView, info_: Control, fx: String, skull: bool) -> void:
 	if fx != "chameleon": return
@@ -158,6 +176,11 @@ func _ready() -> void:
 		_skin.set_shader_parameter("side", hx.cross(Vector3.UP).normalized())
 		_skin.set_shader_parameter("s_lo", lo)
 		_skin.set_shader_parameter("s_hi", hi)
+	if _skin and not skel:
+		_skin.set_shader_parameter("eye1", EYE1 + Vector3(0, 0, -EYE_IN))
+		_skin.set_shader_parameter("eye2", EYE2 + Vector3(0, 0, EYE_IN))
+		_skin.set_shader_parameter("eye_r", 0.032)
+		_build_hunt()
 	_pal = randi() % PALS.size()
 	_from = _pal
 	_set_skin(1.0)
@@ -165,6 +188,7 @@ func _ready() -> void:
 	tree_exiting.connect(func() -> void:
 		if is_instance_valid(_hold): _hold.queue_free()
 		if is_instance_valid(_pan_hold): _pan_hold.queue_free()
+		if is_instance_valid(_bbc): _bbc.queue_free()
 		if is_instance_valid(_frame): _frame.queue_free())
 
 ## a tap on the chameleon's corner: it changes colour now
@@ -183,6 +207,9 @@ func _input(e: InputEvent) -> void:
 func _process(dt: float) -> void:
 	if not is_instance_valid(info) or not is_instance_valid(view) or not is_instance_valid(_hold): return
 	_colour(dt)
+	if not skel:
+		_eyes(dt)
+		_hunting(dt)
 	var studio: SpecStudio = view.studio
 	var cam := studio.cam
 	var vs := Vector2(studio.vp.size)
@@ -247,6 +274,12 @@ func _build_ui() -> void:
 	fm.set_shader_parameter("mode", 1)
 	fm.set_shader_parameter("k", 0.6)
 	_frame.material = fm
+	# (25.11: a dark strip over the panel's top) the screen this layer reads was copied when the panel's layer read it —
+	# before the ribbon and the words were drawn: on the ribbon it drew the slate under it. A fresh copy first
+	_bbc = BackBufferCopy.new()
+	_bbc.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	_bbc.z_index = 4
+	card.add_child(_bbc)
 	card.add_child(_frame)
 
 ## the colour of the moment: held, then changed: the chameleon first, head to tail, the stone after it, then a ring of
@@ -268,6 +301,11 @@ func _colour(dt: float) -> void:
 			var m := (n as GeometryInstance3D).material_override as ShaderMaterial
 			while m:
 				var ck = m.get_shader_parameter("cham_k")
+				# (on a skull its crystals have no chameleon colour of their own: given it, the bone and the rock left be)
+				if ck == null and m.shader and m.shader.get_shader_uniform_list().any(func(u: Dictionary) -> bool: return u.name == "cham_k"): ck = 0.0
+				if ck != null and skel and float(ck) <= 0.0 and not m.get_meta("rock", false):
+					m.set_shader_parameter("cham_k", 0.85)
+					ck = 0.85
 				if ck != null and float(ck) > 0.0: _stone.append(m)
 				m = m.next_pass as ShaderMaterial
 	for m in _stone:
@@ -316,3 +354,120 @@ func _colour(dt: float) -> void:
 	fm.set_shader_parameter("rib_xr", xr)
 	fm.set_shader_parameter("rib_end", top + R + UP)
 	fm.set_shader_parameter("rib_w", WIDE)
+
+func _build_hunt() -> void:
+	_bug = MeshInstance3D.new()
+	_bug.mesh = load("res://assets/specimen/insects/wasp_carpenter.obj")
+	var bm := ShaderMaterial.new()
+	bm.shader = SpecFungi.SHADER
+	bm.set_shader_parameter("tex_d", load("res://assets/specimen/insects/wasp_carpenter_d.png"))
+	bm.set_shader_parameter("tex_n", load("res://assets/specimen/insects/wasp_carpenter_n.png"))
+	bm.set_shader_parameter("gain", 1.2)
+	_bug.material_override = bm
+	_bug.visible = false
+	_hold.add_child(_bug)
+	var tm := StandardMaterial3D.new()
+	tm.albedo_color = Color(0.85, 0.42, 0.48)
+	tm.roughness = 0.25
+	_tongue = MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.006
+	cm.bottom_radius = 0.009
+	cm.height = 1.0
+	cm.radial_segments = 8
+	cm.rings = 1
+	_tongue.mesh = cm
+	_tongue.material_override = tm
+	_tongue.visible = false
+	_hold.add_child(_tongue)
+	_tip = MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.016
+	sm.height = 0.032
+	sm.radial_segments = 10
+	sm.rings = 6
+	_tip.mesh = sm
+	_tip.material_override = tm
+	_tip.visible = false
+	_hold.add_child(_tip)
+
+## each eye rolls on its own, now here, now there; when it hunts, both turn to the bee
+func _eyes(dt: float) -> void:
+	for k in 2:
+		_eye_next[k] = float(_eye_next[k]) - dt
+		if _hunt in [2, 3]:
+			# (each eye's own outward look is +z or -z: turned toward the snout and the bee in front of it)
+			_eye_to[k] = Vector2(0.75 if k == 0 else -0.75, -0.25)
+		elif float(_eye_next[k]) <= 0.0:
+			_eye_next[k] = randf_range(0.6, 2.4)
+			_eye_to[k] = Vector2(randf_range(-0.7, 0.7), randf_range(-0.45, 0.45))
+		# a quick flick, then still (a chameleon's eye jumps)
+		_eye[k] = (_eye[k] as Vector2).lerp(_eye_to[k], minf(1.0, dt * 14.0))
+	_skin.set_shader_parameter("rot1", _eye[0])
+	_skin.set_shader_parameter("rot2", _eye[1])
+
+func _tongue_to(at: Vector3, carry := false) -> void:
+	var d := at - MOUTH
+	var L := d.length()
+	_tongue.visible = L > 0.01
+	_tip.visible = L > 0.01
+	if L <= 0.01: return
+	var y := d / L
+	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
+	var z := x.cross(y)
+	_tongue.transform = Transform3D(Basis(x, y * L, z), MOUTH + d * 0.5)
+	_tip.position = at
+	if carry: _bug.position = at
+
+func _hunting(dt: float) -> void:
+	_ht += dt
+	# (its snout points into the frame: the bee hovers above its head, toward the stone — up and a little left on the
+	# screen, turned back into the model's own space)
+	var cam := view.studio.cam
+	var inv := _hold.global_basis.orthonormalized().inverse()
+	var ahead := (inv * (-cam.global_basis.x * 0.45 + cam.global_basis.y)).normalized()
+	var spot := MOUTH + ahead * 0.3
+	match _hunt:
+		0:
+			if _ht > _hwait:
+				_hunt = 1
+				_ht = 0.0
+				var side := (inv * -cam.global_basis.x).normalized()
+				_bug_from = MOUTH + ahead * 0.8 + side * randf_range(0.2, 0.5)
+				_bug.visible = true
+				_bug.scale = Vector3.ONE * 0.17
+		1:
+			var k := smoothstep(0.0, 1.6, _ht)
+			_bug_at = _bug_from.lerp(spot, k)
+			if _ht > 1.6:
+				_hunt = 2
+				_ht = 0.0
+		2:
+			_bug_at = spot
+			if _ht > randf_range(1.6, 2.2):
+				_hunt = 3
+				_ht = 0.0
+				Sfx.play("click")
+		3:
+			# out: the tongue as long as it takes, in a blink
+			var k := clampf(_ht / 0.08, 0.0, 1.0)
+			_tongue_to(MOUTH.lerp(_bug_at, k))
+			if _ht > 0.12:
+				_hunt = 4
+				_ht = 0.0
+		4:
+			var k := 1.0 - clampf(_ht / 0.22, 0.0, 1.0)
+			_tongue_to(MOUTH.lerp(_bug_at, k), true)
+			if k <= 0.0:
+				_tongue.visible = false
+				_tip.visible = false
+				_bug.visible = false
+				_hunt = 0
+				_ht = 0.0
+				_hwait = randf_range(9.0, 16.0)
+				Sfx.buzz(20)
+	if _hunt in [1, 2]:
+		# a bee's buzz: quick small jitter, its body facing a little this way and that
+		var t := _sway * 23.0
+		_bug.position = _bug_at + Vector3(sin(t) * 0.01, sin(t * 1.3 + 1.0) * 0.012, cos(t * 0.9) * 0.008)
+		_bug.rotation = Vector3(0.3 * sin(_sway * 3.0), 2.4 + 0.5 * sin(_sway * 1.7), 0.2)

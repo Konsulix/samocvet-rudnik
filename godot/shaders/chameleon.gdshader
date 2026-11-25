@@ -20,6 +20,13 @@ uniform float s_hi = 0.5;
 uniform float seed = 0.0;
 // (its skeleton, on a skull: bone, the colour glowing through it from within — the bands along its spine)
 uniform float bone = 0.0;
+// the eye turrets: their centres and size; each turned on its own (yaw, pitch) — they roll each its own way, and both
+// to what it is about to catch
+uniform vec3 eye1 = vec3(0.0, -9.0, 0.0);
+uniform vec3 eye2 = vec3(0.0, -9.0, 0.0);
+uniform float eye_r = 0.03;
+uniform vec2 rot1 = vec2(0.0);
+uniform vec2 rot2 = vec2(0.0);
 
 varying float v_s;
 varying vec3 v_p;
@@ -32,7 +39,26 @@ float vn(vec3 x) {
 		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
+mat3 turn(vec2 a) {
+	float cy = cos(a.x), sy = sin(a.x), cp = cos(a.y), sp = sin(a.y);
+	mat3 ry = mat3(vec3(cy, 0.0, -sy), vec3(0.0, 1.0, 0.0), vec3(sy, 0.0, cy));
+	mat3 rx = mat3(vec3(1.0, 0.0, 0.0), vec3(0.0, cp, sp), vec3(0.0, -sp, cp));
+	return ry * rx;
+}
+
 void vertex() {
+	// the eyes: what lies in a turret turns about its centre, easing out to the skin round it
+	for (int k = 0; k < 2; k++) {
+		vec3 ec = k == 0 ? eye1 : eye2;
+		vec2 ea = k == 0 ? rot1 : rot2;
+		vec3 de = VERTEX - ec;
+		float w = 1.0 - smoothstep(eye_r * 0.75, eye_r * 1.2, length(de));
+		if (w > 0.0) {
+			mat3 m = turn(ea * w);
+			VERTEX = ec + m * de;
+			NORMAL = m * NORMAL;
+		}
+	}
 	vec3 d = VERTEX - c0;
 	float along = dot(d, ax);
 	float s = clamp((along - s_lo) / max(0.001, s_hi - s_lo), 0.0, 1.0);
