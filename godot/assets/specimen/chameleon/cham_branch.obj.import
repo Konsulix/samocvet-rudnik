@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dv7irdh8645xj"
+path="res://.godot/imported/cham_branch.obj-6e480c1245d11f39817bd0ddb8a78c4a.mesh"
+
+[deps]
+
+files=["res://.godot/imported/cham_branch.obj-6e480c1245d11f39817bd0ddb8a78c4a.mesh"]
+
+source_file="res://assets/specimen/chameleon/cham_branch.obj"
+dest_files=["res://.godot/imported/cham_branch.obj-6e480c1245d11f39817bd0ddb8a78c4a.mesh", "res://.godot/imported/cham_branch.obj-6e480c1245d11f39817bd0ddb8a78c4a.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

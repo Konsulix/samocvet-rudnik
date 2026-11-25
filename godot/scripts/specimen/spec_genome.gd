@@ -290,10 +290,11 @@ static func of(o: Dictionary) -> Dictionary:
 		fpool.append_array(in_glass)
 	# a skull's own living things (SpecSkullFx): Yaga's fire in the eyes, a candle burning on the crown, eyes that
 	# follow you, cracks healing with light, a cloud of butterflies, a swarm of fireflies
-	if form == "skull": fpool = ["yaga", "yaga", "candle", "watching", "deathless", "flutter", "fireflies"]
+	# (25.11: and the chameleon — its skeleton on its twig in the card's corner, CardChameleon)
+	if form == "skull": fpool = ["yaga", "yaga", "candle", "watching", "deathless", "flutter", "fireflies", "chameleon"]
 	# an animal's skull: its own kind's legends (SpecBeastFx), and a swarm of fireflies
 	if form == "skull" and String(o.get("beast", "")) != "":
-		fpool = SpecBeastFx.pool(String(o.beast)) + ["fireflies"]
+		fpool = SpecBeastFx.pool(String(o.beast)) + ["fireflies", "chameleon"]
 	if o.get("legend", false):
 		fx = fpool[int(rng.next() * fpool.size())]
 	# an effect given from outside (the admin's finds, tests) is kept when the body can show it — a glass effect on a
