@@ -147,7 +147,7 @@ static func _grind(gm: Geo) -> void:
 static func _float(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	var rng := b.rng
 	var m := material(g)
-	var L := RockKit.lump(rng, {r = 0.55, sx = 1.3 + rng.next() * 0.25, sy = 0.78 + rng.next() * 0.2, sz = 1.0, wave = 0.24,
+	var L := RockKit.lump(rng, {r = 0.55, sx = 1.3 + rng.next() * 0.25, sy = 0.78 + rng.next() * 0.2, sz = 1.0, wave = 0.12,
 		bumps = [[9, 0.75, 0.22], [28, 0.32, 0.08]], pits = [24, 0.14, 0.05], seg = 144})
 	var gm: Geo = L[0]
 	_windows(rng, gm, L[1], float(g.bare), Vector3.ZERO)

@@ -75,15 +75,21 @@ void fragment() {
 	float g2 = 1.0 - smoothstep(0.2, 0.45, fw * 90.0);
 	float grain = 0.5 + (vn(p * 38.0) - 0.5) * 0.6 * g1 + (vn(p * 90.0) - 0.5) * 0.4 * g2;
 	float green = smoothstep(0.55 - green_k * 0.35, 0.75 - green_k * 0.35, big + (mid - 0.5) * 0.45 + (sc - 0.55) * 0.35);
-	vec3 deep = mix(lin(vec3(0.02, 0.06, 0.04)), lin(vec3(0.05, 0.16, 0.1)), smoothstep(0.3, 0.8, mid));
+	vec3 deep = mix(lin(vec3(0.012, 0.035, 0.025)), lin(vec3(0.035, 0.1, 0.065)), smoothstep(0.3, 0.8, mid));
 	deep = mix(deep, lin(vec3(0.04, 0.13, 0.13)), blue_k * smoothstep(0.55, 0.8, vn(p * 1.7 + 3.0)));
-	// bright malachite: grains and little clusters of them
-	float spk = smoothstep(0.74, 0.95, sc * 0.55 + vn(p * 5.5 + 2.0) * 0.4 + grain * 0.15);
+	// bright malachite: grains, only in patches of it here and there (25.11: grains all over read as one mint skin;
+	// on the photos the skin is mostly near black-green, the bright green in patches)
+	float patch = smoothstep(0.5, 0.68, fbm(p * 0.75 + 41.0));
+	float spk = smoothstep(0.7, 0.92, sc * 0.55 + vn(p * 5.5 + 2.0) * 0.4 + grain * 0.15) * mix(0.15, 1.0, patch);
+	spk = max(spk, patch * smoothstep(0.45, 0.8, sc) * 0.55);
 	vec3 bright = mix(lin(vec3(0.1, 0.42, 0.24)), lin(vec3(0.14, 0.48, 0.44)), blue_k * vn(p * 2.2 + 8.0));
 	vec3 mal = mix(deep, bright, spk * 0.85);
 	vec3 oxide = mix(lin(vec3(0.04, 0.03, 0.025)), lin(vec3(0.13, 0.07, 0.04)), mid);
 	oxide = mix(oxide, lin(vec3(0.24, 0.08, 0.04)), smoothstep(0.6, 0.78, vn(p * 2.6 + 5.0)) * 0.8);   // cuprite, brick-red
 	vec3 skin = mix(oxide, mal, green);
+	// brown and rust zones over it: where the skin is oxide, iron-stained, not green
+	float rust = smoothstep(0.58, 0.74, fbm(p * 0.6 + 77.0));
+	skin = mix(skin, mix(lin(vec3(0.07, 0.035, 0.02)), lin(vec3(0.2, 0.09, 0.04)), sc * 0.7), rust * 0.75);
 	float wht = smoothstep(0.9 - calcite * 0.05, 0.93 - calcite * 0.05, vn(p * 6.5 + 19.0)) * (0.4 + grain * 0.5);
 	skin = mix(skin, lin(vec3(0.42, 0.4, 0.35)) * (0.6 + mid * 0.4), wht);
 	skin *= (0.6 + grain * 0.3) * (0.35 + sc * 0.6);
@@ -152,10 +158,28 @@ void fragment() {
 		// worn windows: ground flat and smooth; next to the skin's step the copper is in its shade, dull and dark
 		// the copper toward the skin: browned, then red-dark cuprite under a thin film, duller — one stone, not a hole
 		vec3 cw = mix(lin(vec3(0.2, 0.07, 0.035)), mix(cu_brown * 0.6, cu, smoothstep(0.35, 1.0, inner)), smoothstep(0.0, 0.5, inner));
-		float hs = (sc * 0.016 + grain * 0.004 + spk * 0.004 - pit * 0.008) * (1.0 - bare) + sc * 0.0004 * bare;
+		// worn, not lacquered (25.11): scratches of the ice and its stones every way (three families, each a thin
+		// streak stretched along the surface), blotches of tarnish
+		float scr = 0.0;
+		float sfade = 1.0 - smoothstep(0.25, 0.6, length(fwidth(v_p)) * 260.0);
+		for (int k = 0; k < 3; k++) {
+			float an = seed * 1.7 + float(k) * 2.1;
+			vec3 a1 = normalize(vec3(cos(an), sin(an * 1.3) * 0.6, sin(an)));
+			vec3 a2 = normalize(cross(a1, vec3(0.31, 0.83, 0.47)));
+			vec3 a3 = cross(a1, a2);
+			float l = vn(vec3(dot(v_p, a1) * 320.0, dot(v_p, a2) * 2.2 + float(k) * 13.0, dot(v_p, a3) * 2.2));
+			// (long and hair-thin: only where the stretched cell peaks, and broken along by a slower noise)
+			scr = max(scr, smoothstep(0.9, 0.985, l) * smoothstep(0.35, 0.6, vn(vec3(dot(v_p, a2) * 7.0, float(k) * 5.0, seed))));
+		}
+		scr *= sfade * smoothstep(0.3, 0.7, inner);
+		float pitc = 0.0;   // (small pits tried: blocky dark dots, read as grit on the copper — 25.11)
+		float blot = smoothstep(0.5, 0.78, fbm(p * 1.3 + 55.0));
+		cw *= (1.0 - blot * 0.4) * (1.0 - pitc * 0.6);
+		cw = mix(cw, cu_brown * 0.45, scr * 0.45);
+		float hs = (sc * 0.016 + grain * 0.004 + spk * 0.004 - pit * 0.008) * (1.0 - bare) + (sc * 0.0004 - scr * 0.0004 - pitc * 0.003) * bare;
 		ALBEDO = mix(skin, cw, bare);
 		METALLIC = bare * mix(0.45, 1.0, smoothstep(0.0, 0.4, inner));
-		ROUGHNESS = mix(0.9, mix(0.55, cu_r + tn * 0.1, smoothstep(0.0, 0.5, inner)), bare);
+		ROUGHNESS = mix(0.9, mix(0.55, cu_r + tn * 0.1 + blot * 0.15 + scr * 0.2 + pitc * 0.3, smoothstep(0.0, 0.5, inner)), bare);
 		NORMAL = bump(NORMAL, VERTEX, hs, 1.0);
 	}
 }
