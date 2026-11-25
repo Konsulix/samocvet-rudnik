@@ -31,17 +31,25 @@ void vertex() {
 
 void fragment() {
 	vec3 p = v_p * 3.0 + seed * 7.13;
-	float aa = clamp(length(fwidth(v_p)) * 40.0, 0.0, 1.0);   // fine detail fades where it would shimmer
+	// fine detail fades where its cells shrink under ~2 pixels (each octave by its own frequency: one fade for all let
+	// the finest noise, a cell under a pixel, shimmer as the stone turned)
+	float fw = length(fwidth(p));
+	float aa = smoothstep(0.2, 0.45, fw * 5.5);
 	float face = step(0.5, v_c.g);
 	// the skin's edge round a window: ragged, the green eaten back unevenly
 	float edge_n = fbm(p * 2.3) - 0.5;
-	float bare = smoothstep(0.47, 0.53, v_c.r + edge_n * 0.22);
+	// (its edge a pixel or so soft: a hard one stair-stepped and crawled as the stone turned)
+	float bv = v_c.r + edge_n * 0.22;
+	float bw = max(0.03, fwidth(bv) * 0.9);
+	float bare = smoothstep(0.5 - bw, 0.5 + bw, bv);
 	bare = max(bare, face);
 	// ---- the skin: velvet, near black-green, the bright malachite only in grains and specks; brown and brick-red
 	// patches of oxide and cuprite; a little dirty calcite
 	float big = fbm(p * 0.9);
 	float mid = fbm(p * 3.1 + 11.0);
-	float grain = mix(vn(p * 38.0) * 0.6 + vn(p * 90.0) * 0.4, 0.5, aa);
+	float g1 = 1.0 - smoothstep(0.2, 0.45, fw * 38.0);
+	float g2 = 1.0 - smoothstep(0.2, 0.45, fw * 90.0);
+	float grain = 0.5 + (vn(p * 38.0) - 0.5) * 0.6 * g1 + (vn(p * 90.0) - 0.5) * 0.4 * g2;
 	float green = smoothstep(0.55 - green_k * 0.35, 0.75 - green_k * 0.35, big + (mid - 0.5) * 0.45);
 	vec3 deep = mix(lin(vec3(0.02, 0.06, 0.04)), lin(vec3(0.05, 0.16, 0.1)), smoothstep(0.3, 0.8, mid));
 	deep = mix(deep, lin(vec3(0.04, 0.13, 0.13)), blue_k * smoothstep(0.55, 0.8, vn(p * 1.7 + 3.0)));
@@ -57,7 +65,7 @@ void fragment() {
 	skin = mix(skin, lin(vec3(0.42, 0.4, 0.35)) * (0.6 + mid * 0.4), wht);
 	skin *= 0.6 + grain * 0.6;
 	// crumbly: dark pits in it
-	float pit = smoothstep(0.74, 0.88, mix(vn(p * 24.0), 0.0, aa));
+	float pit = smoothstep(0.74, 0.88, vn(p * 24.0)) * (1.0 - smoothstep(0.2, 0.45, fw * 24.0));
 	skin *= 1.0 - pit * 0.7;
 	// a dark rim of oxide where the skin meets the copper
 	float rim = (1.0 - abs(bare * 2.0 - 1.0)) * (1.0 - face);

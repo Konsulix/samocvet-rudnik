@@ -70,9 +70,27 @@ static func _windows(rng: Rng32, gm: Geo, cav: PackedFloat32Array, bare: float, 
 	sorted.sort()
 	var thr := sorted[clampi(int((1.0 - bare) * sorted.size()), 0, sorted.size() - 1)]
 	gm.col.resize(gm.v.size())
+	var rr := PackedFloat32Array()
+	rr.resize(gm.v.size())
 	for i in gm.v.size():
-		var r := clampf(0.5 + (val[i] - thr) * 12.0, 0.0, 1.0)
-		gm.col[i] = Color(r, 0.0, 0.0, 1.0)
+		rr[i] = clampf(0.5 + (val[i] - thr) * 12.0, 0.0, 1.0)
+	# (smoothed over the neighbours: a mask that jumped from one vertex to the next cut the window's edge and the skin's
+	# step along the triangles — saw teeth that crawled as the stone turned)
+	var NB := _nbrs(gm)
+	var rep_of: PackedInt32Array = NB[0]
+	var nb: Array = NB[1]
+	for it in 3:
+		var nr := rr.duplicate()
+		for i in gm.v.size():
+			if rep_of[i] != i: continue
+			var ns: PackedInt32Array = nb[i]
+			if ns.is_empty(): continue
+			var sum := rr[i]
+			for j in ns: sum += rr[j]
+			nr[i] = sum / (ns.size() + 1)
+		for i in gm.v.size(): rr[i] = nr[rep_of[i]]
+	for i in gm.v.size():
+		gm.col[i] = Color(rr[i], 0.0, 0.0, 1.0)
 	# ground flat: the windows smoothed toward their neighbours (the bumps' tops worn down into flat lobes)
 	if grind: _grind(gm)
 	# the skin stands above the copper: a step round every window
@@ -123,7 +141,7 @@ static func _float(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	var rng := b.rng
 	var m := material(g)
 	var L := RockKit.lump(rng, {r = 0.55, sx = 1.3 + rng.next() * 0.25, sy = 0.78 + rng.next() * 0.2, sz = 1.0, wave = 0.24,
-		bumps = [[9, 0.75, 0.22], [28, 0.32, 0.08]], pits = [24, 0.14, 0.05], seg = 96})
+		bumps = [[9, 0.75, 0.22], [28, 0.32, 0.08]], pits = [24, 0.14, 0.05], seg = 144})
 	var gm: Geo = L[0]
 	_windows(rng, gm, L[1], float(g.bare), Vector3.ZERO)
 	var main := U.mesh(gm, m, b.root, Vector3.ZERO, U.eul((rng.next() - 0.5) * 0.4, rng.next() * 6.3, (rng.next() - 0.5) * 0.3))
@@ -258,10 +276,11 @@ static func _sheet(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	var m := material(g)
 	# (the grey rock scan, darkened by the vertices: the cliff scan read brown)
 	var rock := SpecMat.make({col = Color(1, 1, 1), rough = 0.8, grain = 0.3, ao = 1.0, flat = true,
-		dirt = {h = 99.0, a = 0.3, col = Color(0.04, 0.045, 0.055), fr = 0.0, scan = 1}})   # (bluish: the scan is brown, the tint is a multiply)
+		dirt = {h = 99.0, a = 0.3, col = Color(0.05, 0.052, 0.058), fr = 0.0, scan = 3}})   # (bluish: the scan is brown, the tint is a multiply)
 	# a flat angular plate: few segments, flat-shaded faces
-	var B := RockKit.lump(rng, {r = 0.62, sx = 1.6, sy = 0.5, sz = 1.15, wave = 0.2, bumps = [[6, 0.8, 0.12], [14, 0.35, 0.04]],
-		pits = [8, 0.12, 0.03], seg = 18})
+	# (25.11: sy 0.5 and 18 segments read as a thin sliver of earth, the scan stretched over its few big faces)
+	var B := RockKit.lump(rng, {r = 0.62, sx = 1.5, sy = 0.78, sz = 1.15, wave = 0.2, bumps = [[6, 0.8, 0.12], [14, 0.35, 0.04]],
+		pits = [8, 0.12, 0.03], seg = 40})
 	var blk: Geo = B[0]
 	var tilt := Basis(U.quat_to(Vector3.UP, (Vector3.UP * 0.62 + VIEW_DIR * 0.78).normalized()))
 	var front := (tilt.inverse() * VIEW_DIR).normalized()
@@ -293,7 +312,6 @@ static func _sheet(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	_windows(rng, sh, B[1], float(g.bare) * 0.8, Vector3.ZERO, 0.0, false)
 	for i in sh.v.size():
 		if top[i] == 0: sh.col[i] = Color(1.0, 0.0, 0.0, 1.0)
-		elif top[i] == 1: sh.v[i] += mdir * 0.012 * (1.0 - sh.col[i].r)
 	# over the sheet, broken away at the front along a ragged line: only its back stands, a fresh broken face
 	var hi := _copy(blk)
 	var fk := -0.05 + rng.next() * 0.15

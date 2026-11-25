@@ -148,7 +148,7 @@ static func of(o: Dictionary) -> Dictionary:
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
 	# (a sawn and polished lump grows nothing: flowers and lichen on its back read wrong on a stone that polished)
-	if form in ["sawn", "slice"] or String(o.get("form", "")) in ["sawn", "slice"] or String(cu.get("kind", "")) in ["slab", "float"]:
+	if form in ["sawn", "slice"] or String(o.get("form", "")) in ["sawn", "slice"] or cu.size():   # (no copper form grows puffs or straw: pink puffs on a copper sheet, 25.11)
 		apool = []
 	# (20.11) a black or a jelly opal is a loose piece of opal (SpecimenBuilder._opal_seam, the same draw): no rock for
 	# flowers, lichen or moss — "wild rose" on a bare opal; an opal egg's shell neither
