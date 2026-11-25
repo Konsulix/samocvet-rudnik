@@ -1,0 +1,80 @@
+shader_type spatial;
+render_mode cull_disabled;
+// The chameleon on its twig in the card's corner (CardChameleon). The scan is grey: it gives the light and dark —
+// scales, skin folds, the casque — and the colour is laid here: a base colour, bands of a second across the body, the
+// belly paler, the eye turrets ringed. A change of colour runs from the head to the tail as a wave (`wave` 0..1, the
+// old colours behind it), its front flushing bright. It breathes (the flanks swell and ease) and its tail's curl
+// tightens and eases. `ax` runs head to tail through `c0`; `s_lo..s_hi` the body's length along it.
+
+uniform sampler2D tex_d : source_color, filter_linear_mipmap;
+uniform vec3 main_a : source_color = vec3(0.1, 0.45, 0.12);
+uniform vec3 pat_a : source_color = vec3(0.9, 0.75, 0.1);
+uniform vec3 main_b : source_color = vec3(0.1, 0.45, 0.12);
+uniform vec3 pat_b : source_color = vec3(0.9, 0.75, 0.1);
+uniform float wave = 1.2;
+uniform vec3 c0 = vec3(0.0);
+uniform vec3 ax = vec3(0.0, -1.0, 0.0);
+uniform vec3 side = vec3(1.0, 0.0, 0.0);
+uniform float s_lo = -0.5;
+uniform float s_hi = 0.5;
+uniform float seed = 0.0;
+// (its skeleton, on a skull: bone, the colour glowing through it from within — the bands along its spine)
+uniform float bone = 0.0;
+
+varying float v_s;
+varying vec3 v_p;
+
+float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vn(vec3 x) {
+	vec3 i = floor(x), f = fract(x);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+
+void vertex() {
+	vec3 d = VERTEX - c0;
+	float along = dot(d, ax);
+	float s = clamp((along - s_lo) / max(0.001, s_hi - s_lo), 0.0, 1.0);
+	v_s = s;
+	v_p = VERTEX;
+	// breathing: the middle of the body swells out from its line and eases back
+	vec3 rad = d - ax * along;
+	float mid = smoothstep(0.15, 0.35, s) * (1.0 - smoothstep(0.55, 0.72, s));
+	VERTEX += rad * 0.05 * mid * (0.5 + 0.5 * sin(TIME * 1.9 + seed));
+	// the tail: its curl tightens and eases, more toward its tip
+	float tl = smoothstep(0.7, 1.0, s);
+	VERTEX += side * tl * tl * (s_hi - s_lo) * 0.05 * sin(TIME * 0.8 + seed * 2.0);
+}
+
+void fragment() {
+	vec3 sc = texture(tex_d, UV).rgb;
+	float L = dot(sc, vec3(0.3, 0.59, 0.11));
+	// the wave of a change: new colours ahead of the head... the front at `wave`, bright where it passes
+	float nw = 1.0 - smoothstep(wave - 0.08, wave, v_s);
+	float flush = exp(-pow((v_s - wave) / 0.05, 2.0)) * step(0.0, wave) * step(wave, 1.08);
+	vec3 base = mix(main_a, main_b, nw);
+	vec3 pat = mix(pat_a, pat_b, nw);
+	// bands across the body, wavering, and spots
+	float n = vn(v_p * 14.0 + seed);
+	float band = smoothstep(0.35, 0.75, sin(v_s * 34.0 + n * 2.5) * 0.5 + 0.5) * smoothstep(0.02, 0.12, v_s) * (1.0 - smoothstep(0.78, 0.9, v_s));
+	float spot = smoothstep(0.72, 0.85, vn(v_p * 40.0 + seed * 3.0));
+	vec3 col = mix(base, pat, clamp(band * 0.55 + spot * 0.4, 0.0, 1.0));
+	// the belly paler (facing down)
+	vec3 nw_w = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	col = mix(col, mix(col, pat, 0.5) + 0.03, smoothstep(-0.2, -0.7, nw_w.y) * 0.45);
+	// the scan's light and dark carry the skin: its scales and folds
+	col *= 0.12 + 1.05 * L * L * 1.6;
+	col += pat * flush * 0.6;
+	ALBEDO = col;
+	ROUGHNESS = 0.45 - 0.15 * L;
+	SPECULAR = 0.4;
+	EMISSION = pat * flush * 0.5;
+	if (bone > 0.5) {
+		// bone, lit from within in the colour of the moment: brighter down its bands, a slow pulse running head to tail
+		float pulse = 0.55 + 0.45 * sin(v_s * 9.0 - TIME * 2.2);
+		ALBEDO = mix(vec3(0.78, 0.74, 0.66), base * 1.4, 0.55) * (0.6 + 0.4 * L);
+		EMISSION = mix(base, pat, band * 0.5) * (0.4 + 0.6 * pulse) * 2.6 + pat * flush * 2.5;
+		ROUGHNESS = 0.6;
+	}
+}

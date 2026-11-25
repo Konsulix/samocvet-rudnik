@@ -406,7 +406,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	view.built.connect(func(p: Node3D) -> void: CardKintsugi.attach(card, view, info, v, p, kin_fx, s))
 	# the chameleon on its twig in the window's corner (CardChameleon); on a skull, its skeleton
 	var sk_cham := String(gene.get("form", "")) == "skull"
-	view.built.connect(func(_p: Node3D) -> void: CardChameleon.attach(view, info, kin_fx, sk_cham))
+	view.built.connect(func(_p: Node3D) -> void: CardChameleon.attach(card, view, info, kin_fx, sk_cham))
 	# (just mended by one: the gold runs in)
 	if s.get("mended", false) and int(s.get("id", -2)) == CardKintsugi.pour_id:
 		CardKintsugi.pour_id = -1
