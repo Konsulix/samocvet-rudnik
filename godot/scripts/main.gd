@@ -758,7 +758,15 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 	if args.has("reveal"):
-		var st := Stones.roll(int(args.reveal), Save.area(), 0.8, 1)
+		var rsd := int(args.reveal)
+		# cu=float|slab|slab+pair|sheet: the first seed from reveal= on whose native copper grows that way (SpecCopper)
+		if args.has("cu"):
+			for t in 20000:
+				var cg: Dictionary = SpecGenome.of({seed = rsd, sid = "nativecu", kind = "nugget", gi = 2, traits = []}).get("cu", {})
+				if String(cg.get("kind", "")) + ("+pair" if cg.get("pair", false) else "") == String(args.cu): break
+				rsd += 1
+			print("cu seed ", rsd)
+		var st := Stones.roll(rsd, Save.area(), 0.8, 1)
 		st.integ = 86
 		if args.has("sid"): st.sid = args.sid
 		if args.has("kind"): st.kind = args.kind

@@ -429,6 +429,10 @@ func _ready() -> void:
 					e.legend = true
 					e.fx = args.fx
 					e.gi = 4
+				# cu=float|slab|sheet|all: native copper the Keweenaw way (SpecCopper); cu_pair=1 a slab's bookends
+				if args.has("cu"): e.cu = ["float", "slab", "sheet"][k % 3] if args.cu == "all" else String(args.cu)
+				if args.has("cu_pair"): e.cu_pair = args.cu_pair == "1"
+				if args.has("cu_bare"): e.cu_bare = float(args.cu_bare)
 				if args.has("ob"): e.ob = ["black", "snowflake", "mahogany", "rainbow", "tears"][k % 5] if args.ob == "all" else args.ob
 				list.append(e)
 		args.cols = args.get("cols", "3")

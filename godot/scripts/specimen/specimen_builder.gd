@@ -979,7 +979,8 @@ func _specimen(o: Dictionary) -> Node3D:
 			main.set_meta("col", true)
 			dt.h = -99.0
 		"nugget":
-			main = _nugget(sid, col)
+			if (gene.get("cu", {}) as Dictionary).size(): main = SpecCopper.build(self, gene.cu)
+			else: main = _nugget(sid, col)
 		"vein":
 			main = _vein(sid, col)
 		"septaria":
@@ -1778,7 +1779,7 @@ func _specimen(o: Dictionary) -> Node3D:
 	# a lump that is no crystal, hurt by a careless dig: broken in pieces, crumbs at its foot (16.11; 19.11 every
 	# botryoidal lump — chalcedony, jadeite, carnelian, flint, opal, hyalite… — a septarian nodule, obsidian, a lava bomb)
 	# (an opal egg is not broken apart — its lid of opal slid off its shell: it crazes instead, _geode)
-	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith", "geode", "slice"] or (sid == "malachite" and layout == "sawn")) and not (layout == "geode" and sid == "opal"):
+	if hurt.size() and (layout in ["vein", "nugget", "botryoid", "septaria", "obsidian", "xenolith", "geode", "slice"] or (sid == "malachite" and layout == "sawn")) and not (layout == "geode" and sid == "opal") 			and String((gene.get("cu", {}) as Dictionary).get("kind", "")) != "slab":   # (a polished copper slab stays whole)
 		_glassy = layout == "obsidian"
 		_shatter()
 	_finish()

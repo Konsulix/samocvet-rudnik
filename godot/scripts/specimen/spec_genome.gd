@@ -19,6 +19,7 @@ const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lich
 	ch_pyrite = "pyrite fill", ch_agate = "agate fill", ch_ammolite = "ammolite mosaic fill",
 	rings = "growth rings", opal = "opal", bark = "bark", checks = "cracks", sea = "sea-worn", celestine = "celestine blades", sulphur = "sulphur crust", orpiment = "orpiment", rockcrystal = "quartz crystals", barite = "barite blades", ob_black = "jet-black glass", ob_snowflake = "snowflake obsidian",
 	ob_mahogany = "mahogany obsidian", ob_rainbow = "rainbow sheen", ob_tears = "Apache tears",
+	cu_float = "float copper", cu_slab = "polished slab", cu_sheet = "copper sheet", cu_bookends = "bookend pair",
 	heart_amethyst = "amethyst heart", heart_quartz = "quartz heart", heart_citrine = "citrine heart",
 	glow_core = "glowing crystal heart", grain = "twisted grain", fungi = "jelly fungus", sand = "fused sand crust", glass = "lightning glass",
 	sk_gilt = "gold leaf", sk_gold = "molten gold", sk_silver = "molten silver", sk_copper = "molten copper", sk_kintsugi = "kintsugi",
@@ -131,6 +132,14 @@ static func of(o: Dictionary) -> Dictionary:
 	# (and gold as crystalline gold: twigs set with bright platelets)
 	if sid in ["nativecu", "gold"] and form in ["nugget", "vein"] and Rng32.new((seed_v * 2654435761 + 57) % 4294967296).next() < (0.45 if sid == "nativecu" else 0.3):
 		form = "dendrite"
+	# (25.11) native copper the Keweenaw way (SpecCopper): a float lump worn through to copper windows, a sawn and
+	# polished slab, a sheet through basalt — its own stream; cu=<kind> pins it (tests)
+	var cu := {}
+	if sid == "nativecu" and (form in ["nugget", "vein"] or o.has("cu")):
+		var ck := String(o.get("cu", SpecCopper.kind_of(seed_v)))
+		if ck != "" and ck != "none":
+			form = "nugget"
+			cu = SpecCopper.genes(seed_v, ck, o)
 	# accents: the small things that make it interesting, two or three at most, each with its own colours
 	var acc := []
 	var apool := [["pompom", 0.8], ["straw", 0.8], ["lichen", 0.9], ["needles", 0.55], ["crust", 0.55], ["dust", 0.35], ["fronds", 0.6], ["flowers", 0.45]]
@@ -139,7 +148,7 @@ static func of(o: Dictionary) -> Dictionary:
 		apool.append_array([["inkspots", 0.9], ["clouds", 1.0]])
 	# (the nodules and lumps sitting in rock keep the whole shared layer on their rind or rock)
 	# (a sawn and polished lump grows nothing: flowers and lichen on its back read wrong on a stone that polished)
-	if form in ["sawn", "slice"] or String(o.get("form", "")) in ["sawn", "slice"]:
+	if form in ["sawn", "slice"] or String(o.get("form", "")) in ["sawn", "slice"] or String(cu.get("kind", "")) in ["slab", "float"]:
 		apool = []
 	# (20.11) a black or a jelly opal is a loose piece of opal (SpecimenBuilder._opal_seam, the same draw): no rock for
 	# flowers, lichen or moss — "wild rose" on a bare opal; an opal egg's shell neither
@@ -221,6 +230,7 @@ static func of(o: Dictionary) -> Dictionary:
 		if Rng32.new((seed_v * 2654435761 + 211 + wi * 97) % 4294967296).next() < float(w[2]):
 			acc.append(String(w[3]))
 	if habit == "obsidian": acc.append_array(SpecObsidian.accents(seed_v, o))
+	acc.append_array(SpecCopper.accents(cu))
 	if pseudo != "": acc.append("pseudo")
 	# an association (SpecLooks.assoc_of): another species of the mine on the same rock; only where there is a rock
 	var assoc := ""
@@ -391,6 +401,7 @@ static func of(o: Dictionary) -> Dictionary:
 		skull = skull_o,
 		form = form,
 		fossil = fossil,
+		cu = cu,
 		lustre = lustre,
 		fx = fx,
 		fx_v = rng.next(),
@@ -437,7 +448,8 @@ static func geo_shape(seed_v: int, sid: String) -> String:
 ## the lines for the reveal card: what the find is made of
 static func describe(g: Dictionary) -> Array:
 	var lus := {glass = "vitreous", dark = "dark, oily", metal = "metallic"}
-	var out := [["Form", FORM_N.get(g.form, g.form)], ["Lustre", lus.get(g.lustre, "")], ["Rock", ROCK_N.get(g.rock, g.rock) + (", crumbly" if float(g.loose) > 0.0 else "")], ["Size", SIZE_N[int(g.size)]]]
+	var fname: String = SpecCopper.NAMES.get(String((g.get("cu", {}) as Dictionary).get("kind", "")), FORM_N.get(g.form, g.form))
+	var out := [["Form", fname], ["Lustre", lus.get(g.lustre, "")], ["Rock", ROCK_N.get(g.rock, g.rock) + (", crumbly" if float(g.loose) > 0.0 else "")], ["Size", SIZE_N[int(g.size)]]]
 	if g.fx != "":
 		out.push_front(["Legendary effect", SpecLegend.FX_N.get(g.fx, g.fx)])
 	if g.accents.size():
