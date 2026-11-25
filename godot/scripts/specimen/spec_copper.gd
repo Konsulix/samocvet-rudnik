@@ -56,7 +56,7 @@ static func build(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 
 ## the worn lump's skin and windows: the high points, the side to the viewer, a little noise — `bare` of it copper;
 ## the skin stands a hair above the copper, so a window reads as worn through it
-static func _windows(rng: Rng32, gm: Geo, cav: PackedFloat32Array, bare: float, c: Vector3, raise := 0.016) -> void:
+static func _windows(rng: Rng32, gm: Geo, cav: PackedFloat32Array, bare: float, c: Vector3, raise := 0.03, grind := true) -> void:
 	var nz := FastNoiseLite.new()
 	nz.seed = int(rng.next() * 100000.0)
 	nz.frequency = 1.6
@@ -71,9 +71,52 @@ static func _windows(rng: Rng32, gm: Geo, cav: PackedFloat32Array, bare: float, 
 	var thr := sorted[clampi(int((1.0 - bare) * sorted.size()), 0, sorted.size() - 1)]
 	gm.col.resize(gm.v.size())
 	for i in gm.v.size():
-		var r := clampf(0.5 + (val[i] - thr) * 5.0, 0.0, 1.0)
+		var r := clampf(0.5 + (val[i] - thr) * 12.0, 0.0, 1.0)
 		gm.col[i] = Color(r, 0.0, 0.0, 1.0)
-		gm.v[i] += (gm.v[i] - c).normalized() * raise * (1.0 - r)
+	# ground flat: the windows smoothed toward their neighbours (the bumps' tops worn down into flat lobes)
+	if grind: _grind(gm)
+	# the skin stands above the copper: a step round every window
+	for i in gm.v.size():
+		gm.v[i] += (gm.v[i] - c).normalized() * raise * (1.0 - gm.col[i].r)
+
+## each vertex's neighbours, the sphere's seam welded by position
+static func _nbrs(gm: Geo) -> Array:
+	var rep_of := PackedInt32Array()
+	rep_of.resize(gm.v.size())
+	var seen := {}
+	for i in gm.v.size():
+		var k := Vector3i((gm.v[i] * 20000.0).round())
+		if not seen.has(k): seen[k] = i
+		rep_of[i] = int(seen[k])
+	var nb := []
+	nb.resize(gm.v.size())
+	for i in gm.v.size(): nb[i] = PackedInt32Array()
+	for t in range(0, gm.idx.size(), 3):
+		for e in 3:
+			var a := rep_of[gm.idx[t + e]]
+			var b := rep_of[gm.idx[t + (e + 1) % 3]]
+			if a == b: continue
+			(nb[a] as PackedInt32Array).append(b)
+			(nb[b] as PackedInt32Array).append(a)
+	return [rep_of, nb]
+
+static func _grind(gm: Geo) -> void:
+	var NB := _nbrs(gm)
+	var rep_of: PackedInt32Array = NB[0]
+	var nb: Array = NB[1]
+	for it in 10:
+		var nv := gm.v.duplicate()
+		for i in gm.v.size():
+			if rep_of[i] != i: continue
+			var r := gm.col[i].r
+			if r <= 0.05: continue
+			var ns: PackedInt32Array = nb[i]
+			if ns.is_empty(): continue
+			var avg := Vector3.ZERO
+			for j in ns: avg += gm.v[j]
+			avg /= ns.size()
+			nv[i] = gm.v[i].lerp(avg, 0.7 * r * r)
+		for i in gm.v.size(): gm.v[i] = nv[rep_of[i]]
 
 ## float copper: one rolled lump, a smaller one or two grown to it
 static func _float(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
@@ -88,7 +131,7 @@ static func _float(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 		var rr := 0.16 + rng.next() * 0.14
 		var S := RockKit.lump(rng, {r = rr, sx = 1.2, sy = 0.8, sz = 1.0, wave = 0.2, bumps = [[7, 0.7, 0.2], [18, 0.3, 0.07]], seg = 48})
 		var sg: Geo = S[0]
-		_windows(rng, sg, S[1], float(g.bare), Vector3.ZERO, 0.01)
+		_windows(rng, sg, S[1], float(g.bare), Vector3.ZERO, 0.018)
 		var dir := Vector3(rng.next() - 0.5, rng.next() * 0.4 - 0.1, rng.next() - 0.5).normalized()
 		U.mesh(sg, m, b.root, dir * Vector3(0.5, 0.3, 0.4), U.eul(rng.next() * 6.3, rng.next() * 6.3, rng.next() * 6.3))
 	return main
@@ -160,7 +203,7 @@ static func _slab(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 		bumps = [[10, 0.7, 0.2], [30, 0.3, 0.07]], pits = [24, 0.14, 0.05], seg = 96})
 	var gm: Geo = L[0]
 	# (its back worn a little through its skin, as the float lumps are)
-	_windows(rng, gm, L[1], 0.12, Vector3.ZERO, 0.012)
+	_windows(rng, gm, L[1], 0.12, Vector3.ZERO, 0.02)
 	var main: MeshInstance3D
 	if not g.get("pair", false):
 		var n := (VIEW_DIR + Vector3.UP * 0.35).normalized()
@@ -178,44 +221,63 @@ static func _slab(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	var mid_a := _face(ga, on_a, Vector3.RIGHT)
 	var mid_b := _face(gb, on_b, Vector3.LEFT)
 	m.set_shader_parameter("scratch_dir", Vector3(0.0, 0.3, 1.0))
-	# (each face leans back a little to the lamps above: stood upright the polish showed the dark of the room)
-	var da := (VIEW_DIR * 0.9 + right * 0.3 + Vector3.UP * 0.18).normalized()
-	var db := (VIEW_DIR * 0.9 - right * 0.3 + Vector3.UP * 0.18).normalized()
+	# (turned off the lamps' line, one face caught the dark of the room and the other a softbox: a softer polish lights both)
+	m.set_shader_parameter("face_dull", 0.12)
+	# (each face leans back a little to the lamps above, the two turned alike, so they light alike)
+	var da := (VIEW_DIR * 0.9 + right * 0.2 + Vector3.UP * 0.38).normalized()
+	var db := (VIEW_DIR * 0.9 - right * 0.2 + Vector3.UP * 0.38).normalized()
 	var ba := Basis(U.quat_to(Vector3.RIGHT, da))
 	var bb := Basis(U.quat_to(Vector3.LEFT, db))
-	var gap := 0.04
-	var at_a := -right * (0.6 + gap) - ba * mid_a + Vector3(0, 0, 0)
-	var at_b := right * (0.6 + gap) - bb * mid_b
-	at_a.y = 0.0
-	at_b.y = 0.0
+	# side by side on one ground: the inner edges a little apart, both standing on the same line
+	var gap := 0.035
+	var ext := func(gg: Geo, bs: Basis) -> Array:   # [lowest y, least and most along `right`]
+		var lo_y := INF
+		var lo_r := INF
+		var hi_r := -INF
+		for v in gg.v:
+			var w := bs * v
+			lo_y = minf(lo_y, w.y)
+			lo_r = minf(lo_r, w.dot(right))
+			hi_r = maxf(hi_r, w.dot(right))
+		return [lo_y, lo_r, hi_r]
+	var ea: Array = ext.call(ga, ba)
+	var eb: Array = ext.call(gb, bb)
+	var at_a := right * (-gap * 0.5 - float(ea[2])) + Vector3.UP * (-float(ea[0]))
+	var at_b := right * (gap * 0.5 - float(eb[1])) + Vector3.UP * (-float(eb[0]))
 	main = U.mesh(ga, m, b.root, at_a, ba)
 	U.mesh(gb, m, b.root, at_b, bb)
 	return main
 
-## a sheet of copper through a block of basalt: the rock under it, the sheet, the rock over it broken away at the front
+## a sheet of copper along a crack through a flat, angular plate of dark basalt (25.11, second go: a potato of brown
+## rock with a copper lump leant on it before). Built with the crack level, then the whole plate tilted to the viewer.
+## The rock over the sheet is broken away at the front: there the sheet's face shows under its patina; all round the
+## plate's broken sides its edge runs as a bright copper line between the two layers of rock
 static func _sheet(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 	var rng := b.rng
 	b.root.set_meta("face", true)
 	var m := material(g)
-	var rock := SpecMat.make({col = Color(0.42, 0.42, 0.44), rough = 0.75, grain = 0.3, ao = 1.0, flat = true,
-		dirt = {h = 99.0, a = 0.3, col = Color(0.075, 0.072, 0.07), fr = 0.0, scan = 2}})
-	var B := RockKit.lump(rng, {r = 0.6, sx = 1.45, sy = 0.95, sz = 1.05, wave = 0.28, bumps = [[5, 0.9, 0.18], [12, 0.4, 0.06]],
-		pits = [10, 0.15, 0.05], seg = 48})
+	# (the grey rock scan, darkened by the vertices: the cliff scan read brown)
+	var rock := SpecMat.make({col = Color(1, 1, 1), rough = 0.8, grain = 0.3, ao = 1.0, flat = true,
+		dirt = {h = 99.0, a = 0.3, col = Color(0.04, 0.045, 0.055), fr = 0.0, scan = 1}})   # (bluish: the scan is brown, the tint is a multiply)
+	# a flat angular plate: few segments, flat-shaded faces
+	var B := RockKit.lump(rng, {r = 0.62, sx = 1.6, sy = 0.5, sz = 1.15, wave = 0.2, bumps = [[6, 0.8, 0.12], [14, 0.35, 0.04]],
+		pits = [8, 0.12, 0.03], seg = 18})
 	var blk: Geo = B[0]
-	# the crack: a wavy plane leaning to the viewer
-	var mdir := (Vector3.UP * 0.6 + VIEW_DIR * 0.8 + Vector3((rng.next() - 0.5) * 0.3, 0, (rng.next() - 0.5) * 0.3)).normalized()
-	var c0 := Vector3(0, (rng.next() - 0.5) * 0.12, 0)
-	var t := 0.06 + rng.next() * 0.05
+	var tilt := Basis(U.quat_to(Vector3.UP, (Vector3.UP * 0.62 + VIEW_DIR * 0.78).normalized()))
+	var front := (tilt.inverse() * VIEW_DIR).normalized()
+	var mdir := (Vector3.UP + Vector3((rng.next() - 0.5) * 0.25, 0, (rng.next() - 0.5) * 0.25)).normalized()
+	var c0 := Vector3(0, (rng.next() - 0.5) * 0.06, 0)
+	var t := 0.05 + rng.next() * 0.04
 	var nz := FastNoiseLite.new()
 	nz.seed = int(rng.next() * 100000.0)
 	nz.frequency = 0.9
-	var dist := func(p: Vector3) -> float: return (p - c0).dot(mdir) + nz.get_noise_3dv(p * 1.5) * 0.08
+	var dist := func(p: Vector3) -> float: return (p - c0).dot(mdir) + nz.get_noise_3dv(p * 1.5) * 0.05
 	# under the sheet (its top just inside the sheet)
 	var lo := _copy(blk)
 	for i in lo.v.size():
 		var d: float = dist.call(lo.v[i])
 		if d > -t * 0.5 + 0.004: lo.v[i] -= mdir * (d - (-t * 0.5 + 0.004))
-	# the sheet: the block between the crack's two walls
+	# the sheet: the plate between the crack's two walls
 	var sh := _copy(blk)
 	var top := PackedByteArray()
 	top.resize(sh.v.size())
@@ -227,28 +289,26 @@ static func _sheet(b: SpecimenBuilder, g: Dictionary) -> MeshInstance3D:
 		elif d < -t * 0.5:
 			sh.v[i] -= mdir * (d + t * 0.5)
 			top[i] = 2
-	# its face under the patina, worn here and there; its broken edge (along the block's sides) bright copper
-	_windows(rng, sh, B[1], float(g.bare) * 0.8, Vector3.ZERO, 0.0)
+	# its face under the patina, worn here and there; its edge along the plate's sides bright copper
+	_windows(rng, sh, B[1], float(g.bare) * 0.8, Vector3.ZERO, 0.0, false)
 	for i in sh.v.size():
 		if top[i] == 0: sh.col[i] = Color(1.0, 0.0, 0.0, 1.0)
-		elif top[i] == 1: sh.v[i] += mdir * 0.006 * (1.0 - sh.col[i].r)
-	# over the sheet, broken away at the front: only its back stands
+		elif top[i] == 1: sh.v[i] += mdir * 0.012 * (1.0 - sh.col[i].r)
+	# over the sheet, broken away at the front along a ragged line: only its back stands, a fresh broken face
 	var hi := _copy(blk)
-	var fdir := (VIEW_DIR + mdir * 0.25).normalized()
-	var fk := 0.02 - rng.next() * 0.1
+	var fk := -0.05 + rng.next() * 0.15
 	var jn := FastNoiseLite.new()
 	jn.seed = nz.seed + 7
-	jn.frequency = 3.0
+	jn.frequency = 2.2
 	for i in hi.v.size():
 		var d: float = dist.call(hi.v[i])
 		if d < t * 0.5 - 0.004: hi.v[i] -= mdir * (d - (t * 0.5 - 0.004))
-		var e := (hi.v[i] - c0).dot(fdir) - fk
-		if e > 0.0: hi.v[i] -= fdir * (e + jn.get_noise_3dv(hi.v[i] * 2.0) * 0.03)
-	# (dark basalt: the scan takes its colour from the vertices, as RockKit's rocks give it)
-	lo.fill_color(Color(0.12, 0.12, 0.13))
-	hi.fill_color(Color(0.12, 0.12, 0.13))
-	U.mesh(lo, rock, b.root)
-	U.mesh(hi, rock, b.root)
-	var main := U.mesh(sh, m, b.root)
+		var e := (hi.v[i] - c0).dot(front) - fk - jn.get_noise_3dv(hi.v[i] * 1.3) * 0.12
+		if e > 0.0: hi.v[i] -= front * e
+	lo.fill_color(Color(0.1, 0.1, 0.105))
+	hi.fill_color(Color(0.1, 0.1, 0.105))
+	U.mesh(lo, rock, b.root, Vector3.ZERO, tilt)
+	U.mesh(hi, rock, b.root, Vector3.ZERO, tilt)
+	var main := U.mesh(sh, m, b.root, Vector3.ZERO, tilt)
 	b.root.set_meta("glow", Color(0.2, 0.22, 0.2))
 	return main
