@@ -44,6 +44,7 @@ var _halo: Array[Node] = []
 ## degrees; touches on the picture go on into the SubViewport (where the card lies flat). (A CanvasGroup turned the
 ## masked stone window and panel white; a squeeze and skew looked crooked - 23.11)
 const PAD := 34.0             # room round the card in its picture: its rarity glow, and the turn
+const GROW := Vector2(0.06, 0.1)   # room round the picture on the screen, for its near side turned (card_tilt `grow`)
 var _cvp: SubViewport
 var _show: TextureRect
 ## the phone's tilt (24.11: "no gyroscope - the turn should follow the phone, not play by itself"): the card keeps level
@@ -69,7 +70,8 @@ func _ready() -> void:
 	rng.randomize()
 	_holder = card.get_parent() as Control
 	for n in _holder.get_children():
-		if n != card: _halo.append(n)
+		# (only the card's glow: in the inventory its pile's other cards are beside it in the holder — 25.11, copies)
+		if n != card and n.has_meta("halo"): _halo.append(n)
 	# the card, its glow with it, into its own SubViewport; its picture where the card was
 	_cvp = SubViewport.new()
 	_cvp.transparent_bg = true
@@ -223,7 +225,7 @@ static func _jump(d: float) -> float:
 
 ## a point of the card's own SubViewport in the holder's space (the card's picture lies flat there, give or take its turn)
 func _out(p: Vector2) -> Vector2:
-	return _show.position + p
+	return _show.position + (card.size + Vector2.ONE * PAD * 2.0) * GROW + p
 
 ## the stone's middle, in the holder's space
 func _stone() -> Vector2:
@@ -232,9 +234,10 @@ func _stone() -> Vector2:
 ## a touch on the card's picture goes on into its SubViewport, at the same point of the card
 func _pass_input(ev: InputEvent) -> void:
 	var e := ev.duplicate()
-	if e is InputEventMouse: (e as InputEventMouse).position = (ev as InputEventMouse).position
-	if e is InputEventScreenTouch: (e as InputEventScreenTouch).position = (ev as InputEventScreenTouch).position
-	if e is InputEventScreenDrag: (e as InputEventScreenDrag).position = (ev as InputEventScreenDrag).position
+	var sh := (card.size + Vector2.ONE * PAD * 2.0) * GROW
+	if e is InputEventMouse: (e as InputEventMouse).position = (ev as InputEventMouse).position - sh
+	if e is InputEventScreenTouch: (e as InputEventScreenTouch).position = (ev as InputEventScreenTouch).position - sh
+	if e is InputEventScreenDrag: (e as InputEventScreenDrag).position = (ev as InputEventScreenDrag).position - sh
 	_cvp.push_input(e, true)
 	_show.accept_event()
 
@@ -271,8 +274,9 @@ func _process(dt: float) -> void:
 		var n := g.normalized()
 		_g0 = n if _g0 == Vector3.ZERO else _g0.lerp(n, minf(1.0, dt * 0.35)).normalized()
 		var d := n - _g0
-		aim = Vector2(-d.x, d.z) * 1.1 + Vector2(0.015 * sin(_t * 0.55), 0.012 * sin(_t * 0.7 + 2.0))
-		aim = aim.clamp(Vector2(-0.26, -0.2), Vector2(0.26, 0.2))
+		# (25.11: "a little weaker")
+		aim = Vector2(-d.x, d.z) * 0.65 + Vector2(0.015 * sin(_t * 0.55), 0.012 * sin(_t * 0.7 + 2.0))
+		aim = aim.clamp(Vector2(-0.18, -0.14), Vector2(0.18, 0.14))
 	# a spring: it lags and overshoots a little, as a thing hanging in the air
 	_tv += ((aim - _tl) * 38.0 - _tv * 7.0) * dt
 	_tl += _tv * dt
@@ -284,9 +288,10 @@ func _process(dt: float) -> void:
 	card.position = Vector2.ONE * PAD
 	for n in _halo:
 		if is_instance_valid(n) and n is Control and n.get_parent() == _cvp: (n as Control).position = Vector2.ONE * PAD
-	_show.position = off - Vector2.ONE * PAD
-	_show.size = full
+	_show.position = off - Vector2.ONE * PAD - full * GROW
+	_show.size = full * (Vector2.ONE + GROW * 2.0)
 	var tm := _show.material as ShaderMaterial
+	tm.set_shader_parameter("grow", GROW)
 	tm.set_shader_parameter("tilt", tilt)
 	tm.set_shader_parameter("pad", Vector2(PAD / full.x, PAD / full.y))
 	# its shadow: under it, further down, wider and paler the higher it is

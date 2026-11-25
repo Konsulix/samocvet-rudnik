@@ -94,6 +94,21 @@ void fragment() {
 		float d = 1e4;
 		float t = 1.0;
 		float fade = 1.0;
+		// (25.11, "the lava lags": every pixel of four whole-card passes worked out every drop's puddle and drips —
+		// on a phone ~9x the pixels. The cheap things that reach far — the ribbon's heat, the brass's veins — for all;
+		// the shapes only where this drop can be)
+		if (a >= land) {
+			float s0 = a - land;
+			float fd = 1.0 - smoothstep(KEEP, KEEP + GONE, s0);
+			float w0 = B.w * (1.0 - exp(-s0 * 9.0)) + sz * 0.6;
+			hot_sum += exp(-s0 / COOL);
+			near += exp(-length(p - vec2(x, rim_top)) / 110.0) * exp(-s0 / (COOL * 1.5)) * fd;
+			// the brass heating round it: along the ribbon, fading with the lava's heat
+			float rb = 1.0 - smoothstep(0.0, (rim_bot - rim_top) * 0.9 + 2.0, abs(p.y - (rim_top + rim_bot) * 0.5));
+			light += vec3(1.0, 0.3, 0.04) * rb * exp(-pow((p.x - x) / (w0 + 26.0), 2.0)) * exp(-s0 / (COOL * 1.6)) * 0.7 * fd;
+		}
+		float reach = (B.w + sz) * 1.9 + abs(C.x) * B.y * 1.3 + 40.0;
+		if (abs(p.x - x) > reach || p.y < y0 - sz * 2.0 - 30.0 || p.y > rim_bot + B.y * 1.3 + sz * 2.0 + 30.0) continue;
 		if (a < FORM) {
 			// swelling: a bead hanging under the stone, pulling longer before it lets go
 			// (half its size under the stone: a big glowing bead there pulled the eye off the stone - 24.11)
@@ -157,11 +172,6 @@ void fragment() {
 			// it cools from its edges in, the drip's tip last (thinnest first, but the bead holds heat)
 			float edge = clamp(-d / 3.0, 0.0, 1.0);
 			t = clamp(t * (0.55 + 0.45 * edge) * (p.y > rim_bot ? 0.9 : 1.0), 0.0, 1.0);
-			hot_sum += exp(-s / COOL);
-			near += exp(-length(p - vec2(x, rim_top)) / 110.0) * exp(-s / (COOL * 1.5)) * fade;
-			// the brass heating round it: along the ribbon, fading with the lava's heat
-			float ribbon = 1.0 - smoothstep(0.0, (rim_bot - rim_top) * 0.9 + 2.0, abs(p.y - (rim_top + rim_bot) * 0.5));
-			light += vec3(1.0, 0.3, 0.04) * ribbon * exp(-pow((p.x - x) / (w + 26.0), 2.0)) * exp(-s / (COOL * 1.6)) * 0.7 * fade;
 			light += vec3(1.0, 0.42, 0.08) * exp(-max(d, 0.0) / 4.0) * exp(-s / COOL) * 0.5;
 		}
 		// the slate round a drip, scorched where the lava hung (below the ribbon)

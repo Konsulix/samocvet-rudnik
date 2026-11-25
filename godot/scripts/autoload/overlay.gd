@@ -122,6 +122,7 @@ func _halo(glow: Color, card: Control) -> Control:
 		_: layers = [[Color(glow, 0.8), 5, 20]]
 	var box := Control.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.set_meta("halo", true)   # (CardKintsugi, CardLevitate take it with the card: only it)
 	for L: Array in layers:
 		var halo := Panel.new()
 		var hs := StyleBoxFlat.new()

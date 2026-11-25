@@ -22,6 +22,13 @@ const TOP_R := 0.0             # the block's top corners: square (it starts on t
 const CORNER := 14.0           # the card's rounded corners below
 const SEAM_W := 3.3            # a seam, points across (24.11: thinner, as the stone's own seams)
 const HP := 40.0               # room round the card for its rarity glow, turned with it
+## (25.11) room round the turning picture on the screen, of its size: its near side grows in perspective past the
+## card's own edges (it was cut off at the top); card_tilt `grow`
+const GROW := Vector2(0.08, 0.3)
+## where a drag turns the card, face up (25.11: the panel's swipe is the pile's next stone again): by its edges and its
+## name, as one takes a card by the rim; face down, anywhere
+const EDGE := 44.0
+const TOP := 90.0
 
 static var test_every := 0.0   # a test key (-- kin_every=S): a break every S s
 static var test_mend := false  # a test key (-- kin_mend): the back up, Mend is pressed and the first broken stone chosen
@@ -103,8 +110,6 @@ var _flips := 0                 # (the test key's turns: there and back, once)
 static func attach(card_: Control, view_: SpecView, info_: Control, v_: VBoxContainer, p: Node3D, fx: String, s_: Dictionary) -> void:
 	if fx != "kintsugi" or card_.has_meta("kintsugi"): return
 	card_.set_meta("kintsugi", true)
-	# (the panel's swipe is the turn over now, not the next stone of the pile: Museum._swipe_between)
-	v_.set_meta("flip_swipe", true)
 	var ck := CardKintsugi.new()
 	ck.s = s_
 	ck.card = card_
@@ -186,6 +191,8 @@ func _process(dt: float) -> void:
 		return
 	_clock += dt
 	_turn(dt)
+	# (the vial's gold sways and glints: redrawn while the back is seen)
+	if (_side == 1 or _turning) and is_instance_valid(_gauge): _gauge.queue_redraw()
 	if test_flip > 0.0 and _flips < 2 and not _turning and _t < 0.0 and _clock > test_flip * (_flips + 1):
 		_flips += 1
 		flip()
@@ -293,7 +300,6 @@ func _break() -> void:
 	Sfx.buzz(60)
 	# the shards fall away (their plates' clatter), and the gold runs as they come home (the forge's molten pour)
 	get_tree().create_timer(CRACK).timeout.connect(func() -> void: Sfx.play("crust"))
-	get_tree().create_timer(BACK_AT + RET).timeout.connect(func() -> void: if is_instance_valid(self): Sfx.play("br_pour"))
 
 ## the card whole (its block home) or broken: broken, its frame is drawn by the still behind it (the card's own frame
 ## box empty), the stone's window kept above the block (its mask's foot raised), the panel and its brass hidden
@@ -620,7 +626,8 @@ static func mend_wait(st: Dictionary) -> int:
 func _build_back() -> void:
 	_holder = card.get_parent() as Control
 	for h in _holder.get_children():
-		if h != card and h is CanvasItem: _halo.append(h as CanvasItem)
+		# (only the glow: the pile's other cards lie beside it in the inventory's holder — they turned as copies, 25.11)
+		if h != card and h is CanvasItem and h.has_meta("halo"): _halo.append(h as CanvasItem)
 	# the glow, again, in a picture of its own: turned with the card as it turns over (24.11: it stood still)
 	_hvp = SubViewport.new()
 	_hvp.transparent_bg = true
@@ -703,10 +710,6 @@ func _build_back() -> void:
 	# it telling how far, taped on; the Mend button taped under it
 	_gauge = Control.new()
 	_gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var gm := ShaderMaterial.new()
-	gm.shader = preload("res://shaders/card_kin_gold.gdshader")
-	_gold_maps(gm)
-	_gauge.material = gm
 	_gauge.draw.connect(_draw_gauge)
 	_bvp.add_child(_gauge)
 	_vial = _sprite("vial")
@@ -869,27 +872,69 @@ func _layout_back() -> void:
 		_tapes.append(t)
 	_gauge.queue_redraw()
 
-## the gold in the vial: how full, as the gold of the seams (a bead along the tube, its inside as wide as the bead)
+## the gold in the vial: how full — molten gold drawn by code across the whole glass tube, from under its left cap
+## (25.11: a thin bead along the middle left the tube empty at its sides and ends), its surface rounded at the front
 func _draw_gauge() -> void:
 	var k := 1.0 - float(mend_wait(s)) / MEND_EVERY
 	if k <= 0.0: return
 	var sz := _gauge.size
-	# the tube's inside, between its brass caps (of the vial's picture)
-	var x0 := sz.x * 0.135
-	var x1 := sz.x * 0.865
-	var cy := sz.y * 0.5
-	var pts := PackedVector2Array([Vector2(x0, cy), Vector2(lerpf(x0, x1, k), cy)])
-	var wd := PackedFloat32Array([sz.y * 0.36, sz.y * 0.36])
-	var out := PackedVector2Array()
+	# the tube's inside (of the vial's picture): from under one cap to under the other, inside the glass walls
+	var x0 := sz.x * 0.098
+	var x1 := sz.x * 0.902
+	var y0 := sz.y * 0.13
+	var y1 := sz.y * 0.87
+	var xe := lerpf(x0, x1, clampf(k, 0.0, 1.0))
+	var hh := (y1 - y0) * 0.5
+	var cy := (y0 + y1) * 0.5
+	var full := k >= 0.999
+	var t := Time.get_ticks_msec() / 1000.0
+	# the outline: the bottom, up the meniscus (a half-round bulge, swaying a hair), along the top back
+	var pts := PackedVector2Array()
 	var cols := PackedColorArray()
-	var uvs := PackedVector2Array()
+	var dark := Color(0.42, 0.24, 0.05)
+	var mid := Color(0.93, 0.66, 0.2)
+	var hi := Color(1.0, 0.9, 0.55)
+	var shade := func(y: float) -> Color:
+		var v := (y - y0) / (y1 - y0)
+		# the light along the tube's upper third, darker to the bottom, a dark rim at the glass
+		var c: Color = dark.lerp(mid, smoothstep(0.0, 0.3, v)) if v < 0.3 else mid.lerp(hi, smoothstep(0.3, 0.42, v) - smoothstep(0.42, 0.6, v)) if v < 0.6 else mid.lerp(dark, smoothstep(0.6, 1.0, v))
+		return c
+	const N := 14
+	for i in N + 1:
+		var y := lerpf(y1, y0, float(i) / N)
+		var x := xe
+		if not full:
+			var u := (y - cy) / hh
+			x += sqrt(maxf(0.0, 1.0 - u * u)) * hh * 0.55 + sin(t * 2.3 + u * 2.0) * 0.6
+		pts.append(Vector2(x, y))
+		cols.append(shade.call(y))
+	for i in N + 1:
+		var y := lerpf(y0, y1, float(i) / N)
+		pts.append(Vector2(x0, y))
+		cols.append((shade.call(y) as Color) * 0.8)
+	# (a strip of quads, top to bottom: the polygon of the two edges)
 	var idx := PackedInt32Array()
-	_strip(pts, wd, 2, Color(0.0, 0.0, 0.0, 1.0), 1.0, out, cols, uvs, idx)
-	RenderingServer.canvas_item_add_triangle_array(_gauge.get_canvas_item(), idx, out, cols, uvs)
+	for i in N:
+		var a := i
+		var b := i + 1
+		var c := 2 * N + 1 - (i + 1)
+		var d := 2 * N + 1 - i
+		idx.append_array([a, b, c, a, c, d])
+	RenderingServer.canvas_item_add_triangle_array(_gauge.get_canvas_item(), idx, pts, cols)
+	# a slow glint running along the gold
+	var gx := fmod(t * 0.35, 1.6) - 0.3
+	var gxp := lerpf(x0, xe, clampf(gx, 0.0, 1.0))
+	if gx > 0.0 and gx < 1.0:
+		_gauge.draw_rect(Rect2(gxp - 6.0, y0 + (y1 - y0) * 0.32, 12.0, (y1 - y0) * 0.14), Color(1.0, 0.97, 0.8, 0.45))
 
 func _pass_input(ev: InputEvent) -> void:
 	if _side != 1 or _turning: return
-	_bvp.push_input(ev.duplicate(), true)
+	var e := ev.duplicate()
+	var sh := card.size * GROW
+	if e is InputEventMouse: (e as InputEventMouse).position -= sh
+	if e is InputEventScreenTouch: (e as InputEventScreenTouch).position -= sh
+	if e is InputEventScreenDrag: (e as InputEventScreenDrag).position -= sh
+	_bvp.push_input(e, true)
 	_bshow.accept_event()
 
 ## a drag across the panel (face up) or across the back turns the card, under the finger
@@ -900,9 +945,12 @@ func _input(e: InputEvent) -> void:
 		var pos: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
 		# (the event in the canvas of the card's layer)
 		var cpos := (card.get_global_transform_with_canvas() * card.get_global_transform().affine_inverse()).affine_inverse() * pos
-		var area := info.get_global_rect() if _side == 0 else card.get_global_rect()
+		var cr := card.get_global_rect()
+		var on := cr.has_point(cpos)
+		if on and _side == 0:
+			on = cpos.x < cr.position.x + EDGE or cpos.x > cr.end.x - EDGE or cpos.y < cr.position.y + TOP
 		if e.is_pressed():
-			_pressed = area.has_point(cpos)
+			_pressed = on
 			_press = pos
 			_drag = false
 			_vel = 0.0
@@ -987,10 +1035,13 @@ func _size_back() -> void:
 
 func _turn(dt: float) -> void:
 	if not is_instance_valid(_bshow): return
-	_bshow.global_position = card.global_position
-	_bshow.size = card.size
-	_hshow.global_position = card.global_position - Vector2.ONE * HP
-	_hshow.size = card.size + Vector2.ONE * HP * 2.0
+	_bshow.global_position = card.global_position - card.size * GROW
+	_bshow.size = card.size * (Vector2.ONE + GROW * 2.0)
+	(_bshow.material as ShaderMaterial).set_shader_parameter("grow", GROW)
+	var hsz0 := card.size + Vector2.ONE * HP * 2.0
+	_hshow.global_position = card.global_position - Vector2.ONE * HP - hsz0 * GROW
+	_hshow.size = hsz0 * (Vector2.ONE + GROW * 2.0)
+	(_hshow.material as ShaderMaterial).set_shader_parameter("grow", GROW)
 	if not _turning: return
 	if _drag:
 		_ang = lerpf(_ang, _ang_to, minf(1.0, dt * 22.0))
