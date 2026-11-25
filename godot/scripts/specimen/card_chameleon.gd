@@ -12,6 +12,8 @@ const DIR := "res://assets/specimen/chameleon/"
 ## run on a little behind them (LEN_K of the chord)
 const CHORD := Vector2(0.24, 0.34)
 const LEN_K := 1.18
+## the skeleton's twig: out of the corner, up and in, this long (of the window's width)
+const SKEL_LEN := 0.78
 ## how far in front of the camera (the stone stands at ~6.6)
 const DEPTH := 4.6
 
@@ -84,6 +86,8 @@ func _ready() -> void:
 	# the animal's middle (on the twig) is what sits by the corner — a little in from it, up the twig
 	var ax0 := (b - a).normalized()
 	_base = (a + b) * 0.5
+	# (the skeleton as it was first, 25.11 by request: its twig out of the corner up and in, its middle a little up it)
+	if skel: _base = a + ax0 * (bc0 - a).dot(ax0)
 	var bc := Vector3.ZERO
 	var bp := (body.mesh as Mesh).get_faces()
 	for p in bp: bc += p
@@ -92,6 +96,7 @@ func _ready() -> void:
 	# the animal (its middle off the twig) is on the side facing the camera
 	var cam := studio.cam
 	var want := (cam.global_basis.x * CHORD.x + cam.global_basis.y * CHORD.y + cam.global_basis.z * 0.08).normalized()
+	if skel: want = (-cam.global_basis.x * 0.72 + cam.global_basis.y * 0.62 + cam.global_basis.z * 0.3).normalized()
 	var axis := (b - a).normalized()
 	var r0 := Basis(SpecUtil.quat_to(axis, want))
 	var off := bc - a
@@ -118,6 +123,13 @@ func _process(_dt: float) -> void:
 	var vr := view.get_global_rect()
 	var corner := Vector2(vr.size.x, ir.position.y - vr.position.y) * k
 	var w := vr.size.x * k
+	if skel:
+		var p0 := cam.project_position(corner, DEPTH)
+		var p1 := cam.project_position(corner - Vector2(w * SKEL_LEN, 0.0), DEPTH)
+		var into := (-cam.global_basis.x * 0.72 + cam.global_basis.y * 0.62).normalized() * p0.distance_to(p1) * 0.3
+		var bk := _rot.scaled(Vector3.ONE * p0.distance_to(p1) / _len)
+		_hold.global_transform = Transform3D(bk, p0 + into - bk * _base)
+		return
 	var e1 := cam.project_position(corner + Vector2(-w * CHORD.x, 0.0), DEPTH)
 	var e2 := cam.project_position(corner + Vector2(0.0, -w * CHORD.y), DEPTH)
 	var sc := e1.distance_to(e2) * LEN_K / _len
