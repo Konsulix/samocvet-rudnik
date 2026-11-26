@@ -718,8 +718,13 @@ func _hunting(dt: float) -> void:
 		var t := _sway
 		var j := Vector3(sin(t * 3.1), sin(_flap_ph) * 0.6 + sin(t * 2.3 + 1.0), sin(t * 2.7 + 2.0)) * 0.006
 		_prey.position = _bug_at + j
-		var up := _head_up
+		# (26.11: "dragonflies don't fly so tilted") level in the world, not in the chameleon's tilted head: its body
+		# flat, its nose a touch up, its wings beating up and down — turned only about the world's up
+		var up := -_down()
 		var xv := _nose - up * _nose.dot(up)
-		if xv.length() < 0.01: xv = _head_dir
+		if xv.length() < 0.2:
+			xv = _hold.global_basis.inverse() * view.studio.cam.global_basis.x
+			xv -= up * xv.dot(up)
 		xv = xv.normalized()
-		_prey.basis = Basis(xv, up, xv.cross(up)).orthonormalized()
+		var zv := xv.cross(up).normalized()
+		_prey.basis = Basis(xv, up, zv).rotated(zv, 0.12).orthonormalized()
