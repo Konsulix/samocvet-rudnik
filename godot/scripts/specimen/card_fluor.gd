@@ -32,6 +32,7 @@ var _bframe: Panel
 var _aclip: Panel
 var _art: TextureRect
 var _dark: ColorRect
+var _prints: Control
 var _logo: TextureRect
 var _logo_sh: TextureRect
 var _plan: Control
@@ -71,6 +72,14 @@ func _ready() -> void:
 		if ar.begins_with("fluor_flip="): test_flip = float(ar.get_slice("=", 1))
 		if ar == "fluor_show": test_show = true
 	_build_back()
+	# on the face, seen only while the stone glows: someone's fingerprints at the card's sides, where it is taken to be
+	# turned over — the one sign that there is another side
+	_prints = Control.new()
+	_prints.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_prints.material = FxLayer.add_material()
+	_prints.z_index = 6
+	_prints.draw.connect(_draw_prints)
+	add_child(_prints)
 
 func _build_back() -> void:
 	_holder = card.get_parent() as Control
@@ -159,7 +168,39 @@ func _build_back() -> void:
 		if is_instance_valid(_bshow): _bshow.queue_free()
 		if is_instance_valid(_hshow): _hshow.queue_free())
 
-## the plan of the working: the code's steps as a drift from a lantern to a cross, drawn by a hand that was not steady
+## a hand's stroke: a line through these points, its pressure uneven — a wide faint glow, a thin bright core
+func _ink(n: Control, pts: PackedVector2Array, col: Color, k: float, w := 1.8) -> void:
+	if pts.size() < 2: return
+	n.draw_polyline(pts, Color(col, 0.09 * k), w * 4.5, true)
+	n.draw_polyline(pts, Color(col, 0.2 * k), w * 2.4, true)
+	n.draw_polyline(pts, Color(col, 0.9 * k), w, true)
+
+## a straight stroke drawn by an unsteady hand: a few points, each a little off the line
+static func _shaky(a: Vector2, b: Vector2, rng: RandomNumberGenerator, amp := 1.0) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var nrm := (b - a).orthogonal().normalized()
+	var m := maxi(2, int(a.distance_to(b) / 9.0))
+	for j in m + 1:
+		var f := j / float(m)
+		out.append(a.lerp(b, f) + nrm * rng.randf_range(-amp, amp) * (0.0 if j == 0 or j == m else 1.0))
+	return out
+
+## a line of a hand nobody can read: small loops and strokes running on
+func _scrawl(n: Control, at: Vector2, len_: float, rng: RandomNumberGenerator, col: Color, k: float) -> void:
+	var pts := PackedVector2Array()
+	var x := 0.0
+	while x < len_:
+		if rng.randf() < 0.18 and pts.size() > 2:
+			_ink(n, pts, col, k * 0.55, 1.1)
+			pts = PackedVector2Array()
+			x += rng.randf_range(4.0, 7.0)
+		pts.append(at + Vector2(x, rng.randf_range(-3.2, 2.2)))
+		x += rng.randf_range(1.6, 3.6)
+	_ink(n, pts, col, k * 0.55, 1.1)
+
+## the plan of the working, as a prospector drew it for himself: the code's steps as a drift — two walls, bending — from
+## a lantern to a cross; a set of timber across it at every step's end (so each stretch can be counted), the rock
+## hatched along its walls, a north arrow, the depth, and notes in a hand nobody can read
 func _draw_plan() -> void:
 	var code := Stones.code_of(s)
 	if code.is_empty(): return
@@ -173,42 +214,125 @@ func _draw_plan() -> void:
 	for q in pts:
 		lo = lo.min(q)
 		hi = hi.max(q)
-	# in the paper's empty lower half
-	var area := Rect2(_plan.size.x * 0.16, _plan.size.y * 0.51, _plan.size.x * 0.68, _plan.size.y * 0.31)
+	# in the paper's empty lower half, over the plate
+	var area := Rect2(_plan.size.x * 0.14, _plan.size.y * 0.5, _plan.size.x * 0.72, _plan.size.y * 0.33)
 	var ext := (hi - lo).max(Vector2.ONE)
-	var u := minf(minf(area.size.x / (ext.x + 0.6), area.size.y / (ext.y + 0.6)), 52.0)
+	var u := minf(minf(area.size.x / (ext.x + 0.8), area.size.y / (ext.y + 0.8)), 50.0)
 	var org := area.get_center() - (lo + hi) * 0.5 * u
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(s.get("id", 1)) * 7919 + 13
 	var col := Color(glow.r, glow.g, glow.b, 1.0)
-	var line := PackedVector2Array()
-	for i in pts.size() - 1:
-		var a := org + pts[i] * u
-		var b := org + pts[i + 1] * u
-		var n := (b - a).orthogonal().normalized()
-		for j in 6:
-			var f := j / 6.0
-			line.append(a.lerp(b, f) + n * rng.randf_range(-1.3, 1.3) * (0.0 if j == 0 else 1.0))
-		# a set of timber where each stretch ends: a short stroke across the drift
-		var e := b + n * rng.randf_range(-0.8, 0.8)
-		if i < pts.size() - 2:
-			_plan.draw_line(e - n * 6.0, e + n * 6.0, Color(col, 0.75 * k), 2.0, true)
-	line.append(org + pts[-1] * u)
-	for w: Array in [[11.0, 0.1], [6.0, 0.22], [2.4, 0.95]]:
-		_plan.draw_polyline(line, Color(col, float(w[1]) * k), float(w[0]), true)
-	# the lantern it starts from: a small ring, rays round it
-	var st := org
-	_plan.draw_arc(st, 6.0, 0.0, TAU, 20, Color(col, 0.95 * k), 2.0, true)
+	var hw := clampf(u * 0.17, 4.0, 8.0)       # half the drift's width
+	var P: Array[Vector2] = []
+	for q in pts: P.append(org + q * u)
+	var m := P.size()
+	# the two walls: the way's line set off to either side, mitred at the bends, open at the lantern's end, closed
+	# round the cross in a little chamber
+	for side: float in [-1.0, 1.0]:
+		var wall: Array[Vector2] = []
+		for i in m:
+			var d0 := (P[i] - P[i - 1]).normalized() if i > 0 else (P[1] - P[0]).normalized()
+			var d1 := (P[i + 1] - P[i]).normalized() if i < m - 1 else d0
+			var n0 := d0.orthogonal() * side
+			var n1 := d1.orthogonal() * side
+			var off := n0 if n0.dot(n1) > 0.99 else (n0 + n1)
+			var grow := 1.5 if i == m - 1 else 1.0
+			wall.append(P[i] + off * hw * grow + (d0 * hw * 1.5 if i == m - 1 else Vector2.ZERO))
+		for i in m - 1:
+			_ink(_plan, _shaky(wall[i], wall[i + 1], rng, 0.9), col, k * rng.randf_range(0.75, 1.0))
+			# the rock, hatched along the wall's outer side — here and there
+			var dir := (wall[i + 1] - wall[i]).normalized()
+			var out := dir.orthogonal() * side
+			if out.dot((wall[i] - P[i])) < 0.0: out = -out
+			var ln := wall[i].distance_to(wall[i + 1])
+			var x := rng.randf_range(3.0, 8.0)
+			while x < ln - 3.0:
+				if rng.randf() < 0.55:
+					var h0 := wall[i] + dir * x + out * 2.0
+					_plan.draw_line(h0, h0 + (out + dir * 0.7).normalized() * rng.randf_range(4.0, 7.5), Color(col, 0.33 * k), 1.1, true)
+				x += rng.randf_range(4.5, 8.0)
+	# the chamber's end wall, behind the cross
+	var dl := (P[m - 1] - P[m - 2]).normalized()
+	var nl := dl.orthogonal()
+	var ec := P[m - 1] + dl * hw * 1.5
+	_ink(_plan, _shaky(ec - nl * hw * 1.5, ec + nl * hw * 1.5, rng, 0.7), col, k)
+	# the sets of timber: across the drift where every step ends (but the last), a little past its walls
+	for i in range(1, m - 1):
+		var d0 := (P[i] - P[i - 1]).normalized()
+		var d1 := (P[i + 1] - P[i]).normalized()
+		if d0.dot(d1) > 0.99:
+			var n0 := d0.orthogonal()
+			for g: float in [-1.6, 1.6]:
+				_ink(_plan, _shaky(P[i] + d0 * g - n0 * (hw + 2.5), P[i] + d0 * g + n0 * (hw + 2.5), rng, 0.4), col, k * 0.85, 1.4)
+		else:
+			# at a bend: a prop set cornerwise
+			var c0 := (d1 - d0).normalized()
+			_ink(_plan, _shaky(P[i] - c0 * (hw + 2.0) * 1.3, P[i] + c0 * (hw + 2.0) * 1.3, rng, 0.4), col, k * 0.85, 1.4)
+	# the lantern it starts from: a ring in the drift's mouth, rays round it
+	var st := P[0]
+	_plan.draw_arc(st, hw * 0.75, 0.0, TAU, 20, Color(col, 0.95 * k), 1.8, true)
+	_plan.draw_circle(st, 1.6, Color(col, 0.9 * k))
 	for i in 8:
 		var a := i * TAU / 8.0 + 0.2
-		_plan.draw_line(st + Vector2.from_angle(a) * 9.5, st + Vector2.from_angle(a) * (13.0 + 2.0 * (i % 2)), Color(col, 0.7 * k), 1.6, true)
+		_plan.draw_line(st + Vector2.from_angle(a) * (hw + 4.0), st + Vector2.from_angle(a) * (hw + 8.0 + 2.5 * (i % 2)), Color(col, 0.6 * k), 1.4, true)
 	# the cross it ends at (solved: a tick)
-	var en := org + pts[-1] * u
+	var en := P[m - 1]
+	var cs := hw * 0.85
 	if done:
-		_plan.draw_polyline(PackedVector2Array([en + Vector2(-8, 0), en + Vector2(-2, 7), en + Vector2(9, -8)]), Color(col, 0.95 * k), 2.6, true)
+		_ink(_plan, PackedVector2Array([en + Vector2(-cs, 0), en + Vector2(-cs * 0.2, cs), en + Vector2(cs * 1.2, -cs)]), col, k, 2.4)
 	else:
-		_plan.draw_line(en + Vector2(-7, -7), en + Vector2(7, 7), Color(col, 0.95 * k), 2.6, true)
-		_plan.draw_line(en + Vector2(-7, 7), en + Vector2(7, -7), Color(col, 0.95 * k), 2.6, true)
+		_ink(_plan, _shaky(en + Vector2(-cs, -cs), en + Vector2(cs, cs), rng, 0.5), col, k, 2.4)
+		_ink(_plan, _shaky(en + Vector2(-cs, cs), en + Vector2(cs, -cs), rng, 0.5), col, k, 2.4)
+	# north, in the plan's corner: an arrow and an N
+	var na := Vector2(area.end.x - 6.0, area.position.y + 26.0)
+	_ink(_plan, _shaky(na + Vector2(0, 14), na + Vector2(0, -14), rng, 0.5), col, k * 0.7, 1.3)
+	_ink(_plan, PackedVector2Array([na + Vector2(-4.5, -7), na + Vector2(0, -15), na + Vector2(4.5, -7)]), col, k * 0.7, 1.3)
+	# (an N, in strokes: a font's glyphs came out as solid blocks in this added layer)
+	var nn := na + Vector2(-4.0, -20.0)
+	_ink(_plan, PackedVector2Array([nn + Vector2(0, 0), nn + Vector2(0, -9), nn + Vector2(7, 0), nn + Vector2(7, -9)]), col, k * 0.7, 1.3)
+	# his notes
+	_scrawl(_plan, Vector2(area.position.x + 8.0, area.end.y + 9.0), 110.0, rng, col, k)
+	_scrawl(_plan, Vector2(area.position.x + 4.0, area.position.y - 6.0), 64.0, rng, col, k)
+
+## one fingerprint: ridges looping round a core a little off its middle, broken here and there, pressed harder on one
+## side (the finger rolled)
+func _print_at(at: Vector2, r: float, turn: float, rng: RandomNumberGenerator, col: Color, k: float) -> void:
+	var core := Vector2(rng.randf_range(-0.12, 0.12), rng.randf_range(0.05, 0.22)) * r
+	var rings := 7
+	for i in rings:
+		var f := (i + 1.0) / rings
+		var pts := PackedVector2Array()
+		var a0 := rng.randf() * TAU
+		var gap_at := rng.randf() * TAU
+		var gap := rng.randf_range(0.25, 0.9)
+		for j in 41:
+			var a := a0 + j / 40.0 * TAU
+			var da := absf(wrapf(a - gap_at, -PI, PI))
+			if da < gap * 0.5:
+				if pts.size() > 1: _prints.draw_polyline(pts, Color(col, 0.5 * k * (0.55 + 0.45 * sin(a0 + i))), 1.25, true)
+				pts = PackedVector2Array()
+				continue
+			# an oval taller than wide, its lower half fuller; the inner ridges close round the core
+			var e := Vector2(cos(a) * 0.74, sin(a) * (1.0 if sin(a) < 0.0 else 0.86)) * r * f
+			e += core * (1.0 - f) + Vector2(sin(a * 3.0 + i) * 0.6, cos(a * 2.0 + i * 1.7) * 0.6)
+			pts.append(at + e.rotated(turn))
+		if pts.size() > 1: _prints.draw_polyline(pts, Color(col, 0.5 * k * (0.55 + 0.45 * sin(a0 + i))), 1.25, true)
+	# the smear of the finger's pad under the ridges
+	_prints.draw_circle(at, r * 0.8, Color(col, 0.05 * k))
+
+func _draw_prints() -> void:
+	var k := 1.0 if test_show else Spec.uv
+	if k <= 0.01 or _side != 0 or _turning: return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(s.get("id", 1)) * 31 + 5
+	var col := Color(glow.r, glow.g, glow.b, 1.0)
+	var to_me := _prints.get_global_transform().affine_inverse() * card.get_global_transform()
+	var sz := card.size
+	# a thumb on the right side, two fingertips on the left: a card held to be turned
+	var h := sz.y * rng.randf_range(0.4, 0.5)
+	_print_at(to_me * Vector2(sz.x - 23.0, h), 20.0, rng.randf_range(-0.5, -0.2), rng, col, k)
+	_print_at(to_me * Vector2(20.0, h - 26.0), 15.0, rng.randf_range(0.2, 0.5), rng, col, k * 0.8)
+	_print_at(to_me * Vector2(23.0, h + 14.0), 15.5, rng.randf_range(0.25, 0.6), rng, col, k * 0.7)
 
 func _layout_back() -> void:
 	var sz := card.size
@@ -238,6 +362,7 @@ func _process(dt: float) -> void:
 		return
 	_clock += dt
 	_turn(dt)
+	_prints.queue_redraw()
 	if _side == 1 or _turning:
 		var k := 1.0 if test_show else Spec.uv
 		_dark.color.a = 0.86 * k
