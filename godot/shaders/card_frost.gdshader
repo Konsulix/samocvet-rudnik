@@ -44,8 +44,11 @@ float side(float a, float d, float len, float salt, float i0, float i1, float i2
 	// in the dense rime of its root row, a straight line at the strip's depth; the tips' end fades out before it)
 	// (the strip's top fifth is bare in the texture itself — a fade on the depth here cut the long fronds of the
 	// sides on a straight line; 22.11)
-	float inside = step(0.0, u) * step(u, 1.0);
-	vec2 tx = texture(strip, vec2(a / (depth * 2.1) + salt * 0.37, 1.0 - clamp(u, 0.0, 1.0))).rg;
+	// (26.11: a thin straight line still stood at the strip's depth, the stone's whole height — at u = 1 the texture is
+	// read on its top row, and the repeat's blur draws in the root row from its other edge. The read keeps off that
+	// row, and the last few hundredths fade — narrow enough not to cut the long fronds)
+	float inside = step(0.0, u) * (1.0 - smoothstep(0.955, 0.985, u));
+	vec2 tx = texture(strip, vec2(a / (depth * 2.1) + salt * 0.37, 1.0 - clamp(u, 0.0, 1.0) * 0.975)).rg;
 	float st = i0 * sd.x + i1 * sd.y + i2 * sd.z + i3 * sd.w;
 	float sp = i0 * ss.x + i1 * ss.y + i2 * ss.z + i3 * ss.w;
 	float at = i0 * sa.x + i1 * sa.y + i2 * sa.z + i3 * sa.w;
