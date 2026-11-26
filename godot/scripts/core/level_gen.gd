@@ -16,6 +16,9 @@ static var force_feats: Array = []
 static var force_shape := ""
 ## block cells are added and dropped as mirrored pairs (false on a board that is not mirrored)
 static var _mirror := true
+## a mass grows as a body, not as a scatter: a new block cell goes where most of its neighbours are blocks already
+## (on the boards of SHAPES, whose parts each have a part to play)
+static var _compact := false
 ## the boards' sizes, [rows, cols, weight]: mostly the whole 11 x 9
 const SIZES := [[11, 9, 5.0], [10, 9, 3.0], [11, 8, 2.0], [10, 8, 1.0]]
 ## the parts a board is drawn as (_scheme), [name, weight]; the old patterns (drawn) and hand-made shapes now and then
@@ -25,10 +28,10 @@ const SCHEMES := [["wall", 3.0], ["tiers", 2.5], ["shafts", 2.0], ["pocket", 2.0
 ## rectangles put together, each with a part to play - stones to match, or a mass of blocks. [name, weight, mirrored].
 ## With the old schemes (their weights above sum to 16) these make about four boards in five. A board with a work of
 ## the mine on it is always a mirrored one (the works go down in mirrored pairs)
-const SHAPES := [["side", 4.0, false], ["wings", 4.0, true], ["stack", 4.0, true], ["stem", 4.0, true],
-	["ell", 4.0, false], ["cross", 3.5, true], ["comb", 3.0, true], ["steps", 3.0, false], ["twins", 3.5, false],
-	["cup", 3.0, true], ["ears", 4.0, true], ["waist", 3.5, true], ["gem", 3.5, true], ["pyramid", 3.0, true],
-	["aitch", 3.0, true], ["tower", 2.5, true], ["ring", 2.5, true], ["house", 3.0, true]]
+const SHAPES := [["side", 4.0, false], ["wings", 4.0, true], ["stack", 2.5, true], ["stem", 4.0, true],
+	["ell", 4.0, false], ["cross", 3.5, true], ["comb", 3.0, true], ["steps", 3.0, false], ["twins", 2.5, false],
+	["cup", 2.5, true], ["ears", 4.0, true], ["waist", 3.5, true], ["gem", 3.5, true], ["pyramid", 3.0, true],
+	["aitch", 2.0, true], ["tower", 2.5, true], ["ring", 2.5, true], ["house", 3.0, true]]
 ## a board's obstacles grow with its cells: TIERS' load is for 9 x 8, a bigger board takes more, LOAD_K more again
 const LOAD_K := 2.0
 ## what each depth puts on the board (Old Adit, and any mine without its own AREA_TIERS): the obstacles it may use and
@@ -153,12 +156,13 @@ const BASE := 6.4
 ## a shape that is slower to work through than its cells say: a lower tier behind a throat
 const SCHEME_WORK := {tiers = 5.4}
 ## the moves a shape of SHAPES asks for over what its blocks cost: narrow parts give fewer matches, an island is
-## reached only from inside itself. The smart bot's need with no limit less the fitted one (26.11, 12 levels a kind,
-## Old Adit 100-250 m: a first fit, the spread is wide for stack, twins, comb and aitch). It is not taken out of
+## reached only from inside itself. The smart bot's need with no limit less the fitted one (26.11, 24 levels a kind,
+## Old Adit 100-250 m; the spread is widest for the boards in two halves - stack, twins, aitch, cup - which is why
+## they come less often). It is not taken out of
 ## NEED_MAX: the shape keeps its blocks and the level gets the moves
-const SHAPE_WORK := {aitch = 13.0, comb = 9.0, cross = 1.5, cup = 9.0, ears = 4.0, ell = 4.0, gem = 1.0, house = 1.0,
-	pyramid = 4.0, ring = 4.0, side = 5.5, stack = 13.0, stem = 9.5, steps = 3.5, tower = 3.5, twins = 7.0, waist = 3.5,
-	wings = 2.5}
+const SHAPE_WORK := {aitch = 12.5, comb = 10.5, cross = 4.0, cup = 8.5, ears = 5.5, ell = 1.5, gem = 0.5, house = 2.5,
+	pyramid = 2.5, ring = 6.0, side = 3.0, stack = 12.5, stem = 5.0, steps = 3.5, tower = 1.0, twins = 5.0, waist = 4.0,
+	wings = 4.0}
 ## the moves given are the need times the beat's k (BEAT): the bot's spread grows with the need (sd 3 moves on a
 ## 10-move level, 8.5 on a 22-move one), so a margin of a fixed few moves was generous on small levels and cruel on
 ## big ones. A move less every ~3 depths (TIGHT)
@@ -268,6 +272,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	R = int(size[0])
 	C = int(size[1])
 	_mirror = true
+	_compact = false
 	var grid := []
 	# block cells in two groups, each filled with one obstacle, the ones that matter most first (trimming takes
 	# from the end); spots for nuggets and a geode
@@ -278,6 +283,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	if is_shape(scheme):
 		grid = _shape(rng, scheme, groups, nugs)
 		shaped = not grid.is_empty()
+		_compact = shaped
 		if not shaped: scheme = "field"
 	if not shaped:
 		R = int(size[0])
@@ -1083,11 +1089,11 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 		"stack":
 			# two boards, one over the other, a gap between them; blocks low in the lower one, and now and then
 			# across the top of the upper one
-			var w1 := _cw(rng, W, 5, W)
-			var w2 := _cw(rng, W, 5, W)
+			var w1 := _cw(rng, W, 7, W)
+			var w2 := _cw(rng, W, 7, W)
 			var h1 := rng.randi_range(3, 5)
 			var h2 := rng.randi_range(5, 6)
-			var mh := rng.randi_range(1, h2 - 3)
+			var mh := rng.randi_range(1, 2)
 			_bx(cv, 0, (W - w1) / 2, h1, w1, 1)
 			_bx(cv, h1 + 1, (W - w2) / 2, h2, w2, 1)
 			_bx(cv, h1 + 1 + h2 - mh, (W - w2) / 2, mh, w2, 2)
@@ -1098,7 +1104,7 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 			var h := rng.randi_range(5, 7)
 			var c0 := (W - w) / 2
 			var sw := 2 if W % 2 == 0 else 3
-			var sh := rng.randi_range(2, 4)
+			var sh := rng.randi_range(2, 3)
 			var up := rng.randf() < 0.3
 			var r0 := sh if up else 0
 			_bx(cv, r0, c0, h, w, 1)
@@ -1127,7 +1133,7 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 		"comb":
 			# a field with teeth standing up from it (or hanging down), the teeth blocks
 			var h := rng.randi_range(5, 7)
-			var th := rng.randi_range(2, 4)
+			var th := rng.randi_range(2, 3)
 			var down := rng.randf() < 0.4
 			var r0 := 0 if down else th
 			_bx(cv, r0, 0, h, W, 1)
@@ -1149,16 +1155,15 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 			_bx(cv, r - hl + 1, 2 * d, hl - 1, w, 2)
 			if rng.randf() < 0.5: _bx(cv, 0, 0, 2, w, 3)
 		"twins":
-			# two tall boards side by side, a bridge between them (now and then none: two boards)
+			# two tall boards side by side, a bridge between them
 			var h := rng.randi_range(8, 10)
 			var w := (W - 1) / 2
 			var drop := rng.randi_range(0, 1)
 			_bx(cv, 0, 0, h, w, 1)
 			_bx(cv, drop, W - w, h, w, 1)
-			if rng.randf() < 0.8:
-				_bx(cv, rng.randi_range(2, h - 4), w, rng.randi_range(2, 3), W - 2 * w, 2 if rng.randf() < 0.5 else 1)
+			_bx(cv, rng.randi_range(2, h - 5), w, 3, W - 2 * w, 2 if rng.randf() < 0.3 else 1)
 			if rng.randf() < 0.6:
-				_bx(cv, drop + h - 4, W - w, 4, w, 2)
+				_bx(cv, drop + h - 3, W - w, 3, w, 2)
 			else:
 				_bx(cv, h - 3, 0, 3, w, 2)
 				_bx(cv, drop + h - 2, W - w, 2, w, 3)
@@ -1170,7 +1175,7 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 			_bx(cv, 0, 0, ah, aw, 1)
 			_bx(cv, ah, 0, bh, W, 1)
 			if rng.randf() < 0.5: _bx(cv, ah + bh - 2, 0, 2, W, 2)
-			else: _bx(cv, 0, 0, ah - 1, aw, 2)
+			else: _bx(cv, 0, 0, mini(2, ah - 1), aw, 2)
 			_bx(cv, ah, aw, rng.randi_range(1, 2), W - 2 * aw, 3)
 		"ears":
 			# a field with a row above and a row below that are only corners and a middle: blocks down the sides
@@ -1197,7 +1202,9 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 			var h1 := rng.randi_range(3, 4)
 			var hn := rng.randi_range(1, 3)
 			var h3 := rng.randi_range(4, 5)
-			var neck := rng.randf() < 0.6
+			# blocks in the neck only where it is short and wide: a long narrow one is cut a cell at a time from its end
+			if W % 2 == 0 and hn > 1: wn = 4
+			var neck := hn <= 2 and rng.randf() < 0.6
 			_bx(cv, 0, (W - w1) / 2, h1, w1, 1)
 			_bx(cv, h1, (W - wn) / 2, hn, wn, 2 if neck else 1)
 			_bx(cv, h1 + hn, (W - w3) / 2, h3, w3, 1)
@@ -1238,8 +1245,8 @@ static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: 
 			var br := rng.randi_range(2, h - bh - 2)
 			_bx(cv, 0, 0, h, 3, 1)
 			_bx(cv, br, 0, bh, W, 1)
-			_bx(cv, br, 3, rng.randi_range(2, bh), W - 6, 2)
-			if rng.randf() < 0.7: _bx(cv, h - 2, 0, 2, 3, 3)
+			_bx(cv, br, 3, 2, W - 6, 2)
+			if rng.randf() < 0.5: _bx(cv, h - 2, 0, 2, 3, 3)
 		"tower":
 			# a narrow tall board with bands of blocks across it
 			_bx(cv, 0, 0, 11, W, 1)
@@ -1488,6 +1495,20 @@ static func _add_pair(rng: RandomNumberGenerator, grid: Array, groups: Dictionar
 				if p + d in groups[g]: near = true
 			if near: cand.append(p)
 	if cand.is_empty(): return 0
+	if _compact and not groups[g].is_empty():
+		# the cells with the most blocks of the group round them (of eight)
+		var best := []
+		var top := -1
+		for q: Vector2i in cand:
+			var k := 0
+			for dr in [-1, 0, 1]:
+				for dc in [-1, 0, 1]:
+					if Vector2i(q.x + dr, q.y + dc) in groups[g]: k += 1
+			if k > top:
+				top = k
+				best = []
+			if k == top: best.append(q)
+		cand = best
 	var p: Vector2i = cand[rng.randi_range(0, cand.size() - 1)]
 	var n := 0
 	for q in ([p, Vector2i(p.x, C - 1 - p.y)] if _mirror else [p]):
