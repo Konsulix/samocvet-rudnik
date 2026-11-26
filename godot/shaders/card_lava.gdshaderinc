@@ -16,6 +16,7 @@ uniform float rim_l = 30.0;           // its straight stretch
 uniform float rim_r = 330.0;
 uniform float heat = 0.3;             // the whole frame's heat (more drops, hotter)
 uniform float frame_in = 7.0;         // the card's brass frame: this far in from its edge
+uniform float frame_r = 12.0;         // (26.11) its corners' radius: the veins kept off the square corners outside it
 // a drop: x, where it falls from (y), when it began, its size; and its own seed, drip length, drip offset, puddle width
 uniform vec4 da[8];
 uniform vec4 db[8];
@@ -212,7 +213,8 @@ void fragment() {
 		// the card's brass frame: hot veins in the metal itself (22.11: a plain red band looked like a red frame) -
 		// thin glowing cracks wandering along the brass, slowly crawling, waves of heat running round the frame,
 		// brightest by the fresh drops; a faint dull red under them
-		float e = min(min(p.x, card.x - p.x), min(p.y, card.y - p.y));
+		vec2 cq = abs(p - card * 0.5) - card * 0.5 + frame_r;
+		float e = -(length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - frame_r);
 		// (the brass: the card's first frame_in points, its dark outer line left alone)
 		float brass = smoothstep(1.0, 2.0, e) * smoothstep(frame_in + 0.3, frame_in - 0.9, e);
 		float ribbon = (1.0 - smoothstep(0.0, (rim_bot - rim_top) * 0.5 + 1.0, abs(p.y - (rim_top + rim_bot) * 0.5)))

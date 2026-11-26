@@ -12,6 +12,8 @@ uniform float rb = 14.0;
 uniform float side_w = 8.0;
 uniform float side_down = 68.0;
 uniform float side_fade = 22.0;
+// (26.11) the card's own rounded corners: the snapshot's square corners held the rarity glow behind them
+uniform float card_r = 12.0;
 
 float sd_round(vec2 p, vec2 h, float r) {
 	vec2 q = abs(p) - h + r;
@@ -28,5 +30,6 @@ void fragment() {
 	if (pp.x < side_w || pp.x > psize.x - side_w) {
 		keep = max(keep, 1.0 - smoothstep(side_down - side_fade, side_down, pp.y - block.y));
 	}
+	keep *= 1.0 - smoothstep(-0.6, 0.6, sd_round(pp - psize * 0.5, psize * 0.5, card_r));
 	COLOR = vec4(c.rgb, c.a * keep);
 }
