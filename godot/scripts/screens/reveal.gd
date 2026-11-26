@@ -427,6 +427,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	view.built.connect(func(_p: Node3D) -> void: CardOpal.attach(card, view, info, kin_fx, s))
 	# and the starry sky makes the panel a night sky, its traits a constellation (CardStarry)
 	view.built.connect(func(_p: Node3D) -> void: CardStarry.attach(card, view, info, kin_fx, s))
+	# the wolf's moon: a tap and the skull howls; a wolf's tracks across the panel at the new moon (CardMoon)
+	view.built.connect(func(p: Node3D) -> void: CardMoon.attach(card, view, info, kin_fx, p))
 	# the chameleon on its twig in the window's corner (CardChameleon); on a skull, its skeleton
 	var sk_cham := String(gene.get("form", "")) == "skull"
 	view.built.connect(func(_p: Node3D) -> void: CardChameleon.attach(card, view, info, kin_fx, sk_cham))
@@ -532,7 +534,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		# (an alexandrite's tap is its lamp, SpecView._lamp: its callouts open from the chips only; one already open closes)
 		view.tapped.connect(func() -> void:
 			if co.open: co.hide_all()
-			elif not (is_instance_valid(view.live) and (view.live.get_meta("alex", false) or view.live.get_meta("sprout", false))): co.show_all())
+			elif not (is_instance_valid(view.live) and (view.live.get_meta("alex", false) or view.live.get_meta("sprout", false) or view.live.get_meta("wolfmoon", false))): co.show_all())
 		for it: Dictionary in list:
 			var id: String = it.id
 			if not chips.has(id): continue

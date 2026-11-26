@@ -94,6 +94,9 @@ const SAMPLES := {
 	cham_tongue = {f = ["amb/sea/squelch"], db = -9.0, pitch = 2.3},
 	cham_catch = {f = ["amb/sea/squelch"], db = -13.0, pitch = 1.5},
 	cham_shift = {f = ["magical_1", "magical_5"], db = -19.0, pitch = 1.45},
+	# the wolf's moon (CardMoon): a dog's howl (amb/ice, public domain) lower - the skull's, and the pack's far off
+	wolf_howl = {f = ["amb/ice/howl_0", "amb/ice/howl_1"], db = -7.0, pitch = 0.8},
+	wolf_far = {f = ["amb/ice/howl_0", "amb/ice/howl_1"], db = -21.0, pitch = 0.68},
 	glass_tap = {f = ["bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -18.0, pitch = 1.5},
 	# buttons and windows: a book set down, a page turned (Kenney RPG Audio) — the old digital clicks were out of place
 	click = {f = ["bookPlace1", "bookPlace2", "bookPlace3"], db = -10.0},

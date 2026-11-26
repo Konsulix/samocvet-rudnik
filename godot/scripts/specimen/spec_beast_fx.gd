@@ -237,9 +237,25 @@ class MoonNode extends Node3D:
 	var at := Vector3.ZERO
 	var sway := 0.3
 	var ball: MeshInstance3D
+	const MONTH := 30.0
+	var _howl := 0.0       # a howl going on (CardMoon: a tap on the stone): seconds left of _howl_t
+	var _howl_t := 1.0
+	func phase() -> float:
+		return fmod(t / MONTH, 1.0)
+	func full() -> float:
+		return 0.5 - 0.5 * cos(phase() * TAU)
+	func howl(secs: float) -> void:
+		_howl = secs
+		_howl_t = secs
 	func _process(dt: float) -> void:
 		t += dt
-		var ph := fmod(t / 30.0, 1.0)              # 0 new, 0.5 full
+		_howl = maxf(0.0, _howl - dt)
+		# (the howl swells fast and trails off: the eyes burn with it, the halo swells)
+		var hk := 0.0
+		if _howl > 0.0:
+			var x := 1.0 - _howl / _howl_t
+			hk = smoothstep(0.0, 0.12, x) * (1.0 - smoothstep(0.55, 1.0, x))
+		var ph := fmod(t / MONTH, 1.0)              # 0 new, 0.5 full
 		# it crosses the sky over the head as the month goes: rising at one side, highest at the full, setting
 		var arc := (ph - 0.5) * 2.0
 		var p := at + Vector3(arc * sway * 2.0, -arc * arc * sway * 0.9, 0.0)
@@ -247,10 +263,10 @@ class MoonNode extends Node3D:
 			if ch is MeshInstance3D or ch is OmniLight3D: (ch as Node3D).position = p - (Vector3(0, 0, 0.02) if ch != ball and ch is MeshInstance3D else Vector3.ZERO)
 		var full := 0.5 - 0.5 * cos(ph * TAU)
 		moon.set_shader_parameter("phase", ph)
-		halo.set_shader_parameter("power", 0.15 + full * 0.9)
-		light.light_energy = 0.25 + full * 1.6
+		halo.set_shader_parameter("power", 0.15 + full * 0.9 + hk * 0.7)
+		light.light_energy = 0.25 + full * 1.6 + hk * 0.8
 		var flash := pow(maxf(0.0, 1.0 - absf(ph - 0.5) / 0.06), 2.0)
-		for em: ShaderMaterial in eyes: em.set_shader_parameter("power", flash * 2.5)
+		for em: ShaderMaterial in eyes: em.set_shader_parameter("power", maxf(flash * 2.5, hk * 2.2))
 
 ## the beast's breath: it breathes — slow puffs of steam from its nose every four seconds, and in the dark of its
 ## throat an ember that glows up as it draws breath and dims as it lets it out
