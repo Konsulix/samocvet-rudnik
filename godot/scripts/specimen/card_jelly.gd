@@ -25,6 +25,9 @@ const STAY := [7.0, 11.0]     # how long it stays out
 ## crushes faint light that in the stone sits on its lit haze): light in the stone, and as much again on the card
 static var HALO_STONE := 0.5
 static var HALO_CARD := 1.0
+const DEEP := 0.45            # behind the stone a jelly is this much of its size: swum off into the depth, where the stone
+                              # hides all of it — halo and tentacles too
+const HOME_T := 3.2           # s: from behind the stone back to its place on its orbit
 const STONE_JELLY := 1 << 18  # the stone's jellies' visual layer (the silhouette mask leaves them out)
 
 static var test_every := 0.0  # a test key (-- jelly_every=S): one swims out every S s
@@ -306,7 +309,7 @@ func _send_one(j: Node3D) -> void:
 		sm = sm.duplicate() as ShaderMaterial
 		(mi as MeshInstance3D).material_override = sm
 		mats.append(sm)
-		if int(sm.get_shader_parameter("part")) == 4: sm.set_shader_parameter("halo_k", 0.0)
+		if int(sm.get_shader_parameter("part")) == 4: sm.set_shader_parameter("halo_k", HALO_CARD)
 		if int(sm.get_shader_parameter("part")) == 0:
 			var v: Vector3 = sm.get_shader_parameter("col")
 			col = Color(v.x, v.y, v.z)
@@ -324,11 +327,14 @@ func _send_one(j: Node3D) -> void:
 	j.visible = false
 	_sync_env()
 	_under(node, true)
-	var size := clampf(span * 1.1, 26.0, 70.0)
+	# (behind the stone it is DEEP of its size: `full` is its size on its orbit)
+	var full := span / DEEP
+	var size := clampf(full * 1.1, 26.0, 70.0)
 	_out.append({node = node, src = j, pos = at, head = head, kick = Vector2.ZERO, flee = Vector2.ZERO, goal = _goal(),
-		gt = 0.0, t = 0.0, life = rng.randf_range(STAY[0], STAY[1]), size = size, size0 = span, col = col,
+		gt = 0.0, t = 0.0, life = rng.randf_range(STAY[0], STAY[1]), size = size, size0 = span, full = full, col = col,
 		back = false, mats = mats, dart = 0.0, stroke = stroke, sp0 = stroke.x, bank = 0.0, spd = minf(v0.length(), 160.0),
-		q = Quaternion(b0), pitch = rng.randf_range(0.0, TAU), under = true, door = Vector2.ZERO, home = false, shrink = 1.0})
+		q = Quaternion(b0), pitch = rng.randf_range(0.0, TAU), under = true, home = false, shrink = 1.0, dive = 0.0,
+		dive_t = 0.0, back_t = 0.0, fade = 1.0, core = Vector2.ZERO, core_t = -9.0})
 
 ## one of the stone's jellies, in the back half of its orbit, leaves it for behind the stone's middle (_leave)
 func _start_leave() -> bool:
@@ -341,10 +347,20 @@ func _start_leave() -> bool:
 	j.set_meta("on_card", true)
 	j.set_meta("trip_t", 0.0)
 	var gt := j.global_transform
+	# (it leaves its orbit at the speed it had there: stopping dead to turn off was a jerk)
+	var v0 := Vector3.ZERO
+	if _was3.has(j.get_instance_id()): v0 = (gt.origin - (_was3[j.get_instance_id()] as Vector3)) / _was_dt
+	j.set_meta("p0", gt.origin)
+	j.set_meta("v0", v0)
+	j.set_meta("trip_T", clampf(gt.origin.distance_to(_behind_pt()) / (_s0(j) * 1.4), 1.8, 3.5))
 	j.top_level = true
 	j.global_transform = gt
 	_leave[j.get_instance_id()] = j
 	return true
+
+## a stone jelly's own size (its place on its orbit keeps it)
+static func _s0(j: Node3D) -> float:
+	return (j.get_meta("slot") as Transform3D).basis.get_scale().x
 
 ## behind the stone's middle, as far back as half the stone's size: there the stone hides a jelly whole
 func _behind_pt() -> Vector3:
@@ -353,64 +369,100 @@ func _behind_pt() -> Vector3:
 	var mid := find.global_transform * _find_mid()
 	return mid + fwd * _find_r() * 0.55
 
-## a stone jelly swimming (off its orbit) to a point, bell first, turning as it goes; true once there
-func _swim_to(j: Node3D, to: Vector3, dt: float, end_basis = null) -> bool:
-	var sc := j.global_basis.get_scale()
-	var p := j.global_position
-	var d := to - p
-	var dist := d.length()
-	var spd := sc.x * 1.6
-	var step := minf(dist, spd * dt)
-	if dist > 0.0001: p += d / dist * step
+## bell first along a way
+static func _facing(d: Vector3) -> Quaternion:
+	var y := d.normalized()
+	var x := y.cross(Vector3.UP)
+	if x.length() < 0.01: x = y.cross(Vector3.RIGHT)
+	x = x.normalized()
+	return Quaternion(Basis(x, y, x.cross(y)).orthonormalized())
+
+## a stone jelly off its orbit set at a point, turning (no faster than `rate`) to face `want`, at k of its size
+func _set_trip(j: Node3D, at: Vector3, want: Quaternion, rate: float, k: float, dt: float) -> void:
 	var cur := Quaternion(j.global_basis.orthonormalized())
-	var want := cur
-	if dist > sc.x * 0.05:
-		var y := d / dist
-		var x := y.cross(Vector3.UP)
-		if x.length() < 0.01: x = y.cross(Vector3.RIGHT)
-		x = x.normalized()
-		want = Quaternion(Basis(x, y, x.cross(y)).orthonormalized())
-	if end_basis != null:
-		want = Quaternion((end_basis as Basis).orthonormalized()).slerp(want, clampf(dist / (sc.x * 1.5), 0.0, 1.0))
 	var gap := cur.angle_to(want)
-	if gap > 0.0001: cur = cur.slerp(want, minf(1.0, 2.2 * dt / gap))
-	j.global_transform = Transform3D(Basis(cur).scaled(sc), p)
-	return dist < sc.x * 0.04
+	if gap > 0.0001: cur = cur.slerp(want, minf(1.0, rate * dt / gap))
+	j.global_transform = Transform3D(Basis(cur).scaled(Vector3.ONE * _s0(j) * k), at)
 
-## a stone jelly's halo strength
-static func _halo(j: Node3D, k: float) -> void:
-	for mi in j.find_children("*", "MeshInstance3D", true, false):
-		var m := (mi as MeshInstance3D).material_override as ShaderMaterial
-		if m and int(m.get_shader_parameter("part")) == 4: m.set_shader_parameter("halo_k", k)
-
-## does the stone's silhouette (the mask: the find unshaded by the stone's camera) cover this jelly's bell and tentacles?
-## (read back from the GPU — only now and then, while one is behind the stone about to come out)
+## the stone's silhouette (the mask: the find unshaded by the stone's camera), read back from the GPU ten times a second
+## while a jelly is changing over — what truly hides one (26.11: the find's box said «hidden» beside the crystal, over the
+## gaps between it and its moss: jellies changed over and vanished in plain sight)
 var _mask_img: Image
 var _mask_at := -1.0
-func _mask_hides(j: Node3D) -> bool:
-	if _t - _mask_at > 0.12 or not _mask_img:
+func _mask_refresh() -> void:
+	if _t - _mask_at > 0.1 or not _mask_img:
 		_mask_at = _t
 		_mask_img = _mvp.get_texture().get_image()
-	if not _mask_img or _mask_img.get_width() < 2: return false
-	var mid := _depth(find.global_transform * _find_mid())
+
+## the mask at a card point: 0 clear .. 1 stone (the layer under the stone is gone from 0.14 up: jelly_behind.gdshader)
+func _mask_a(cp: Vector2) -> float:
+	if not _mask_img or _mask_img.get_width() < 2: return 0.0
 	var off := view.get_global_rect().position - card.get_global_rect().position
 	var ms := Vector2(_mask_img.get_size())
-	for lp: Vector3 in HIDE_PTS:
-		var w := j.global_transform * lp
-		if _depth(w) < mid: return false
-		var v := (_on_card(w) - off) / view.size * ms
-		if v.x < 0.0 or v.y < 0.0 or v.x >= ms.x or v.y >= ms.y: return false
-		if _mask_img.get_pixelv(Vector2i(v)).a < 0.08: return false
+	var v := (cp - off) / view.size * ms
+	if v.x < 0.0 or v.y < 0.0 or v.x >= ms.x or v.y >= ms.y: return 0.0
+	return _mask_img.get_pixelv(Vector2i(v)).a
+
+## a jelly's points (its own space): its bell; and its halo's edge and its tentacles' reach
+const BELL_PTS := [Vector3(0, 0.3, 0), Vector3(0.6, 0.1, 0), Vector3(-0.6, 0.1, 0), Vector3(0, 0.1, 0.6), Vector3(0, 0.1, -0.6),
+	Vector3(0, 0.62, 0)]
+const WIDE_PTS := [Vector3(1.25, 0.2, 0), Vector3(-1.25, 0.2, 0), Vector3(0, 0.2, 1.25), Vector3(0, 0.2, -1.25),
+	Vector3(0, 1.45, 0), Vector3(0, -1.05, 0), Vector3(0, -1.8, 0)]
+
+## does the stone's silhouette cover all of this stone jelly — bell, halo, tentacles?
+func _mask_hides(j: Node3D) -> bool:
+	if _depth(j.global_transform * Vector3(0.0, 0.3, 0.0)) < _depth(find.global_transform * _find_mid()): return false
+	for pts: Array in [BELL_PTS, WIDE_PTS]:
+		for lp: Vector3 in pts:
+			if _mask_a(_on_card(j.global_transform * lp)) < 0.14: return false
 	return true
+
+## how much of the stone lies over a copy's points: [the least, the most]
+func _copy_cover(o: Dictionary, pts: Array) -> Vector2:
+	var tr := (o.node as Node3D).transform
+	var lo := 1.0
+	var hi := 0.0
+	for lp: Vector3 in pts:
+		var w := tr * lp
+		var a := _mask_a(Vector2(w.x + card.size.x * 0.5, card.size.y * 0.5 - w.y))
+		lo = minf(lo, a)
+		hi = maxf(hi, a)
+	return Vector2(lo, hi)
+
+## where on the card the stone is thickest round its middle: where a copy going home dives under it. The middle itself if
+## the stone is there; else the nearest place with stone all round
+func _core_pt() -> Vector2:
+	var t := _on_card(find.global_transform * _find_mid())
+	var best := t
+	var best_d := INF
+	var off := view.get_global_rect().position - card.get_global_rect().position
+	for gy in 14:
+		for gx in 12:
+			var c := off + Vector2((gx + 0.5) / 12.0, (gy + 0.5) / 14.0) * view.size
+			if _mask_a(c) < 0.5: continue
+			var ok := true
+			for d: Vector2 in [Vector2(22, 0), Vector2(-22, 0), Vector2(0, 22), Vector2(0, -22)]:
+				if _mask_a(c + d) < 0.5: ok = false
+			var dd := c.distance_to(t)
+			if ok and dd < best_d:
+				best_d = dd
+				best = c
+	return best
+
+## a copy's glow ×k (its shaders add its colour: dimming it is fading it; the colour it had kept in a meta)
+static func _dim(mats: Array, k: float) -> void:
+	for m: ShaderMaterial in mats:
+		if not m.has_meta("col0"): m.set_meta("col0", m.get_shader_parameter("col"))
+		var c: Vector3 = m.get_meta("col0")
+		m.set_shader_parameter("col", c * k)
 
 ## a stone jelly back on its orbit, at its place
 static func _to_slot(j: Node3D) -> void:
-	_halo(j, HALO_STONE)
 	j.top_level = false
 	j.transform = j.get_meta("slot")
 	j.visible = true
 	j.remove_meta("on_card")
-	j.remove_meta("trip_t")
+	for k in ["trip_t", "p0", "v0", "trip_T", "going"]: j.remove_meta(k)
 
 ## a copy under the stone (its own layer, cut by the stone's silhouette) or out over the card
 static func _under(n: Node, on: bool) -> void:
@@ -438,20 +490,6 @@ func _stone_rect() -> Rect2:
 func _depth(world: Vector3) -> float:
 	var c: Camera3D = (view.studio as SpecStudio).cam
 	return -(c.global_transform.affine_inverse() * world).z
-
-## the stone hides this jelly now: farther than its middle and over it on the card, well in — not only its bell's middle
-## (26.11: its rim, tentacles and halo could stick out past the stone): its bell's rim all round, its halo's edge and its
-## tentacles' reach, all inside the stone's box, which is itself shrunk (the stone is no box)
-const HIDE_PTS := [Vector3(0, 0.3, 0), Vector3(0.62, 0.15, 0), Vector3(-0.62, 0.15, 0), Vector3(0, 0.15, 0.62),
-	Vector3(0, 0.15, -0.62), Vector3(0, 0.66, 0), Vector3(0, -1.0, 0), Vector3(0.4, -0.7, 0), Vector3(-0.4, -0.7, 0)]
-func _hidden(j: Node3D, sr: Rect2) -> bool:
-	if sr.size.x < 4.0: return false
-	var mid := _depth(find.global_transform * _find_mid())
-	var inner := sr.grow(-minf(sr.size.x, sr.size.y) * 0.22)
-	for lp: Vector3 in HIDE_PTS:
-		var w := j.global_transform * lp
-		if _depth(w) < mid or not inner.has_point(_on_card(w)): return false
-	return true
 
 var _mid := Vector3.ZERO
 var _mid_set := false
@@ -564,14 +602,24 @@ func _process(dt: float) -> void:
 			_next = test_every if test_every > 0.0 else rng.randf_range(EVERY[0], EVERY[1])
 	# where the stone's jellies are on the card now: the next to come out leaves at the speed it swam there
 	for j in _src:
-		if is_instance_valid(j): _was[j.get_instance_id()] = _on_card(j.global_position)
+		if is_instance_valid(j) and not j.has_meta("on_card"):
+			_was[j.get_instance_id()] = _on_card(j.global_position)
+			_was3[j.get_instance_id()] = j.global_position
 	_was_dt = maxf(dt, 0.001)
 	var jls := PackedVector4Array([Vector4.ZERO, Vector4.ZERO])
 	var ir := Rect2(info.get_global_rect().position - card.get_global_rect().position, info.size)
 	var gone := []
 	_sr = _stone_rect() if not (_out.is_empty() and _leave.is_empty()) else Rect2()
-	# the stone's jellies leaving: in behind the stone; hidden whole there, they change over to the card's
+	var changing := not (_leave.is_empty() and _home.is_empty())
+	for o: Dictionary in _out:
+		if o.back or bool(o.under): changing = true
+	if changing: _mask_refresh()
+	var cam3: Camera3D = (view.studio as SpecStudio).cam
+	var away := _facing(-cam3.global_basis.z)
 	var bp := _behind_pt() if not (_leave.is_empty() and _home.is_empty()) else Vector3.ZERO
+	# the stone's jellies leaving: off their orbits (at the speed they had) in behind the stone's middle, swimming off into
+	# the depth (smaller), bell turned away at the end — and there, the stone's silhouette over all of them (halo and
+	# tentacles too), they change over to the card's
 	for id in _leave.keys():
 		var j: Node3D = _leave[id]
 		if not is_instance_valid(j):
@@ -579,26 +627,48 @@ func _process(dt: float) -> void:
 			continue
 		var tt := float(j.get_meta("trip_t")) + dt
 		j.set_meta("trip_t", tt)
-		_swim_to(j, bp, dt)
-		# its halo fades as it goes in (the halo is wider than the stone: it could not be hidden; the copy's grows
-		# once it is out — 26.11: the change-over showed as a halo jumping denser)
-		_halo(j, HALO_STONE * (1.0 - smoothstep(0.0, 1.0, tt)))
-		# (26.11: the stone's box said «hidden» beside the crystal's narrow top) it changes over only behind the stone's
-		# middle and when the stone's own silhouette (the mask) covers its bell and tentacles
-		var near := j.global_position.distance_to(bp) < _find_r() * 0.2
-		if (near and tt > 1.0 and _mask_hides(j)) or tt > 8.0:
+		var tl := float(j.get_meta("trip_T"))
+		var u := clampf(tt / tl, 0.0, 1.0)
+		var p0: Vector3 = j.get_meta("p0")
+		var v0: Vector3 = j.get_meta("v0")
+		var at := p0 * (2.0 * u * u * u - 3.0 * u * u + 1.0) + v0 * tl * (u * u * u - 2.0 * u * u + u) + bp * (-2.0 * u * u * u + 3.0 * u * u)
+		var d := at - j.global_position
+		var want := _facing(d) if d.length() > _s0(j) * 0.002 else Quaternion(j.global_basis.orthonormalized())
+		want = want.slerp(away, smoothstep(0.55, 1.0, u))
+		_set_trip(j, at, want, 2.6, lerpf(1.0, DEEP, smoothstep(0.2, 1.0, u)), dt)
+		var turned := Quaternion(j.global_basis.orthonormalized()).angle_to(away) < 0.35
+		if (u >= 1.0 and turned and _mask_hides(j)) or tt > tl + 5.0:
 			_leave.erase(id)
 			_send_one(j)
-	# the stone's jellies home: from behind the stone back out to their places on their orbits
+	# the stone's jellies home: each waits hidden behind the stone till its place on its orbit is in the back half, then
+	# swims out to it — from the point behind the stone to the place as it goes round, there exactly at the end (26.11:
+	# chasing its place at a speed of its own it never caught it, and after 8 s jumped to it)
 	for id in _home.keys():
 		var j: Node3D = _home[id]
 		if not is_instance_valid(j):
 			_home.erase(id)
 			continue
 		var slot: Transform3D = (j.get_parent() as Node3D).global_transform * (j.get_meta("slot") as Transform3D)
-		j.set_meta("trip_t", float(j.get_meta("trip_t")) + dt)
-		_halo(j, HALO_STONE * smoothstep(0.6, 1.8, float(j.get_meta("trip_t"))))
-		if _swim_to(j, slot.origin, dt, slot.basis) or float(j.get_meta("trip_t")) > 8.0:
+		if not j.has_meta("going"):
+			_set_trip(j, bp, away, 2.6, DEEP, dt)
+			if _depth(slot.origin) > _depth(find.global_transform * _find_mid()) + _find_r() * 0.1:
+				j.set_meta("going", true)
+				j.set_meta("trip_t", 0.0)
+			continue
+		var tt := float(j.get_meta("trip_t")) + dt
+		j.set_meta("trip_t", tt)
+		var u := clampf(tt / HOME_T, 0.0, 1.0)
+		var at := bp.lerp(slot.origin, smoothstep(0.0, 1.0, u))
+		var d := at - j.global_position
+		var want := _facing(d) if d.length() > _s0(j) * 0.002 else Quaternion(j.global_basis.orthonormalized())
+		var sk := lerpf(DEEP, 1.0, smoothstep(0.0, 1.0, u))
+		_set_trip(j, at, want, 2.6, sk, dt)
+		# (turning into its place's own turn over the last third: there exactly at the end)
+		var w := smoothstep(0.65, 1.0, u)
+		if w > 0.0:
+			var q := Quaternion(j.global_basis.orthonormalized()).slerp(Quaternion(slot.basis.orthonormalized()), w)
+			j.global_transform = Transform3D(Basis(q).scaled(Vector3.ONE * _s0(j) * sk), at)
+		if u >= 1.0:
 			_home.erase(id)
 			_to_slot(j)
 	for i in _out.size():
@@ -617,23 +687,33 @@ func _process(dt: float) -> void:
 		o.gt = float(o.gt) + dt
 		var sr := _sr
 		if o.back:
-			# home: first to a door just past the stone's side, there in under it, and on to its middle, where (hidden)
-			# it becomes the stone's jelly again as soon as that one is behind the stone too
+			o.back_t = float(o.back_t) + dt
 			if not bool(o.home):
-				if (o.door as Vector2) == Vector2.ZERO:
-					var left := pos.x < sr.get_center().x
-					o.door = Vector2((sr.position.x - 8.0) if left else (sr.end.x + 8.0),
-						clampf(pos.y, sr.position.y + sr.size.y * 0.3, sr.end.y - sr.size.y * 0.3))
-				goal = o.door
-				if pos.distance_to(goal) < 34.0:
+				# home: under the stone from now on — but not while it is over it (it would vanish there): first clear of it
+				if _copy_cover(o, BELL_PTS + WIDE_PTS).y < 0.02:
 					o.home = true
 					o.under = true
 					_under(o.node, true)
+				else:
+					var offw := pos - _on_card(find.global_transform * _find_mid())
+					goal = pos + (offw.normalized() if offw.length() > 1.0 else Vector2.DOWN) * 80.0
 			if bool(o.home):
-				goal = sr.get_center()
-				# well under the stone (hidden) the copy is done: the stone's jelly takes over behind the stone (_home)
-				if sr.grow(-minf(sr.size.x, sr.size.y) * 0.2).has_point(pos):
-					gone.append(i)
+				# in under the stone where it is thickest; its bell under it, it dives (turns away, swims off into the depth,
+				# smaller) — and gone only with the stone's silhouette over all of it (26.11: it was taken off inside the
+				# find's box, in plain sight by the moss)
+				if _t - float(o.core_t) > 1.0:
+					o.core_t = _t
+					o.core = _core_pt()
+				goal = o.core
+				if _copy_cover(o, BELL_PTS).x >= 0.14: o.dive = minf(1.0, float(o.dive) + dt / 0.8)
+				if float(o.dive) >= 1.0:
+					o.dive_t = float(o.dive_t) + dt
+					if _copy_cover(o, BELL_PTS + WIDE_PTS).x >= 0.14: gone.append(i)
+			# (never hidden — a find too small or too thin for it: it fades out where it is, no pop)
+			if float(o.dive_t) > 2.5 or float(o.back_t) > 14.0:
+				o.fade = maxf(0.0, float(o.fade) - dt / 0.6)
+				_dim(o.mats, float(o.fade))
+				if float(o.fade) <= 0.0 and not i in gone: gone.append(i)
 		elif pos.distance_to(goal) < 45.0 or float(o.gt) > 5.0:
 			goal = _goal()
 			o.gt = 0.0
@@ -672,26 +752,22 @@ func _process(dt: float) -> void:
 		# it leans into the turn
 		o.bank = lerpf(float(o.bank), clampf(ang, -1.0, 1.0) * 0.5, minf(1.0, dt * 2.0))
 		var spd := SPEED * (1.4 if o.back else 1.0) * (0.7 + 0.5 * pull)
-		if bool(o.home): spd *= 0.6
+		if bool(o.home): spd *= 0.8 * (1.0 - 0.75 * float(o.dive)) * clampf(dist / 30.0, 0.15, 1.0)
 		elif bool(o.under): spd *= 2.2
 		# (26.11: going home it sped up ×1.6 in one frame) the speed eases to what it wants
 		o.spd = lerpf(float(o.spd), spd, minf(1.0, dt * 1.2))
 		pos += head * float(o.spd) * dt + kick * dt
 		kick *= exp(-2.6 * dt)
-		# in it comes at its size in the stone, swelling to its size on the card; going back, it shrinks again
+		# out it comes small (from the depth behind the stone), swelling to its size on the card; going back it shrinks to
+		# its size on its orbit as it nears the stone, and smaller yet as it dives under it
 		var sz := lerpf(float(o.size0), size, smoothstep(0.0, 1.4, float(o.t)))
 		if o.back:
-			var dh := pos.distance_to(sr.get_center())
-			o.shrink = minf(float(o.shrink), clampf((dh - minf(sr.size.x, sr.size.y) * 0.3) / 80.0, 0.0, 1.0))
-			sz = lerpf(float(o.size0), sz, float(o.shrink))
-		# its halo: none under the stone, growing once out, gone again home under it
-		var hk := float(o.get("hk", 0.0))
-		hk = clampf(hk + dt / (1.2 if not (bool(o.under) or bool(o.home)) else -0.5), 0.0, 1.0)
-		o.hk = hk
-		for m: ShaderMaterial in o.mats:
-			if int(m.get_shader_parameter("part")) == 4: m.set_shader_parameter("halo_k", HALO_CARD * smoothstep(0.0, 1.0, hk))
-		# out from under the stone: past its silhouette, into the layer over the card
-		if bool(o.under) and not bool(o.home) and not sr.grow(size * 0.5).has_point(pos):
+			var dh := pos.distance_to(_on_card(find.global_transform * _find_mid()))
+			o.shrink = minf(float(o.shrink), clampf((dh - 40.0) / 90.0, 0.0, 1.0))
+			sz = lerpf(float(o.full), sz, float(o.shrink)) * lerpf(1.0, DEEP, smoothstep(0.0, 1.0, float(o.dive)))
+		# out from under the stone — clear of its silhouette, bell, halo and tentacles: into the layer over the card
+		if bool(o.under) and not bool(o.home) and float(o.t) > 0.3 \
+				and (_copy_cover(o, BELL_PTS + WIDE_PTS).y < 0.02 or not sr.grow(size * 3.0).has_point(pos)):
 			o.under = false
 			_under(o.node, false)
 		# (it keeps to the card: darting off it went past its edge, cut by the layer's)
@@ -703,7 +779,8 @@ func _process(dt: float) -> void:
 		o.kick = kick
 		# bell first along its way, tipped toward us and away by turns, leaning into its turns
 		o.pitch = float(o.pitch) + dt * 0.35
-		var yv := Vector3(head.x, -head.y, 0.3 + 0.22 * sin(float(o.pitch))).normalized()
+		var dv := smoothstep(0.0, 1.0, float(o.dive))
+		var yv := Vector3(head.x * (1.0 - dv * 0.9), -head.y * (1.0 - dv * 0.9), lerpf(0.3 + 0.22 * sin(float(o.pitch)), -1.0, dv)).normalized()
 		var xv := yv.cross(Vector3.BACK).normalized()
 		var zv := xv.cross(yv)
 		var bs := Basis(xv, yv, zv) * Basis(Vector3.UP, float(o.bank) * 1.4)
@@ -726,12 +803,11 @@ func _process(dt: float) -> void:
 		var o: Dictionary = _out[gone[i]]
 		if is_instance_valid(o.src):
 			var j := o.src as Node3D
-			var c: Camera3D = (view.studio as SpecStudio).cam
-			var cb := c.global_basis.orthonormalized() * Basis((o.q as Quaternion))
-			j.global_transform = Transform3D(cb.orthonormalized().scaled(j.global_basis.get_scale()), _behind_pt())
+			j.top_level = true
+			j.global_transform = Transform3D(Basis(away).scaled(Vector3.ONE * _s0(j) * DEEP), _behind_pt())
 			j.visible = true
+			j.remove_meta("going")
 			j.set_meta("trip_t", 0.0)
-			_halo(j, 0.0)
 			_home[j.get_instance_id()] = j
 		(o.node as Node3D).queue_free()
 		_out.remove_at(gone[i])
@@ -744,8 +820,15 @@ func _process(dt: float) -> void:
 	_rectb.visible = any_b
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any else SubViewport.UPDATE_DISABLED
 	_vpb.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
-	var need_m := any_b or not _leave.is_empty()
-	_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if need_m else SubViewport.UPDATE_DISABLED
+	# the mask: every frame while a copy is drawn under the stone (it cuts it); ten times a second while it is only read
+	var need_m := any_b or changing
+	if any_b:
+		_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	elif need_m and _t - _mask_drawn > 0.1:
+		_mask_drawn = _t
+		_mvp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	elif not need_m:
+		_mvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	if need_m:
 		var sc: Camera3D = (view.studio as SpecStudio).cam
 		_mcam.global_transform = sc.global_transform
@@ -779,6 +862,8 @@ func _process(dt: float) -> void:
 		bm.set_shader_parameter("lsize", _rectb.size)
 
 var _sr := Rect2()
+var _mask_drawn := -1.0
+var _was3 := {}               # each stone jelly's place in the stone's world last frame
 var _leave := {}              # stone jellies swimming in behind the stone to come out onto the card
 var _home := {}               # and swimming back out from behind it to their places on their orbits
 var _last_sz := Vector2.ZERO
