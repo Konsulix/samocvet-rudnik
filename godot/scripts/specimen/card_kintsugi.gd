@@ -936,6 +936,8 @@ func _draw_gauge() -> void:
 
 func _pass_input(ev: InputEvent) -> void:
 	if _side != 1 or _turning: return
+	# (26.11, the phone's log: a touch passed on to the back's viewport as the card closed — not in the tree)
+	if not is_instance_valid(_bvp) or not _bvp.is_inside_tree(): return
 	var e := ev.duplicate()
 	var sh := card.size * GROW
 	if e is InputEventMouse: (e as InputEventMouse).position -= sh

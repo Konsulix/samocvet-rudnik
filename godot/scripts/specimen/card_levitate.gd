@@ -233,6 +233,7 @@ func _stone() -> Vector2:
 
 ## a touch on the card's picture goes on into its SubViewport, at the same point of the card
 func _pass_input(ev: InputEvent) -> void:
+	if not is_instance_valid(_cvp) or not _cvp.is_inside_tree(): return
 	var e := ev.duplicate()
 	var sh := (card.size + Vector2.ONE * PAD * 2.0) * GROW
 	if e is InputEventMouse: (e as InputEventMouse).position = (ev as InputEventMouse).position - sh

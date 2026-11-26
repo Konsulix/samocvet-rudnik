@@ -77,6 +77,7 @@ func _cancel_press() -> void:
 	off.pressed = false
 	off.position = Vector2(-10000, -10000)
 	off.global_position = off.position
+	if not is_inside_tree(): return
 	_releasing = true
 	cancelling = true
 	get_viewport().push_input(off)
