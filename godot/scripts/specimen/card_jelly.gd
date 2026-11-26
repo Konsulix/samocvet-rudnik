@@ -211,7 +211,7 @@ func tap_at(cpos: Vector2) -> void:
 			o.kick = away * 240.0
 			o.flee = away
 			o.dart = 1.0
-			for m: ShaderMaterial in o.mats: m.set_shader_parameter("speed", 1.8)
+			_set_stroke(o, 1.8)
 			Sfx.play("glass_tap")
 			Sfx.buzz(15)
 	var ir := Rect2(info.get_global_rect().position - card.get_global_rect().position, info.size)
@@ -251,7 +251,19 @@ func _send_one() -> void:
 	var size := clampf(span * 1.1, 26.0, 70.0)
 	_out.append({node = node, src = j, pos = at, head = head, kick = Vector2.ZERO, flee = Vector2.ZERO, b0 = b0, goal = _goal(),
 		gt = 0.0, t = 0.0, life = rng.randf_range(STAY[0], STAY[1]), size = size, size0 = maxf(span, 6.0), col = col,
-		back = false, mats = mats, dart = 0.0, stroke = stroke, bank = 0.0, pitch = rng.randf_range(0.0, TAU)})
+		back = false, mats = mats, dart = 0.0, stroke = stroke, sp0 = stroke.x, bank = 0.0, spd = 0.0, q = Quaternion(b0), pitch = rng.randf_range(0.0, TAU)})
+
+## the bell's stroke rate changed (darting off a touch and calming down) without a jump in the stroke: the shader beats
+## at fract(TIME·speed + phase), so the phase takes up the difference (26.11: the bell twitched to another moment)
+func _set_stroke(o: Dictionary, sp: float) -> void:
+	var st: Vector2 = o.stroke
+	if absf(sp - st.x) < 0.0001: return
+	var now := Time.get_ticks_msec() * 0.001
+	st = Vector2(sp, st.y + now * (st.x - sp))
+	o.stroke = st
+	for m: ShaderMaterial in o.mats:
+		m.set_shader_parameter("speed", st.x)
+		m.set_shader_parameter("phase", st.y)
 
 ## a stone jelly's turn as the card layer sees it (the studio camera's axes = the layer's: x right, y up, z to us)
 func _cam_basis(j: Node3D) -> Basis:
@@ -316,7 +328,7 @@ func _process(dt: float) -> void:
 		var size: float = float(o.size)
 		if float(o.dart) > 0.0:
 			o.dart = maxf(0.0, float(o.dart) - dt * 0.8)
-			for m: ShaderMaterial in o.mats: m.set_shader_parameter("speed", 0.6 + 1.2 * float(o.dart))
+			_set_stroke(o, lerpf(float(o.sp0), 1.8, float(o.dart)))
 		if not o.back and float(o.t) > float(o.life): o.back = true
 		var src: Node3D = o.src
 		o.gt = float(o.gt) + dt
@@ -339,6 +351,15 @@ func _process(dt: float) -> void:
 		if float(o.dart) > 0.3 and flee != Vector2.ZERO:
 			want = flee
 			rate = 5.0
+		# (26.11: it ran into the card's edge and stopped dead) near an edge it turns inward, the closer the harder
+		var edge := Vector2.ZERO
+		var mg := 46.0
+		edge.x = maxf(0.0, mg - pos.x) - maxf(0.0, pos.x - (card.size.x - mg))
+		edge.y = maxf(0.0, mg - pos.y) - maxf(0.0, pos.y - (card.size.y - mg))
+		if edge != Vector2.ZERO and head.dot(edge) < 0.3 and not o.back:
+			var e := clampf(edge.length() / mg, 0.0, 1.0)
+			want = (want + edge.normalized() * e * 3.0).normalized()
+			rate = maxf(rate, 0.8 + 2.2 * e)
 		var ang := head.angle_to(want)
 		var turn := clampf(ang, -rate * dt, rate * dt)
 		head = head.rotated(turn)
@@ -346,7 +367,9 @@ func _process(dt: float) -> void:
 		o.bank = lerpf(float(o.bank), clampf(ang, -1.0, 1.0) * 0.5, minf(1.0, dt * 2.0))
 		var spd := SPEED * (1.6 if o.back else 1.0) * (0.7 + 0.5 * pull)
 		if o.back: spd *= clampf(dist / 40.0, 0.35, 1.0)
-		pos += head * spd * dt + kick * dt
+		# (26.11: going home it sped up ×1.6 in one frame) the speed eases to what it wants
+		o.spd = lerpf(float(o.spd), spd, minf(1.0, dt * 2.0)) if float(o.t) > dt * 1.5 else spd * 0.6
+		pos += head * float(o.spd) * dt + kick * dt
 		kick *= exp(-2.6 * dt)
 		# in it comes at its size in the stone, swelling to its size on the card; going back, it shrinks again
 		var grow := smoothstep(0.0, 1.2, float(o.t))
@@ -355,7 +378,9 @@ func _process(dt: float) -> void:
 			sz = lerpf(float(o.size0), size, clampf(dist / 60.0, 0.0, 1.0))
 			if dist < 6.0: gone.append(i)
 		# (it keeps to the card: darting off it went past its edge, cut by the layer's)
-		pos = pos.clamp(Vector2(12.0, 12.0), card.size - Vector2(12.0, 12.0))
+		# going home it may cross the edge (the stone's jelly is behind the window's frame then): the layer reaches past it
+		var lim := -MARGIN * 0.6 if o.back else 8.0
+		pos = pos.clamp(Vector2(lim, lim), card.size - Vector2(lim, lim))
 		o.pos = pos
 		o.head = head
 		o.kick = kick
@@ -367,9 +392,17 @@ func _process(dt: float) -> void:
 		var bs := Basis(xv, yv, zv) * Basis(Vector3.UP, float(o.bank) * 1.4)
 		# out of the stone it starts turned as it was there, and settles into its way; going home it turns back as the
 		# stone's jelly is now, to become it
-		var q := Quaternion((o.b0 as Basis)).slerp(Quaternion(bs), smoothstep(0.0, 1.4, float(o.t)))
+		var qt := Quaternion(bs)
 		if o.back and is_instance_valid(src):
-			q = Quaternion(_cam_basis(src)).slerp(q, clampf(dist / 70.0, 0.0, 1.0))
+			qt = Quaternion(_cam_basis(src)).slerp(qt, clampf(dist / 70.0, 0.0, 1.0))
+		# (26.11: settling from its pose in the stone it spun up to 0.45 rad a frame) the body turns toward where it
+		# should face no faster than a jellyfish can, easing in at the end
+		var q: Quaternion = o.q
+		var gap := q.angle_to(qt)
+		if gap > 0.0001:
+			var w := minf(gap * 2.5, 1.3 + (4.0 if float(o.dart) > 0.3 else 0.0)) * dt
+			q = q.slerp(qt, minf(1.0, w / gap))
+		o.q = q
 		(o.node as Node3D).transform = Transform3D(Basis(q).scaled(Vector3.ONE * sz), _w(pos))
 		if i < 2 and ir.has_point(pos + Vector2(0, size)):
 			jls[i] = Vector4(pos.x - ir.position.x, pos.y - ir.position.y, size * 1.6, 1.0)
