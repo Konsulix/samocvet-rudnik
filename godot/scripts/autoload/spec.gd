@@ -23,6 +23,23 @@ var warm_secs := 0.0     # how long the shader warm-up took this launch (Boot wr
 ## at a time, and not while a level is being played (warm_pause: Level sets it). After iOS cleared its shader cache
 ## the whole warm-up took ~30 s on the loading screen
 var warm_pause := false
+## ...and only while nothing is going on (26.11): no touch for IDLE_S, no window open, the rest asked for
+## (warm_rest) over. A compile stalls the frame (up to ~0.7 s each on a phone whose shader cache iOS cleared), so
+## it must not land on a scroll, a window opening or the mine screen's own scenes
+const IDLE_S := 2.5
+var _touch_ms := 0
+var _rest_ms := 0
+
+func warm_rest(secs: float) -> void:
+	_rest_ms = maxi(_rest_ms, Time.get_ticks_msec() + int(secs * 1000.0))
+
+func _input(e: InputEvent) -> void:
+	if e is InputEventScreenTouch or e is InputEventScreenDrag or e is InputEventMouseButton:
+		_touch_ms = Time.get_ticks_msec()
+
+func _warm_ok() -> bool:
+	var now := Time.get_ticks_msec()
+	return not warm_pause and not _busy and now >= _rest_ms and now - _touch_ms >= int(IDLE_S * 1000.0) and not Ov.is_open()
 var warm_all_done := false
 
 ## (26.11) the star heart's pace: calm as a rule — a slow lub-dub, a long rest; shaken (SpecView.shake_find, a hard
@@ -110,7 +127,7 @@ func _warm() -> void:
 			# (one every few frames, never while a level is played or a stone is being built)
 			for k in 6:
 				await get_tree().process_frame
-			while warm_pause or _busy:
+			while not _warm_ok():
 				await get_tree().create_timer(0.25).timeout
 			_busy = true
 		# (a picture built between two of these clears the studio, and the balls' node with it: made again then)
