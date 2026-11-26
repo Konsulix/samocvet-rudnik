@@ -23,6 +23,8 @@ var warm_secs := 0.0     # how long the shader warm-up took this launch (Boot wr
 ## at a time, and not while a level is being played (warm_pause: Level sets it). After iOS cleared its shader cache
 ## the whole warm-up took ~30 s on the loading screen
 var warm_pause := false
+const COLD_N := 3
+const COLD_MS := 300
 ## ...and only while nothing is going on (26.11): no touch for IDLE_S, no window open, the rest asked for
 ## (warm_rest) over. A compile stalls the frame (up to ~0.7 s each on a phone whose shader cache iOS cleared), so
 ## it must not land on a scroll, a window opening or the mine screen's own scenes
@@ -111,9 +113,22 @@ func _warm() -> void:
 		var xm := ShaderMaterial.new()
 		xm.shader = sh
 		mats.append(xm)
+	# how many the loading screen waits for: the common ones - or all of them when the phone has none of them ready
+	# (26.11): the first launch of a build, or iOS has cleared its shader cache (the first few took long, COLD_MS
+	# each). Left for later, some 20 s of compiles came as stalls on the mine screen and under the first level's
+	# finale; on the loading screen they are a longer bar, once
 	var first := SpecMat.COMMON.size()
+	var whole := Boot._first_of_build() or OS.get_cmdline_user_args().has("warm_all")
+	if whole: first = mats.size()
 	var done := 0
+	var cold_t0 := 0
 	for m in mats:
+		# (timed from the second one: the first carries the studio's own start)
+		if done == 1: cold_t0 = Time.get_ticks_msec()
+		if done == COLD_N + 1 and not whole and (Time.get_ticks_msec() - cold_t0) > COLD_MS * COLD_N:
+			whole = true
+			first = mats.size()
+			Diag.note("shader cache is cold (%d ms for %d shaders): warming everything on the loading screen" % [Time.get_ticks_msec() - cold_t0, COLD_N])
 		if done == first:
 			# the loading screen may go: the rest warms behind the home screen
 			BoardSprites.preload_all()
@@ -151,8 +166,17 @@ func _warm() -> void:
 		done += 1
 		if done <= first: warm_progress = done / float(first)
 	if is_instance_valid(balls): balls.queue_free()
+	if not warm_done:
+		# (all of them were warmed on the loading screen: it may go now)
+		BoardSprites.preload_all()
+		warm_secs = (Time.get_ticks_msec() - warm_t0) / 1000.0
+		warm_progress = 1.0
+		warm_done = true
+		warmed.emit()
+		_busy = false
 	warm_all_done = true
-	Diag.note("background shader warm-up done: %d more in %.1f s from the start" % [mats.size() - first, (Time.get_ticks_msec() - warm_t0) / 1000.0])
+	if first < mats.size(): Diag.note("background shader warm-up done: %d more in %.1f s from the start" % [mats.size() - first, (Time.get_ticks_msec() - warm_t0) / 1000.0])
+	else: Diag.note("all %d shaders warmed on the loading screen" % mats.size())
 	if _queue.size():
 		_pump()
 

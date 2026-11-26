@@ -112,7 +112,7 @@ static func _build_id() -> String:
 	if not ResourceLoader.exists("res://build_stamp.gd"): return ""
 	return str((load("res://build_stamp.gd") as GDScript).get_script_constant_map().get("ID", ""))
 
-func _first_of_build() -> bool:
+static func _first_of_build() -> bool:
 	var id := _build_id()
 	if id == "": return false
 	return not FileAccess.file_exists(BOOT_STAMP) or FileAccess.get_file_as_string(BOOT_STAMP).strip_edges() != id
