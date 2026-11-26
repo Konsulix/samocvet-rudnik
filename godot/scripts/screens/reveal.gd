@@ -200,6 +200,11 @@ const CARD_PAD := 7.0        # the card's frame to the stone: just inside the br
 const INFO_R := 22.0         # the info panel's top corners
 const TITLE_H := 64.0        # the name in the corner covers this much of the stone's frame
 const CHIPS_MAX := 5
+## a skull's crystals of its mineral (its title names the mineral), and what is not named on a skull at all: how
+## clear those crystals are, specks and clouds inside them
+const SKULL_STONE := ["sk_crown", "sk_eyes", "sk_fangs", "sk_maw"]
+const SKULL_TRAITS := ["moss", "aurora", "anomaly"]
+const SKULL_MUTE := ["sk_frost", "sk_wax", "inkspots", "clouds"]
 static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
 static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
 
@@ -407,6 +412,15 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 			if is_instance_valid(vl): vl.text = UI.fmt(int(s.value))
 			if s in Save.d.coll: Save.persist())
 	var gene := SpecGenome.of(so)
+	# a skull's title says its mineral too, where it has crystals of it: "Wolf Skull with Rock Crystal" (a long one
+	# runs along under a finger, TitleStrip) - and so the crown, the eyes and the teeth are not named again below
+	var is_skull := String(gene.get("form", "")) == "skull"
+	if is_skull and not s.has("name_as"):
+		for a in gene.accents:
+			if a in SKULL_STONE:
+				name_l.text = "%s with %s" % [Stones.name_of(s), String(Data.SP[s.sid].n)]
+				fit.call_deferred()
+				break
 	# kintsugi breaks the card's panel and mends it with gold; its buttons on the card's back (CardKintsugi)
 	var kin_fx := String(gene.fx)
 	view.built.connect(func(p: Node3D) -> void: CardKintsugi.attach(card, view, info, v, p, kin_fx, s))
@@ -430,9 +444,13 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	if String(gene.fx) != "":
 		genes.fx = [SpecLegend.FX_N.get(gene.fx, gene.fx), true]
 	for id in s.get("traits", []):
+		# (a skull's crystals are small: what is inside their glass - a phantom, chlorite, a twin - is not to be seen;
+		# moss on it and the colour of its crystals are)
+		if is_skull and not id in SKULL_TRAITS: continue
 		var t: Dictionary = Data.TR[id]
 		genes[id] = [t.n, float(t.p) < 0.06]
 	for a in gene.accents:
+		if is_skull and (a in SKULL_STONE or a in SKULL_MUTE) and a != "sk_maw": continue
 		# (a butterfly cloud says it all: not "monarch ×7" beside it as well)
 		if String(gene.fx) == "flutter" and String(a).begins_with("fly_"): continue
 		var fn := SpecFossil.gene_name(a, gene.get("fossil", {}))
@@ -457,13 +475,12 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	if chips_max > 0:
 		for id: String in order.slice(chips_max): genes.erase(id)
 		order = order.slice(0, chips_max)
-	# a badge for each gene that earns one (the small life — lichen, dust, a speck — only by its callout); the first
-	# CHIPS_MAX hold their place while the stone builds, the rest wait hidden: once it is built, what did not grow goes
-	# and the next ones move up, so the card always names the five dearest that are really there
+	# a badge for each gene; the first CHIPS_MAX hold their place while the stone builds, the rest wait hidden: once it
+	# is built, what did not grow goes and the next ones move up, so the card always names the five dearest that are
+	# really there. The callouts are those same five (26.11: nine threads across a skull named what nobody could see)
 	var chips := {}
 	var badged := []
 	for id: String in order:
-		if not Worth.badge(id, traits): continue
 		var rare: bool = genes[id][1] or (not id in traits and id != "fx" and Worth.rank(id, gene) >= 2.0)
 		var c := chip(genes[id][0], rare, not (id in traits) and id != "fx")
 		c.modulate.a = 0.0
@@ -495,6 +512,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 				else:
 					chips.erase(id)
 					c.queue_free()
+					continue
 			list.append({id = id, name = genes[id][0], rare = genes[id][1], pts = grown[id]})
 		if list.is_empty():
 			flow.queue_free()

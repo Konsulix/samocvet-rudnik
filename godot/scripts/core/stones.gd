@@ -172,19 +172,13 @@ static func picked(which: String, area: int, luck: float, dl: int) -> Dictionary
 	st.picked = which
 	return st
 
-## a find's name: the species, or for a skull its kind ("Gilded Skull")
+## a find's name: the species; a skull is whose it is - "Wolf Skull", "Skull" (26.11: what its bone is made of is a
+## gene on its card, "agate bone", not a word of its name; the card's title adds its mineral, Reveal: "Wolf Skull with
+## Rock Crystal"). The atlas's pages of the barrow's skulls keep their kinds' names (SKULL_N)
 static func name_of(s: Dictionary) -> String:
-	# an animal's: "Wolf Skull", "Gilded Stag Skull" (its crystal shows on the card)
 	if String(s.get("form", "")) == "skull" and String(s.get("beast", "")) != "":
-		var bn := String(SpecSkull.BEAST_N.get(String(s.beast), "Beast"))
-		var skin := String(s.get("skin", "bone"))
-		# (feathers are a gene on its card, not a kind of skull: "Mouflon Skull")
-		if skin in ["bone", "feathers"]: return "%s Skull" % bn
-		return String(SKULL_N.get(skin, "Skull")).replace("Skull", bn + " Skull")
-	if String(s.get("form", "")) == "skull" and s.has("skin"):
-		# (a plain bone one is named by its crystal: "Pyrope Skull"; the rest by what they are: "Gilded Skull")
-		if s.skin == "bone": return "%s Skull" % Data.SP[s.sid].n
-		return String(SKULL_N.get(s.skin, "Skull"))
+		return "%s Skull" % String(SpecSkull.BEAST_N.get(String(s.beast), "Beast"))
+	if String(s.get("form", "")) == "skull" and s.has("skin"): return "Skull"
 	return String(Data.SP[s.sid].n)
 
 ## the page of the atlas (and the pile in the inventory) a find belongs to: its species, or skull_<kind>
