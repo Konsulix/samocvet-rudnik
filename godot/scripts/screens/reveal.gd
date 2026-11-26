@@ -412,6 +412,8 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	view.built.connect(func(p: Node3D) -> void: CardKintsugi.attach(card, view, info, v, p, kin_fx, s))
 	# and the opal fire turns the panel's slate to opal (CardOpal)
 	view.built.connect(func(_p: Node3D) -> void: CardOpal.attach(card, view, info, kin_fx, s))
+	# and the starry sky makes the panel a night sky, its traits a constellation (CardStarry)
+	view.built.connect(func(_p: Node3D) -> void: CardStarry.attach(card, view, info, kin_fx, s))
 	# the chameleon on its twig in the window's corner (CardChameleon); on a skull, its skeleton
 	var sk_cham := String(gene.get("form", "")) == "skull"
 	view.built.connect(func(_p: Node3D) -> void: CardChameleon.attach(card, view, info, kin_fx, sk_cham))
