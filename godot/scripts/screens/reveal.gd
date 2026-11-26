@@ -203,7 +203,6 @@ const CHIPS_MAX := 5
 ## a skull's crystals of its mineral (its title names the mineral), and what is not named on a skull at all: how
 ## clear those crystals are, specks and clouds inside them
 const SKULL_STONE := ["sk_crown", "sk_eyes", "sk_fangs", "sk_maw"]
-const SKULL_TRAITS := ["moss", "aurora", "anomaly"]
 const SKULL_MUTE := ["sk_frost", "sk_wax", "inkspots", "clouds"]
 static var chips_max := 0    # a test key (-- chips=N): at most N gene badges and no record line - every card holds as much (showcase)
 static var info_h := 0.0     # a test key (-- card_h=N): the info panel this tall whatever it holds, so every card is one size (showcase)
@@ -446,7 +445,7 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 	for id in s.get("traits", []):
 		# (a skull's crystals are small: what is inside their glass - a phantom, chlorite, a twin - is not to be seen;
 		# moss on it and the colour of its crystals are)
-		if is_skull and not id in SKULL_TRAITS: continue
+		if is_skull and not id in SpecGenome.SKULL_SEEN: continue
 		var t: Dictionary = Data.TR[id]
 		genes[id] = [t.n, float(t.p) < 0.06]
 		# (on a skull the trait "moss agate" is moss growing on the bone: beside "agate bone" it read as a second

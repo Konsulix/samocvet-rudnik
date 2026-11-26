@@ -12,6 +12,8 @@ const FORM_N := {single = "single crystal", cluster = "cluster", columnar = "col
 	tablets = "window panes", barrels = "barrels", jackstraw = "jackstraw needles", balls = "blade balls", fans = "blade fans", staircase = "hopper staircase", grapes = "bubble crust", pencils = "pencils", slice = "polished slice",
 	geode = "geode", nugget = "nugget", botryoid = "botryoidal", vein = "vein in quartz", spray = "column spray", platestack = "plate stack", gwindel = "gwindel", septaria = "septarian nodule", hair = "hair sprays", coxcomb = "cockscomb", starburst = "star discs", sawn = "sawn and polished", dendrite = "metal tree", xenolith = "lava bomb", obsidian = "volcanic glass", simetite = "simetite", petrified_wood = "petrified wood", fulgurite = "fulgurite", fern = "fossil leaf", flower_quartz = "flower in stone", amber = "amber", trilobite = "trilobite", pearl = "pearl"}
 const SIZE_N := ["small", "medium", "large", "giant"]
+## the traits a skull shows (the rest are lost on it, of): moss, and the colour of its crystals
+const SKULL_SEEN := ["moss", "aurora", "anomaly", "irid"]
 const ACC_N := {pompom = "fibre puffs", straw = "golden strands", lichen = "lichen", needles = "needles", crust = "crystal crust",
 	dust = "hematite dust", inkspots = "dark inclusions", clouds = "colour clouds", fronds = "fern fronds", flowers = "flowers", mushrooms = "mushrooms",
 	halves = "both halves", inner_light = "inner light", pocket = "crystal pocket",
@@ -404,6 +406,12 @@ static func of(o: Dictionary) -> Dictionary:
 	if form == "rosette" and (look.has("rose") or look.has("rose_metal")):
 		for t: String in SpecLooks.IN_GLASS:
 			if t in tr and not t in lost: lost.append(t)
+	# (26.11) a skull's crystals are small - a crown, an eye, teeth: what lives inside a crystal's glass or sits on
+	# its faces (a phantom, rutile, a druzy coat, zoning...) is not seen there, so it is not rolled, priced, named or
+	# counted for the awards. What is seen stays: moss on the bone, the crystals' colour (SKULL_SEEN)
+	if form == "skull":
+		for t: String in tr:
+			if not t in SKULL_SEEN and not t in lost: lost.append(t)
 	return {
 		lost = lost,
 		pseudo = pseudo,
