@@ -123,6 +123,7 @@ func _ready() -> void:
 	camb.cull_mask = 2
 	_vpb.add_child(camb)
 	camb.current = true
+	_sync_env()
 	_rectb = TextureRect.new()
 	_rectb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rectb.texture = _vpb.get_texture()
@@ -527,20 +528,20 @@ func _set_stroke(o: Dictionary, sp: float) -> void:
 		m.set_shader_parameter("speed", st.x)
 		m.set_shader_parameter("phase", st.y)
 
-## (26.11: coming out it lost half its glow in a frame) the layer's tone and bloom are the stone studio's as they are now
-## (the jellyfish legend darkens the studio and opens its bloom after the card is built), on black — added to the card
+## The two layers' look: one environment, set on both their cameras — the stone studio's tone curve (ACES whitens a bright
+## bell as the stone's does), on black, added to the card
 func _sync_env() -> void:
-	if not _env: return
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color.BLACK
-	# the studio's tone curve (ACES whitens a bright bell as the stone's does), not its room or its glow (on black that
-	# blew the bell out white)
-	var se: Environment = (view.studio as SpecStudio).env if is_instance_valid(view) and view.studio else null
-	e.tonemap_mode = se.tonemap_mode if se else Environment.TONE_MAPPER_ACES
-	e.tonemap_white = se.tonemap_white if se else 6.0
-	e.tonemap_exposure = se.tonemap_exposure if se else 1.05
-	_env.environment = e
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color.BLACK
+	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_white = 6.0
+	e.tonemap_exposure = 1.05
+	if _env: _env.environment = e
+	_cam.environment = e
+	_vpb.get_camera_3d().environment = e
 
 ## where the copy's origin goes on the card for its bell's middle to sit on the stone jelly's (sz: the copy's size, points)
 func _anchor(j: Node3D, sz: float) -> Vector2:
