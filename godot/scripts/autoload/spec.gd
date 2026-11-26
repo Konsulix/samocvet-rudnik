@@ -25,13 +25,27 @@ var warm_secs := 0.0     # how long the shader warm-up took this launch (Boot wr
 var warm_pause := false
 var warm_all_done := false
 
+## (26.11) the star heart's pace: calm as a rule — a slow lub-dub, a long rest; shaken (SpecView.shake_find, a hard
+## flick of the stone: heart_rush 1) it races, and settles again over some ten seconds
+var heart_rush := 0.0
+var heart_t := 0.0       # seconds into this beat
+var heart_gap := 0.3     # the dub after the lub, s
+var _heart_ph := 0.0
+
 func _process(_dt: float) -> void:
 	var ph := fmod(Time.get_ticks_msec() / 1000.0, 7.0) / 7.0
 	uv = force_uv if force_uv >= 0.0 else smoothstep(0.55, 0.6, ph) * (1.0 - smoothstep(0.88, 0.95, ph))
 	RenderingServer.global_shader_parameter_set("fluor_uv", uv)
-	# lub-dub, about 70 beats a minute: a strong beat, a softer echo, then rest
-	var hb := fmod(Time.get_ticks_msec() / 1000.0, 0.86) / 0.86
-	beat = exp(-pow((hb - 0.12) * 11.0, 2.0)) + 0.55 * exp(-pow((hb - 0.36) * 11.0, 2.0))
+	# lub-dub: a short strong beat, a softer one a third of a second after it, then a long rest — some 46 beats a
+	# minute at rest (26.11: at 70, the two beats spread evenly over the cycle, it read as a blinking, not a heart);
+	# racing — 105, harder
+	heart_rush = maxf(0.0, heart_rush - _dt / 10.0)
+	var rush := smoothstep(0.0, 1.0, heart_rush)
+	var period := lerpf(1.3, 0.57, rush)
+	_heart_ph = fposmod(_heart_ph + _dt / period, 1.0)
+	heart_t = _heart_ph * period
+	heart_gap = lerpf(0.3, 0.21, rush)
+	beat = (exp(-pow((heart_t - 0.07) / 0.045, 2.0)) + 0.6 * exp(-pow((heart_t - 0.07 - heart_gap) / 0.06, 2.0))) * lerpf(0.7, 1.0, rush)
 	RenderingServer.global_shader_parameter_set("heart_beat", beat)
 
 func _ready() -> void:

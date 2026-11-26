@@ -203,6 +203,7 @@ func _rock_top(at: Vector3) -> PackedVector3Array:
 func shake_find(k := 1.0) -> void:
 	if not is_instance_valid(live) or not is_visible_in_tree(): return
 	_shake = maxf(_shake, 0.6 * k)
+	Spec.heart_rush = 1.0   # (a star heart races when its stone is shaken)
 	Sfx.buzz(45)
 	var bb := AABB()
 	var first := true
