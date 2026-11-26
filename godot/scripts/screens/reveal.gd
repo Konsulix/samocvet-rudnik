@@ -449,6 +449,11 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		if is_skull and not id in SKULL_TRAITS: continue
 		var t: Dictionary = Data.TR[id]
 		genes[id] = [t.n, float(t.p) < 0.06]
+		# (on a skull the trait "moss agate" is moss growing on the bone: beside "agate bone" it read as a second
+		# agate. One "moss", and none if the skull's own moss is named already)
+		if is_skull and id == "moss":
+			if (gene.accents as Array).has("sk_moss"): genes.erase(id)
+			else: genes[id][0] = "moss"
 	for a in gene.accents:
 		if is_skull and (a in SKULL_STONE or a in SKULL_MUTE) and a != "sk_maw": continue
 		# (a butterfly cloud says it all: not "monarch ×7" beside it as well)
