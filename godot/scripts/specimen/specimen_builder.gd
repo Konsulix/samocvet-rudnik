@@ -1715,6 +1715,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			# but not the host rock
 			root.set_meta("fluor", true)
 			var fc: Color = SpecLegend.shader_params("fluor", gene.fx_v).fluor_col
+			root.set_meta("fluor_col", fc)   # (the plan on its card's back glows so: CardFluor)
 			for n in root.find_children("*", "GeometryInstance3D", true, false):
 				var gm := (n as GeometryInstance3D).material_override as ShaderMaterial
 				if gm and gm.has_meta("dirt") and not gm.has_meta("rock"):   # made by SpecMat (asking the shader for its uniforms would stall the renderer)

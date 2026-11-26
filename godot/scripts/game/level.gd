@@ -46,6 +46,13 @@ var _kegs := 0           # kegs gone off in this move (Awards: Powder Party)
 # the achievements' watch over a board (Awards): a move in the lower half, a special or a combo in this move, the dark
 # left when the move began, matches the belts made, the Kraken's eye hits since it last swam
 var _low := false
+## (26.11) the fluorescent stones' secret ways (Stones.code_of, CardFluor): the board's first swipes against the ways of
+## the kept stones found at this depth; one played whole and a rare geode joins the goals — the player's when the board
+## is won (then the stone's secret is spent)
+const CODE_LUCK := 5.0
+var _codes = null          # [{id, code}] still matching; null: not looked up yet
+var _code_i := 0
+var _code_won := -1        # the stone whose way was played
 var _sp_move := false
 var _combo_move := false
 ## Avalanche: this long a cascade of one move, the finale apart (tests/cascade_odds.tscn: share of levels per bar)
@@ -848,6 +855,7 @@ func _on_swipe(r1: int, c1: int, r2: int, c2: int) -> void:
 		busy = false
 		return
 	await board.animate_swap(a_id, b_id)
+	_code_step(Vector2i(r2 - r1, c2 - c1))
 	_aw_move(r1, r2)
 	model.use_move()
 	_render_moves()
@@ -868,6 +876,7 @@ func _on_tap(r: int, c: int) -> void:
 	if g and g.sp != "" and not model.LOCK[r][c] and not model.TIDE[r][c]:
 		_coach_done()
 		busy = true
+		_code_step(Vector2i.ZERO)
 		_aw_move(r, r)
 		_sp_move = true
 		model.use_move()
@@ -908,6 +917,7 @@ func _swipe_mid(r1: int, c1: int, r2: int, c2: int) -> void:
 	if res == null:
 		_swipes_in_flight -= 1
 		return
+	_code_step(Vector2i(r2 - r1, c2 - c1))
 	_aw_move(r1, r2)
 	model.use_move()
 	_render_moves()
@@ -1906,6 +1916,11 @@ func _win() -> void:
 	var stone := {}
 	if not model.find.is_empty() and model.find.done:
 		stone = model.extracted_stone(Save.has_jewel("diadem"))
+	# (a fluorescent stone's secret way was played on this board: spent)
+	if _code_won >= 0:
+		for st: Dictionary in Save.d.coll:
+			if int(st.get("id", -1)) == _code_won: st.code_done = true
+		Diag.note("a fluorescent stone's way played: the geode is won")
 	# (the find and the geodes are the player's from now on, kept or not: a close on their cards does not lose them)
 	if not prologue:
 		Save.owe(stone)
@@ -1940,6 +1955,57 @@ func _awards_won(stone: Dictionary) -> void:
 		if a == 2 and not has_meta("aw_dragged"): Awards.once("boss:2:hold")
 
 ## a move begins: what it is watched for (Awards)
+## a move made, `d` its swipe ([rows, columns]; zero: not a swipe — a special tapped): one more step of a secret way, or
+## the end of every way begun
+func _code_step(d: Vector2i) -> void:
+	if _codes == null:
+		_codes = [] if (prologue or maiden or hunt_lv >= 0 or model.boss_on()) else Stones.codes_for(model.depth)
+	if _codes.is_empty() or _code_won >= 0: return
+	if d == Vector2i.ZERO or aw_boost:
+		_codes = []
+		return
+	_codes = _codes.filter(func(c: Dictionary) -> bool: return _code_i < (c.code as Array).size() and (c.code as Array)[_code_i] == d)
+	_code_i += 1
+	for c: Dictionary in _codes:
+		if (c.code as Array).size() == _code_i:
+			_code_won = int(c.id)
+			_codes = []
+			_code_reward()
+			return
+
+## the way played whole: a rare geode, the player's if the board is won — set among the goals, done already
+func _code_reward() -> void:
+	var gs := Stones.roll(Save.next_uid(), Save.area(), CODE_LUCK + model.depth * 0.35, model.depth)
+	model.bonus.append(gs)
+	Sfx.play("reveal", 4)
+	Sfx.buzz(60)
+	var row: HBoxContainer = hud.find_child("Goals", true, false)
+	if row == null: return
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", -2)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var isz := 32 if model.goals.size() <= 2 else 28
+	var glow := Data.rarity_color(int(gs.get("tier", 3)))
+	var gic := UI.icon(isz, func(ci):
+		GemArt.begin(ci, Transform2D.IDENTITY)
+		GemArt.goal_icon(ci, "geo", 0, isz, glow)
+		GemArt.end(ci))
+	if gic.material == null: gic.material = BoardSprites.plain_material()
+	gic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(gic)
+	var l := UI.label("✓", 15, UI.display)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_color_override("font_color", UI.GOOD)
+	box.add_child(l)
+	row.add_child(box)
+	box.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(box, "modulate:a", 1.0, 0.5)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(box): _goal_burst(box)
+
 func _aw_move(r1: int, r2: int) -> void:
 	if maxi(r1, r2) >= model.R / 2: _low = true
 	_sp_move = false

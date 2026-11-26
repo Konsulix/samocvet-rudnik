@@ -397,7 +397,9 @@ static func stone_card(v: VBoxContainer, s: Dictionary, view_h: float, on_close 
 		# and the jellyfish swim out over a card sunk in deep water (CardJelly)
 		CardJelly.attach(card, view, info, p)
 		# and the star heart beats through its card (CardHeart)
-		CardHeart.attach(card, view, info, p))
+		CardHeart.attach(card, view, info, p)
+		# and the fluorescent stone keeps a secret on its card's back (CardFluor)
+		CardFluor.attach(card, view, info, p, s))
 	# its weight from what was built (Stones.settle, 20.11): the first time the stone is built, the card's figures move to it
 	view.built.connect(func(p: Node3D) -> void:
 		if Stones.settle(s, p):

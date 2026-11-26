@@ -230,6 +230,44 @@ static func first_legend(stone: Dictionary, area: int, luck: float, dl: int) -> 
 		s.erase("fx")
 	return stone
 
+## (26.11) A fluorescent stone's secret (CardFluor): a way of five or six swipes, its own (by its id), shown on its
+## card's back as the plan of a working — each step [rows down, columns right], never straight back, never over
+## its own track (the plan must read). Played as a level's first moves at the depth the stone was found at, in any
+## mine, it brings a rare geode (Level._code_step). Empty: not such a stone
+static func code_of(st: Dictionary) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if not bool(st.get("legend", false)): return out
+	var fx := String(st.get("fx", ""))
+	if fx == "": fx = String(SpecGenome.of(Spec.of_stone(st)).get("fx", ""))
+	if fx != "fluor": return out
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(st.get("id", 1)) * 2654435761 + 97
+	var n := 5 + rng.randi() % 2
+	const DIRS: Array[Vector2i] = [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]
+	for tries in 40:
+		out.clear()
+		var at := Vector2i.ZERO
+		var seen := {at: true}
+		while out.size() < n:
+			var free := DIRS.filter(func(d: Vector2i) -> bool: return not seen.has(at + d))
+			if free.is_empty(): break
+			var d: Vector2i = free[rng.randi() % free.size()]
+			out.append(d)
+			at += d
+			seen[at] = true
+		if out.size() == n: break
+	return out
+
+## the stones kept whose secret is still unsolved and can be played at this depth: [{id, code}]
+static func codes_for(dl: int) -> Array:
+	var out := []
+	for st: Dictionary in Save.d.coll:
+		if not bool(st.get("legend", false)) or bool(st.get("code_done", false)) or bool(st.get("gulp", false)): continue
+		if int(st.get("dl", 0)) != dl: continue
+		var c := code_of(st)
+		if not c.is_empty(): out.append({id = int(st.get("id", -1)), code = c})
+	return out
+
 static func roll(seed_id: int, area: int, luck: float, dl: int = 0, sure_legend := false) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
 	var entries := []
