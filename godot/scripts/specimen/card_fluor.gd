@@ -81,23 +81,27 @@ func _ready() -> void:
 	add_child(_prints)
 	var prng := RandomNumberGenerator.new()
 	prng.seed = int(s.get("id", 1)) * 31 + 5
-	# a thumb on the right, two fingertips on the left: [side, across (points in from the side), down (of the panel),
-	# width, turn]
-	for q: Array in [[1.0, 22.0, prng.randf_range(0.3, 0.42), 50.0, prng.randf_range(-0.5, -0.25)],
-			[-1.0, 17.0, prng.randf_range(0.16, 0.24), 38.0, prng.randf_range(0.25, 0.5)],
-			[-1.0, 18.0, prng.randf_range(0.5, 0.58), 40.0, prng.randf_range(0.3, 0.6)]]:
-		var r := ColorRect.new()
-		r.color = Color.WHITE
-		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var m := ShaderMaterial.new()
-		m.shader = preload("res://shaders/fingerprint.gdshader")
-		m.set_shader_parameter("col", Vector3(glow.r, glow.g, glow.b))
-		m.set_shader_parameter("seed", prng.randf_range(0.0, 20.0))
-		m.set_shader_parameter("ridges", float(q[3]) * 0.3)
-		m.set_shader_parameter("k", 0.0)
-		r.material = m
-		r.set_meta("q", q)
-		_prints.add_child(r)
+	# a phone is held in the hand and its card turned with a thumb: a thumb's print at either side, low, leaning in as
+	# a thumb comes — from below and outside, its tip toward the card's middle — and from each the smear it left as
+	# it dragged the card round (26.11: upright, and two fingertips on the left, they were a paper card's)
+	# [side, across (points in from the side), down (of the panel), width, turn]
+	for q: Array in [[1.0, 24.0, prng.randf_range(0.5, 0.6), 50.0, -prng.randf_range(0.8, 1.0)],
+			[-1.0, 22.0, prng.randf_range(0.36, 0.46), 46.0, prng.randf_range(0.8, 1.0)]]:
+		for smear in [1.0, 0.0]:
+			var r := ColorRect.new()
+			r.color = Color.WHITE
+			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var m := ShaderMaterial.new()
+			m.shader = preload("res://shaders/fingerprint.gdshader")
+			m.set_shader_parameter("col", Vector3(glow.r, glow.g, glow.b))
+			m.set_shader_parameter("seed", float(q[3]) * 0.37 + float(q[0]))
+			m.set_shader_parameter("ridges", float(q[3]) * 0.3)
+			m.set_shader_parameter("smear", smear)
+			m.set_shader_parameter("k", 0.0)
+			r.material = m
+			r.set_meta("q", q)
+			r.set_meta("smear", smear)
+			_prints.add_child(r)
 	tree_exiting.connect(func() -> void: if is_instance_valid(_prints): _prints.queue_free())
 
 func _build_back() -> void:
@@ -324,11 +328,20 @@ func _lay_prints() -> void:
 		var r := n as ColorRect
 		var q: Array = r.get_meta("q")
 		var w := float(q[3])
-		r.size = Vector2(w, w * 1.32)
-		r.pivot_offset = r.size * 0.5
-		r.rotation = float(q[4])
-		var cx := (card.size.x - float(q[1])) if float(q[0]) > 0.0 else float(q[1])
-		r.position = Vector2(cx, ig.position.y + ig.size.y * float(q[2])) - r.size * 0.5
+		var side := float(q[0])
+		var cx := (card.size.x - float(q[1])) if side > 0.0 else float(q[1])
+		var at := Vector2(cx, ig.position.y + ig.size.y * float(q[2]))
+		if float(r.get_meta("smear")) > 0.0:
+			# the smear: from the print inward, level — the way the card was dragged
+			r.size = Vector2(w * 2.3, w * 0.85)
+			r.pivot_offset = Vector2(0, r.size.y * 0.5)
+			r.rotation = PI if side > 0.0 else 0.0
+			r.position = at - Vector2(0, r.size.y * 0.5) + Vector2(-side * w * 0.15, 0)
+		else:
+			r.size = Vector2(w, w * 1.32)
+			r.pivot_offset = r.size * 0.5
+			r.rotation = float(q[4])
+			r.position = at - r.size * 0.5
 		r.visible = k > 0.01
 		(r.material as ShaderMaterial).set_shader_parameter("k", k * 0.6)
 

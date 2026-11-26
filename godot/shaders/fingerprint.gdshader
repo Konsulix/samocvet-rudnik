@@ -8,6 +8,9 @@ uniform vec3 col : source_color = vec3(0.4, 1.0, 0.5);
 uniform float k = 1.0;            // how much (the stone's glow)
 uniform float seed = 0.0;
 uniform float ridges = 15.0;      // how many across the pad
+// > 0: not the print but the smear the finger left dragging off it — the rect's x runs along the drag (0 at the
+// print, 1 where it lifted): the ridges pulled out into streaks, thinning away
+uniform float smear = 0.0;
 
 float hash(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -21,6 +24,15 @@ float noise(vec2 p) {
 }
 
 void fragment() {
+	if (smear > 0.0) {
+		float across = (UV.y - 0.5) * 2.0;
+		vec2 sd = vec2(seed * 7.3, seed * 3.1);
+		// streaks along the drag: the ridges as they crossed the pad's trailing edge, wavering a little
+		float st = sin(across * ridges * 2.2 + noise(vec2(UV.x * 3.0, across * 4.0) + sd) * 2.5);
+		float streak = smoothstep(0.1, 0.7, st) * smoothstep(0.25, 0.6, noise(vec2(UV.x * 9.0, across * 14.0) + sd));
+		float body = (1.0 - smoothstep(0.55, 1.0, abs(across) + UV.x * 0.35)) * pow(1.0 - UV.x, 1.6) * smoothstep(0.0, 0.12, UV.x);
+		COLOR = vec4(col * streak * body * k * smear, 1.0);
+	} else {
 	// the pad: x -1..1 across, y -1 (tip) .. 1 (foot), taller than wide by the rect's own shape
 	vec2 p = (UV - 0.5) * 2.0;
 	vec2 s = vec2(seed * 7.3, seed * 3.1);
@@ -47,4 +59,5 @@ void fragment() {
 	float press = 0.6 + 0.4 * smoothstep(-0.9, 0.4, p.x * 0.6 - p.y * 0.3 + noise(p * 1.5 + s) - 0.5);
 	vec3 light = col * ridge * pad * press * k;
 	COLOR = vec4(light, 1.0);
+	}
 }
