@@ -36,5 +36,11 @@ void fragment() {
 		c = glow_col * 0.45 * pow(1.0 - abs(x), 3.0) * (0.7 + 0.5 * fil);
 	}
 	c *= edge;
-	ALBEDO = c * a;
+	vec3 lit_c = c * a;
+	// (26.11: a black ring round it on the inventory's see-through thumbnails) the light's strength in ALPHA: added
+	// with an alpha of 1 the glow made its square opaque; the colour added comes out the same
+	float lit_a = clamp(max(lit_c.r, max(lit_c.g, lit_c.b)), 0.0, 1.0);
+	ALBEDO = lit_c / max(lit_a, 0.0001);
+	ALPHA = lit_a;
+
 }

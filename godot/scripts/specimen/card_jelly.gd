@@ -208,7 +208,8 @@ func tap_at(cpos: Vector2) -> void:
 		var pos: Vector2 = o.pos
 		if pos.distance_to(cpos) < float(o.size) * 0.8 and not o.back:
 			var away := (pos - cpos).normalized() if pos.distance_to(cpos) > 1.0 else Vector2.UP
-			o.vel = away * 240.0
+			o.kick = away * 240.0
+			o.flee = away
 			o.dart = 1.0
 			for m: ShaderMaterial in o.mats: m.set_shader_parameter("speed", 1.8)
 			Sfx.play("glass_tap")
@@ -225,24 +226,41 @@ func _send_one() -> void:
 	var at := _on_card(j.global_position)
 	var studio: SpecStudio = view.studio
 	var span := (_on_card(j.global_position + studio.cam.global_basis.x * j.global_basis.get_scale().x) - at).length()
+	# (26.11: it jumped as it came out — another jelly, upright, its stroke elsewhere) the card's jelly is a copy of the
+	# stone's own: the same bell and tentacles, the same stroke at the same moment, turned as it was in the stone
+	var node := j.duplicate() as Node3D
+	_vp.add_child(node)
 	var col := Color(0.4, 0.9, 1.4)
 	var mats: Array[ShaderMaterial] = []
-	var node := Node3D.new()
-	_vp.add_child(node)
-	for mi in j.find_children("*", "MeshInstance3D", true, false):
+	var stroke := Vector2(0.6, 0.0)
+	for mi in node.find_children("*", "MeshInstance3D", true, false):
 		var sm := (mi as MeshInstance3D).material_override as ShaderMaterial
-		if sm and int(sm.get_shader_parameter("part")) == 0:
+		if not sm: continue
+		sm = sm.duplicate() as ShaderMaterial
+		(mi as MeshInstance3D).material_override = sm
+		mats.append(sm)
+		if int(sm.get_shader_parameter("part")) == 0:
 			var v: Vector3 = sm.get_shader_parameter("col")
 			col = Color(v.x, v.y, v.z)
-			break
-	var jn := SpecJelly.jelly(node, Rng32.new(rng.randi()), col, rng.randf() * TAU)
-	for mi in jn.find_children("*", "MeshInstance3D", true, false):
-		var sm := (mi as MeshInstance3D).material_override as ShaderMaterial
-		if sm: mats.append(sm)
+			stroke = Vector2(float(sm.get_shader_parameter("speed")), float(sm.get_shader_parameter("phase")))
+	var b0 := _cam_basis(j)
+	# it carries on the way its bell was pointing
+	var head := Vector2(b0.y.x, -b0.y.y)
+	head = head.normalized() if head.length() > 0.2 else (_goal() - at).normalized()
 	j.visible = false
 	var size := clampf(span * 1.1, 26.0, 70.0)
-	_out.append({node = node, src = j, pos = at, vel = Vector2.ZERO, goal = _goal(), t = 0.0, life = rng.randf_range(STAY[0], STAY[1]),
-		size = size, size0 = maxf(span, 6.0), col = col, back = false, mats = mats, dart = 0.0})
+	_out.append({node = node, src = j, pos = at, head = head, kick = Vector2.ZERO, flee = Vector2.ZERO, b0 = b0, goal = _goal(),
+		gt = 0.0, t = 0.0, life = rng.randf_range(STAY[0], STAY[1]), size = size, size0 = maxf(span, 6.0), col = col,
+		back = false, mats = mats, dart = 0.0, stroke = stroke, bank = 0.0, pitch = rng.randf_range(0.0, TAU)})
+
+## a stone jelly's turn as the card layer sees it (the studio camera's axes = the layer's: x right, y up, z to us)
+func _cam_basis(j: Node3D) -> Basis:
+	var studio: SpecStudio = view.studio
+	return (studio.cam.global_basis.orthonormalized().inverse() * j.global_basis).orthonormalized()
+
+## one stroke of the bell (as its shader beats it): quick contraction, then a long slow relaxation
+static func _beat(u: float) -> float:
+	return sin(u / 0.2 * 1.5708) if u < 0.2 else pow(1.0 - (u - 0.2) / 0.8, 2.0)
 
 ## somewhere over the panel and the card's lower half, inside the card
 func _goal() -> Vector2:
@@ -292,7 +310,8 @@ func _process(dt: float) -> void:
 		var o: Dictionary = _out[i]
 		o.t = float(o.t) + dt
 		var pos: Vector2 = o.pos
-		var vel: Vector2 = o.vel
+		var head: Vector2 = o.head
+		var kick: Vector2 = o.kick
 		var goal: Vector2 = o.goal
 		var size: float = float(o.size)
 		if float(o.dart) > 0.0:
@@ -300,31 +319,58 @@ func _process(dt: float) -> void:
 			for m: ShaderMaterial in o.mats: m.set_shader_parameter("speed", 0.6 + 1.2 * float(o.dart))
 		if not o.back and float(o.t) > float(o.life): o.back = true
 		var src: Node3D = o.src
+		o.gt = float(o.gt) + dt
 		if o.back and is_instance_valid(src):
 			goal = _on_card(src.global_position)
-		elif pos.distance_to(goal) < 20.0:
+		elif pos.distance_to(goal) < 45.0 or float(o.gt) > 5.0:
 			goal = _goal()
+			o.gt = 0.0
 		o.goal = goal
-		var want := (goal - pos).normalized() * SPEED * (1.6 if o.back else 1.0)
-		vel = vel.lerp(want, minf(1.0, dt * 0.9))
-		pos += vel * dt
+		# (26.11: it turned on the spot, like a pin) a jellyfish swims where its bell points and turns only a little at a
+		# time, mostly on the stroke: it goes round in arcs. Darting off a touch it turns away fast
+		var st: Vector2 = o.stroke
+		var u := fposmod(Time.get_ticks_msec() * 0.001 * st.x + st.y, 1.0)
+		var pull := 0.35 + 1.3 * _beat(u)
+		var want := (goal - pos).normalized() if pos.distance_to(goal) > 1.0 else head
+		var dist := pos.distance_to(goal)
+		var rate := 0.9 * pull
+		if o.back: rate *= 1.0 + 3.0 * clampf(1.0 - dist / 90.0, 0.0, 1.0)
+		var flee: Vector2 = o.flee
+		if float(o.dart) > 0.3 and flee != Vector2.ZERO:
+			want = flee
+			rate = 5.0
+		var ang := head.angle_to(want)
+		var turn := clampf(ang, -rate * dt, rate * dt)
+		head = head.rotated(turn)
+		# it leans into the turn
+		o.bank = lerpf(float(o.bank), clampf(ang, -1.0, 1.0) * 0.5, minf(1.0, dt * 2.0))
+		var spd := SPEED * (1.6 if o.back else 1.0) * (0.7 + 0.5 * pull)
+		if o.back: spd *= clampf(dist / 40.0, 0.35, 1.0)
+		pos += head * spd * dt + kick * dt
+		kick *= exp(-2.6 * dt)
 		# in it comes at its size in the stone, swelling to its size on the card; going back, it shrinks again
 		var grow := smoothstep(0.0, 1.2, float(o.t))
 		var sz := lerpf(float(o.size0), size, grow)
 		if o.back:
-			var dist := pos.distance_to(goal)
 			sz = lerpf(float(o.size0), size, clampf(dist / 60.0, 0.0, 1.0))
 			if dist < 6.0: gone.append(i)
 		# (it keeps to the card: darting off it went past its edge, cut by the layer's)
 		pos = pos.clamp(Vector2(12.0, 12.0), card.size - Vector2(12.0, 12.0))
 		o.pos = pos
-		o.vel = vel
-		# bell first along its way, tipped a little toward us
-		var dir := vel.normalized() if vel.length() > 1.0 else Vector2.UP
-		var yv := Vector3(dir.x, -dir.y, 0.35).normalized()
+		o.head = head
+		o.kick = kick
+		# bell first along its way, tipped toward us and away by turns, leaning into its turns
+		o.pitch = float(o.pitch) + dt * 0.35
+		var yv := Vector3(head.x, -head.y, 0.3 + 0.22 * sin(float(o.pitch))).normalized()
 		var xv := yv.cross(Vector3.BACK).normalized()
 		var zv := xv.cross(yv)
-		(o.node as Node3D).transform = Transform3D(Basis(xv, yv, zv).scaled(Vector3.ONE * sz), _w(pos))
+		var bs := Basis(xv, yv, zv) * Basis(Vector3.UP, float(o.bank) * 1.4)
+		# out of the stone it starts turned as it was there, and settles into its way; going home it turns back as the
+		# stone's jelly is now, to become it
+		var q := Quaternion((o.b0 as Basis)).slerp(Quaternion(bs), smoothstep(0.0, 1.4, float(o.t)))
+		if o.back and is_instance_valid(src):
+			q = Quaternion(_cam_basis(src)).slerp(q, clampf(dist / 70.0, 0.0, 1.0))
+		(o.node as Node3D).transform = Transform3D(Basis(q).scaled(Vector3.ONE * sz), _w(pos))
 		if i < 2 and ir.has_point(pos + Vector2(0, size)):
 			jls[i] = Vector4(pos.x - ir.position.x, pos.y - ir.position.y, size * 1.6, 1.0)
 		if i < 2: wm.set_shader_parameter("jc%d" % i, Vector3(o.col.r, o.col.g, o.col.b))

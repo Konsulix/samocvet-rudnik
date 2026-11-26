@@ -135,7 +135,11 @@ void fragment() {
 		beads *= 0.7 + 0.6 * vn(vec3(v_d * 5.0, seed + v_l.x * 30.0, 0.0));
 		c = col * 0.35 * exp(-v_d * 0.8) * glow * beads;
 	}
-	ALBEDO = c;
+	// (26.11: a black ring round it on the inventory's see-through thumbnails) the light's strength in ALPHA: added
+	// with an alpha of 1 the glow made its square opaque; the colour added comes out the same
+	float lit_a = clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0);
+	ALBEDO = c / max(lit_a, 0.0001);
+	ALPHA = lit_a;
 }
 "
 
