@@ -433,6 +433,8 @@ func level_played(won: bool, dl: int) -> void:
 	if won: d.won_n = int(d.get("won_n", 0)) + 1   # (all wins ever: a kintsugi stone mends once in 100 wins, CardKintsugi)
 	d.rich = 0 if d.lrich else d.rich + 1
 	d.lrich = randf() < clampf((d.rich - 3) / 4.0, 0.0, 1.0)
+	# the shape of the board just played: the next level takes another (LevelGen.make's `avoid`)
+	if dl < Data.depths(area()).size(): d.lshape = String(LevelGen.current(dl).get("scheme", ""))
 	d.lseed = 1 + randi() % 999999
 
 func has_jewel(rid: String) -> bool:

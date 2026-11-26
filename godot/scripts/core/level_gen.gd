@@ -12,11 +12,23 @@ static var R := 11
 static var C := 9
 ## testing: the works every level gets, instead of its own pick (main: `feat=`)
 static var force_feats: Array = []
+## testing: the shape every level gets (main: `shape=ell`)
+static var force_shape := ""
+## block cells are added and dropped as mirrored pairs (false on a board that is not mirrored)
+static var _mirror := true
 ## the boards' sizes, [rows, cols, weight]: mostly the whole 11 x 9
 const SIZES := [[11, 9, 5.0], [10, 9, 3.0], [11, 8, 2.0], [10, 8, 1.0]]
 ## the parts a board is drawn as (_scheme), [name, weight]; the old patterns (drawn) and hand-made shapes now and then
 const SCHEMES := [["wall", 3.0], ["tiers", 2.5], ["shafts", 2.0], ["pocket", 2.0], ["frame", 1.5], ["pillars", 1.5],
 	["field", 1.5], ["drawn", 1.0], ["hand", 1.0]]
+## The boards that are not boxes (_shape, 26.11; after Royal Match's levels 85-531, art/refs/rm_boards): two or three
+## rectangles put together, each with a part to play - stones to match, or a mass of blocks. [name, weight, mirrored].
+## With the old schemes (their weights above sum to 16) these make about four boards in five. A board with a work of
+## the mine on it is always a mirrored one (the works go down in mirrored pairs)
+const SHAPES := [["side", 4.0, false], ["wings", 4.0, true], ["stack", 4.0, true], ["stem", 4.0, true],
+	["ell", 4.0, false], ["cross", 3.5, true], ["comb", 3.0, true], ["steps", 3.0, false], ["twins", 3.5, false],
+	["cup", 3.0, true], ["ears", 4.0, true], ["waist", 3.5, true], ["gem", 3.5, true], ["pyramid", 3.0, true],
+	["aitch", 3.0, true], ["tower", 2.5, true], ["ring", 2.5, true], ["house", 3.0, true]]
 ## a board's obstacles grow with its cells: TIERS' load is for 9 x 8, a bigger board takes more, LOAD_K more again
 const LOAD_K := 2.0
 ## what each depth puts on the board (Old Adit, and any mine without its own AREA_TIERS): the obstacles it may use and
@@ -140,6 +152,13 @@ const WORK := {sand = 0.18, granite = 0.51, sand_deep = 0.03, granite_deep = 0.4
 const BASE := 6.4
 ## a shape that is slower to work through than its cells say: a lower tier behind a throat
 const SCHEME_WORK := {tiers = 5.4}
+## the moves a shape of SHAPES asks for over what its blocks cost: narrow parts give fewer matches, an island is
+## reached only from inside itself. The smart bot's need with no limit less the fitted one (26.11, 12 levels a kind,
+## Old Adit 100-250 m: a first fit, the spread is wide for stack, twins, comb and aitch). It is not taken out of
+## NEED_MAX: the shape keeps its blocks and the level gets the moves
+const SHAPE_WORK := {aitch = 13.0, comb = 9.0, cross = 1.5, cup = 9.0, ears = 4.0, ell = 4.0, gem = 1.0, house = 1.0,
+	pyramid = 4.0, ring = 4.0, side = 5.5, stack = 13.0, stem = 9.5, steps = 3.5, tower = 3.5, twins = 7.0, waist = 3.5,
+	wings = 2.5}
 ## the moves given are the need times the beat's k (BEAT): the bot's spread grows with the need (sd 3 moves on a
 ## 10-move level, 8.5 on a 22-move one), so a margin of a fixed few moves was generous on small levels and cruel on
 ## big ones. A move less every ~3 depths (TIGHT)
@@ -169,7 +188,7 @@ static func current(dl: int) -> Dictionary:
 	var beat := beat_of(int(Save.d.level))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("beat="): beat = arg.get_slice("=", 1)   # testing: `-- beat=hard`
-	return make(Save.area(), dl, int(Save.d.lseed) + dl * 7919, bool(Save.d.lrich) and not _veins_poor(dl), wins, beat)
+	return make(Save.area(), dl, int(Save.d.lseed) + dl * 7919, bool(Save.d.lrich) and not _veins_poor(dl), wins, beat, String(Save.d.get("lshape", "")))
 
 ## the mine's boss fight from its first board, with its health lowered 5% for every fight lost (to 70% at most)
 ## tier: 1 the first fight, 2-3 a beaten boss fought again (Awards.TIERS): more health, fewer moves, and at 3
@@ -224,7 +243,7 @@ static func beat_of(level_n: int) -> String:
 		if level_n >= SUPER_FROM and (level_n / BEATS.size()) % 3 == 2: return "super"
 	return b
 
-static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat := "normal") -> Dictionary:
+static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat := "normal", avoid := "") -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 31 + area
 	var T := tier(dl, area)
@@ -236,25 +255,43 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 	# a first look at something, and the first depth of the game, are never hard
 	if beat in ["hard", "super"] and (intro or feat_intro or (area == 0 and dl == 0)): beat = "normal"
 	var bk: Dictionary = BEAT[beat]
-	var scheme := String(Stones.pick_w(SCHEMES.map(func(e): return [e[0], e[1]]), Rng32.new(rng.randi())))
+	# the shape: an old scheme or one of SHAPES; not the one played last, and with a work of the mine a mirrored one
+	var pool := SCHEMES.map(func(e): return [e[0], e[1]])
+	for e: Array in SHAPES:
+		if bool(e[2]) or feats.is_empty(): pool.append([e[0], e[1]])
+	var scheme := String(Stones.pick_w(pool, Rng32.new(rng.randi())))
+	for i in 8:
+		if scheme != avoid: break
+		scheme = String(Stones.pick_w(pool, Rng32.new(rng.randi())))
+	if force_shape != "": scheme = force_shape
 	var size: Array = [9, 8] if scheme == "hand" else Stones.pick_w(SIZES.map(func(e): return [e, e[2]]), Rng32.new(rng.randi()))
 	R = int(size[0])
 	C = int(size[1])
+	_mirror = true
 	var grid := []
-	for r in R:
-		var row := []
-		row.resize(C)
-		row.fill(".")
-		grid.append(row)
 	# block cells in two groups, each filled with one obstacle, the ones that matter most first (trimming takes
 	# from the end); spots for nuggets and a geode
 	var groups := {a = [], b = []}
 	var nugs := []
 	var geo_at := []
-	match scheme:
-		"hand": _from_hand(rng, grid, groups, nugs, geo_at)
-		"drawn": _drawn(rng, grid, groups)
-		_: _scheme(rng, scheme, grid, groups, nugs, geo_at)
+	var shaped := false
+	if is_shape(scheme):
+		grid = _shape(rng, scheme, groups, nugs)
+		shaped = not grid.is_empty()
+		if not shaped: scheme = "field"
+	if not shaped:
+		R = int(size[0])
+		C = int(size[1])
+		_mirror = true
+		for r in R:
+			var row := []
+			row.resize(C)
+			row.fill(".")
+			grid.append(row)
+		match scheme:
+			"hand": _from_hand(rng, grid, groups, nugs, geo_at)
+			"drawn": _drawn(rng, grid, groups)
+			_: _scheme(rng, scheme, grid, groups, nugs, geo_at)
 	_fill_specks(grid, groups)
 	# what goes where
 	var kinds: Array = T.kinds
@@ -271,6 +308,13 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 		groups.a = groups.b
 		groups.b = t
 	var big := float(R * C) / 72.0 * (LOAD_K if scheme != "hand" else 1.0)
+	if shaped:
+		# a shape's load goes by the cells it has, not by the box round them (a cross is two thirds of its box)
+		var n_cells := 0
+		for r in R:
+			for c in C:
+				if grid[r][c] != "#": n_cells += 1
+		big = float(n_cells) / 72.0 * LOAD_K
 	var load: int = roundi((int(T.load) + mini(wins, 4) + rng.randi_range(-2, 2)) * big * float(bk.load))
 	if intro: load = roundi(T.load * 0.6 * big)
 	var ffac := 1.0
@@ -322,7 +366,7 @@ static func make(area: int, dl: int, seed_v: int, rich: bool, wins: int, beat :=
 		var ga: float = groups.a.size() * float(WORK.get(want.a, 0.0))
 		var gb: float = groups.b.size() * float(WORK.get(want.b, 0.0))
 		if _drop_pair(rng, groups["a" if ga >= gb else "b"]) == 0: break
-	var work := reserve
+	var work := reserve + (float(SHAPE_WORK.get(scheme, 0.0)) if shaped else 0.0)
 	var used := {}
 	var count := {}   # cells of each obstacle, nuggets, geode, colour goal: for tuning the moves
 	for g in ["a", "b"]:
@@ -856,6 +900,371 @@ static func _scheme(rng: RandomNumberGenerator, scheme: String, grid: Array, gro
 				_hole(grid, 0, 0)
 			nugs.append_array([Vector2i(0, half - 1), Vector2i(0, C - half)])
 
+static func is_shape(name: String) -> bool:
+	for e: Array in SHAPES:
+		if e[0] == name: return true
+	return false
+
+## a rectangle of v on the canvas (cells off it are dropped)
+static func _bx(cv: Array, r0: int, c0: int, h: int, w: int, v: int) -> void:
+	for r in range(maxi(r0, 0), mini(r0 + h, cv.size())):
+		for c in range(maxi(c0, 0), mini(c0 + w, (cv[0] as Array).size())):
+			cv[r][c] = v
+
+## the same, only over cells that are board already (a mass laid over a shape keeps the shape)
+static func _over(cv: Array, r0: int, c0: int, h: int, w: int, v: int) -> void:
+	for r in range(maxi(r0, 0), mini(r0 + h, cv.size())):
+		for c in range(maxi(c0, 0), mini(c0 + w, (cv[0] as Array).size())):
+			if int(cv[r][c]) != 0: cv[r][c] = v
+
+## a width between lo and hi that leaves the same room on both sides of a canvas W wide
+static func _cw(rng: RandomNumberGenerator, W: int, lo: int, hi: int) -> int:
+	var ws := []
+	for w in range(lo, mini(hi, W) + 1):
+		if (W - w) % 2 == 0: ws.append(w)
+	return int(ws[rng.randi_range(0, ws.size() - 1)]) if not ws.is_empty() else W
+
+## A board put together from rectangles (SHAPES), drawn on a canvas of numbers: 0 hole, 1 stones, 2 and 3 the two
+## masses of blocks. Sets R and C to the box round it, fills groups (a mass loses its cells from its face inwards when
+## the level's load is smaller: the cells nearest the stones are last) and the nuggets' spots; returns the grid, or
+## [] if no board of this kind came out right in a few tries.
+static func _shape(rng: RandomNumberGenerator, kind: String, groups: Dictionary, nugs: Array) -> Array:
+	var sym := true
+	for e: Array in SHAPES:
+		if e[0] == kind: sym = bool(e[2])
+	for attempt in 24:
+		var W := 9 if rng.randf() < 0.7 else 8
+		if kind == "tower": W = rng.randi_range(6, 7)
+		var cv := []
+		for r in 11:
+			var row := []
+			row.resize(W)
+			row.fill(0)
+			cv.append(row)
+		_draw_shape(rng, kind, cv, W)
+		if sym:
+			for r in 11:
+				for c in W / 2: cv[r][W - 1 - c] = cv[r][c]
+		elif rng.randf() < 0.5:
+			for r in 11: (cv[r] as Array).reverse()
+		# the box round it
+		var r0 := 99
+		var r1 := -1
+		var c0 := 99
+		var c1 := -1
+		for r in 11:
+			for c in W:
+				if int(cv[r][c]) == 0: continue
+				r0 = mini(r0, r)
+				r1 = maxi(r1, r)
+				c0 = mini(c0, c)
+				c1 = maxi(c1, c)
+		if r1 < 0: continue
+		var grid := []
+		for r in range(r0, r1 + 1):
+			grid.append((cv[r] as Array).slice(c0, c1 + 1))
+		if not _shape_ok(grid): continue
+		R = grid.size()
+		C = (grid[0] as Array).size()
+		_mirror = sym
+		# how far each mass cell is from the stones: the far ones first in their group
+		var dist := {}
+		var q := []
+		for r in R:
+			for c in C:
+				if int(grid[r][c]) == 1:
+					dist[Vector2i(r, c)] = 0
+					q.append(Vector2i(r, c))
+		var i := 0
+		while i < q.size():
+			var p: Vector2i = q[i]
+			i += 1
+			for d: Vector2i in BoardModel.DIRS4:
+				var n := p + d
+				if n.x >= 0 and n.y >= 0 and n.x < R and n.y < C and int(grid[n.x][n.y]) > 1 and not dist.has(n):
+					dist[n] = int(dist[p]) + 1
+					q.append(n)
+		var mid := C - 1
+		for g in ["a", "b"]:
+			var cells := []
+			for r in R:
+				for c in C:
+					if int(grid[r][c]) == (2 if g == "a" else 3): cells.append(Vector2i(r, c))
+			cells.sort_custom(func(x: Vector2i, y: Vector2i) -> bool:
+				var dx := int(dist.get(x, 9))
+				var dy := int(dist.get(y, 9))
+				if dx != dy: return dx > dy
+				if x.x != y.x: return x.x > y.x
+				var ax := absi(x.y * 2 - mid)
+				var ay := absi(y.y * 2 - mid)
+				if ax != ay: return ax > ay
+				return x.y < y.y)
+			groups[g] = cells
+		for r in R:
+			for c in C:
+				grid[r][c] = "#" if int(grid[r][c]) == 0 else "."
+		# nuggets start at the top of the columns nearest the middle that run down to the bottom of the board
+		var cols := []
+		for c in C: cols.append(c)
+		cols.sort_custom(func(x: int, y: int) -> bool:
+			var ax := absi(x * 2 - mid)
+			var ay := absi(y * 2 - mid)
+			return ax < ay if ax != ay else x < y)
+		for c: int in cols:
+			if nugs.size() >= 2: break
+			for r in R:
+				if grid[r][c] == "#": continue
+				var p := Vector2i(r, c)
+				if not p in groups.a and not p in groups.b and _falls_out(grid, p): nugs.append(p)
+				break
+		return grid
+	return []
+
+## a shape is fit to play: enough cells and enough stones; every island has room to match in (a 3 x 3 of stones);
+## the blocks are not more than the stones
+static func _shape_ok(cv: Array) -> bool:
+	var h := cv.size()
+	var w := (cv[0] as Array).size()
+	var stones := 0
+	var mass := 0
+	for r in h:
+		for c in w:
+			if int(cv[r][c]) == 1: stones += 1
+			elif int(cv[r][c]) > 1: mass += 1
+	if stones < 30 or stones + mass < 44 or mass < 5 or mass > stones or h < 7 or w < 5: return false
+	var seen := {}
+	for r in h:
+		for c in w:
+			if int(cv[r][c]) == 0 or seen.has(Vector2i(r, c)): continue
+			var patch := [Vector2i(r, c)]
+			seen[patch[0]] = true
+			var i := 0
+			var room := false
+			while i < patch.size():
+				var p: Vector2i = patch[i]
+				i += 1
+				if not room and p.x + 2 < h and p.y + 2 < w:
+					room = true
+					for dr in 3:
+						for dc in 3:
+							if int(cv[p.x + dr][p.y + dc]) != 1: room = false
+				for d: Vector2i in BoardModel.DIRS4:
+					var n := p + d
+					if n.x >= 0 and n.y >= 0 and n.x < h and n.y < w and int(cv[n.x][n.y]) != 0 and not seen.has(n):
+						seen[n] = true
+						patch.append(n)
+			if not room: return false
+	return true
+
+## the kinds (SHAPES). A mirrored kind draws its left side and the middle; _shape mirrors it
+static func _draw_shape(rng: RandomNumberGenerator, kind: String, cv: Array, W: int) -> void:
+	match kind:
+		"side":
+			# a field with a column of blocks beside it, set higher or lower than the field
+			var w := rng.randi_range(5, 6)
+			var h := rng.randi_range(7, 9)
+			var sw := rng.randi_range(2, mini(3, W - w))
+			var sh := rng.randi_range(5, h)
+			var off: int = [-2, -1, 1, 2][rng.randi_range(0, 3)]
+			_bx(cv, 2, 0, h, w, 1)
+			_bx(cv, 2 + off + rng.randi_range(0, h - sh), w, sh, sw, 2)
+			if rng.randf() < 0.5: _bx(cv, h, 0, 2, w, 3)
+		"wings":
+			# a field with blocks standing down both its sides, a step up or down from it
+			var w := _cw(rng, W, 5, 7)
+			var h := rng.randi_range(6, 8)
+			var c0 := (W - w) / 2
+			var ww := rng.randi_range(1, mini(2, c0))
+			var sh := rng.randi_range(4, 6)
+			var off: int = [-1, 1, 2, 3][rng.randi_range(0, 3)]
+			_bx(cv, 2, c0, h, w, 1)
+			_bx(cv, 2 + off, c0 - ww, sh, ww, 2)
+			if rng.randf() < 0.4: _bx(cv, 2, c0 + 1, 1, w - 2, 3)
+		"stack":
+			# two boards, one over the other, a gap between them; blocks low in the lower one, and now and then
+			# across the top of the upper one
+			var w1 := _cw(rng, W, 5, W)
+			var w2 := _cw(rng, W, 5, W)
+			var h1 := rng.randi_range(3, 5)
+			var h2 := rng.randi_range(5, 6)
+			var mh := rng.randi_range(1, h2 - 3)
+			_bx(cv, 0, (W - w1) / 2, h1, w1, 1)
+			_bx(cv, h1 + 1, (W - w2) / 2, h2, w2, 1)
+			_bx(cv, h1 + 1 + h2 - mh, (W - w2) / 2, mh, w2, 2)
+			if h1 >= 4 and rng.randf() < 0.5: _bx(cv, 0, (W - w1) / 2, h1 - 3, w1, 3)
+		"stem":
+			# a field with a narrow leg down from its middle (or up), the leg packed with blocks
+			var w := _cw(rng, W, 6, W)
+			var h := rng.randi_range(5, 7)
+			var c0 := (W - w) / 2
+			var sw := 2 if W % 2 == 0 else 3
+			var sh := rng.randi_range(2, 4)
+			var up := rng.randf() < 0.3
+			var r0 := sh if up else 0
+			_bx(cv, r0, c0, h, w, 1)
+			_bx(cv, 0 if up else h, (W - sw) / 2, sh, sw, 2)
+			if rng.randf() < 0.6: _bx(cv, r0 + h - 2, c0, 2, 2, 3)
+		"ell":
+			# an L: a tall part and a low part beside its foot, blocks in the low part or across the top
+			var w1 := rng.randi_range(4, 5)
+			var h1 := rng.randi_range(8, 10)
+			var w2 := rng.randi_range(3, mini(4, W - w1))
+			var h2 := rng.randi_range(4, 6)
+			var low_mass := rng.randf() < 0.6
+			_bx(cv, 0, 0, h1, w1, 1)
+			_bx(cv, h1 - h2, w1, h2, w2, 2 if low_mass else 1)
+			if not low_mass or rng.randf() < 0.6: _bx(cv, 0, 0, rng.randi_range(2, 3), w1, 3)
+		"cross":
+			# a cross or a T: a bar down and a bar across, blocks at the ends of the arms
+			var bw := _cw(rng, W, 3, 5)
+			var bh := rng.randi_range(3, 4)
+			var r0 := 0 if rng.randf() < 0.4 else rng.randi_range(2, 4)
+			var ln := rng.randi_range(9, 11)
+			_bx(cv, 0, (W - bw) / 2, ln, bw, 1)
+			_bx(cv, r0, 0, bh, W, 1)
+			_bx(cv, r0, 0, bh, rng.randi_range(1, 2), 2)
+			if rng.randf() < 0.6: _bx(cv, ln - 3, (W - bw) / 2, 3, bw, 3)
+		"comb":
+			# a field with teeth standing up from it (or hanging down), the teeth blocks
+			var h := rng.randi_range(5, 7)
+			var th := rng.randi_range(2, 4)
+			var down := rng.randf() < 0.4
+			var r0 := 0 if down else th
+			_bx(cv, r0, 0, h, W, 1)
+			var sets: Array = [[0, 2, 4], [1, 4], [0, 3], [0, 1, 4]] if W == 9 else [[0, 2], [1, 3], [0, 3], [0, 1]]
+			var teeth: Array = sets[rng.randi_range(0, sets.size() - 1)]
+			for c: int in teeth:
+				_bx(cv, r0 + h if down else 0, c, th, 1, 2)
+			if rng.randf() < 0.5: _bx(cv, r0 + (0 if down else h - 2), 3, 2, W - 6, 3)
+		"steps":
+			# three bands, each a step sideways from the one above; blocks in the last
+			var w := rng.randi_range(5, 6)
+			var d := rng.randi_range(1, 2) if w + 4 <= W else 1
+			var r := 0
+			var hl := 3
+			for i in 3:
+				hl = rng.randi_range(3, 4)
+				_bx(cv, r, i * d, hl, w, 1)
+				r += hl
+			_bx(cv, r - hl + 1, 2 * d, hl - 1, w, 2)
+			if rng.randf() < 0.5: _bx(cv, 0, 0, 2, w, 3)
+		"twins":
+			# two tall boards side by side, a bridge between them (now and then none: two boards)
+			var h := rng.randi_range(8, 10)
+			var w := (W - 1) / 2
+			var drop := rng.randi_range(0, 1)
+			_bx(cv, 0, 0, h, w, 1)
+			_bx(cv, drop, W - w, h, w, 1)
+			if rng.randf() < 0.8:
+				_bx(cv, rng.randi_range(2, h - 4), w, rng.randi_range(2, 3), W - 2 * w, 2 if rng.randf() < 0.5 else 1)
+			if rng.randf() < 0.6:
+				_bx(cv, drop + h - 4, W - w, 4, w, 2)
+			else:
+				_bx(cv, h - 3, 0, 3, w, 2)
+				_bx(cv, drop + h - 2, W - w, 2, w, 3)
+		"cup":
+			# a U: two arms up from a base; blocks in the arms or along the bottom, a few between the arms
+			var ah := rng.randi_range(3, 5)
+			var bh := rng.randi_range(4, 6)
+			var aw := rng.randi_range(2, 3)
+			_bx(cv, 0, 0, ah, aw, 1)
+			_bx(cv, ah, 0, bh, W, 1)
+			if rng.randf() < 0.5: _bx(cv, ah + bh - 2, 0, 2, W, 2)
+			else: _bx(cv, 0, 0, ah - 1, aw, 2)
+			_bx(cv, ah, aw, rng.randi_range(1, 2), W - 2 * aw, 3)
+		"ears":
+			# a field with a row above and a row below that are only corners and a middle: blocks down the sides
+			# through the corners, and a column of the other blocks through the middle
+			var h := rng.randi_range(6, 8)
+			var mw := 2 if W % 2 == 0 else (1 if rng.randf() < 0.5 else 3)
+			var ew := rng.randi_range(1, 2)
+			var top := rng.randf() < 0.8
+			var bot := rng.randf() < 0.8 or not top
+			_bx(cv, 1, 0, h, W, 1)
+			if top:
+				_bx(cv, 0, 0, 1, ew, 1)
+				_bx(cv, 0, (W - mw) / 2, 1, mw, 1)
+			if bot:
+				_bx(cv, h + 1, 0, 1, ew, 1)
+				_bx(cv, h + 1, (W - mw) / 2, 1, mw, 1)
+			_over(cv, 0, 0, h + 2, 1, 2)
+			if rng.randf() < 0.7: _over(cv, 0, (W - mw) / 2, h + 2, mw, 3)
+		"waist":
+			# a board, a narrow neck, a board: blocks in the neck and low in the lower board
+			var w1 := _cw(rng, W, 5, W)
+			var w3 := _cw(rng, W, 7, W)
+			var wn := 3 if W % 2 else rng.randi_range(1, 2) * 2
+			var h1 := rng.randi_range(3, 4)
+			var hn := rng.randi_range(1, 3)
+			var h3 := rng.randi_range(4, 5)
+			var neck := rng.randf() < 0.6
+			_bx(cv, 0, (W - w1) / 2, h1, w1, 1)
+			_bx(cv, h1, (W - wn) / 2, hn, wn, 2 if neck else 1)
+			_bx(cv, h1 + hn, (W - w3) / 2, h3, w3, 1)
+			if not neck or rng.randf() < 0.7: _bx(cv, h1 + hn + h3 - 1, (W - w3) / 2, 1, w3, 3)
+		"gem":
+			# a cut stone: a rectangle with its corners stepped off; blocks in a knot in the middle or along the bottom
+			var h := rng.randi_range(9, 11)
+			var cut := rng.randi_range(2, 3)
+			_bx(cv, 0, 0, h, W, 1)
+			for i in cut:
+				_bx(cv, i, 0, 1, cut - i, 0)
+				_bx(cv, h - 1 - i, 0, 1, cut - i, 0)
+			var kw := 3 if W % 2 else 2
+			if rng.randf() < 0.5:
+				_bx(cv, h / 2 - 1, (W - kw) / 2, 3, kw, 2)
+				if rng.randf() < 0.5: _bx(cv, h / 2 - 2, (W - kw) / 2 - 1, 5, 1, 3)
+			else:
+				_over(cv, h - 3, 0, 3, W, 2)
+				_over(cv, 0, 0, 1, W, 3)
+		"pyramid":
+			# bands that widen down the board (or narrow: a funnel); blocks in the wide end, a few in the tip
+			var ws: Array = [3, 5, 7, 9] if W % 2 else [2, 4, 6, 8]
+			if rng.randf() < 0.5: ws = ws.slice(1)
+			var long := ws.size() == 4
+			var flip := rng.randf() < 0.35
+			if flip: ws.reverse()
+			var r := 0
+			for i in ws.size():
+				var hb := rng.randi_range(2, 3) if long else rng.randi_range(3, 4)
+				_bx(cv, r, (W - int(ws[i])) / 2, hb, int(ws[i]), 1)
+				r += hb
+			_over(cv, 0 if flip else r - 2, 0, 2, W, 2)
+			if rng.randf() < 0.6: _over(cv, r - 1 if flip else 0, 0, 1, W, 3)
+		"aitch":
+			# an H: two columns and a bar across between them; blocks in the bar's middle, and at the columns' feet
+			var h := rng.randi_range(9, 11)
+			var bh := rng.randi_range(3, 4)
+			var br := rng.randi_range(2, h - bh - 2)
+			_bx(cv, 0, 0, h, 3, 1)
+			_bx(cv, br, 0, bh, W, 1)
+			_bx(cv, br, 3, rng.randi_range(2, bh), W - 6, 2)
+			if rng.randf() < 0.7: _bx(cv, h - 2, 0, 2, 3, 3)
+		"tower":
+			# a narrow tall board with bands of blocks across it
+			_bx(cv, 0, 0, 11, W, 1)
+			_bx(cv, 9, 0, 2, W, 2)
+			_bx(cv, rng.randi_range(4, 5), 0, rng.randi_range(1, 2), W, 3)
+		"ring":
+			# a board with a hole in its middle; blocks along the bottom, the others beside the hole
+			var h := rng.randi_range(9, 10)
+			var hw := 3 if W % 2 else 2
+			var hh := rng.randi_range(2, 3)
+			_bx(cv, 0, 0, h, W, 1)
+			_bx(cv, (h - hh) / 2, (W - hw) / 2, hh, hw, 0)
+			_bx(cv, h - 2, 0, 2, W, 2)
+			if rng.randf() < 0.6: _bx(cv, (h - hh) / 2, (W - hw) / 2 - 1, hh, 1, 3)
+		"house":
+			# a stepped roof over a body; blocks low in the body, the others in the roof
+			var ws: Array = [3, 5, 7] if W % 2 else [2, 4, 6]
+			var n := rng.randi_range(2, 3)
+			ws = ws.slice(3 - n)
+			var bh := rng.randi_range(6, 7)
+			for i in n: _bx(cv, i, (W - int(ws[i])) / 2, 1, int(ws[i]), 3)
+			_bx(cv, n, 0, bh, W, 1)
+			_bx(cv, n + bh - rng.randi_range(2, 3), 0, 3, W, 2)
+			_bx(cv, n + bh, 0, 11, W, 0)
+
 ## holes shape the board's outline (a notch, a cut corner, a gap between tiers), never a speck inside it: a patch of
 ## holes off the edge smaller than 2 x 2 goes back to board (to the blocks round it, if they are all of one group)
 static func _fill_specks(grid: Array, groups: Dictionary) -> void:
@@ -1059,7 +1468,7 @@ static func _drop_pair(rng: RandomNumberGenerator, cells: Array) -> int:
 	if cells.is_empty(): return 0
 	var p: Vector2i = cells[-1]
 	var n := 0
-	for q in [p, Vector2i(p.x, C - 1 - p.y)]:
+	for q in ([p, Vector2i(p.x, C - 1 - p.y)] if _mirror else [p]):
 		if q in cells:
 			cells.erase(q)
 			n += 1
@@ -1071,7 +1480,7 @@ static func _add_pair(rng: RandomNumberGenerator, grid: Array, groups: Dictionar
 	# open cells of the left half (with the middle column) next to the group, or anywhere on a bare board
 	var cand := []
 	for r in range(1, R):
-		for c in (C + 1) / 2:
+		for c in ((C + 1) / 2 if _mirror else C):
 			var p := Vector2i(r, c)
 			if grid[r][c] != "." or p in groups.a or p in groups.b: continue
 			var near: bool = groups[g].is_empty()
@@ -1081,8 +1490,8 @@ static func _add_pair(rng: RandomNumberGenerator, grid: Array, groups: Dictionar
 	if cand.is_empty(): return 0
 	var p: Vector2i = cand[rng.randi_range(0, cand.size() - 1)]
 	var n := 0
-	for q in [p, Vector2i(p.x, C - 1 - p.y)]:
-		if not q in groups[g]:
+	for q in ([p, Vector2i(p.x, C - 1 - p.y)] if _mirror else [p]):
+		if grid[q.x][q.y] == "." and not q in groups.a and not q in groups.b:
 			groups[g].append(q)
 			n += 1
 	return n

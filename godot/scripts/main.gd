@@ -113,6 +113,7 @@ func _ready() -> void:
 	if args.has("lseed"): Save.d.lseed = int(args.lseed)
 	# feat=cart,dark: a generated level with exactly these works (LevelGen.FEATURES)
 	if args.has("feat"): LevelGen.force_feats = Array(String(args.feat).split(","))
+	if args.has("shape"): LevelGen.force_shape = String(args.shape)   # the board's shape (LevelGen.SHAPES): `shape=ell`
 	if args.has("fe"): Save.d.fe = int(args.fe)
 	if args.has("au"): Save.d.ore = int(args.au)
 	if args.has("built"):
