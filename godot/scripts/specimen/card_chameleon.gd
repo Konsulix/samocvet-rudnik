@@ -535,8 +535,16 @@ func _beat(dt: float) -> void:
 	_prey_mat.set_shader_parameter("flap", _flap_k)
 	_prey_mat.set_shader_parameter("flap_ph", fmod(_flap_ph, TAU * 100.0))
 
-## the fly's way: from behind the stone (out of sight), out past its edge on the chameleon's side, a dart near it,
-## then to `spot` by its head (all in the chameleon's own space)
+## (26.11: "one way in each time is a little dull") its ways in, a different one each hunt:
+## 0 from behind the stone; 1 down from above the window; 2 across from the left, over the stone; 3 up from under the
+## info panel; 4 a ring round the stone first; 5 a feint: close, off again, back
+const WAYS := 6
+var _way := -1
+var _darts: Array[float] = []
+var _hovers: Array[float] = []
+
+## the fly's way: a list of points (the chameleon's own space), a dart to each and a hover there; the last is `spot`
+## by its head
 func _fly_path(spot: Vector3) -> void:
 	var cam := view.studio.cam
 	var lo := Vector3.INF
@@ -551,20 +559,67 @@ func _fly_path(spot: Vector3) -> void:
 	var ok := lo.x < INF
 	var sc := (lo + hi) * 0.5 if ok else _hold.to_global(Vector3.ZERO) - cam.global_basis.x
 	var rr := (hi - lo).length() * 0.35 if ok else 0.6
+	var bx := cam.global_basis.x
+	var by := cam.global_basis.y
 	var bz := cam.global_basis.z
 	var head := _hold.to_global(NECK)
 	var side := head - sc
 	side -= bz * side.dot(bz)
-	side = side.normalized() if side.length() > 0.001 else cam.global_basis.x
-	var g0 := sc - bz * rr * 0.9 + side * rr * 0.2
-	var g1 := sc - bz * rr * 0.3 + side * rr * 0.95 + cam.global_basis.y * rr * 0.15
-	_path = [_hold.to_local(g0), _hold.to_local(g1)]
-	var mid := _hold.to_local(g1).lerp(spot, 0.5)
+	side = side.normalized() if side.length() > 0.001 else bx
+	# points of the window (its share across and down) at a depth in front of the camera, in world
+	var vs := Vector2(view.studio.vp.size)
+	var pan := 0.75
+	if is_instance_valid(info) and view.size.y > 0.0:
+		pan = (info.get_global_rect().position.y - view.get_global_rect().position.y) / view.get_global_rect().size.y
+	var hd := cam.global_position.distance_to(head)
+	var scr := func(u: float, v: float, dk := 1.0) -> Vector3:
+		return cam.project_position(Vector2(u * vs.x, v * vs.y), hd * dk)
+	var g: Array[Vector3] = []
+	var way := randi() % WAYS
+	if way == _way: way = (way + 1 + randi() % (WAYS - 1)) % WAYS
+	for ar in OS.get_cmdline_user_args():
+		if ar.begins_with("cham_way="): way = int(ar.get_slice("=", 1)) % WAYS
+	_way = way
+	match way:
+		1:
+			g = [scr.call(randf_range(0.55, 0.8), -0.12, 1.1), scr.call(0.82, 0.12, 1.05), scr.call(0.6, 0.24, 1.1),
+				scr.call(0.86, 0.36)]
+		2:
+			var v := randf_range(0.22, 0.4)
+			g = [scr.call(-0.15, v, 0.95), scr.call(0.2, v + 0.04, 0.9), scr.call(0.45, v - 0.05, 0.92),
+				scr.call(0.68, v + 0.06)]
+		3:
+			g = [scr.call(0.6, pan + 0.12, 1.05), scr.call(0.62, pan - 0.1, 1.05), scr.call(0.5, pan - 0.3, 1.1),
+				scr.call(0.78, pan - 0.38)]
+		4:
+			g = [sc - bz * rr * 0.9 - side * rr * 0.3]
+			for k in 5:
+				var a := PI * 0.8 + float(k) / 5.0 * TAU * 0.85
+				g.append(sc + (bx * cos(a) * 1.1 - bz * sin(a) * 0.9) * rr + by * rr * (0.25 + 0.1 * sin(a * 2.0)))
+		_:
+			g = [sc - bz * rr * 0.9 + side * rr * 0.2,
+				sc - bz * rr * 0.3 + side * rr * 0.95 + by * rr * 0.15]
+	_path = []
+	for p in g: _path.append(_hold.to_local(p))
+	var last: Vector3 = _path[_path.size() - 1]
+	var mid := last.lerp(spot, 0.5)
 	_path.append(mid + _head_up * randf_range(0.04, 0.12) + _head_dir.cross(_head_up) * randf_range(-0.08, 0.08))
+	if way == 5:
+		# the feint: in close, off up and out (the chameleon's head after it), then back
+		_path.append(spot + _head_up * 0.05)
+		_path.append(_hold.to_local(scr.call(randf_range(0.45, 0.6), randf_range(0.15, 0.25), 1.15)))
 	_path.append(spot)
+	# each leg's dart: by its length (a dragonfly is quick, and quicker over a long way); the hovers between: a ring
+	# flies on through, the rest hang a moment
+	_darts = []
+	_hovers = []
+	for i in _path.size() - 1:
+		var L := (_path[i + 1] - _path[i]).length()
+		_darts.append(clampf(L * 1.6, 0.22, 0.75))
+		_hovers.append(0.04 if way == 4 and i < 5 else randf_range(HOVER[0], HOVER[1]))
+	_hovers[0] = 0.05
 	_seg = 0
 	_seg_t = 0.0
-	_hover_for = 0.05
 	_nose = (_path[1] - _path[0]).normalized()
 
 
@@ -641,13 +696,13 @@ func _hunting(dt: float) -> void:
 			_seg_t += dt
 			var p0: Vector3 = _path[_seg]
 			var p1: Vector3 = _path[_seg + 1]
-			var k := smoothstep(0.0, DART, _seg_t)
+			var dart: float = _darts[_seg]
+			var k := smoothstep(0.0, dart, _seg_t)
 			_bug_at = p0.lerp(p1, k)
-			if _seg_t < DART and (p1 - p0).length() > 0.001: _nose = (p1 - p0).normalized()
-			if _seg_t > DART + _hover_for:
+			if _seg_t < dart and (p1 - p0).length() > 0.001: _nose = (p1 - p0).normalized()
+			if _seg_t > dart + float(_hovers[_seg]):
 				_seg += 1
 				_seg_t = 0.0
-				_hover_for = randf_range(HOVER[0], HOVER[1])
 				if _seg >= _path.size() - 1:
 					_hunt = 2
 					_ht = 0.0
