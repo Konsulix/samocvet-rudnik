@@ -285,8 +285,7 @@ func _process(dt: float) -> void:
 	# it sways a little up and down its twig, as chameleons do: a leaf in the wind
 	_sway += dt
 	_hold.global_transform = Transform3D(bs, (e1 + e2) * 0.5 - bs * _base)
-	# (25.11: the twig stays still) only the animal rocks a little back and forth along it
-	if is_instance_valid(_body): _body.position = _twig_ax * _len * 0.012 * (sin(_sway * 1.3) + 0.4 * sin(_sway * 3.1))
+	# (26.11: it no longer rocks along its twig — it stays put; only its head, eyes, leg and tail move)
 
 static func _c3(c: Color) -> Vector3:
 	return Vector3(c.r, c.g, c.b)
@@ -427,12 +426,18 @@ func _eyes(dt: float) -> void:
 func _moves(dt: float) -> void:
 	_head_next -= dt
 	if _hunt >= 2:
-		# the hunt: its head away from the viewer, toward the butterfly behind it (its mouth out of sight)
+		# the hunt: its head away from the viewer, toward the fly behind it (its mouth out of sight)
 		_head_to = Vector2(AWAY, 0.12)
 	elif _head_next <= 0.0:
 		_head_next = randf_range(2.0, 5.0)
 		_head_to = Vector2(randf_range(-0.3, 0.35), randf_range(-0.14, 0.2))
 	_head = _head.lerp(_head_to, minf(1.0, dt * (9.0 if _hunt >= 2 else 4.5)))
+	# (tests: cham_head=x,y — the head held so)
+	for ar in OS.get_cmdline_user_args():
+		if ar.begins_with("cham_head="):
+			var hv := ar.get_slice("=", 1).split(",")
+			_head = Vector2(float(hv[0]), float(hv[1]))
+			_hwait = 1e9
 	_skin.set_shader_parameter("head_rot", _head)
 	_leg_next -= dt
 	if _leg_next <= 0.0 and _leg_t <= 0.0 and _hunt == 0:
@@ -456,21 +461,8 @@ func _on_head(p: Vector3) -> Vector3:
 	return NECK + q
 
 func _build_hunt() -> void:
-	# the prey: a butterfly of the game's own, its wings beating (its flight clip, looped)
-	var md: Dictionary = SpecButterfly.MODELS.peacock
-	_prey = Node3D.new()
-	var model := (load(SpecButterfly.DIR + String(md.file)) as PackedScene).instantiate() as Node3D
-	var turn := Node3D.new()
-	turn.rotation = Vector3(0, float(md.yaw), 0)
-	turn.scale = Vector3.ONE * PREY_SPAN / float(md.span)
-	turn.add_child(model)
-	_prey.add_child(turn)
-	var ap := model.find_child("AnimationPlayer", true, false) as AnimationPlayer
-	if ap:
-		var clip := String((md.clips as Dictionary).fly)
-		var an := ap.get_animation(clip)
-		if an: an.loop_mode = Animation.LOOP_LINEAR
-		ap.play(clip, -1, 1.6)
+	# (26.11) the prey: a fly (no scan of one: built here), its wings a buzzing blur
+	_prey = _build_fly()
 	_prey.visible = false
 	_hold.add_child(_prey)
 	var tm := StandardMaterial3D.new()
@@ -498,7 +490,180 @@ func _build_hunt() -> void:
 	_tip.visible = false
 	_hold.add_child(_tip)
 
-const PREY_SPAN := 0.2
+## the fly's length (model units; the chameleon's head is ~0.15)
+const FLY_LEN := 0.1
+var _wings: Array[Node3D] = []
+var _wing_ph := 0.0
+var _path: Array[Vector3] = []
+var _seg := 0
+var _seg_t := 0.0
+var _nose := Vector3.LEFT
+const DART := 0.38
+const HOVER := [0.2, 0.55]
+var _hover_for := 0.3
+
+static var _wing_tex: ImageTexture
+
+## (26.11) a bluebottle: dark head with big red eyes, a grey bristly thorax, a metallic blue-green belly, six legs, two
+## clear veined wings. Its own axes: +x its nose, +y its back
+func _build_fly() -> Node3D:
+	var f := Node3D.new()
+	var body := Node3D.new()
+	body.scale = Vector3.ONE * FLY_LEN
+	f.add_child(body)
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.05, 0.05, 0.06)
+	dark.roughness = 0.6
+	var thor := StandardMaterial3D.new()
+	thor.albedo_color = Color(0.16, 0.16, 0.15)
+	thor.roughness = 0.85
+	var belly := StandardMaterial3D.new()
+	belly.albedo_color = Color(0.04, 0.2, 0.3)
+	belly.metallic = 0.75
+	belly.roughness = 0.22
+	var eye := StandardMaterial3D.new()
+	eye.albedo_color = Color(0.5, 0.07, 0.03)
+	eye.roughness = 0.28
+	var ball := SphereMesh.new()
+	ball.radius = 0.5
+	ball.height = 1.0
+	ball.radial_segments = 14
+	ball.rings = 8
+	var parts := [
+		[Vector3(0.38, 0.32, 0.34), Vector3(0.05, 0.0, 0.0), thor],
+		[Vector3(0.46, 0.3, 0.36), Vector3(-0.36, -0.04, 0.0), belly],
+		[Vector3(0.2, 0.28, 0.34), Vector3(0.36, -0.01, 0.0), dark],
+		[Vector3(0.16, 0.24, 0.15), Vector3(0.4, 0.02, 0.11), eye],
+		[Vector3(0.16, 0.24, 0.15), Vector3(0.4, 0.02, -0.11), eye],
+	]
+	for pt in parts:
+		var mi := MeshInstance3D.new()
+		mi.mesh = ball
+		mi.material_override = pt[2]
+		mi.scale = pt[0]
+		mi.position = pt[1]
+		body.add_child(mi)
+	# legs: two joints each, out and down from under the thorax
+	var stick := CylinderMesh.new()
+	stick.top_radius = 0.016
+	stick.bottom_radius = 0.012
+	stick.height = 1.0
+	stick.radial_segments = 5
+	stick.rings = 1
+	for zs in [-1.0, 1.0]:
+		for k in 3:
+			var x0 := 0.16 - 0.14 * k
+			var a := Vector3(x0, -0.12, 0.08 * zs)
+			var b := Vector3(x0 + 0.1 - 0.14 * k, -0.22, 0.3 * zs)
+			var c := Vector3(x0 + 0.16 - 0.24 * k, -0.46, 0.38 * zs)
+			for seg in [[a, b], [b, c]]:
+				var p0: Vector3 = seg[0]
+				var p1: Vector3 = seg[1]
+				var d := p1 - p0
+				var y := d.normalized()
+				var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
+				var mi := MeshInstance3D.new()
+				mi.mesh = stick
+				mi.material_override = dark
+				mi.transform = Transform3D(Basis(x, y * d.length(), x.cross(y)), p0 + d * 0.5)
+				body.add_child(mi)
+	# the wings: on the thorax, swept back; each with a ghost half a beat behind (the blur of a beat too quick to see)
+	if not _wing_tex: _wing_tex = _make_wing_tex()
+	for zs in [-1.0, 1.0]:
+		for ghost in [false, true]:
+			var piv := Node3D.new()
+			piv.position = Vector3(0.1, 0.15, 0.06 * zs)
+			piv.set_meta("side", zs)
+			piv.set_meta("ghost", ghost)
+			body.add_child(piv)
+			var wm := StandardMaterial3D.new()
+			wm.albedo_texture = _wing_tex
+			wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			wm.cull_mode = BaseMaterial3D.CULL_DISABLED
+			wm.roughness = 0.15
+			wm.metallic = 0.3
+			wm.albedo_color = Color(1, 1, 1, 0.45 if ghost else 1.0)
+			var pm := PlaneMesh.new()
+			pm.size = Vector2(0.78, 0.3)
+			var mi := MeshInstance3D.new()
+			mi.mesh = pm
+			mi.material_override = wm
+			var sweep := 0.5
+			var d := Vector3(-cos(sweep), 0.0, sin(sweep) * zs)
+			# (the plane's x — its texture's length — laid along d, root at the pivot)
+			mi.transform = Transform3D(Basis(Vector3.UP, atan2(-d.z, d.x)), d * 0.39)
+			piv.add_child(mi)
+			_wings.append(piv)
+	return f
+
+## a fly's wing: clear, faintly smoky, dark veins running its length, its edge darker
+static func _make_wing_tex() -> ImageTexture:
+	var W := 128
+	var H := 48
+	var im := Image.create(W, H, false, Image.FORMAT_RGBA8)
+	for y in H:
+		for x in W:
+			# x along the wing (0 its root .. 1 its tip), y across it
+			var u := float(x) / (W - 1)
+			var v := float(y) / (H - 1) * 2.0 - 1.0
+			var half := 0.92 * pow(sin(PI * clampf(u * 0.96 + 0.04, 0.0, 1.0)), 0.6) * (0.55 + 0.45 * u)
+			if absf(v) > half or u > 0.99:
+				im.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			var a := 0.22
+			var c := Color(0.82, 0.86, 0.9)
+			# veins: lines along it, bowing toward the tip, and two across
+			for vk in [-0.6, -0.2, 0.15, 0.5]:
+				var line: float = float(vk) * half * (1.0 - 0.3 * u)
+				if absf(v - line) < 0.07: a = 0.8
+			if absf(u - 0.45) < 0.012 or absf(u - 0.7) < 0.012: a = 0.75
+			if absf(v) > half - 0.08: a = maxf(a, 0.6)
+			if a > 0.5: c = Color(0.18, 0.14, 0.1)
+			im.set_pixel(x, y, Color(c.r, c.g, c.b, a))
+	im.generate_mipmaps()
+	return ImageTexture.create_from_image(im)
+
+## its wings beat (too quick to see — every frame about half a beat, a ghost behind)
+func _beat(dt: float) -> void:
+	_wing_ph += dt * TAU * 27.0
+	for piv in _wings:
+		var zs := float(piv.get_meta("side"))
+		var ph := _wing_ph + (PI if piv.get_meta("ghost") else 0.0)
+		var ang := 0.35 + sin(ph) * 0.85
+		piv.basis = Basis(Vector3.RIGHT, -ang * zs)
+
+## the fly's way: from behind the stone (out of sight), out past its edge on the chameleon's side, a dart near it,
+## then to `spot` by its head (all in the chameleon's own space)
+func _fly_path(spot: Vector3) -> void:
+	var cam := view.studio.cam
+	var lo := Vector3.INF
+	var hi := -Vector3.INF
+	if is_instance_valid(view.live):
+		for n in view.live.find_children("*", "GeometryInstance3D", true, false):
+			var g := n as GeometryInstance3D
+			if not g.is_visible_in_tree(): continue
+			var bb := g.global_transform * g.get_aabb()
+			lo = lo.min(bb.position)
+			hi = hi.max(bb.end)
+	var ok := lo.x < INF
+	var sc := (lo + hi) * 0.5 if ok else _hold.to_global(Vector3.ZERO) - cam.global_basis.x
+	var rr := (hi - lo).length() * 0.35 if ok else 0.6
+	var bz := cam.global_basis.z
+	var head := _hold.to_global(NECK)
+	var side := head - sc
+	side -= bz * side.dot(bz)
+	side = side.normalized() if side.length() > 0.001 else cam.global_basis.x
+	var g0 := sc - bz * rr * 0.9 + side * rr * 0.2
+	var g1 := sc - bz * rr * 0.3 + side * rr * 0.95 + cam.global_basis.y * rr * 0.15
+	_path = [_hold.to_local(g0), _hold.to_local(g1)]
+	var mid := _hold.to_local(g1).lerp(spot, 0.5)
+	_path.append(mid + _head_up * randf_range(0.04, 0.12) + _head_dir.cross(_head_up) * randf_range(-0.08, 0.08))
+	_path.append(spot)
+	_seg = 0
+	_seg_t = 0.0
+	_hover_for = 0.05
+	_nose = (_path[1] - _path[0]).normalized()
+
 
 func _tongue_to(from: Vector3, at: Vector3) -> void:
 	var d := at - from
@@ -512,7 +677,7 @@ func _tongue_to(from: Vector3, at: Vector3) -> void:
 	_tongue.transform = Transform3D(Basis(x, y * L, z), from + d * 0.5)
 	_tip.position = at
 
-## the hunt: a butterfly comes fluttering by behind its head; the head snaps round to it, away from the viewer — its
+## the hunt: a fly comes buzzing out from behind the stone, by its head; the head snaps round to it, away from the viewer — its
 ## mouth out of sight — and the tongue shoots out from behind the head and takes it
 func _hunting(dt: float) -> void:
 	_ht += dt
@@ -526,15 +691,26 @@ func _hunting(dt: float) -> void:
 			if _ht > _hwait:
 				_hunt = 1
 				_ht = 0.0
-				_bug_from = spot + _head_up * 0.5 + hl * randf_range(-0.25, 0.25) - _head_dir * 0.3
+				_fly_path(spot)
+				_bug_at = _path[0]
+				_prey.position = _bug_at
 				_prey.visible = true
 		1:
-			# in, on a wavering way
-			var k := smoothstep(0.0, 2.6, _ht)
-			_bug_at = _bug_from.lerp(spot, k) + _head_up * sin(_ht * 5.0) * 0.03 * (1.0 - k)
-			if _ht > 2.6:
-				_hunt = 2
-				_ht = 0.0
+			# (26.11) out from behind the stone, as the butterflies of a skull's cloud come out from under it: quick darts,
+			# a hover between them
+			_seg_t += dt
+			var p0: Vector3 = _path[_seg]
+			var p1: Vector3 = _path[_seg + 1]
+			var k := smoothstep(0.0, DART, _seg_t)
+			_bug_at = p0.lerp(p1, k)
+			if _seg_t < DART and (p1 - p0).length() > 0.001: _nose = (p1 - p0).normalized()
+			if _seg_t > DART + _hover_for:
+				_seg += 1
+				_seg_t = 0.0
+				_hover_for = randf_range(HOVER[0], HOVER[1])
+				if _seg >= _path.size() - 1:
+					_hunt = 2
+					_ht = 0.0
 		2:
 			# it has seen it: the head round, both eyes on it, a held breath
 			_bug_at = spot
@@ -569,15 +745,14 @@ func _hunting(dt: float) -> void:
 				_ht = 0.0
 				_hwait = randf_range(10.0, 18.0)
 				_head_next = 0.0
+	if _prey.visible: _beat(dt)
 	if _hunt in [1, 2, 3]:
-		# fluttering: it bobs with its wingbeat, drifts a little, its nose along its way
+		# buzzing: a quick small jitter about where it is, its nose along its last dart
 		var t := _sway
-		var at := _bug_at + _head_up * sin(t * 11.0) * 0.012 + hl * sin(t * 2.3) * 0.02
-		var way := at - _prey.position
-		_prey.position = at
-		# its back to the viewer (its wings seen open, not edge on), its nose along its way — up, when it hangs
-		var camz: Vector3 = _hold.global_basis.orthonormalized().inverse() * view.studio.cam.global_basis.z
-		var nose := way.normalized() if way.length() > 0.0008 and _hunt == 1 else _head_up
-		var yv := (camz * 0.85 + _head_up * 0.3).normalized()
-		var xv := (nose - yv * nose.dot(yv)).normalized()
-		_prey.basis = Basis(xv, yv, xv.cross(yv)).orthonormalized()
+		var j := Vector3(sin(t * 31.0), sin(t * 23.0 + 1.0), sin(t * 27.0 + 2.0)) * 0.004
+		_prey.position = _bug_at + j
+		var up := _head_up
+		var xv := _nose - up * _nose.dot(up)
+		if xv.length() < 0.01: xv = _head_dir
+		xv = xv.normalized()
+		_prey.basis = Basis(xv, up, xv.cross(up)).orthonormalized()
