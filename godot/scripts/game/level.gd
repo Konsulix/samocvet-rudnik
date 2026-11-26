@@ -1975,14 +1975,17 @@ func _code_step(d: Vector2i) -> void:
 
 ## the way played whole: a rare geode, the player's if the board is won — set among the goals, done already
 func _code_reward() -> void:
-	# (26.11, played through: «luck 5» alone gave a plain stone of tier 1) the best of a handful of rolls: the first of
-	# tier 3 or better (never a legendary: that is not this prize), else the dearest
+	# (26.11, played through: «luck 5» gave a plain stone of tier 1, and the best of 24 rolls no better — a mine's
+	# upper depths have no rare stones to give) a stone from the bottom of the farthest mine the player has reached,
+	# the dearest of a handful of rolls there; never a legendary: that is not this prize
+	var far := Save.reached()
+	var deep := Data.depths(far).size() - 1
 	var gs := {}
-	for n in 24:
-		var c := Stones.roll(Save.next_uid(), Save.area(), CODE_LUCK + model.depth * 0.35, model.depth)
+	for n in 16:
+		var c := Stones.roll(Save.next_uid(), far, CODE_LUCK, deep)
 		if bool(c.get("legend", false)): continue
+		c.area = far
 		if gs.is_empty() or int(c.get("value", 0)) > int(gs.get("value", 0)): gs = c
-		if int(c.get("tier", 0)) >= 3: break
 	model.bonus.append(gs)
 	Sfx.play("reveal", 4)
 	Sfx.buzz(60)
