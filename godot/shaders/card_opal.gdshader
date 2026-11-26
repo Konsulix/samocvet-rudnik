@@ -62,10 +62,12 @@ vec4 layer(vec2 q, vec3 lean, float salt) {
 		float lit = smoothstep(0.3, 0.92, sin(ang * 11.0 + r * 40.0) * 0.5 + 0.5);
 		// across the patch the colour and the light shift a little: not a flat tile
 		float across = dot(q - id, gd.xy);
-		float h = fh + (r - 0.5) * spread * 4.0 + ang * 0.35 + across * 0.08;
+		float h = fh + (r - 0.5) * spread * 4.0 + ang * 0.35 + across * 0.3;
 		float on = step(0.16, h2(id + salt + 23.0));
 		float w = n == 0 ? 0.5 + 0.5 * clamp((d2 - d1) / 0.12, 0.0, 1.0) : 0.5 - 0.5 * clamp((d2 - d1) / 0.12, 0.0, 1.0);
-		acc += vec4(spectral(h), 1.0) * lit * on * w * (0.8 + 0.2 * sin(across * 9.0 + ang * 8.0));
+		// (the light in a patch runs across it, brighter toward one side and fading: fire in the depth, not a flat tile)
+		float sheen = 0.45 + 0.55 * smoothstep(-0.55, 0.5, across + sin(ang * 8.0) * 0.3);
+		acc += vec4(spectral(h), 1.0) * lit * on * w * sheen;
 	}
 	return acc;
 }
@@ -76,8 +78,9 @@ void fragment() {
 	float e = -(length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - frame_r);
 	vec3 lean = normalize(vec3(tilt.x, tilt.y, 0.75));
 	// two layers at two depths: the deeper one slides under the upper as the card leans (it reads as depth)
-	vec4 f1 = layer(p / 21.0 + seed, lean, 0.0);
-	vec4 f2 = layer((p + tilt * 9.0) / 34.0 + seed + 40.0, lean, 17.0);
+	// (26.11: finer — at 21 and 34 points a patch they read as stained glass)
+	vec4 f1 = layer(p / 12.5 + seed, lean, 0.0);
+	vec4 f2 = layer((p + tilt * 9.0) / 21.0 + seed + 40.0, lean, 17.0);
 	vec3 fire = f1.rgb + f2.rgb * (1.0 - clamp(f1.a, 0.0, 1.0)) * 0.75;
 	fire *= fire;        // (deep, not pastel)
 	// the band of light that rolls across a turned opal
@@ -95,8 +98,9 @@ void fragment() {
 		// the body: dark blue-black, clouded; the fire in it, dimmer toward the panel's foot — the words stay easy
 		vec3 body = mix(vec3(0.012, 0.02, 0.05), vec3(0.03, 0.06, 0.11), vn(p / 60.0 + seed));
 		float down = clamp((p.y - rim_bot) / max(1.0, card.y - rim_bot), 0.0, 1.0);
-		vec3 col = body + fire * band * (0.95 - 0.3 * down) + vec3(1.0, 0.95, 0.9) * spark * 0.8;
-		float a = clamp(0.62 + dot(fire, vec3(0.4)) * band, 0.0, 0.94) * inside * k;
+		// (quieter than it was: the words lie over it)
+		vec3 col = body + fire * band * (0.62 - 0.2 * down) + vec3(1.0, 0.95, 0.9) * spark * 0.6;
+		float a = clamp(0.7 + dot(fire, vec3(0.3)) * band, 0.0, 0.94) * inside * k;
 		COLOR = vec4(col, a);
 	} else {
 		// the brass: only its sheen takes the colour — along the frame and the ribbon, added

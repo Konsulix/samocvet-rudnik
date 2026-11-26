@@ -102,7 +102,9 @@ static func shader_params(fx: String, rng_v: float) -> Dictionary:
 		"fluor": return {fluor = 1.0, fluor_col = FLUOR[int(rng_v * FLUOR.size())]}
 		"chameleon": return {cham = 1.0, cham_col = CHAM[int(rng_v * CHAM.size())]}
 		"starry": return {star = 1.0}
-		"opal": return {opal = 1.0}
+		# (26.11: on a pale glass the fire stayed pastel — a black opal's dark body under it, no milk, no parts gone cloudy,
+		# hardly a rainbow film over it)
+		"opal": return {opal = 1.0, dark_body = 0.93, frost = 0.03, parts = 0.0, holo = 0.0, ir = 0.08}
 		"kintsugi": return {kin = 1.0}
 	return {}
 
