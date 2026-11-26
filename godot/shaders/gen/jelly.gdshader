@@ -9,11 +9,20 @@ varying float v_d;
 varying vec3 v_l;
 
 float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+// (26.11: the halo jumped) the value noise's corners hashed as integers: in float, a cell's corner «i + 1» and the next
+// cell's «i» can round differently on the GPU (the frost's lesson, 22.11), and the noise, drifting with time, jumped
+// at every cell's edge
+float hi(ivec3 c) {
+	uint h = uint(c.x) * 0x8da6b343u ^ uint(c.y) * 0xd8163841u ^ uint(c.z) * 0xcb1ab31fu;
+	h ^= h >> 15u; h *= 0x2c1b3c6du; h ^= h >> 12u; h *= 0x297a2d39u; h ^= h >> 15u;
+	return float(h & 0xffffffu) / 16777215.0;
+}
 float vn(vec3 x) {
-	vec3 i = floor(x), f = fract(x);
+	vec3 fl = floor(x), f = x - fl;
+	ivec3 i = ivec3(fl);
 	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+	return mix(mix(mix(hi(i), hi(i + ivec3(1, 0, 0)), f.x), mix(hi(i + ivec3(0, 1, 0)), hi(i + ivec3(1, 1, 0)), f.x), f.y),
+		mix(mix(hi(i + ivec3(0, 0, 1)), hi(i + ivec3(1, 0, 1)), f.x), mix(hi(i + ivec3(0, 1, 1)), hi(i + ivec3(1, 1, 1)), f.x), f.y), f.z);
 }
 
 // one swim stroke: a quick contraction (the first fifth), then a long slow relaxation
@@ -32,7 +41,7 @@ void vertex() {
 	float c = beat(u);
 	float sg = surge(u) * 0.55;
 	if (part == 4) {
-		VERTEX *= 1.0 + 0.06 * c;
+		VERTEX *= 1.0 + 0.015 * c;
 	} else if (part == 0 || part == 3) {
 		// the bell: the rim pulls in hard and the dome rises as it beats; the rim wavers, unevenly, like soft jelly
 		float low = 1.0 - clamp(VERTEX.y / 0.62, 0.0, 1.0);
@@ -68,7 +77,9 @@ void vertex() {
 void fragment() {
 	float fr = 1.0 - abs(dot(normalize(NORMAL), VIEW));
 	float u = fract(TIME * speed + phase);
-	float glow = 0.8 + 0.45 * beat(u);
+	// (26.11: ×0.8..1.25 in a couple of tenths of a second, every stroke, the studio's bloom round the bell coming and going
+	// with it — read as its halo jumping) a gentler swell
+	float glow = 0.92 + 0.16 * beat(u);
 	vec3 c;
 	if (part == 0) {
 		float r = length(v_l.xz) / 0.6;
@@ -114,7 +125,7 @@ void fragment() {
 		vec3 q = v_l * 2.5 + vec3(seed, TIME * 0.08, TIME * 0.055);
 		float n = vn(q) * 0.6 + vn(q * 2.3 + 5.0) * 0.4;
 		float flick = 0.94 + 0.06 * sin(TIME * 1.1 + seed);
-		c = col * 0.09 * pow(f, 1.6) * smoothstep(0.25, 0.85, n) * flick * glow;
+		c = col * 0.09 * pow(f, 1.6) * smoothstep(0.25, 0.85, n) * flick;   // (not with the stroke: a steady glow)
 	} else if (part == 3) {
 		// the inner layer, seen through the jelly: a softer, warmer glow, so the bell has a thickness
 		c = mix(col, vec3(1.2, 0.8, 1.0), 0.3) * (0.03 + 0.22 * pow(fr, 1.6)) * glow;
