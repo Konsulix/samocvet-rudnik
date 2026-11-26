@@ -86,6 +86,11 @@ const SAMPLES := {
 	opal_rain = {f = ["amb/sea/crash_1"], db = -16.0, pitch = 1.6},
 	sea_rush = {f = ["amb/sea/crash_1", "amb/sea/bubble_1"], all = true, db = -13.0, pitch = 0.6},
 	sea_roar = {f = ["roar_04", "roar_05", "roar_06"], db = -10.0, pitch = 0.42},
+	# (26.11) the chameleon (CardChameleon): its tongue's wet slap, the catch, a soft chime as its colour turns (the wings'
+	# whirr is its own looped player there)
+	cham_tongue = {f = ["amb/sea/squelch"], db = -9.0, pitch = 2.3},
+	cham_catch = {f = ["amb/sea/squelch"], db = -13.0, pitch = 1.5},
+	cham_shift = {f = ["magical_1", "magical_5"], db = -19.0, pitch = 1.45},
 	glass_tap = {f = ["bfh1_glass_hit_01", "bfh1_glass_hit_02"], db = -18.0, pitch = 1.5},
 	# buttons and windows: a book set down, a page turned (Kenney RPG Audio) — the old digital clicks were out of place
 	click = {f = ["bookPlace1", "bookPlace2", "bookPlace3"], db = -10.0},

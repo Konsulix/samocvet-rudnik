@@ -130,3 +130,5 @@ Joseph Sardin и Pablo Bergel, BigSoundBank (CC0):
 - `maiden_laugh_0..1` — Joseph Sardin, [BigSoundBank #1660 «Laughter of children»](https://bigsoundbank.com/laughter-of-children-s1660.html) (CC0): два смешка девочки (0,10–0,48 и 2,76–3,13 с), смех Огневушки (`prototype/tools/maiden_laugh.py`).
 
 - `amb/sea/whale_0..7.ogg` — whale calls cut from NOAA PMEL Acoustics Program hydrophone recordings (Alaska humpback; blue whales of the NE Pacific, W Pacific, Atlantic and S Pacific and the "52 Hz" whale, sped up 10x by NOAA), https://www.pmel.noaa.gov/acoustics/whales/sounds/ — US government work, public domain. Cut by `prototype/tools/amb_whale_rec.py`.
+
+- `sfx/cham_wings.ogg` — шорох крыльев стрекозы (охота хамелеона): синтез, шум 1,2–6 кГц с биением 28 Гц, петля 2 с.

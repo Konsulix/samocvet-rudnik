@@ -64,6 +64,19 @@ const NECK := Vector3(-0.05, 0.3, -0.017)
 const SNOUT := Vector3(-0.163, 0.399, 0.035)
 const ARM_A := Vector3(-0.063, 0.162, 0.045)
 const ARM_B := Vector3(-0.228, 0.236, 0.089)
+# (26.11) the skeleton's: its skull and neck (marked on a side plot of the scan), its mouth; the head's lower edge a
+# slope (the front leg's bone runs up under the skull)
+const SK_NECK := Vector3(-0.02, 0.08, -0.135)
+const SK_SNOUT := Vector3(0.135, 0.046, -0.14)
+const SK_MOUTH := Vector3(0.12, 0.034, -0.14)
+var _neck := NECK
+var _snout := SNOUT
+var _mouth := MOUTH
+var _flash := 0.0
+var _wing_snd: AudioStreamPlayer
+var _tseed := 0.0
+# the model's size against the live chameleon's (its skeleton is half as long): the prey, its way and the tongue so
+var _mk := 1.0
 var _head := Vector2.ZERO
 var _head_to := Vector2.ZERO
 var _head_next := 2.0
@@ -211,19 +224,26 @@ func _ready() -> void:
 		_skin.set_shader_parameter("girth", maxf(0.01, rs / maxf(1, rn) * 1.6))
 		_skin.set_shader_parameter("s_lo", lo)
 		_skin.set_shader_parameter("s_hi", hi)
-	if _skin and not skel:
-		_skin.set_shader_parameter("eye1", EYE1 + Vector3(0, 0, -EYE_IN))
-		_skin.set_shader_parameter("eye2", EYE2 + Vector3(0, 0, EYE_IN))
-		_skin.set_shader_parameter("eye_r", 0.026)
-		_head_dir = (SNOUT - NECK).normalized()
+	if _skin:
+		if skel:
+			_neck = SK_NECK
+			_mk = 0.5
+			_snout = SK_SNOUT
+			_mouth = SK_MOUTH
+			_skin.set_shader_parameter("head_lo", Vector4(-0.015, -0.35, 0.006, -0.04))
+		else:
+			_skin.set_shader_parameter("eye1", EYE1 + Vector3(0, 0, -EYE_IN))
+			_skin.set_shader_parameter("eye2", EYE2 + Vector3(0, 0, EYE_IN))
+			_skin.set_shader_parameter("eye_r", 0.026)
+			_skin.set_shader_parameter("arm_a", ARM_A)
+			_skin.set_shader_parameter("arm_b", ARM_B)
+		_head_dir = (_snout - _neck).normalized()
 		var hl := (Vector3(0, 0, 1) - _head_dir * _head_dir.z).normalized()
 		_head_up = hl.cross(_head_dir).normalized()
 		if _head_up.y < 0.0: _head_up = -_head_up
-		_skin.set_shader_parameter("neck", NECK)
+		_skin.set_shader_parameter("neck", _neck)
 		_skin.set_shader_parameter("head_dir", _head_dir)
 		_skin.set_shader_parameter("head_up", _head_up)
-		_skin.set_shader_parameter("arm_a", ARM_A)
-		_skin.set_shader_parameter("arm_b", ARM_B)
 		_build_hunt()
 	_pal = randi() % PALS.size()
 	# (tests: cham_pal=N — that colour, held)
@@ -256,10 +276,9 @@ func _input(e: InputEvent) -> void:
 func _process(dt: float) -> void:
 	if not is_instance_valid(info) or not is_instance_valid(view) or not is_instance_valid(_hold): return
 	_colour(dt)
-	if not skel:
-		_eyes(dt)
-		_moves(dt)
-		_hunting(dt)
+	if not skel: _eyes(dt)
+	_moves(dt)
+	_hunting(dt)
 	var studio: SpecStudio = view.studio
 	var cam := studio.cam
 	var vs := Vector2(studio.vp.size)
@@ -341,6 +360,7 @@ func _colour(dt: float) -> void:
 		_from = _pal
 		_pal = (_pal + 1 + randi() % (PALS.size() - 1)) % PALS.size()
 		_hold_for = randf_range(HOLD[0], HOLD[1])
+		Sfx.play("cham_shift")
 	_set_skin(clampf(_t / T_BODY, 0.0, 1.0))
 	var a: Color = (PALS[_from] as Array)[0]
 	var b: Color = (PALS[_pal] as Array)[0]
@@ -439,8 +459,12 @@ func _moves(dt: float) -> void:
 			_hwait = 1e9
 	_jerk = lerpf(_jerk, 0.0, minf(1.0, dt * 7.0))
 	_skin.set_shader_parameter("head_rot", _head + Vector2(0.0, -_jerk))
+	if skel:
+		# the bones flash with the catch, the glow fading back
+		_flash = lerpf(_flash, 0.0, minf(1.0, dt * 3.0))
+		_skin.set_shader_parameter("flash", _flash)
 	_leg_next -= dt
-	if _leg_next <= 0.0 and _leg_t <= 0.0 and _hunt == 0:
+	if not skel and _leg_next <= 0.0 and _leg_t <= 0.0 and _hunt == 0:
 		_leg_t = randf_range(2.2, 3.6)
 		_leg_next = randf_range(8.0, 15.0)
 	if _leg_t > 0.0: _leg_t -= dt
@@ -456,31 +480,43 @@ const AWAY := 0.9
 ## a point of its head, turned as the head is now (the shader's own turn, for the tongue's root)
 func _on_head(p: Vector3) -> Vector3:
 	var hl := _head_dir.cross(_head_up).normalized()
-	var q := (p - NECK).rotated(_head_up, _head.x)
+	var q := (p - _neck).rotated(_head_up, _head.x)
 	q = q.rotated(hl, _head.y)
-	return NECK + q
+	return _neck + q
 
 func _build_hunt() -> void:
 	# (26.11) the prey: a demoiselle, its wings beating
 	_prey = _build_fly()
+	_prey.scale = Vector3.ONE * _mk
 	_prey.visible = false
 	_hold.add_child(_prey)
-	# (26.11) the tongue: a wet pink tube, bowed, thicker at its root; its tip a sticky club
-	var tm := StandardMaterial3D.new()
-	tm.albedo_color = Color(0.86, 0.45, 0.5)
-	tm.roughness = 0.14
-	tm.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
-	tm.rim_enabled = true
-	tm.rim = 0.3
+	# (26.11) the tongue: a wet pink tube, bowed, thicker at its root, papillae and wet streaks on it; its tip a sticky
+	# club (cham_tongue.gdshader). On a skull: a ghost of one, glowing in the colour of the moment, as its prey
+	var tm := ShaderMaterial.new()
+	tm.shader = preload("res://shaders/cham_tongue.gdshader")
+	tm.set_shader_parameter("ghost", 1.0 if skel else 0.0)
+	var cm := tm.duplicate() as ShaderMaterial
+	cm.set_shader_parameter("tip", 1.0)
+	if skel:
+		_prey_mat.set_shader_parameter("glow", 2.8)
+		_prey_mat.set_shader_parameter("cap_from", -10.0)
+		_prey_mat.set_shader_parameter("gain", 0.35)
+	# the whirr of its wings: a loop, loud as it flies, quiet as it hangs
+	_wing_snd = AudioStreamPlayer.new()
+	var ws := load("res://assets/audio/sfx/cham_wings.ogg") as AudioStreamOggVorbis
+	if ws:
+		ws = ws.duplicate() as AudioStreamOggVorbis
+		ws.loop = true
+	_wing_snd.stream = ws
+	_wing_snd.volume_db = -80.0
+	_wing_snd.pitch_scale = 0.8 if skel else 1.0
+	add_child(_wing_snd)
 	_tmesh = ImmediateMesh.new()
 	_tongue = MeshInstance3D.new()
 	_tongue.mesh = _tmesh
 	_tongue.material_override = tm
 	_tongue.visible = false
 	_hold.add_child(_tongue)
-	var cm := StandardMaterial3D.new()
-	cm.albedo_color = Color(0.78, 0.32, 0.4)
-	cm.roughness = 0.08
 	_tip = MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.026
@@ -562,7 +598,7 @@ func _fly_path(spot: Vector3) -> void:
 	var bx := cam.global_basis.x
 	var by := cam.global_basis.y
 	var bz := cam.global_basis.z
-	var head := _hold.to_global(NECK)
+	var head := _hold.to_global(_neck)
 	var side := head - sc
 	side -= bz * side.dot(bz)
 	side = side.normalized() if side.length() > 0.001 else bx
@@ -603,10 +639,10 @@ func _fly_path(spot: Vector3) -> void:
 	for p in g: _path.append(_hold.to_local(p))
 	var last: Vector3 = _path[_path.size() - 1]
 	var mid := last.lerp(spot, 0.5)
-	_path.append(mid + _head_up * randf_range(0.04, 0.12) + _head_dir.cross(_head_up) * randf_range(-0.08, 0.08))
+	_path.append(mid + (_head_up * randf_range(0.04, 0.12) + _head_dir.cross(_head_up) * randf_range(-0.08, 0.08)) * _mk)
 	if way == 5:
 		# the feint: in close, off up and out (the chameleon's head after it), then back
-		_path.append(spot + _head_up * 0.05)
+		_path.append(spot + _head_up * 0.05 * _mk)
 		_path.append(_hold.to_local(scr.call(randf_range(0.45, 0.6), randf_range(0.15, 0.25), 1.15)))
 	_path.append(spot)
 	# each leg's dart: by its length (a dragonfly is quick, and quicker over a long way); the hovers between: a ring
@@ -650,12 +686,13 @@ func _tongue_to(from: Vector3, at: Vector3, bend := Vector3.ZERO) -> void:
 		var x := ref.cross(t).normalized()
 		var y := t.cross(x)
 		var s := float(i) / SEG
-		var r := lerpf(0.017, 0.009, s) * (1.0 + 0.12 * sin(s * 9.0 + _sway * 20.0) * s)
+		# (26.11: uneven) thicker at the root, a swell and a pinch along it, its own each shot, and a ripple running out
+		var r := lerpf(0.018, 0.009, s) * _mk * (1.0 + 0.14 * sin(s * 7.0 + _tseed) + 0.07 * sin(s * 17.0 + _tseed * 2.3)) * (1.0 + 0.1 * sin(s * 9.0 - _sway * 24.0) * s)
 		var ring: Array = []
 		for k in SIDES:
 			var an := TAU * k / SIDES
 			var n := x * cos(an) + y * sin(an)
-			ring.append([pts[i] + n * r, n])
+			ring.append([pts[i] + n * r, n, Vector2(s, float(k) / SIDES)])
 		rings.append(ring)
 	for i in SEG:
 		for k in SIDES:
@@ -663,10 +700,13 @@ func _tongue_to(from: Vector3, at: Vector3, bend := Vector3.ZERO) -> void:
 			for q in [[i, k], [i + 1, k], [i + 1, k2], [i, k], [i + 1, k2], [i, k2]]:
 				var v: Array = rings[q[0]][q[1]]
 				_tmesh.surface_set_normal(v[1])
+				var uv: Vector2 = v[2]
+				if q[1] == k2 and k2 == 0: uv.y = 1.0
+				_tmesh.surface_set_uv(uv)
 				_tmesh.surface_add_vertex(v[0])
 	_tmesh.surface_end()
 	_tip.position = at
-	_tip.basis = Basis(SpecUtil.quat_to(Vector3.UP, tans[SEG])).scaled(Vector3(1.0, 0.8, 1.0))
+	_tip.basis = Basis(SpecUtil.quat_to(Vector3.UP, tans[SEG])).scaled(Vector3(1.0, 0.8, 1.0) * _mk)
 
 ## world's down, in the chameleon's space
 func _down() -> Vector3:
@@ -679,8 +719,8 @@ func _hunting(dt: float) -> void:
 	# where it flutters: past the head, on its far side (from the neck along the head as it will be turned, and up)
 	var hl := _head_dir.cross(_head_up).normalized()
 	var aim := _head_dir.rotated(_head_up, AWAY)
-	var spot := NECK + aim * 0.36 + _head_up * 0.05
-	var mouth := _on_head(MOUTH)
+	var spot := _neck + (aim * 0.36 + _head_up * 0.05) * _mk
+	var mouth := _on_head(_mouth)
 	match _hunt:
 		0:
 			if _ht > _hwait:
@@ -712,7 +752,8 @@ func _hunting(dt: float) -> void:
 			if _ht > 1.1:
 				_hunt = 3
 				_ht = 0.0
-				Sfx.play("click")
+				_tseed = randf() * 10.0
+				Sfx.play("cham_tongue")
 		3:
 			# out in a blink, a little past it, and back onto it — it sticks; the head jolts with the hit
 			var reach := 0.0
@@ -727,7 +768,8 @@ func _hunting(dt: float) -> void:
 					_jerk = 0.16
 					_flap_k = 1.3
 					Sfx.buzz(20)
-					Sfx.play("click")
+					Sfx.play("cham_catch")
+					_flash = 1.0
 			var d := _bug_at - mouth
 			var side := d.cross(_head_up).normalized()
 			var bend := side * sin(clampf(_ht / 0.07, 0.0, 1.0) * PI) * 0.03 * d.length()
@@ -749,12 +791,12 @@ func _hunting(dt: float) -> void:
 			_tongue_to(mouth, tip, bend)
 			_prey.position = tip
 			_prey.basis = _prey.basis.rotated(_tumble, dt * 9.0 * (0.4 + u)).orthonormalized()
-			_prey.scale = Vector3.ONE * (1.0 if reach > 0.25 else lerpf(0.35, 1.0, reach / 0.25))
+			_prey.scale = Vector3.ONE * _mk * (1.0 if reach > 0.25 else lerpf(0.35, 1.0, reach / 0.25))
 			if u >= 1.0:
 				_tongue.visible = false
 				_tip.visible = false
 				_prey.visible = false
-				_prey.scale = Vector3.ONE
+				_prey.scale = Vector3.ONE * _mk
 				_prey.set_meta("stuck", false)
 				_flap_k = 0.85
 				_jerk = 0.08
@@ -768,6 +810,25 @@ func _hunting(dt: float) -> void:
 				_hwait = randf_range(10.0, 18.0)
 				_head_next = 0.0
 	if _prey.visible: _beat(dt)
+	# its wings' whirr: up as it darts, down as it hangs, gone once caught
+	if _wing_snd and _wing_snd.stream:
+		var mute: bool = Save.d.get("mute", false)
+		var flying: bool = _prey.visible and _hunt in [1, 2] and not mute
+		var lv := 0.0
+		if flying: lv = 0.7 if (_hunt == 1 and _seg_t < float(_darts[mini(_seg, _darts.size() - 1)])) else 0.35
+		if _hunt == 3 and _prey.visible and not mute: lv = 0.5
+		var cur := db_to_linear(_wing_snd.volume_db)
+		cur = lerpf(cur, lv * 0.25, minf(1.0, dt * 6.0))
+		_wing_snd.volume_db = linear_to_db(maxf(cur, 0.00001))
+		if cur > 0.002 and not _wing_snd.playing: _wing_snd.play()
+		elif cur <= 0.002 and _wing_snd.playing and lv == 0.0: _wing_snd.stop()
+	if skel:
+		# the ghosts glow in the colour of the moment (its bands')
+		var gc: Color = ((PALS[_pal] as Array)[0] as Color) * 1.6
+		var g3 := _c3(gc)
+		_prey_mat.set_shader_parameter("glow_col", g3)
+		(_tongue.material_override as ShaderMaterial).set_shader_parameter("glow_col", g3)
+		(_tip.material_override as ShaderMaterial).set_shader_parameter("glow_col", g3)
 	if _hunt in [1, 2] or (_hunt == 3 and not _prey.get_meta("stuck", false)):
 		# hanging in the air: a small bob with its wingbeat, its nose along its last dart
 		var t := _sway

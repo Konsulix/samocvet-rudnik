@@ -41,6 +41,11 @@ uniform vec3 neck = vec3(0.0, -9.0, 0.0);
 uniform vec3 head_dir = vec3(-1.0, 0.0, 0.0);
 uniform vec3 head_up = vec3(0.0, 1.0, 0.0);
 uniform vec2 head_rot = vec2(0.0);
+// (26.11) the head's lower edge: its height under the neck (x), sloping with the way along the head (y), its softness
+// (z); w shifts where the head begins along it (the skeleton's casque reaches back over its neck)
+uniform vec4 head_lo = vec4(-0.155, 0.0, 0.015, 0.0);
+// the skeleton's bones flash with a catch
+uniform float flash = 0.0;
 // a front leg lifted off the twig: from its shoulder `arm_a` to its hand `arm_b`, what lies along it turns about the
 // shoulder (about `lat`) by `arm_lift`, more toward the hand
 uniform vec3 arm_a = vec3(0.0, -9.0, 0.0);
@@ -96,7 +101,8 @@ void vertex() {
 	vec3 dh = VERTEX - neck;
 	float hh = dot(dh, head_dir);
 	float hu = dot(dh, head_up);
-	float hw = smoothstep(-0.02, 0.035, hh) * smoothstep(-0.17, -0.14, hu) * (1.0 - smoothstep(0.22, 0.28, length(dh))) * (1.0 - in_arm);
+	float thr = head_lo.x + head_lo.y * hh;
+	float hw = smoothstep(-0.02 + head_lo.w, 0.035 + head_lo.w, hh) * smoothstep(thr - head_lo.z, thr + head_lo.z, hu) * (1.0 - smoothstep(0.22, 0.28, length(dh))) * (1.0 - in_arm);
 	if (hw > 0.0) {
 		vec3 hl = normalize(cross(head_dir, head_up));
 		vec3 q = about(dh, head_up, head_rot.x * hw);
@@ -163,7 +169,7 @@ void fragment() {
 		// bone, lit from within in the colour of the moment: brighter down its bands, a slow pulse running head to tail
 		float pulse = 0.55 + 0.45 * sin(v_s * 9.0 - TIME * 2.2);
 		ALBEDO = mix(vec3(0.78, 0.74, 0.66), base * 1.4, 0.55) * (0.6 + 0.4 * L);
-		EMISSION = mix(base, pat, smoothstep(0.25, 0.75, bar) * 0.5) * (0.4 + 0.6 * pulse) * 2.6 + pat * flush * 2.5;
+		EMISSION = mix(base, pat, smoothstep(0.25, 0.75, bar) * 0.5) * (0.4 + 0.6 * pulse) * 2.6 + pat * flush * 2.5 + pat * flash * 3.5;
 		ROUGHNESS = 0.6;
 	}
 }
