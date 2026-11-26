@@ -72,20 +72,20 @@ func _ready() -> void:
 		if ar.begins_with("fluor_flip="): test_flip = float(ar.get_slice("=", 1))
 		if ar == "fluor_show": test_show = true
 	_build_back()
-	# on the face, seen only while the stone glows: someone's fingerprints on the info panel's slate (over the slate,
-	# under its words), at its sides — where the card is taken to be turned over: the one sign that there is another
-	# side (fingerprint.gdshader; 26.11: drawn as loops of line on the stone's window they read as curls)
+	# on the face, seen only while the stone glows: someone's fingerprints at the card's very sides, by the info panel,
+	# lying over the brass frame and onto the slate — a card held by its edges, to be turned over: the one sign that
+	# there is another side (fingerprint.gdshader; 26.11: on the slate alone they read as «press here»)
 	_prints = Control.new()
 	_prints.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	info.add_child(_prints)
-	info.move_child(_prints, mini(1, info.get_child_count() - 1))
+	_prints.z_index = 6
+	add_child(_prints)
 	var prng := RandomNumberGenerator.new()
 	prng.seed = int(s.get("id", 1)) * 31 + 5
 	# a thumb on the right, two fingertips on the left: [side, across (points in from the side), down (of the panel),
 	# width, turn]
-	for q: Array in [[1.0, 34.0, prng.randf_range(0.3, 0.42), 50.0, prng.randf_range(-0.45, -0.2)],
-			[-1.0, 28.0, prng.randf_range(0.2, 0.3), 38.0, prng.randf_range(0.2, 0.45)],
-			[-1.0, 32.0, prng.randf_range(0.5, 0.6), 40.0, prng.randf_range(0.25, 0.55)]]:
+	for q: Array in [[1.0, 22.0, prng.randf_range(0.3, 0.42), 50.0, prng.randf_range(-0.5, -0.25)],
+			[-1.0, 17.0, prng.randf_range(0.16, 0.24), 38.0, prng.randf_range(0.25, 0.5)],
+			[-1.0, 18.0, prng.randf_range(0.5, 0.58), 40.0, prng.randf_range(0.3, 0.6)]]:
 		var r := ColorRect.new()
 		r.color = Color.WHITE
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -316,8 +316,10 @@ func _draw_plan() -> void:
 ## the fingerprints lie where the panel's sides are (the panel is a container: laid out again each frame)
 func _lay_prints() -> void:
 	var k := (1.0 if test_show else Spec.uv) if (_side == 0 and not _turning) else 0.0
-	_prints.position = Vector2.ZERO
-	_prints.size = info.size
+	# (in the card's own space: this node is laid out inside the card's padding)
+	_prints.position = (get_global_transform().affine_inverse() * card.get_global_transform()).origin
+	_prints.size = card.size
+	var ig: Rect2 = card.get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
 	for n in _prints.get_children():
 		var r := n as ColorRect
 		var q: Array = r.get_meta("q")
@@ -325,8 +327,8 @@ func _lay_prints() -> void:
 		r.size = Vector2(w, w * 1.32)
 		r.pivot_offset = r.size * 0.5
 		r.rotation = float(q[4])
-		var cx := (info.size.x - float(q[1])) if float(q[0]) > 0.0 else float(q[1])
-		r.position = Vector2(cx, info.size.y * float(q[2])) - r.size * 0.5
+		var cx := (card.size.x - float(q[1])) if float(q[0]) > 0.0 else float(q[1])
+		r.position = Vector2(cx, ig.position.y + ig.size.y * float(q[2])) - r.size * 0.5
 		r.visible = k > 0.01
 		(r.material as ShaderMaterial).set_shader_parameter("k", k * 0.6)
 
