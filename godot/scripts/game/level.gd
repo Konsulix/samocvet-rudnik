@@ -1975,7 +1975,14 @@ func _code_step(d: Vector2i) -> void:
 
 ## the way played whole: a rare geode, the player's if the board is won — set among the goals, done already
 func _code_reward() -> void:
-	var gs := Stones.roll(Save.next_uid(), Save.area(), CODE_LUCK + model.depth * 0.35, model.depth)
+	# (26.11, played through: «luck 5» alone gave a plain stone of tier 1) the best of a handful of rolls: the first of
+	# tier 3 or better (never a legendary: that is not this prize), else the dearest
+	var gs := {}
+	for n in 24:
+		var c := Stones.roll(Save.next_uid(), Save.area(), CODE_LUCK + model.depth * 0.35, model.depth)
+		if bool(c.get("legend", false)): continue
+		if gs.is_empty() or int(c.get("value", 0)) > int(gs.get("value", 0)): gs = c
+		if int(c.get("tier", 0)) >= 3: break
 	model.bonus.append(gs)
 	Sfx.play("reveal", 4)
 	Sfx.buzz(60)

@@ -241,7 +241,7 @@ func _scrawl(n: Control, at: Vector2, len_: float, rng: RandomNumberGenerator, c
 
 ## the plan of the working, as a prospector drew it for himself: the code's steps as a drift — two walls, bending — from
 ## a lantern to a cross; a set of timber across it at every step's end (so each stretch can be counted), the rock
-## hatched along its walls, a north arrow, the depth, and notes in a hand nobody can read
+## hatched along its walls, and notes in a hand nobody can read
 func _draw_plan() -> void:
 	var code := Stones.code_of(s)
 	if code.is_empty(): return
@@ -324,13 +324,7 @@ func _draw_plan() -> void:
 	else:
 		_ink(_plan, _shaky(en + Vector2(-cs, -cs), en + Vector2(cs, cs), rng, 0.5), col, k, 2.4)
 		_ink(_plan, _shaky(en + Vector2(-cs, cs), en + Vector2(cs, -cs), rng, 0.5), col, k, 2.4)
-	# north, in the plan's corner: an arrow and an N
-	var na := Vector2(area.end.x - 6.0, area.position.y + 26.0)
-	_ink(_plan, _shaky(na + Vector2(0, 14), na + Vector2(0, -14), rng, 0.5), col, k * 0.7, 1.3)
-	_ink(_plan, PackedVector2Array([na + Vector2(-4.5, -7), na + Vector2(0, -15), na + Vector2(4.5, -7)]), col, k * 0.7, 1.3)
-	# (an N, in strokes: a font's glyphs came out as solid blocks in this added layer)
-	var nn := na + Vector2(-4.0, -20.0)
-	_ink(_plan, PackedVector2Array([nn + Vector2(0, 0), nn + Vector2(0, -9), nn + Vector2(7, 0), nn + Vector2(7, -9)]), col, k * 0.7, 1.3)
+	# (26.11: a north arrow with an N stood here — a hint at nothing, it only misled: gone)
 	# his notes
 	_scrawl(_plan, Vector2(area.position.x + 8.0, area.end.y + 9.0), 110.0, rng, col, k)
 	_scrawl(_plan, Vector2(area.position.x + 4.0, area.position.y - 6.0), 64.0, rng, col, k)
