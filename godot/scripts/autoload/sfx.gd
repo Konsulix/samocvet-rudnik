@@ -63,6 +63,9 @@ const SAMPLES := {
 	bloom = {f = ["magical_1", "magical_5", "magical_6"], db = -5.0},
 	# story scenes (StoryScene): knocking somewhere in the rock, far off; the mountain's breath rumbling under the boots
 	knock = {f = ["impactMining_000", "impactMining_002"], db = -6.0, pitch = 0.55},
+	# the star heart's card (CardHeart): a dull double thud, quiet — the lub and its softer echo
+	heart_lub = {f = ["impactPunch_heavy_000"], db = -15.0, pitch = 0.5},
+	heart_dub = {f = ["impactPunch_heavy_001"], db = -19.0, pitch = 0.44},
 	rumble = {f = ["bfh1_rock_falling_04", "bfh1_rock_falling_07"], db = -2.0, pitch = 0.45},
 	# the gallery's works on the board: the dark lit (a soft bowl note, higher as the light runs on), a stone dropped
 	# into a cart, a full cart rumbling off, a keg's fuse hissing, the belt's gravel rattle
