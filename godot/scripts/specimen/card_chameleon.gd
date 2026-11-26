@@ -471,7 +471,7 @@ func _moves(dt: float) -> void:
 	_head_next -= dt
 	if _hunt >= 2:
 		# the hunt: its head away from the viewer, toward the fly behind it (its mouth out of sight)
-		_head_to = Vector2(AWAY, 0.12)
+		_head_to = _aim_rot
 	elif _head_next <= 0.0:
 		_head_next = randf_range(2.0, 5.0)
 		_head_to = Vector2(randf_range(-0.3, 0.35), randf_range(-0.14, 0.2))
@@ -501,6 +501,20 @@ func _moves(dt: float) -> void:
 
 ## how far its head turns from the viewer for the hunt
 const AWAY := 0.9
+# (26.11: "always one point, right before its snout") where the prey hangs, new each hunt: the head turned (x about
+# its up, y a nod) and the way out from its mouth that way
+var _aim_rot := Vector2(AWAY, 0.12)
+var _spot := Vector3.ZERO
+
+func _pick_spot() -> void:
+	# the live one turns away from the viewer (its mouth, that cannot open, out of sight); its skeleton shoots in
+	# plain sight, to either side, and farther (its ghost of a tongue seen whole)
+	if skel: _aim_rot = Vector2(randf_range(-0.5, 0.5), randf_range(-0.05, 0.38))
+	else: _aim_rot = Vector2(AWAY + randf_range(-0.25, 0.3), randf_range(-0.08, 0.35))
+	var hl := _head_dir.cross(_head_up).normalized()
+	var aim := _head_dir.rotated(_head_up, _aim_rot.x).rotated(hl, _aim_rot.y)
+	var m := _neck + (_mouth - _neck).rotated(_head_up, _aim_rot.x).rotated(hl, _aim_rot.y)
+	_spot = m + aim * (randf_range(0.26, 0.34) if skel else randf_range(0.2, 0.3))
 
 ## a point of its head, turned as the head is now (the shader's own turn, for the tongue's root)
 func _on_head(p: Vector3) -> Vector3:
@@ -741,16 +755,16 @@ func _down() -> Vector3:
 ## mouth out of sight — and the tongue shoots out from behind the head and takes it
 func _hunting(dt: float) -> void:
 	_ht += dt
-	# where it flutters: past the head, on its far side (from the neck along the head as it will be turned, and up)
 	var hl := _head_dir.cross(_head_up).normalized()
-	var aim := _head_dir.rotated(_head_up, AWAY)
-	var spot := _neck + (aim * 0.36 + _head_up * 0.05) * _mk
+	var spot := _spot
 	var mouth := _on_head(_mouth)
 	match _hunt:
 		0:
 			if _ht > _hwait:
 				_hunt = 1
 				_ht = 0.0
+				_pick_spot()
+				spot = _spot
 				_fly_path(spot)
 				_bug_at = _path[0]
 				_prey.position = _bug_at
