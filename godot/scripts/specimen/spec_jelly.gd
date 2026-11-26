@@ -135,9 +135,7 @@ void fragment() {
 		vec3 q = v_l * 2.5 + vec3(seed, TIME * 0.08, TIME * 0.055);
 		float n = vn(q) * 0.6 + vn(q * 2.3 + 5.0) * 0.4;
 		float flick = 0.94 + 0.06 * sin(TIME * 1.1 + seed);
-		// (26.11: the halo still jumped: its noise is a few big blotches cut hard at a threshold — turned toward us by a
-		// bright one the halo was a dense ball, by a dark one it all but went. Now the noise only stirs an even glow)
-		c = col * 0.052 * halo_k * pow(f, 1.6) * (0.85 + 0.3 * (n - 0.5)) * flick;   // (not with the stroke: a steady glow)
+		c = col * 0.09 * halo_k * pow(f, 1.6) * smoothstep(0.25, 0.85, n) * flick;   // (not with the stroke: a steady glow)
 	} else if (part == 3) {
 		// the inner layer, seen through the jelly: a softer, warmer glow, so the bell has a thickness
 		c = mix(col, vec3(1.2, 0.8, 1.0), 0.3) * (0.03 + 0.22 * pow(fr, 1.6)) * glow;
