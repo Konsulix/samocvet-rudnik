@@ -472,10 +472,13 @@ func _moves(dt: float) -> void:
 	if _hunt >= 2:
 		# the hunt: its head away from the viewer, toward the fly behind it (its mouth out of sight)
 		_head_to = _aim_rot
+	elif skel and _hunt == 1 and _prey.position.distance_to(_neck) < 0.75:
+		# (26.11) its skeleton follows the ghost with its head as it darts about round it
+		_head_to = _aim_for(_prey.position)
 	elif _head_next <= 0.0:
 		_head_next = randf_range(2.0, 5.0)
 		_head_to = Vector2(randf_range(-0.3, 0.35), randf_range(-0.14, 0.2))
-	_head = _head.lerp(_head_to, minf(1.0, dt * (9.0 if _hunt >= 2 else 4.5)))
+	_head = _head.lerp(_head_to, minf(1.0, dt * (9.0 if _hunt >= 2 else (6.0 if _hunt == 1 else 4.5))))
 	# (tests: cham_head=x,y — the head held so)
 	for ar in OS.get_cmdline_user_args():
 		if ar.begins_with("cham_head="):
@@ -509,12 +512,55 @@ var _spot := Vector3.ZERO
 func _pick_spot() -> void:
 	# the live one turns away from the viewer (its mouth, that cannot open, out of sight); its skeleton shoots in
 	# plain sight, to either side, and farther (its ghost of a tongue seen whole)
-	if skel: _aim_rot = Vector2(randf_range(-0.5, 0.5), randf_range(-0.05, 0.38))
-	else: _aim_rot = Vector2(AWAY + randf_range(-0.25, 0.3), randf_range(-0.08, 0.35))
+	if skel:
+		# (26.11: "still right before its snout") anywhere round its head — beside, above, behind — off the stone
+		_spot = _dance_point()
+		_aim_rot = _aim_for(_spot)
+		return
+	_aim_rot = Vector2(AWAY + randf_range(-0.25, 0.3), randf_range(-0.08, 0.35))
 	var hl := _head_dir.cross(_head_up).normalized()
 	var aim := _head_dir.rotated(_head_up, _aim_rot.x).rotated(hl, _aim_rot.y)
 	var m := _neck + (_mouth - _neck).rotated(_head_up, _aim_rot.x).rotated(hl, _aim_rot.y)
 	_spot = m + aim * (randf_range(0.26, 0.34) if skel else randf_range(0.2, 0.3))
+
+## the head's turn that points its snout at `p` (x about its up, y the nod, as the shader turns it)
+func _aim_for(p: Vector3) -> Vector2:
+	var d := p - _neck
+	if d.length() < 0.001: return _head
+	var dp := d - _head_up * d.dot(_head_up)
+	var yaw := atan2(dp.dot(_head_up.cross(_head_dir)), dp.dot(_head_dir))
+	var pitch := asin(clampf(d.normalized().dot(_head_up), -1.0, 1.0))
+	return Vector2(clampf(yaw, -1.4, 1.4), clampf(pitch, -0.25, 0.75))
+
+## the stone's middle and reach, in the world (the ghost keeps out of it)
+func _stone_ball() -> Array:
+	var lo := Vector3.INF
+	var hi := -Vector3.INF
+	if is_instance_valid(view.live):
+		for n in view.live.find_children("*", "GeometryInstance3D", true, false):
+			var g := n as GeometryInstance3D
+			if not g.is_visible_in_tree(): continue
+			var bb := g.global_transform * g.get_aabb()
+			lo = lo.min(bb.position)
+			hi = hi.max(bb.end)
+	if lo.x >= INF: return [Vector3(0, -1e6, 0), 0.0]
+	return [(lo + hi) * 0.5, (hi - lo).length() * 0.35]
+
+## a point round its skeleton's head where its ghost hangs a moment: to either side, up, even behind; not in the stone
+func _dance_point() -> Vector3:
+	var hl := _head_dir.cross(_head_up).normalized()
+	var ball := _stone_ball()
+	var best := _neck + _head_dir * 0.3
+	var far := -INF
+	for t in 14:
+		var dir := _head_dir.rotated(_head_up, randf_range(-1.35, 1.35)).rotated(hl, randf_range(-0.1, 0.7))
+		var pt := _neck + dir * randf_range(0.24, 0.42)
+		var gap := _hold.to_global(pt).distance_to(ball[0]) - float(ball[1]) * 0.9
+		if gap > 0.0: return pt
+		if gap > far:
+			far = gap
+			best = pt
+	return best
 
 ## a point of its head, turned as the head is now (the shader's own turn, for the tongue's root)
 func _on_head(p: Vector3) -> Vector3:
@@ -683,6 +729,9 @@ func _fly_path(spot: Vector3) -> void:
 		# the feint: in close, off up and out (the chameleon's head after it), then back
 		_path.append(spot + _head_up * 0.05 * _mk)
 		_path.append(_hold.to_local(scr.call(randf_range(0.45, 0.6), randf_range(0.15, 0.25), 1.15)))
+	if skel:
+		# its ghost darts about its head a little before it settles — the head after it
+		for k in randi_range(1, 2): _path.append(_dance_point())
 	_path.append(spot)
 	# each leg's dart: by its length (a dragonfly is quick, and quicker over a long way); the hovers between: a ring
 	# flies on through, the rest hang a moment
