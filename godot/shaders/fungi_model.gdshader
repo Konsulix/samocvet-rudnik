@@ -34,6 +34,9 @@ uniform float arm_ph = 0.0;   // (the cap: this far up the mushroom, of its heig
 uniform float flap = 0.0;
 uniform float flap_ph = 0.0;
 uniform vec3 flap_hinge = vec3(0.0, 0.1, 0.035);
+// (26.11) what lies past this line stays (x beyond flap_tail.x + flap_tail.y·|z|): the abdomen, bent a little aside in
+// the scan, flapped with a wing
+uniform vec2 flap_tail = vec2(-0.06, 1.5);
 global uniform float fluor_uv;
 varying vec3 v_op;
 varying vec3 v_on;
@@ -58,10 +61,12 @@ void vertex() {
 	if (flap > 0.0) {
 		float az = abs(VERTEX.z);
 		float w = smoothstep(flap_hinge.z, flap_hinge.z + 0.03, az) * smoothstep(flap_hinge.y - 0.04, flap_hinge.y - 0.015, VERTEX.y);
+		w *= 1.0 - smoothstep(flap_tail.x + flap_tail.y * az - 0.02, flap_tail.x + flap_tail.y * az + 0.02, VERTEX.x);
 		if (w > 0.0) {
 			float sz = sign(VERTEX.z);
-			bool fore = VERTEX.x < flap_hinge.x - 0.1 * az;
-			float a = (0.2 + flap * sin(flap_ph + (fore ? -1.1 : 0.0))) * w;
+			// (26.11: a torn fan by the right wing) both pairs in step: the scan has long thin faces bridging fore and hind
+			// wings near their roots, flat while they lie together, a sheet torn across once they part
+			float a = (0.2 + flap * sin(flap_ph)) * w;
 			float dy = VERTEX.y - flap_hinge.y;
 			float dz = az - flap_hinge.z;
 			float ca = cos(a), sa = sin(a);

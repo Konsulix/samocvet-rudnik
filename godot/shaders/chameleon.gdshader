@@ -168,8 +168,9 @@ void fragment() {
 	if (bone > 0.5) {
 		// bone, lit from within in the colour of the moment: brighter down its bands, a slow pulse running head to tail
 		float pulse = 0.55 + 0.45 * sin(v_s * 9.0 - TIME * 2.2);
-		ALBEDO = mix(vec3(0.78, 0.74, 0.66), base * 1.4, 0.55) * (0.6 + 0.4 * L);
-		EMISSION = mix(base, pat, smoothstep(0.25, 0.75, bar) * 0.5) * (0.4 + 0.6 * pulse) * 2.6 + pat * flush * 2.5 + pat * flash * 3.5;
+		// (26.11: "overexposed") dimmer: the bone's own, the glow from within a soft one
+		ALBEDO = mix(vec3(0.62, 0.59, 0.53), base * 1.2, 0.5) * (0.55 + 0.45 * L);
+		EMISSION = mix(base, pat, smoothstep(0.25, 0.75, bar) * 0.5) * (0.4 + 0.6 * pulse) * 1.05 + pat * flush * 1.4 + pat * flash * 2.2;
 		ROUGHNESS = 0.6;
 	}
 }

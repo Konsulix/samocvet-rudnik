@@ -49,6 +49,8 @@ var _hold_for := 3.0
 var _stone: Array[ShaderMaterial] = []
 var _pan_hold: Control
 var _pan: ColorRect
+# (26.11) the card's slate under the panel (in the inventory, below its buttons): the same wash
+var _pan2: ColorRect
 var _frame: ColorRect
 var _bbc: BackBufferCopy
 var _sway := 0.0
@@ -258,7 +260,8 @@ func _ready() -> void:
 		if is_instance_valid(_hold): _hold.queue_free()
 		if is_instance_valid(_pan_hold): _pan_hold.queue_free()
 		if is_instance_valid(_bbc): _bbc.queue_free()
-		if is_instance_valid(_frame): _frame.queue_free())
+		if is_instance_valid(_frame): _frame.queue_free()
+		if is_instance_valid(_pan2): _pan2.queue_free())
 
 ## a tap on the chameleon's corner: it changes colour now
 func _input(e: InputEvent) -> void:
@@ -335,6 +338,15 @@ func _build_ui() -> void:
 	pm.set_shader_parameter("pan_r", Reveal.INFO_R)
 	_pan.material = pm
 	_pan_hold.add_child(_pan)
+	_pan2 = ColorRect.new()
+	_pan2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pan2.z_index = 3
+	var pm2 := pm.duplicate() as ShaderMaterial
+	pm2.set_shader_parameter("pan_r", 0.0)
+	pm2.set_shader_parameter("bot_r", 6.0)
+	_pan2.material = pm2
+	_pan2.visible = false
+	card.add_child(_pan2)
 	_frame = ColorRect.new()
 	_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_frame.z_index = 4
@@ -395,6 +407,19 @@ func _colour(dt: float) -> void:
 	pm.set_shader_parameter("col_b", _c3(b))
 	pm.set_shader_parameter("src", corner - info.global_position)
 	pm.set_shader_parameter("rad", rad)
+	# below the panel, down to the card's brass: the same wash, the ring's own place on it
+	var pad := Reveal.CARD_PAD
+	var gap := (cr.end.y - pad) - ir.end.y
+	_pan2.visible = gap > 2.0
+	if _pan2.visible:
+		_pan2.global_position = Vector2(cr.position.x + pad, ir.end.y - 1.0)
+		_pan2.size = Vector2(cr.size.x - pad * 2.0, gap + 1.0)
+		var pm2 := _pan2.material as ShaderMaterial
+		pm2.set_shader_parameter("rsize", _pan2.size)
+		pm2.set_shader_parameter("col_a", _c3(a))
+		pm2.set_shader_parameter("col_b", _c3(b))
+		pm2.set_shader_parameter("src", corner - _pan2.global_position)
+		pm2.set_shader_parameter("rad", rad)
 	_frame.global_position = card.global_position
 	_frame.size = card.size
 	var fm := _frame.material as ShaderMaterial

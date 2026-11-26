@@ -25,6 +25,8 @@ uniform float rib_end = 470.0;
 uniform float rib_w = 5.6;
 // mode 0: the panel's rounded top corners
 uniform float pan_r = 18.0;
+// (26.11) and its bottom corners (the card's slate under the panel, below the buttons in the inventory)
+uniform float bot_r = 0.0;
 
 float sd_round_box(vec2 p, vec2 b, float r) {
 	vec2 q = abs(p) - b + r;
@@ -52,6 +54,10 @@ void fragment() {
 		if (q.y < pan_r && (q.x < pan_r || q.x > rsize.x - pan_r)) {
 			vec2 c = vec2(q.x < pan_r ? pan_r : rsize.x - pan_r, pan_r);
 			m = 1.0 - smoothstep(pan_r - 1.0, pan_r, length(q - c));
+		}
+		if (bot_r > 0.0 && q.y > rsize.y - bot_r && (q.x < bot_r || q.x > rsize.x - bot_r)) {
+			vec2 c = vec2(q.x < bot_r ? bot_r : rsize.x - bot_r, rsize.y - bot_r);
+			m = 1.0 - smoothstep(bot_r - 1.0, bot_r, length(q - c));
 		}
 	}
 	if (m <= 0.0) discard;
