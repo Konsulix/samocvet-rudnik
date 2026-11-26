@@ -32,6 +32,8 @@ var _bframe: Panel
 var _aclip: Panel
 var _art: TextureRect
 var _dark: ColorRect
+var _logo: TextureRect
+var _logo_sh: TextureRect
 var _plan: Control
 var _snap: ImageTexture
 var _side := 0
@@ -133,6 +135,16 @@ func _build_back() -> void:
 	_art.stretch_mode = TextureRect.STRETCH_SCALE
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_aclip.add_child(_art)
+	# the game's brass plate (the trailer's GEMCORE, as on kintsugi's back) at the paper's foot, a shadow under it
+	_logo_sh = TextureRect.new()
+	_logo = TextureRect.new()
+	for t: TextureRect in [_logo_sh, _logo]:
+		t.texture = load("res://assets/ui/card_back/logo.png")
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_aclip.add_child(t)
+	_logo_sh.modulate = Color(0, 0, 0, 0.5)
 	# the room going dark over the paper, and the plan glowing through it
 	_dark = ColorRect.new()
 	_dark.color = Color(0.01, 0.0, 0.05, 0.0)
@@ -162,7 +174,7 @@ func _draw_plan() -> void:
 		lo = lo.min(q)
 		hi = hi.max(q)
 	# in the paper's empty lower half
-	var area := Rect2(_plan.size.x * 0.16, _plan.size.y * 0.52, _plan.size.x * 0.68, _plan.size.y * 0.38)
+	var area := Rect2(_plan.size.x * 0.16, _plan.size.y * 0.51, _plan.size.x * 0.68, _plan.size.y * 0.31)
 	var ext := (hi - lo).max(Vector2.ONE)
 	var u := minf(minf(area.size.x / (ext.x + 0.6), area.size.y / (ext.y + 0.6)), 52.0)
 	var org := area.get_center() - (lo + hi) * 0.5 * u
@@ -210,6 +222,12 @@ func _layout_back() -> void:
 	var sc := maxf(_aclip.size.x / ts.x, _aclip.size.y / ts.y) * 1.04
 	_art.size = ts * sc
 	_art.position = (_aclip.size - _art.size) * 0.5
+	var lw := _aclip.size.x * 0.46
+	var lh := lw * float(_logo.texture.get_height()) / float(_logo.texture.get_width())
+	_logo.size = Vector2(lw, lh)
+	_logo.position = Vector2((_aclip.size.x - lw) * 0.5, _aclip.size.y - lh - 16.0)
+	_logo_sh.size = _logo.size
+	_logo_sh.position = _logo.position + Vector2(2, 4)
 	for n: Control in [_dark, _plan]:
 		n.position = Vector2.ZERO
 		n.size = _aclip.size
