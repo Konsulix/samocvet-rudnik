@@ -42,6 +42,10 @@ var _mvp: SubViewport
 var _mcam: Camera3D
 var _out := []                # {fb, src, spot (card point), from, stage, t}
 var _next := 2.0
+var _t := 0.0
+var _mask_img: Image          # the skull's silhouette read back from the GPU (_mask_refresh)
+var _mask_at := -1.0
+var _mask_drawn := -1.0
 var rng := RandomNumberGenerator.new()
 
 ## p: the built find; only one with the cloud of butterflies (SpecSkullFx's Flock)
@@ -177,8 +181,9 @@ func _spots() -> Array:
 	if test_spot >= 0: out = out.filter(func(q: Array) -> bool: return int(q[2]) == test_spot)
 	return out
 
-## one of the cloud's flying butterflies leaves the stone for a spot on the card
-func _leave() -> void:
+## one of the cloud's butterflies leaves the stone for a spot on the card — one the skull hides whole just now (false:
+## none is, or no spot is free: soon again)
+func _leave() -> bool:
 	var spots := _spots()
 	spots.shuffle()
 	# a kind of spot first, by its weight, then its spots first
@@ -207,26 +212,30 @@ func _leave() -> void:
 		if ok:
 			at = q
 			break
-	if at == Vector2.INF: return
+	if at == Vector2.INF: return false
 	var flies := find.find_children("*", "", true, false).filter(func(n: Node) -> bool:
 		return n is SpecButterfly.Fly and (n as Node3D).visible and (n as SpecButterfly.Fly).looked and (n as SpecButterfly.Fly).state == SpecButterfly.Fly.FLY)
 	# (the cloud down on the skull: one of those resting takes off from it - 24.11, they left only while the cloud was up)
 	if flies.is_empty():
 		flies = find.find_children("*", "", true, false).filter(func(n: Node) -> bool: return n is SpecButterfly.Fly and (n as Node3D).visible)
-	if flies.is_empty(): return
-	# one round the back of the skull, if any: it comes out from behind it (23.11: the swap in mid-air was abrupt)
+	# only one round the back of the skull with the skull's silhouette over all of it: it changes over unseen and comes
+	# out from behind it (23.11: the swap in mid-air was abrupt; 26.11, measured: «behind» was only «farther than the
+	# find's middle» — 3 of 19 changed over beside the skull, in plain sight — and with none behind, one in front went)
 	var cam := view.studio.cam
 	var deep := func(w: Vector3) -> float: return -(cam.global_transform.affine_inverse() * w).z
 	var mid: float = deep.call(find.global_position)
-	var behind := flies.filter(func(n: Node) -> bool: return float(deep.call((n as Node3D).global_position)) > mid)
-	if behind.size(): flies = behind
+	flies = flies.filter(func(n: Node) -> bool:
+		return float(deep.call((n as Node3D).global_position)) > mid \
+			and _cover(_proj((n as Node3D).global_position), _twin_span(n as Node3D) * 0.85).x >= 0.6)
+	if flies.is_empty(): return false
 	var src: SpecButterfly.Fly = flies[rng.randi() % flies.size()]
-	if not SpecButterfly.KINDS.has(src.kind): return
+	if not SpecButterfly.KINDS.has(src.kind): return false
 	var land := _w(at)
 	var fb := SpecButterfly.put(_hold, Rng32.new(rng.randi() % 99999), src.kind, land, Vector3.UP,
 			SPAN / float(SpecButterfly.KINDS[src.kind].span) / maxf(SpecButterfly.fly_big, 0.01), false, [[land, Vector3.UP]]) as SpecButterfly.Fly
 	fb.visible = false
 	_out.append({fb = fb, src = src, spot = at, from = _proj(src.global_position), stage = 0, t = 0.0, fade = 0.0})
+	return true
 
 ## how wide the stone's butterfly is on the card now, in points: its model's own wingspan (MODELS' span, times the
 ## model holder's scale in the stone's world) seen through the stone's camera at where it is (23.11: measured by the
@@ -246,7 +255,7 @@ func _own_span(fb: SpecButterfly.Fly) -> float:
 
 ## where one going home hands over to its twin: past the skull's edge on the side it comes from, a little behind the
 ## skull's middle and a little up — in the stone's world
-func _door(fb: SpecButterfly.Fly) -> Vector3:
+func _door(_fb: SpecButterfly.Fly) -> Vector3:
 	var b := view.studio.cam.global_transform.basis
 	var c := find.global_position
 	var rad := 0.3
@@ -278,6 +287,58 @@ func _pin(n: Node3D, at: Vector3, go: bool) -> void:
 	f.retarget = 2.5
 	f.dwell = 2.5
 	f.beats_left = 6
+
+## The skull's silhouette (the mask: the find unshaded by the stone's camera), read back from the GPU ten times a second
+## while a butterfly is changing over — what truly hides one (26.11, as with the jellyfish: «behind the skull» was only
+## «farther than its middle», and «under it» was «inside the find's box»: butterflies changed over in plain sight)
+func _mask_refresh() -> void:
+	if _t - _mask_at > 0.1 or not _mask_img:
+		_mask_at = _t
+		_mask_img = _mvp.get_texture().get_image()
+
+## the mask at a card point: 0 clear .. 1 skull (the layer behind the skull is gone from 0.6 up: fly_behind.gdshader)
+func _mask_a(cp: Vector2) -> float:
+	if not _mask_img or _mask_img.get_width() < 2: return 0.0
+	var ms := Vector2(_mask_img.get_size())
+	var v: Vector2 = (view.get_global_transform().affine_inverse() * (card.get_global_transform() * cp)) / view.size * ms
+	if v.x < 0.0 or v.y < 0.0 or v.x >= ms.x or v.y >= ms.y: return 0.0
+	return _mask_img.get_pixelv(Vector2i(v)).a
+
+## how much of the skull lies over a butterfly at a card point, r its half wingspan: [the least, the most]
+func _cover(cp: Vector2, r: float) -> Vector2:
+	var lo := 1.0
+	var hi := 0.0
+	for d: Vector2 in [Vector2.ZERO, Vector2(r, 0), Vector2(-r, 0), Vector2(0, r), Vector2(0, -r), Vector2(r, r) * 0.7,
+			Vector2(-r, r) * 0.7, Vector2(r, -r) * 0.7, Vector2(-r, -r) * 0.7]:
+		var a := _mask_a(cp + d)
+		lo = minf(lo, a)
+		hi = maxf(hi, a)
+	return Vector2(lo, hi)
+
+## the place in the stone's world seen at a card point, as deep as behind the skull (where its twin takes over)
+func _behind_at(cp: Vector2) -> Vector3:
+	var cam := view.studio.cam
+	var k := view.size / Vector2(maxi(1, view.studio.vp.size.x), maxi(1, view.studio.vp.size.y))
+	var px: Vector2 = (view.get_global_transform().affine_inverse() * (card.get_global_transform() * cp)) / k
+	var door := _door(null)
+	var depth := -(cam.global_transform.affine_inverse() * door).z
+	return cam.project_position(px, depth)
+
+## where on the card the skull is thickest round its middle: the nearest place to it with skull all round (r)
+func _core_pt(r: float) -> Vector2:
+	var t := _proj(_door(null))
+	if _cover(t, r).x >= 0.6: return t
+	var best := t
+	var best_d := INF
+	var vr: Rect2 = card.get_global_transform().affine_inverse() * (view.get_global_transform() * Rect2(Vector2.ZERO, view.size))
+	for gy in 14:
+		for gx in 12:
+			var c := vr.position + Vector2((gx + 0.5) / 12.0, (gy + 0.5) / 14.0) * vr.size
+			var dd := c.distance_to(t)
+			if dd < best_d and _cover(c, r).x >= 0.6:
+				best_d = dd
+				best = c
+	return best
 
 ## a card butterfly behind the skull (drawn in the cut layer) or out over the card
 static func _behind(fb: Node, on: bool) -> void:
@@ -327,11 +388,23 @@ func _process(dt: float) -> void:
 	var cam_up := cam.global_transform.basis.y
 	cam.position = Vector3(0, sin(PITCH), cos(PITCH)) * 400.0 + cam_up * (MARGIN_TOP - MARGIN) * 0.5
 	var any_b := false
+	var changing := _next < 0.5 and _out.size() < OUT_MAX   # (one about to leave: who is hidden behind the skull?)
 	for o: Dictionary in _out:
 		if bool(o.get("behind", false)): any_b = true
+		if int(o.stage) == 3: changing = true
+	_t += dt
 	_rectb.visible = any_b
 	_vpb.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
-	_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
+	# the mask: every frame while one is drawn behind the skull (it cuts it); ten times a second while it is only read
+	var need_m := any_b or changing
+	if any_b:
+		_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	elif need_m and _t - _mask_drawn > 0.1:
+		_mask_drawn = _t
+		_mvp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	elif not need_m:
+		_mvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if need_m: _mask_refresh()
 	if any_b:
 		_rectb.position = _rect.position
 		_rectb.size = _rect.size
@@ -339,6 +412,7 @@ func _process(dt: float) -> void:
 		var camb := _vpb.get_camera_3d()
 		camb.size = cam.size
 		camb.global_transform = cam.global_transform
+	if need_m:
 		var sc := view.studio.cam
 		_mcam.global_transform = sc.global_transform
 		_mcam.projection = sc.projection
@@ -351,6 +425,7 @@ func _process(dt: float) -> void:
 		_mcam.v_offset = sc.v_offset
 		var ms := Vector2i(maxi(2, view.studio.vp.size.x / 2), maxi(2, view.studio.vp.size.y / 2))
 		if _mvp.size != ms: _mvp.size = ms
+	if any_b:
 		var bm := _rectb.material as ShaderMaterial
 		var vr := Rect2(view.global_position - _rectb.global_position, view.size)
 		bm.set_shader_parameter("view_rect", Vector4(vr.position.x, vr.position.y, vr.size.x, vr.size.y))
@@ -361,8 +436,10 @@ func _process(dt: float) -> void:
 		_next -= dt
 		var up := true
 		if _next <= 0.0 and up and _out.size() < OUT_MAX:
-			_leave()
-			_next = test_every if test_every > 0.0 else (rng.randf_range(0.4, 0.9) if _out.size() < OUT_MIN else rng.randf_range(EVERY[0], EVERY[1]))
+			if _leave():
+				_next = test_every if test_every > 0.0 else (rng.randf_range(0.4, 0.9) if _out.size() < OUT_MIN else rng.randf_range(EVERY[0], EVERY[1]))
+			else:
+				_next = 0.2
 	for k in range(_out.size() - 1, -1, -1):
 		var o: Dictionary = _out[k]
 		var fb: SpecButterfly.Fly = o.fb
@@ -395,8 +472,10 @@ func _process(dt: float) -> void:
 				o.stage = 1
 				o.t = 0.0
 			1:
-				# out from under the skull: over the card once clear of its silhouette
-				if bool(o.behind) and not skull.grow(SPAN * 0.3).has_point(_cp(fb.pos)):
+				# out from under the skull: over the card once clear of its silhouette — the silhouette itself (26.11,
+				# measured: clear of the skull's box it was still half over the find, most times — and that half of it
+				# jumped out over the skull in a frame)
+				if bool(o.behind) and _cover(_cp(fb.pos), _own_span(fb) * float(o.k0) * 0.55).y < 0.05:
 					o.behind = false
 					_behind(fb, false)
 				_size(fb, float(o.k0))
@@ -415,16 +494,26 @@ func _process(dt: float) -> void:
 				# home: in behind the skull (24.11: melting into its twin in mid-air it simply vanished) — its twin waits,
 				# hidden, at a door just past the skull's edge and a little behind it; the card one flies there, hands over
 				# to it, and the twin flies on behind the skull, which hides it
-				if not o.has("door"): o.door = _door(fb)
-				if is_instance_valid(o.src): _pin(o.src, o.door, false)
+				var kt := clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0) if is_instance_valid(o.src) else float(o.k0)
+				var cp := _cp(fb.pos)
+				var rr := _own_span(fb) * kt * 0.55
+				# (where the skull is thickest round its middle, by its silhouette: there its twin waits, behind it)
+				if not o.has("core") or _t - float(o.core_t) > 1.0:
+					o.core = _core_pt(rr)
+					o.core_t = _t
+				if is_instance_valid(o.src): _pin(o.src, _behind_at(o.core), false)
 				# first to a point just past the skull's side (there it goes behind: nothing of the skull covers it yet),
 				# then in behind its middle - the skull's silhouette closing over it (24.11: gone behind while over the
 				# skull's front, it vanished at once)
 				var sk_c := skull.get_center()
 				if not o.has("edge"):
-					var sd := 1.0 if _cp(fb.pos).x >= sk_c.x else -1.0
-					o.edge = Vector2(sk_c.x + sd * (skull.size.x * 0.5 + SPAN * 0.35), sk_c.y - skull.size.y * 0.15)
-				var home := _w(_proj(o.door)) if bool(o.get("behind", false)) else _w(o.edge)
+					var sd := 1.0 if cp.x >= sk_c.x else -1.0
+					var e := Vector2(sk_c.x + sd * (skull.size.x * 0.5 + SPAN * 0.35), sk_c.y - skull.size.y * 0.15)
+					for n in 8:
+						if _cover(e, rr).y < 0.05: break
+						e.x += sd * SPAN * 0.5
+					o.edge = e
+				var home := _w(o.core) if bool(o.get("behind", false)) else _w(o.edge)
 				if fb.state == SpecButterfly.Fly.FLY:
 					fb.beats_left = 9
 					fb.want_glide = false
@@ -433,20 +522,23 @@ func _process(dt: float) -> void:
 					fb.retarget = 99.0
 					fb.dwell = 99.0
 					fb.timer = 99.0
-				# shrinking back to its twin's size as it nears it, and melting into it
-				var kt := clampf(_twin_span(o.src) / _own_span(fb), 0.2, 3.0) if is_instance_valid(o.src) else float(o.k0)
+				# shrinking back to its twin's size as it nears it
 				var dist := fb.pos.distance_to(home)
 				_size(fb, lerpf(kt, float(o.k0), clampf(dist / (SPAN * 3.0), 0.0, 1.0)))
 				if not bool(o.get("behind", false)):
-					if dist < SPAN * 0.4 or float(o.t) > 5.0:
+					# behind the skull from now on — as soon as it is clear of the skull's silhouette (taking off from a
+					# button it is, at once), never while over it (26.11, measured: at the skull's box's edge it was still
+					# half over the find, and that half vanished in a frame)
+					if _cover(cp, rr).y < 0.05:
 						o.behind = true
 						_behind(fb, true)
-				elif dist < fb.size * 1.2 or float(o.t) > 8.0:
-					# hidden behind the skull: its twin takes over there, at once, and flies on behind it
+				elif (_cover(cp, rr).x >= 0.6 and dist < SPAN * 1.2) or float(o.t) > 12.0:
+					# hidden behind the skull, its silhouette over all of it: its twin takes over there, at once, behind
+					# the very place, and flies on behind the skull
 					o.stage = 4
 					o.t = 0.0
 					if is_instance_valid(o.src):
-						_pin(o.src, o.door, true)
+						_pin(o.src, _behind_at(cp) if _cover(cp, rr).x >= 0.6 else _behind_at(o.core), true)
 						(o.src as Node3D).visible = true
 						_fade(o.src, 0.0)
 					_fade(fb, 1.0)
