@@ -30,12 +30,17 @@ const POOL := {
 	horse = ["breath", "wolfmoon", "foxfire"],
 	raven = ["raveneye", "raveneye", "phoenix"], spoonbill = ["phoenix", "raveneye"], hornbill = ["phoenix", "phoenix", "raveneye"],
 	alligator = ["lavaborn", "amberdrop"], trex = ["lavaborn", "lavaborn", "amberdrop"], triceratops = ["amberdrop", "lavaborn"]}
+## the beasts whose ghost is part of a legend of their own (26.11; the wolf first: its ghost under the full moon)
+const GHOST_IN := {wolf = "wolfmoon"}
 const ALL := ["blossom", "starhorn", "thunder", "foxfire", "wolfmoon", "breath", "phoenix", "raveneye", "lavaborn", "amberdrop", "ghost"]
 
 ## a beast's legends: its kind's, and its ghost if there is a head for it (assets/specimen/ghosts)
 static func pool(beast: String) -> Array:
 	var out: Array = (POOL.get(beast, []) as Array).duplicate()
-	if ResourceLoader.exists(GHOST_DIR + beast + ".json"): out.append_array(["ghost", "ghost"])
+	if ResourceLoader.exists(GHOST_DIR + beast + ".json"):
+		# (a beast whose ghost is the face of its own legend has no ghost apart: those rolls go to that legend)
+		var home := String(GHOST_IN.get(beast, "ghost"))
+		out.append_array([home, home])
 	return out
 
 static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_m: Material, surf: SpecSurf) -> void:
@@ -44,7 +49,7 @@ static func dress(b: RefCounted, sk: Dictionary, bones: Array, nrs: Array, bone_
 	var cr: Geo = bones[0]
 	match String(sk.fx):
 		"foxfire": _foxfire(root, sk, r, cr, surf)
-		"wolfmoon": _wolfmoon(root, sk, r, cr, surf)
+		"wolfmoon": _wolfmoon(root, sk, r, cr, surf, bones)
 		"breath": _breath(root, sk, r, cr)
 		"blossom": _blossom(root, sk, r)
 		"starhorn": _starhorn(sk)
@@ -186,7 +191,7 @@ class Wisps extends Node3D:
 
 ## the wolf's moon: a small moon hangs over the head in its own halo, going round its phases (half a minute a month);
 ## its cold light on the bone; at the full the eyes flash
-static func _wolfmoon(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: SpecSurf) -> void:
+static func _wolfmoon(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: SpecSurf, bones: Array = []) -> void:
 	root.set_meta("dark", true)
 	var bb := _box(cr)
 	var s := maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
@@ -224,6 +229,9 @@ static func _wolfmoon(root: Node3D, sk: Dictionary, r: Rng32, cr: Geo, surf: Spe
 	mo.sway = s * 0.15
 	mo.ball = ball
 	root.add_child(mo)
+	# (26.11) the beast's ghost is this legend's face: the living head forms over the skull under the full moon, and
+	# when it howls (CardMoon). Its own stream of numbers: the moon's rolls stay as they were
+	if not bones.is_empty(): mo.ghost = _ghost(root, sk, Rng32.new(int(sk.skin_seed) + 977), bones, surf, true, Color(0.5, 0.7, 1.0))
 	# dust in its light, rising slowly
 	SpecSkullFx._fireflies(root, r, bb.get_center() + Vector3(0, s * 0.1, 0), s * 0.7, 18, 0.03, false, Color(0.5, 0.65, 1.0), s * 0.5)
 	(sk.marks as Array).append(["fx", at, Vector3.BACK])
@@ -238,6 +246,7 @@ class MoonNode extends Node3D:
 	var sway := 0.3
 	var ball: MeshInstance3D
 	const MONTH := 30.0
+	var ghost: Ghost       # the beast's head of light: at the full, and in a howl
 	var _howl := 0.0       # a howl going on (CardMoon: a tap on the stone): seconds left of _howl_t
 	var _howl_t := 1.0
 	func phase() -> float:
@@ -267,6 +276,7 @@ class MoonNode extends Node3D:
 		light.light_energy = 0.25 + full * 1.6 + hk * 0.8
 		var flash := pow(maxf(0.0, 1.0 - absf(ph - 0.5) / 0.06), 2.0)
 		for em: ShaderMaterial in eyes: em.set_shader_parameter("power", maxf(flash * 2.5, hk * 2.2))
+		if ghost: ghost.level = maxf(smoothstep(0.86, 0.98, full), smoothstep(0.0, 0.5, hk))
 
 ## the beast's breath: it breathes — slow puffs of steam from its nose every four seconds, and in the dark of its
 ## throat an ember that glows up as it draws breath and dims as it lets it out
@@ -751,9 +761,11 @@ class Drifters extends Node3D:
 ## the beast's ghost: every ten seconds the living head forms over the skull out of cold light — from the neck to the
 ## nose — its eyes kindling in the sockets, holds a breath, and dissolves away into sparks (a low-poly head cut by
 ## prototype/tools/skull/ghost_prep.py, fitted nose to nose, a little bigger than the bone)
-static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: SpecSurf) -> void:
+## (26.11) `led`: the ghost is the face of another legend of this beast (the wolf's moon) - that legend shows and
+## hides it (Ghost.level), in its colour `tint`; it brings no eyes, sparks or callout of its own. Returns the Ghost
+static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: SpecSurf, led := false, tint := Color.BLACK) -> Ghost:
 	var path := GHOST_DIR + String(sk.beast) + ".json"
-	if not ResourceLoader.exists(path): return
+	if not ResourceLoader.exists(path): return null
 	root.set_meta("dark", true)
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
 	var fv: Array = d.v
@@ -821,6 +833,7 @@ static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: S
 	m.shader = GHOST
 	var cols := [Color(0.4, 0.9, 1.0), Color(0.45, 1.0, 0.6), Color(1.0, 0.78, 0.35), Color(0.7, 0.5, 1.0)]
 	var col: Color = cols[int(r.next() * cols.size())]
+	if led: col = tint
 	m.set_shader_parameter("col", Vector3(col.r, col.g, col.b))
 	m.set_shader_parameter("seed", r.next() * 50.0)
 	m.render_priority = 5
@@ -830,7 +843,9 @@ static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: S
 	var gh := Ghost.new()
 	gh.mat = m
 	gh.t = 0.0   # (it forms as the card opens)
+	gh.led = led
 	for sx: float in [-1.0, 1.0]:
+		if led: break
 		var e := SpecSkullFx.eye(surf, sx, sk)
 		if e.is_empty(): continue
 		var em := _glow_mat(col.lerp(Color.WHITE, 0.3), 0.0, r.next() * 9.0)
@@ -843,19 +858,28 @@ static func _ghost(root: Node3D, sk: Dictionary, r: Rng32, bones: Array, surf: S
 	root.add_child(l)
 	gh.light = l
 	root.add_child(gh)
+	if led: return gh
 	SpecSkullFx._fireflies(root, r, bb.get_center() + Vector3(0, bb.size.y * 0.2, 0), bb.size.length() * 0.3, 18, 0.03, false, col, bb.size.y * 1.2)
 	(sk.marks as Array).append(["fx", bb.get_center() + Vector3(0, bb.size.y * 0.45, bb.size.z * 0.2), Vector3.BACK])
+	return gh
 
 class Ghost extends Node:
 	var mat: ShaderMaterial
 	var light: OmniLight3D
 	var eyes := []
 	var t := 0.0
+	var led := false      # shown by another legend (level), not by its own clock
+	var level := 0.0
+	var _shown := 0.0
 	func _process(dt: float) -> void:
 		t += dt
 		var ph := fmod(t, 10.0)
 		# forms (0–1.8 s), holds, breathing (to 5.5), dissolves (5.5–7.3), gone (to 10)
 		var s := smoothstep(0.0, 1.8, ph) * (1.0 - smoothstep(5.5, 7.3, ph))
+		if led:
+			# (it forms quicker than it goes)
+			_shown = move_toward(_shown, level, dt * (1.1 if level > _shown else 0.55))
+			s = _shown
 		var breath := 1.0 + 0.08 * sin(t * 2.2) * s
 		mat.set_shader_parameter("show", s * breath)
 		light.light_energy = s * 1.4
