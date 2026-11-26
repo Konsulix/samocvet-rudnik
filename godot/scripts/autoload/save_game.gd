@@ -267,9 +267,11 @@ func tell(id: String) -> void:
 		persist()
 
 ## the board's one look (BoardSprites.LOOK): the panel to pick it in a level is gone (26.11), and what an old save
-## picked there is not read. Another set of stones is to come as an award's prize (Save.d.unlocks)
+## picked there is not read. The other set of stones (BoardSprites.PRIZE_GEMS, rough ones) is an award's prize
+## (Mad Alchemist: the unlock PRIZE_UNLOCK); once won it is picked in the settings (Chrome.settings) and kept in gem_style
 func looks_to_board() -> void:
 	BoardSprites.gem_style = BoardSprites.LOOK.gem_style
+	if has_prize_gems() and String(d.get("gem_style", "")) == BoardSprites.PRIZE_GEMS: BoardSprites.gem_style = BoardSprites.PRIZE_GEMS
 	BoardSprites.ore_look = BoardSprites.LOOK.ore_look
 	BoardSprites.lock_style = BoardSprites.LOOK.lock_style
 	BoardSprites.zone_style = BoardSprites.LOOK.zone_style
@@ -437,6 +439,9 @@ func level_played(won: bool, dl: int) -> void:
 	# the shape of the board just played: the next level takes another (LevelGen.make's `avoid`)
 	if dl < Data.depths(area()).size(): d.lshape = String(LevelGen.current(dl).get("scheme", ""))
 	d.lseed = 1 + randi() % 999999
+
+func has_prize_gems() -> bool:
+	return (d.unlocks as Array).has(BoardSprites.PRIZE_UNLOCK)
 
 func has_jewel(rid: String) -> bool:
 	for j in d.jewels:

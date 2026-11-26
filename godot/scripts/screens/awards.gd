@@ -184,7 +184,7 @@ static var LIST := [
 	{tab = "mastery", icon = "conveyor", n = "Conveyor Chef", t = "Sit back. The belt is cooking.", r = "Three conveyor baskets broken in one move", one = true, ev = "belt3", give = {coins = 350}, items = ["kit:coin"]},
 	{tab = "mastery", icon = "overkill", n = "Overkill", t = "It was already beaten. You made sure.", r = "Win with a resonator and another special together", one = true, ev = "overkill", give = {boost = {pan = 2}}, items = ["res:res://assets/board/boosters/pan.png"]},
 	{tab = "mastery", icon = "lazy", n = "Lazy Miner", t = "The bottom of the board? Never heard of it.", r = "Win without a move in the lower half", one = true, ev = "lazy", give = {lives = 2}, items = ["kit:heart"]},
-	{tab = "mastery", icon = "flask", n = "Mad Alchemist", t = "What happens if you mix these two?", r = "new gems look",
+	{tab = "mastery", icon = "flask", n = "Mad Alchemist", t = "What happens if you mix these two?", r = "Rough stones for the board", give = {unlock = "new gems look"},
 		items = ["i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask", "i:flask"],
 		evs = ["mix:rocket+rocket", "mix:bomb+rocket", "mix:orb+rocket", "mix:drill+rocket", "mix:bomb+bomb", "mix:bomb+orb", "mix:bomb+drill", "mix:orb+orb", "mix:drill+orb", "mix:drill+drill"]},
 	{tab = "mastery", icon = "hands", n = "Bare Hands", t = "Who needs tools?", r = "A hard level without boosters", one = true, ev = "bare_hands", give = {lives = 3}, items = ["kit:heart"]},
@@ -946,6 +946,7 @@ static func claim(e: Dictionary) -> void:
 		st = Stones.roll(Save.next_uid(), Save.area(), [0.6, 1.2, 2.2][clampi(int(gv.geode), 0, 2)], dl)
 		Save.owe(st)   # (claimed: closed on its geode, the stone is not lost)
 	Save.persist()
+	if String(gv.get("unlock", "")) == BoardSprites.PRIZE_UNLOCK: Ov.toast("Rough stones: put them on in Settings")
 	if gv.has("coins"): Sfx.play("coin")
 	if not st.is_empty(): await GeodeOpen.run([st], {title = String(e.n), short = true})
 	elif gv.has("unlock"): Ov.toast("%s · %s — on its way in an update" % [e.n, gv.unlock])

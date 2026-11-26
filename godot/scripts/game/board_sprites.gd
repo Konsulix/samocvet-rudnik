@@ -22,6 +22,9 @@ const LOCK_STYLES := {rendered = "Rendered", drawn = "Drawn", classic = "Classic
 const ZONE_STYLES := {hewn = "Hewn", pillow = "Pillow", classic = "Classic"}
 ## the board's look: faceted stones, the ore inside them, hewn blocks, drawn timber
 const LOOK := {gem_style = "faceted", ore_look = "rendered", lock_style = "drawn", zone_style = "hewn"}
+## the stones an award gives (Awards: Mad Alchemist), picked in the settings once won: the rough set
+const PRIZE_GEMS := "natural"
+const PRIZE_UNLOCK := "new gems look"
 static var zone_style := "hewn"
 ## the level's sealed find as "<w>x<h>": its goal icon is that very block (Level sets it)
 static var find_shape := "2x2"

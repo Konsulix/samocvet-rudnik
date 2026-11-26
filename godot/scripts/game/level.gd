@@ -103,6 +103,7 @@ static func _pick_bg() -> String:
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_to_group("level")   # (Chrome.settings finds the level under its window: restyle_board)
 	bg_layer = CanvasLayer.new()
 	bg_layer.layer = -1
 	add_child(bg_layer)
@@ -2245,6 +2246,11 @@ func _boss_raid() -> void:
 	busy = true
 	await LevelBoss.after_turn(self)
 	busy = false
+
+## the stones' set changed in the settings (Chrome.settings): repaint the board in place, no new board, no lost moves
+func restyle_board() -> void:
+	board.restyle()
+	for gb: Dictionary in goal_boxes: (gb.root as Control).queue_redraw()
 
 ## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]; returns its column.
 ## The drawn kit's window, as Ov.card (it was the old glass plate): slate in a brass-and-iron frame, a brass rule

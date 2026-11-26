@@ -113,6 +113,10 @@ func _ready() -> void:
 	if args.has("lseed"): Save.d.lseed = int(args.lseed)
 	# feat=cart,dark: a generated level with exactly these works (LevelGen.FEATURES)
 	if args.has("feat"): LevelGen.force_feats = Array(String(args.feat).split(","))
+	if args.has("rough"):   # testing: the award's set of stones as won (and put on: `rough=on`)
+		if not (Save.d.unlocks as Array).has(BoardSprites.PRIZE_UNLOCK): Save.d.unlocks.append(BoardSprites.PRIZE_UNLOCK)
+		if String(args.rough) == "on": Save.d.gem_style = BoardSprites.PRIZE_GEMS
+		Save.looks_to_board()
 	if args.has("shape"): LevelGen.force_shape = String(args.shape)   # the board's shape (LevelGen.SHAPES): `shape=ell`
 	if args.has("fe"): Save.d.fe = int(args.fe)
 	if args.has("au"): Save.d.ore = int(args.au)

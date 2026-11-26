@@ -215,6 +215,9 @@ static func _sound_name() -> String:
 	if Save.d.mute: return "Sound: off"
 	return "Sound: effects only" if Save.d.get("no_music", false) else "Sound: music + effects"
 
+static func _gems_name() -> String:
+	return "Stones: rough" if BoardSprites.gem_style == BoardSprites.PRIZE_GEMS else "Stones: faceted"
+
 ## the gear: sound mode (hold the gear for the diagnostics)
 static func settings() -> void:
 	var v := Ov.card(300)
@@ -240,6 +243,17 @@ static func settings() -> void:
 		vib.text = "Vibration: off" if Save.d.no_buzz else "Vibration: on"
 		Sfx.buzz(30))
 	v.add_child(vib)
+	# the stones of the board: the other set, once an award has given it (BoardSprites.PRIZE_GEMS)
+	if Save.has_prize_gems():
+		var gems := Ov.btn(_gems_name(), "glass", func(): pass)
+		gems.pressed.connect(func():
+			Save.d.gem_style = BoardSprites.LOOK.gem_style if BoardSprites.gem_style == BoardSprites.PRIZE_GEMS else BoardSprites.PRIZE_GEMS
+			Save.persist()
+			Save.looks_to_board()
+			# a level under the window repaints its board in place
+			for n in gems.get_tree().get_nodes_in_group("level"): n.call("restyle_board")
+			gems.text = _gems_name())
+		v.add_child(gems)
 	v.add_child(Ov.btn("Story so far", "glass", func(): story_card()))
 	var tips := Ov.btn("Show tips again", "glass", func(): pass)
 	tips.pressed.connect(func():
