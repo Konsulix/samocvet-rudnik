@@ -119,9 +119,10 @@ void fragment() {
 	} else if (part == 4) {
 		// light scattered in the water round it: soft, uneven, drifting and flickering
 		float f = abs(dot(normalize(NORMAL), VIEW));
-		vec3 q = v_l * 2.5 + vec3(seed, TIME * 0.25, TIME * 0.17);
+		// (26.11: on the card, bigger, its fast flicker read as a halo jumping denser and thinner: it drifts slowly now)
+		vec3 q = v_l * 2.5 + vec3(seed, TIME * 0.08, TIME * 0.055);
 		float n = vn(q) * 0.6 + vn(q * 2.3 + 5.0) * 0.4;
-		float flick = 0.85 + 0.15 * sin(TIME * 7.0 + seed) * sin(TIME * 3.1 + seed * 2.0);
+		float flick = 0.94 + 0.06 * sin(TIME * 1.1 + seed);
 		c = col * 0.09 * pow(f, 1.6) * smoothstep(0.25, 0.85, n) * flick * glow;
 	} else if (part == 3) {
 		// the inner layer, seen through the jelly: a softer, warmer glow, so the bell has a thickness
