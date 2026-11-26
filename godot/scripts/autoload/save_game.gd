@@ -28,7 +28,7 @@ func blank() -> Dictionary:
 		# close it counts as lost)
 		owed = [], hoard_due = -1, in_level = false,
 		jewels = [], seen = [], coll = [], sets = [], atlas = {}, area_back = -1, uid = 1000, lab = 0, mute = false, no_music = false,
-		gem_style = "natural", ore_look = "rendered", lock_style = "rendered", zone_style = "hewn",
+		gem_style = "faceted", ore_look = "rendered", lock_style = "drawn", zone_style = "hewn",
 		tut = [],
 		# genes ever seen on a find (Awards.genes_of), and the find each first showed on (its niche on the awards
 		# screen, the same summary as the atlas's best); gver 3 — the old finds read in
@@ -266,12 +266,13 @@ func tell(id: String) -> void:
 		d.tut.append(id)
 		persist()
 
-## the board's looks from the save (the level's look panel writes them back)
+## the board's one look (BoardSprites.LOOK): the panel to pick it in a level is gone (26.11), and what an old save
+## picked there is not read. Another set of stones is to come as an award's prize (Save.d.unlocks)
 func looks_to_board() -> void:
-	BoardSprites.gem_style = d.gem_style if BoardSprites.GEM_STYLES.has(d.gem_style) else "natural"
-	BoardSprites.ore_look = d.ore_look if BoardSprites.ORE_LOOKS.has(d.ore_look) else "rendered"
-	BoardSprites.lock_style = d.lock_style if BoardSprites.LOCK_STYLES.has(d.lock_style) else "rendered"
-	BoardSprites.zone_style = d.zone_style if BoardSprites.ZONE_STYLES.has(d.zone_style) else "hewn"
+	BoardSprites.gem_style = BoardSprites.LOOK.gem_style
+	BoardSprites.ore_look = BoardSprites.LOOK.ore_look
+	BoardSprites.lock_style = BoardSprites.LOOK.lock_style
+	BoardSprites.zone_style = BoardSprites.LOOK.zone_style
 
 ## written whole to a side file first, then put in place, the one before kept as .bak: closed mid-write, the game
 ## loses at most the last change, never the save

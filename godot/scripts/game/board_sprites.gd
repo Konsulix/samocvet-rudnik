@@ -6,7 +6,7 @@ extends RefCounted
 const SPAN := 1.15
 const GEMS := ["ruby", "sapphire", "emerald", "citrine", "amethyst", "diamond"]
 static var _tex := {}
-## the looks the player picks from in a level (Level._show_looks), all kept in the save:
+## the looks there are (the game uses one, LOOK; the others by command line: `gems= ore_look= locks= zones=`):
 ## gem sets: Blender-rendered (gem_kit.py) or drawn (PNG sheets, art/board); "" = the original cut stones, by command line only
 const GEM_STYLES := {natural = "Natural", faceted = "Faceted", drawn_natural = "Natural · drawn", drawn_faceted = "Faceted · drawn"}
 const GEM_DIRS := {natural = "res://assets/board/gems_kit/natural", faceted = "res://assets/board/gems_kit/faceted",
@@ -20,12 +20,14 @@ const ORE_LOOKS := {rendered = "Inside", veins = "Veins", badge = "Badge"}
 const LOCK_STYLES := {rendered = "Rendered", drawn = "Drawn", classic = "Classic"}
 ## the big blocks (geodes, the sealed find): rendered by zone_kit.py in two looks, or the first board's drawing
 const ZONE_STYLES := {hewn = "Hewn", pillow = "Pillow", classic = "Classic"}
+## the board's look: faceted stones, the ore inside them, hewn blocks, drawn timber
+const LOOK := {gem_style = "faceted", ore_look = "rendered", lock_style = "drawn", zone_style = "hewn"}
 static var zone_style := "hewn"
 ## the level's sealed find as "<w>x<h>": its goal icon is that very block (Level sets it)
 static var find_shape := "2x2"
-static var gem_style := "natural"
+static var gem_style := "faceted"
 static var ore_look := "rendered"
-static var lock_style := "rendered"
+static var lock_style := "drawn"
 static var _plain_material: ShaderMaterial
 
 ## Use the board's explicit shader for sprites that must survive iOS shader baking.

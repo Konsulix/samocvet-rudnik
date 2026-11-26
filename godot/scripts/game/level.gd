@@ -21,7 +21,6 @@ var title_label: Label
 var hint_label: Label
 var booster_bar: HBoxContainer
 var overlay: Control
-var looks_icon: Control
 var busy := true
 ## a move made while the last one still cascades (Royal Match's way): its events and swap wait for the cascade's next
 ## step, its turn's end (gas, nodules) is played once more when the cascade is done
@@ -392,18 +391,12 @@ func _build_hud() -> void:
 	title_label.custom_minimum_size = Vector2(60, 0)
 	title_pill.add_child(title_label)
 	top.add_child(title_pill)
-	# the looks: which gems, how ore shows, which timber (to try them out on the board)
-	var looks := Kit.button("", "sq_dark", 18, 0.0)
-	looks.custom_minimum_size = Vector2(44, 44)
-	looks_icon = UI.icon(44, func(ci):
-		BoardSprites.draw(ci, BoardSprites.gem(1), Vector2(16, 19), 23 * BoardSprites.gem_scale())
-		BoardSprites.draw(ci, BoardSprites.gem(4), Vector2(28, 27), 22 * BoardSprites.gem_scale()))
-	looks_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	looks_icon.material = BoardSprites.plain_material()
-	looks_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	looks.add_child(looks_icon)
-	looks.pressed.connect(_show_looks)
-	top.add_child(looks)
+	# the settings (sound, vibration, tips): where the board's look panel used to open
+	var gear := Kit.icon_button("gear", 44)
+	gear.pressed.connect(func():
+		if busy or model.over or overlay.visible or Ov.is_open(): return
+		Chrome.settings())
+	top.add_child(gear)
 	root.add_child(top)
 	# goals and the moves token
 	var line := HBoxContainer.new()
@@ -683,7 +676,7 @@ func _render_time() -> void:
 
 ## the clock runs out: as out of moves, the move under way plays out first (_after_turn checks it)
 func _clock(dt: float) -> void:
-	if not _timed or model.over or coach.visible or overlay.get_child_count() > 0: return
+	if not _timed or model.over or coach.visible or overlay.get_child_count() > 0 or Ov.is_open(): return
 	model.timed = maxf(0.0, model.timed - dt)
 	_render_time()
 	if model.timed <= 0.0 and not busy:
@@ -2252,109 +2245,6 @@ func _boss_raid() -> void:
 	busy = true
 	await LevelBoss.after_turn(self)
 	busy = false
-
-func _show_looks() -> void:
-	if busy or model.over or overlay.visible: return
-	var v := _panel("Look", "Try the board's looks. Kept for every level.", [["Close", "glass", _close_panel, true]])
-	var close_btn := v.get_child(v.get_child_count() - 1)
-	var add := func(n: Control) -> void:
-		v.add_child(n)
-		v.move_child(close_btn, -1)
-	add.call(_looks_head("Gems"))
-	for style: String in BoardSprites.GEM_STYLES:
-		var b := _looks_option(BoardSprites.GEM_STYLES[style], BoardSprites.gem_style == style, 54)
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for colour in 6:
-			var ic := UI.icon(30, func(ci):
-				BoardSprites.draw(ci, BoardSprites.gem_in_style(colour, style), Vector2(15, 15), 30 * 0.95 * BoardSprites.gem_scale(style)))
-			ic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-			ic.material = BoardSprites.plain_material()
-			row.add_child(ic)
-		b.get_child(0).add_child(row)
-		b.pressed.connect(_set_look.bind("gem_style", style))
-		add.call(b)
-	add.call(_looks_head("Ore"))
-	var ores := HBoxContainer.new()
-	ores.add_theme_constant_override("separation", 6)
-	for look: String in BoardSprites.ORE_LOOKS:
-		var b := _looks_option(BoardSprites.ORE_LOOKS[look], BoardSprites.ore_look == look, 44)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(_set_look.bind("ore_look", look))
-		ores.add_child(b)
-	add.call(ores)
-	add.call(_looks_head("Blocks"))
-	var zones := HBoxContainer.new()
-	zones.add_theme_constant_override("separation", 6)
-	for style: String in BoardSprites.ZONE_STYLES:
-		var b := _looks_option(BoardSprites.ZONE_STYLES[style], BoardSprites.zone_style == style, 70)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		if style != "classic":
-			var zt := BoardSprites.zone_icon("geode_2x2", style)
-			var zi := UI.icon(40, func(ci): ci.draw_texture_rect(zt, Rect2(0, 0, 40, 40), false))
-			zi.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-			zi.material = BoardSprites.plain_material()
-			var zc := CenterContainer.new()
-			zc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			zc.add_child(zi)
-			b.get_child(0).add_child(zc)
-		b.pressed.connect(_set_look.bind("zone_style", style))
-		zones.add_child(b)
-	add.call(zones)
-	add.call(_looks_head("Timber"))
-	var locks := HBoxContainer.new()
-	locks.add_theme_constant_override("separation", 6)
-	for style: String in BoardSprites.LOCK_STYLES:
-		var b := _looks_option(BoardSprites.LOCK_STYLES[style], BoardSprites.lock_style == style, 70)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var path: String = {rendered = "res://assets/board/special_kit/lock.png", drawn = "res://assets/board/blockers_natural/lock.png"}.get(style, "res://assets/board/pieces/lock.png")
-		var lock_tex: Texture2D = load(path)
-		var ic := UI.icon(40, func(ci): BoardSprites.draw(ci, lock_tex, Vector2(20, 20), 36))
-		ic.material = BoardSprites.plain_material()
-		ic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		var c := CenterContainer.new()
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		c.add_child(ic)
-		b.get_child(0).add_child(c)
-		b.pressed.connect(_set_look.bind("lock_style", style))
-		locks.add_child(b)
-	add.call(locks)
-
-func _looks_head(text: String) -> Label:
-	var l := Kit.label(text, 14, UI.body_bold, Kit.DIM)
-	return l
-
-## an option card: its label on top, room below (its first child's column) for previews; gold-edged when chosen
-func _looks_option(text: String, chosen: bool, height: float) -> Button:
-	# a dark slate plate of the kit; the chosen one lit warm (its frame brighter, its name in brass)
-	var b := Kit.button("", "btn_dark", 15, 4.0)
-	b.custom_minimum_size = Vector2(0, height)
-	if chosen:
-		for k in ["normal", "hover"]:
-			b.add_theme_stylebox_override(k, Kit.box("btn_dark", 4.0, Color(1.3, 1.18, 0.92)))
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 2)
-	var l := Kit.label(text + ("  ✓" if chosen else ""), 14, UI.display, Kit.AMBER if chosen else Kit.CREAM)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(l)
-	b.add_child(col)
-	return b
-
-## store a look and repaint the board in place: no new board, no lost moves
-func _set_look(key: String, value: Variant) -> void:
-	Save.d[key] = value
-	Save.persist()
-	Save.looks_to_board()
-	board.restyle()
-	for gb: Dictionary in goal_boxes: (gb.root as Control).queue_redraw()
-	looks_icon.queue_redraw()
-	_close_panel()
-	_show_looks()
 
 ## a centred card with a title, text and buttons [[label, kind, callable, enabled], ...]; returns its column.
 ## The drawn kit's window, as Ov.card (it was the old glass plate): slate in a brass-and-iron frame, a brass rule
