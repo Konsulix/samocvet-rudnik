@@ -33,6 +33,8 @@ var _aclip: Panel
 var _art: TextureRect
 var _dark: ColorRect
 var _prints: Control
+var _pclip: Panel
+var _dim: ColorRect
 var _logo: TextureRect
 var _logo_sh: TextureRect
 var _plan: Control
@@ -75,10 +77,26 @@ func _ready() -> void:
 	# on the face, seen only while the stone glows: someone's fingerprints at the card's very sides, by the info panel,
 	# lying over the brass frame and onto the slate — a card held by its edges, to be turned over: the one sign that
 	# there is another side (fingerprint.gdshader; 26.11: on the slate alone they read as «press here»)
+	# (cut by the card's own rounded shape: over its edge they hung out past it)
+	var pclip := Panel.new()
+	var pst := StyleBoxFlat.new()
+	pst.bg_color = Color.WHITE
+	pst.set_corner_radius_all(12)
+	pclip.add_theme_stylebox_override("panel", pst)
+	pclip.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
+	pclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pclip.z_index = 6
+	add_child(pclip)
+	_pclip = pclip
 	_prints = Control.new()
 	_prints.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_prints.z_index = 6
-	add_child(_prints)
+	pclip.add_child(_prints)
+	# the info panel dims with the room while the stone glows: over its slate, under its words
+	_dim = ColorRect.new()
+	_dim.color = Color(0.0, 0.0, 0.03, 0.0)
+	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(_dim)
+	info.move_child(_dim, mini(1, info.get_child_count() - 1))
 	var prng := RandomNumberGenerator.new()
 	prng.seed = int(s.get("id", 1)) * 31 + 5
 	# a phone is held in the hand and its card turned with a thumb: a thumb's print at either side, low, leaning in as
@@ -87,7 +105,7 @@ func _ready() -> void:
 	# [side, across (points in from the side), down (of the panel), width, turn]
 	for q: Array in [[1.0, 24.0, prng.randf_range(0.5, 0.6), 50.0, -prng.randf_range(0.8, 1.0)],
 			[-1.0, 22.0, prng.randf_range(0.36, 0.46), 46.0, prng.randf_range(0.8, 1.0)]]:
-		for smear in [1.0, 0.0]:
+		for smear in [0.0]:   # (the smear dragged off it, tried 26.11: it made the print worse)
 			var r := ColorRect.new()
 			r.color = Color.WHITE
 			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -102,7 +120,7 @@ func _ready() -> void:
 			r.set_meta("q", q)
 			r.set_meta("smear", smear)
 			_prints.add_child(r)
-	tree_exiting.connect(func() -> void: if is_instance_valid(_prints): _prints.queue_free())
+	tree_exiting.connect(func() -> void: if is_instance_valid(_dim): _dim.queue_free())
 
 func _build_back() -> void:
 	_holder = card.get_parent() as Control
@@ -321,8 +339,14 @@ func _draw_plan() -> void:
 func _lay_prints() -> void:
 	var k := (1.0 if test_show else Spec.uv) if (_side == 0 and not _turning) else 0.0
 	# (in the card's own space: this node is laid out inside the card's padding)
-	_prints.position = (get_global_transform().affine_inverse() * card.get_global_transform()).origin
+	_pclip.position = (get_global_transform().affine_inverse() * card.get_global_transform()).origin
+	_pclip.size = card.size
+	_prints.position = Vector2.ZERO
 	_prints.size = card.size
+	# (the panel is a container: its layers are laid out inside its margins — back over the whole of it)
+	_dim.position = Vector2.ZERO
+	_dim.size = info.size
+	_dim.color.a = 0.62 * (1.0 if test_show else Spec.uv)
 	var ig: Rect2 = card.get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
 	for n in _prints.get_children():
 		var r := n as ColorRect
