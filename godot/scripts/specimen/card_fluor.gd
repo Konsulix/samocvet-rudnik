@@ -72,14 +72,33 @@ func _ready() -> void:
 		if ar.begins_with("fluor_flip="): test_flip = float(ar.get_slice("=", 1))
 		if ar == "fluor_show": test_show = true
 	_build_back()
-	# on the face, seen only while the stone glows: someone's fingerprints at the card's sides, where it is taken to be
-	# turned over — the one sign that there is another side
+	# on the face, seen only while the stone glows: someone's fingerprints on the info panel's slate (over the slate,
+	# under its words), at its sides — where the card is taken to be turned over: the one sign that there is another
+	# side (fingerprint.gdshader; 26.11: drawn as loops of line on the stone's window they read as curls)
 	_prints = Control.new()
 	_prints.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_prints.material = FxLayer.add_material()
-	_prints.z_index = 6
-	_prints.draw.connect(_draw_prints)
-	add_child(_prints)
+	info.add_child(_prints)
+	info.move_child(_prints, mini(1, info.get_child_count() - 1))
+	var prng := RandomNumberGenerator.new()
+	prng.seed = int(s.get("id", 1)) * 31 + 5
+	# a thumb on the right, two fingertips on the left: [side, across (points in from the side), down (of the panel),
+	# width, turn]
+	for q: Array in [[1.0, 34.0, prng.randf_range(0.3, 0.42), 50.0, prng.randf_range(-0.45, -0.2)],
+			[-1.0, 28.0, prng.randf_range(0.2, 0.3), 38.0, prng.randf_range(0.2, 0.45)],
+			[-1.0, 32.0, prng.randf_range(0.5, 0.6), 40.0, prng.randf_range(0.25, 0.55)]]:
+		var r := ColorRect.new()
+		r.color = Color.WHITE
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://shaders/fingerprint.gdshader")
+		m.set_shader_parameter("col", Vector3(glow.r, glow.g, glow.b))
+		m.set_shader_parameter("seed", prng.randf_range(0.0, 20.0))
+		m.set_shader_parameter("ridges", float(q[3]) * 0.3)
+		m.set_shader_parameter("k", 0.0)
+		r.material = m
+		r.set_meta("q", q)
+		_prints.add_child(r)
+	tree_exiting.connect(func() -> void: if is_instance_valid(_prints): _prints.queue_free())
 
 func _build_back() -> void:
 	_holder = card.get_parent() as Control
@@ -294,45 +313,22 @@ func _draw_plan() -> void:
 	_scrawl(_plan, Vector2(area.position.x + 8.0, area.end.y + 9.0), 110.0, rng, col, k)
 	_scrawl(_plan, Vector2(area.position.x + 4.0, area.position.y - 6.0), 64.0, rng, col, k)
 
-## one fingerprint: ridges looping round a core a little off its middle, broken here and there, pressed harder on one
-## side (the finger rolled)
-func _print_at(at: Vector2, r: float, turn: float, rng: RandomNumberGenerator, col: Color, k: float) -> void:
-	var core := Vector2(rng.randf_range(-0.12, 0.12), rng.randf_range(0.05, 0.22)) * r
-	var rings := 7
-	for i in rings:
-		var f := (i + 1.0) / rings
-		var pts := PackedVector2Array()
-		var a0 := rng.randf() * TAU
-		var gap_at := rng.randf() * TAU
-		var gap := rng.randf_range(0.25, 0.9)
-		for j in 41:
-			var a := a0 + j / 40.0 * TAU
-			var da := absf(wrapf(a - gap_at, -PI, PI))
-			if da < gap * 0.5:
-				if pts.size() > 1: _prints.draw_polyline(pts, Color(col, 0.5 * k * (0.55 + 0.45 * sin(a0 + i))), 1.25, true)
-				pts = PackedVector2Array()
-				continue
-			# an oval taller than wide, its lower half fuller; the inner ridges close round the core
-			var e := Vector2(cos(a) * 0.74, sin(a) * (1.0 if sin(a) < 0.0 else 0.86)) * r * f
-			e += core * (1.0 - f) + Vector2(sin(a * 3.0 + i) * 0.6, cos(a * 2.0 + i * 1.7) * 0.6)
-			pts.append(at + e.rotated(turn))
-		if pts.size() > 1: _prints.draw_polyline(pts, Color(col, 0.5 * k * (0.55 + 0.45 * sin(a0 + i))), 1.25, true)
-	# the smear of the finger's pad under the ridges
-	_prints.draw_circle(at, r * 0.8, Color(col, 0.05 * k))
-
-func _draw_prints() -> void:
-	var k := 1.0 if test_show else Spec.uv
-	if k <= 0.01 or _side != 0 or _turning: return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = int(s.get("id", 1)) * 31 + 5
-	var col := Color(glow.r, glow.g, glow.b, 1.0)
-	var to_me := _prints.get_global_transform().affine_inverse() * card.get_global_transform()
-	var sz := card.size
-	# a thumb on the right side, two fingertips on the left: a card held to be turned
-	var h := sz.y * rng.randf_range(0.4, 0.5)
-	_print_at(to_me * Vector2(sz.x - 23.0, h), 20.0, rng.randf_range(-0.5, -0.2), rng, col, k)
-	_print_at(to_me * Vector2(20.0, h - 26.0), 15.0, rng.randf_range(0.2, 0.5), rng, col, k * 0.8)
-	_print_at(to_me * Vector2(23.0, h + 14.0), 15.5, rng.randf_range(0.25, 0.6), rng, col, k * 0.7)
+## the fingerprints lie where the panel's sides are (the panel is a container: laid out again each frame)
+func _lay_prints() -> void:
+	var k := (1.0 if test_show else Spec.uv) if (_side == 0 and not _turning) else 0.0
+	_prints.position = Vector2.ZERO
+	_prints.size = info.size
+	for n in _prints.get_children():
+		var r := n as ColorRect
+		var q: Array = r.get_meta("q")
+		var w := float(q[3])
+		r.size = Vector2(w, w * 1.32)
+		r.pivot_offset = r.size * 0.5
+		r.rotation = float(q[4])
+		var cx := (info.size.x - float(q[1])) if float(q[0]) > 0.0 else float(q[1])
+		r.position = Vector2(cx, info.size.y * float(q[2])) - r.size * 0.5
+		r.visible = k > 0.01
+		(r.material as ShaderMaterial).set_shader_parameter("k", k * 0.6)
 
 func _layout_back() -> void:
 	var sz := card.size
@@ -362,7 +358,7 @@ func _process(dt: float) -> void:
 		return
 	_clock += dt
 	_turn(dt)
-	_prints.queue_redraw()
+	_lay_prints()
 	if _side == 1 or _turning:
 		var k := 1.0 if test_show else Spec.uv
 		_dark.color.a = 0.86 * k

@@ -33,8 +33,9 @@ var heart_gap := 0.3     # the dub after the lub, s
 var _heart_ph := 0.0
 
 func _process(_dt: float) -> void:
-	var ph := fmod(Time.get_ticks_msec() / 1000.0, 7.0) / 7.0
-	uv = force_uv if force_uv >= 0.0 else smoothstep(0.55, 0.6, ph) * (1.0 - smoothstep(0.88, 0.95, ph))
+	# (26.11: the glow lasts longer — some 5 s dark of every 10; it was 2.5 of 7: the card's back could hardly be read)
+	var ph := fmod(Time.get_ticks_msec() / 1000.0, 10.0) / 10.0
+	uv = force_uv if force_uv >= 0.0 else smoothstep(0.42, 0.47, ph) * (1.0 - smoothstep(0.92, 0.98, ph))
 	RenderingServer.global_shader_parameter_set("fluor_uv", uv)
 	# lub-dub: a short strong beat, a softer one a third of a second after it, then a long rest — some 46 beats a
 	# minute at rest (26.11: at 70, the two beats spread evenly over the cycle, it read as a blinking, not a heart);
