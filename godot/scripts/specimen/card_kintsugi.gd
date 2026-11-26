@@ -674,8 +674,15 @@ func _build_back() -> void:
 	_bframe.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bframe.add_theme_stylebox_override("panel", card.get_theme_stylebox("panel"))
 	_bvp.add_child(_bframe)
-	_aclip = Control.new()
-	_aclip.clip_contents = true
+	# (26.11: the stone spilled over the brass at the card's rounded corners) the back's picture in a rounded mask,
+	# the corners the face's stone window has (Reveal.stone_card)
+	_aclip = Panel.new()
+	var ast := StyleBoxFlat.new()
+	ast.bg_color = Color.WHITE
+	ast.set_corner_radius_all(15)
+	ast.anti_aliasing = true
+	_aclip.add_theme_stylebox_override("panel", ast)
+	_aclip.clip_children = CanvasItem.CLIP_CHILDREN_ONLY
 	_aclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bvp.add_child(_aclip)
 	_art = TextureRect.new()
