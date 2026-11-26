@@ -227,6 +227,7 @@ func _build_panel() -> void:
 	_water.material = wm
 	info.add_child(_water)
 	info.move_child(_water, mini(2, info.get_child_count() - 1))
+	if info is Container: (info as Container).sort_children.connect(_layout_panel_if)
 	_layout_panel()
 
 func _layout_panel() -> void:
@@ -872,3 +873,10 @@ func _layout_panel_if() -> void:
 	if info.size != _last_sz:
 		_last_sz = info.size
 		_layout_panel()
+	# (26.11: after Sell the water shrank into the panel's margins) the panel is a container: whenever it sorts its
+	# children again — a button's words changed — it lays these two out inside its own margins. Back over the whole
+	# panel every frame (as the frost's layers are), and at once when it sorts
+	for n: Control in [_krect, _water]:
+		if n.position != Vector2.ZERO or n.size != info.size:
+			n.position = Vector2.ZERO
+			n.size = info.size
