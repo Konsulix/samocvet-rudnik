@@ -35,6 +35,8 @@ var _water: ColorRect
 var _out := []                # {node, src, pos, vel, goal, t, life, size, col, back, mats, dart}
 var _next := 2.0
 var _t := 0.0
+var _was := {}                # each stone jelly's point on the card last frame, and the frame's length
+var _was_dt := 1.0 / 60.0
 var _drift := {}
 var _rips := []               # [x, y, age]
 var rng := RandomNumberGenerator.new()
@@ -245,13 +247,19 @@ func _send_one() -> void:
 			stroke = Vector2(float(sm.get_shader_parameter("speed")), float(sm.get_shader_parameter("phase")))
 	var b0 := _cam_basis(j)
 	# it carries on the way its bell was pointing
+	# (26.11: it stopped dead, then set off — «it twitches right before it heads down») it leaves the way and at the
+	# speed it was going round its orbit in the stone, and only then eases into its own way
 	var head := Vector2(b0.y.x, -b0.y.y)
 	head = head.normalized() if head.length() > 0.2 else (_goal() - at).normalized()
+	var v0 := Vector2.ZERO
+	if _was.has(j.get_instance_id()):
+		v0 = (at - (_was[j.get_instance_id()] as Vector2)) / _was_dt
+	if v0.length() > 3.0: head = v0.normalized()
 	j.visible = false
 	var size := clampf(span * 1.1, 26.0, 70.0)
 	_out.append({node = node, src = j, pos = at, head = head, kick = Vector2.ZERO, flee = Vector2.ZERO, b0 = b0, goal = _goal(),
 		gt = 0.0, t = 0.0, life = rng.randf_range(STAY[0], STAY[1]), size = size, size0 = maxf(span, 6.0), col = col,
-		back = false, mats = mats, dart = 0.0, stroke = stroke, sp0 = stroke.x, bank = 0.0, spd = 0.0, q = Quaternion(b0), pitch = rng.randf_range(0.0, TAU)})
+		back = false, mats = mats, dart = 0.0, stroke = stroke, sp0 = stroke.x, bank = 0.0, spd = minf(v0.length(), 160.0), q = Quaternion(b0), pitch = rng.randf_range(0.0, TAU)})
 
 ## the bell's stroke rate changed (darting off a touch and calming down) without a jump in the stroke: the shader beats
 ## at fract(TIME·speed + phase), so the phase takes up the difference (26.11: the bell twitched to another moment)
@@ -315,6 +323,10 @@ func _process(dt: float) -> void:
 	if _next <= 0.0:
 		_next = test_every if test_every > 0.0 else rng.randf_range(EVERY[0], EVERY[1])
 		if _out.size() < MAX_OUT: _send_one()
+	# where the stone's jellies are on the card now: the next to come out leaves at the speed it swam there
+	for j in _src:
+		if is_instance_valid(j): _was[j.get_instance_id()] = _on_card(j.global_position)
+	_was_dt = maxf(dt, 0.001)
 	var jls := PackedVector4Array([Vector4.ZERO, Vector4.ZERO])
 	var ir := Rect2(info.get_global_rect().position - card.get_global_rect().position, info.size)
 	var gone := []
@@ -368,7 +380,7 @@ func _process(dt: float) -> void:
 		var spd := SPEED * (1.6 if o.back else 1.0) * (0.7 + 0.5 * pull)
 		if o.back: spd *= clampf(dist / 40.0, 0.35, 1.0)
 		# (26.11: going home it sped up ×1.6 in one frame) the speed eases to what it wants
-		o.spd = lerpf(float(o.spd), spd, minf(1.0, dt * 2.0)) if float(o.t) > dt * 1.5 else spd * 0.6
+		o.spd = lerpf(float(o.spd), spd, minf(1.0, dt * 1.2))
 		pos += head * float(o.spd) * dt + kick * dt
 		kick *= exp(-2.6 * dt)
 		# in it comes at its size in the stone, swelling to its size on the card; going back, it shrinks again
