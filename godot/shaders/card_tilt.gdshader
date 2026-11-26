@@ -28,12 +28,14 @@ void fragment() {
 	vec2 sn = sin(tilt);
 	vec2 cs = cos(tilt);
 	// back onto the flat picture: a point of the plane at depth z = x sin(yaw) + y sin(pitch) is seen shrunk by
-	// 1 / (1 + z k) towards the middle; a few rounds of the inverse
-	vec2 s = q;
-	for (int i = 0; i < 4; i++) {
-		float z = s.x * sn.x + s.y * sn.y;
-		s = q * (1.0 + z * persp) / cs;
-	}
+	// 1 / (1 + z k) towards the middle. Solved exactly (26.11: a few rounds of iteration did not settle near edge-on —
+	// stretched stripes of the card stood beside it as it turned over): z = A / (1 - k A), A = sum(q sin / cos)
+	vec2 csafe = max(abs(cs), vec2(0.0001)) * sign(cs + vec2(0.00001));
+	float A = q.x * sn.x / csafe.x + q.y * sn.y / csafe.y;
+	float den = 1.0 - persp * A;
+	if (den <= 0.02) discard;          // (behind the eye's plane: nothing of the card is there)
+	float zz = A / den;
+	vec2 s = q * (1.0 + zz * persp) / csafe;
 	vec2 uv = s / asp + 0.5;
 	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
 	// four samples over the screen pixel's footprint: the picture is denser than the screen, read between its pixels
