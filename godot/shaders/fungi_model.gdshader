@@ -28,6 +28,12 @@ uniform float arm_lift = 0.0;
 uniform float arms = 5.0;
 uniform float arm_r = 0.5;
 uniform float arm_ph = 0.0;   // (the cap: this far up the mushroom, of its height)
+// (26.11) wings beating (the chameleon's prey, an insect scan with its wings spread flat, CardChameleon): what lies out
+// beyond the hinge line (x along the body, at height y, z off the middle) turns about it; flap — the swing (0 none),
+// flap_ph — the beat; the fore pair (ahead of hinge.x) a little behind the hind
+uniform float flap = 0.0;
+uniform float flap_ph = 0.0;
+uniform vec3 flap_hinge = vec3(0.0, 0.1, 0.035);
 global uniform float fluor_uv;
 varying vec3 v_op;
 varying vec3 v_on;
@@ -48,6 +54,23 @@ void vertex() {
 		float lift = up * near * smoothstep(0.25, 1.0, rr);
 		VERTEX.y += lift * lift * arm_lift * arm_r;
 		VERTEX.xz *= 1.0 - lift * 0.08;
+	}
+	if (flap > 0.0) {
+		float az = abs(VERTEX.z);
+		float w = smoothstep(flap_hinge.z, flap_hinge.z + 0.03, az) * smoothstep(flap_hinge.y - 0.04, flap_hinge.y - 0.015, VERTEX.y);
+		if (w > 0.0) {
+			float sz = sign(VERTEX.z);
+			bool fore = VERTEX.x < flap_hinge.x - 0.1 * az;
+			float a = (0.2 + flap * sin(flap_ph + (fore ? -1.1 : 0.0))) * w;
+			float dy = VERTEX.y - flap_hinge.y;
+			float dz = az - flap_hinge.z;
+			float ca = cos(a), sa = sin(a);
+			VERTEX.y = flap_hinge.y + dz * sa + dy * ca;
+			VERTEX.z = sz * (flap_hinge.z + dz * ca - dy * sa);
+			float ny = NORMAL.y, nz = NORMAL.z * sz;
+			NORMAL.y = nz * sa + ny * ca;
+			NORMAL.z = sz * (nz * ca - ny * sa);
+		}
 	}
 	v_op = VERTEX;
 	v_on = NORMAL;

@@ -77,7 +77,6 @@ var _eye := [Vector2.ZERO, Vector2.ZERO]
 var _eye_to := [Vector2.ZERO, Vector2.ZERO]
 var _eye_next := [0.5, 1.2]
 # the hunt: a bee comes buzzing by its snout; it fixes both eyes on it, and its tongue shoots out and takes it
-var _bug: MeshInstance3D  # (unused: the bee of the first hunt)
 var _tongue: MeshInstance3D
 var _tip: MeshInstance3D
 var _hunt := 0            # 0 none, 1 coming, 2 hovering, 3 the tongue out, 4 back with it
@@ -438,7 +437,8 @@ func _moves(dt: float) -> void:
 			var hv := ar.get_slice("=", 1).split(",")
 			_head = Vector2(float(hv[0]), float(hv[1]))
 			_hwait = 1e9
-	_skin.set_shader_parameter("head_rot", _head)
+	_jerk = lerpf(_jerk, 0.0, minf(1.0, dt * 7.0))
+	_skin.set_shader_parameter("head_rot", _head + Vector2(0.0, -_jerk))
 	_leg_next -= dt
 	if _leg_next <= 0.0 and _leg_t <= 0.0 and _hunt == 0:
 		_leg_t = randf_range(2.2, 3.6)
@@ -461,176 +461,79 @@ func _on_head(p: Vector3) -> Vector3:
 	return NECK + q
 
 func _build_hunt() -> void:
-	# (26.11) the prey: a fly (no scan of one: built here), its wings a buzzing blur
+	# (26.11) the prey: a demoiselle, its wings beating
 	_prey = _build_fly()
 	_prey.visible = false
 	_hold.add_child(_prey)
+	# (26.11) the tongue: a wet pink tube, bowed, thicker at its root; its tip a sticky club
 	var tm := StandardMaterial3D.new()
-	tm.albedo_color = Color(0.85, 0.42, 0.48)
-	tm.roughness = 0.25
+	tm.albedo_color = Color(0.86, 0.45, 0.5)
+	tm.roughness = 0.14
+	tm.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+	tm.rim_enabled = true
+	tm.rim = 0.3
+	_tmesh = ImmediateMesh.new()
 	_tongue = MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.009
-	cm.bottom_radius = 0.013
-	cm.height = 1.0
-	cm.radial_segments = 8
-	cm.rings = 1
-	_tongue.mesh = cm
+	_tongue.mesh = _tmesh
 	_tongue.material_override = tm
 	_tongue.visible = false
 	_hold.add_child(_tongue)
+	var cm := StandardMaterial3D.new()
+	cm.albedo_color = Color(0.78, 0.32, 0.4)
+	cm.roughness = 0.08
 	_tip = MeshInstance3D.new()
 	var sm := SphereMesh.new()
-	sm.radius = 0.022
-	sm.height = 0.044
-	sm.radial_segments = 10
-	sm.rings = 6
+	sm.radius = 0.026
+	sm.height = 0.052
+	sm.radial_segments = 12
+	sm.rings = 8
 	_tip.mesh = sm
-	_tip.material_override = tm
+	_tip.material_override = cm
 	_tip.visible = false
 	_hold.add_child(_tip)
 
-## the fly's length (model units; the chameleon's head is ~0.15)
-const FLY_LEN := 0.1
-var _wings: Array[Node3D] = []
-var _wing_ph := 0.0
+## (26.11) the prey: a banded demoiselle — the amber's scan (assets/specimen/insects), its four wings beating in the
+## fungi shader (flap*: what lies out from the thorax turns about its hinge, the hind pair a little ahead of the fore)
+const PREY := "res://assets/specimen/insects/dragonfly_demoiselle"
+const PREY_LEN := 0.24
+var _flap_ph := 0.0
+var _flap_k := 0.85
+var _prey_mat: ShaderMaterial
 var _path: Array[Vector3] = []
 var _seg := 0
 var _seg_t := 0.0
 var _nose := Vector3.LEFT
-const DART := 0.38
-const HOVER := [0.2, 0.55]
+const DART := 0.42
+const HOVER := [0.25, 0.6]
 var _hover_for := 0.3
+var _tumble := Vector3.UP
+var _jerk := 0.0
+var _tmesh: ImmediateMesh
 
-static var _wing_tex: ImageTexture
-
-## (26.11) a bluebottle: dark head with big red eyes, a grey bristly thorax, a metallic blue-green belly, six legs, two
-## clear veined wings. Its own axes: +x its nose, +y its back
+## its own axes: +x its nose, +y its back (the scan lies head to -x: turned round)
 func _build_fly() -> Node3D:
 	var f := Node3D.new()
-	var body := Node3D.new()
-	body.scale = Vector3.ONE * FLY_LEN
-	f.add_child(body)
-	var dark := StandardMaterial3D.new()
-	dark.albedo_color = Color(0.05, 0.05, 0.06)
-	dark.roughness = 0.6
-	var thor := StandardMaterial3D.new()
-	thor.albedo_color = Color(0.16, 0.16, 0.15)
-	thor.roughness = 0.85
-	var belly := StandardMaterial3D.new()
-	belly.albedo_color = Color(0.04, 0.2, 0.3)
-	belly.metallic = 0.75
-	belly.roughness = 0.22
-	var eye := StandardMaterial3D.new()
-	eye.albedo_color = Color(0.5, 0.07, 0.03)
-	eye.roughness = 0.28
-	var ball := SphereMesh.new()
-	ball.radius = 0.5
-	ball.height = 1.0
-	ball.radial_segments = 14
-	ball.rings = 8
-	var parts := [
-		[Vector3(0.38, 0.32, 0.34), Vector3(0.05, 0.0, 0.0), thor],
-		[Vector3(0.46, 0.3, 0.36), Vector3(-0.36, -0.04, 0.0), belly],
-		[Vector3(0.2, 0.28, 0.34), Vector3(0.36, -0.01, 0.0), dark],
-		[Vector3(0.16, 0.24, 0.15), Vector3(0.4, 0.02, 0.11), eye],
-		[Vector3(0.16, 0.24, 0.15), Vector3(0.4, 0.02, -0.11), eye],
-	]
-	for pt in parts:
-		var mi := MeshInstance3D.new()
-		mi.mesh = ball
-		mi.material_override = pt[2]
-		mi.scale = pt[0]
-		mi.position = pt[1]
-		body.add_child(mi)
-	# legs: two joints each, out and down from under the thorax
-	var stick := CylinderMesh.new()
-	stick.top_radius = 0.016
-	stick.bottom_radius = 0.012
-	stick.height = 1.0
-	stick.radial_segments = 5
-	stick.rings = 1
-	for zs in [-1.0, 1.0]:
-		for k in 3:
-			var x0 := 0.16 - 0.14 * k
-			var a := Vector3(x0, -0.12, 0.08 * zs)
-			var b := Vector3(x0 + 0.1 - 0.14 * k, -0.22, 0.3 * zs)
-			var c := Vector3(x0 + 0.16 - 0.24 * k, -0.46, 0.38 * zs)
-			for seg in [[a, b], [b, c]]:
-				var p0: Vector3 = seg[0]
-				var p1: Vector3 = seg[1]
-				var d := p1 - p0
-				var y := d.normalized()
-				var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
-				var mi := MeshInstance3D.new()
-				mi.mesh = stick
-				mi.material_override = dark
-				mi.transform = Transform3D(Basis(x, y * d.length(), x.cross(y)), p0 + d * 0.5)
-				body.add_child(mi)
-	# the wings: on the thorax, swept back; each with a ghost half a beat behind (the blur of a beat too quick to see)
-	if not _wing_tex: _wing_tex = _make_wing_tex()
-	for zs in [-1.0, 1.0]:
-		for ghost in [false, true]:
-			var piv := Node3D.new()
-			piv.position = Vector3(0.1, 0.15, 0.06 * zs)
-			piv.set_meta("side", zs)
-			piv.set_meta("ghost", ghost)
-			body.add_child(piv)
-			var wm := StandardMaterial3D.new()
-			wm.albedo_texture = _wing_tex
-			wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			wm.cull_mode = BaseMaterial3D.CULL_DISABLED
-			wm.roughness = 0.15
-			wm.metallic = 0.3
-			wm.albedo_color = Color(1, 1, 1, 0.45 if ghost else 1.0)
-			var pm := PlaneMesh.new()
-			pm.size = Vector2(0.78, 0.3)
-			var mi := MeshInstance3D.new()
-			mi.mesh = pm
-			mi.material_override = wm
-			var sweep := 0.5
-			var d := Vector3(-cos(sweep), 0.0, sin(sweep) * zs)
-			# (the plane's x — its texture's length — laid along d, root at the pivot)
-			mi.transform = Transform3D(Basis(Vector3.UP, atan2(-d.z, d.x)), d * 0.39)
-			piv.add_child(mi)
-			_wings.append(piv)
+	var mi := MeshInstance3D.new()
+	mi.mesh = load(PREY + ".obj")
+	_prey_mat = ShaderMaterial.new()
+	_prey_mat.shader = SpecFungi.SHADER
+	_prey_mat.set_shader_parameter("tex_d", load(PREY + "_d.png"))
+	_prey_mat.set_shader_parameter("tex_n", load(PREY + "_n.png"))
+	_prey_mat.set_shader_parameter("gain", 1.25)
+	_prey_mat.set_shader_parameter("back_k", 0.8)
+	# its hinges: along its length, at the thorax's top, the wings out beyond its sides; fore and hind split there
+	_prey_mat.set_shader_parameter("flap_hinge", Vector3(-0.165, 0.1, 0.035))
+	mi.material_override = _prey_mat
+	mi.rotation = Vector3(0, PI, 0)
+	mi.scale = Vector3.ONE * PREY_LEN
+	f.add_child(mi)
 	return f
 
-## a fly's wing: clear, faintly smoky, dark veins running its length, its edge darker
-static func _make_wing_tex() -> ImageTexture:
-	var W := 128
-	var H := 48
-	var im := Image.create(W, H, false, Image.FORMAT_RGBA8)
-	for y in H:
-		for x in W:
-			# x along the wing (0 its root .. 1 its tip), y across it
-			var u := float(x) / (W - 1)
-			var v := float(y) / (H - 1) * 2.0 - 1.0
-			var half := 0.92 * pow(sin(PI * clampf(u * 0.96 + 0.04, 0.0, 1.0)), 0.6) * (0.55 + 0.45 * u)
-			if absf(v) > half or u > 0.99:
-				im.set_pixel(x, y, Color(0, 0, 0, 0))
-				continue
-			var a := 0.22
-			var c := Color(0.82, 0.86, 0.9)
-			# veins: lines along it, bowing toward the tip, and two across
-			for vk in [-0.6, -0.2, 0.15, 0.5]:
-				var line: float = float(vk) * half * (1.0 - 0.3 * u)
-				if absf(v - line) < 0.07: a = 0.8
-			if absf(u - 0.45) < 0.012 or absf(u - 0.7) < 0.012: a = 0.75
-			if absf(v) > half - 0.08: a = maxf(a, 0.6)
-			if a > 0.5: c = Color(0.18, 0.14, 0.1)
-			im.set_pixel(x, y, Color(c.r, c.g, c.b, a))
-	im.generate_mipmaps()
-	return ImageTexture.create_from_image(im)
-
-## its wings beat (too quick to see — every frame about half a beat, a ghost behind)
+## its wings beat: quick, but seen (a demoiselle's flutter), the hind pair leading
 func _beat(dt: float) -> void:
-	_wing_ph += dt * TAU * 27.0
-	for piv in _wings:
-		var zs := float(piv.get_meta("side"))
-		var ph := _wing_ph + (PI if piv.get_meta("ghost") else 0.0)
-		var ang := 0.35 + sin(ph) * 0.85
-		piv.basis = Basis(Vector3.RIGHT, -ang * zs)
+	_flap_ph += dt * TAU * 11.0
+	_prey_mat.set_shader_parameter("flap", _flap_k)
+	_prey_mat.set_shader_parameter("flap_ph", fmod(_flap_ph, TAU * 100.0))
 
 ## the fly's way: from behind the stone (out of sight), out past its edge on the chameleon's side, a dart near it,
 ## then to `spot` by its head (all in the chameleon's own space)
@@ -665,19 +568,56 @@ func _fly_path(spot: Vector3) -> void:
 	_nose = (_path[1] - _path[0]).normalized()
 
 
-func _tongue_to(from: Vector3, at: Vector3) -> void:
-	var d := at - from
-	var L := d.length()
+## the tongue: a tube from `from` to `at`, bowed toward `bend` (a quadratic curve), thick at its root and thinner on to
+## its club of a tip — rebuilt each frame
+func _tongue_to(from: Vector3, at: Vector3, bend := Vector3.ZERO) -> void:
+	var L := (at - from).length()
 	_tongue.visible = L > 0.01
 	_tip.visible = L > 0.01
 	if L <= 0.01: return
-	var y := d / L
-	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
-	var z := x.cross(y)
-	_tongue.transform = Transform3D(Basis(x, y * L, z), from + d * 0.5)
+	var ctl := (from + at) * 0.5 + bend
+	const SEG := 14
+	const SIDES := 8
+	var pts: Array[Vector3] = []
+	var tans: Array[Vector3] = []
+	for i in SEG + 1:
+		var s := float(i) / SEG
+		var a := from.lerp(ctl, s)
+		var b := ctl.lerp(at, s)
+		pts.append(a.lerp(b, s))
+		tans.append((b - a).normalized() if (b - a).length() > 0.0001 else (at - from).normalized())
+	_tmesh.clear_surfaces()
+	_tmesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ref := Vector3.UP if absf(tans[0].y) < 0.9 else Vector3.RIGHT
+	var rings: Array = []
+	for i in SEG + 1:
+		var t := tans[i]
+		var x := ref.cross(t).normalized()
+		var y := t.cross(x)
+		var s := float(i) / SEG
+		var r := lerpf(0.017, 0.009, s) * (1.0 + 0.12 * sin(s * 9.0 + _sway * 20.0) * s)
+		var ring: Array = []
+		for k in SIDES:
+			var an := TAU * k / SIDES
+			var n := x * cos(an) + y * sin(an)
+			ring.append([pts[i] + n * r, n])
+		rings.append(ring)
+	for i in SEG:
+		for k in SIDES:
+			var k2 := (k + 1) % SIDES
+			for q in [[i, k], [i + 1, k], [i + 1, k2], [i, k], [i + 1, k2], [i, k2]]:
+				var v: Array = rings[q[0]][q[1]]
+				_tmesh.surface_set_normal(v[1])
+				_tmesh.surface_add_vertex(v[0])
+	_tmesh.surface_end()
 	_tip.position = at
+	_tip.basis = Basis(SpecUtil.quat_to(Vector3.UP, tans[SEG])).scaled(Vector3(1.0, 0.8, 1.0))
 
-## the hunt: a fly comes buzzing out from behind the stone, by its head; the head snaps round to it, away from the viewer — its
+## world's down, in the chameleon's space
+func _down() -> Vector3:
+	return (_hold.global_basis.inverse() * Vector3.DOWN).normalized()
+
+## the hunt: a demoiselle comes out from behind the stone, by its head; the head snaps round to it, away from the viewer — its
 ## mouth out of sight — and the tongue shoots out from behind the head and takes it
 func _hunting(dt: float) -> void:
 	_ht += dt
@@ -719,23 +659,50 @@ func _hunting(dt: float) -> void:
 				_ht = 0.0
 				Sfx.play("click")
 		3:
-			var k := clampf(_ht / 0.09, 0.0, 1.0)
-			_tongue_to(mouth, mouth.lerp(_bug_at, k))
+			# out in a blink, a little past it, and back onto it — it sticks; the head jolts with the hit
+			var reach := 0.0
+			if _ht < 0.07:
+				reach = 1.0 - pow(1.0 - _ht / 0.07, 3.0)
+				reach *= 1.06
+			else:
+				var u := (_ht - 0.07) / 0.09
+				reach = 1.0 + 0.06 * exp(-u * 3.0) * cos(u * 9.0)
+				if _prey.get_meta("stuck", false) == false:
+					_prey.set_meta("stuck", true)
+					_jerk = 0.16
+					_flap_k = 1.3
+					Sfx.buzz(20)
+					Sfx.play("click")
+			var d := _bug_at - mouth
+			var side := d.cross(_head_up).normalized()
+			var bend := side * sin(clampf(_ht / 0.07, 0.0, 1.0) * PI) * 0.03 * d.length()
+			_tongue_to(mouth, mouth + d * reach, bend)
+			if _prey.get_meta("stuck", false): _prey.position = mouth + d * reach
 			if _ht > 0.2:
 				_hunt = 4
 				_ht = 0.0
-				Sfx.buzz(20)
+				_tumble = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()
 		4:
-			var k := 1.0 - clampf(_ht / 0.28, 0.0, 1.0)
-			var tip := mouth.lerp(_bug_at, k)
-			_tongue_to(mouth, tip)
+			# reeled in: slow to start, then a snap; the tongue sags and wavers, the catch tumbles on its tip
+			var u := clampf(_ht / 0.36, 0.0, 1.0)
+			var reach := 1.0 - pow(u, 2.3)
+			var d := _bug_at - mouth
+			var L := d.length() * reach
+			var side := d.cross(_head_up).normalized()
+			var bend := _down() * 0.09 * L * sin(u * PI + 0.4) + side * 0.05 * L * sin(u * 16.0) * (1.0 - u)
+			var tip := mouth + d * reach
+			_tongue_to(mouth, tip, bend)
 			_prey.position = tip
-			_prey.scale = Vector3.ONE * (0.4 + 0.6 * k)
-			if k <= 0.0:
+			_prey.basis = _prey.basis.rotated(_tumble, dt * 9.0 * (0.4 + u)).orthonormalized()
+			_prey.scale = Vector3.ONE * (1.0 if reach > 0.25 else lerpf(0.35, 1.0, reach / 0.25))
+			if u >= 1.0:
 				_tongue.visible = false
 				_tip.visible = false
 				_prey.visible = false
 				_prey.scale = Vector3.ONE
+				_prey.set_meta("stuck", false)
+				_flap_k = 0.85
+				_jerk = 0.08
 				_hunt = 5
 				_ht = 0.0
 		5:
@@ -746,10 +713,10 @@ func _hunting(dt: float) -> void:
 				_hwait = randf_range(10.0, 18.0)
 				_head_next = 0.0
 	if _prey.visible: _beat(dt)
-	if _hunt in [1, 2, 3]:
-		# buzzing: a quick small jitter about where it is, its nose along its last dart
+	if _hunt in [1, 2] or (_hunt == 3 and not _prey.get_meta("stuck", false)):
+		# hanging in the air: a small bob with its wingbeat, its nose along its last dart
 		var t := _sway
-		var j := Vector3(sin(t * 31.0), sin(t * 23.0 + 1.0), sin(t * 27.0 + 2.0)) * 0.004
+		var j := Vector3(sin(t * 3.1), sin(_flap_ph) * 0.6 + sin(t * 2.3 + 1.0), sin(t * 2.7 + 2.0)) * 0.006
 		_prey.position = _bug_at + j
 		var up := _head_up
 		var xv := _nose - up * _nose.dot(up)
