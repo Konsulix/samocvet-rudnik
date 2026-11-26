@@ -1041,6 +1041,10 @@ func _size_back() -> void:
 		if ds[i] is Control and is_instance_valid(_halo[i]) and _halo[i] is Control:
 			(ds[i] as Control).position = (_halo[i] as Control).position - card.position + Vector2.ONE * HP
 			(ds[i] as Control).size = (_halo[i] as Control).size
+			# (26.11: a strip of glow hung under the turned card) the glow's panels follow the card's size by its
+			# `resized` — their copies do not: the card had grown shorter since they were copied
+			for ch in ds[i].get_children():
+				if ch is Control: (ch as Control).size = card.size
 
 func _turn(dt: float) -> void:
 	if not is_instance_valid(_bshow): return
