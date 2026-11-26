@@ -695,16 +695,21 @@ void fragment() {
 		float orr = h3(oid + 5.3);
 		vec3 ogd = normalize(vec3(h3(oid + 11.0), h3(oid + 13.0), h3(oid + 17.0)) - 0.5);
 		float oang = dot(n, ogd) + edge_k * 0.6;
-		float olit = smoothstep(0.45, 0.95, sin(oang * 6.0 + orr * 20.0 + TIME * 0.15) * 0.5 + 0.5);
+		// (26.11: pale on a light stone, a legend that did not look one) more of the patches lit at a time, deeper
+		// colour, and the body under them darkened toward a black opal's — the fire burns on dark
+		float olit = smoothstep(0.3, 0.9, sin(oang * 6.0 + orr * 20.0 + TIME * 0.15) * 0.5 + 0.5);
 		float oband = 0.85 + 0.15 * sin(dot(oq, ogd) * 7.0 + oang * 10.0);
 		float ohue = 0.62 + (orr - 0.5) * 0.9 + oang * 0.12;
 		vec3 ocol = 0.5 + 0.5 * cos(6.2832 * (ohue + vec3(0.0, 0.33, 0.67)));
 		ocol = ocol * ocol;   // (deep, not pastel)
-		float oon = step(0.3, h3(oid + 23.0)) * smoothstep(0.0, 0.012, od2 - od1);
-		body += ocol * olit * oband * oon * opal_k * 1.4;
+		float oon = step(0.14, h3(oid + 23.0)) * smoothstep(0.0, 0.012, od2 - od1);
+		body *= 1.0 - 0.9 * min(opal_k, 1.0);
+		body += ocol * olit * oband * oon * opal_k * 1.7;
 	}
 	// (a night sky inside clears the milk: it would wash the stars out)
 	milk *= 1.0 - 0.85 * star_k;
+	// (nor does a play of colour want milk over it)
+	milk *= 1.0 - 0.8 * min(opal_k, 1.0);
 	// (a deep-coloured body clouds in its own colour, not to white)
 	vec3 tbm = tint0 / max(0.001, max(tint0.r, max(tint0.g, tint0.b)));
 	float dpk = min(deep_k, 1.0) * step(0.001, tint_k);
