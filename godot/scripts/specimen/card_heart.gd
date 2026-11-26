@@ -9,7 +9,8 @@ extends Control
 ##  - the beat goes through the card: the stone's own lub-dub (Spec.beat), the card itself starting ever so slightly,
 ##    its badges, figures and buttons each in turn as the wave reaches it; a dull double thud, quietly;
 ##  - the heart is calm — a slow beat, a long rest. Shake the stone (the phone; or flick it hard round) and it races
-##    (Spec.heart_rush), the phone beating along, and settles again over some ten seconds.
+##    (Spec.heart_rush) and settles again over some ten seconds. The phone beats along all the while: faintly at rest,
+##    harder while it races.
 
 const SPEED := 520.0          # the wave over the card, points a second
 const HN := 48                # the beat's past, kept for the wave: this many samples
@@ -154,17 +155,17 @@ func _process(dt: float) -> void:
 		var b := _beat_ago(at.distance_to(src) / SPEED) * _k
 		c.pivot_offset = c.size / 2.0
 		c.scale = Vector2.ONE * (1.0 + (0.035 if c is Button else 0.06) * b)
-	# the thud, and the phone's own beat (while it races, and for the first few beats after the card opens): on the lub
-	# and, softer, on the dub
+	# the thud, and the phone's own beat: on the lub and, softer, on the dub
 	var ht := Spec.heart_t
 	if shown and _k > 0.5:
-		var buzz := Spec.heart_rush > 0.12 or _beats < 3
+		# (26.11, asked: always, only faint) the phone beats along all the while — faintly at rest, harder while it races
+		var hard := Spec.heart_rush > 0.12
 		var dub := 0.07 + Spec.heart_gap
 		if _last_t < 0.05 and ht >= 0.05:
 			_beats += 1
 			Sfx.play("heart_lub")
-			if buzz: Sfx.buzz(16)
+			Sfx.buzz(16 if hard else 7)
 		elif _last_t < dub - 0.02 and ht >= dub - 0.02:
 			Sfx.play("heart_dub")
-			if buzz: Sfx.buzz(8)
+			Sfx.buzz(8 if hard else 4)
 	_last_t = ht
