@@ -460,6 +460,27 @@ func _ready() -> void:
 			Save.d.coll.append(st)
 			k += 1
 		Save.persist()
+	if args.has("cham_inv"):
+		# test data: the chameleon legend, live on its twig and its skeleton on a skull (CardChameleon): `-- save=chams
+		# screen=stones cham_inv`; marked test, the old ones replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("cham_inv", false))
+		for skull in [false, true]:
+			var st := Stones.roll(301, 0, 0.8, 1)
+			st.sid = "amethyst"
+			st.kind = "crystal"
+			if skull: st.form = "skull"
+			st.legend = true
+			st.fx = "chameleon"
+			st.tier = 4
+			st.integ = 100
+			st.area = 0
+			st.dl = 1
+			st.id = Save.next_uid()
+			st.value = Stones.price(st, 0, 1)
+			st.test = true
+			st.cham_inv = true
+			Save.d.coll.append(st)
+		Save.persist()
 	if args.has("kin_inv"):
 		# test data: a kintsugi amethyst and four broken stones for it to mend (CardKintsugi): `-- save=kin screen=stones
 		# kin_inv ui=open_n card=0 ui_after=2`; marked test, the old ones replaced
