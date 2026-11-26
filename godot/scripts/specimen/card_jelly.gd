@@ -24,7 +24,7 @@ const STAY := [7.0, 11.0]     # how long it stays out
 ## the halo's strength (26.11: dense in the stone, faint on the card — on the card the layer's tone curve, on black,
 ## crushes faint light that in the stone sits on its lit haze): light in the stone, and as much again on the card
 static var HALO_STONE := 0.5
-static var HALO_CARD := 1.5
+static var HALO_CARD := 1.0
 const STONE_JELLY := 1 << 18  # the stone's jellies' visual layer (the silhouette mask leaves them out)
 
 static var test_every := 0.0  # a test key (-- jelly_every=S): one swims out every S s
@@ -306,7 +306,7 @@ func _send_one(j: Node3D) -> void:
 		sm = sm.duplicate() as ShaderMaterial
 		(mi as MeshInstance3D).material_override = sm
 		mats.append(sm)
-		if int(sm.get_shader_parameter("part")) == 4: sm.set_shader_parameter("halo_k", HALO_CARD)
+		if int(sm.get_shader_parameter("part")) == 4: sm.set_shader_parameter("halo_k", 0.0)
 		if int(sm.get_shader_parameter("part")) == 0:
 			var v: Vector3 = sm.get_shader_parameter("col")
 			col = Color(v.x, v.y, v.z)
@@ -377,8 +377,35 @@ func _swim_to(j: Node3D, to: Vector3, dt: float, end_basis = null) -> bool:
 	j.global_transform = Transform3D(Basis(cur).scaled(sc), p)
 	return dist < sc.x * 0.04
 
+## a stone jelly's halo strength
+static func _halo(j: Node3D, k: float) -> void:
+	for mi in j.find_children("*", "MeshInstance3D", true, false):
+		var m := (mi as MeshInstance3D).material_override as ShaderMaterial
+		if m and int(m.get_shader_parameter("part")) == 4: m.set_shader_parameter("halo_k", k)
+
+## does the stone's silhouette (the mask: the find unshaded by the stone's camera) cover this jelly's bell and tentacles?
+## (read back from the GPU — only now and then, while one is behind the stone about to come out)
+var _mask_img: Image
+var _mask_at := -1.0
+func _mask_hides(j: Node3D) -> bool:
+	if _t - _mask_at > 0.12 or not _mask_img:
+		_mask_at = _t
+		_mask_img = _mvp.get_texture().get_image()
+	if not _mask_img or _mask_img.get_width() < 2: return false
+	var mid := _depth(find.global_transform * _find_mid())
+	var off := view.get_global_rect().position - card.get_global_rect().position
+	var ms := Vector2(_mask_img.get_size())
+	for lp: Vector3 in HIDE_PTS:
+		var w := j.global_transform * lp
+		if _depth(w) < mid: return false
+		var v := (_on_card(w) - off) / view.size * ms
+		if v.x < 0.0 or v.y < 0.0 or v.x >= ms.x or v.y >= ms.y: return false
+		if _mask_img.get_pixelv(Vector2i(v)).a < 0.08: return false
+	return true
+
 ## a stone jelly back on its orbit, at its place
 static func _to_slot(j: Node3D) -> void:
+	_halo(j, HALO_STONE)
 	j.top_level = false
 	j.transform = j.get_meta("slot")
 	j.visible = true
@@ -415,8 +442,8 @@ func _depth(world: Vector3) -> float:
 ## the stone hides this jelly now: farther than its middle and over it on the card, well in — not only its bell's middle
 ## (26.11: its rim, tentacles and halo could stick out past the stone): its bell's rim all round, its halo's edge and its
 ## tentacles' reach, all inside the stone's box, which is itself shrunk (the stone is no box)
-const HIDE_PTS := [Vector3(0, 0.3, 0), Vector3(0.75, 0.25, 0), Vector3(-0.75, 0.25, 0), Vector3(0, 0.25, 0.75),
-	Vector3(0, 0.25, -0.75), Vector3(0, 0.95, 0), Vector3(0, -1.2, 0), Vector3(0.5, -0.8, 0), Vector3(-0.5, -0.8, 0)]
+const HIDE_PTS := [Vector3(0, 0.3, 0), Vector3(0.62, 0.15, 0), Vector3(-0.62, 0.15, 0), Vector3(0, 0.15, 0.62),
+	Vector3(0, 0.15, -0.62), Vector3(0, 0.66, 0), Vector3(0, -1.0, 0), Vector3(0.4, -0.7, 0), Vector3(-0.4, -0.7, 0)]
 func _hidden(j: Node3D, sr: Rect2) -> bool:
 	if sr.size.x < 4.0: return false
 	var mid := _depth(find.global_transform * _find_mid())
@@ -550,9 +577,16 @@ func _process(dt: float) -> void:
 		if not is_instance_valid(j):
 			_leave.erase(id)
 			continue
-		j.set_meta("trip_t", float(j.get_meta("trip_t")) + dt)
+		var tt := float(j.get_meta("trip_t")) + dt
+		j.set_meta("trip_t", tt)
 		_swim_to(j, bp, dt)
-		if _hidden(j, _sr) or float(j.get_meta("trip_t")) > 6.0:
+		# its halo fades as it goes in (the halo is wider than the stone: it could not be hidden; the copy's grows
+		# once it is out — 26.11: the change-over showed as a halo jumping denser)
+		_halo(j, HALO_STONE * (1.0 - smoothstep(0.0, 1.0, tt)))
+		# (26.11: the stone's box said «hidden» beside the crystal's narrow top) it changes over only behind the stone's
+		# middle and when the stone's own silhouette (the mask) covers its bell and tentacles
+		var near := j.global_position.distance_to(bp) < _find_r() * 0.2
+		if (near and tt > 1.0 and _mask_hides(j)) or tt > 8.0:
 			_leave.erase(id)
 			_send_one(j)
 	# the stone's jellies home: from behind the stone back out to their places on their orbits
@@ -563,6 +597,7 @@ func _process(dt: float) -> void:
 			continue
 		var slot: Transform3D = (j.get_parent() as Node3D).global_transform * (j.get_meta("slot") as Transform3D)
 		j.set_meta("trip_t", float(j.get_meta("trip_t")) + dt)
+		_halo(j, HALO_STONE * smoothstep(0.6, 1.8, float(j.get_meta("trip_t"))))
 		if _swim_to(j, slot.origin, dt, slot.basis) or float(j.get_meta("trip_t")) > 8.0:
 			_home.erase(id)
 			_to_slot(j)
@@ -649,6 +684,12 @@ func _process(dt: float) -> void:
 			var dh := pos.distance_to(sr.get_center())
 			o.shrink = minf(float(o.shrink), clampf((dh - minf(sr.size.x, sr.size.y) * 0.3) / 80.0, 0.0, 1.0))
 			sz = lerpf(float(o.size0), sz, float(o.shrink))
+		# its halo: none under the stone, growing once out, gone again home under it
+		var hk := float(o.get("hk", 0.0))
+		hk = clampf(hk + dt / (1.2 if not (bool(o.under) or bool(o.home)) else -0.5), 0.0, 1.0)
+		o.hk = hk
+		for m: ShaderMaterial in o.mats:
+			if int(m.get_shader_parameter("part")) == 4: m.set_shader_parameter("halo_k", HALO_CARD * smoothstep(0.0, 1.0, hk))
 		# out from under the stone: past its silhouette, into the layer over the card
 		if bool(o.under) and not bool(o.home) and not sr.grow(size * 0.5).has_point(pos):
 			o.under = false
@@ -690,6 +731,7 @@ func _process(dt: float) -> void:
 			j.global_transform = Transform3D(cb.orthonormalized().scaled(j.global_basis.get_scale()), _behind_pt())
 			j.visible = true
 			j.set_meta("trip_t", 0.0)
+			_halo(j, 0.0)
 			_home[j.get_instance_id()] = j
 		(o.node as Node3D).queue_free()
 		_out.remove_at(gone[i])
@@ -702,20 +744,9 @@ func _process(dt: float) -> void:
 	_rectb.visible = any_b
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any else SubViewport.UPDATE_DISABLED
 	_vpb.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
-	_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if any_b else SubViewport.UPDATE_DISABLED
-	if any:
-		var full := card.size + Vector2.ONE * MARGIN * 2.0
-		_rect.position = -Vector2.ONE * MARGIN
-		_rect.size = full
-		_vp.size = Vector2i(full * PX)
-		_cam.size = full.y
-	if any_b:
-		_rectb.position = _rect.position
-		_rectb.size = _rect.size
-		if _vpb.size != _vp.size: _vpb.size = _vp.size
-		var camb := _vpb.get_camera_3d()
-		camb.size = _cam.size
-		camb.global_transform = _cam.global_transform
+	var need_m := any_b or not _leave.is_empty()
+	_mvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if need_m else SubViewport.UPDATE_DISABLED
+	if need_m:
 		var sc: Camera3D = (view.studio as SpecStudio).cam
 		_mcam.global_transform = sc.global_transform
 		_mcam.projection = sc.projection
@@ -729,6 +760,19 @@ func _process(dt: float) -> void:
 		var svp: SubViewport = (view.studio as SpecStudio).vp
 		var ms := Vector2i(maxi(2, svp.size.x / 2), maxi(2, svp.size.y / 2))
 		if _mvp.size != ms: _mvp.size = ms
+	if any:
+		var full := card.size + Vector2.ONE * MARGIN * 2.0
+		_rect.position = -Vector2.ONE * MARGIN
+		_rect.size = full
+		_vp.size = Vector2i(full * PX)
+		_cam.size = full.y
+	if any_b:
+		_rectb.position = _rect.position
+		_rectb.size = _rect.size
+		if _vpb.size != _vp.size: _vpb.size = _vp.size
+		var camb := _vpb.get_camera_3d()
+		camb.size = _cam.size
+		camb.global_transform = _cam.global_transform
 		var bm := _rectb.material as ShaderMaterial
 		var vr := Rect2(view.global_position - _rectb.global_position, view.size)
 		bm.set_shader_parameter("view_rect", Vector4(vr.position.x, vr.position.y, vr.size.x, vr.size.y))
