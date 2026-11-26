@@ -503,6 +503,25 @@ func _ready() -> void:
 			st.cham_inv = true
 			Save.d.coll.append(st)
 		Save.persist()
+	if args.has("fx_inv"):
+		# test data: a stone with this living effect in the inventory: `-- save=fx screen=stones fx_inv=jellyfish`; marked
+		# test, the old ones replaced
+		Save.d.coll = Save.d.coll.filter(func(c: Dictionary) -> bool: return not c.get("fx_inv", false))
+		var fst := Stones.roll(301, 0, 0.8, 1)
+		fst.sid = "amethyst"
+		fst.kind = "crystal"
+		fst.legend = true
+		fst.fx = String(args.fx_inv)
+		fst.tier = 4
+		fst.integ = 100
+		fst.area = 0
+		fst.dl = 1
+		fst.id = Save.next_uid()
+		fst.value = Stones.price(fst, 0, 1)
+		fst.test = true
+		fst.fx_inv = true
+		Save.d.coll.append(fst)
+		Save.persist()
 	if args.has("kin_inv"):
 		# test data: a kintsugi amethyst and four broken stones for it to mend (CardKintsugi): `-- save=kin screen=stones
 		# kin_inv ui=open_n card=0 ui_after=2`; marked test, the old ones replaced
