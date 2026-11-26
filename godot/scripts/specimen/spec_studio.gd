@@ -130,6 +130,24 @@ func _light(c: Color, e: float, at: Vector3) -> DirectionalLight3D:
 ## the night sky with the northern lights behind the stone (SpecPolar.borealis: meta "aurora"; shaders/aurora_sky):
 ## a card on the camera in front of the haze, the stone turning before it
 var _aurora: MeshInstance3D
+## a meteor shower behind the find (the starry sky's stone: SpecView, by the find's meta "starry")
+var _meteors: MeshInstance3D
+func set_meteors(on: bool) -> void:
+	if on == (_meteors != null and _meteors.visible): return
+	if on and not _meteors:
+		_meteors = MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(80, 80)
+		_meteors.mesh = q
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://shaders/meteor_sky.gdshader")
+		_meteors.material_override = m
+		_meteors.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_meteors.position = Vector3(0, 0, -38.5)
+		_meteors.layers = BACKDROP
+		cam.add_child(_meteors)
+	if _meteors: _meteors.visible = on
+
 func set_aurora(on: bool, seed_v := 0.0) -> void:
 	if _aurora and on: (_aurora.material_override as ShaderMaterial).set_shader_parameter("seed", seed_v)
 	if on == (_aurora != null and _aurora.visible): return
@@ -219,7 +237,7 @@ static func seat(g: Node3D) -> Node3D:
 	pivot.set_meta("glow", g.get_meta("glow", Color(0.2, 0.27, 0.33)))
 	if g.has_meta("anim"):
 		pivot.set_meta("anim", g.get_meta("anim"))
-	for k in ["fluor", "fluor_col", "heart_light", "grown", "dim", "dark", "face", "sway", "mass", "alex", "sprout", "glow", "sprout_col", "frost", "aurora", "levitate"]:
+	for k in ["fluor", "fluor_col", "starry", "heart_light", "grown", "dim", "dark", "face", "sway", "mass", "alex", "sprout", "glow", "sprout_col", "frost", "aurora", "levitate"]:
 		if g.has_meta(k):
 			pivot.set_meta(k, g.get_meta(k))
 	return pivot

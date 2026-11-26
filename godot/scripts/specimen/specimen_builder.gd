@@ -1710,6 +1710,7 @@ func _specimen(o: Dictionary) -> Node3D:
 			SpecLegend.lightning(main, rng)
 			if main and main.material_override != mat and mat in dt_mats: dt_mats.append(main.material_override)
 		"lava": SpecLegend.lava(root, st.rock if st.rock else main)
+		"starry": root.set_meta("starry", true)   # (a meteor shower behind it on its card: SpecStudio.set_meteors)
 		"fluor":
 			# nuggets, veins, kidneys, geodes and metal crystals build their own materials: light up every mineral,
 			# but not the host rock

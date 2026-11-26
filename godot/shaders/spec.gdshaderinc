@@ -670,11 +670,14 @@ void fragment() {
 			float on = step(0.8 + fl * 0.04, h);
 			float sz = (0.21 - fl * 0.05) * (0.7 + 0.6 * h3(cell + 1.7));
 			float core = 1.0 - smoothstep(sz * 0.3, sz, d);
-			float glow = exp(-d / (sz * 1.6)) * 0.35;
+			// (26.11: «little squares» — a star's glow and its cross were cut off at its cell's faces) both die away
+			// inside the cell
+			float win = 1.0 - smoothstep(0.16, 0.25, max(abs(dv.x), max(abs(dv.y), abs(dv.z))));
+			float glow = exp(-d / (sz * 1.6)) * 0.35 * win;
 			// the brightest near stars throw a cross of light
 			float cross = L == 0 && h > 0.95 ? exp(-abs(dv.x) / 0.02) * exp(-abs(dv.y) / 0.25) + exp(-abs(dv.y) / 0.02) * exp(-abs(dv.x) / 0.25) : 0.0;
 			vec3 sc = mix(vec3(1.0, 0.92, 0.8), vec3(0.75, 0.85, 1.0), h3(cell + 2.3));
-			body += sc * on * (core * 4.0 + glow + cross) * tw * star_k;
+			body += sc * on * (core * 4.0 + glow + cross * win) * tw * star_k;
 		}
 	}
 	if (opal_k > 0.0) {

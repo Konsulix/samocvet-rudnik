@@ -43,8 +43,14 @@ void fragment() {
 	vec3 sky = mix(vec3(0.02, 0.035, 0.09), vec3(0.006, 0.01, 0.03), down);
 	float across = dot(p - vec2(card.x * 0.5, rim_bot + (card.y - rim_bot) * 0.45), normalize(vec2(0.35, 1.0)));
 	float way = exp(-pow(across / 38.0, 2.0)) * (0.45 + 0.75 * vn(p / 26.0 + seed));
-	sky += vec3(0.1, 0.11, 0.17) * way * 0.55;
+	// (26.11: hardly seen) the band clear, a little violet in it, darker lanes through it
+	float lane = smoothstep(0.35, 0.6, vn(p / 15.0 + seed + 9.0));
+	sky += mix(vec3(0.16, 0.13, 0.26), vec3(0.13, 0.17, 0.26), vn(p / 40.0 + seed)) * way * (0.5 + 0.7 * lane);
 	float s = stars(p, 7.0, 0.16 + 0.3 * way, 0.9) * 0.55 + stars(p + 31.0, 15.0, 0.3, 1.5) * 0.85 + stars(p + 77.0, 41.0, 0.45, 2.3);
-	vec3 col = sky + vec3(0.92, 0.95, 1.0) * s;
+	// a few of the big ones coloured: warm, or blue
+	vec2 bc = floor((p + 77.0) / 41.0 + seed);
+	vec3 tint = mix(vec3(1.0, 0.8, 0.6), vec3(0.65, 0.8, 1.0), step(0.5, h2(bc + 29.0)));
+	float big = stars(p + 77.0, 41.0, 0.45, 2.3);
+	vec3 col = sky + vec3(0.92, 0.95, 1.0) * (s - big) + tint * big * 1.2;
 	COLOR = vec4(col, clamp(0.86 + s, 0.0, 1.0) * inside * k);
 }

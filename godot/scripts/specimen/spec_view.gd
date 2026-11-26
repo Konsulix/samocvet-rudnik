@@ -352,6 +352,7 @@ func _process(dt: float) -> void:
 	# a fluorescent find: the studio goes dark in step with its glow; a star heart dims it a little
 	studio.set_aurora(live != null and live.has_meta("aurora"), float(live.get_meta("aurora", 0.0)) if live else 0.0)
 	if live and live.has_meta("aurora"): _hide_curtain()
+	studio.set_meteors(live != null and live.has_meta("starry") and not studio.vp.transparent_bg)
 	studio.set_uv(Spec.uv if live and live.has_meta("fluor") else 0.75 if live and live.has_meta("dark") else 0.4 if live and (live.has_meta("heart_light") or live.has_meta("dim")) else 0.0)
 	if live and live.has_meta("heart_light"):
 		var hl: OmniLight3D = live.get_meta("heart_light")
