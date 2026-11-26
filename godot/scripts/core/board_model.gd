@@ -1287,6 +1287,9 @@ func setup(level_n: int, pre: Array = [], dl: int = 0, eq: Dictionary = {}, area
 			while String(stone.sid) == "pyrite" and not Save.told("s_sister_meet") and tries < 40:
 				stone = Stones.roll(Save.next_uid(), area, (0.6 if hard else 0.2) + dl * 0.35, dl, due)
 				tries += 1
+			# (26.11) the first sure legendary is the living lightning (Stones.first_legend)
+			if due and stone.get("legend", false) and not Save.d.get("leg_any", false):
+				stone = Stones.first_legend(stone, area, (0.6 if hard else 0.2) + dl * 0.35, dl)
 			# the collector's luck: after a run of finds with nothing new for a collection begun, one that brings a piece
 			if first == null and Save.told("s_sister_meet"):
 				stone = Awards.pity_roll(stone, area, (0.6 if hard else 0.2) + dl * 0.35, dl)

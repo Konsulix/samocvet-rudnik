@@ -26,7 +26,8 @@ const CAL := {
 }
 
 ## the stones the old man gives and the first one dug up are the game's own (Stones.PICKED), as in a real start
-static func career(to_area: int, seed_v := 1) -> Dictionary:
+## cap_wins > 0 (26.11, the admin's «24 wins»): Old Adit only, played till that many wins — no boss, nothing after
+static func career(to_area: int, seed_v := 1, cap_wins := 0) -> Dictionary:
 	var t0 := Time.get_ticks_msec()
 	var keep_prefs := {}
 	for k in ["mute", "no_music", "no_buzz", "gem_style", "ore_look", "lock_style", "zone_style", "prof"]:
@@ -45,7 +46,11 @@ static func career(to_area: int, seed_v := 1) -> Dictionary:
 	_take(gift, 0, 0, true, log)
 	Save.tell("gift_got")
 	for a in to_area:
-		var m := _mine(a, rng, log)
+		var m := _mine(a, rng, log, cap_wins)
+		if cap_wins > 0:
+			log.mines.append(m)
+			_claim_all(log)
+			break
 		log.mines.append(m)
 		_claim_all(log)
 		if a + 1 < Data.AREAS.size():
@@ -67,7 +72,7 @@ static func career(to_area: int, seed_v := 1) -> Dictionary:
 	return log
 
 ## one mine played through: levels at its deepest open depth till every job is built and the last depth dug, then its boss
-static func _mine(a: int, rng: RandomNumberGenerator, log: Dictionary) -> Dictionary:
+static func _mine(a: int, rng: RandomNumberGenerator, log: Dictionary, cap_wins := 0) -> Dictionary:
 	var A: Dictionary = Data.AREAS[a]
 	var tasks: Array = A.tasks
 	var depths: Array = Data.depths(a)
@@ -77,6 +82,7 @@ static func _mine(a: int, rng: RandomNumberGenerator, log: Dictionary) -> Dictio
 	var guard := 0
 	while guard < 600:
 		guard += 1
+		if cap_wins > 0 and int(m.wins) >= cap_wins: return m
 		_spend(a)
 		var dl := int(Save.d.depth[a])
 		var all_built := tasks.all(func(t: Array) -> bool: return (Save.d.built[a] as Array).has(t[0]))

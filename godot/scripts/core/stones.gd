@@ -208,6 +208,28 @@ static func maiden_gold(seed_id: int) -> Dictionary:
 		return s
 	return roll(seed_id, 0, 3.0, 5)
 
+## (26.11) the first sure legendary (LEGEND_FIRST, the 25th win) is always the living lightning — on a crystal the bolt
+## inside it, on a fulgurite its discharge, on an animal's skull the thunder between its horns: the card it breaks out
+## onto, its price that jumps, the first time a player sees what a living stone is. Not one stone picked: the find is
+## rolled as ever, and only rolled again while its body cannot carry the lightning
+const LIGHTNING := ["lightning", "discharge", "thunder"]
+
+static func first_legend(stone: Dictionary, area: int, luck: float, dl: int) -> Dictionary:
+	for t in 60:
+		var s: Dictionary = stone if t == 0 else roll(Save.next_uid(), area, luck, dl, true)
+		if not s.get("legend", false): continue
+		var want := "lightning"
+		if String(s.sid) == "fulgurite": want = "discharge"
+		elif String(s.get("beast", "")) != "": want = "thunder"
+		s.fx = want
+		var g := SpecGenome.of(Spec.of_stone(s))
+		if String(g.get("fx", "")) in LIGHTNING:
+			s.fx = String(g.fx)
+			s.value = price(s, area, dl)
+			return s
+		s.erase("fx")
+	return stone
+
 static func roll(seed_id: int, area: int, luck: float, dl: int = 0, sure_legend := false) -> Dictionary:
 	var rng := Rng32.new((seed_id * 2246822519) % 4294967296)
 	var entries := []

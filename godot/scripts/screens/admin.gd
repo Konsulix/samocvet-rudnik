@@ -228,6 +228,24 @@ static func open() -> void:
 					main().get_tree().reload_current_scene()],
 				["Cancel", "glass", func(): Ov.close()]])))
 	v.add_child(jr)
+	# (26.11) the first sure legendary: a newcomer's save at 24 wins in Old Adit — the next find is the legendary one
+	var jl := _row()
+	jl.add_child(_btn("24 wins: next find legendary", false, func():
+		Ov.close()
+		Ov.panel("24 wins in Old Adit?", "Your save is replaced: a new player's Old Adit played out to 24 wins (the levels the game would make, kept what is new, sold the rest). The next level's find is the first sure legendary. Put your save by first (below) to come back to it.", [
+			["Start", "green", func():
+				Ov.close()
+				Ov.toast("Playing 24 wins in Old Adit…")
+				await main().get_tree().create_timer(0.2).timeout
+				var lg := Jump.career(1, randi() % 1000 + 1, Stones.LEGEND_FIRST - 1)
+				# (a legendary that fell on its own on the way: the count as if it had not, so the next is the sure one)
+				Save.d.leg_any = false
+				Save.d.leg_lv = Stones.LEGEND_FIRST - 1
+				Save.persist()
+				Diag.note("jump to 24 wins: %d levels, %d won, %d kept, %d sold, %d ms" % [int(lg.levels), int(lg.wins), int(lg.kept), int(lg.sold), int(lg.ms)])
+				main().get_tree().reload_current_scene()],
+			["Cancel", "glass", func(): Ov.close()]])))
+	v.add_child(jl)
 	var pt := _row()
 	pt.add_child(_btn("Put this point by", false, func():
 		Jump.save_point()

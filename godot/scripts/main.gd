@@ -64,6 +64,28 @@ func _ready() -> void:
 		print("JUMP point: area %d, level %d, inventory %d" % [Save.area(), int(Save.d.level), (Save.d.coll as Array).size()])
 		get_tree().quit()
 		return
+	if args.has("first_legend"):
+		# (26.11) the first sure legendary: `-- first_legend=N [area=A]` rolls it N times, prints what came (Stones.first_legend)
+		var fa := int(args.get("area", "0"))
+		var seen := {}
+		for i in int(args.first_legend):
+			var fd := i % 6
+			var fs := Stones.first_legend(Stones.roll(Save.next_uid(), fa, 0.2 + fd * 0.35, fd, true), fa, 0.2 + fd * 0.35, fd)
+			var key := "%s %s %s" % [fs.sid, fs.get("form", fs.kind), fs.get("fx", "-")]
+			seen[key] = int(seen.get(key, 0)) + 1
+		for k in seen: print("FIRSTLEG ", k, " x", seen[k])
+		get_tree().quit()
+		return
+	if args.has("jump_wins"):
+		# (26.11) the admin's «24 wins»: `-- save=j jump_wins=24` — Old Adit to that many wins, the next find the sure legendary
+		var lw := Jump.career(1, int(args.get("jseed", "1")), int(args.jump_wins))
+		Save.d.leg_any = false
+		Save.d.leg_lv = Stones.LEGEND_FIRST - 1
+		Save.persist()
+		print("JUMPW levels %d, wins %d, level %d, leg_lv %d, due %s" % [int(lw.levels), int(lw.wins), int(Save.d.level), int(Save.d.leg_lv), str(Save.legend_due())])
+		if args.has("jump_quit"):
+			get_tree().quit()
+			return
 	if args.has("jump"):
 		# (22.11) the admin's "Start at a mine" from the command line: `-- save=j jump=3 [jseed=1] [screen=home]`
 		var lg := Jump.career(int(args.jump), int(args.get("jseed", "1")))
