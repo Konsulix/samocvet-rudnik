@@ -21,6 +21,10 @@ const EVERY := [3.5, 7.0]     # how often one swims out
 const MAX_OUT := 2
 const SPEED := 42.0           # its drift, points a second
 const STAY := [7.0, 11.0]     # how long it stays out
+## the halo's strength (26.11: dense in the stone, faint on the card — on the card the layer's tone curve, on black,
+## crushes faint light that in the stone sits on its lit haze): light in the stone, and as much again on the card
+static var HALO_STONE := 0.5
+static var HALO_CARD := 1.5
 const STONE_JELLY := 1 << 18  # the stone's jellies' visual layer (the silhouette mask leaves them out)
 
 static var test_every := 0.0  # a test key (-- jelly_every=S): one swims out every S s
@@ -60,8 +64,15 @@ static func attach(card_: Control, view_: SpecView, info_: Control, p: Node3D) -
 			var j := n.get_parent() as Node3D
 			if j and not j in src: src.append(j)
 	if src.is_empty(): return
+	for ar in OS.get_cmdline_user_args():   # a test key: -- jhalo=<stone>,<card>
+		if ar.begins_with("jhalo="):
+			HALO_STONE = float(ar.get_slice("=", 1).get_slice(",", 0))
+			HALO_CARD = float(ar.get_slice("=", 1).get_slice(",", 1))
 	for j in src:
 		for g in j.find_children("*", "VisualInstance3D", true, false): (g as VisualInstance3D).layers = STONE_JELLY
+		for mi in j.find_children("*", "MeshInstance3D", true, false):
+			var m := (mi as MeshInstance3D).material_override as ShaderMaterial
+			if m and int(m.get_shader_parameter("part")) == 4: m.set_shader_parameter("halo_k", HALO_STONE)
 		j.set_meta("slot", j.transform)
 	var cj := CardJelly.new()
 	cj.card = card_
@@ -295,6 +306,7 @@ func _send_one(j: Node3D) -> void:
 		sm = sm.duplicate() as ShaderMaterial
 		(mi as MeshInstance3D).material_override = sm
 		mats.append(sm)
+		if int(sm.get_shader_parameter("part")) == 4: sm.set_shader_parameter("halo_k", HALO_CARD)
 		if int(sm.get_shader_parameter("part")) == 0:
 			var v: Vector3 = sm.get_shader_parameter("col")
 			col = Color(v.x, v.y, v.z)
