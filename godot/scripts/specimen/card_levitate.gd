@@ -15,6 +15,7 @@ extends Control
 const PX := 2.0               # the shard layers' pixels a point
 const MARGIN := 110.0         # how far past the card the ring reaches
 const SHARDS := 7
+var _off := Vector2.ZERO      # the card's float now: its picture's shift (points)
 const LIFT := 7.0             # the card's float: points up at its highest
 const FRONT := 1
 const BACK := 2
@@ -225,7 +226,7 @@ static func _jump(d: float) -> float:
 
 ## a point of the card's own SubViewport in the holder's space (the card's picture lies flat there, give or take its turn)
 func _out(p: Vector2) -> Vector2:
-	return _show.position + (card.size + Vector2.ONE * PAD * 2.0) * GROW + p
+	return _show.position + _off + (card.size + Vector2.ONE * PAD * 2.0) * GROW + p
 
 ## the stone's middle, in the holder's space
 func _stone() -> Vector2:
@@ -235,7 +236,7 @@ func _stone() -> Vector2:
 func _pass_input(ev: InputEvent) -> void:
 	if not is_instance_valid(_cvp) or not _cvp.is_inside_tree(): return
 	var e := ev.duplicate()
-	var sh := (card.size + Vector2.ONE * PAD * 2.0) * GROW
+	var sh := (card.size + Vector2.ONE * PAD * 2.0) * GROW + _off
 	if e is InputEventMouse: (e as InputEventMouse).position = (ev as InputEventMouse).position - sh
 	if e is InputEventScreenTouch: (e as InputEventScreenTouch).position = (ev as InputEventScreenTouch).position - sh
 	if e is InputEventScreenDrag: (e as InputEventScreenDrag).position = (ev as InputEventScreenDrag).position - sh
@@ -289,9 +290,13 @@ func _process(dt: float) -> void:
 	card.position = Vector2.ONE * PAD
 	for n in _halo:
 		if is_instance_valid(n) and n is Control and n.get_parent() == _cvp: (n as Control).position = Vector2.ONE * PAD
-	_show.position = off - Vector2.ONE * PAD - full * GROW
+	# (26.11: the float went in little jerks — a Control's place is snapped to whole pixels) the picture's rect stays
+	# put; the float is a shift of the picture inside it, in the shader, and of the shards' cameras
+	_off = off
+	_show.position = -Vector2.ONE * PAD - full * GROW
 	_show.size = full * (Vector2.ONE + GROW * 2.0)
 	var tm := _show.material as ShaderMaterial
+	tm.set_shader_parameter("shift", off / _show.size)
 	tm.set_shader_parameter("grow", GROW)
 	tm.set_shader_parameter("tilt", tilt)
 	tm.set_shader_parameter("pad", Vector2(PAD / full.x, PAD / full.y))
@@ -303,7 +308,7 @@ func _process(dt: float) -> void:
 	sb.shadow_color = Color(0, 0, 0, clampf(0.6 - h * 0.018, 0.25, 0.6))
 	_shadow.visible = settled
 	# 2. the shards round the card
-	var rect := Rect2(off - Vector2.ONE * MARGIN, card.size + Vector2.ONE * MARGIN * 2.0)
+	var rect := Rect2(-Vector2.ONE * MARGIN, card.size + Vector2.ONE * MARGIN * 2.0)
 	for r in [_back, _front]:
 		(r as TextureRect).position = rect.position
 		(r as TextureRect).size = rect.size
@@ -311,6 +316,7 @@ func _process(dt: float) -> void:
 	for v in [_vb, _vf]:
 		if (v as SubViewport).size != want: (v as SubViewport).size = want
 		(v as SubViewport).get_camera_3d().size = rect.size.y
+		(v as SubViewport).get_camera_3d().position.y = off.y   # (the layer's world is in points, y up: the picture rises)
 	_ring.position = Vector2.ZERO
 	_ring.size = _holder.size
 	var flare := 1.0 + 0.35 * _jump(_pulse - 0.05)

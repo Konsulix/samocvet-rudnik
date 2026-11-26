@@ -12,6 +12,9 @@ uniform float hole_r = 0.05;           // its corners (of the picture's width)
 // (25.11) the rect drawn is bigger than the picture by this much each side (of the picture): turned, the side near the
 // eye grows in perspective past the picture's own edges, and was cut off there
 uniform vec2 grow = vec2(0.0);
+// (26.11) the picture moved inside the rect by this much (of the rect): the card's float. A Control's own place is
+// snapped to whole pixels — floating up and down by moving the Control went in little jerks
+uniform vec2 shift = vec2(0.0);
 
 float sd_round(vec2 p, vec2 h, float r) {
 	vec2 q = abs(p) - h + r;
@@ -21,7 +24,7 @@ float sd_round(vec2 p, vec2 h, float r) {
 void fragment() {
 	vec2 asp = vec2(1.0, TEXTURE_PIXEL_SIZE.x / TEXTURE_PIXEL_SIZE.y);
 	// this pixel on the turned plane, in units of the picture's width, its middle at 0
-	vec2 q = (UV - 0.5) * (1.0 + 2.0 * grow) * asp;
+	vec2 q = (UV - shift - 0.5) * (1.0 + 2.0 * grow) * asp;
 	vec2 sn = sin(tilt);
 	vec2 cs = cos(tilt);
 	// back onto the flat picture: a point of the plane at depth z = x sin(yaw) + y sin(pitch) is seen shrunk by

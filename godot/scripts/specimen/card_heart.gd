@@ -17,6 +17,7 @@ var view: SpecView
 var info: Control
 var light: OmniLight3D
 var _rect: ColorRect
+var _slate: ColorRect
 var _age := 0.0
 var _k := 0.0
 var _last_h := 0.0
@@ -46,7 +47,22 @@ func _ready() -> void:
 	m.shader = preload("res://shaders/card_heart.gdshader")
 	_rect.material = m
 	add_child(_rect)
+	# inside the info panel, over its slate (its first child) and under its words: a holder the panel lays out, the
+	# piece itself placed over the whole card each frame (as CardLava's)
+	var hold := Control.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(hold)
+	info.move_child(hold, mini(1, info.get_child_count() - 1))
+	_slate = ColorRect.new()
+	_slate.color = Color.WHITE
+	_slate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var m2 := ShaderMaterial.new()
+	m2.shader = preload("res://shaders/card_heart.gdshader")
+	m2.set_shader_parameter("part", 1)
+	_slate.material = m2
+	hold.add_child(_slate)
 	tree_exiting.connect(func() -> void:
+		if is_instance_valid(hold): hold.queue_free()
 		if _mine and is_instance_valid(card): card.scale = Vector2.ONE)
 
 static func beat(tt: float) -> float:
@@ -70,23 +86,24 @@ func _process(dt: float) -> void:
 	var t := fmod(Time.get_ticks_msec() / 1000.0, PERIOD * 1000.0)
 	var src := _proj(light.global_position)
 	# the brass: over the whole card, frame and all (this layer is laid out inside the card's padding)
-	_rect.global_position = card.global_position
-	_rect.size = card.size
 	var ig: Rect2 = card.get_global_transform().affine_inverse() * info.get_global_transform() * Rect2(Vector2.ZERO, info.size)
 	const WIDE := 20.0 / 3.6
-	var m := _rect.material as ShaderMaterial
 	var lc := light.light_color
-	m.set_shader_parameter("card", card.size)
-	m.set_shader_parameter("frame_in", Reveal.CARD_PAD)
-	m.set_shader_parameter("rim_top", ig.position.y - WIDE)
-	m.set_shader_parameter("rim_bot", ig.position.y)
-	m.set_shader_parameter("rim_l", ig.position.x + Reveal.INFO_R + 6.0)
-	m.set_shader_parameter("rim_r", ig.end.x - Reveal.INFO_R - 6.0)
-	m.set_shader_parameter("src", src)
-	m.set_shader_parameter("t", t)
-	m.set_shader_parameter("speed", SPEED)
-	m.set_shader_parameter("col", Vector3(lc.r, lc.g, lc.b))
-	m.set_shader_parameter("k", _k)
+	for r: ColorRect in [_rect, _slate]:
+		r.global_position = card.global_position
+		r.size = card.size
+		var m := r.material as ShaderMaterial
+		m.set_shader_parameter("card", card.size)
+		m.set_shader_parameter("frame_in", Reveal.CARD_PAD)
+		m.set_shader_parameter("rim_top", ig.position.y - WIDE)
+		m.set_shader_parameter("rim_bot", ig.position.y)
+		m.set_shader_parameter("rim_l", ig.position.x + Reveal.INFO_R + 6.0)
+		m.set_shader_parameter("rim_r", ig.end.x - Reveal.INFO_R - 6.0)
+		m.set_shader_parameter("src", src)
+		m.set_shader_parameter("t", t)
+		m.set_shader_parameter("speed", SPEED)
+		m.set_shader_parameter("col", Vector3(lc.r, lc.g, lc.b))
+		m.set_shader_parameter("k", _k)
 	# the card itself starts with the beat, ever so slightly — unless another hand is on it (it opens and shuts with
 	# a scale tween)
 	if card.scale.is_equal_approx(_set_scale) or card.scale.is_equal_approx(Vector2.ONE):

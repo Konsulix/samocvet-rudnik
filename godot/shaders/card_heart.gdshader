@@ -17,6 +17,9 @@ uniform float t = 0.0;                // the beat's clock, s (Spec's)
 uniform float speed = 900.0;          // the wave, points a second
 uniform vec3 col : source_color = vec3(1.0, 0.25, 0.3);
 uniform float k = 1.0;                // how much (it comes in)
+// which piece: 0 over the card — its brass; 1 inside the info panel, over its slate and under its words: wider, fainter
+// vessels branching down from the ribbon
+uniform int part = 0;
 
 const float PERIOD = 0.86;
 
@@ -47,7 +50,27 @@ void fragment() {
 		* step(rim_l - 24.0, p.x) * step(p.x, rim_r + 24.0);
 	float metal = max(brass, ribbon);
 	vec3 light = vec3(0.0);
-	if (metal > 0.0) {
+	if (part == 1) {
+		// the slate: a few main vessels running down from the ribbon, bending, a fine net between them; fainter than
+		// the brass's, and fading toward the panel's foot — the words over them stay easy to read
+		float inside = step(rim_bot, p.y) * smoothstep(0.0, 3.0, e - frame_in);
+		if (inside > 0.0) {
+			float down = p.y - rim_bot;
+			vec2 q = vec2(p.x * 0.028 + fbm(vec2(p.y * 0.012, 3.0)) * 1.6, p.y * 0.006);
+			float n1 = fbm(q * vec2(1.0, 1.0) + 11.0);
+			float n2 = fbm(p * 0.05 + 2.0);
+			float v1 = pow(1.0 - abs(2.0 * n1 - 1.0), 36.0);
+			float v2 = pow(1.0 - abs(2.0 * n2 - 1.0), 30.0) * 0.4;
+			float veins = max(v1, v2);
+			float d = length(p - src);
+			float b = beat(t - d / speed);
+			float fade = exp(-down / 150.0);
+			light = col * inside * fade * veins * (0.07 + 0.9 * b);
+			light += vec3(1.0) * inside * fade * veins * b * b * 0.12;
+			// the slate itself takes a breath of the light under the ribbon
+			light += col * inside * exp(-down / 26.0) * 0.1 * b;
+		}
+	} else if (metal > 0.0) {
 		// the vessels: thin lines wandering along the metal, a finer net between them; they hardly move
 		vec2 q = p * 0.075;
 		float n1 = fbm(q + vec2(t * 0.004, 0.0));
